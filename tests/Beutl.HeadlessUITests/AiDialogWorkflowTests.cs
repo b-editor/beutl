@@ -1169,7 +1169,7 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
-    public async Task Rejected_successful_transcription_retires_its_key_before_retry()
+    public async Task Rejected_successful_transcription_keeps_its_key_until_explicit_discard()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("rejected-transcription-key");
@@ -1181,9 +1181,9 @@ public sealed class AiDialogWorkflowTests
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
             {
                 keys.Add(IdempotencyKeyOf(request));
-                return keys.Count == 1
+                return keys.Count <= 2
                     ? JsonResponse(HttpStatusCode.OK, """{"segments":[{"start":0,"end":100,"text":"invalid"}]}""")
-                    : CreateTranscriptionResponse("valid-retry");
+                    : JsonResponse(HttpStatusCode.OK, """{"segments":[{"start":0,"end":0.07,"text":"valid-retry"}]}""");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
@@ -1199,10 +1199,21 @@ public sealed class AiDialogWorkflowTests
         await WaitUntilAsync(() => dialog.CanTranscribe.Value);
         await dialog.Transcribe.ExecuteAsync();
         Assert.That(dialog.Error.Value, Is.Not.Null);
-        Assert.That(dialog.HasOutstandingTranscriptionRequest.Value, Is.False);
+        Assert.That(dialog.HasOutstandingTranscriptionRequest.Value, Is.True);
+        Assert.That(dialog.HasRejectedTranscriptionResult.Value, Is.True);
         await dialog.Transcribe.ExecuteAsync();
         Assert.That(keys, Has.Count.EqualTo(2));
-        Assert.That(keys[1], Is.Not.EqualTo(keys[0]));
+        Assert.That(keys[1], Is.EqualTo(keys[0]), "A normal retry must not buy the rejected result again.");
+        dialog.DiscardRejectedTranscriptionResult.Execute();
+        Assert.That(dialog.HasOutstandingTranscriptionRequest.Value, Is.False);
+        Assert.That(dialog.HasRejectedTranscriptionResult.Value, Is.False);
+        await WaitUntilAsync(() => dialog.CanTranscribe.Value);
+        await dialog.Transcribe.ExecuteAsync();
+        Assert.That(keys, Has.Count.EqualTo(3));
+        Assert.That(keys[2], Is.Not.EqualTo(keys[0]));
+        Assert.That(dialog.Error.Value, Is.Null);
+        Assert.That(dialog.ResultSegments.Value, Has.Length.EqualTo(1));
+        Assert.That(dialog.ResultSegments.Value![0].End, Is.EqualTo(0.05), "Scene mix must use the clamped result.");
     }
 
     [AvaloniaTest]

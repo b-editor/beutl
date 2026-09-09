@@ -274,6 +274,10 @@ public sealed partial class AiSubtitleDialogViewModel
 
     public ReactiveCommand DiscardPartialResult { get; private set; } = null!;
 
+    public ReactivePropertySlim<bool> HasRejectedTranscriptionResult { get; } = new();
+
+    public ReactiveCommand DiscardRejectedTranscriptionResult { get; private set; } = null!;
+
     public AsyncReactiveCommand ImportCaptions { get; private set; } = null!;
 
     public AsyncReactiveCommand ExportCaptions { get; private set; } = null!;
@@ -409,6 +413,19 @@ public sealed partial class AiSubtitleDialogViewModel
         DiscardPartialResult = new ReactiveCommand(HasPartialResult)
             .DisposeWith(_captionDisposables);
         DiscardPartialResult.Subscribe(ClearPartialResult).DisposeWith(_captionDisposables);
+        DiscardRejectedTranscriptionResult = new ReactiveCommand(
+                HasRejectedTranscriptionResult.CombineLatest(IsTranscribing,
+                    (rejected, busy) => rejected && !busy))
+            .DisposeWith(_captionDisposables);
+        DiscardRejectedTranscriptionResult.Subscribe(() =>
+        {
+            // Only an explicit user action abandons the paid but unusable response.
+            // Completed chunks are retained; the next request buys only the remainder.
+            RetireTranscriptionRunNames();
+            HasRejectedTranscriptionResult.Value = false;
+            Error.Value = null;
+            _transcriptionEstimateRevision.Value++;
+        }).DisposeWith(_captionDisposables);
         ImportCaptions = new AsyncReactiveCommand()
             .WithSubscribe(ImportCaptionsCore)
             .DisposeWith(_captionDisposables);
@@ -730,7 +747,7 @@ public sealed partial class AiSubtitleDialogViewModel
                             runModel,
                             name.Key),
                         RequestToken);
-                    response = response with { Segments = ValidateTranscriptionSegments(response.Segments, chunk.UploadedDuration.TotalSeconds) };
+                    response = NormalizeTranscriptionResponse(response, chunk.UploadedDuration.TotalSeconds);
                 }
                 catch (AiProviderErrorException)
                 {
@@ -992,7 +1009,7 @@ public sealed partial class AiSubtitleDialogViewModel
                             runModel,
                                 name.Key),
                         RequestToken);
-                    ValidateTranscriptionSegments(response.Segments, uploadedDuration.TotalSeconds);
+                    response = NormalizeTranscriptionResponse(response, uploadedDuration.TotalSeconds);
                 }
                 catch (AiProviderErrorException)
                 {
@@ -1599,6 +1616,21 @@ public sealed partial class AiSubtitleDialogViewModel
         }
 
         return responseById;
+    }
+
+    private AiTranscriptionResponse NormalizeTranscriptionResponse(AiTranscriptionResponse response, double duration)
+    {
+        try
+        {
+            AiTranscriptionSegment[] segments = ValidateTranscriptionSegments(response.Segments, duration);
+            HasRejectedTranscriptionResult.Value = false;
+            return response with { Segments = segments };
+        }
+        catch (InvalidDataException)
+        {
+            HasRejectedTranscriptionResult.Value = true;
+            throw;
+        }
     }
 
     internal static AiTranscriptionSegment[] ValidateTranscriptionSegments(
@@ -2270,6 +2302,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void ResetCurrentCaptionRecovery()
     {
+        HasRejectedTranscriptionResult.Value = false;
         _partialResult = null;
         _pendingTranslation = null;
         _pendingSceneTranscription = null;
@@ -2996,6 +3029,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void ResetCaptionStateForAccountChange()
     {
+        HasRejectedTranscriptionResult.Value = false;
         _partialResult = null;
         _pendingTranslation = null;
         _pendingSceneTranscription = null;

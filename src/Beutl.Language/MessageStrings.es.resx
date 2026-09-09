@@ -446,4 +446,10 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="FileInUse" xml:space="preserve">
     <value>Cierra los archivos en el editor antes de cambiar el nombre de este elemento o eliminarlo.</value>
   </data>
+  <data name="AiRejectedTranscriptionResult" xml:space="preserve">
+    <value>No se pudo utilizar la transcripción. Reintentar conserva la misma solicitud pagada. Puedes descartar este resultado para iniciar una nueva solicitud; la siguiente transcripción puede generar otro cargo.</value>
+  </data>
+  <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
+    <value>Descartar resultado no utilizable</value>
+  </data>
 </root>

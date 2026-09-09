@@ -234,6 +234,18 @@
             <Border Padding="10"
                     Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
                     CornerRadius="6"
+                    IsVisible="{CompiledBinding HasRejectedTranscriptionResult.Value}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{x:Static lang:MessageStrings.AiRejectedTranscriptionResult}"
+                               TextWrapping="Wrap" />
+                    <Button Command="{CompiledBinding DiscardRejectedTranscriptionResult}"
+                            Content="{x:Static lang:MessageStrings.AiDiscardRejectedTranscriptionResult}" />
+                </StackPanel>
+            </Border>
+
+            <Border Padding="10"
+                    Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                    CornerRadius="6"
                     IsVisible="{CompiledBinding HasPartialResult.Value}">
                 <StackPanel Spacing="8">
                     <TextBlock AutomationProperties.LiveSetting="Polite"
