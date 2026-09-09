@@ -102,7 +102,7 @@ public partial class PackageInstaller
                 // go even when the extracted package itself is already missing. The payload
                 // directory is keyed by id alone, so an update that leaves a newer identity
                 // installed still owns it — removing it here would strip the live version.
-                bool dataRemoved = KeepsAnotherInstalledIdentity(context, package)
+                bool dataRemoved = KeepsAnotherInstalledIdentity(context.UnnecessaryPackages, package)
                                    || UninstallDataPackage(package.Id);
 
                 string directory = Helper.ResolveInstalledDirectory(package);
@@ -175,9 +175,9 @@ public partial class PackageInstaller
 
     // True when an installed identity sharing this package's id survives the clean, and
     // therefore still owns the payload directory keyed by that id.
-    private bool KeepsAnotherInstalledIdentity(PackageCleanContext context, PackageIdentity package)
+    private bool KeepsAnotherInstalledIdentity(IReadOnlyCollection<PackageIdentity> removedPackages, PackageIdentity package)
     {
         return _installedPackageRepository.GetLocalPackages(package.Id)
-            .Any(other => !other.Equals(package) && !context.UnnecessaryPackages.Contains(other));
+            .Any(other => !other.Equals(package) && !removedPackages.Contains(other));
     }
 }

@@ -73,7 +73,8 @@ public partial class PackageInstaller
             {
                 // A data package's payload lives outside the install directory, and it has to
                 // go even when the extracted package itself is already missing.
-                bool dataRemoved = UninstallDataPackage(package.Id);
+                bool dataRemoved = KeepsAnotherInstalledIdentity(context.UnnecessaryPackages, package)
+                                   || UninstallDataPackage(package.Id);
 
                 string directory = Helper.ResolveInstalledDirectory(package);
                 if (!Directory.Exists(directory))

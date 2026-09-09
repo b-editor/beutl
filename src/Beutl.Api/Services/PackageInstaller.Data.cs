@@ -4,6 +4,8 @@ namespace Beutl.Api.Services;
 
 public partial class PackageInstaller
 {
+    private static readonly object s_dataPackageGate = new();
+
     private const string MaterialsContentDirectory = "materials";
 
     private const string TemplatesContentDirectory = "templates";
@@ -34,43 +36,100 @@ public partial class PackageInstaller
                     nameof(package));
             }
 
-            // An update may have dropped a kind, so clear both payload directories; the
-            // removed kind's payload would otherwise stay registered.
-            if (!DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name))
-                || !DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name)))
+            lock (s_dataPackageGate)
             {
-                throw new IOException($"Could not clear the existing package data directories for '{name}'.");
-            }
-
-            if (hasMaterial)
-            {
-                InstallPayload(package, name, MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath());
-            }
-
-            if (hasTemplate)
-            {
-                InstallPayload(package, name, TemplatesContentDirectory, BeutlEnvironment.GetTemplatesDirectoryPath());
+                InstallPayloads(package, name, hasMaterial, hasTemplate);
             }
         });
     }
 
-    private void InstallPayload(LocalPackage package, string name, string contentDirectory, string root)
+    private void InstallPayloads(LocalPackage package, string name, bool hasMaterial, bool hasTemplate)
     {
-        string source = Path.Combine(package.InstalledPath!, contentDirectory);
-        string destination = Path.Combine(root, name);
-
-        if (!Directory.Exists(source))
+        // Keep staging outside the watched material/template directories.
+        string staging = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), $".data-install-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(staging);
+        var changes = new List<PayloadChange>();
+        bool preserveBackup = false;
+        try
         {
-            _logger.LogWarning(
-                "Package {PackageName} is tagged {PackageKind} but ships no {ContentDirectory} directory.",
-                package.Name, package.Tags.GetPackageKind(), contentDirectory);
-            return;
+            Stage(MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath(), hasMaterial);
+            Stage(TemplatesContentDirectory, BeutlEnvironment.GetTemplatesDirectoryPath(), hasTemplate);
+            try
+            {
+                foreach (PayloadChange change in changes)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(change.Destination)!);
+                    if (Directory.Exists(change.Destination))
+                    {
+                        Directory.Move(change.Destination, change.Backup);
+                        change.BackedUp = true;
+                    }
+                    if (Directory.Exists(change.Staged))
+                    {
+                        Directory.Move(change.Staged, change.Destination);
+                        change.Published = true;
+                    }
+                }
+            }
+            catch (Exception failure)
+            {
+                List<Exception> failures = [failure];
+                foreach (PayloadChange change in changes.AsEnumerable().Reverse())
+                {
+                    try
+                    {
+                        if (change.Published)
+                            Directory.Delete(change.Destination, recursive: true);
+                        if (change.BackedUp)
+                            Directory.Move(change.Backup, change.Destination);
+                    }
+                    catch (Exception rollbackFailure)
+                    {
+                        preserveBackup = true;
+                        failures.Add(rollbackFailure);
+                    }
+                }
+                if (preserveBackup)
+                    throw new AggregateException($"Package rollback failed; backups remain at '{staging}'.", failures);
+                throw;
+            }
+        }
+        finally
+        {
+            if (!preserveBackup)
+                DeleteIfExists(staging);
         }
 
-        CopyDirectory(source, destination);
-        _logger.LogInformation(
-            "Installed the {ContentDirectory} payload of {PackageName} into {Destination}.",
-            contentDirectory, package.Name, destination);
+        void Stage(string kind, string root, bool enabled)
+        {
+            string staged = Path.Combine(staging, kind);
+            changes.Add(new PayloadChange(Path.Combine(root, name), staged, Path.Combine(staging, "backup-" + kind)));
+            if (!enabled)
+                return;
+            string source = Path.Combine(package.InstalledPath!, kind);
+            FileAttributes attributes;
+            try
+            {
+                attributes = File.GetAttributes(source);
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                _logger.LogWarning("Package {PackageName} ships no {ContentDirectory} directory.", package.Name, kind);
+                return;
+            }
+            if ((attributes & FileAttributes.Directory) == 0)
+                throw new IOException($"Package payload '{source}' is not a directory.");
+            CopyDirectory(source, staged);
+        }
+    }
+
+    private sealed class PayloadChange(string destination, string staged, string backup)
+    {
+        public string Destination { get; } = destination;
+        public string Staged { get; } = staged;
+        public string Backup { get; } = backup;
+        public bool BackedUp { get; set; }
+        public bool Published { get; set; }
     }
 
     /// <summary>
@@ -86,10 +145,13 @@ public partial class PackageInstaller
     {
         return TrackSyncOperation(() =>
         {
-            string name = ValidatePackageName(packageName);
-            bool templates = DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name));
-            bool materials = DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name));
-            return templates && materials;
+            lock (s_dataPackageGate)
+            {
+                string name = ValidatePackageName(packageName);
+                bool templates = DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name));
+                bool materials = DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name));
+                return templates && materials;
+            }
         });
     }
 

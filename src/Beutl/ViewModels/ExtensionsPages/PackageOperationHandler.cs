@@ -57,8 +57,8 @@ internal class PackageOperationHandler
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                _installedPackageRepository.UpgradePackages(packageId);
                 ActivateInstalledPackage(packageId);
+                _installedPackageRepository.UpgradePackages(packageId);
             });
         }, () => _queue.InstallQueue(packageId)).ConfigureAwait(false);
     }
@@ -83,8 +83,8 @@ internal class PackageOperationHandler
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                _installedPackageRepository.UpgradePackages(packageId);
                 ActivateInstalledPackage(packageId);
+                _installedPackageRepository.UpgradePackages(packageId);
             });
         }, () => _queue.InstallQueue(packageId)).ConfigureAwait(false);
     }

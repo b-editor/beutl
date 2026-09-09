@@ -10,6 +10,80 @@ namespace Beutl.UnitTests.Api;
 [NonParallelizable]
 public class PackageInstallerDataTests
 {
+    [Test]
+    public void UninstallOldIdentityKeepsCurrentPayload()
+    {
+        const string name = "Beutl.Package.DataTest.UninstallOld";
+        var oldId = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        var newId = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
+        LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "old")]);
+        LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag], "2.0.0", [("materials/a.png", "new")]);
+        _repository.AddPackage(newId);
+        _installer.InstallDataPackage(current);
+        _installer.Uninstall(new PackageUninstallContext(oldId, old.InstalledPath) { UnnecessaryPackages = [oldId] }, new Progress<double>());
+        Assert.That(_repository.ExistsPackage(newId), Is.True);
+        Assert.That(File.Exists(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.True, "Current version still owns this material");
+    }
+
+    [Test]
+    public void FailedInstallKeepsPreviousPayload()
+    {
+        const string name = "Beutl.Package.DataTest.InstallFailure";
+        LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "old")]);
+        LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag], "2.0.0", [("materials/a.png", "new")]);
+        _installer.InstallDataPackage(old);
+        string unreadable = Path.Combine(current.InstalledPath!, "materials", "a.png");
+        using (new FileStream(unreadable, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            Assert.Throws<IOException>(() => _installer.InstallDataPackage(current));
+        }
+        Assert.That(File.Exists(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.True, "Failed update must preserve the installed material");
+    }
+
+    [Test]
+    public void FailedSecondPayloadPublicationRestoresFirstPayload()
+    {
+        const string name = "Beutl.Package.DataTest.PublishRollback";
+        LocalPackage old = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/a.png", "old"));
+        _installer.InstallDataPackage(old);
+        LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag, PackageKinds.TemplateTag],
+            "2.0.0", [("materials/a.png", "new"), ("templates/title.json", "new")]);
+        string obstruction = TemplatesDirectoryOf(name);
+        Directory.CreateDirectory(Path.GetDirectoryName(obstruction)!);
+        File.WriteAllText(obstruction, "existing file");
+        try
+        {
+            Assert.Throws<IOException>(() => _installer.InstallDataPackage(current));
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.EqualTo("old"));
+                Assert.That(File.ReadAllText(obstruction), Is.EqualTo("existing file"));
+                Assert.That(Directory.GetDirectories(BeutlEnvironment.GetHomeDirectoryPath(), ".data-install-*"), Is.Empty);
+            });
+        }
+        finally
+        {
+            File.Delete(obstruction);
+        }
+    }
+
+    [Test]
+    public void FailedSecondPayloadStagingKeepsBothPreviousPayloads()
+    {
+        const string name = "Beutl.Package.DataTest.StageRollback";
+        string[] tags = [PackageKinds.MaterialTag, PackageKinds.TemplateTag];
+        LocalPackage old = CreateDataPackage(name, tags, "1.0.0", [("materials/a.png", "old"), ("templates/title.json", "old")]);
+        _installer.InstallDataPackage(old);
+        LocalPackage current = CreateDataPackage(name, tags, "2.0.0", [("materials/a.png", "new"), ("templates/title.json", "new")]);
+        using (new FileStream(Path.Combine(current.InstalledPath!, "templates", "title.json"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            Assert.Throws<IOException>(() => _installer.InstallDataPackage(current));
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.EqualTo("old"));
+            Assert.That(File.ReadAllText(Path.Combine(TemplatesDirectoryOf(name), "title.json")), Is.EqualTo("old"));
+        });
+    }
+
     private static string InstalledPackagesFile => Path.Combine(Helper.AppRoot, "installedPackages.json");
 
     private HttpClient _httpClient = null!;

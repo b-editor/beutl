@@ -75,8 +75,6 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
             // インストールされているパッケージのリストに追加
             InstalledPackageRepository repos = app.GetResource<InstalledPackageRepository>();
             var pkg = new PackageIdentity(Model.Id, Model.Version);
-            repos.AddPackage(pkg);
-            repos.UpgradePackages(pkg);
 
             // A material or template package is not loaded as an assembly; its payload is
             // copied into the home directory after extraction.
@@ -84,6 +82,9 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
             {
                 goto Failed;
             }
+
+            repos.AddPackage(pkg);
+            repos.UpgradePackages(pkg);
 
             _logger.LogInformation("Package {PackageId} version {Version} installed successfully.", Model.Id, Model.Version.ToString());
             Succeeded.Value = true;
