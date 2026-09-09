@@ -5,6 +5,9 @@ namespace Beutl.Editor;
 public sealed class HistoryTransaction
 {
     private readonly List<ChangeOperation> _operations = new();
+    // Recording observes operations already applied to the model. Track successful
+    // execution per operation so retrying a partial undo/redo does not repeat it.
+    private readonly List<bool> _applied = new();
 
     internal HistoryTransaction(long id, string? name = null)
     {
@@ -27,6 +30,7 @@ public sealed class HistoryTransaction
     internal void AddOperation(ChangeOperation operation)
     {
         _operations.Add(operation);
+        _applied.Add(true);
         CompactOperations();
     }
 
@@ -36,10 +40,12 @@ public sealed class HistoryTransaction
         {
             for (int j = i - 1; j >= 0; j--)
             {
-                if (_operations[j] is IMergableChangeOperation mergableChangeOperation
+                if (_applied[i] == _applied[j]
+                    && _operations[j] is IMergableChangeOperation mergableChangeOperation
                     && mergableChangeOperation.TryMerge(_operations[i]))
                 {
                     _operations.RemoveAt(i);
+                    _applied.RemoveAt(i);
                     break;
                 }
             }
@@ -48,9 +54,11 @@ public sealed class HistoryTransaction
 
     internal void Apply(OperationExecutionContext context)
     {
-        foreach (var operation in _operations)
+        for (int i = 0; i < _operations.Count; i++)
         {
-            operation.Apply(context);
+            if (_applied[i]) continue;
+            _operations[i].Apply(context);
+            _applied[i] = true;
         }
     }
 
@@ -58,7 +66,9 @@ public sealed class HistoryTransaction
     {
         for (int i = _operations.Count - 1; i >= 0; i--)
         {
+            if (!_applied[i]) continue;
             _operations[i].Revert(context);
+            _applied[i] = false;
         }
     }
 }

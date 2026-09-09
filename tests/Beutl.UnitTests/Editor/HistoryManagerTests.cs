@@ -8,6 +8,39 @@ namespace Beutl.UnitTests.Editor;
 
 public class HistoryManagerTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void PartialHistoryFailure_RetryDoesNotRepeatSuccessfulOperations(bool redo)
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int value = 2;
+        bool fail = true;
+        void FailsOnce()
+        {
+            if (!fail) return;
+            fail = false;
+            throw new InvalidOperationException("retryable failure before mutation");
+        }
+        if (redo)
+        {
+            manager.Record(() => value++, () => value--);
+            manager.Record(() => { FailsOnce(); value++; }, () => value--);
+        }
+        else
+        {
+            manager.Record(() => value++, () => { FailsOnce(); value--; });
+            manager.Record(() => value++, () => value--);
+        }
+        manager.Commit("non-idempotent operations");
+        if (redo) Assert.That(manager.Undo(), Is.True);
+        Assert.Throws<InvalidOperationException>(() => { if (redo) manager.Redo(); else manager.Undo(); });
+        Assert.That(value, Is.EqualTo(1));
+        Assert.That(redo ? manager.Redo() : manager.Undo(), Is.True);
+        Assert.That(value, Is.EqualTo(redo ? 2 : 0));
+        Assert.That(redo ? manager.Undo() : manager.Redo(), Is.True);
+        Assert.That(value, Is.EqualTo(redo ? 0 : 2));
+    }
+
     [Test]
     public void UndoFailureKeepsHistory()
     {
