@@ -233,7 +233,22 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         _pool.DeferRelease(lease);
         var deferredRelease = new DeferredRenderTargetLeaseRelease(lease);
         if (!GpuResourceReclaimQueue.TryDefer(deferredRelease, approximateBytes))
+        {
+            try
+            {
+                if (lease.Target.Value.Context is GRContext context)
+                    context.Flush(true, true);
+                else
+                    _pool.RetireCurrentContext();
+            }
+            catch (Exception ex)
+            {
+                RecordCleanupFailure(ex);
+                try { _pool.RetireCurrentContext(); }
+                catch (Exception retirementFailure) { RecordCleanupFailure(retirementFailure); }
+            }
             deferredRelease.Dispose();
+        }
     }
 
     internal RenderTarget TransferToAcceptedCache(RenderTargetLease lease)
