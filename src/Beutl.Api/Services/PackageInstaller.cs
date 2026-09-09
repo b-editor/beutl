@@ -913,8 +913,13 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        if (_apiApplication.AuthenticatedUser.Value is { } user)
+        var apiOrigin = new Uri(BeutlApiApplication.BaseUrl);
+        Uri downloadUri = new(apiOrigin, url);
+        using var request = new HttpRequestMessage(HttpMethod.Get, downloadUri);
+        if (downloadUri.Scheme == apiOrigin.Scheme
+            && downloadUri.IdnHost == apiOrigin.IdnHost
+            && downloadUri.Port == apiOrigin.Port
+            && _apiApplication.AuthenticatedUser.Value is { } user)
         {
             try
             {
@@ -933,6 +938,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
         using (HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
         {
+            response.EnsureSuccessStatusCode();
             long? contentLength = response.Content.Headers.ContentLength;
 
             using (Stream download = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
