@@ -84,6 +84,21 @@ public class PackageInstallerDataTests
         });
     }
 
+    [Test]
+    public void MaterialInstallAndUninstall_PreserveUnownedTemplateDirectory()
+    {
+        const string name = "Beutl.Package.DataTest.Unowned";
+        LocalPackage package = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/a.png", "package"));
+        string userDirectory = TemplatesDirectoryOf(name);
+        Directory.CreateDirectory(userDirectory);
+        string userFile = Path.Combine(userDirectory, "mine.json");
+        File.WriteAllText(userFile, "user template");
+        _installer.InstallDataPackage(package);
+        Assert.That(File.ReadAllText(userFile), Is.EqualTo("user template"));
+        _installer.UninstallDataPackage(name);
+        Assert.That(File.ReadAllText(userFile), Is.EqualTo("user template"));
+    }
+
     private static string InstalledPackagesFile => Path.Combine(Helper.AppRoot, "installedPackages.json");
 
     private HttpClient _httpClient = null!;
@@ -269,9 +284,9 @@ public class PackageInstallerDataTests
     public void UninstallDataPackage_RemovesBothPayloadDirectories()
     {
         const string Name = "Beutl.Package.DataTest.Uninstall";
-        LocalPackage templates = CreateDataPackage(Name, PackageKinds.TemplateTag, ("templates/a.json", "{}"));
+        LocalPackage templates = CreateDataPackage(Name, [PackageKinds.TemplateTag, PackageKinds.MaterialTag], "1.0.0",
+            [("templates/a.json", "{}"), ("materials/a.png", "image")]);
         _installer.InstallDataPackage(templates);
-        Directory.CreateDirectory(MaterialsDirectoryOf(Name));
 
         bool removed = _installer.UninstallDataPackage(Name);
 

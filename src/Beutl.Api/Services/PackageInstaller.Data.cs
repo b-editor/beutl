@@ -1,10 +1,14 @@
 ﻿using Microsoft.Extensions.Logging;
+using System.Text.Json;
+using NuGet.Packaging;
 
 namespace Beutl.Api.Services;
 
 public partial class PackageInstaller
 {
     private static readonly object s_dataPackageGate = new();
+
+    private const string PayloadOwnerFileName = ".beutl-package-owner";
 
     private const string MaterialsContentDirectory = "materials";
 
@@ -102,8 +106,14 @@ public partial class PackageInstaller
 
         void Stage(string kind, string root, bool enabled)
         {
+            string destination = Path.Combine(root, name);
+            bool owned = OwnsPayload(name, kind, destination);
+            if (!enabled && !owned)
+                return;
+            if (Directory.Exists(destination) && !owned)
+                throw new IOException($"The package cannot replace the unowned directory '{destination}'.");
             string staged = Path.Combine(staging, kind);
-            changes.Add(new PayloadChange(Path.Combine(root, name), staged, Path.Combine(staging, "backup-" + kind)));
+            changes.Add(new PayloadChange(destination, staged, Path.Combine(staging, "backup-" + kind)));
             if (!enabled)
                 return;
             string source = Path.Combine(package.InstalledPath!, kind);
@@ -120,6 +130,8 @@ public partial class PackageInstaller
             if ((attributes & FileAttributes.Directory) == 0)
                 throw new IOException($"Package payload '{source}' is not a directory.");
             CopyDirectory(source, staged);
+            File.WriteAllText(Path.Combine(staged, PayloadOwnerFileName),
+                JsonSerializer.Serialize(new PayloadOwner(name, package.Version)));
         }
     }
 
@@ -148,11 +160,43 @@ public partial class PackageInstaller
             lock (s_dataPackageGate)
             {
                 string name = ValidatePackageName(packageName);
-                bool templates = DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name));
-                bool materials = DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name));
+                string templatesPath = Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name);
+                string materialsPath = Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name);
+                bool templates = !OwnsPayload(name, TemplatesContentDirectory, templatesPath) || DeleteIfExists(templatesPath);
+                bool materials = !OwnsPayload(name, MaterialsContentDirectory, materialsPath) || DeleteIfExists(materialsPath);
                 return templates && materials;
             }
         });
+    }
+
+    private sealed record PayloadOwner(string Name, string Version);
+
+    private static PayloadOwner? ReadPayloadOwner(string directory)
+    {
+        string marker = Path.Combine(directory, PayloadOwnerFileName);
+        return File.Exists(marker) ? JsonSerializer.Deserialize<PayloadOwner>(File.ReadAllText(marker)) : null;
+    }
+
+    private bool OwnsPayload(string packageName, string kind, string directory)
+    {
+        if (!Directory.Exists(directory))
+            return false;
+        if (ReadPayloadOwner(directory) is { } owner)
+            return StringComparer.OrdinalIgnoreCase.Equals(owner.Name, packageName);
+
+        // Older installations had no marker. Only extracted, registered package metadata
+        // can authorize taking over their payload; a matching directory name is insufficient.
+        string tag = kind == MaterialsContentDirectory ? PackageKinds.MaterialTag : PackageKinds.TemplateTag;
+        foreach (var identity in _installedPackageRepository.GetLocalPackages(packageName))
+        {
+            string installed = Helper.ResolveInstalledDirectory(identity);
+            if (!Directory.Exists(installed))
+                continue;
+            using var reader = new PackageFolderReader(installed);
+            if (new LocalPackage(reader.NuspecReader).Tags.Contains(tag))
+                return true;
+        }
+        return false;
     }
 
     // The name is a NuGet id read out of a downloaded nuspec, and it becomes a directory
