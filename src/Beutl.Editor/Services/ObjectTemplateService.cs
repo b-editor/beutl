@@ -296,16 +296,16 @@ public sealed class ObjectTemplateService
             Directory.CreateDirectory(_directoryPath);
             _watcher = new FileSystemWatcher(_directoryPath)
             {
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite,
-                Filter = "*.json",
-                IncludeSubdirectories = true,
-                EnableRaisingEvents = true
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
+                Filter = "*",
+                IncludeSubdirectories = true
             };
 
             _watcher.Created += OnFileSystemEvent;
             _watcher.Deleted += OnFileSystemEvent;
             _watcher.Renamed += OnFileSystemEvent;
             _watcher.Changed += OnFileSystemEvent;
+            _watcher.EnableRaisingEvents = true;
 
             _logger.LogInformation("Started watching templates directory: {DirectoryPath}", _directoryPath);
         }

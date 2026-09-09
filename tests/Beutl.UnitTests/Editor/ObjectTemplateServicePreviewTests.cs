@@ -12,6 +12,33 @@ namespace Beutl.UnitTests.Editor;
 public class ObjectTemplateServicePreviewTests
 {
     [Test]
+    public async Task DirectoryRename_RefreshesPackagedTemplates()
+    {
+        ObjectTemplateService service = ObjectTemplateService.Instance;
+        string name = "watch-" + Guid.NewGuid().ToString("N");
+        string staging = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), name);
+        string destination = Path.Combine(service.DirectoryPath, name);
+        Directory.CreateDirectory(staging);
+        var item = ObjectTemplateItem.CreateFromInstance(new Audio.Effects.AudioEffectGroup(), name);
+        File.WriteAllText(Path.Combine(staging, "item.json"), ObjectTemplateItem.ToJson(item).ToJsonString());
+        try
+        {
+            Directory.Move(staging, destination);
+            string file = Path.Combine(destination, "item.json");
+            bool Found() => service.FindByBaseType(item.BaseType).Any(candidate => candidate.FilePath == file);
+            for (int attempt = 0; attempt < 40 && !Found(); attempt++)
+                await Task.Delay(100);
+            Assert.That(Found(), Is.True, "Moving a populated package directory must publish its templates.");
+        }
+        finally
+        {
+            if (Directory.Exists(staging)) Directory.Delete(staging, true);
+            if (Directory.Exists(destination)) Directory.Delete(destination, true);
+            service.RefreshFromFileSystem();
+        }
+    }
+
+    [Test]
     public async Task AddFromInstanceAsync_EmbedsThePreviewInTheSavedFile()
     {
         var shape = new RectShape
