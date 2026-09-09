@@ -14,6 +14,24 @@ public sealed class ProgramCacheTests
     private const string SourceB = "half4 main(float2 p) { return half4(0); }";
 
     [Test]
+    public void SpirvFailures_AreThrottledWithinTheRendererContext()
+    {
+        Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.EnsureAvailable();
+        Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var graphics = GraphicsContextFactory.SharedContext!;
+            using var cache = SpirvShaderProgramCache.Create();
+            var context = new ProgramCacheContextKey(graphics, graphics, "test", "linear", graphics);
+            var description = ShaderDescription.CurrentPixel(
+                new SkslSource("half4 apply(half4 color) { return color; }", ShaderDescriptionKind.CurrentPixel),
+                new SpirvShaderLowering("#version 450\ninvalid shader", []), null);
+            Assert.Throws<InvalidOperationException>(() => SpirvShaderProgramCache.Acquire(cache, description, graphics, context));
+            Assert.Throws<InvalidOperationException>(() => SpirvShaderProgramCache.Acquire(cache, description, graphics, context));
+            Assert.That(cache.Statistics.Misses, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void SpirvExecution_RejectsAnUnknownThreeDimensionalContext()
     {
         var context = new Mock<IGraphicsContext>();
