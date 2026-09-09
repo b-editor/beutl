@@ -489,7 +489,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider
     public void ActivateTabItem(CoreObject obj)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        string path = Uri.UnescapeDataString(obj.Uri!.LocalPath);
+        string path = obj.Uri!.LocalPath;
         viewConfig.UpdateRecentFile(path);
 
         if (TryGetTabItem(obj, out EditorTabItem? tabItem))
