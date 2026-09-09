@@ -785,7 +785,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         RecordCopyToArrayLayer(
             vulkanSource.ImageHandle,
             vulkanDest.ImageHandle,
-            ImageAspectFlags.DepthBit,
+            source.Format.IsDepthFormat() ? ImageAspectFlags.DepthBit : ImageAspectFlags.ColorBit,
             (uint)faceIndex,
             (uint)source.Width,
             (uint)source.Height);
