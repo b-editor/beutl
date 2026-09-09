@@ -477,7 +477,7 @@ public sealed class SpeedNode : AudioNode
                 ? _speedNode.Inputs[0].Flush(subContext)
                 : _speedNode.Inputs[0].Process(subContext);
             var leftData = result.GetChannelData(0);
-            var rightData = result.GetChannelData(1);
+            var rightData = result.ChannelCount > 1 ? result.GetChannelData(1) : leftData;
             int samplesToRead = Math.Min(buffer.Length / _channels, result.SampleCount);
             for (int i = 0; i < samplesToRead; i++)
             {
