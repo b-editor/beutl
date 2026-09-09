@@ -430,8 +430,6 @@ public sealed class ProjectService
                 return;
             }
 
-            await CloseProjectCoreAsync(transition, CancellationToken.None);
-
             (NuGetVersion appVersion, NuGetVersion minVersion) = await GetProjectVersion(file);
             activity?.SetTag(nameof(appVersion), appVersion.ToString());
             activity?.SetTag(nameof(minVersion), minVersion.ToString());
@@ -449,7 +447,7 @@ public sealed class ProjectService
             }
 
             var project = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(file));
-
+            await CloseProjectCoreAsync(transition, CancellationToken.None);
             await ActivateProjectAsync(project);
 
             TryAddToRecentProjects(file);
