@@ -61,7 +61,7 @@ public partial class ChromaKey : FilterEffect
 
         half3 linearToSrgb(half3 value) {
             half3 lo = value * 12.92;
-            half3 hi = 1.055 * pow(value, half3(1.0 / 2.4)) - 0.055;
+            half3 hi = 1.055 * pow(max(value, half3(0.0)), half3(1.0 / 2.4)) - 0.055;
             return mix(lo, hi, step(half3(0.0031308), value));
         }
 
