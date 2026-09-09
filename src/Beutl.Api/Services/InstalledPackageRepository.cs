@@ -189,15 +189,9 @@ public class InstalledPackageRepository : IBeutlApiResource
     {
         _logger.LogInformation("Saving installed packages to file.");
         string fileName = Path.Combine(Helper.AppRoot, FileName);
-        using (FileStream stream = File.Create(fileName))
-        {
-            JsonSerializer.Serialize(stream, _packages
-                .Select(x => new S_Package(
-                    x.Id,
-                    x.Version.ToString(),
-                    _resolvedBeutlVersions.GetValueOrDefault(x.Id)))
-                .ToArray());
-        }
+        JsonSerializer.SerializeToNode(_packages
+            .Select(x => new S_Package(x.Id, x.Version.ToString(), _resolvedBeutlVersions.GetValueOrDefault(x.Id)))
+            .ToArray())!.JsonSave(fileName);
         _logger.LogInformation("Saved {Count} packages to file.", _packages.Count);
     }
 
