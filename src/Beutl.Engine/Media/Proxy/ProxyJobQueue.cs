@@ -1361,9 +1361,9 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     return false;
                 }
 
-                publish();
-                return true;
             }
+            publish();
+            return true;
         }
 
         public bool TryCompleteSuccess()
