@@ -301,23 +301,31 @@ public class RippleEditTests
     }
 
     [Test]
-    public void Resize_RippleOn_ThrowsWhenClampWouldMakeLengthNonPositive()
+    public void Resize_RippleOn_FloorsLengthWhenRequestedEndPrecedesClampedStart()
     {
         var resize = new ElementResizeService(_history);
         Element upstream = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), zIndex: 0);
         Element target = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4), zIndex: 0);
 
-        // Incoherent request (end 0.5s sits before the clamped start 3s): keeping upstream >= 0
-        // and the requested end cannot yield a positive length. Not reachable from the UI (end fixed).
-        Assert.Throws<ArgumentOutOfRangeException>(() => resize.Resize(_scene,
+        int before = _history.UndoCount;
+        // The requested end (0.5s) precedes the clamped start (3s), so preserve the upstream
+        // boundary and use the positive minimum instead of preserving that end or throwing.
+        resize.Resize(_scene,
             [new ElementResizeRequest(target, TimeSpan.Zero, TimeSpan.FromSeconds(0.5), 0)],
-            ripple: true));
+            ripple: true);
 
         Assert.Multiple(() =>
         {
-            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "rejected before any mutation");
-            Assert.That(upstream.Start, Is.EqualTo(TimeSpan.FromSeconds(1)), "upstream untouched");
+            Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(target.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+            Assert.That(upstream.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(upstream.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
+        _history.Undo();
+        Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+        Assert.That(target.Length, Is.EqualTo(TimeSpan.FromSeconds(4)));
+        Assert.That(upstream.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
     }
 
     [Test]
