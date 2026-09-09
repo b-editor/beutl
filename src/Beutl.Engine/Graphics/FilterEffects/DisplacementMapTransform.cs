@@ -34,7 +34,6 @@ public abstract partial class DisplacementMapTransform : EngineObject
                 else if (uChannel == 2) d = dispColor.r;
                 else if (uChannel == 3) d = dispColor.g;
                 else d = dispColor.b;
-                d = d * dispColor.a;
             }
             if (uSigned != 0) d = d * 2.0 - 1.0;
             return d;
@@ -259,13 +258,12 @@ public abstract partial class DisplacementMapTransform : EngineObject
         float value = channel switch
         {
             DisplacementMapChannel.Alpha => color.W,
-            // The entry point weights the premultiplied colour and then multiplies by alpha again; this
-            // restates that rather than correcting it.
+            // RGB samples are already premultiplied, so alpha must not be applied again.
             DisplacementMapChannel.Luminance =>
-                ((0.2126f * color.X) + (0.7152f * color.Y) + (0.0722f * color.Z)) * color.W,
-            DisplacementMapChannel.Red => color.X * color.W,
-            DisplacementMapChannel.Green => color.Y * color.W,
-            _ => color.Z * color.W,
+                ((0.2126f * color.X) + (0.7152f * color.Y) + (0.0722f * color.Z)),
+            DisplacementMapChannel.Red => color.X,
+            DisplacementMapChannel.Green => color.Y,
+            _ => color.Z,
         };
 
         return signed ? (value * 2f) - 1f : value;

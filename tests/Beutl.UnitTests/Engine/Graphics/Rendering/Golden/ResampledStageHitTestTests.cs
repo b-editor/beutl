@@ -51,6 +51,20 @@ public sealed class ResampledStageHitTestTests
     }
 
     [Test]
+    public void TranslucentWhiteDisplacement_RedMatchesAlpha()
+    {
+        var map = new SolidColorBrush(new Color(128, 255, 255, 255));
+        var alpha = Displace(Translated(20, 0), map);
+        var red = Displace(Translated(20, 0), map);
+        red.Channel.CurrentValue = DisplacementMapChannel.Red;
+        for (int x = 0; x < 60; x += 2)
+        {
+            var point = new Point(x, 92);
+            Assert.That(HitTest(s_shiftContent, red, point), Is.EqualTo(HitTest(s_shiftContent, alpha, point)));
+        }
+    }
+
+    [Test]
     [Category("GpuPassFusionGpu")]
     public void ColorShift_WithoutAnOffset_StillMissesTheClearCorner()
     {
