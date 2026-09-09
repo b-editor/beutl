@@ -23,6 +23,8 @@ public sealed class FFmpegWorkerProcess : IDisposable
     private IpcConnection? _connection;
     private FFmpegWorkerLogPump? _logPump;
     private string? _pipeName;
+    private Exception? _lastStartupFailure;
+    private long _retryStartupAt;
 
     public FFmpegWorkerProcess(bool multiplexed = false)
     {
@@ -49,7 +51,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             ThrowIfLibrariesMissing();
 
             // 同期コンテキストから非同期メソッドを呼び出す（タイムアウト付き）
-            StartWorkerAsync(CancellationToken.None).GetAwaiter().GetResult();
+            StartWorkerWithCooldownAsync(CancellationToken.None).GetAwaiter().GetResult();
             return _connection!;
         }
         finally
@@ -73,12 +75,31 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
             ThrowIfLibrariesMissing();
 
-            await StartWorkerAsync(ct).ConfigureAwait(false);
+            await StartWorkerWithCooldownAsync(ct).ConfigureAwait(false);
             return _connection!;
         }
         finally
         {
             _startLock.Release();
+        }
+    }
+
+    private async Task StartWorkerWithCooldownAsync(CancellationToken ct)
+    {
+        if (_lastStartupFailure is not null && Environment.TickCount64 < _retryStartupAt)
+            throw new InvalidOperationException("FFmpeg worker startup failed recently; retry after the cooldown.", _lastStartupFailure);
+        try
+        {
+            await StartWorkerAsync(ct).ConfigureAwait(false);
+            _lastStartupFailure = null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not FFmpegLibrariesNotFoundException)
+        {
+            try { Cleanup(); }
+            catch (Exception cleanup) { s_logger.LogWarning(cleanup, "Failed to clean up an unsuccessful FFmpeg worker start."); }
+            _lastStartupFailure = ex;
+            _retryStartupAt = Environment.TickCount64 + 30_000;
+            throw;
         }
     }
 
