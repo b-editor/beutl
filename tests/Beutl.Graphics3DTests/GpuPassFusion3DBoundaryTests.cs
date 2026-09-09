@@ -21,6 +21,37 @@ namespace Beutl.Graphics3DTests;
 [NonParallelizable]
 public sealed class GpuPassFusion3DBoundaryTests
 {
+    [TestCase(0.3f)]
+    [TestCase(0.5f)]
+    [TestCase(1.7f)]
+    public void DrawableTextureDensity_MatchesUnderFractionalParentTransforms(float scale)
+    {
+        GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var drawable = new RectShape();
+            drawable.Width.CurrentValue = 11;
+            drawable.Height.CurrentValue = 7;
+            drawable.Fill.CurrentValue = Brushes.Red;
+            var texture = new DrawableTextureSource();
+            texture.Drawable.CurrentValue = drawable;
+            texture.TextureWidth.CurrentValue = 11;
+            texture.TextureHeight.CurrentValue = 7;
+            using var resource = CreateSceneResource(CreateMaterial(MaterialTextureDependency.BasicDiffuseMap, texture));
+            using var root = new TransformRenderNode(Matrix.CreateScale(scale, scale), TransformOperator.Prepend);
+            root.AddChild(new Scene3DRenderNode(resource));
+            using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                TargetDomain = new Rect(0, 0, 96, 72),
+                OutputScale = 1.3f,
+                MaxWorkingScale = 0.7f,
+            });
+            using var result = renderer.Rasterize();
+            Assert.That(result.Bitmap, Is.Not.Null);
+        });
+    }
+
     [Test]
     [Category("GpuPassFusionGpu")]
     public void Scene3D_MaterializesOneBackendBoundary_ThenResumesTwoDimensionalWork()
