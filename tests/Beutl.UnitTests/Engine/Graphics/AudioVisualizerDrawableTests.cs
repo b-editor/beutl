@@ -15,6 +15,29 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [NonParallelizable]
 public class AudioVisualizerDrawableTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void WaveformStrokeAndDots_KeepPixelsOutsideTheSignalRectangle(bool dots)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var drawable = CreateWaveform();
+            drawable.Shape.CurrentValue = dots
+                ? new DotsWaveformShape { DotRadius = { CurrentValue = 20 } }
+                : new LineWaveformShape { Thickness = { CurrentValue = 40 } };
+            drawable.Gain.CurrentValue = 100;
+            AttachSyntheticSource(drawable);
+            using Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.FromSeconds(0.5)));
+            using Bitmap bitmap = GoldenImageHarness.RenderAtScale(resource, new PixelSize(400, 200), 1);
+            bool hasOutset = false;
+            for (int y = 40; y < 60; y++)
+            for (int x = 40; x < 360; x++)
+                hasOutset |= bitmap.SKBitmap.GetPixel(x, y).Alpha != 0;
+            Assert.That(hasOutset, Is.True, "Caps/dots must survive above the nominal 80-pixel-high signal rectangle.");
+        });
+    }
+
     [OneTimeSetUp]
     public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
     private static AudioWaveformDrawable CreateWaveform() => new()
