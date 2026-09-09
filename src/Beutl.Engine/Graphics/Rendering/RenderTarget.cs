@@ -69,7 +69,12 @@ public class RenderTarget : IDisposable
 
     public int Height { get; }
 
-    public bool IsDisposed { get; protected set; }
+    private int _disposeState;
+    public bool IsDisposed
+    {
+        get => Volatile.Read(ref _disposeState) != 0;
+        protected set => Volatile.Write(ref _disposeState, value ? 1 : 0);
+    }
 
     /// <summary>
     /// Whether another live holder shares this instance's backing-surface reference count, so
@@ -430,9 +435,7 @@ public class RenderTarget : IDisposable
     /// </summary>
     protected virtual void Dispose(bool disposing)
     {
-        if (IsDisposed) return;
-
-        IsDisposed = true;
+        if (Interlocked.Exchange(ref _disposeState, 1) != 0) return;
 
         // Skia's GPU context is thread-affine, so the surface and its shared texture have to be
         // released on the dispatcher that allocated them — releasing from another thread corrupts
@@ -589,6 +592,7 @@ public class RenderTarget : IDisposable
             int old = _refs;
             while (true)
             {
+                ObjectDisposedException.ThrowIf(old <= 0, this);
                 int current = Interlocked.CompareExchange(ref _refs, old - 1, old);
 
                 if (current == old)
