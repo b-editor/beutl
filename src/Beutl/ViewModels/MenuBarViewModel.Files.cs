@@ -285,17 +285,24 @@ public partial class MenuBarViewModel
 
     private async void OnCloseFileCore(EditorTabItem? item)
     {
-        if (IsProjectOpened.Value)
+        try
         {
-            RemoveFromProject.Execute(item);
-        }
-        else
-        {
-            EditorTabItem? tabItem = item ?? _editorService.SelectedTabItem.Value;
-            if (tabItem != null)
+            if (IsProjectOpened.Value)
             {
-                await _editorService.CloseTabItem(tabItem);
+                RemoveFromProject.Execute(item);
             }
+            else
+            {
+                EditorTabItem? tabItem = item ?? _editorService.SelectedTabItem.Value;
+                if (tabItem != null)
+                {
+                    await _editorService.CloseTabItem(tabItem);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
         }
     }
 }
