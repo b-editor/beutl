@@ -1,4 +1,6 @@
-﻿namespace Beutl.Extensions.FFmpeg;
+﻿using Beutl.Logging;
+using Microsoft.Extensions.Logging;
+namespace Beutl.Extensions.FFmpeg;
 
 public sealed class FFmpegLibraryAvailabilityChangedEventArgs(bool isLibrariesMissing) : EventArgs
 {
@@ -301,6 +303,8 @@ public static class FFmpegLibraryState
         {
             notification.Completion.TrySetException(ex);
             _ = notification.Completion.Task.Exception;
+            try { Log.CreateLogger(typeof(FFmpegLibraryState)).LogError(ex, "An FFmpeg availability observer failed."); }
+            catch { }
         }
     }
 
