@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -43,6 +44,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _getPageTitle = getPageTitle ?? (static webView => webView.InvokeScript("document.title"));
         _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
         InitializeComponent();
+        AddressTextBox.SearchSuggestionsChanged += OnSearchSuggestionsChanged;
         Loaded += OnLoaded;
     }
 
@@ -326,10 +328,67 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     private void OnAddressKeyDown(object? sender, KeyEventArgs e)
     {
+        if (SearchSuggestionsPanel.IsVisible)
+        {
+            int count = SearchSuggestionsList.ItemCount;
+            if (e.Key is Key.Down or Key.Up && count > 0)
+            {
+                int index = SearchSuggestionsList.SelectedIndex;
+                SearchSuggestionsList.SelectedIndex = e.Key == Key.Down
+                    ? (index + 1) % count
+                    : (index <= 0 ? count - 1 : index - 1);
+                SearchSuggestionsList.ScrollIntoView(SearchSuggestionsList.SelectedItem!);
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Enter && SearchSuggestionsList.SelectedItem is string query)
+            {
+                SearchForSuggestion(query);
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            AddressTextBox.CancelSearchSuggestions();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Enter)
         {
+            AddressTextBox.CancelSearchSuggestions();
             NavigateFromAddress();
             e.Handled = true;
+        }
+    }
+
+    private void OnSearchSuggestionsChanged(IReadOnlyList<string> suggestions)
+    {
+        SearchSuggestionsList.ItemsSource = suggestions;
+        SearchSuggestionsList.SelectedIndex = -1;
+        SearchSuggestionsPanel.IsVisible = suggestions.Count > 0;
+    }
+
+    private void OnSearchSuggestionPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton == MouseButton.Left && e.Source is Avalonia.Visual visual
+            && visual.GetSelfAndVisualAncestors().OfType<ListBoxItem>().FirstOrDefault()?.DataContext is string query)
+        {
+            SearchForSuggestion(query);
+            e.Handled = true;
+        }
+    }
+
+    private void SearchForSuggestion(string query)
+    {
+        AddressTextBox.CancelSearchSuggestions();
+        if (_viewModel != null)
+        {
+            _viewModel.Address.Value = WebSearchSuggestions.CreateSearchUri(query).AbsoluteUri;
+            NavigateFromAddress();
         }
     }
 
@@ -402,6 +461,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         _disposed = true;
+        AddressTextBox.CancelSearchSuggestions();
         Loaded -= OnLoaded;
         _viewModel = null;
         DisposeWebView();

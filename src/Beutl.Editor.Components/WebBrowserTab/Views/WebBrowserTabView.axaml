@@ -8,13 +8,14 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.Editor.Components.WebBrowserTab.ViewModels"
+             xmlns:views="using:Beutl.Editor.Components.WebBrowserTab.Views"
              d:DesignHeight="500"
              d:DesignWidth="700"
              x:ClassModifier="internal"
              x:CompileBindings="True"
              x:DataType="viewModel:WebBrowserTabViewModel"
              mc:Ignorable="d">
-    <Grid RowDefinitions="Auto,Auto,*">
+    <Grid RowDefinitions="Auto,Auto,Auto,*">
         <Border Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
                 BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                 BorderThickness="0,0,0,1"
@@ -52,11 +53,12 @@
                         <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                     </Button>
                 </Panel>
-                <TextBox x:Name="AddressTextBox"
+                <views:WebBrowserAddressBox x:Name="AddressTextBox"
                          Grid.Column="3"
                          controls:TextBoxAttachment.EnterDownBehavior="None"
                          KeyDown="OnAddressKeyDown"
-                         Text="{Binding Address.Value, Mode=TwoWay}"
+                         Address="{Binding Address.Value, Mode=TwoWay}"
+                         Suggestions="{Binding AddressSuggestions}"
                          VerticalContentAlignment="Center"
                          Watermark="{x:Static lang:Strings.WebAddress}" />
                 <Button x:Name="BrowserMenuButton"
@@ -97,8 +99,22 @@
             </StackPanel>
         </Border>
 
+        <StackPanel x:Name="SearchSuggestionsPanel" Grid.Row="2" IsVisible="False">
+            <TextBlock Text="Google" Margin="8,4" />
+            <ListBox x:Name="SearchSuggestionsList"
+                     MaxHeight="220"
+                     Focusable="False"
+                     PointerReleased="OnSearchSuggestionPointerReleased">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Focusable" Value="False" />
+                    </Style>
+                </ListBox.Styles>
+            </ListBox>
+        </StackPanel>
+
         <ContentControl x:Name="WebViewHost"
-                        Grid.Row="2"
+                        Grid.Row="3"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch" />
     </Grid>

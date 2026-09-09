@@ -17,6 +17,29 @@ namespace Beutl.UnitTests.Editor;
 public class WebBrowserTabViewModelTests
 {
     [Test]
+    public void AddressSuggestions_KeepRecentSuccessfulVisitsWithoutDuplicates()
+    {
+        using var viewModel = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        for (int i = 0; i < 105; i++)
+        {
+            viewModel.CompleteNavigation(new Uri($"https://example.com/{i}"), true, false, false);
+        }
+
+        viewModel.CompleteNavigation(new Uri("https://example.com/100"), true, false, false);
+        viewModel.CompleteNavigation(new Uri("https://failed.example/"), false, false, false);
+        viewModel.CompleteNavigation(new Uri("https://user:password@example.com/"), true, false, false);
+        viewModel.CompleteNavigation(WebBrowserTabViewModel.BlankPage, true, false, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.AddressSuggestions, Has.Count.EqualTo(100));
+            Assert.That(viewModel.AddressSuggestions[0], Is.EqualTo("https://example.com/100"));
+            Assert.That(viewModel.AddressSuggestions, Is.Unique);
+            Assert.That(viewModel.AddressSuggestions, Does.Not.Contain("https://example.com/0"));
+        });
+    }
+
+    [Test]
     public void MacOSEnvironment_AddsSafariIdentificationBeforeNavigation()
     {
         // Avalonia creates these event args internally; this test only exercises their settings.

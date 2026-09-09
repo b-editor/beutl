@@ -3,6 +3,9 @@ using System.Text.Json.Nodes;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -26,6 +29,45 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class WebBrowserTabLifecycleTests
 {
+    [AvaloniaTest]
+    public void SearchSuggestions_KeyboardSelectionNavigatesToSearch()
+    {
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
+        using var vm = new WebBrowserTabViewModel(new TestEditorContext());
+        view.DataContext = vm;
+        var address = view.FindControl<WebBrowserAddressBox>("AddressTextBox")!;
+        address.SuggestionDelay = TimeSpan.Zero;
+        address.SuggestionProvider = (_, _) => Task.FromResult<IReadOnlyList<string>>(["avalonia tutorial"]);
+        var window = new Window { Content = view };
+        try
+        {
+            window.Show();
+            address.Focus();
+            Dispatcher.UIThread.RunJobs();
+            window.KeyTextInput("ava");
+            Assert.That(view.FindControl<StackPanel>("SearchSuggestionsPanel")!.IsVisible, Is.True);
+            window.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+            window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+            Assert.That(vm.Address.Value, Is.EqualTo("https://www.google.com/search?q=avalonia%20tutorial"));
+            Assert.That(view.FindControl<StackPanel>("SearchSuggestionsPanel")!.IsVisible, Is.False);
+
+            address.SelectAll();
+            address.SuggestionProvider = (_, _) => Task.FromResult<IReadOnlyList<string>>(["mouse choice"]);
+            window.KeyTextInput("mouse");
+            window.UpdateLayout();
+            var list = view.FindControl<ListBox>("SearchSuggestionsList")!;
+            Control item = list.ContainerFromIndex(0)!;
+            Point point = item.TranslatePoint(new Point(8, 8), window)!.Value;
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+            Assert.That(vm.Address.Value, Is.EqualTo("https://www.google.com/search?q=mouse%20choice"));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     public void Dispose_RemovesTheHostedNativeWebView()
     {

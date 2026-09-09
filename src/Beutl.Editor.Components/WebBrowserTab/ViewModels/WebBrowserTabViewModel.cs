@@ -11,6 +11,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     private static int s_lastInstanceNumber;
 
     private readonly IEditorContext _editorContext;
+    private readonly List<string> _addressSuggestions = [];
     private readonly ReactivePropertySlim<Uri> _currentUri;
     private readonly ReactivePropertySlim<string> _address;
     private readonly ReactivePropertySlim<bool> _canGoBack = new();
@@ -55,6 +56,8 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     public IReactiveProperty<string> Address => _address;
 
+    public IReadOnlyList<string> AddressSuggestions => _addressSuggestions;
+
     public IReadOnlyReactiveProperty<bool> CanGoBack => _canGoBack;
 
     public IReadOnlyReactiveProperty<bool> CanGoForward => _canGoForward;
@@ -69,6 +72,13 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal bool TryCreateNavigationUri(out Uri uri)
     {
+        if (WebSearchSuggestions.IsSearchQuery(_address.Value))
+        {
+            uri = WebSearchSuggestions.CreateSearchUri(_address.Value);
+            _errorMessage.Value = null;
+            return true;
+        }
+
         if (TryNormalizeAddress(_address.Value, out uri))
         {
             if (_errorMessage.Value == Strings.InvalidWebAddress)
@@ -136,6 +146,17 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal void CompleteNavigation(Uri uri, bool isSuccess, bool canGoBack, bool canGoForward)
     {
+        if (isSuccess && uri != BlankPage && IsPersistableUri(uri) && string.IsNullOrEmpty(uri.UserInfo))
+        {
+            string address = FormatAddress(uri);
+            _addressSuggestions.Remove(address);
+            _addressSuggestions.Insert(0, address);
+            if (_addressSuggestions.Count > 100)
+            {
+                _addressSuggestions.RemoveAt(100);
+            }
+        }
+
         if (IsPersistableUri(uri))
         {
             _currentUri.Value = uri;
