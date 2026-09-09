@@ -1207,7 +1207,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         // SaveLayer copies the paint, so the filter need not outlive this call.
         int count;
         using (var paint = new SKPaint())
-        using (SKColorFilter filter = CreateOpacityColorFilter(Opacity))
+        using (SKColorFilter filter = CreateOpacityColorFilter(opacity))
         {
             paint.ColorFilter = filter;
             count = Canvas.SaveLayer(paint);

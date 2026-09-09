@@ -18,6 +18,21 @@ public sealed class DrawableGroupIsolationTests
     private static readonly PixelSize s_frame = new(400, 400);
 
     [Test]
+    public void NestedHalfOpacityGroups_ApplyEachFactorOnce()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var inner = new DrawableGroup();
+            inner.Opacity.CurrentValue = 50;
+            inner.Children.Add(CreateRectangle(400, 240, Brushes.White));
+            using Drawable.Resource outer = CreateGroup(50, null, inner);
+            using Bitmap bitmap = RenderScene(outer);
+            Assert.That(ReadPixel(bitmap, 200, 200).Alpha, Is.EqualTo(0.25f).Within(0.003f));
+        });
+    }
+
+    [Test]
     public void OverlappingChildren_GroupOpacityAppliesOnceToComposite()
     {
         VulkanTestEnvironment.EnsureAvailable();
