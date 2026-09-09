@@ -162,7 +162,7 @@ public sealed partial class BasicMaterial : Material3D
                 Projection = context.ProjectionMatrix,
                 Albedo = DiffuseColor.ToLinearPremultiplied(),
                 Roughness = roughness,
-                HasTexture = hasTexture
+                HasTexture = hasTexture | (obj.ReceiveShadows ? 0 : 2)
             };
 
             _uniformBuffer.Upload(new ReadOnlySpan<BasicMaterialUBO>(ref ubo));
@@ -273,13 +273,13 @@ public sealed partial class BasicMaterial : Material3D
 
                 // Sample diffuse texture if available
                 vec4 finalAlbedo = material.albedo;
-                if (material.hasTexture != 0) {
+                if ((material.hasTexture & 1) != 0) {
                     vec4 texColor = texture(diffuseMap, fragTexCoord);
                     finalAlbedo *= texColor;
                 }
 
                 // Output world position with valid flag
-                outPosition = vec4(fragWorldPos, 1.0);
+                outPosition = vec4(fragWorldPos, (material.hasTexture & 2) == 0 ? 1.0 : 2.0);
 
                 // Output normal (encoded to [0,1] range) with metallic (0 for basic material)
                 outNormalMetallic = vec4(N * 0.5 + 0.5, 0.0);

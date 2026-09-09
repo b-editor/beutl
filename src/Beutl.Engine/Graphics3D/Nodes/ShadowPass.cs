@@ -242,7 +242,7 @@ void main() {
 
     private void RenderObject(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 parentMatrix)
     {
-        if (!obj.IsEnabled)
+        if (!obj.IsEnabled || !obj.CastShadows)
             return;
 
         // Calculate combined world matrix

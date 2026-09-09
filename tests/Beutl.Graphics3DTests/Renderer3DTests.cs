@@ -209,6 +209,8 @@ public class Renderer3DTests
 
         byte[] shadowed = RenderShadowScene(Configure);
         byte[] unshadowed = RenderShadowScene(Configure, castShadows: false);
+        byte[] nonReceiving = RenderShadowScene(Configure, receiveShadows: false);
+        Assert.That(nonReceiving, Is.EqualTo(unshadowed));
 
         AssertLitFramebuffer(shadowed);
         AssertShadowsDarkenReceiver(shadowed, unshadowed);
@@ -348,7 +350,7 @@ public class Renderer3DTests
     /// Renders the shared shadow scene (ground plane + three shadow-casting spheres) with a
     /// caller-supplied light rig, and returns the downloaded RGBA16Float framebuffer.
     /// </summary>
-    private byte[] RenderShadowScene(Action<List<Light3D>> configureLights, bool castShadows = true)
+    private byte[] RenderShadowScene(Action<List<Light3D>> configureLights, bool castShadows = true, bool receiveShadows = true)
     {
         return GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -388,6 +390,16 @@ public class Renderer3DTests
                 objects.Add(CreateShadowSphere(renderContext, new Vector3(-3, 0.3f, 1), 0.7f, new Color(255, 80, 200, 80), 0.5f, 0.8f));
                 objects.Add(CreateShadowSphere(renderContext, new Vector3(2.5f, 0.4f, -1), 0.8f, new Color(255, 80, 120, 220), 0.2f, 0.9f));
 
+                if (!receiveShadows)
+                {
+                    foreach (Object3D.Resource obj in objects)
+                    {
+                        Object3D original = obj.RequireOriginal();
+                        original.ReceiveShadows.CurrentValue = false;
+                        bool updateOnly = false;
+                        obj.Update(original, renderContext, ref updateOnly);
+                    }
+                }
                 var lightModels = new List<Light3D>();
                 configureLights(lightModels);
                 if (!castShadows)

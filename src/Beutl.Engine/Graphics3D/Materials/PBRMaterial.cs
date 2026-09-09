@@ -250,7 +250,7 @@ public sealed partial class PBRMaterial : Material3D
                 Roughness = Roughness,
                 AmbientOcclusion = AmbientOcclusion,
                 NormalMapStrength = NormalMapStrength,
-                TextureFlags = textureFlags
+                TextureFlags = textureFlags | (obj.ReceiveShadows ? 0 : 32)
             };
 
             _uniformBuffer.Upload(new ReadOnlySpan<PBRMaterialUBO>(ref ubo));
@@ -421,7 +421,7 @@ public sealed partial class PBRMaterial : Material3D
                 }
 
                 // Output world position with valid flag
-                outPosition = vec4(fragWorldPos, 1.0);
+                outPosition = vec4(fragWorldPos, (material.textureFlags & 32) == 0 ? 1.0 : 2.0);
 
                 // Output normal (encoded to [0,1] range) with metallic
                 outNormalMetallic = vec4(N * 0.5 + 0.5, finalMetallic);
