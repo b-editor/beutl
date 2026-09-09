@@ -54,6 +54,13 @@ public class KeyFrame : Hierarchical
 
     public IValidator? Validator { get; set; }
 
+    private static bool TryReadSplinePoint(JsonObject value, string name, float fallback, out float result)
+    {
+        result = fallback;
+        if (!value.TryGetPropertyValue(name, out JsonNode? node)) return true;
+        return node is JsonValue number && number.TryGetValue(out result);
+    }
+
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
@@ -137,14 +144,13 @@ public class KeyFrame : Hierarchical
         }
         else if (easingNode is JsonObject easingObject)
         {
-            if (easingObject["X1"] is JsonValue x1Value
-                && easingObject["Y1"] is JsonValue y1Value
-                && easingObject["X2"] is JsonValue x2Value
-                && easingObject["Y2"] is JsonValue y2Value
-                && x1Value.TryGetValue<float>(out float x1)
-                && y1Value.TryGetValue<float>(out float y1)
-                && x2Value.TryGetValue<float>(out float x2)
-                && y2Value.TryGetValue<float>(out float y2)
+            bool isSplineEncoding = !easingObject.TryGetPropertyValue("$type", out JsonNode? typeNode)
+                || typeNode is JsonValue typeValue && typeValue.TryGetValue(out string? typeName)
+                && TypeFormat.ToType(typeName!) == typeof(SplineEasing);
+            if (isSplineEncoding && TryReadSplinePoint(easingObject, "X1", 0, out float x1)
+                && TryReadSplinePoint(easingObject, "Y1", 0, out float y1)
+                && TryReadSplinePoint(easingObject, "X2", 1, out float x2)
+                && TryReadSplinePoint(easingObject, "Y2", 1, out float y2)
                 && float.IsFinite(x1) && float.IsFinite(y1)
                 && float.IsFinite(x2) && float.IsFinite(y2)
                 && x1 is >= 0 and <= 1 && x2 is >= 0 and <= 1)

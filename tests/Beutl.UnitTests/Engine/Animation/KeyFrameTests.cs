@@ -350,7 +350,7 @@ public class KeyFrameTests
     }
 
     [Test]
-    public void Deserialize_ObjectEasingWithPartialSplineCoordinates_RecordsIncident()
+    public void Deserialize_ObjectEasingWithPartialSplineCoordinates_UsesLegacyDefaults()
     {
         int incidentsBefore = DeserializationIncidents.FallbackCount;
         var easingObject = new JsonObject
@@ -363,9 +363,14 @@ public class KeyFrameTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
-            Assert.That(keyFrame.HasLossyEasing, Is.True);
-            Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(incidentsBefore + 1));
+            Assert.That(keyFrame.Easing, Is.InstanceOf<SplineEasing>());
+            var spline = (SplineEasing)keyFrame.Easing;
+            Assert.That(spline.X1, Is.EqualTo(0.1f));
+            Assert.That(spline.Y1, Is.EqualTo(0.2f));
+            Assert.That(spline.X2, Is.EqualTo(1f));
+            Assert.That(spline.Y2, Is.EqualTo(1f));
+            Assert.That(keyFrame.HasLossyEasing, Is.False);
+            Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(incidentsBefore));
         });
     }
 
