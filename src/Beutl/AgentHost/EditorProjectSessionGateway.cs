@@ -64,15 +64,24 @@ public sealed class EditorProjectSessionGateway(
             }
         });
 
-        Project project = ProjectOperations.CreateProject(options);
-        ProjectOperations.Save(project);
+        using (await editorService.BeginProjectFileWriteAsync(cancellationToken))
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (projectService.CurrentProject.Value is not null)
+                    throw new SessionUnavailableException();
+            });
+            Project project = ProjectOperations.CreateProject(options);
+            ProjectOperations.Save(project);
+        }
         return await OpenProjectAsync(fullPath, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask<ProjectSceneResult> AddSceneAsync(IEditingSession activeSession, SceneCreateOptions options, CancellationToken cancellationToken = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
+            using var fileWrite = await editorService.BeginProjectFileWriteAsync(cancellationToken);
             if (activeSession is LiveEditingSession liveSession && !liveSession.ProbeIsAlive())
             {
                 throw new SessionUnavailableException();
