@@ -82,6 +82,28 @@ public class NodeGraphFilterEffectRenderNodeTests
     }
 
     [Test]
+    public void SingleConsumer_DoesNotRasterizeTheGraphInputIntoALayer()
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var input = new FilterEffectInputNode();
+        var output = new OutputNode();
+        model.Nodes.Add(input);
+        model.Nodes.Add(output);
+        model.Connect(output.InputPort, input.Output);
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 8, 8));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
+        var domain = new Rect(0, 0, 8, 8);
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview, RenderRequestPurpose.Frame, domain, domain,
+            cachePolicy: RenderCacheOptions.Disabled));
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(pipeline);
+        Assert.That(graph.Fragments.Any(fragment => fragment.Payload is LayerRenderFragmentPayload), Is.False,
+            "A single-consumer graph must preserve the original recording without an intermediate raster layer.");
+    }
+
+    [Test]
     public void NonValueInput_CanFeedTwoSeparateBranches()
     {
         var effect = new NodeGraphFilterEffect();
