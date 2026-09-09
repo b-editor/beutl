@@ -1,0 +1,86 @@
+using System.Net;
+using System.Text;
+using Beutl.Api;
+using Beutl.Api.Clients;
+using Beutl.Api.Objects;
+using Beutl.Api.Services;
+using Beutl.Services;
+using Beutl.ViewModels.ExtensionsPages;
+using NuGet.Packaging.Core;
+using NuGet.Versioning;
+
+namespace Beutl.HeadlessUITests;
+
+[TestFixture]
+public sealed class PackageOperationLifetimeTests
+{
+    [Test]
+    public async Task ApplicationShutdown_CancelsAnInFlightPackageDownload()
+    {
+        using var assetHandler = new AssetHandler();
+        using var http = new HttpClient(assetHandler);
+        using var downloadHandler = new BlockedDownload();
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(),
+            () => new HttpClient(downloadHandler, disposeHandler: false));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
+        var ownerResponse = new ProfileResponse
+        {
+            Id = "owner", Name = "owner", DisplayName = "Owner", Bio = null, IconId = null, IconUrl = null,
+        };
+        var package = new Package(new Profile(ownerResponse, app), new PackageResponse
+        {
+            Id = "package", Owner = ownerResponse, Name = "LifetimeTest." + Guid.NewGuid().ToString("N"),
+            DisplayName = "Package", Description = "", ShortDescription = "", WebSite = "", Tags = [],
+            LogoId = null, LogoUrl = null, Screenshots = [], Currency = null, Price = null, Paid = false, Owned = true,
+        }, app);
+        var release = new Release(package, new ReleaseResponse
+        {
+            Id = "release", Version = "1.0.0", Title = "Release", Description = "", TargetVersion = null,
+            FileId = "archive", FileUrl = null,
+        }, app);
+        Task install = operation.DownloadAndLoadPackage(release,
+            new PackageIdentity(package.Name, NuGetVersion.Parse("1.0.0")), CancellationToken.None);
+        await downloadHandler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task shutdown = app.DisposeAsync().AsTask();
+        try
+        {
+            await downloadHandler.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(install.IsCompletedSuccessfully, Is.False);
+        }
+        finally
+        {
+            downloadHandler.Abort.Cancel();
+            try { await install; } catch (OperationCanceledException) { }
+            await shutdown.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+    }
+
+    private sealed class AssetHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+            => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"id":"archive","name":"package.nupkg","contentType":"application/octet-stream","downloadUrl":"https://example.com/archive.nupkg","size":1,"sha256":null}""", Encoding.UTF8, "application/json"),
+            });
+    }
+
+    private sealed class BlockedDownload : HttpMessageHandler
+    {
+        public readonly TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public readonly TaskCompletionSource Cancelled = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public readonly CancellationTokenSource Abort = new();
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        {
+            using var registration = token.Register(() => Cancelled.TrySetResult());
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, Abort.Token);
+            Entered.TrySetResult();
+            await Task.Delay(Timeout.Infinite, linked.Token);
+            throw new InvalidOperationException("The download should only exit through cancellation.");
+        }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) Abort.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+}

@@ -15,6 +15,7 @@ internal class PackageOperationHandler
 {
     private static readonly ILogger s_logger = Log.CreateLogger<PackageOperationHandler>();
 
+    private readonly BeutlApiApplication _app;
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
     private readonly PackageManager _packageManager;
@@ -25,6 +26,7 @@ internal class PackageOperationHandler
 
     public PackageOperationHandler(BeutlApiApplication app, EditorService editorService, ProjectService projectService)
     {
+        _app = app;
         _installedPackageRepository = app.GetResource<InstalledPackageRepository>();
         _queue = app.GetResource<PackageChangesQueue>();
         _packageManager = app.GetResource<PackageManager>();
@@ -42,6 +44,8 @@ internal class PackageOperationHandler
         PackageIdentity packageId,
         CancellationToken cancellationToken)
     {
+        using var lifetime = _app.CreateLifetimeLinkedTokenSource(cancellationToken);
+        cancellationToken = lifetime.Token;
         await _packageInstaller.TrackInstallOperationWithShutdownFallbackAsync(async () =>
         {
             PackageInstallContext context = await _packageInstaller.PrepareForInstall(
@@ -63,6 +67,8 @@ internal class PackageOperationHandler
         PackageIdentity packageId,
         CancellationToken cancellationToken)
     {
+        using var lifetime = _app.CreateLifetimeLinkedTokenSource(cancellationToken);
+        cancellationToken = lifetime.Token;
         await _packageInstaller.TrackInstallOperationWithShutdownFallbackAsync(async () =>
         {
             PackageInstallContext context = _packageInstaller.PrepareForInstall(
