@@ -730,7 +730,7 @@ public sealed partial class AiSubtitleDialogViewModel
                             runModel,
                             name.Key),
                         RequestToken);
-                    ValidateTranscriptionSegments(response.Segments, chunk.UploadedDuration.TotalSeconds);
+                    response = response with { Segments = ValidateTranscriptionSegments(response.Segments, chunk.UploadedDuration.TotalSeconds) };
                 }
                 catch (AiProviderErrorException)
                 {
@@ -1601,29 +1601,48 @@ public sealed partial class AiSubtitleDialogViewModel
         return responseById;
     }
 
-    internal static void ValidateTranscriptionSegments(
+    internal static AiTranscriptionSegment[] ValidateTranscriptionSegments(
         IReadOnlyList<AiTranscriptionSegment> segments,
         double maximumEndSeconds)
     {
+        const double TimestampToleranceSeconds = 0.05;
+        if (!double.IsFinite(maximumEndSeconds) || maximumEndSeconds <= 0 || segments.Count == 0)
+            throw new InvalidDataException("The transcription result or its duration is empty or invalid.");
+        double previousStart = -1;
         double previousEnd = 0;
-        foreach (AiTranscriptionSegment segment in segments)
+        var normalized = new AiTranscriptionSegment[segments.Count];
+        for (int i = 0; i < segments.Count; i++)
         {
+            AiTranscriptionSegment segment = segments[i];
             if (segment is null
                 || !double.IsFinite(segment.Start)
                 || !double.IsFinite(segment.End)
-                || segment.Start < previousEnd
+                || segment.Start < 0
+                || segment.Start < previousStart
+                || segment.End < previousEnd
+                || segment.Start < previousEnd - TimestampToleranceSeconds
                 || segment.End <= segment.Start
-                || segment.End > maximumEndSeconds
+                || segment.End > maximumEndSeconds + TimestampToleranceSeconds
+                || Math.Min(segment.End, maximumEndSeconds) <= segment.Start
                 || !IsTimeSpanRepresentable(segment.Start)
                 || !IsTimeSpanRepresentable(segment.End)
                 || string.IsNullOrWhiteSpace(segment.Text))
             {
-                throw new AiProviderErrorException(new InvalidDataException(
-                    "The transcription provider returned an invalid segment set."));
+                // This is a client-side rejection of a potentially paid success, not a
+                // settled provider failure. Keep its request key available for recovery.
+                throw new InvalidDataException("The transcription provider returned an invalid segment set.");
             }
 
-            previousEnd = segment.End;
+            normalized[i] = new AiTranscriptionSegment
+            {
+                Start = segment.Start,
+                End = Math.Min(segment.End, maximumEndSeconds),
+                Text = segment.Text,
+            };
+            previousStart = segment.Start;
+            previousEnd = normalized[i].End;
         }
+        return normalized;
     }
 
     private static bool IsTimeSpanRepresentable(double seconds)
