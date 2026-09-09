@@ -3372,6 +3372,47 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void SaveAs_PreservesDistinctCaseSensitiveSidecars()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        string actualPath = Path.Combine(_root, "Transform.json");
+        string aliasPath = Path.Combine(_root, "transform.json");
+        File.WriteAllText(actualPath, "{}");
+        if (File.Exists(aliasPath))
+            Assert.Ignore("This volume does not distinguish case-sensitive sidecar names.");
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var firstShape = (RectShape)source.Objects.Single();
+        firstShape.Transform.CurrentValue = new RotationTransform { Uri = new Uri(actualPath) };
+        var secondShape = new RectShape();
+        secondShape.Transform.CurrentValue = new RotationTransform { Uri = new Uri(aliasPath) };
+        source.AddObject(secondShape);
+        CoreSerializer.StoreToUri(source, source.Uri!);
+        JsonObject transformJson = JsonNode.Parse(File.ReadAllText(actualPath))!.AsObject();
+        transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        File.WriteAllText(actualPath, transformJson.ToJsonString());
+        JsonObject aliasJson = JsonNode.Parse(File.ReadAllText(aliasPath))!.AsObject();
+        aliasJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        File.WriteAllText(aliasPath, aliasJson.ToJsonString());
+        byte[] aliasBytes = File.ReadAllBytes(aliasPath);
+        byte[] retainedBytes = File.ReadAllBytes(actualPath);
+        byte[] elementBytes = File.ReadAllBytes(elementPath);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        string copyRoot = Path.Combine(_root, "copy");
+        var copyUri = new Uri(Path.Combine(copyRoot, Path.GetFileName(elementPath)));
+        CoreSerializer.StoreToUri(recovered, copyUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(copyUri.LocalPath), Is.EqualTo(elementBytes));
+            Assert.That(File.ReadAllBytes(Path.Combine(copyRoot, "Transform.json")), Is.EqualTo(retainedBytes));
+            Assert.That(File.ReadAllBytes(Path.Combine(copyRoot, "transform.json")), Is.EqualTo(aliasBytes));
+            Assert.That(CoreSerializer.RestoreFromUri<Element>(copyUri).Objects.OfType<RectShape>()
+                .Select(shape => shape.Transform.CurrentValue), Has.All.InstanceOf<FallbackTransform>());
+        });
+    }
+
+    [Test]
     public void SaveAs_CopiesTransitiveFallbackSidecarBytesToTheNewLocation()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();

@@ -707,7 +707,9 @@ internal sealed class SceneRecovery(Scene scene)
 
         string elementDirectory = Path.GetDirectoryName(elementPath)
                                   ?? throw new JsonException("Recovered element has no source directory.");
-        var seenPaths = new HashSet<string>(PathBoundary.Comparer);
+        // Save As must retain every serialized path, including distinct symlink aliases.
+        // Do not fold case: differently cased sidecars may be distinct files.
+        var seenPaths = new HashSet<string>(StringComparer.Ordinal);
         var result = new List<SuppressedReferencedStorageSource>();
         foreach (string sourcePath in EnumerateSerializedGraphObjects(element)
             .OfType<CoreObject>()
@@ -720,7 +722,7 @@ internal sealed class SceneRecovery(Scene scene)
             if (string.Equals(
                     resolvedSourcePath,
                     resolvedElementPath,
-                    PathBoundary.Comparison)
+                    StringComparison.Ordinal)
                 || !PathBoundary.IsPathInsideRoot(resolvedSourceRoot, resolvedSourcePath)
                 || !File.Exists(sourcePath)
                 || !seenPaths.Add(sourcePath))
