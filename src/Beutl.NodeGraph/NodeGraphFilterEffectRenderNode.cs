@@ -46,7 +46,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
             var outputRenderNodes = PullOutputValue(model, graphResource);
             if (outputRenderNodes.Count == 0)
             {
-                context.PassThrough();
+                context.PublishRange(binding.RecordSubtreeForPublication(inputFacade));
             }
             else
             {
