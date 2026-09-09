@@ -291,4 +291,10 @@ Request cancellation of a running background render/export job.
 - **Determinism**: `apply_edit` computes the change set before applying and returns the exact applied change set (SC-009).
 - **Scene-rooted scope**: `apply_edit` operates on a **Scene** root (one `HistoryManager`). `create_project`, `save_project`, and scene add/remove + project-variable changes are **project-level, file-level** operations outside any scene's undo stack (data-model §Editing Session). The agent edits one scene at a time through the undoable surface.
 - **Validation is computed, not inferred**: coercion/rejection in a result comes from running the property's validator explicitly (`SetValue` is `void`/coerces silently), so `apply_edit` reports the typed outcome (FR-007).
+
+
+### Completed render-job retention
+
+The in-process render job manager retains the most recent 128 completed/failed/cancelled jobs. Running jobs are not evicted. Poll and retain results promptly; a job ID outside that window is reported as unavailable.
+
 Project-scoped live MCP configuration contains a bearer credential. Keep that generated configuration out of version control and shared artifacts. The credential intentionally survives application restarts so existing clients keep working; rotation and client reconfiguration must be explicit.

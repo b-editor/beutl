@@ -68,6 +68,8 @@ public sealed class RenderJobManager : IDisposable
         public bool CancellationRequested { get; set; }
     }
 
+    internal const int MaximumRetainedCompletedJobs = 128;
+    private readonly ConcurrentQueue<string> _completedJobs = new();
     private readonly ConcurrentDictionary<string, JobRecord> _jobs = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _disposed;
@@ -277,6 +279,9 @@ public sealed class RenderJobManager : IDisposable
                 }
 
                 record.Cts.Dispose();
+                _completedJobs.Enqueue(record.JobId);
+                while (_completedJobs.Count > MaximumRetainedCompletedJobs && _completedJobs.TryDequeue(out string? oldest))
+                    _jobs.TryRemove(oldest, out _);
             }
         }
     }

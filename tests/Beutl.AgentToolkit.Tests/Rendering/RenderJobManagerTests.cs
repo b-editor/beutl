@@ -6,6 +6,24 @@ namespace Beutl.AgentToolkit.Tests.Rendering;
 public sealed class RenderJobManagerTests
 {
     [Test]
+    public async Task CompletedJobs_HaveBoundedRetention()
+    {
+        using var manager = new RenderJobManager();
+        string oldest = manager.Enqueue("test", (_, _) => Task.FromResult<JsonNode>(new JsonObject()), new TestLease());
+        await WaitForTerminalAsync(manager, oldest);
+        string latest = oldest;
+        for (int i = 0; i < 129; i++)
+        {
+            latest = manager.Enqueue("test", (_, _) => Task.FromResult<JsonNode>(new JsonObject()), new TestLease());
+            await WaitForTerminalAsync(manager, latest);
+        }
+        for (int i = 0; i < 50 && manager.Get(oldest) is not null; i++)
+            await Task.Delay(10);
+        Assert.That(manager.Get(oldest), Is.Null);
+        Assert.That(manager.Get(latest)?.State, Is.EqualTo("completed"));
+    }
+
+    [Test]
     public void Get_returns_null_for_unknown_job()
     {
         using var manager = new RenderJobManager();
