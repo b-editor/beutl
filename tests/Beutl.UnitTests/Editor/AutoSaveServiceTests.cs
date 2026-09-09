@@ -19,6 +19,30 @@ public class AutoSaveServiceTests
         Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
     }
 
+    [Test]
+    public void AutoSave_StandaloneSceneKeepsSceneAndAttachedElements()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "beutl-standalone-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var scene = new Beutl.ProjectSystem.Scene { Uri = new Uri(Path.Combine(root, "main.scene")) };
+            var element = new Beutl.ProjectSystem.Element { Uri = new Uri(Path.Combine(root, "element.belm")) };
+            scene.Children.Add(element);
+            using var service = new AutoSaveService();
+            service.SaveObjects([scene, element]);
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.Exists(scene.Uri.LocalPath), Is.True);
+                Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
+            });
+            scene.Children.Remove(element);
+            service.SaveObjects([element]);
+            Assert.That(File.Exists(element.Uri.LocalPath), Is.False);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     #region Constructor and Dispose Tests
 
     [Test]

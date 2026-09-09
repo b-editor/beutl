@@ -2,6 +2,7 @@
 using System.Reactive.Subjects;
 using Beutl.Editor.Operations;
 using Beutl.Logging;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
@@ -50,7 +51,7 @@ public sealed class AutoSaveService : IDisposable
         {
             try
             {
-                if (obj is IHierarchical hierarchical && hierarchical.HierarchicalRoot == null)
+                if (obj is Element { HierarchicalParent: null })
                 {
                     if (obj.SuppressedStorageSource is null && obj.Uri!.Scheme == "file")
                     {
