@@ -78,7 +78,7 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
 
             // A material or template package is not loaded as an assembly; its payload is
             // copied into the home directory after extraction.
-            if (!DeployDataPackage(pkg))
+            if (!await Task.Run(() => DeployDataPackage(pkg), token))
             {
                 goto Failed;
             }
