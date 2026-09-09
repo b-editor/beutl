@@ -485,6 +485,7 @@ public sealed partial class SkslSource
 
         private void ParseLocalDeclarations(int start, int end, HashSet<string> locals)
         {
+            var activeDeclarations = locals.Select(name => (Name: name, End: end)).ToList();
             int index = start;
             while (index < end)
             {
@@ -510,7 +511,29 @@ public sealed partial class SkslSource
                         "CurrentPixel locals require a value-derived initializer and support only fixed array extents.");
                 }
 
-                AddLocal(name, locals);
+                ValidateDeclaredName(name, allowApply: false);
+                if (_globals.ContainsKey(name) || activeDeclarations.Any(local => local.Name == name && local.End > nameIndex))
+                    throw ValidationError($"CurrentPixel local '{name}' shadows another declaration.");
+                int scopeEnd = end;
+                for (int token = start; token < nameIndex; token++)
+                {
+                    if (_tokens[token].Text == "{")
+                    {
+                        int close = FindMatching(token, "{", "}");
+                        if (close > nameIndex) scopeEnd = Math.Min(scopeEnd, close);
+                    }
+                    if (_tokens[token].Text == "for" && _tokens[token + 1].Text == "(")
+                    {
+                        int close = FindMatching(token + 1, "(", ")");
+                        int loopEnd = _tokens[close + 1].Text == "{"
+                            ? FindMatching(close + 1, "{", "}")
+                            : FindStatementEnd(close + 1, end);
+                        if (loopEnd > nameIndex) scopeEnd = Math.Min(scopeEnd, loopEnd);
+                    }
+                }
+                activeDeclarations.Add((name, scopeEnd));
+                locals.Add(name);
+                _allLocalNames.Add(name);
                 index = statementEnd + 1;
             }
         }
