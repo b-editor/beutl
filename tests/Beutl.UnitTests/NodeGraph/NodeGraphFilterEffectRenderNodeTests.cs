@@ -1757,7 +1757,12 @@ internal sealed class PreviewCacheableSourceRenderNode : RenderNode
     private static readonly Rect s_bounds = new(0, 0, 14, 9);
     private readonly Probe _probe = new();
     public int ExecutionCount => _probe.Count;
-    public Color DrawColor { get; set; } = Colors.CornflowerBlue;
+    private Color _drawColor = Colors.CornflowerBlue;
+    public Color DrawColor
+    {
+        get => _drawColor;
+        set { _drawColor = value; MarkChanged(); }
+    }
 
     public override void Process(RenderNodeContext context)
     {
