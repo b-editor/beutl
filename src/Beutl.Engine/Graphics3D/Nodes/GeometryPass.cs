@@ -150,7 +150,8 @@ public sealed class GeometryPass : GraphicsNode3D
         }
 
         // Render this object's mesh if any
-        MeshDrawHelper.DrawWithMaterial(renderContext3D, obj, worldMatrix, _defaultMaterialResource);
+        if (obj.Material?.IsTransparent != true)
+            MeshDrawHelper.DrawWithMaterial(renderContext3D, obj, worldMatrix, _defaultMaterialResource);
     }
 
     private void DisposeGBuffer()

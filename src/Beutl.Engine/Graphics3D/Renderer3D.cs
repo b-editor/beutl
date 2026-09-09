@@ -276,23 +276,25 @@ internal sealed class Renderer3D : IRenderer3D
     {
         foreach (var obj in objects)
         {
-            if (!obj.IsEnabled)
-                continue;
+            if (!obj.IsEnabled) continue;
+            opaqueObjects.Add(obj);
+            CollectTransparent(obj, Matrix4x4.Identity);
+        }
 
+        void CollectTransparent(Object3D.Resource obj, Matrix4x4 parentMatrix)
+        {
+            if (!obj.IsEnabled) return;
+            Matrix4x4 world = obj.GetWorldMatrix() * parentMatrix;
+            foreach (Object3D.Resource child in obj.GetChildResources())
+                CollectTransparent(child, world);
             if (IsTransparent(obj))
             {
-                // Calculate distance to camera for sorting
-                float distance = Vector3.Distance(obj.Position, camera.Position);
                 transparentEntries.Add(new TransparentObjectEntry
                 {
                     Object = obj,
-                    WorldMatrix = obj.GetWorldMatrix(),
-                    DistanceToCamera = distance
+                    WorldMatrix = world,
+                    DistanceToCamera = Vector3.Distance(world.Translation, camera.Position),
                 });
-            }
-            else
-            {
-                opaqueObjects.Add(obj);
             }
         }
 

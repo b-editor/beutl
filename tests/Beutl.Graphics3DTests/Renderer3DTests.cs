@@ -30,6 +30,12 @@ public class Renderer3DTests
         _context = GpuTestEnvironment.EnsureAvailable();
     }
 
+    [Test]
+    public void TransparentChildren_UseTheirWorldTransformsAndForwardPass()
+    {
+        Assert.That(RenderPair(true, 2, grouped: true), Is.EqualTo(RenderPair(true, 2)));
+    }
+
     [TestCase(0)]
     [TestCase(1)]
     [TestCase(2)]
