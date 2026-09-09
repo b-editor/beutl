@@ -144,7 +144,10 @@ public class KeyFrame : Hierarchical
                 && x1Value.TryGetValue<float>(out float x1)
                 && y1Value.TryGetValue<float>(out float y1)
                 && x2Value.TryGetValue<float>(out float x2)
-                && y2Value.TryGetValue<float>(out float y2))
+                && y2Value.TryGetValue<float>(out float y2)
+                && float.IsFinite(x1) && float.IsFinite(y1)
+                && float.IsFinite(x2) && float.IsFinite(y2)
+                && x1 is >= 0 and <= 1 && x2 is >= 0 and <= 1)
             {
                 Easing = new SplineEasing(x1, y1, x2, y2);
             }
