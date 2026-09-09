@@ -3,6 +3,8 @@ using System.Runtime.InteropServices;
 using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Extensibility;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.NodeGraph.Composition;
 
@@ -41,9 +43,7 @@ public sealed class GraphSnapshot : IDisposable
         // サイクル検出
         if (sorted.Count != nodeCount)
         {
-            Debug.WriteLine(
-                $"NodeGraphSnapshot: Cycle detected. " +
-                $"{nodeCount - sorted.Count} node(s) in cycle(s) were skipped.");
+            Log.CreateLogger<GraphSnapshot>().LogWarning("Node graph contains a cycle; {Count} blocked nodes were skipped.", nodeCount - sorted.Count);
         }
 
         // リソースとコンテキストを構築
@@ -197,7 +197,10 @@ public sealed class GraphSnapshot : IDisposable
             if (outputNode == null || inputNode == null
                                    || !nodeToResourceIndex.TryGetValue(outputNode, out int outputResourceIdx)
                                    || !nodeToResourceIndex.TryGetValue(inputNode, out int inputResourceIdx))
+            {
+                connection.Status = ConnectionStatus.Error;
                 continue;
+            }
 
             var outputResource = _resources[outputResourceIdx];
             var inputResource = _resources[inputResourceIdx];

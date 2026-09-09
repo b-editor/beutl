@@ -10,6 +10,21 @@ namespace Beutl.UnitTests.NodeGraph;
 public sealed class GraphSnapshotTests
 {
     [Test]
+    public void CycleConnectionsAreMarkedAsErrors()
+    {
+        var model = new GraphModel();
+        var first = new CountingPassThroughGraphNode();
+        var second = new CountingPassThroughGraphNode();
+        model.Nodes.Add(first);
+        model.Nodes.Add(second);
+        model.Connect(first.Input, second.Output);
+        model.Connect(second.Input, first.Output);
+        using var snapshot = new GraphSnapshot();
+        snapshot.Build(model, CompositionContext.Default);
+        Assert.That(model.AllConnections.Select(connection => connection.Status), Is.All.EqualTo(ConnectionStatus.Error));
+    }
+
+    [Test]
     public void Evaluate_RefreshesRoutingFlagsWithoutRebuild()
     {
         var model = new GraphModel();
