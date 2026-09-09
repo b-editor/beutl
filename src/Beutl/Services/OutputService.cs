@@ -553,7 +553,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
                 return;
             }
 
-            using FileStream stream = File.Open(_filePath, FileMode.Open);
+            using FileStream stream = File.OpenRead(_filePath);
             var jsonNode = JsonNode.Parse(stream);
             if (jsonNode is not JsonArray jsonArray)
             {
