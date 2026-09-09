@@ -52,68 +52,89 @@ public sealed class ElementStructureService : IElementStructureService
 
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
+        if (!targets.Any(target => !scene.IsElementLocked(target)
+            && at - target.Start >= minDuration
+            && target.Start + target.Length - at >= minDuration))
+            return SplitOutcome.Empty;
         var newElements = new List<Element>();
         var groupUpdates = new Dictionary<int, List<Guid>>();
 
-        foreach (Element target in targets)
+        var storedFiles = new List<string>();
+        try
         {
-            if (scene.IsElementLocked(target)) continue;
-
-            TimeSpan forwardDuration = at - target.Start;
-            TimeSpan backwardDuration = target.Length - forwardDuration;
-            if (forwardDuration < minDuration || backwardDuration < minDuration) continue;
-
-            ObjectRegenerator.Regenerate(target, out Element backward);
-
-            scene.MoveChild(target.ZIndex, target.Start, forwardDuration, target);
-            backward.Start = at;
-            backward.Length = backwardDuration;
-
-            ShiftLocalKeyFrames(backward, -forwardDuration);
-
-            CoreSerializer.StoreToUri(backward, ElementFileNaming.GetUri(scene.Uri, backward.Id));
-            scene.AddChild(backward);
-            backward.NotifySplitted(true, forwardDuration, -forwardDuration);
-            target.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
-
-            newElements.Add(backward);
-
-            // Track group membership so back-clips stay in their source's group.
-            int groupIndex = -1;
-            for (int i = 0; i < scene.Groups.Count; i++)
+            _historyManager.ExecuteInTransaction(() =>
             {
-                if (scene.Groups[i].Contains(target.Id))
+                foreach (Element target in targets)
                 {
-                    groupIndex = i;
-                    break;
-                }
-            }
+                    if (scene.IsElementLocked(target)) continue;
 
-            if (groupIndex >= 0)
-            {
-                if (!groupUpdates.TryGetValue(groupIndex, out List<Guid>? newIds))
+                    TimeSpan forwardDuration = at - target.Start;
+                    TimeSpan backwardDuration = target.Length - forwardDuration;
+                    if (forwardDuration < minDuration || backwardDuration < minDuration) continue;
+
+                    ObjectRegenerator.Regenerate(target, out Element backward);
+
+                    backward.Start = at;
+                    backward.Length = backwardDuration;
+
+                    ShiftLocalKeyFrames(backward, -forwardDuration);
+
+                    CoreSerializer.StoreToUri(backward, ElementFileNaming.GetUri(scene.Uri, backward.Id));
+                    storedFiles.Add(backward.Uri!.LocalPath);
+                    scene.MoveChild(target.ZIndex, target.Start, forwardDuration, target);
+                    scene.AddChild(backward);
+                    backward.NotifySplitted(true, forwardDuration, -forwardDuration);
+                    target.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
+
+                    newElements.Add(backward);
+
+                    // Track group membership so back-clips stay in their source's group.
+                    int groupIndex = -1;
+                    for (int i = 0; i < scene.Groups.Count; i++)
+                    {
+                        if (scene.Groups[i].Contains(target.Id))
+                        {
+                            groupIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (groupIndex >= 0)
+                    {
+                        if (!groupUpdates.TryGetValue(groupIndex, out List<Guid>? newIds))
+                        {
+                            newIds = [];
+                            groupUpdates.Add(groupIndex, newIds);
+                        }
+
+                        newIds.Add(backward.Id);
+                    }
+                }
+
+                if (newElements.Count == 0) return;
+
+                foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
                 {
-                    newIds = [];
-                    groupUpdates.Add(groupIndex, newIds);
+                    ImmutableHashSet<Guid> newGroup = [.. value];
+                    if (newGroup.Count >= 2)
+                    {
+                        scene.Groups.Insert(index + 1, newGroup);
+                    }
                 }
-
-                newIds.Add(backward.Id);
-            }
+            }, CommandNames.SplitElement);
         }
-
-        if (newElements.Count == 0) return SplitOutcome.Empty;
-
-        foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
+        catch (Exception failure)
         {
-            ImmutableHashSet<Guid> newGroup = [.. value];
-            if (newGroup.Count >= 2)
+            List<Exception> failures = [failure];
+            foreach (string path in storedFiles)
             {
-                scene.Groups.Insert(index + 1, newGroup);
+                try { File.Delete(path); }
+                catch (Exception cleanup) { failures.Add(cleanup); }
             }
+            if (failures.Count > 1) throw new AggregateException("Split failed and new sidecars could not all be removed.", failures);
+            throw;
         }
-
-        _historyManager.Commit(CommandNames.SplitElement);
-        return new SplitOutcome(newElements);
+        return newElements.Count == 0 ? SplitOutcome.Empty : new SplitOutcome(newElements);
     }
 
     public GroupOutcome Group(Scene scene, IReadOnlyCollection<Guid> ids)
