@@ -344,11 +344,15 @@ public class NoMigrationRegressionTests
         project.RestoreVersionMetadata("1.0.0", "1.0.0");
         project.Items.Add(scene);
         CoreObject target = populateElement ? element : scene;
-        JsonObject json = CoreSerializer.SerializeToJsonObject(target);
+        var options = new CoreSerializerOptions
+        {
+            Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
+        };
+        JsonObject json = CoreSerializer.SerializeToJsonObject(target, options);
         json.Remove("$type");
 
-        CoreSerializer.PopulateFromJsonObject(target, json);
-        CoreSerializer.SerializeToJsonObject(project);
+        CoreSerializer.PopulateFromJsonObject(target, json, options);
+        CoreSerializer.SerializeToJsonObject(project, options);
 
         Assert.That(project.MinAppVersion, Is.EqualTo(Project.DefaultMinAppVersion));
     }
@@ -703,6 +707,8 @@ public class NoMigrationRegressionTests
             var jsonContext = (IJsonSerializationContext)context;
             JsonObject child = CoreSerializer.SerializeToJsonObject(
                 new MigratingLeaf("7.0.0"));
+            // A nested sealed contract has no discriminator in its serialized representation.
+            child.Remove("$type");
             jsonContext.SetNode(
                 "MigrationAwareChild",
                 typeof(MigratingLeaf),

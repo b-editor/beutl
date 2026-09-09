@@ -208,6 +208,8 @@ public sealed class RenderPipelineMigrationCensusTests
                 {
                     public static void Pull(this RenderNodeProcessor processor) { }
 
+                    public static void Pull<RenderNodeProcessor>(this RenderNodeProcessor processor) { }
+
                     public static void PullToRoot(
                         this global::Beutl.Graphics.Rendering.RenderNodeProcessor processor) { }
                 }
@@ -774,7 +776,7 @@ public sealed class RenderPipelineMigrationCensusTests
             corpus.FindMembersDeclaredByType(
                 "Beutl.Graphics.Rendering.RenderNodeProcessor",
                 ["Pull"]),
-            Has.Count.EqualTo(1));
+            Has.Exactly(1).Items);
     }
 
     [Test]
@@ -2121,18 +2123,15 @@ public sealed class RenderPipelineMigrationCensusTests
             string typeName,
             string qualifiedTypeName)
         {
-            if (receiverType is IdentifierNameSyntax typeParameter)
+            if (receiverType is IdentifierNameSyntax typeParameter
+                && GetTypeParameterScope(typeParameter) is not null)
             {
-                TypeSyntax[] constraints = GetTypeParameterConstraints(typeParameter).ToArray();
-                if (constraints.Length > 0)
-                {
-                    return constraints.Any(constraint => CanReceiveType(
-                        constraint,
-                        document,
-                        namespaceName,
-                        typeName,
-                        qualifiedTypeName));
-                }
+                return GetTypeParameterConstraints(typeParameter).Any(constraint => CanReceiveType(
+                    constraint,
+                    document,
+                    namespaceName,
+                    typeName,
+                    qualifiedTypeName));
             }
 
             if (CouldReferToType(
@@ -2193,15 +2192,15 @@ public sealed class RenderPipelineMigrationCensusTests
                 type = nullable.ElementType;
             }
 
-            if (type is IdentifierNameSyntax typeParameter)
+            if (type is IdentifierNameSyntax typeParameter
+                && GetTypeParameterScope(typeParameter) is not null)
             {
-                return GetTypeParameterConstraints(typeParameter)
-                    .Any(constraint => CouldReferToType(
-                        constraint,
-                        document,
-                        namespaceName,
-                        typeName,
-                        qualifiedTypeName));
+                return GetTypeParameterConstraints(typeParameter).Any(constraint => CouldReferToType(
+                    constraint,
+                    document,
+                    namespaceName,
+                    typeName,
+                    qualifiedTypeName));
             }
 
             string writtenType = GetWrittenTypeIdentity(type);
@@ -2450,18 +2449,20 @@ public sealed class RenderPipelineMigrationCensusTests
                     .Overlaps(receiverIdentities)) == true;
         }
 
+        private static SyntaxNode? GetTypeParameterScope(IdentifierNameSyntax typeParameter)
+        {
+            return typeParameter.Ancestors().FirstOrDefault(scope => scope.ChildNodes()
+                .OfType<TypeParameterListSyntax>()
+                .SelectMany(list => list.Parameters)
+                .Any(parameter => parameter.Identifier.ValueText == typeParameter.Identifier.ValueText));
+        }
+
         private static IEnumerable<TypeSyntax> GetTypeParameterConstraints(
             IdentifierNameSyntax typeParameter)
         {
-            return typeParameter.Ancestors()
-                .OfType<MethodDeclarationSyntax>()
-                .SelectMany(method => method.ConstraintClauses)
-                .Concat(typeParameter.Ancestors()
-                    .FirstOrDefault(node => node.IsKind(SyntaxKind.ExtensionBlockDeclaration))?
-                    .ChildNodes()
+            return (GetTypeParameterScope(typeParameter)?.ChildNodes()
                     .OfType<TypeParameterConstraintClauseSyntax>() ?? [])
-                .Where(item =>
-                    item.Name.Identifier.ValueText == typeParameter.Identifier.ValueText)
+                .Where(item => item.Name.Identifier.ValueText == typeParameter.Identifier.ValueText)
                 .SelectMany(item => item.Constraints.OfType<TypeConstraintSyntax>())
                 .Select(constraint => constraint.Type);
         }
