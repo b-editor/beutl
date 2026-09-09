@@ -35,6 +35,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
 
         using (FilterEffectInputBinding binding = inputFacade.Bind(context))
         {
+            binding.PrepareInputForFanOut();
             _compositionContext.Time = lastTime.Value;
             _compositionContext.PreferProxy = graphResource.PreferProxy;
             _compositionContext.PreferredProxyPreset = graphResource.PreferredProxyPreset;

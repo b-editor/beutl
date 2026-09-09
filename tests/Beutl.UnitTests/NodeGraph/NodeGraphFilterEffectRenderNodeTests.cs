@@ -82,6 +82,29 @@ public class NodeGraphFilterEffectRenderNodeTests
     }
 
     [Test]
+    public void NonValueInput_CanFeedTwoSeparateBranches()
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var input = new FilterEffectInputNode();
+        model.Nodes.Add(input);
+        foreach (int ignored in new[] { 0, 1 })
+        {
+            var branch = new CountingPassThroughGraphNode();
+            var output = new OutputNode();
+            model.Nodes.Add(branch);
+            model.Nodes.Add(output);
+            model.Connect(branch.Input, input.Output);
+            model.Connect(output.InputPort, branch.Output);
+        }
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 8, 8));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
+        Assert.DoesNotThrow(() => renderer.Measure());
+    }
+
+    [Test]
     public void ToResource_CapturesProxyPreferencesFromCompositionContext()
     {
         var effect = new NodeGraphFilterEffect();
