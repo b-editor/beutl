@@ -36,6 +36,40 @@ internal sealed class RenderRequest : IDisposable
         parent?.RegisterChild(this);
     }
 
+    private HashSet<RenderFragmentId>? _cacheDisabledOutputs;
+    private Dictionary<RenderFragmentId, bool>? _cacheDisabledCones;
+
+    internal void DisableCacheForOutputs(IEnumerable<RenderFragmentReference> outputs)
+    {
+        foreach (RenderFragmentReference output in outputs)
+            if (output.Id is { } id)
+                (_cacheDisabledOutputs ??= []).Add(id);
+        _cacheDisabledCones = null;
+    }
+
+    internal bool HasCacheDisabledInput(RenderFragmentReference root)
+    {
+        if (_cacheDisabledOutputs is null || root.Id is not { } rootId) return false;
+        var answers = _cacheDisabledCones ??= [];
+        if (answers.TryGetValue(rootId, out bool answer)) return answer;
+        var pending = new Stack<RenderFragmentReference>();
+        var visited = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
+        pending.Push(root);
+        while (pending.TryPop(out RenderFragmentReference? current))
+        {
+            if (!visited.Add(current)) continue;
+            if (current.Id is { } id)
+            {
+                if (_cacheDisabledOutputs.Contains(id) || answers.GetValueOrDefault(id))
+                    return answers[rootId] = true;
+                if (answers.ContainsKey(id)) continue;
+            }
+            foreach (RenderFragmentReference input in current.Inputs)
+                pending.Push(input);
+        }
+        return answers[rootId] = false;
+    }
+
     public RenderRequestId Id { get; }
 
     public RenderRequestId? ParentId { get; }

@@ -188,7 +188,10 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
                                 && node.Cache.CanCapture
                                 && !node.HasChanges
                                 && !node.Cache.IsDisposed;
+                bool cacheDisabled = Request.Options.CachePolicy.IsEnabled && !transaction.IsRenderCacheEnabled;
                 ImmutableArray<RenderFragmentReference> outputs = transaction.Commit();
+                if (cacheDisabled)
+                    Request.DisableCacheForOutputs(outputs);
                 if (canCache)
                     QueueCacheCandidates(node, outputs);
                 if (_crossCheckProbeDepth == 0)
