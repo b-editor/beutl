@@ -94,6 +94,15 @@ public static class FilePathComparison
 
         try
         {
+            // Distinct non-link sibling names cannot converge through their common parent.
+            // Keep the full lookup for case/normalization aliases and Windows short names.
+            if (!OperatingSystem.IsWindows()
+                && !string.Equals(leftName.Normalize(NormalizationForm.FormC), rightName.Normalize(NormalizationForm.FormC), StringComparison.OrdinalIgnoreCase)
+                && TryGetLinkTarget(leftPath) is null
+                && TryGetLinkTarget(rightPath) is null)
+            {
+                return true;
+            }
             areSame = AreSameCanonicalPath(leftPath, rightPath);
             return true;
         }
