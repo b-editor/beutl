@@ -78,19 +78,16 @@ public sealed class VideoSourceRenderNode(
 
     private bool HitTest(RenderHitTestContext _, Point point)
     {
-        Rect bounds = Bounds;
-        Pen.Resource? pen = Pen?.Resource;
-        float realThickness = PenHelper.GetRealThickness(
-            pen?.StrokeAlignment ?? StrokeAlignment.Inside,
-            pen?.Thickness ?? 0);
-
-        if (Fill?.Resource is not null)
-        {
-            return bounds.Inflate(realThickness).ContainsExclusive(point);
-        }
-
-        Rect borderRect = bounds.Inflate(realThickness);
-        Rect emptyRect = bounds.Deflate(realThickness);
-        return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
+        if (Source is not { } source)
+            return false;
+        Rect fillBounds = new(default, source.Resource.LogicalFrameSize.ToSize(1));
+        if (Fill?.Resource is not null && fillBounds.ContainsExclusive(point))
+            return true;
+        if (Pen?.Resource is not { } pen || pen.Thickness <= 0)
+            return false;
+        float outset = PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness) + pen.Offset;
+        Rect outer = fillBounds.Inflate(outset);
+        Rect inner = outer.Deflate(pen.Thickness);
+        return outer.ContainsExclusive(point) && !inner.ContainsExclusive(point);
     }
 }
