@@ -651,9 +651,19 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             string version = context.Version;
             string downloadUrl = context.DownloadUrl;
             context.NuGetPackageFile = Helper.GetNupkgFilePath(name, version);
-            using (FileStream destination = File.Create(context.NuGetPackageFile))
+            string temporaryPath = context.NuGetPackageFile + $".{Guid.NewGuid():N}.tmp";
+            try
             {
-                await Download(downloadUrl, destination, progress, cancellationToken).ConfigureAwait(false);
+                using (FileStream destination = File.Create(temporaryPath))
+                {
+                    await Download(downloadUrl, destination, progress, cancellationToken).ConfigureAwait(false);
+                    destination.Flush(flushToDisk: true);
+                }
+                File.Move(temporaryPath, context.NuGetPackageFile, overwrite: true);
+            }
+            finally
+            {
+                File.Delete(temporaryPath);
             }
 
             context.Phase = PackageInstallPhase.Downloaded;
