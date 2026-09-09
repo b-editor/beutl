@@ -1089,6 +1089,63 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.Value?.Dispose();
     }
 
+    [Test]
+    public void StandalonePreview_IgnoresOldCacheWithoutConsumingDirtyFlags()
+    {
+        var source = new PreviewCacheableSourceRenderNode();
+        using var renderNode = new LayerRenderNode(default);
+        renderNode.AddChild(source);
+        var model = new GraphModel();
+        var sourceNode = new FixedRenderNodeGraphNode(renderNode);
+        var previewNode = new PreviewNode();
+        model.Nodes.Add(sourceNode);
+        model.Nodes.Add(previewNode);
+        model.Connect(previewNode.Input, sourceNode.Output);
+        NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(previewNode);
+        monitor.IsEnabled = true;
+        using var snapshot = new GraphSnapshot();
+
+        var context = new CompositionContext(TimeSpan.Zero)
+        {
+            TargetDomain = new Rect(0, 0, 64, 48),
+        };
+        snapshot.Build(model, context);
+        using (var mainRenderer = new RenderNodeRenderer(renderNode, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = context.TargetDomain,
+            Purpose = RenderRequestPurpose.Frame,
+            CacheOptions = RenderCacheOptions.Enabled,
+        }))
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                using var result = mainRenderer.Rasterize();
+            }
+        }
+        Assert.That(source.ExecutionCount, Is.LessThan(8), "The control must actually have cached an earlier frame.");
+        int priorExecutions = source.ExecutionCount;
+        source.DrawColor = Colors.Red;
+        source.MarkChanged();
+        renderNode.MarkChanged();
+        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        Assert.That(renderNode.HasChanges, Is.True, "An auxiliary preview must not consume the main render's change flag.");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(source.ExecutionCount, Is.EqualTo(priorExecutions + 1));
+            Assert.That(monitor.Value!.Value.SKBitmap.GetPixel(2, 2), Is.EqualTo(SKColors.Red));
+            Assert.That(monitor.Value, Is.Not.Null);
+            // A Full isolation scope makes the composition domain the root output extent,
+            // which covers conservative final writes; only Measure/HitTest report the tight
+            // query bounds.
+            Assert.That(monitor.Value!.Value.Width, Is.EqualTo(64));
+            Assert.That(monitor.Value.Value.Height, Is.EqualTo(48));
+        });
+
+        monitor.Value?.Dispose();
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void StandaloneUtility_DoesNotRetryAnUnrelatedInvalidOperationException(bool preview)
@@ -1690,5 +1747,33 @@ internal sealed class EmptyZeroOrOneRenderNode(Rect bounds) : RenderNode
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.ZeroOrOne,
             RenderScaleContract.MaterializeAtWorkingScale)));
+    }
+}
+
+internal sealed class PreviewCacheableSourceRenderNode : RenderNode
+{
+    private sealed class Probe { public int Count; }
+    private static readonly RenderResourceSlot<Probe> s_probeSlot = new();
+    private static readonly Rect s_bounds = new(0, 0, 14, 9);
+    private readonly Probe _probe = new();
+    public int ExecutionCount => _probe.Count;
+    public Color DrawColor { get; set; } = Colors.CornflowerBlue;
+
+    public override void Process(RenderNodeContext context)
+    {
+        context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+            DrawColor,
+            static (session, color) => session.UseResource(s_probeSlot, probe =>
+            {
+                probe.Count++;
+                using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
+                output.Canvas.Use(canvas => canvas.Clear(color));
+                session.Publish(output);
+            }),
+            OpaqueRenderBoundsContract.Source(s_bounds),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale,
+            resources: [s_probeSlot.Bind(context.Borrow(_probe))])));
     }
 }
