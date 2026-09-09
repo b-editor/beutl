@@ -9,6 +9,7 @@ namespace Beutl.Media;
 public sealed class SpeedIntegrator : IDisposable
 {
     private Dictionary<int, double>? _integralCache;
+    private int _greatestCachedSecond = -1;
     private IAnimation<float>? _trackedAnimation;
     private int _sampleRate;
     private readonly Action? _invalidateCallback;
@@ -60,8 +61,9 @@ public sealed class SpeedIntegrator : IDisposable
     public (int Key, double Value) TryGetCache(int targetSec)
     {
         if (_integralCache == null) return (-1, 0);
+        if (_integralCache.TryGetValue(targetSec, out double exact)) return (targetSec, exact);
 
-        for (int sec = targetSec; sec >= 0; sec--)
+        for (int sec = Math.Min(targetSec, _greatestCachedSecond); sec >= 0; sec--)
         {
             if (_integralCache.TryGetValue(sec, out double result))
             {
@@ -78,6 +80,7 @@ public sealed class SpeedIntegrator : IDisposable
     public void Invalidate()
     {
         _integralCache?.Clear();
+        _greatestCachedSecond = -1;
         _invalidateCallback?.Invoke();
     }
 
@@ -115,6 +118,7 @@ public sealed class SpeedIntegrator : IDisposable
                 sum += (speed / 100.0) / _sampleRate;
             }
             _integralCache![sec + 1] = sum;
+            _greatestCachedSecond = Math.Max(_greatestCachedSecond, sec + 1);
         }
 
         // Integrate the remainder from the target second to the exact target time. Sample-domain math
