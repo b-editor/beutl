@@ -418,7 +418,7 @@ public partial class PlayerView : UserControl
                 BtlPoint pivot = resource.TransformOrigin.ToPixels(localSize);
 
                 // userMatrix omits FilterEffect-induced offsets; align against rendered bounds.
-                BtlMatrix adjusted = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds.Value);
+                BtlMatrix adjusted = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds.Value, new BtlRect(availableSize));
 
                 return ((BtlSize, BtlMatrix, BtlPoint)?)(localSize, adjusted, pivot);
             });

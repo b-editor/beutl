@@ -69,8 +69,11 @@ internal static class TransformHandleMath
     /// difference becomes a translation of thousands of pixels rather than an effect's offset.
     /// </remarks>
     public static Matrix AlignUserMatrixToRenderedBounds(Matrix userMatrix, Size localSize, Rect renderedBounds)
+        => AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds, null);
+
+    public static Matrix AlignUserMatrixToRenderedBounds(Matrix userMatrix, Size localSize, Rect renderedBounds, Rect? deliveredTo)
     {
-        Rect transformBounds = new Rect(localSize).TransformToAABB(userMatrix);
+        Rect transformBounds = new Rect(localSize).TransformToDeliveredAABB(userMatrix, deliveredTo);
         if (transformBounds.IsEmpty)
         {
             return userMatrix;

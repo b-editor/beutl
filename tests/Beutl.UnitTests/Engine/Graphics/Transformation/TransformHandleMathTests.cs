@@ -14,6 +14,16 @@ public class TransformHandleMathTests
     //   With T_new = T_old + ΔT, the screen_anchor stays identical between old and new.
 
     [Test]
+    public void DeliveredPerspectiveBounds_DoNotIntroduceAnOverlayTranslation()
+    {
+        Matrix matrix = ComposeCenteredRotation(1200, 54, 89.5f, 500);
+        var local = new Size(1200, 54);
+        var frame = new Rect(0, 0, 256, 144);
+        Rect rendered = new Rect(local).TransformToDeliveredAABB(matrix, frame);
+        Assert.That(TransformHandleMath.AlignUserMatrixToRenderedBounds(matrix, local, rendered, frame), Is.EqualTo(matrix));
+    }
+
+    [Test]
     public void ComputePivotTranslationDelta_AnchorAtOrigin_ReturnsZero()
     {
         // When the anchor coincides with the pivot, effD = 0, so ΔT = 0 even if the scale changes.
