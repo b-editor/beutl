@@ -12,13 +12,30 @@ public sealed partial class LimiterAfterClipTailSound : Sound
 {
     public LimiterAfterClipTailSound() => ScanProperties<LimiterAfterClipTailSound>();
 
+    public bool LimiterBeforeClip { get; set; }
+
     public float LookaheadMs { get; set; } = 5f;
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
         var source = context.AddNode(new ClipLocalSineNode(context.SampleRate));
         var clip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
-        context.Connect(source, clip);
+        if (LimiterBeforeClip)
+        {
+            var upstream = context.AddNode(new LimiterNode
+            {
+                Threshold = Property.CreateAnimatable(LimiterParameters.MaxThresholdDb),
+                Release = Property.CreateAnimatable(LimiterParameters.DefaultReleaseMs),
+                Lookahead = Property.CreateAnimatable(LookaheadMs),
+                MakeupGain = Property.CreateAnimatable(0f),
+            });
+            context.Connect(source, upstream);
+            context.Connect(upstream, clip);
+        }
+        else
+        {
+            context.Connect(source, clip);
+        }
 
         var limiter = context.AddNode(new LimiterNode
         {
