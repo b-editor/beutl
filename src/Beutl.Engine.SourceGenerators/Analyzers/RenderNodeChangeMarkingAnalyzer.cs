@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace Beutl.Engine.SourceGenerators.Analyzers;
 
@@ -60,12 +61,30 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
         var analysis = new TypeAnalysis(context.Compilation, type, renderNodeType);
         ImmutableHashSet<ISymbol> processClosure = analysis.CollectCallClosure(process);
+        for (INamedTypeSymbol? current = type; current is not null && current != renderNodeType; current = current.BaseType)
+        {
+            if (current.GetMembers("ChildNodes").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod is { } getter)
+            {
+                processClosure = processClosure.Union(analysis.CollectCallClosure(getter));
+                break;
+            }
+        }
         ImmutableHashSet<ISymbol> readState = analysis.CollectReadInstanceState(processClosure);
         if (readState.IsEmpty)
             return;
 
         ReportUnmarkedMutators(context, analysis, type, renderNodeType, processClosure, readState);
         ReportExternallyWritableState(context, analysis, type, renderNodeType, readState);
+        foreach (IMethodSymbol callback in analysis.ConstructorSubscriptions(type))
+        {
+            if (analysis.MarksChanged(callback)) continue;
+            foreach (StateAssignment assignment in analysis.FindStateAssignments(callback, readState))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    DiagnosticDescriptors.UnmarkedRenderNodeMutation, assignment.Location,
+                    type.Name, "constructor subscription", assignment.State.Name, CallMarkChanged));
+            }
+        }
     }
 
     /// <summary>Reports the writes to <paramref name="readState"/> made by the methods this node runs.</summary>
@@ -772,6 +791,22 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
+        public IEnumerable<IMethodSymbol> ConstructorSubscriptions(INamedTypeSymbol declaring)
+        {
+            foreach (IMethodSymbol constructor in declaring.InstanceConstructors)
+            foreach (BodyWithModel body in GetBodies(constructor))
+            foreach (AnonymousFunctionExpressionSyntax lambda in body.Body.DescendantNodes().OfType<AnonymousFunctionExpressionSyntax>())
+            {
+                bool eventHandler = lambda.Parent is AssignmentExpressionSyntax assignment
+                    && assignment.IsKind(SyntaxKind.AddAssignmentExpression)
+                    && body.Model.GetSymbolInfo(assignment.Left).Symbol is IEventSymbol;
+                bool subscription = lambda.Parent is ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax invocation }
+                    && body.Model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Subscribe" };
+                if ((eventHandler || subscription) && body.Model.GetOperation(lambda) is IAnonymousFunctionOperation operation)
+                    yield return operation.Symbol;
+            }
+        }
+
         private IEnumerable<BodyWithModel> GetBodies(IMethodSymbol method)
         {
             foreach (SyntaxReference reference in method.DeclaringSyntaxReferences)
@@ -782,6 +817,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     BaseMethodDeclarationSyntax m => (SyntaxNode?)m.Body ?? m.ExpressionBody,
                     AccessorDeclarationSyntax a => (SyntaxNode?)a.Body ?? a.ExpressionBody,
                     LocalFunctionStatementSyntax f => (SyntaxNode?)f.Body ?? f.ExpressionBody,
+                    AnonymousFunctionExpressionSyntax lambda => lambda.Body,
                     ArrowExpressionClauseSyntax arrow => arrow,
                     _ => null,
                 };

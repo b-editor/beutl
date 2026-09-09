@@ -10,6 +10,23 @@ namespace SourceGeneratorTest;
 public sealed class RenderNodeChangeMarkingAnalyzerTests
 {
     [Test]
+    public void ChildNodesOnlyDependency_IsTracked()
+    {
+        var diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics.Rendering;
+            class Example : RenderNode
+            {
+                RenderNode[] children = [];
+                public override ReadOnlySpan<RenderNode> ChildNodes => children;
+                public void Replace(RenderNode child) => children = [child];
+                public override void Process(RenderNodeContext context) { }
+            }
+            """);
+        Assert.That(diagnostics.Any(d => d.Id == "BESG005"), Is.True);
+    }
+
+    [Test]
     public void MutableStructMemberWrite_IsReported()
     {
         var diagnostics = Analyze("""
@@ -21,6 +38,24 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
                 Offset offset;
                 public void Move(float dx) => offset.X += dx;
                 public override void Process(RenderNodeContext context) => context.Publish(new Rect(offset.X, 0, 1, 1));
+            }
+            """);
+        Assert.That(diagnostics.Any(diagnostic => diagnostic.Id == "BESG005"), Is.True);
+    }
+
+    [Test]
+    public void DeferredConstructorEventWrite_IsReported()
+    {
+        var diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            class Signals { public event Action? Changed; }
+            class Example : RenderNode
+            {
+                Rect bounds;
+                public Example(Signals signals) { signals.Changed += () => bounds = new Rect(0, 0, 2, 2); }
+                public override void Process(RenderNodeContext context) => context.Publish(bounds);
             }
             """);
         Assert.That(diagnostics.Any(diagnostic => diagnostic.Id == "BESG005"), Is.True);
@@ -74,6 +109,7 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
                 internal void ClearChanges(long observedVersion) => _hasChanges = false;
 
                 public abstract void Process(RenderNodeContext context);
+                public virtual System.ReadOnlySpan<RenderNode> ChildNodes => [];
 
                 protected virtual void OnDispose(bool disposing) { }
             }
