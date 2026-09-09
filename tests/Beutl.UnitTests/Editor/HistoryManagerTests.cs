@@ -8,6 +8,48 @@ namespace Beutl.UnitTests.Editor;
 
 public class HistoryManagerTests
 {
+    [Test]
+    public void UndoFailureKeepsHistory()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(() => { }, () => throw new InvalidOperationException("probe"));
+        manager.Commit("probe");
+        Assert.Throws<InvalidOperationException>(() => manager.Undo());
+        Assert.That(manager.UndoCount, Is.EqualTo(1), "Failed undo must retain the transaction");
+    }
+
+    [Test]
+    public void RedoFailureKeepsHistory()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(() => throw new InvalidOperationException("probe"), () => { });
+        manager.Commit("probe");
+        manager.Undo();
+        Assert.Throws<InvalidOperationException>(() => manager.Redo());
+        Assert.That(manager.RedoCount, Is.EqualTo(1), "Failed redo must retain the transaction");
+    }
+
+    [Test]
+    public void PartialUndoFailureNotifiesAndKeepsTheEntry()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int value = 2;
+        manager.Record(() => { }, () => throw new InvalidOperationException("failure"));
+        manager.Record(() => value = 2, () => value = 1);
+        manager.Commit("partial");
+        HistoryState? observed = null;
+        using var subscription = manager.StateChanged.Subscribe(state => observed = state);
+        Assert.Throws<InvalidOperationException>(() => manager.Undo());
+        Assert.Multiple(() =>
+        {
+            Assert.That(value, Is.EqualTo(1));
+            Assert.That(manager.UndoCount, Is.EqualTo(1));
+            Assert.That(manager.RedoCount, Is.Zero);
+            Assert.That(manager.Entries.Count, Is.EqualTo(2));
+            Assert.That(observed?.UndoCount, Is.EqualTo(1));
+        });
+    }
+
     private TestCoreObject _root = null!;
     private OperationSequenceGenerator _sequenceGenerator = null!;
 
