@@ -65,7 +65,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
         ThrowIfLibrariesMissing();
 
-        await _startLock.WaitAsync(ct);
+        await _startLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             if (_connection != null && _process is { HasExited: false })
@@ -73,7 +73,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
             ThrowIfLibrariesMissing();
 
-            await StartWorkerAsync(ct);
+            await StartWorkerAsync(ct).ConfigureAwait(false);
             return _connection!;
         }
         finally
@@ -144,7 +144,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             if (completed == exitTask)
             {
                 // キャンセル経由でexitTaskが完了した場合は OperationCanceledException を再スロー
-                await exitTask;
+                await exitTask.ConfigureAwait(false);
 
                 int code = _process.ExitCode;
 
@@ -171,7 +171,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             }
 
             // 接続が先に成立。例外があれば伝播させる
-            await connectTask;
+            await connectTask.ConfigureAwait(false);
             // 敗者となった exitTask の例外を観測しておく（UnobservedTaskException 防止）
             _ = exitTask.ContinueWith(
                 static t => { _ = t.Exception; },
@@ -209,7 +209,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
         };
 
         // ハンドシェイク待機（プロトコルバージョン検証）
-        var handshake = await _connection.ReceiveAsync(ct)
+        var handshake = await _connection.ReceiveAsync(ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Worker closed connection during handshake");
 
         if (handshake.Type != MessageType.HandshakeAck)
