@@ -20,10 +20,14 @@ public sealed class PersistedContentMigrationContractTests : PublicApiContractTe
             Uri = new Uri(Path.Combine(root, "scene.scene")),
             Child = new MigratingLeaf(),
         };
-        JsonObject json = CoreSerializer.SerializeToJsonObject(source);
+        var options = new CoreSerializerOptions
+        {
+            Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
+        };
+        JsonObject json = CoreSerializer.SerializeToJsonObject(source, options);
         var restored = (MigratingSceneItem)CoreSerializer.DeserializeFromJsonObject(
             json,
-            typeof(ProjectItem));
+            typeof(ProjectItem), options);
         var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
         project.Items.Add(restored);
         var manualContext = new JsonSerializationContext(typeof(MigratingLeaf));

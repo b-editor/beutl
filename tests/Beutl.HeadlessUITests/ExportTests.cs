@@ -125,7 +125,7 @@ public class ExportTests
         {
             Interlocked.Increment(ref _disposeCount);
             DisposeStarted?.TrySetResult();
-            DisposeRelease?.GetAwaiter().GetResult();
+            DisposeRelease?.WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult();
             if (DisposeFailure is not null)
             {
                 throw DisposeFailure;
@@ -211,8 +211,16 @@ public class ExportTests
         HeadlessTestHelpers.Settle();
         Assert.That(output.SupersampleWarning.Value, Is.Not.Null);
         Assert.That(output.CanEncode.Value, Is.False);
-        Exception? rejection = Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await output.RunAsync(CancellationToken.None));
+        Exception? rejection = null;
+        try
+        {
+            await output.RunAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            rejection = ex;
+        }
+        Assert.That(rejection, Is.TypeOf<InvalidOperationException>());
         Assert.That(OutputViewModel.WasFailureReported(rejection!), Is.True);
 
         output.SupersampleFactor.Value = 1;
@@ -254,8 +262,17 @@ public class ExportTests
         NotificationService.Handler = recorder;
         try
         {
-            Assert.ThrowsAsync<FFmpegWorkerException>(async () =>
-                await output.RunAsync(CancellationToken.None));
+            // A synchronous async assertion would block the UI continuations in RunAsync.
+            Exception? failure = null;
+            try
+            {
+                await output.RunAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+            Assert.That(failure, Is.TypeOf<FFmpegWorkerException>());
         }
         finally
         {
@@ -843,15 +860,26 @@ public class ExportTests
         try
         {
             await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
-            context.Finish();
-            await disposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.Multiple(() =>
+            // Context disposal blocks the UI thread until released. Observe it from another
+            // thread so the release does not depend on that same UI thread resuming.
+            Task observeBlockedDisposal = Task.Run(async () =>
             {
-                Assert.That(execution.IsCompleted, Is.False);
-                Assert.That(CanBeginWorkspaceMutation(), Is.False);
+                try
+                {
+                    await disposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                    Assert.Multiple(() =>
+                    {
+                        Assert.That(execution.IsCompleted, Is.False);
+                        Assert.That(CanBeginWorkspaceMutation(), Is.False);
+                    });
+                }
+                finally
+                {
+                    releaseDispose.TrySetResult();
+                }
             });
-
-            releaseDispose.TrySetResult();
+            context.Finish();
+            await observeBlockedDisposal.WaitAsync(TimeSpan.FromSeconds(5));
             await execution.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
