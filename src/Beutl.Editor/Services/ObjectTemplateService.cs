@@ -46,7 +46,16 @@ public sealed class ObjectTemplateService
             || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
             || name.Contains('/') || name.Contains('\\'))
             return null;
-        var item = ObjectTemplateItem.CreateFromInstance(instance, name);
+        ObjectTemplateItem item;
+        try
+        {
+            item = ObjectTemplateItem.CreateFromInstance(instance, name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unable to serialize template {Name}.", name);
+            return null;
+        }
         item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(instance, cancellationToken);
 
         return await Task.Run(
