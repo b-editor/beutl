@@ -405,15 +405,7 @@ public static class CoreSerializer
             string rehomedPath = uri.LocalPath;
             if (File.Exists(rehomedPath))
             {
-                try
-                {
-                    EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
-                }
-                catch
-                {
-                    suppressedObj.Uri = suppressed.SourceUri;
-                    throw;
-                }
+                EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
 
                 CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
                 suppressed.WasReinstated = false;
@@ -448,15 +440,7 @@ public static class CoreSerializer
                 }
                 catch (IOException) when (File.Exists(rehomedPath))
                 {
-                    try
-                    {
-                        EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
-                    }
-                    catch
-                    {
-                        suppressedObj.Uri = suppressed.SourceUri;
-                        throw;
-                    }
+                    EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
 
                     suppressed.WasReinstated = false;
                     suppressedObj.Uri = uri;

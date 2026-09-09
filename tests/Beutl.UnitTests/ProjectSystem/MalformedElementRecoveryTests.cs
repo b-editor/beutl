@@ -2986,7 +2986,7 @@ public sealed class MalformedElementRecoveryTests
         Assert.Multiple(() =>
         {
             Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(repairedBytes));
-            Assert.That(recovered.Uri, Is.EqualTo(new Uri(elementPath)));
+            Assert.That(recovered.Uri, Is.EqualTo(new Uri(rehomedPath)));
         });
     }
 
@@ -3012,7 +3012,7 @@ public sealed class MalformedElementRecoveryTests
         Assert.Multiple(() =>
         {
             Assert.That(File.ReadAllBytes(foreignPath), Is.EqualTo(foreignBytes));
-            Assert.That(recovered.Uri, Is.EqualTo(new Uri(elementPath)));
+            Assert.That(recovered.Uri, Is.EqualTo(new Uri(rehomedPath)));
         });
     }
 
