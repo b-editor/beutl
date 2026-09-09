@@ -246,9 +246,7 @@ public static class ProjectOperations
         string root = Path.TrimEndingDirectorySeparator(
             PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(directory)));
         string full = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(candidate));
-        StringComparison comparison = PathBoundary.Comparison;
-        return full.StartsWith(root + Path.DirectorySeparatorChar, comparison)
-               || string.Equals(full, root, comparison);
+        return PathBoundary.IsPathInsideRoot(root, full);
     }
 
     // apply_edit must have no filesystem side effects (a dry-run/rejected edit must leave the disk
