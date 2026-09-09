@@ -158,6 +158,41 @@ public class ProxyJobQueueTests
     }
 
     [Test]
+    public async Task Priority_promotion_wakes_a_deferred_job_before_its_backoff()
+    {
+        var generator = new RecordingGenerator();
+        var admission = new SequencedAdmission(rejections: 1);
+        var delayStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30),
+            maxUnavailableBackoff: TimeSpan.FromSeconds(30),
+            admission,
+            async (_, cancellationToken) =>
+            {
+                delayStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            });
+
+        ProxyFingerprint source = CreateFingerprint("priority-signal.mov");
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await delayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        ProxyJob promoted = await queue.EnqueueAsync(source, ProxyPreset.Quarter, priority: 10);
+        Assert.That(promoted, Is.SameAs(job));
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(admission.Attempts, Is.EqualTo(2));
+            Assert.That(generator.Sources, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
     public async Task Accepted_admission_lease_is_held_until_generation_and_terminal_publication()
     {
         var generator = new SignalingGenerator(ignoreCancellation: false);

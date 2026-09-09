@@ -237,6 +237,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         WorkItem? newItem = null;
         ProxyJob? existingJob = null;
         bool promoted = false;
+        WorkItem? promotedItem = null;
         lock (_lock)
         {
             if (_itemsByKey.TryGetValue(key, out WorkItem? existing))
@@ -248,6 +249,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     {
                         existingJob.Priority = priority;
                         promoted = true;
+                        promotedItem = existing;
                     }
                 }
                 else
@@ -285,7 +287,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         if (existingJob != null)
         {
             if (promoted)
+            {
+                if (promotedItem!.TryGetAdmissionWait(out long generation, out _))
+                    promotedItem.SignalAdmissionAvailability(generation);
                 OnJobChanged(existingJob, ProxyJobChangeKind.Enqueued);
+            }
             return new ValueTask<ProxyJob>(existingJob);
         }
 
