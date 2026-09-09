@@ -107,9 +107,9 @@ public sealed partial class MacWindow : Window
         try
         {
             var rootMenu = NativeMenu.GetMenu(this)!;
-            var fileMenu = (NativeMenuItem)rootMenu.Items[0];
-            recentFiles = ((NativeMenuItem)fileMenu.Menu!.Items[^4]).Menu;
-            recentProj = ((NativeMenuItem)fileMenu.Menu!.Items[^3]).Menu;
+            var fileMenu = FindMenuItem(rootMenu, Strings.File);
+            recentFiles = FindMenuItem(fileMenu?.Menu, Strings.RecentFiles)?.Menu;
+            recentProj = FindMenuItem(fileMenu?.Menu, Strings.RecentProjects)?.Menu;
         }
         catch
         {
