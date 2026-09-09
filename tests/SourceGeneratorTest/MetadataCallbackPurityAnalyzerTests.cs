@@ -13,6 +13,23 @@ namespace SourceGeneratorTest;
 public sealed class MetadataCallbackPurityAnalyzerTests
 {
     [Test]
+    public void ConstructorReassignedCallback_IsNotTreatedAsItsStaticInitializer()
+    {
+        var diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            class Example
+            {
+                readonly Func<Rect, Rect> map = static value => value;
+                public Example(float offset) { map = value => new(value.X + offset, value.Y, value.Width, value.Height); }
+                public RenderBoundsContract Create() => RenderBoundsContract.Create(map, static value => value);
+            }
+            """);
+        Assert.That(diagnostics.Any(diagnostic => diagnostic.Id == "BESG003"), Is.True);
+    }
+
+    [Test]
     public void LambdaCallingCapturingLocalFunction_IsReported()
     {
         var diagnostics = Analyze("""

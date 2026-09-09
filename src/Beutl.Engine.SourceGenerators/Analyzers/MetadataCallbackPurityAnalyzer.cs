@@ -180,6 +180,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             switch (symbol)
             {
                 case IFieldSymbol { IsReadOnly: true } field:
+                    if (IsWrittenInAConstructor(context, field))
+                        return (expression, model, "the callback field is reassigned in a constructor, so its initializer does not describe the callback used here");
                     if (!visited.Add(field))
                         return (expression, model, CyclicCallback);
 
@@ -189,6 +191,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     break;
 
                 case IPropertySymbol property:
+                    if (IsWrittenInAConstructor(context, property))
+                        return (expression, model, "the callback property is assigned in a constructor, so its initializer does not describe the callback used here");
                     if (property.SetMethod is not null)
                     {
                         return (expression, model, "the callback comes from a property with a setter, so "
@@ -1402,9 +1406,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             : qualifier is ThisExpressionSyntax;
     }
 
-    private static bool IsWrittenInAConstructor(SyntaxNodeAnalysisContext context, IFieldSymbol field)
+    private static bool IsWrittenInAConstructor(SyntaxNodeAnalysisContext context, ISymbol field)
     {
-        INamedTypeSymbol type = field.OriginalDefinition.ContainingType;
+        INamedTypeSymbol type = field.OriginalDefinition.ContainingType!;
 
         foreach (IMethodSymbol constructor in type.InstanceConstructors.Concat(type.StaticConstructors))
         {
