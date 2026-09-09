@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Reactive.Linq;
+using System.Text;
 using System.Text.Json.Nodes;
 using Beutl.Editor;
 using Beutl.Graphics;
@@ -343,11 +344,15 @@ public class NoMigrationRegressionTests
         project.RestoreVersionMetadata("1.0.0", "1.0.0");
         project.Items.Add(scene);
         CoreObject target = populateElement ? element : scene;
-        JsonObject json = CoreSerializer.SerializeToJsonObject(target);
+        var options = new CoreSerializerOptions
+        {
+            Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
+        };
+        JsonObject json = CoreSerializer.SerializeToJsonObject(target, options);
         json.Remove("$type");
 
-        CoreSerializer.PopulateFromJsonObject(target, json);
-        CoreSerializer.SerializeToJsonObject(project);
+        CoreSerializer.PopulateFromJsonObject(target, json, options);
+        CoreSerializer.SerializeToJsonObject(project, options);
 
         Assert.That(project.MinAppVersion, Is.EqualTo(Project.DefaultMinAppVersion));
     }
@@ -499,6 +504,56 @@ public class NoMigrationRegressionTests
         });
     }
 
+    [Test]
+    public void AutoSave_persists_migration_requirements_before_writing_an_element()
+    {
+        var project = new Project { Uri = new Uri(Path.Combine(_tempDirectory, "project.bep")) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "scene.scene")) };
+        var element = CreateMigrated(new MigratedElement("9.0.0"));
+        element.Uri = new Uri(Path.Combine(_tempDirectory, "element.belm"));
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        var root = new VirtualProjectRoot();
+        root.AttachProject(project);
+        File.WriteAllText(project.Uri.LocalPath, "{\"minAppVersion\":\"1.0.0\"}");
+        File.WriteAllText(element.Uri.LocalPath, "original");
+        string? requiredVersionAtElementWrite = null;
+        element.BeforeSerialization = () => requiredVersionAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(project.Uri.LocalPath))!["minAppVersion"];
+        using var autoSave = new AutoSaveService();
+
+        autoSave.SaveObjects([element]);
+
+        Assert.That(requiredVersionAtElementWrite, Is.EqualTo("9.0.0"));
+        Assert.That(File.ReadAllText(element.Uri.LocalPath), Is.Not.EqualTo("original"));
+    }
+
+    [Test]
+    public void AutoSave_does_not_replace_sidecars_when_migration_preflight_fails()
+    {
+        string blockedPath = Path.Combine(_tempDirectory, "project.bep");
+        Directory.CreateDirectory(blockedPath);
+        var project = new Project { Uri = new Uri(blockedPath) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "scene.scene")) };
+        var element = CreateMigrated(new MigratedElement("9.0.0"));
+        element.Uri = new Uri(Path.Combine(_tempDirectory, "element.belm"));
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        var root = new VirtualProjectRoot();
+        root.AttachProject(project);
+        File.WriteAllText(scene.Uri.LocalPath, "original scene");
+        File.WriteAllText(element.Uri.LocalPath, "original element");
+        using var autoSave = new AutoSaveService();
+        var errors = new List<Exception>();
+        using var subscription = autoSave.SaveError.Subscribe(errors.Add);
+
+        autoSave.SaveObjects([element, scene, project]);
+
+        Assert.That(errors, Has.Count.EqualTo(1));
+        Assert.That(File.ReadAllText(scene.Uri.LocalPath), Is.EqualTo("original scene"));
+        Assert.That(File.ReadAllText(element.Uri.LocalPath), Is.EqualTo("original element"));
+    }
+
     private (string ProjectPath, string ScenePath, string ElementPath) CreateProjectWithSidecars()
     {
         string projectPath = Path.Combine(_tempDirectory, "project.bep");
@@ -562,8 +617,11 @@ public class NoMigrationRegressionTests
 
         public string RequiredVersion { get; set; } = null!;
 
+        public Action? BeforeSerialization { get; set; }
+
         public override void Serialize(ICoreSerializationContext context)
         {
+            BeforeSerialization?.Invoke();
             base.Serialize(context);
             context.SetValue(nameof(RequiredVersion), RequiredVersion);
         }
@@ -649,6 +707,8 @@ public class NoMigrationRegressionTests
             var jsonContext = (IJsonSerializationContext)context;
             JsonObject child = CoreSerializer.SerializeToJsonObject(
                 new MigratingLeaf("7.0.0"));
+            // A nested sealed contract has no discriminator in its serialized representation.
+            child.Remove("$type");
             jsonContext.SetNode(
                 "MigrationAwareChild",
                 typeof(MigratingLeaf),

@@ -1,4 +1,6 @@
-﻿namespace Beutl.UnitTests.Core;
+﻿using Beutl.Editor.VersionControl;
+
+namespace Beutl.UnitTests.Core;
 
 [TestFixture]
 public class FilePathComparisonTests
@@ -16,11 +18,12 @@ public class FilePathComparisonTests
         Directory.CreateDirectory(whitespacePath);
         try
         {
+            string expectedPath = Path.Combine(FilePathComparison.ResolveCanonicalPath(temporaryRoot), " ");
             Assert.Multiple(() =>
             {
                 Assert.That(
                     FilePathComparison.ResolveCanonicalPath(whitespacePath),
-                    Is.EqualTo(whitespacePath));
+                    Is.EqualTo(expectedPath));
                 Assert.That(
                     FilePathComparison.TryAreSameChildPath(
                         temporaryRoot,
@@ -369,6 +372,13 @@ public class FilePathComparisonTests
                 Is.True);
             Assert.Multiple(() =>
             {
+                Assert.That(
+                    VersionControlPathComparison.ResolveCanonicalPath(Path.Combine(alias, "..")),
+                    Is.EqualTo(FilePathComparison.ResolveCanonicalPath(targetParent)));
+                Assert.That(
+                    VersionControlPathComparison.IsSameOrDescendant(
+                        lexicalParent, Path.Combine(alias, "..")),
+                    Is.False);
                 Assert.That(
                     FilePathComparison.IsSameOrDescendant(
                         targetParent,

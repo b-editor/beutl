@@ -1677,79 +1677,64 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         CancellationToken token = pollingCts.Token;
         operation.TryPublish(() => IsWaitingForJob.Value = true);
 
-        int transientFailures = 0;
         try
         {
-            while (!token.IsCancellationRequested)
+            (AiVideoJob job, AiJobStatusSemantics status) = await AiVideoJobWaiter.WaitAsync(
+                _videos, _jobKinds, jobId,
+                () => operation.TryPublish(() => StatusText.Value = Strings.AiVideoProcessing),
+                PollInterval, MaximumTransientPollDelay, PollDelayAsync, token);
+            if (status.Outcome == AiJobOutcomes.Succeeded)
             {
-                AiVideoJob job;
-                try
+                if (job.ContentUri is not { } contentUri)
                 {
-                    job = await _videos.GetAsync(jobId, token);
-                    transientFailures = 0;
-                }
-                catch (Exception ex) when (IsTransientPollingFailure(ex, token))
-                {
-                    transientFailures++;
-                    operation.TryPublish(() => StatusText.Value = Strings.AiVideoProcessing);
-                    await PollDelayAsync(GetTransientPollDelay(transientFailures), token);
-                    continue;
-                }
-                AiJobStatusSemantics status = _jobKinds.GetStatus(AiJobKinds.Video, job.Status);
-                if (status.Outcome == AiJobOutcomes.Succeeded)
-                {
-                    if (job.ContentUri is not { } contentUri)
-                    {
-                        throw new InvalidOperationException("A successful video job did not provide content.");
-                    }
-
-                    string? localPath = await DownloadVideoAsync(
-                        contentUri,
-                        job.ContentMetadata,
-                        operation,
-                        token);
-                    if (localPath is null)
-                        return false;
-
-                    operation.TryPublish(() =>
-                    {
-                        string? previousPath = ResultVideoPath.Value;
-                        StatusText.Value = Strings.AiVideoCompleted;
-                        ResultVideoPath.Value = localPath;
-                        _resultSnapshot = pendingSnapshot;
-                        if (!string.Equals(previousPath, localPath, StringComparison.Ordinal))
-                        {
-                            RequestTemporaryFileDeletion(previousPath);
-                        }
-                    });
-                    return true;
-                }
-                if (status.IsTerminal)
-                {
-                    operation.TryPublish(() =>
-                    {
-                        StatusText.Value = Strings.AiVideoFailed;
-                        Error.Value = AiErrorMessage.Localize(job.Error) ?? Strings.AiProviderError;
-                    });
-                    return true;
+                    throw new InvalidOperationException("A successful video job did not provide content.");
                 }
 
-                if (!status.ShouldPoll)
-                {
-                    // An unknown status is not a terminal outcome. The server may
-                    // have introduced it during a rolling upgrade, so keep the
-                    // request recoverable and require a later history refresh.
-                    operation.TryPublish(() =>
-                    {
-                        StatusText.Value = Strings.AiResultUnavailable;
-                        Error.Value = Strings.AiResultUnavailable;
-                    });
+                string? localPath = await DownloadVideoAsync(
+                    contentUri,
+                    job.ContentMetadata,
+                    operation,
+                    token);
+                if (localPath is null)
                     return false;
-                }
 
-                operation.TryPublish(() => StatusText.Value = Strings.AiVideoProcessing);
-                await PollDelayAsync(PollInterval, token);
+                operation.TryPublish(() =>
+                {
+                    string? previousPath = ResultVideoPath.Value;
+                    StatusText.Value = Strings.AiVideoCompleted;
+                    ResultVideoPath.Value = localPath;
+                    _resultSnapshot = pendingSnapshot;
+                    if (!string.Equals(previousPath, localPath, StringComparison.Ordinal))
+                    {
+                        RequestTemporaryFileDeletion(previousPath);
+                    }
+                });
+                return true;
             }
+            if (status.IsTerminal)
+            {
+                operation.TryPublish(() =>
+                {
+                    StatusText.Value = Strings.AiVideoFailed;
+                    Error.Value = AiErrorMessage.Localize(job.Error) ?? Strings.AiProviderError;
+                });
+                return true;
+            }
+
+            if (!status.ShouldPoll)
+            {
+                // An unknown status is not a terminal outcome. The server may
+                // have introduced it during a rolling upgrade, so keep the
+                // request recoverable and require a later history refresh.
+                operation.TryPublish(() =>
+                {
+                    StatusText.Value = Strings.AiResultUnavailable;
+                    Error.Value = Strings.AiResultUnavailable;
+                });
+                return false;
+            }
+
+            return false;
         }
         catch (OperationCanceledException) when (
             pollingCts.IsCancellationRequested
@@ -1784,29 +1769,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         string? filePath = null;
         try
         {
-            (string stagingPath, FileStream destination) = AiTemporaryFileStore.Create(
-                "results",
-                "ai-video",
-                ".download");
-            filePath = stagingPath;
-            AiContentDownload download;
-            await using (destination)
-            {
-                using Stream boundedDestination =
-                    AiVideoResultDownload.CreateBoundedStream(destination);
-                download = await _content.CopyToAsync(
-                    contentUri,
-                    boundedDestination,
-                    cancellationToken);
-            }
-            AiContentMetadata? metadata = AiContentMetadata.Combine(
-                declaredMetadata,
-                download.Metadata);
-            string extension = metadata?.GetFileExtension(".mp4", "video") ?? ".mp4";
-            string completedPath = Path.ChangeExtension(stagingPath, extension);
-            File.Move(stagingPath, completedPath);
-            AiTemporaryFileStore.EnsurePrivateFile(completedPath);
-            filePath = completedPath;
+            filePath = await AiVideoResultDownload.DownloadAsync(
+                _content, contentUri, declaredMetadata, cancellationToken);
 
             if (!operation.TryPublish(() =>
                 {
@@ -1889,30 +1853,6 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         catch (OperationCanceledException)
         {
         }
-    }
-
-    private static bool IsTransientPollingFailure(
-        Exception exception,
-        CancellationToken cancellationToken)
-    {
-        if (cancellationToken.IsCancellationRequested)
-            return false;
-
-        return exception is OperationCanceledException
-            or TimeoutException
-            or HttpRequestException
-            or AiException { IsTransient: true }
-            || exception.InnerException is { } inner
-            && IsTransientPollingFailure(inner, cancellationToken);
-    }
-
-    private TimeSpan GetTransientPollDelay(int failureCount)
-    {
-        double multiplier = Math.Pow(2, Math.Min(failureCount - 1, 10));
-        double milliseconds = Math.Min(
-            PollInterval.TotalMilliseconds * multiplier,
-            MaximumTransientPollDelay.TotalMilliseconds);
-        return TimeSpan.FromMilliseconds(Math.Max(0, milliseconds));
     }
 
     // Retain each temporary frame until the unsettled name that includes its exact contents is

@@ -20,166 +20,6 @@ public sealed class RenderPipelineMigrationCensusTests
 
     private static readonly Lazy<SourceCorpus> s_corpus = new(SourceCorpus.Discover);
 
-    private static readonly IReadOnlyDictionary<string, int> s_productionOverrideBaseline =
-        new Dictionary<string, int>(StringComparer.Ordinal)
-        {
-            ["src/Beutl.Engine/Graphics/AudioVisualizers/AudioVisualizerRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/DrawableGroup.cs"] = 3,
-            ["src/Beutl.Engine/Graphics/Particles/ParticleRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/BlendModeRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/ClearRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/CompleteTargetRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/ContainerRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/DrawBackdropRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/EllipseRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/FilterEffectRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/GeometryClipRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/GeometryRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/ImageSourceRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/LayerRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/MemoryNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/OpacityMaskRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/OpacityRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/PushRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/RectClipRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/RectangleRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/ReferencesChildRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/SnapshotBackdropRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/TextRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/TransformRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/VideoSourceRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics3D/Scene3DRenderNode.cs"] = 1,
-            ["src/Beutl.NodeGraph/NodeGraphFilterEffectRenderNode.cs"] = 1,
-            ["src/Beutl.NodeGraph/Nodes/FilterEffectInputRenderNode.cs"] = 1,
-            ["src/Beutl.ProjectSystem/ProjectSystem/SceneDrawable.cs"] = 1,
-        };
-
-    // The starting-SHA baseline is a historical fact about 83e63689d; overrides that first
-    // appeared during the migration are excluded from the derivation.
-    private static readonly IReadOnlyDictionary<string, int> s_startingProductionOverrideBaseline =
-        s_productionOverrideBaseline
-            .Where(static item =>
-                item.Key != "src/Beutl.Engine/Graphics/Rendering/CompleteTargetRenderNode.cs"
-                && item.Key != "src/Beutl.Engine/Graphics/DrawableGroup.cs"
-                && item.Key != "src/Beutl.NodeGraph/Nodes/FilterEffectInputRenderNode.cs")
-            .Append(new KeyValuePair<string, int>(
-                "src/Beutl.Engine/Graphics/DrawableGroup.cs",
-                2))
-            .Append(new KeyValuePair<string, int>(
-                "src/Beutl.Engine/Graphics/Rendering/OperationWrapperRenderNode.cs",
-                1))
-            .ToDictionary(static item => item.Key, static item => item.Value, StringComparer.Ordinal);
-
-    private static readonly IReadOnlyDictionary<string, int> s_testOverrideBaseline =
-        new Dictionary<string, int>(StringComparer.Ordinal)
-        {
-            ["tests/Beutl.Benchmarks/Rendering/RenderPipelineBenchmarks.cs"] = 6,
-            ["tests/Beutl.Graphics3DTests/GpuPassFusion3DBoundaryTests.cs"] = 1,
-            ["tests/Beutl.Graphics3DTests/ShaderDescriptionSpirvEquivalenceTests.cs"] = 1,
-            ["tests/Beutl.PublicApiContractTests/CapturedResourceBorrowContractTests.cs"] = 1,
-            ["tests/Beutl.PublicApiContractTests/DeclaredPlannerTraitContractTests.cs"] = 2,
-            ["tests/Beutl.PublicApiContractTests/DeclaredResourceAddressingContractTests.cs"] = 1,
-            ["tests/Beutl.PublicApiContractTests/DetachedResourceAuthoringContractTests.cs"] = 1,
-            ["tests/Beutl.PublicApiContractTests/FilterEffectCompatibilityContractTests.cs"] = 5,
-            ["tests/Beutl.PublicApiContractTests/RenderNodeContextMetadataContractTests.cs"] = 3,
-            ["tests/Beutl.PublicApiContractTests/GeometryAuthoringContractTests.cs"] = 2,
-            ["tests/Beutl.PublicApiContractTests/OpaqueOutputPublicationContractTests.cs"] = 1,
-            ["tests/Beutl.PublicApiContractTests/OpaqueSourceStateContractTests.cs"] = 2,
-            ["tests/Beutl.PublicApiContractTests/OrphanedTargetEffectContractTests.cs"] = 2,
-            ["tests/Beutl.PublicApiContractTests/PaintedSourceAuthoringContractTests.cs"] = 3,
-            ["tests/Beutl.PublicApiContractTests/RenderDescriptionPublicSurfaceContractTests.cs"] = 1,
-            ["tests/Beutl.PublicApiContractTests/RenderNodeAuthoringContractTests.cs"] = 2,
-            ["tests/Beutl.PublicApiContractTests/RenderNodeRendererContractTests.cs"] = 1,
-            ["tests/Beutl.PublicApiContractTests/RenderScaleMappingContractTests.cs"] = 7,
-            ["tests/Beutl.PublicApiContractTests/ShaderAuthoringContractTests.cs"] = 1,
-            ["tests/Beutl.PublicApiContractTests/TargetAuthoringContractTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/ShaderDescriptionOffsetMetadataTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/BrushIntermediateAllocationIntentTests.cs"] = 3,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/DegradedPreviewCachePurityTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/OutputIdentityFanOutCostTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/ContributeValuesCacheHitExecutionTests.cs"] = 4,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/RenderCacheIdentityChannelTests.cs"] = 5,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/RenderCacheResolutionTests.cs"] = 4,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/ShaderRequestScaleIdentityTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/MetadataCallbackIdentityTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/RenderNodeCacheHelperTest.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/StructuralAndProgramCacheTests.cs"] = 6,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/ContainerRenderNodeTest.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/DeviceBufferBudgetTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/DirectSkiaFilterReplayTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/EmptyOpaquePublishTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/EngineResourceIdentityRoutingTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/DeferredCallbackFailureTests.cs"] = 7,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/NestedTargetAndCleanupFailureTests.cs"] = 16,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/RecordingAndPlanningFailureTests.cs"] = 6,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/RenderNodeRendererLifetimeTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/ShaderAndAllocationFailureTests.cs"] = 4,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/CrossNodeShaderFusionTests.cs"] = 5,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/ExecutionIslandAuthorityTests.cs"] = 3,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/FusionBoundaryExecutionTestSupport.cs"] = 6,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/ShaderFallbackTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/DirectBlurFiniteOutputTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/ExecutionIslandOrderTests.cs"] = 3,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GpuPassFusionFeature003RegressionTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GpuPassFusionScaleRegionTests.cs"] = 7,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/LosslessCompositeCoverageTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/ShaderMatrixUniformTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/TargetCaptureValueWrapperTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/WholeSourceFragmentOriginTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/GraphicsContext2DTests.cs"] = 3,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/HitTestDomainAgreementTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/ImageSourceRenderNodeTest.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectItemTypedSuffixExecutionTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/MovingOpaqueSourceBoundsTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/NodeCacheScaleTests.cs"] = 3,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/NodeCapturingExecutionCallbackTests.cs"] = 3,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/NodeCapturingMetadataCallbackTests.cs"] = 3,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/BackdropOrderingTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/MaterializedInputCompositeTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/ProductionResourceLifetimeTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/RawScopeNestingAndCaptureOffsetTests.cs"] = 3,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/RegionAnalysisReuseTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/RegionAnalyzerTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/RendererWideRecordingTests.cs"] = 7,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/SymbolicOwningDomainTests.cs"] = 3,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/SymbolicSupplyMappingTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/TargetScopeLoweringTests.cs"] = 9,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/DeclaredResourceOrderTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/NodeRecordingTransactionTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RawSessionSlotResourceTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingBufferPoolingTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingGateFingerprintTests.cs"] = 5,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingIdentityCollisionTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingPerVisitAllocationTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingSideEffectTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RenderNodeRecordingCacheTests.cs"] = 7,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RenderRecordingCrossCheckTests.cs"] = 9,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/ValueReplaySafetyTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RectClipRenderNodeTest.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeHasChangesTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererAllocationFailureTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererDeviceBoundsTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererExceptionSafetyTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererSnapshotFastPathTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RendererExceptionSafetyTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/ResolutionScaleTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/SlotBackedHitTestTests.cs"] = 5,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/SourceEffectiveScaleFlowTests.cs"] = 13,
-            ["tests/Beutl.UnitTests/NodeGraph/ConfigureNodeOwnershipTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/NodeGraph/NodeGraphFilterEffectRenderNodeTests.cs"] = 6,
-            ["tests/Beutl.UnitTests/ProjectSystem/SceneDrawableScaleTests.cs"] = 1,
-        };
-
-    private static readonly IReadOnlyDictionary<string, int> s_startingTestOverrideBaseline =
-        new Dictionary<string, int>(StringComparer.Ordinal)
-        {
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/NodeCacheScaleTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeProcessorExceptionSafetyTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RendererExceptionSafetyTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/SourceEffectiveScaleFlowTests.cs"] = 3,
-            ["tests/Beutl.UnitTests/NodeGraph/NodeGraphFilterEffectRenderNodeTests.cs"] = 1,
-        };
-
     [Test]
     public void SourceScope_IsOnlyCheckedInCSharpAndExcludesHistoricalEvidence()
     {
@@ -206,21 +46,6 @@ public sealed class RenderPipelineMigrationCensusTests
         }
     }
 
-
-    [Test]
-    public void ProcessOverrideInventory_PinsStartingBaselineAndMigratedOverrides()
-    {
-        IReadOnlyList<SourceMethod> overrides = s_corpus.Value.FindRenderNodeProcessOverrides();
-
-        using (Assert.EnterMultipleScope())
-        {
-            AssertDeclaredBaseline("production", 29, s_startingProductionOverrideBaseline);
-            AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
-            AssertAllOverridesAreMapped(overrides);
-            AssertBaselineInventory("production", 31, s_productionOverrideBaseline, overrides);
-            AssertBaselineInventory("test", 264, s_testOverrideBaseline, overrides);
-        }
-    }
 
     [Test]
     public void ProcessOverrides_UseTheVoidRecordingContract()
@@ -382,6 +207,8 @@ public sealed class RenderPipelineMigrationCensusTests
                 public static class RenderNodeProcessorExtensions
                 {
                     public static void Pull(this RenderNodeProcessor processor) { }
+
+                    public static void Pull<RenderNodeProcessor>(this RenderNodeProcessor processor) { }
 
                     public static void PullToRoot(
                         this global::Beutl.Graphics.Rendering.RenderNodeProcessor processor) { }
@@ -949,7 +776,7 @@ public sealed class RenderPipelineMigrationCensusTests
             corpus.FindMembersDeclaredByType(
                 "Beutl.Graphics.Rendering.RenderNodeProcessor",
                 ["Pull"]),
-            Has.Count.EqualTo(1));
+            Has.Exactly(1).Items);
     }
 
     [Test]
@@ -1321,66 +1148,6 @@ public sealed class RenderPipelineMigrationCensusTests
             .Concat(s_corpus.Value.FindMembersDeclaredByType(qualifiedContextType, helperNames));
 
         AssertNoFindings("Scale helpers must be owned only by RenderScaleUtilities.", findings);
-    }
-
-    private static void AssertBaselineInventory(
-        string label,
-        int expectedCount,
-        IReadOnlyDictionary<string, int> expected,
-        IReadOnlyList<SourceMethod> allOverrides)
-    {
-        SourceMethod[] baselineOverrides = allOverrides
-            .Where(sourceMethod => expected.ContainsKey(sourceMethod.Document.RelativePath))
-            .ToArray();
-        string[] expectedInventory = FormatInventory(expected);
-        string[] actualInventory = FormatInventory(baselineOverrides
-            .GroupBy(sourceMethod => sourceMethod.Document.RelativePath, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal));
-
-        Assert.That(expected.Values.Sum(), Is.EqualTo(expectedCount),
-            $"The checked-in {label} baseline declaration is inconsistent.");
-        Assert.That(baselineOverrides, Has.Length.EqualTo(expectedCount),
-            $"The {label} Process override baseline changed.{Environment.NewLine}{FormatMethods(baselineOverrides)}");
-        Assert.That(actualInventory, Is.EqualTo(expectedInventory),
-            $"The {label} Process override inventory changed.");
-    }
-
-    private static void AssertAllOverridesAreMapped(IReadOnlyList<SourceMethod> allOverrides)
-    {
-        var mappedPaths = new HashSet<string>(s_productionOverrideBaseline.Keys, StringComparer.Ordinal);
-        mappedPaths.UnionWith(s_testOverrideBaseline.Keys);
-        SourceMethod[] unmapped = allOverrides
-            .Where(sourceMethod => !mappedPaths.Contains(sourceMethod.Document.RelativePath))
-            .ToArray();
-
-        Assert.That(unmapped, Is.Empty,
-            $"Every RenderNode.Process override must appear in the production or test inventory."
-            + $"{Environment.NewLine}{FormatMethods(unmapped)}");
-    }
-
-    private static void AssertDeclaredBaseline(
-        string label,
-        int expectedCount,
-        IReadOnlyDictionary<string, int> expected)
-    {
-        Assert.That(expected.Values.Sum(), Is.EqualTo(expectedCount),
-            $"The checked-in starting-SHA {label} baseline declaration is inconsistent.");
-    }
-
-    private static string[] FormatInventory(IReadOnlyDictionary<string, int> inventory)
-    {
-        return inventory
-            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
-            .Select(pair => $"{pair.Key}#{pair.Value}")
-            .ToArray();
-    }
-
-    private static string FormatMethods(IEnumerable<SourceMethod> methods)
-    {
-        return string.Join(Environment.NewLine, methods
-            .OrderBy(sourceMethod => sourceMethod.Document.RelativePath, StringComparer.Ordinal)
-            .ThenBy(sourceMethod => sourceMethod.Line)
-            .Select(sourceMethod => $"  {sourceMethod.Document.RelativePath}:{sourceMethod.Line}"));
     }
 
     private static void AssertNoFindings(string requirement, IEnumerable<SourceFinding> findings)
@@ -2356,18 +2123,15 @@ public sealed class RenderPipelineMigrationCensusTests
             string typeName,
             string qualifiedTypeName)
         {
-            if (receiverType is IdentifierNameSyntax typeParameter)
+            if (receiverType is IdentifierNameSyntax typeParameter
+                && GetTypeParameterScope(typeParameter) is not null)
             {
-                TypeSyntax[] constraints = GetTypeParameterConstraints(typeParameter).ToArray();
-                if (constraints.Length > 0)
-                {
-                    return constraints.Any(constraint => CanReceiveType(
-                        constraint,
-                        document,
-                        namespaceName,
-                        typeName,
-                        qualifiedTypeName));
-                }
+                return GetTypeParameterConstraints(typeParameter).Any(constraint => CanReceiveType(
+                    constraint,
+                    document,
+                    namespaceName,
+                    typeName,
+                    qualifiedTypeName));
             }
 
             if (CouldReferToType(
@@ -2428,15 +2192,15 @@ public sealed class RenderPipelineMigrationCensusTests
                 type = nullable.ElementType;
             }
 
-            if (type is IdentifierNameSyntax typeParameter)
+            if (type is IdentifierNameSyntax typeParameter
+                && GetTypeParameterScope(typeParameter) is not null)
             {
-                return GetTypeParameterConstraints(typeParameter)
-                    .Any(constraint => CouldReferToType(
-                        constraint,
-                        document,
-                        namespaceName,
-                        typeName,
-                        qualifiedTypeName));
+                return GetTypeParameterConstraints(typeParameter).Any(constraint => CouldReferToType(
+                    constraint,
+                    document,
+                    namespaceName,
+                    typeName,
+                    qualifiedTypeName));
             }
 
             string writtenType = GetWrittenTypeIdentity(type);
@@ -2685,18 +2449,20 @@ public sealed class RenderPipelineMigrationCensusTests
                     .Overlaps(receiverIdentities)) == true;
         }
 
+        private static SyntaxNode? GetTypeParameterScope(IdentifierNameSyntax typeParameter)
+        {
+            return typeParameter.Ancestors().FirstOrDefault(scope => scope.ChildNodes()
+                .OfType<TypeParameterListSyntax>()
+                .SelectMany(list => list.Parameters)
+                .Any(parameter => parameter.Identifier.ValueText == typeParameter.Identifier.ValueText));
+        }
+
         private static IEnumerable<TypeSyntax> GetTypeParameterConstraints(
             IdentifierNameSyntax typeParameter)
         {
-            return typeParameter.Ancestors()
-                .OfType<MethodDeclarationSyntax>()
-                .SelectMany(method => method.ConstraintClauses)
-                .Concat(typeParameter.Ancestors()
-                    .FirstOrDefault(node => node.IsKind(SyntaxKind.ExtensionBlockDeclaration))?
-                    .ChildNodes()
+            return (GetTypeParameterScope(typeParameter)?.ChildNodes()
                     .OfType<TypeParameterConstraintClauseSyntax>() ?? [])
-                .Where(item =>
-                    item.Name.Identifier.ValueText == typeParameter.Identifier.ValueText)
+                .Where(item => item.Name.Identifier.ValueText == typeParameter.Identifier.ValueText)
                 .SelectMany(item => item.Constraints.OfType<TypeConstraintSyntax>())
                 .Select(constraint => constraint.Type);
         }

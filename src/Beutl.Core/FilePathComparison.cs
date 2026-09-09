@@ -40,6 +40,12 @@ public static class FilePathComparison
             context.ResolveCanonicalPath(root));
         string canonicalPath = Path.TrimEndingDirectorySeparator(
             context.ResolveCanonicalPath(path));
+        return IsSameOrDescendantCanonicalPath(canonicalRoot, canonicalPath);
+    }
+
+    // Inputs must be canonical paths with trailing directory separators trimmed.
+    internal static bool IsSameOrDescendantCanonicalPath(string canonicalRoot, string canonicalPath)
+    {
         if (string.Equals(canonicalRoot, canonicalPath, StringComparison.Ordinal))
         {
             return true;
@@ -327,10 +333,7 @@ public static class FilePathComparison
 
         try
         {
-            return SelectCanonicalExistingEntry(
-                component,
-                candidate,
-                context.GetEntries(parent));
+            return context.SelectEntry(parent, component, candidate);
         }
         catch (Exception ex)
             when (ex is IOException
@@ -429,7 +432,7 @@ public static class FilePathComparison
 
     internal sealed class ResolutionContext
     {
-        private readonly Dictionary<string, string[]> _directoryEntries =
+        private readonly Dictionary<string, DirectoryEntries> _directoryEntries =
             new(StringComparer.Ordinal);
 
         public string ResolveCanonicalPath(string path)
@@ -437,15 +440,26 @@ public static class FilePathComparison
             return FilePathComparison.ResolveCanonicalPath(path, this);
         }
 
-        internal IReadOnlyList<string> GetEntries(string directory)
+        internal string SelectEntry(string directory, string component, string candidate)
         {
-            if (!_directoryEntries.TryGetValue(directory, out string[]? entries))
+            if (!_directoryEntries.TryGetValue(directory, out DirectoryEntries? entries))
             {
-                entries = Directory.GetFileSystemEntries(directory);
+                entries = new DirectoryEntries(Directory.GetFileSystemEntries(directory));
                 _directoryEntries.Add(directory, entries);
             }
 
-            return entries;
+            return entries.Select(component, candidate);
+        }
+
+        private sealed class DirectoryEntries(string[] paths)
+        {
+            private readonly Dictionary<string, string> _exact = paths.ToDictionary(
+                path => Path.GetFileName(path), StringComparer.Ordinal);
+
+            public string Select(string component, string candidate)
+                => _exact.TryGetValue(component, out string? exact)
+                    ? exact
+                    : SelectCanonicalExistingEntry(component, candidate, paths);
         }
     }
 

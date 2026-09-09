@@ -1203,14 +1203,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
                 UnsavedSceneStorage.PrepareSave(scene, sceneUri);
             try
             {
-                // Persist the compatibility gate before replacing any migrated sidecar.
-                // A failed project write must leave the original scene and elements intact.
-                if (Project.GetRequiredMigrationVersion(scene) is not null
-                    && scene.HierarchicalParent is Project project
-                    && project.Uri is not null)
-                {
-                    CoreSerializer.StoreToUri(project, project.Uri, CoreSerializationMode.Write);
-                }
+                CoreSerializer.PersistProjectMigrationMetadata([scene]);
 
                 relocation.Apply();
                 Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));

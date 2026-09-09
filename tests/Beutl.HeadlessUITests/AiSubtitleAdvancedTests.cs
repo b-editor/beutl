@@ -137,7 +137,7 @@ public sealed class AiSubtitleAdvancedTests
             .ToArray();
         using var stream = new MemoryStream();
 
-        var writer = new AiSubtitleDialogViewModel.SpeechWaveWriter(stream);
+        var writer = new SpeechWaveEncoder.SpeechWaveWriter(stream);
         writer.Append(new AudioFrameSnapshot(stereo, sampleRate, 2, TimeSpan.Zero), CancellationToken.None);
         writer.Complete();
 
@@ -158,7 +158,7 @@ public sealed class AiSubtitleAdvancedTests
     {
         const int sampleRate = 48_000;
         using var stream = new MemoryStream();
-        var writer = new AiSubtitleDialogViewModel.SpeechWaveWriter(stream);
+        var writer = new SpeechWaveEncoder.SpeechWaveWriter(stream);
 
         float[] levels = [0.5f, -0.5f, 0.25f];
         for (int slice = 0; slice < levels.Length; slice++)
@@ -195,7 +195,7 @@ public sealed class AiSubtitleAdvancedTests
     public void SpeechWave_PreCanceledRequestWritesNothing()
     {
         using var stream = new MemoryStream();
-        var writer = new AiSubtitleDialogViewModel.SpeechWaveWriter(stream);
+        var writer = new SpeechWaveEncoder.SpeechWaveWriter(stream);
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -214,7 +214,7 @@ public sealed class AiSubtitleAdvancedTests
         using var reader = new StreamingAudioReader(sampleRate, decodedSamples);
         using var stream = new MemoryStream();
 
-        SpeechWaveChunkResult result = AiSubtitleDialogViewModel.WriteSpeechWave(
+        SpeechWaveChunkResult result = SpeechWaveEncoder.WriteSpeechWave(
                 reader,
                 startSample: 0,
                 requestedSamples: 120_000,
@@ -244,7 +244,7 @@ public sealed class AiSubtitleAdvancedTests
         using var reader = new StreamingAudioReader(sampleRate, decodedSamples);
         using var stream = new MemoryStream();
 
-        SpeechWaveChunkResult result = AiSubtitleDialogViewModel.WriteSpeechWave(
+        SpeechWaveChunkResult result = SpeechWaveEncoder.WriteSpeechWave(
             reader,
             startSample: 0,
             requestedSamples: decodedSamples,
@@ -268,14 +268,14 @@ public sealed class AiSubtitleAdvancedTests
         using var reader = new StreamingAudioReader(sampleRate: 44_100, totalSamples: 1);
         using var stream = new MemoryStream();
 
-        SpeechWaveChunkResult result = AiSubtitleDialogViewModel.WriteSpeechWave(
+        SpeechWaveChunkResult result = SpeechWaveEncoder.WriteSpeechWave(
             reader,
             startSample: 0,
             requestedSamples: 1,
             stream,
             CancellationToken.None);
         using var sceneStream = new MemoryStream();
-        var sceneWriter = new AiSubtitleDialogViewModel.SpeechWaveWriter(sceneStream);
+        var sceneWriter = new SpeechWaveEncoder.SpeechWaveWriter(sceneStream);
         sceneWriter.Append(
             new AudioFrameSnapshot([0], 44_100, 1, TimeSpan.Zero),
             CancellationToken.None);

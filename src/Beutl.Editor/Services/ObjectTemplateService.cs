@@ -634,19 +634,25 @@ public sealed class ObjectTemplateService
             }
         }
 
-        private static bool IsPreferredPath(
+        private bool IsPreferredPath(
             string candidate,
             string current,
             string canonicalPath)
         {
-            bool candidateIsCanonical = string.Equals(
-                Path.GetFullPath(candidate),
-                canonicalPath,
-                StringComparison.Ordinal);
-            bool currentIsCanonical = string.Equals(
-                Path.GetFullPath(current),
-                canonicalPath,
-                StringComparison.Ordinal);
+            bool IsCanonicalEntry(string path)
+            {
+                string fullPath = Path.GetFullPath(path);
+                // Resolve directory aliases without following the final file link: otherwise
+                // every alias would qualify as the canonical entry.
+                return TryResolve(Path.GetDirectoryName(fullPath)!, out string parent)
+                    && string.Equals(
+                        Path.Combine(parent, Path.GetFileName(fullPath)),
+                        canonicalPath,
+                        StringComparison.Ordinal);
+            }
+
+            bool candidateIsCanonical = IsCanonicalEntry(candidate);
+            bool currentIsCanonical = IsCanonicalEntry(current);
             return candidateIsCanonical != currentIsCanonical
                 ? candidateIsCanonical
                 : string.CompareOrdinal(candidate, current) < 0;

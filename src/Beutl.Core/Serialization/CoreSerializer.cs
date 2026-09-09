@@ -12,6 +12,31 @@ public record CoreSerializerOptions
 
 public static class CoreSerializer
 {
+    // Complete this preflight for the whole save before replacing any migrated sidecar.
+    internal static void PersistProjectMigrationMetadata(IEnumerable<CoreObject> objects)
+    {
+        var projects = new HashSet<Project>();
+        foreach (CoreObject obj in objects)
+        {
+            if (obj is Project project)
+                projects.Add(project);
+            if (obj is IHierarchical hierarchical)
+            {
+                foreach (Project ancestor in hierarchical.EnumerateAncestors<Project>())
+                    projects.Add(ancestor);
+            }
+        }
+
+        foreach (Project project in projects)
+        {
+            if (project.Uri is not null
+                && project.Items.Any(item => Project.GetRequiredMigrationVersion(item) is not null))
+            {
+                StoreToUri(project, project.Uri, CoreSerializationMode.Write);
+            }
+        }
+    }
+
     public static JsonNode SerializeToJsonNode(object obj, CoreSerializerOptions? options = null)
     {
         var ownerJson = new JsonObject();
