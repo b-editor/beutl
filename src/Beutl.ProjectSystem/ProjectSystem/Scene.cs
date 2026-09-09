@@ -672,7 +672,8 @@ public class Scene : ProjectItem, INotifyEdited
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Scene.SyncronizeFiles");
 
-        var uriToElement = pathToElement.Select(x => new Uri(Uri!, Uri.UnescapeDataString(x))).ToArray();
+        var uriToElement = pathToElement.Select(x => UriHelper.CreateFromPath(
+            Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Uri!.LocalPath)!, x)))).ToArray();
 
         // 削除するElements
         Element[] elementsRemove = Children.ExceptBy(uriToElement, x => x.Uri).ToArray();

@@ -9,6 +9,19 @@ public class SceneTests
 {
     private string _tempDirectory = null!;
 
+    [TestCase("a#b.belm")]
+    [TestCase("50%20off.belm")]
+    public void SceneReload_PreservesLiteralElementFileNames(string fileName)
+    {
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "main.scene")) };
+        var element = new Element { Uri = new Uri(Path.Combine(_tempDirectory, fileName)) };
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(element, element.Uri);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        Assert.That(restored.Children.Single().Uri!.LocalPath, Is.EqualTo(element.Uri.LocalPath));
+    }
+
     [SetUp]
     public void SetUp()
     {

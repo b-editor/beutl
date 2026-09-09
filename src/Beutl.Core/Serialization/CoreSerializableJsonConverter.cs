@@ -16,7 +16,6 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
         else if (jsonNode is JsonValue jsonValue && jsonValue.TryGetValue(out string? uriString))
         {
             var parentContext = ThreadLocalSerializationContext.Current;
-            uriString = Uri.UnescapeDataString(uriString);
             if (!Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out Uri? uri))
             {
                 throw new JsonException($"Invalid URI: {uriString}");
