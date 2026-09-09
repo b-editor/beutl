@@ -47,6 +47,10 @@ public partial class MeasureNode : GraphNode
                             new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
                         rect = renderer.Measure().QueryBounds;
                     }
+                    catch (RenderTargetDomainRequiredException) when (context.TargetDomain is null)
+                    {
+                        rect = Rect.Empty;
+                    }
                     catch (RenderTargetDomainRequiredException) when (context.TargetDomain is { } domain)
                     {
                         using var renderer = new RenderNodeRenderer(renderNode, new RenderNodeRenderRequest
