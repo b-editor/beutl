@@ -448,7 +448,7 @@ public sealed partial class MacWindow : Window
         if (!_viewModelDisposed && DataContext is MainViewModel viewModel)
         {
             e.Cancel = true;
-            if (_viewModelDisposeTask is null && viewModel.TryDisposeForWindowClose())
+            if (_viewModelDisposeTask is null)
             {
                 _viewModelDisposeTask = DisposeViewModelAndCloseAsync(viewModel);
             }
@@ -464,14 +464,23 @@ public sealed partial class MacWindow : Window
 
     private async Task DisposeViewModelAndCloseAsync(MainViewModel viewModel)
     {
+        // Publish the in-flight task before a synchronous veto can clear it.
+        await Task.Yield();
         try
         {
+            if (!await viewModel.TryDisposeForWindowCloseAsync())
+            {
+                _viewModelDisposeTask = null;
+                return;
+            }
             await viewModel.WaitForDisposalAsync();
-        }
-        finally
-        {
             _viewModelDisposed = true;
             Close();
+        }
+        catch (Exception ex)
+        {
+            _viewModelDisposeTask = null;
+            await ex.Handle();
         }
     }
 
