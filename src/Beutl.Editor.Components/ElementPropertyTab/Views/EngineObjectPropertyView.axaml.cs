@@ -42,7 +42,8 @@ public sealed partial class EngineObjectPropertyView : UserControl
         {
             if (!string.IsNullOrWhiteSpace(name))
             {
-                await ObjectTemplateService.Instance.AddFromInstanceAsync(viewModel.Model, name);
+                if (await ObjectTemplateService.Instance.AddFromInstanceAsync(viewModel.Model, name) is null)
+                    Beutl.Services.NotificationService.ShowError(Beutl.Language.Strings.SaveAsTemplate, Beutl.Language.MessageStrings.OperationFailed);
             }
         };
         flyout.ShowAt(this);

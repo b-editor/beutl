@@ -42,6 +42,10 @@ public sealed class ObjectTemplateService
     public async ValueTask<ObjectTemplateItem?> AddFromInstanceAsync(
         ICoreSerializable instance, string name, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(name) || name is "." or ".."
+            || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || name.Contains('/') || name.Contains('\\'))
+            return null;
         var item = ObjectTemplateItem.CreateFromInstance(instance, name);
         item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(instance, cancellationToken);
 

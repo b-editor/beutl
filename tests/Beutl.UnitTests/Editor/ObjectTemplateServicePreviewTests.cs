@@ -11,6 +11,14 @@ namespace Beutl.UnitTests.Editor;
 [NonParallelizable]
 public class ObjectTemplateServicePreviewTests
 {
+    [TestCase("../escape")]
+    [TestCase("folder/name")]
+    [TestCase("folder\\name")]
+    public async Task TemplateNames_CannotEscapeTheTemplateDirectory(string name)
+    {
+        Assert.That(await ObjectTemplateService.Instance.AddFromInstanceAsync(new Audio.Effects.AudioEffectGroup(), name), Is.Null);
+    }
+
     [Test]
     public async Task DirectoryRename_RefreshesPackagedTemplates()
     {
