@@ -86,9 +86,9 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
     private bool HitTest(RenderHitTestContext context, Point point)
     {
         Matrix transform = Transform;
-        if (transform.HasInverse)
-            point *= transform.Invert();
-        return context.Inputs[0].HitTest(point);
+        if (!transform.HasInverse)
+            return false;
+        return context.Inputs[0].HitTest(point * transform.Invert());
     }
 
     private EffectiveScale MapSupply(EffectiveScale inputSupply) => RescaleDensity(inputSupply, Transform);
