@@ -1172,6 +1172,11 @@ Rebuild extensions against the current preview; these are source and binary cont
 
 - `IProperty.ReplaceCurrentValue(object?)` and `IProperty<T>.ReplaceCurrentValue(T)` must replace distinct reference objects even if they compare equal, while keeping validation and notifications. `IProperty.GetValidator()` returns the currently attached validator, including custom validators.
 - `IReferenceExpression.Rebind(Guid)` returns an equivalent expression retaining its concrete type and state, or `null` when a lossless rebind is unavailable.
+- `IKeyFrame.ReplaceValue(object?)` preserves the same replacement and validation semantics for animation values.
+- `SpeedIntegrator.Integrate(TimeSpan, KeyFrameAnimation<float>)` now accepts `IAnimation<float>`. Existing source calls still bind, but binaries must be rebuilt.
 - `SKSLShader` and `GLSLShader` moved from `Beutl.Graphics.Effects` to `Beutl.Graphics.Shaders`.
 - Custom `Material3D.Resource` implementations using drawable textures must override `EnumerateTextureSources()` and enumerate every texture used by `Bind`. Execution consumes prepared nested targets and must not start another renderer to discover undeclared textures. The empty default is for materials with no texture dependencies.
+
+The resource-side `Geometry.Resource.ApplyTo` migration above is required; an old engine-object override is not a forwarding hook.
+
 For repeated manual rendering, retain a `RenderNodeRenderer` rather than relying on the one-call `ImmediateCanvas.DrawDrawable`/`DrawNode` convenience methods to retain caches. Expanded requests cannot currently run inside an active native SaveLayer: reading the backing surface would omit the layer. See [#2356](https://github.com/b-editor/beutl/issues/2356).
