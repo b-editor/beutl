@@ -46,13 +46,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
         {
             if (parentContext.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
             {
-                var node = CoreSerializer.SerializeToJsonObject(value,
-                    new CoreSerializerOptions { BaseUri = coreObj.Uri });
-
-                var path = coreObj.Uri.LocalPath;
-                using var stream = File.Create(path);
-                using var innerWriter = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
-                node.WriteTo(innerWriter);
+                CoreSerializer.StoreToUri(value, coreObj.Uri, parentContext.Mode);
             }
 
             var serializedUri = coreObj.Uri;
