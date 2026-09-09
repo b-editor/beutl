@@ -703,6 +703,9 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 progress?.Report(totalBytesRead / (double)totalLength);
             }
 
+            if (totalBytesRead == 0)
+                algorithm.TransformFinalBlock([], 0, 0);
+
             if (algorithm.Hash == null)
             {
                 return false;
@@ -742,7 +745,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 ];
 
                 long totalLength = items.Count(x => !string.IsNullOrWhiteSpace(x.Item2)) * stream.Length;
-                if (totalLength == 0)
+                if (items.All(item => string.IsNullOrWhiteSpace(item.Item2)))
                 {
                     context.HashVerified = false;
                     return;
@@ -756,7 +759,11 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                         if (!await Varify(algorithm, stream, totalLength, hash))
                         {
                             context.HashVerified = false;
-                            return;
+                            // Do not leave a rejected download where the local-package path
+                            // can later load it without the server's advertised digest.
+                            stream.Dispose();
+                            File.Delete(context.NuGetPackageFile);
+                            throw new InvalidDataException("The downloaded package does not match its advertised hash.");
                         }
                     }
                 }
