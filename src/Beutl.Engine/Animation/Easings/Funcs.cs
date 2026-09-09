@@ -162,6 +162,8 @@ internal static class Funcs
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static float ExponentialEaseInOut(float p)
     {
+        if (p is 0f or 1f)
+            return p;
         if (p < 0.5f)
         {
             return 0.5f * MathF.Pow(2f, 20f * p - 10f);
