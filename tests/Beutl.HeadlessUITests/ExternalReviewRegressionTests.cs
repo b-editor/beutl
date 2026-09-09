@@ -24,6 +24,26 @@ public sealed class ExternalReviewRegressionTests
     }
 
     [AvaloniaTest]
+    public async Task ReopeningCurrentProject_PreservesUnsavedSceneEdits()
+    {
+        EditViewModel editor = await CreateEditor("reopen-unsaved-review");
+        Project project = TestShell.Project.CurrentProject.Value!;
+        bool autoSave = Beutl.Configuration.GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled;
+        try
+        {
+            Beutl.Configuration.GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = false;
+            editor.Scene.Duration = TimeSpan.FromSeconds(73);
+            await TestShell.Project.OpenProject(project.Uri!.LocalPath);
+            Assert.That(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().First().Duration,
+                Is.EqualTo(TimeSpan.FromSeconds(73)));
+        }
+        finally
+        {
+            Beutl.Configuration.GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = autoSave;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task InvalidProjectOpen_KeepsTheCurrentProject()
     {
         EditViewModel editor = await CreateEditor("invalid-open-review");

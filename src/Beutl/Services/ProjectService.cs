@@ -430,6 +430,15 @@ public sealed class ProjectService
                 return;
             }
 
+            // Selecting the active project from Recents must not replace in-memory edits
+            // with a snapshot read before the close path has saved them.
+            if (_app.Project?.Uri is { IsFile: true } currentUri
+                && FilePathComparison.AreSameCanonicalPath(currentUri.LocalPath, file))
+            {
+                TryAddToRecentProjects(file);
+                return;
+            }
+
             (NuGetVersion appVersion, NuGetVersion minVersion) = await GetProjectVersion(file);
             activity?.SetTag(nameof(appVersion), appVersion.ToString());
             activity?.SetTag(nameof(minVersion), minVersion.ToString());
