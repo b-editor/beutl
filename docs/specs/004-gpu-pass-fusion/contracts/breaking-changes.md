@@ -1164,3 +1164,11 @@ Migration: move the work that used the resource inside a `Read` rather than arou
 the callback's parameter and `t.Version` becomes `handle.Version` - and replace a select over the published
 resource with `Project`. A caller that stored the old tuple and read it later was already unsafe against the
 rebuild, and now fails closed.
+
+
+## Additional preview.7 authoring migrations
+
+Rebuild extensions against the current preview; these are source and binary contract changes:
+
+- `IProperty.ReplaceCurrentValue(object?)` and `IProperty<T>.ReplaceCurrentValue(T)` must replace distinct reference objects even if they compare equal, while keeping validation and notifications. `IProperty.GetValidator()` returns the currently attached validator, including custom validators.
+- `IReferenceExpression.Rebind(Guid)` returns an equivalent expression retaining its concrete type and state, or `null` when a lossless rebind is unavailable.
