@@ -59,6 +59,7 @@ public sealed partial class TransparentMaterial : Material3D
     public partial class Resource
     {
         private IPipeline3D? _pipeline;
+        private IRenderPass3D? _pipelineRenderPass;
         private IDescriptorSet? _descriptorSet;
         private IBuffer? _uniformBuffer;
         private ISampler? _sampler;
@@ -79,8 +80,11 @@ public sealed partial class TransparentMaterial : Material3D
 
         public override void EnsurePipeline(RenderContext3D context)
         {
-            if (IsPipelineInitialized)
+            if (IsPipelineInitialized && ReferenceEquals(_pipelineRenderPass, context.RenderPass))
                 return;
+
+            PostDispose(true);
+            IsPipelineInitialized = false;
 
             var graphicsContext = context.GraphicsContext;
             var shaderCompiler = context.ShaderCompiler;
@@ -120,6 +124,7 @@ public sealed partial class TransparentMaterial : Material3D
             _descriptorSet.UpdateBuffer(0, _uniformBuffer);
             _descriptorSet.UpdateTexture(1, _defaultWhiteTexture, _sampler);
 
+            _pipelineRenderPass = context.RenderPass;
             IsPipelineInitialized = true;
         }
 
@@ -168,6 +173,8 @@ public sealed partial class TransparentMaterial : Material3D
 
         partial void PostDispose(bool disposing)
         {
+            _pipelineRenderPass = null;
+            IsPipelineInitialized = false;
             _descriptorSet?.Dispose();
             _descriptorSet = null;
             _uniformBuffer?.Dispose();
