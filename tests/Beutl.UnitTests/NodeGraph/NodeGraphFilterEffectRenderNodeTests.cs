@@ -1049,7 +1049,9 @@ public class NodeGraphFilterEffectRenderNodeTests
             TargetDomain = new Rect(0, 0, 64, 48),
         };
         snapshot.Build(model, context);
+        renderNode.MarkChanged();
         snapshot.Evaluate(CompositionTarget.Graphics, context);
+        Assert.That(renderNode.HasChanges, Is.True, "An auxiliary preview must not consume the main render's change flag.");
 
         Assert.Multiple(() =>
         {

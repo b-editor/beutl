@@ -38,7 +38,7 @@ public partial class PreviewNode : GraphNode
                 {
                     using var renderer = new RenderNodeRenderer(
                         renderNode,
-                        new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
+                        new RenderNodeRenderRequest { Intent = RenderIntent.Preview, ManageCacheLifecycle = false });
                     using RenderNodeRasterization rasterization = renderer.Rasterize();
                     node.ReplacePreview(rasterization.Bitmap?.Clone());
                 }
@@ -48,6 +48,7 @@ public partial class PreviewNode : GraphNode
                     {
                         Intent = RenderIntent.Preview,
                         TargetDomain = domain,
+                        ManageCacheLifecycle = false,
                     });
                     using RenderNodeRasterization rasterization = renderer.Rasterize();
                     node.ReplacePreview(rasterization.Bitmap?.Clone());
