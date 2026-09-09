@@ -840,7 +840,14 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Whether <paramref name="expression"/> leaves the state naming it holding something else.</summary>
     private static bool ChangesTheState(SemanticModel model, ExpressionSyntax expression)
-        => ChangesTheValueBehind(expression) || MutatesInPlace(model, expression);
+    {
+        if (ChangesTheValueBehind(expression) || MutatesInPlace(model, expression))
+            return true;
+        return model.GetTypeInfo(expression).Type is { IsValueType: true }
+            && expression.Parent is MemberAccessExpressionSyntax member
+            && member.Expression == expression
+            && ChangesTheState(model, member);
+    }
 
     /// <summary>Whether a call written on <paramref name="state"/> changes what it holds.</summary>
     /// <remarks>

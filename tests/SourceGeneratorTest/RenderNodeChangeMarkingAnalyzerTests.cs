@@ -10,6 +10,23 @@ namespace SourceGeneratorTest;
 public sealed class RenderNodeChangeMarkingAnalyzerTests
 {
     [Test]
+    public void MutableStructMemberWrite_IsReported()
+    {
+        var diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            struct Offset { public float X; }
+            class Example : RenderNode
+            {
+                Offset offset;
+                public void Move(float dx) => offset.X += dx;
+                public override void Process(RenderNodeContext context) => context.Publish(new Rect(offset.X, 0, 1, 1));
+            }
+            """);
+        Assert.That(diagnostics.Any(diagnostic => diagnostic.Id == "BESG005"), Is.True);
+    }
+
+    [Test]
     public void GenericBaseHelperMutation_IsReportedForDerivedProcess()
     {
         var diagnostics = Analyze("""
