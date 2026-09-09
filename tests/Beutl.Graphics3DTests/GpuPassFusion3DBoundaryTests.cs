@@ -21,10 +21,13 @@ namespace Beutl.Graphics3DTests;
 [NonParallelizable]
 public sealed class GpuPassFusion3DBoundaryTests
 {
-    [TestCase(0.3f)]
-    [TestCase(0.5f)]
-    [TestCase(1.7f)]
-    public void DrawableTextureDensity_MatchesUnderFractionalParentTransforms(float scale)
+    [TestCase(0.3f, false)]
+    [TestCase(0.5f, false)]
+    [TestCase(1.7f, false)]
+    [TestCase(0.3f, true)]
+    [TestCase(0.5f, true)]
+    [TestCase(1.7f, true)]
+    public void DrawableTextureDensity_MatchesUnderFractionalParentTransforms(float scale, bool underFilter)
     {
         GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
@@ -39,7 +42,18 @@ public sealed class GpuPassFusion3DBoundaryTests
             texture.TextureHeight.CurrentValue = 7;
             using var resource = CreateSceneResource(CreateMaterial(MaterialTextureDependency.BasicDiffuseMap, texture));
             using var root = new TransformRenderNode(Matrix.CreateScale(scale, scale), TransformOperator.Prepend);
-            root.AddChild(new Scene3DRenderNode(resource));
+            var sceneNode = new Scene3DRenderNode(resource);
+            using var filterResource = new Invert().ToResource(CompositionContext.Default);
+            if (underFilter)
+            {
+                var filterNode = filterResource.CreateRenderNode();
+                filterNode.AddChild(sceneNode);
+                root.AddChild(filterNode);
+            }
+            else
+            {
+                root.AddChild(sceneNode);
+            }
             using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
             {
                 Intent = RenderIntent.Delivery,
