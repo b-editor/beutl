@@ -386,6 +386,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         {
             switch (node)
             {
+                case IInvocationOperation { TargetMethod: { MethodKind: MethodKind.LocalFunction, IsStatic: false } target }
+                    when IsDeclaredOutside(target, lambda):
+                    return $"the lambda calls the non-static local function '{target.Name}', which can capture mutable state";
+
                 case ILocalReferenceOperation local
                     when !local.Local.HasConstantValue && IsDeclaredOutside(local.Local, lambda):
                     return $"the lambda closes over the local '{local.Local.Name}', which can be assigned "

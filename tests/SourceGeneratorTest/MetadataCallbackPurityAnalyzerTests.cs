@@ -12,6 +12,24 @@ namespace SourceGeneratorTest;
 [TestFixture]
 public sealed class MetadataCallbackPurityAnalyzerTests
 {
+    [Test]
+    public void LambdaCallingCapturingLocalFunction_IsReported()
+    {
+        var diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            class Example
+            {
+                RenderBoundsContract Create(float offset)
+                {
+                    Rect Forward(Rect value) => new(value.X + offset, value.Y, value.Width, value.Height);
+                    return RenderBoundsContract.Create(value => Forward(value), static value => value);
+                }
+            }
+            """);
+        Assert.That(diagnostics.Any(diagnostic => diagnostic.Id == "BESG003"), Is.True);
+    }
+
     private static readonly MetadataReference[] FrameworkReferences = AppDomain.CurrentDomain
         .GetAssemblies()
         .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
