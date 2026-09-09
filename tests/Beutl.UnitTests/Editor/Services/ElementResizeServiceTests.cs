@@ -120,31 +120,203 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void Resize_RippleOn_NegativeStart_ThrowsBeforeMutation()
+    public void Resize_NonRipple_ZeroLength_ClampsToOneFrameInsteadOfThrowing()
     {
+        // Telemetry regression: "change to original duration" floored a sub-frame original
+        // duration to zero and the non-ripple branch handed it to Scene.MoveChild, whose
+        // ArgumentOutOfRangeException escaped the async-void UI handler and crashed the app.
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        Assert.DoesNotThrow(() =>
             _service.Resize(_scene,
-                [new ElementResizeRequest(element, TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(2), 0)],
-                ripple: true));
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)]));
 
         Assert.Multiple(() =>
         {
             Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)),
+                "the service floors the length to one frame at the scene rate");
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 
     [Test]
-    public void Resize_RippleOn_ZeroLength_ThrowsBeforeMutation()
+    public void Resize_NonRipple_NegativeStart_ClampsToZeroInsteadOfThrowing()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        Assert.DoesNotThrow(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(-2), TimeSpan.FromSeconds(1), 0)]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
+    public void Resize_NullElementInRequest_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(null!, TimeSpan.Zero, TimeSpan.FromSeconds(1), 0)]));
+    }
+
+    [TestCase(24)]
+    [TestCase(30)]
+    [TestCase(60)]
+    public void Resize_MinimumLength_DoesNotFloorToZeroFrames(int rate)
+    {
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = rate.ToString();
+        project.Items.Add(_scene);
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        _service.Resize(_scene, [new ElementResizeRequest(element, element.Start, TimeSpan.Zero, 0)]);
+
+        Assert.That(element.Length.FloorToRate(rate), Is.GreaterThan(TimeSpan.Zero));
+    }
+
+    [TestCase("0", 333334)]
+    [TestCase("-1", 333334)]
+    [TestCase("invalid", 333334)]
+    [TestCase("60", 166667)]
+    [TestCase("2147483647", 1)]
+    public void Resize_FrameRate_AlwaysProducesPositiveLength(string rate, long expectedTicks)
+    {
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = rate;
+        project.Items.Add(_scene);
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        _service.Resize(_scene, [new ElementResizeRequest(element, element.Start, TimeSpan.Zero, 0)]);
+
+        Assert.That(element.Length.Ticks, Is.EqualTo(expectedTicks));
+    }
+
+    [TestCase(false, -1)]
+    [TestCase(false, 10)]
+    [TestCase(true, -1)]
+    [TestCase(true, 10)]
+    public void Resize_ShortLength_ClampsAndCanBeUndone(bool ripple, int milliseconds)
+    {
+        _scene.Start = TimeSpan.FromSeconds(5);
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        _service.Resize(_scene,
+            [new ElementResizeRequest(element, element.Start, TimeSpan.FromMilliseconds(milliseconds), 0)], ripple);
+
+        Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)), "Scene.Start is not the timeline origin.");
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)));
+        _history.Undo();
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+    }
+
+    [Test]
+    public void Resize_RippleOn_NegativeStart_ClampsToZeroAndApplies()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        Assert.DoesNotThrow(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(3), 0)],
+                ripple: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero),
+                "the service floors the start to the timeline start");
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Resize_RippleLeftEdgeCrossesOrigin_PreservesRightEdgeAndFollowers()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element follower = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
+        TimeSpan requestedStart = TimeSpan.FromSeconds(-1);
+        TimeSpan fixedEnd = element.Range.End;
+
+        _service.Resize(_scene,
+            [new ElementResizeRequest(element, requestedStart, fixedEnd - requestedStart, 0)], ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Range.End, Is.EqualTo(fixedEnd));
+            Assert.That(follower.Start, Is.EqualTo(fixedEnd));
+        });
+        _history.Undo();
+        Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(follower.Start, Is.EqualTo(fixedEnd));
+    }
+
+    [TestCase(false, 0)]
+    [TestCase(false, 10)]
+    [TestCase(true, 0)]
+    [TestCase(true, 10)]
+    public void Resize_LeftEdgeBelowMinimum_PreservesRightEdge(bool ripple, int milliseconds)
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element follower = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
+        TimeSpan end = element.Range.End;
+        TimeSpan length = TimeSpan.FromMilliseconds(milliseconds);
+
+        _service.Resize(_scene, [new ElementResizeRequest(element, end - length, length, 0)], ripple);
+
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)));
+        Assert.That(element.Range.End, Is.EqualTo(end));
+        Assert.That(follower.Start, Is.EqualTo(end));
+        _history.Undo();
+        Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+    }
+
+    [TestCase(-2, 1)]
+    [TestCase(0, 0.51)]
+    public void Resize_RippleLockedBarrier_RetainsMinimumLength(double start, double length)
+    {
+        Element barrier = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(0.5));
+        barrier.IsLocked = true;
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        _service.Resize(_scene,
+            [new ElementResizeRequest(element, TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length), 0)], ripple: true);
+
+        Assert.That(element.Start, Is.EqualTo(barrier.Range.End));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)));
+        Assert.That(barrier.Start, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(barrier.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+        _history.Undo();
+        Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+    }
+
+    [TestCase(-2, 1)]
+    [TestCase(-2, -1)]
+    public void Resize_RippleRequestedEndBeforeOrigin_UsesMinimumLength(int start, int length)
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        _service.Resize(_scene,
+            [new ElementResizeRequest(element, TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length), 0)], ripple: true);
+
+        Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)));
+    }
+
+    [Test]
+    public void Resize_RippleOn_ZeroLength_ClampsToOneFrameAndApplies()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        Assert.DoesNotThrow(() =>
             _service.Resize(_scene,
                 [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)],
                 ripple: true));
@@ -152,19 +324,20 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)),
+                "the service floors the length to one frame at the scene rate");
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 
     [Test]
-    public void Resize_RippleOn_InvalidSecondRequest_ThrowsBeforeAnyMutation()
+    public void Resize_RippleOn_ZeroLengthSecondRequest_ClampsAndAppliesBoth()
     {
         Element valid = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
         Element invalid = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), zIndex: 1);
         int before = _history.UndoCount;
 
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        Assert.DoesNotThrow(() =>
             _service.Resize(_scene,
             [
                 new ElementResizeRequest(valid, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), 0),
@@ -175,10 +348,11 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(valid.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(valid.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(valid.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
             Assert.That(invalid.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
-            Assert.That(invalid.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(invalid.Length, Is.EqualTo(TimeSpan.FromTicks(333334)),
+                "the zero length is floored to one frame instead of rejecting the batch");
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 

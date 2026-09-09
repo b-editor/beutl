@@ -25,6 +25,13 @@ public sealed class ElementResizeService : IElementResizeService
         requests = requests.Where(r => !scene.IsElementLocked(r.Element)).ToArray();
         if (requests.Count == 0) return;
 
+        // Sub-frame original durations and pixel rounding can submit zero length from async UI handlers.
+        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        // Invalid persisted rates use the default; sub-tick frames still require a positive duration.
+        if (rate <= 0) rate = 30;
+        TimeSpan minLength = TimeSpan.FromTicks((TimeSpan.TicksPerSecond + (long)rate - 1) / rate);
+        requests = NormalizeRequests(requests, ripple, minLength);
+
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
         var clamped = ripple ? new Dictionary<Element, (TimeSpan Start, TimeSpan Length)>(requests.Count) : null;
@@ -33,9 +40,8 @@ public sealed class ElementResizeService : IElementResizeService
             var resizedSet = new HashSet<Element>(requests.Select(r => r.Element));
             foreach (ElementResizeRequest req in requests)
             {
-                ValidateRippleRequest(req);
                 // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
-                (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet);
+                (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet, minLength);
                 length = ClampRippleEnd(scene, req, start, length, resizedSet);
                 clamped![req.Element] = (start, length);
                 oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
@@ -102,19 +108,37 @@ public sealed class ElementResizeService : IElementResizeService
         scene.Duration = sceneEnd - scene.Start;
     }
 
-    private static void ValidateRippleRequest(ElementResizeRequest req)
+    private static ElementResizeRequest[] NormalizeRequests(IReadOnlyList<ElementResizeRequest> requests, bool ripple, TimeSpan minLength)
     {
-        ArgumentNullException.ThrowIfNull(req.Element);
-
-        if (req.NewStart < TimeSpan.Zero)
+        var normalized = new ElementResizeRequest[requests.Count];
+        for (int i = 0; i < requests.Count; i++)
         {
-            throw new ArgumentOutOfRangeException(nameof(ElementResizeRequest.NewStart));
+            ElementResizeRequest req = requests[i];
+            ArgumentNullException.ThrowIfNull(req.Element);
+            TimeSpan start = req.NewStart < TimeSpan.Zero ? TimeSpan.Zero : req.NewStart;
+            TimeSpan length = req.NewLength;
+            if (ripple && req.NewStart < TimeSpan.Zero && length > TimeSpan.Zero)
+            {
+                // Preserve the requested end so clamping a left-edge drag does not ripple followers.
+                length += req.NewStart;
+            }
+
+            if (length < minLength)
+            {
+                // A changed start with the original end identifies a fixed-right-edge resize.
+                TimeSpan end = req.Element.Range.End;
+                if (req.NewStart >= TimeSpan.Zero && req.NewStart != req.Element.Start
+                    && req.NewLength == end - req.NewStart)
+                {
+                    start = end > minLength ? end - minLength : TimeSpan.Zero;
+                }
+
+                length = minLength;
+            }
+            normalized[i] = new ElementResizeRequest(req.Element, start, length, req.ZIndex);
         }
 
-        if (req.NewLength <= TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(ElementResizeRequest.NewLength));
-        }
+        return normalized;
     }
 
     // Limits a same-layer left-edge grow so the rigid ripple shift cannot push any upstream element
@@ -122,7 +146,7 @@ public sealed class ElementResizeService : IElementResizeService
     // callers run on an async-void pointer path, and frame rounding at submission can dip below the
     // preview floor.
     private static (TimeSpan Start, TimeSpan Length) ClampRippleStart(
-        Scene scene, ElementResizeRequest req, IReadOnlyCollection<Element> resized)
+        Scene scene, ElementResizeRequest req, IReadOnlyCollection<Element> resized, TimeSpan minLength)
     {
         if (req.ZIndex != req.Element.ZIndex) return (req.NewStart, req.NewLength);
 
@@ -163,14 +187,8 @@ public sealed class ElementResizeService : IElementResizeService
 
         TimeSpan clampedStart = req.Element.Start - maxGrow;
         TimeSpan clampedLength = req.NewStart + req.NewLength - clampedStart;
-        if (clampedLength <= TimeSpan.Zero)
-        {
-            // Requested end sits before the clamp point: keeping upstream in bounds and the end while
-            // staying positive is impossible. A left-edge resize keeps the end, so the UI never reaches this.
-            throw new ArgumentOutOfRangeException(
-                nameof(ElementResizeRequest.NewLength),
-                "Ripple left-shift cannot preserve the requested end with a positive length.");
-        }
+        // If the requested end is too close to or before the barrier, keep a positive minimum.
+        if (clampedLength < minLength) clampedLength = minLength;
 
         return (clampedStart, clampedLength);
     }
