@@ -5096,6 +5096,7 @@ internal sealed class VersionControlCoordinator :
             }
             catch
             {
+                bool notify = !activation.CancellationToken.IsCancellationRequested && IsCurrentActivation(activation);
                 if (activation.OwnsService(trackedService))
                 {
                     ClearProjectState(activation.Revision);
@@ -5105,6 +5106,8 @@ internal sealed class VersionControlCoordinator :
                     pendingCleanup = trackedService;
                 }
 
+                if (notify)
+                    PublishNotification(() => NotificationService.ShowWarning(Strings.VersionControl, MessageStrings.OperationFailed));
                 throw;
             }
 
