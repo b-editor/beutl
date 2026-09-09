@@ -243,6 +243,47 @@ public class ElementResizeServiceTests
         Assert.That(follower.Start, Is.EqualTo(fixedEnd));
     }
 
+    [TestCase(false, 0)]
+    [TestCase(false, 10)]
+    [TestCase(true, 0)]
+    [TestCase(true, 10)]
+    public void Resize_LeftEdgeBelowMinimum_PreservesRightEdge(bool ripple, int milliseconds)
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element follower = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
+        TimeSpan end = element.Range.End;
+        TimeSpan length = TimeSpan.FromMilliseconds(milliseconds);
+
+        _service.Resize(_scene, [new ElementResizeRequest(element, end - length, length, 0)], ripple);
+
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+        Assert.That(element.Range.End, Is.EqualTo(end));
+        Assert.That(follower.Start, Is.EqualTo(end));
+        _history.Undo();
+        Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+    }
+
+    [TestCase(-2, 1)]
+    [TestCase(0, 0.51)]
+    public void Resize_RippleLockedBarrier_RetainsMinimumLength(double start, double length)
+    {
+        Element barrier = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(0.5));
+        barrier.IsLocked = true;
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        _service.Resize(_scene,
+            [new ElementResizeRequest(element, TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length), 0)], ripple: true);
+
+        Assert.That(element.Start, Is.EqualTo(barrier.Range.End));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+        Assert.That(barrier.Start, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(barrier.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+        _history.Undo();
+        Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+    }
+
     [TestCase(-2, 1)]
     [TestCase(-2, -1)]
     public void Resize_RippleRequestedEndBeforeOrigin_UsesMinimumLength(int start, int length)

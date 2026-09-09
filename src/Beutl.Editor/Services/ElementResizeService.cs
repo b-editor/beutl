@@ -26,7 +26,10 @@ public sealed class ElementResizeService : IElementResizeService
         if (requests.Count == 0) return;
 
         // Sub-frame original durations and pixel rounding can submit zero length from async UI handlers.
-        requests = NormalizeRequests(scene, requests, ripple);
+        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        // Invalid persisted rates use the default; sub-tick frames still require a positive duration.
+        TimeSpan minLength = TimeSpan.FromTicks(Math.Max(1, TimeSpan.TicksPerSecond / (rate > 0 ? rate : 30)));
+        requests = NormalizeRequests(requests, ripple, minLength);
 
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
@@ -37,7 +40,7 @@ public sealed class ElementResizeService : IElementResizeService
             foreach (ElementResizeRequest req in requests)
             {
                 // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
-                (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet);
+                (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet, minLength);
                 length = ClampRippleEnd(scene, req, start, length, resizedSet);
                 clamped![req.Element] = (start, length);
                 oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
@@ -104,11 +107,8 @@ public sealed class ElementResizeService : IElementResizeService
         scene.Duration = sceneEnd - scene.Start;
     }
 
-    private static ElementResizeRequest[] NormalizeRequests(Scene scene, IReadOnlyList<ElementResizeRequest> requests, bool ripple)
+    private static ElementResizeRequest[] NormalizeRequests(IReadOnlyList<ElementResizeRequest> requests, bool ripple, TimeSpan minLength)
     {
-        int rate = SceneTimeRangeService.GetFrameRate(scene);
-        // Invalid persisted rates use the default; sub-tick frames still require a positive duration.
-        TimeSpan minLength = TimeSpan.FromTicks(Math.Max(1, TimeSpan.TicksPerSecond / (rate > 0 ? rate : 30)));
         var normalized = new ElementResizeRequest[requests.Count];
         for (int i = 0; i < requests.Count; i++)
         {
@@ -122,7 +122,18 @@ public sealed class ElementResizeService : IElementResizeService
                 length += req.NewStart;
             }
 
-            if (length < minLength) length = minLength;
+            if (length < minLength)
+            {
+                // A changed start with the original end identifies a fixed-right-edge resize.
+                TimeSpan end = req.Element.Range.End;
+                if (req.NewLength >= TimeSpan.Zero && req.NewStart != req.Element.Start
+                    && req.NewStart == end - req.NewLength)
+                {
+                    start = end > minLength ? end - minLength : TimeSpan.Zero;
+                }
+
+                length = minLength;
+            }
             normalized[i] = new ElementResizeRequest(req.Element, start, length, req.ZIndex);
         }
 
@@ -134,7 +145,7 @@ public sealed class ElementResizeService : IElementResizeService
     // callers run on an async-void pointer path, and frame rounding at submission can dip below the
     // preview floor.
     private static (TimeSpan Start, TimeSpan Length) ClampRippleStart(
-        Scene scene, ElementResizeRequest req, IReadOnlyCollection<Element> resized)
+        Scene scene, ElementResizeRequest req, IReadOnlyCollection<Element> resized, TimeSpan minLength)
     {
         if (req.ZIndex != req.Element.ZIndex) return (req.NewStart, req.NewLength);
 
@@ -175,14 +186,8 @@ public sealed class ElementResizeService : IElementResizeService
 
         TimeSpan clampedStart = req.Element.Start - maxGrow;
         TimeSpan clampedLength = req.NewStart + req.NewLength - clampedStart;
-        if (clampedLength <= TimeSpan.Zero)
-        {
-            // Requested end sits before the clamp point: keeping upstream in bounds and the end while
-            // staying positive is impossible. A left-edge resize keeps the end, so the UI never reaches this.
-            throw new ArgumentOutOfRangeException(
-                nameof(ElementResizeRequest.NewLength),
-                "Ripple left-shift cannot preserve the requested end with a positive length.");
-        }
+        // If the requested end is too close to or before the barrier, keep a positive minimum.
+        if (clampedLength < minLength) clampedLength = minLength;
 
         return (clampedStart, clampedLength);
     }
