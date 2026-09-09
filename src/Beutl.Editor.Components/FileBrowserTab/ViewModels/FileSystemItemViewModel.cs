@@ -20,6 +20,8 @@ public class FileSystemItemViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
     private CancellationTokenSource? _thumbnailCts;
+    private readonly CancellationTokenSource _metadataCts = new();
+    private bool _disposed;
     private bool _childrenLoaded;
 
     public FileSystemItemViewModel(string fullPath, bool isDirectory)
@@ -138,8 +140,9 @@ public class FileSystemItemViewModel : IDisposable
 
         try
         {
-            var info = await service.GetMediaInfoAsync(FullPath);
-            if (info != null)
+            CancellationToken token = _metadataCts.Token;
+            var info = await service.GetMediaInfoAsync(FullPath, token);
+            if (!token.IsCancellationRequested && info != null)
             {
                 MediaInfoText.Value = info.ToDisplayString();
             }
@@ -298,6 +301,10 @@ public class FileSystemItemViewModel : IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+        _metadataCts.Cancel();
+        _metadataCts.Dispose();
         _thumbnailCts?.Cancel();
         _thumbnailCts?.Dispose();
         _thumbnailCts = null;
