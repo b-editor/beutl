@@ -269,7 +269,6 @@ public sealed partial class SkslSource
 
         private static readonly HashSet<string> s_uniformTypes = new(StringComparer.Ordinal)
         {
-            "bool",
             "int", "int2", "int3", "int4",
             "half", "half2", "half3", "half4",
             "float", "float2", "float3", "float4",

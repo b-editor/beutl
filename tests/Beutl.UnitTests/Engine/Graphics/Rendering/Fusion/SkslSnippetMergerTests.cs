@@ -24,6 +24,13 @@ public sealed class SkslSnippetMergerTests
     }
 
     [Test]
+    public void CurrentPixel_RejectsUnsupportedBooleanUniform()
+    {
+        Assert.Throws<ArgumentException>(() => ShaderDescription.CurrentPixel(
+            "uniform bool enabled; half4 apply(half4 color) { return enabled ? color : half4(0); }"));
+    }
+
+    [Test]
     public void Merge_IsolatesTopLevelSymbolsWithoutRenamingMembersOrComments()
     {
         const string source =
