@@ -99,6 +99,23 @@ public class PackageInstallerDataTests
         Assert.That(File.ReadAllText(userFile), Is.EqualTo("user template"));
     }
 
+    [Test]
+    public void RemovingPublishedVersion_RestoresSurvivingVersionPayload()
+    {
+        const string name = "Beutl.Package.DataTest.Downgrade";
+        var oldId = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        var newId = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
+        LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "old")]);
+        LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag], "2.0.0", [("materials/a.png", "new")]);
+        File.WriteAllText(Path.Combine(old.InstalledPath!, name + ".nuspec"),
+            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>tests</authors><description>tests</description><tags>{PackageKinds.MaterialTag}</tags></metadata></package>");
+        _repository.AddPackage(oldId);
+        _repository.AddPackage(newId);
+        _installer.InstallDataPackage(current);
+        _installer.Uninstall(new PackageUninstallContext(newId, current.InstalledPath) { UnnecessaryPackages = [newId] }, new Progress<double>());
+        Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.EqualTo("old"));
+    }
+
     private static string InstalledPackagesFile => Path.Combine(Helper.AppRoot, "installedPackages.json");
 
     private HttpClient _httpClient = null!;

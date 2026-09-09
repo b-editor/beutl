@@ -177,7 +177,27 @@ public partial class PackageInstaller
     // therefore still owns the payload directory keyed by that id.
     private bool KeepsAnotherInstalledIdentity(IReadOnlyCollection<PackageIdentity> removedPackages, PackageIdentity package)
     {
-        return _installedPackageRepository.GetLocalPackages(package.Id)
-            .Any(other => !other.Equals(package) && !removedPackages.Contains(other));
+        PackageIdentity? survivor = _installedPackageRepository.GetLocalPackages(package.Id)
+            .Where(other => !other.Equals(package) && !removedPackages.Contains(other))
+            .OrderByDescending(other => other.Version)
+            .FirstOrDefault();
+        if (survivor is null)
+            return false;
+
+        string[] roots = [BeutlEnvironment.GetMaterialsDirectoryPath(), BeutlEnvironment.GetTemplatesDirectoryPath()];
+        if (roots.Select(root => ReadPayloadOwner(Path.Combine(root, package.Id)))
+            .Any(owner => owner is not null
+                && StringComparer.OrdinalIgnoreCase.Equals(owner.Name, package.Id)
+                && owner.Version == package.Version.ToString()))
+        {
+            string installed = Helper.ResolveInstalledDirectory(survivor);
+            using var reader = new PackageFolderReader(installed);
+            var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = installed };
+            if (localPackage.Tags.GetPackageKind() == PackageKind.Extension)
+                UninstallDataPackage(package.Id);
+            else
+                InstallDataPackage(localPackage);
+        }
+        return true;
     }
 }
