@@ -60,6 +60,7 @@ public sealed partial class TransparentMaterial : Material3D
     {
         private IPipeline3D? _pipeline;
         private IRenderPass3D? _pipelineRenderPass;
+        private bool _bindingsRecorded;
         private IDescriptorSet? _descriptorSet;
         private IBuffer? _uniformBuffer;
         private ISampler? _sampler;
@@ -133,6 +134,17 @@ public sealed partial class TransparentMaterial : Material3D
             if (_pipeline == null || _descriptorSet == null || _uniformBuffer == null || _sampler == null)
                 return;
 
+            // Recorded draws must retain immutable bindings until the backend completes them.
+            if (_bindingsRecorded)
+            {
+                var bindings = MaterialGpuResources.CreateDrawBindings<TransparentMaterialUBO>(context.GraphicsContext, _pipeline, 1);
+                _descriptorSet.Dispose();
+                _uniformBuffer.Dispose();
+                _descriptorSet = bindings.Descriptors;
+                _uniformBuffer = bindings.Buffer;
+            }
+            _bindingsRecorded = true;
+
             var renderPass = context.RenderPass;
             var graphicsContext = context.GraphicsContext;
 
@@ -174,6 +186,7 @@ public sealed partial class TransparentMaterial : Material3D
         partial void PostDispose(bool disposing)
         {
             _pipelineRenderPass = null;
+            _bindingsRecorded = false;
             IsPipelineInitialized = false;
             _descriptorSet?.Dispose();
             _descriptorSet = null;

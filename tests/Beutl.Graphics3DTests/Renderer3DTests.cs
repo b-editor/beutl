@@ -30,6 +30,68 @@ public class Renderer3DTests
         _context = GpuTestEnvironment.EnsureAvailable();
     }
 
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    public void MaterialBindings_SurviveResizeAndSharedDraws(int kind)
+    {
+        byte[] shared = RenderPair(true, kind);
+        byte[] independent = RenderPair(false, kind);
+        Assert.That(shared, Is.EqualTo(independent), "Sharing a material must not move both meshes to the last draw's transform.");
+    }
+
+    private byte[] RenderPair(bool shared, int kind, bool grouped = false)
+    {
+        return GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var renderer = new Renderer3D(_context);
+            renderer.Initialize(64, 64);
+            var composition = new CompositionContext(TimeSpan.Zero);
+            var camera = new PerspectiveCamera();
+            camera.Position.CurrentValue = new Vector3(0, 0, 4);
+            camera.Target.CurrentValue = Vector3.Zero;
+            using var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(composition);
+            Material3D CreateMaterial() => kind switch
+            {
+                0 => new BasicMaterial(),
+                1 => new PBRMaterial(),
+                _ => new TransparentMaterial(),
+            };
+            Material3D material = CreateMaterial();
+            var objects = new List<Object3D.Resource>();
+            var group = new Group3D();
+            group.Position.CurrentValue = new Vector3(1, 0, 0);
+            try
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    var sphere = new Sphere3D();
+                    sphere.Position.CurrentValue = new Vector3((i == 0 ? -0.75f : 0.75f) - (grouped ? 1 : 0), 0, 0);
+                    sphere.Radius.CurrentValue = 0.4f;
+                    sphere.Material.CurrentValue = shared ? material : CreateMaterial();
+                    if (grouped) group.Children.Add(sphere);
+                    else objects.Add((Object3D.Resource)sphere.ToResource(composition));
+                }
+                if (grouped) objects.Add((Object3D.Resource)group.ToResource(composition));
+                renderer.Render(composition, cameraResource, objects, [], Colors.Black, Colors.White, 1f);
+                renderer.Resize(96, 96);
+                renderer.Render(composition, cameraResource, objects, [], Colors.Black, Colors.White, 1f);
+                byte[] pixels = renderer.DownloadPixels();
+                var values = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(pixels);
+                bool lit = false;
+                for (int i = 0; i < values.Length; i += 4)
+                    lit |= (float)values[i] > 0.001f || (float)values[i + 1] > 0.001f || (float)values[i + 2] > 0.001f;
+                Assert.That(lit, Is.True);
+                return pixels;
+            }
+            finally
+            {
+                foreach (var obj in objects)
+                    obj.Dispose();
+            }
+        });
+    }
+
     [Test]
     public void RenderPbrMaterialGrid_ProducesLitNonUniformFramebuffer()
     {
