@@ -763,6 +763,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                             // can later load it without the server's advertised digest.
                             stream.Dispose();
                             File.Delete(context.NuGetPackageFile);
+                            var identity = new PackageIdentity(context.PackageName, NuGetVersion.Parse(context.Version));
+                            if (_installingContexts.TryGetValue(identity, out PackageInstallContext? cached)
+                                && ReferenceEquals(cached, context))
+                                _installingContexts.Remove(identity);
                             throw new InvalidDataException("The downloaded package does not match its advertised hash.");
                         }
                     }
