@@ -162,7 +162,7 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                         }
 
                     case MessageType.Error:
-                        throw new FFmpegWorkerException(msg.Error ?? "Unknown error", msg.ErrorStackTrace);
+                        throw new FFmpegWorkerException(msg.Error ?? "Unknown error", msg.ErrorStackTrace, msg.ErrorCode);
 
                     default:
                         break;
