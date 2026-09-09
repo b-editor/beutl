@@ -71,8 +71,29 @@ public sealed class EditorTabItem : IAsyncDisposable
     }
 }
 
-public sealed class EditorService : IOutputOperationLeaseProvider
+public sealed class EditorService : IOutputOperationLeaseProvider, Beutl.Editor.Services.IEditorFileUsage
 {
+    public bool IsFileInUse(string path, bool isDirectory)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        IEnumerable<CoreObject> objects = _tabItems
+            .Select(item => item.Context.Value?.Object)
+            .OfType<CoreObject>();
+        if (BeutlApplication.Current.Project is { } project)
+            objects = objects.Concat(project.Items).Prepend(project);
+        foreach (CoreObject obj in objects)
+        {
+            if (Matches(obj.Uri)) return true;
+            if (obj is Beutl.ProjectSystem.Scene scene && scene.Children.Any(element => Matches(element.Uri)))
+                return true;
+        }
+        return false;
+
+        bool Matches(Uri? uri) => uri is { IsFile: true } && (isDirectory
+            ? FilePathComparison.IsSameOrDescendant(path, uri.LocalPath)
+            : FilePathComparison.AreSameCanonicalPath(path, uri.LocalPath));
+    }
+
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ExtensionProvider _extensionProvider;
     private readonly Action<Project, Uri> _serializeProject;

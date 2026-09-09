@@ -58,4 +58,16 @@ public sealed class ExternalReviewRegressionTests
         Assert.That(JsonNode.DeepEquals(original, JsonNode.Parse(File.ReadAllText(path))), Is.True);
     }
 
+    [AvaloniaTest]
+    public async Task FileBrowser_DoesNotRenameOrDeleteAnOpenScene()
+    {
+        EditViewModel editor = await CreateEditor("open-file-review");
+        string path = editor.Scene.Uri!.LocalPath;
+        using var browser = new FileBrowserTabViewModel(editor);
+        using var item = new FileSystemItemViewModel(path, false);
+        await browser.RenameItemAsync(item, "renamed.scene");
+        await browser.DeleteItemAsync(item);
+        Assert.That(File.Exists(path), Is.True);
+        Assert.That(File.Exists(Path.Combine(Path.GetDirectoryName(path)!, "renamed.scene")), Is.False);
+    }
 }

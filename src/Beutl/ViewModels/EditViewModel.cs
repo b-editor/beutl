@@ -960,6 +960,8 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
 
     public object? GetService(Type serviceType)
     {
+        if (serviceType == typeof(Beutl.Editor.Services.IEditorFileUsage))
+            return EditorService;
         if (serviceType == typeof(Scene))
             return Scene;
 

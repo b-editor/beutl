@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -436,5 +436,8 @@
   </data>
   <data name="FFmpegErrorStreamNotFound" xml:space="preserve">
     <value>入力に適切なストリームが見つかりませんでした。</value>
+  </data>
+  <data name="FileInUse" xml:space="preserve">
+    <value>名前変更や削除の前に、この項目のファイルをエディターで閉じてください。</value>
   </data>
 </root>

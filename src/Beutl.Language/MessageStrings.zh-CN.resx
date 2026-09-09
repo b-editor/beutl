@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:schema id="root">
     <xs:element name="root" ns1:IsDataSet="true">
@@ -442,5 +442,8 @@
   </data>
   <data name="FFmpegErrorStreamNotFound" xml:space="preserve">
     <value>在输入中未找到合适的流。</value>
+  </data>
+  <data name="FileInUse" xml:space="preserve">
+    <value>重命名或删除此项目之前，请先在编辑器中关闭相关文件。</value>
   </data>
 </root>

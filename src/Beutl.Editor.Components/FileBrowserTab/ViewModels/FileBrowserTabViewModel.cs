@@ -4,6 +4,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Threading;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Logging;
+using Beutl.Editor.Services;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -304,8 +305,30 @@ public sealed class FileBrowserTabViewModel : IToolContext
         }
     }
 
+    private bool CanMutateItem(FileSystemItemViewModel item)
+    {
+        if (_disposed) return false;
+        try
+        {
+            bool inUse = _editorContext.GetService<IEditorFileUsage>() is { } usage
+                ? usage.IsFileInUse(item.FullPath, item.IsDirectory)
+                : _editorContext.Object.Uri is { IsFile: true } own && (item.IsDirectory
+                    ? FilePathComparison.IsSameOrDescendant(item.FullPath, own.LocalPath)
+                    : FilePathComparison.AreSameCanonicalPath(item.FullPath, own.LocalPath));
+            if (!inUse) return true;
+            NotificationService.ShowError(Strings.File, MessageStrings.FileInUse);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not verify whether {Path} is in use.", item.FullPath);
+            NotificationService.ShowError(Strings.File, MessageStrings.OperationFailed);
+        }
+        return false;
+    }
+
     public async Task DeleteItemAsync(FileSystemItemViewModel item)
     {
+        if (!CanMutateItem(item)) return;
         var dialog = new ContentDialog
         {
             Title = Strings.Delete,
@@ -320,6 +343,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         {
             try
             {
+                if (!CanMutateItem(item)) return;
                 if (item.IsDirectory)
                 {
                     Directory.Delete(item.FullPath, true);
@@ -339,6 +363,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public async Task DeleteItemsAsync(IReadOnlyList<FileSystemItemViewModel> items)
     {
+        if (items.Any(item => !CanMutateItem(item))) return;
         if (items.Count == 0)
             return;
 
@@ -364,6 +389,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             {
                 try
                 {
+                    if (!CanMutateItem(item)) continue;
                     if (item.IsDirectory)
                     {
                         Directory.Delete(item.FullPath, true);
@@ -410,6 +436,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public async Task RenameItemAsync(FileSystemItemViewModel item, string newName)
     {
+        if (!CanMutateItem(item)) return;
         if (string.IsNullOrWhiteSpace(newName) || newName == item.Name.Value)
             return;
 

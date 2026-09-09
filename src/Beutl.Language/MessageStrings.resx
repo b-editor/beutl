@@ -442,4 +442,7 @@ Do you want to restart the application?</value>
   <data name="FFmpegErrorStreamNotFound" xml:space="preserve">
     <value>No suitable stream was found in the input.</value>
   </data>
+  <data name="FileInUse" xml:space="preserve">
+    <value>Close files in the editor before renaming or deleting this item.</value>
+  </data>
 </root>
