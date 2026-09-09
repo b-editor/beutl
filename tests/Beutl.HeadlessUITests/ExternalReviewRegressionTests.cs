@@ -35,4 +35,27 @@ public sealed class ExternalReviewRegressionTests
         Assert.That(TestShell.Editor.TabItems.Any(tab => ReferenceEquals(tab.Context.Value, editor)), Is.True);
     }
 
+    [AvaloniaTest]
+    public async Task UnavailableReadOnlyOutputProfile_SurvivesARewrite()
+    {
+        EditViewModel editor = await CreateEditor("output-profile-review");
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, EditorConstants.BeutlFolder, "output-profile.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var original = new JsonArray(new JsonObject
+        {
+            ["Extension"] = "[Missing.Plugin]Missing:Output",
+            ["File"] = editor.Scene.Uri.LocalPath,
+            ["Context"] = new JsonObject { ["Name"] = "retained", ["PluginSetting"] = 42 },
+        });
+        File.WriteAllText(path, original.ToJsonString());
+        using var service = new OutputService(editor);
+        File.SetAttributes(path, FileAttributes.ReadOnly);
+        try { service.RestoreItems(); }
+        finally { File.SetAttributes(path, FileAttributes.Normal); }
+        File.Delete(path);
+        service.SaveItems();
+        Assert.That(File.Exists(path), Is.True, "Read-only input must not disable later saves.");
+        Assert.That(JsonNode.DeepEquals(original, JsonNode.Parse(File.ReadAllText(path))), Is.True);
+    }
+
 }

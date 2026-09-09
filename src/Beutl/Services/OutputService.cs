@@ -524,6 +524,8 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
             .Where(x => x.IsSupported(type)).ToArray();
     }
 
+    private readonly List<JsonNode> _unavailableProfiles = [];
+
     public void SaveItems()
     {
         if (!_isRestored) return;
@@ -535,6 +537,8 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
             array.Add(json);
         }
 
+        foreach (JsonNode unavailable in _unavailableProfiles)
+            array.Add(unavailable.DeepClone());
         array.JsonSave(_filePath);
         _logger.LogInformation("Saved {Count} OutputProfileItems to file: {FilePath}", _items.Count, _filePath);
     }
@@ -569,6 +573,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
                 item.Dispose();
             }
 
+            _unavailableProfiles.Clear();
             _items.EnsureCapacity(jsonArray.Count);
 
             foreach (JsonNode? jsonItem in jsonArray)
@@ -579,6 +584,10 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
                 if (item != null)
                 {
                     _items.Add(item);
+                }
+                else
+                {
+                    _unavailableProfiles.Add(jsonItem.DeepClone());
                 }
             }
 
