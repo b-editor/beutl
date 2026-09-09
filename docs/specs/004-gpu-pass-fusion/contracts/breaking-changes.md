@@ -1172,3 +1172,4 @@ Rebuild extensions against the current preview; these are source and binary cont
 
 - `IProperty.ReplaceCurrentValue(object?)` and `IProperty<T>.ReplaceCurrentValue(T)` must replace distinct reference objects even if they compare equal, while keeping validation and notifications. `IProperty.GetValidator()` returns the currently attached validator, including custom validators.
 - `IReferenceExpression.Rebind(Guid)` returns an equivalent expression retaining its concrete type and state, or `null` when a lossless rebind is unavailable.
+For repeated manual rendering, retain a `RenderNodeRenderer` rather than relying on the one-call `ImmediateCanvas.DrawDrawable`/`DrawNode` convenience methods to retain caches. Expanded requests cannot currently run inside an active native SaveLayer: reading the backing surface would omit the layer. See [#2356](https://github.com/b-editor/beutl/issues/2356).
