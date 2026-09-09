@@ -135,7 +135,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)),
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)),
                 "the service floors the length to one frame at the scene rate");
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -165,10 +165,24 @@ public class ElementResizeServiceTests
                 [new ElementResizeRequest(null!, TimeSpan.Zero, TimeSpan.FromSeconds(1), 0)]));
     }
 
-    [TestCase("0", 333333)]
-    [TestCase("-1", 333333)]
-    [TestCase("invalid", 333333)]
-    [TestCase("60", 166666)]
+    [TestCase(24)]
+    [TestCase(30)]
+    [TestCase(60)]
+    public void Resize_MinimumLength_DoesNotFloorToZeroFrames(int rate)
+    {
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = rate.ToString();
+        project.Items.Add(_scene);
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        _service.Resize(_scene, [new ElementResizeRequest(element, element.Start, TimeSpan.Zero, 0)]);
+
+        Assert.That(element.Length.FloorToRate(rate), Is.GreaterThan(TimeSpan.Zero));
+    }
+
+    [TestCase("0", 333334)]
+    [TestCase("-1", 333334)]
+    [TestCase("invalid", 333334)]
+    [TestCase("60", 166667)]
     [TestCase("2147483647", 1)]
     public void Resize_FrameRate_AlwaysProducesPositiveLength(string rate, long expectedTicks)
     {
@@ -195,7 +209,7 @@ public class ElementResizeServiceTests
             [new ElementResizeRequest(element, element.Start, TimeSpan.FromMilliseconds(milliseconds), 0)], ripple);
 
         Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)), "Scene.Start is not the timeline origin.");
-        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)));
         _history.Undo();
         Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
     }
@@ -256,7 +270,7 @@ public class ElementResizeServiceTests
 
         _service.Resize(_scene, [new ElementResizeRequest(element, end - length, length, 0)], ripple);
 
-        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)));
         Assert.That(element.Range.End, Is.EqualTo(end));
         Assert.That(follower.Start, Is.EqualTo(end));
         _history.Undo();
@@ -276,7 +290,7 @@ public class ElementResizeServiceTests
             [new ElementResizeRequest(element, TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length), 0)], ripple: true);
 
         Assert.That(element.Start, Is.EqualTo(barrier.Range.End));
-        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)));
         Assert.That(barrier.Start, Is.EqualTo(TimeSpan.Zero));
         Assert.That(barrier.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
         _history.Undo();
@@ -293,7 +307,7 @@ public class ElementResizeServiceTests
             [new ElementResizeRequest(element, TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length), 0)], ripple: true);
 
         Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
-        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)));
     }
 
     [Test]
@@ -310,7 +324,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)),
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(333334)),
                 "the service floors the length to one frame at the scene rate");
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -336,7 +350,7 @@ public class ElementResizeServiceTests
             Assert.That(valid.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(valid.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
             Assert.That(invalid.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
-            Assert.That(invalid.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)),
+            Assert.That(invalid.Length, Is.EqualTo(TimeSpan.FromTicks(333334)),
                 "the zero length is floored to one frame instead of rejecting the batch");
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });

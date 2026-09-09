@@ -830,7 +830,7 @@ public sealed partial class ElementView : UserControl
                             ElementResizeContext ctx = _resizeContexts[i];
                             TimeSpan roundedStart = ctx.ViewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
                             TimeSpan roundedLength = ctx.ViewModel.Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
-                            (TimeSpan newStart, TimeSpan newLength) = ripple
+                            (TimeSpan newStart, TimeSpan newLength) = ripple || leftEdge
                                 ? ElementViewModel.ResolveRippleResizeBounds(
                                     leftEdge, roundedStart, roundedLength, ctx.RecordedStartTime, ctx.RecordedEndTime)
                                 : (roundedStart, roundedLength);

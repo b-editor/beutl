@@ -621,7 +621,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
         TimeSpan roundedStart = BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
         TimeSpan roundedLength = Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
-        (TimeSpan start, TimeSpan length) = ripple
+        (TimeSpan start, TimeSpan length) = ripple || leftEdge
             ? ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start, Model.Range.End)
             : (roundedStart, roundedLength);
         int zindex = Timeline.ToLayerNumber(Margin.Value);

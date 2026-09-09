@@ -317,7 +317,7 @@ public class RippleEditTests
         Assert.Multiple(() =>
         {
             Assert.That(target.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
-            Assert.That(target.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+            Assert.That(target.Length, Is.EqualTo(TimeSpan.FromTicks(333334)));
             Assert.That(upstream.Start, Is.EqualTo(TimeSpan.Zero));
             Assert.That(upstream.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));

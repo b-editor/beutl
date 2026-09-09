@@ -30,7 +30,7 @@ public class SubFrameResizeClampTests
     // 10 ms: positive, but 0.3 frames at the 30 fps project rate, so FloorToRate(30) == 0.
     private static readonly TimeSpan SubFrameAudioDuration = TimeSpan.FromMilliseconds(10);
 
-    private static readonly TimeSpan OneFrameAt30 = TimeSpan.FromSeconds(1d / 30);
+    private static readonly TimeSpan OneFrameAt30 = TimeSpan.FromTicks(333334);
 
     [OneTimeTearDown]
     public void OneTimeTearDown()
@@ -180,6 +180,34 @@ public class SubFrameResizeClampTests
             Assert.That(element.Length, Is.EqualTo(OneFrameAt30),
                 "the zero-frame width is floored to one frame at the project rate");
         });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, 2.01)]
+    [TestCase(false, 2.02)]
+    [TestCase(true, 2.01)]
+    [TestCase(true, 2.02)]
+    public async Task SubmitLeftEdge_OffFrameEnd_PreservesEnd(bool ripple, double endSeconds)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene($"left-edge-{ripple}-{endSeconds}");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        TimeSpan end = TimeSpan.FromSeconds(endSeconds);
+        ElementAddResult added = await adder.AddAsync([new ElementDescription(
+            Start: TimeSpan.Zero, Length: end, Layer: 0,
+            Source: new ElementSource.EngineObject(() => new Beutl.Graphics.Shapes.RectShape()))], CancellationToken.None);
+        Assert.That(added.IsSuccess, Is.True);
+        HeadlessTestHelpers.Settle();
+        Element element = editor.Scene.Children.Single();
+        var timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        var viewModel = timeline.GetViewModelFor(element)!;
+        viewModel.BorderMargin.Value = new Thickness(end.TimeToPixel(timeline.Options.Value.Scale), 0, 0, 0);
+        viewModel.Width.Value = 0;
+
+        await viewModel.SubmitViewModelChanges(ripple, leftEdge: true);
+
+        Assert.That(element.Range.End, Is.EqualTo(end));
+        Assert.That(element.Length, Is.GreaterThanOrEqualTo(OneFrameAt30));
     }
 
     private static Exception Unwrap(Exception ex)

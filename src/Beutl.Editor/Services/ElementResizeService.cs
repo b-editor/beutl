@@ -28,7 +28,8 @@ public sealed class ElementResizeService : IElementResizeService
         // Sub-frame original durations and pixel rounding can submit zero length from async UI handlers.
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         // Invalid persisted rates use the default; sub-tick frames still require a positive duration.
-        TimeSpan minLength = TimeSpan.FromTicks(Math.Max(1, TimeSpan.TicksPerSecond / (rate > 0 ? rate : 30)));
+        if (rate <= 0) rate = 30;
+        TimeSpan minLength = TimeSpan.FromTicks((TimeSpan.TicksPerSecond + (long)rate - 1) / rate);
         requests = NormalizeRequests(requests, ripple, minLength);
 
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
@@ -126,8 +127,8 @@ public sealed class ElementResizeService : IElementResizeService
             {
                 // A changed start with the original end identifies a fixed-right-edge resize.
                 TimeSpan end = req.Element.Range.End;
-                if (req.NewLength >= TimeSpan.Zero && req.NewStart != req.Element.Start
-                    && req.NewStart == end - req.NewLength)
+                if (req.NewStart >= TimeSpan.Zero && req.NewStart != req.Element.Start
+                    && req.NewLength == end - req.NewStart)
                 {
                     start = end > minLength ? end - minLength : TimeSpan.Zero;
                 }
