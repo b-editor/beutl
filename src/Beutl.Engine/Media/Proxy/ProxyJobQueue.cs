@@ -23,8 +23,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private readonly List<WorkItem> _items = [];
     private readonly HashSet<Task> _admissionRetryTasks = [];
     private readonly Lock _lock = new();
-    private readonly Queue<(ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers)> _admissionNotifications = [];
-    private bool _publishingAdmissionNotifications;
+    private readonly Dictionary<Guid, Queue<(ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers)>> _admissionNotifications = [];
     private readonly Task _drainTask;
     private readonly TimeSpan _minUnavailableBackoff;
     private readonly TimeSpan _maxUnavailableBackoff;
@@ -1149,6 +1148,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     {
         if (kind is ProxyJobChangeKind.WaitingForAdmission or ProxyJobChangeKind.Canceled)
         {
+            Queue<(ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers)> notifications;
             lock (_lock)
             {
                 // The same gate orders cancellation's terminal transition and the wait
@@ -1157,19 +1157,26 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     return false;
                 if (JobChanged is not { } handlers)
                     return true;
-                _admissionNotifications.Enqueue((new ProxyJobChangedEventArgs { Job = job, Kind = kind }, handlers));
-                if (_publishingAdmissionNotifications)
+                var notification = (new ProxyJobChangedEventArgs { Job = job, Kind = kind }, handlers);
+                if (_admissionNotifications.TryGetValue(job.JobId, out notifications!))
+                {
+                    notifications.Enqueue(notification);
                     return true;
-                _publishingAdmissionNotifications = true;
+                }
+                // An unrelated job's canceled callback must not defer this wait notification
+                // beyond the serial drain's next attempt to start or complete this job.
+                notifications = new();
+                notifications.Enqueue(notification);
+                _admissionNotifications.Add(job.JobId, notifications);
             }
             while (true)
             {
                 (ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers) notification;
                 lock (_lock)
                 {
-                    if (!_admissionNotifications.TryDequeue(out notification))
+                    if (!notifications.TryDequeue(out notification))
                     {
-                        _publishingAdmissionNotifications = false;
+                        _admissionNotifications.Remove(job.JobId);
                         return true;
                     }
                 }

@@ -34,6 +34,58 @@ public class ProxyJobQueueTests
     }
 
     [Test]
+    public async Task AdmissionWaitForAnotherJob_IsPublishedBeforeThatJobCanComplete()
+    {
+        var admission = new SequencedAdmission(rejections: 2);
+        var firstDelayStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCancellation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var succeeded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var observed = new System.Collections.Concurrent.ConcurrentQueue<ProxyJobChangeKind>();
+        ProxyFingerprint first = CreateFingerprint("blocked-cancellation.mov");
+        ProxyFingerprint second = CreateFingerprint("independent-admission.mov");
+        int delays = 0;
+        await using var queue = new ProxyJobQueue(new RecordingGenerator(), store: null,
+            minUnavailableBackoff: TimeSpan.FromMilliseconds(1), maxUnavailableBackoff: TimeSpan.FromMilliseconds(1), admission,
+            (_, token) =>
+            {
+                if (Interlocked.Increment(ref delays) != 1) return Task.CompletedTask;
+                firstDelayStarted.TrySetResult();
+                return Task.Delay(Timeout.InfiniteTimeSpan, token);
+            });
+        queue.JobChanged += (_, change) =>
+        {
+            if (change.Job.Source == first && change.Kind == ProxyJobChangeKind.Canceled)
+            {
+                cancellationStarted.TrySetResult();
+                releaseCancellation.Task.GetAwaiter().GetResult();
+            }
+            if (change.Job.Source == second)
+            {
+                observed.Enqueue(change.Kind);
+                if (change.Kind == ProxyJobChangeKind.Succeeded) succeeded.TrySetResult();
+            }
+        };
+        Task? cancellation = null;
+        try
+        {
+            ProxyJob firstJob = await queue.EnqueueAsync(first, ProxyPreset.Quarter);
+            await firstDelayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            cancellation = Task.Run(() => queue.Cancel(firstJob.JobId));
+            await cancellationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await queue.EnqueueAsync(second, ProxyPreset.Quarter);
+            await succeeded.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            releaseCancellation.TrySetResult();
+            if (cancellation is not null) await cancellation.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        Assert.That(observed.Where(kind => kind is ProxyJobChangeKind.WaitingForAdmission or ProxyJobChangeKind.Succeeded),
+            Is.EqualTo(new[] { ProxyJobChangeKind.WaitingForAdmission, ProxyJobChangeKind.Succeeded }));
+    }
+
+    [Test]
     public async Task EnqueueAsync_DispatchesSeriallyInArrivalOrder()
     {
         var generator = new RecordingGenerator();
