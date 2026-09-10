@@ -43,18 +43,33 @@ public class InstalledPackageRepository : IBeutlApiResource
         {
             removedItems = GetLocalPackages(package.Id).ToArray();
         }
+        PackageIdentity[] upgraded = [.. _packages.Where(x => !StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id)), package];
+        // Persist a candidate snapshot before publishing the new registration in memory.
+        Save(upgraded.Select(x => new S_Package(x.Id, x.Version.ToString(),
+            StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id)
+                ? BeutlApplication.Version : _resolvedBeutlVersions.GetValueOrDefault(x.Id))));
         _packages.RemoveWhere(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id));
         _packages.Add(package);
         _resolvedBeutlVersions[package.Id] = BeutlApplication.Version;
-        Save();
 
         foreach (PackageIdentity removed in removedItems)
-        {
-            _subject.OnNext((removed, false));
-        }
+            PublishCommittedChange(removed, false);
+        PublishCommittedChange(package, true);
+    }
 
-        _subject.OnNext((package, true));
-        _logger.LogInformation("Upgraded package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
+    private void PublishCommittedChange(PackageIdentity package, bool exists)
+    {
+        try
+        {
+            _subject.OnNext((package, exists));
+        }
+        catch (Exception ex)
+        {
+            // Observer failures cannot undo an already persisted registration or make
+            // the installer roll back the payload while the repository records the new version.
+            try { _logger.LogError(ex, "An installed-package observer failed after registration was committed."); }
+            catch { }
+        }
     }
 
     public void AddPackage(string name, string version)
@@ -186,13 +201,13 @@ public class InstalledPackageRepository : IBeutlApiResource
     }
 
     private void Save()
+        => Save(_packages.Select(x => new S_Package(x.Id, x.Version.ToString(), _resolvedBeutlVersions.GetValueOrDefault(x.Id))));
+
+    private void Save(IEnumerable<S_Package> packages)
     {
         _logger.LogInformation("Saving installed packages to file.");
         string fileName = Path.Combine(Helper.AppRoot, FileName);
-        JsonSerializer.SerializeToNode(_packages
-            .Select(x => new S_Package(x.Id, x.Version.ToString(), _resolvedBeutlVersions.GetValueOrDefault(x.Id)))
-            .ToArray())!.JsonSave(fileName);
-        _logger.LogInformation("Saved {Count} packages to file.", _packages.Count);
+        JsonSerializer.SerializeToNode(packages.ToArray())!.JsonSave(fileName);
     }
 
     private void Restore()

@@ -32,6 +32,42 @@ public class InstalledPackageRepositoryTests
     }
 
     [Test]
+    public void FailedUpgradePersistence_KeepsThePreviousInMemoryRegistration()
+    {
+        var repo = new InstalledPackageRepository();
+        var old = new PackageIdentity("Beutl.Package.UpdateTest.FailedSave", NuGetVersion.Parse("1.0.0"));
+        var next = new PackageIdentity(old.Id, NuGetVersion.Parse("2.0.0"));
+        repo.UpgradePackages(old);
+        string backup = InstalledPackagesFile + ".test-backup";
+        File.Move(InstalledPackagesFile, backup);
+        Directory.CreateDirectory(InstalledPackagesFile);
+        try
+        {
+            Assert.Catch(() => repo.UpgradePackages(next));
+            Assert.That(repo.GetLocalPackages(old.Id), Is.EqualTo(new[] { old }));
+        }
+        finally
+        {
+            Directory.Delete(InstalledPackagesFile);
+            File.Move(backup, InstalledPackagesFile);
+        }
+        Assert.That(new InstalledPackageRepository().GetLocalPackages(old.Id), Is.EqualTo(new[] { old }));
+    }
+
+    [Test]
+    public void UpgradeNotificationFailure_DoesNotFailTheCommittedRegistration()
+    {
+        var repo = new InstalledPackageRepository();
+        var next = new PackageIdentity("Beutl.Package.UpdateTest.ObserverFailure", NuGetVersion.Parse("2.0.0"));
+        using var subscription = repo.GetPackageObservable(next.Id).Subscribe(value =>
+        {
+            if (value is not null) throw new InvalidOperationException("observer failed");
+        });
+        Assert.DoesNotThrow(() => repo.UpgradePackages(next));
+        Assert.That(new InstalledPackageRepository().ExistsPackage(next), Is.True);
+    }
+
+    [Test]
     public void GetPackageObservable_EmitsNull_WhenNotInstalled()
     {
         const string name = "Beutl.Package.UpdateTest.None";

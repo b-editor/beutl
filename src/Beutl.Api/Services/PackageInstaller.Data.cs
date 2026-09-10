@@ -89,8 +89,11 @@ public partial class PackageInstaller
 
         // Cancellation is accepted until this short publication step starts. Once
         // it starts, callers finish repository registration without cancellation.
-        public void Commit()
+        public void Commit() => Commit(static () => { });
+
+        public void Commit(Action register)
         {
+            ArgumentNullException.ThrowIfNull(register);
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_attempted) throw new InvalidOperationException("This deployment was already attempted.");
             _attempted = true;
@@ -125,6 +128,9 @@ public partial class PackageInstaller
                                 change.Published = true;
                             }
                         }
+                        // Registration is part of the same transaction. Its failure restores
+                        // replacements and removals while the previous backups still exist.
+                        register();
                     }
                     catch (Exception failure)
                     {
@@ -148,15 +154,6 @@ public partial class PackageInstaller
                     }
                 }
             });
-        }
-
-        public void PreserveBackup()
-        {
-            if (changes.Any(change => change.BackedUp))
-            {
-                _preserveBackup = true;
-                owner._logger.LogWarning("Package registration failed; previous payload backups remain at {Staging}.", staging);
-            }
         }
 
         public void Dispose()

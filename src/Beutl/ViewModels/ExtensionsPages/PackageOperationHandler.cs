@@ -99,23 +99,39 @@ internal class PackageOperationHandler
         var deployment = await Task.Run(() => _packageInstaller.PrepareDataPackage(localPackage, cancellationToken), cancellationToken).ConfigureAwait(false);
         try
         {
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync<Task>(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                deployment.Commit();
-                // Publication is the commit point. Finish registration even if cancellation
-                // arrives during this synchronous section, rather than leaving unregistered data.
+                bool extensionLoaded = false;
                 try
                 {
-                    if (isExtension) _packageManager.Load(localPackage);
-                    _installedPackageRepository.UpgradePackages(packageId);
+                    deployment.Commit(() =>
+                    {
+                        if (isExtension)
+                        {
+                            _packageManager.Load(localPackage);
+                            extensionLoaded = true;
+                        }
+                        _installedPackageRepository.UpgradePackages(packageId);
+                    });
                 }
-                catch
+                catch (Exception failure)
                 {
-                    deployment.PreserveBackup();
+                    if (extensionLoaded)
+                    {
+                        try
+                        {
+                            if (!await _packageManager.Unload(localPackage))
+                                throw new InvalidOperationException("The unregistered extension could not be unloaded.");
+                        }
+                        catch (Exception cleanup)
+                        {
+                            throw new AggregateException("Package registration and extension cleanup failed.", failure, cleanup);
+                        }
+                    }
                     throw;
                 }
-            }, Avalonia.Threading.DispatcherPriority.Default, cancellationToken).GetTask().ConfigureAwait(false);
+            }, Avalonia.Threading.DispatcherPriority.Default, cancellationToken).GetTask().Unwrap().ConfigureAwait(false);
         }
         finally
         {

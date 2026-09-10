@@ -82,20 +82,10 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     token.ThrowIfCancellationRequested();
-                    deployment.Commit();
-                    // Once published, complete the short registration step. Late cancellation
-                    // must not turn a committed install into an unregistered/canceled payload.
-                    try
-                    {
-                        repos.AddPackage(pkg);
-                        repos.UpgradePackages(pkg);
-                        Succeeded.Value = true;
-                    }
-                    catch
-                    {
-                        deployment.PreserveBackup();
-                        throw;
-                    }
+                    // Cancellation is no longer accepted once publication starts. A failed
+                    // registration still restores the previous payload as part of Commit.
+                    deployment.Commit(() => repos.UpgradePackages(pkg));
+                    Succeeded.Value = true;
                 }, Avalonia.Threading.DispatcherPriority.Default, token);
             }
             finally
