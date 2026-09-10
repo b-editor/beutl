@@ -75,11 +75,14 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
         ReportUnmarkedMutators(context, analysis, type, renderNodeType, processClosure, readState);
         ReportExternallyWritableState(context, analysis, type, renderNodeType, readState);
+        List<ReportedByBase> reportedByBases = CollectReportsByBaseTypes(analysis, type, renderNodeType);
         foreach (IMethodSymbol callback in analysis.ConstructorSubscriptions(type))
         {
             if (analysis.MarksChanged(callback)) continue;
             foreach (StateAssignment assignment in analysis.FindStateAssignments(callback, readState))
             {
+                if (IsReportedByABaseType(reportedByBases, callback, assignment.State))
+                    continue;
                 context.ReportDiagnostic(Diagnostic.Create(
                     DiagnosticDescriptors.UnmarkedRenderNodeMutation, assignment.Location,
                     type.Name, "constructor subscription", assignment.State.Name, CallMarkChanged));
@@ -175,6 +178,9 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                 analysis.CollectCallClosure(process),
                 CollectOverriddenMethods(declaring, renderNodeType));
 
+            members = members.Union(analysis.ConstructorSubscriptions(declaring)
+                .Where(callback => !analysis.MarksChanged(callback))
+                .Select(callback => (ISymbol)callback.OriginalDefinition));
             if (!members.IsEmpty)
                 reported.Add(new ReportedByBase(state, members));
         }
@@ -795,7 +801,10 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
         public IEnumerable<IMethodSymbol> ConstructorSubscriptions(INamedTypeSymbol declaring)
         {
-            foreach (IMethodSymbol constructor in declaring.InstanceConstructors)
+            for (INamedTypeSymbol? current = declaring;
+                 current is not null && !SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, renderNodeType);
+                 current = current.BaseType)
+            foreach (IMethodSymbol constructor in current.InstanceConstructors)
             foreach (BodyWithModel body in GetBodies(constructor))
             foreach (AnonymousFunctionExpressionSyntax lambda in body.Body.DescendantNodes().OfType<AnonymousFunctionExpressionSyntax>())
             {

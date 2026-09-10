@@ -9,6 +9,32 @@ namespace SourceGeneratorTest;
 [TestFixture]
 public sealed class RenderNodeChangeMarkingAnalyzerTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void BaseConstructorSubscription_IsReportedWithoutDuplicateBaseDiagnostics(bool baseReadsState)
+    {
+        string baseProcess = baseReadsState
+            ? "public override void Process(RenderNodeContext context) => context.Publish(bounds);" : "";
+        var diagnostics = Analyze($$"""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            class Signals { public event Action? Changed; }
+            abstract class Base<T> : RenderNode
+            {
+                protected Rect bounds;
+                protected Base(Signals signals) { signals.Changed += () => bounds = new Rect(0, 0, 2, 2); }
+                {{baseProcess}}
+            }
+            sealed class Derived : Base<int>
+            {
+                public Derived(Signals signals) : base(signals) { }
+                public override void Process(RenderNodeContext context) => context.Publish(bounds);
+            }
+            """);
+        Assert.That(diagnostics.Count(d => d.Id == "BESG005" && d.GetMessage().Contains("constructor subscription")), Is.EqualTo(1));
+    }
+
     [Test]
     public void ChildNodesOnlyDependency_IsTracked()
     {
