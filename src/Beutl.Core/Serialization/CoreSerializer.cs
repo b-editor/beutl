@@ -12,6 +12,9 @@ public record CoreSerializerOptions
 
 public static class CoreSerializer
 {
+    [ThreadStatic]
+    private static Dictionary<ICoreSerializable, HashSet<Uri>>? t_activeWrites;
+
     // Complete this preflight for the whole save before replacing any migrated sidecar.
     internal static void PersistProjectMigrationMetadata(IEnumerable<CoreObject> objects)
     {
@@ -360,6 +363,39 @@ public static class CoreSerializer
     }
 
     private static void StoreToUriCore<T>(
+        T obj,
+        Uri uri,
+        CoreSerializationMode? mode,
+        string? authorizedRootPath)
+        where T : ICoreSerializable
+    {
+        // Serialization is synchronous, like ThreadLocalSerializationContext. Track
+        // object identity AND destination so back edges retain their URI without
+        // re-entering a file that this call chain is already writing.
+        var activeWrites = t_activeWrites ??= new(ReferenceEqualityComparer.Instance);
+        ICoreSerializable identity = obj;
+        if (!activeWrites.TryGetValue(identity, out HashSet<Uri>? destinations))
+        {
+            destinations = [];
+            activeWrites.Add(identity, destinations);
+        }
+        if (!destinations.Add(uri)) return;
+
+        try
+        {
+            StoreToUriImpl(obj, uri, mode, authorizedRootPath);
+        }
+        finally
+        {
+            // Only in-progress writes are suppressed. A later save may carry new
+            // values, and failed saves must always be retryable.
+            destinations.Remove(uri);
+            if (destinations.Count == 0) activeWrites.Remove(identity);
+            if (activeWrites.Count == 0) t_activeWrites = null;
+        }
+    }
+
+    private static void StoreToUriImpl<T>(
         T obj,
         Uri uri,
         CoreSerializationMode? mode,
