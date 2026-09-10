@@ -1,0 +1,99 @@
+[
+  {
+    "phase": "repeat-main",
+    "exit": 0,
+    "seconds": 1033.2606227500364,
+    "command": [
+      "dotnet",
+      "/tmp/beutl-renderdiff-review/wt-main/renderdiff/bin/Release/net10.0/RenderDiff.dll",
+      "render-packs",
+      "--out",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/repeat-main",
+      "--gpu",
+      "Apple M3"
+    ]
+  },
+  {
+    "phase": "determinism-main",
+    "exit": 0,
+    "seconds": 0.6681589169893414,
+    "command": [
+      "dotnet",
+      "/tmp/beutl-renderdiff-review/compare/bin/Release/net10.0/Compare.dll",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/main",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/repeat-main",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/nondeterministic-main-full.txt"
+    ]
+  },
+  {
+    "phase": "pixels-main",
+    "exit": 0,
+    "seconds": 30.799620457924902,
+    "command": [
+      "dotnet",
+      "/tmp/beutl-renderdiff-review/wt-main/renderdiff/bin/Release/net10.0/RenderDiff.dll",
+      "render-packs",
+      "--out",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/px-main",
+      "--only",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/diff-ids.txt",
+      "--pixels",
+      "--gpu",
+      "Apple M3"
+    ]
+  },
+  {
+    "phase": "consistency-main",
+    "exit": 0,
+    "seconds": 0.2905511250719428,
+    "command": [
+      "dotnet",
+      "/tmp/beutl-renderdiff-review/compare/bin/Release/net10.0/Compare.dll",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/main",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/px-main",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/nondeterministic-main-subset.txt"
+    ]
+  },
+  {
+    "phase": "pixels-branch",
+    "exit": 0,
+    "seconds": 30.0203764999751,
+    "command": [
+      "dotnet",
+      "/tmp/beutl-renderdiff-review/wt-branch/renderdiff/bin/Release/net10.0/RenderDiff.dll",
+      "render-packs",
+      "--out",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/px-branch",
+      "--only",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/diff-ids.txt",
+      "--pixels",
+      "--gpu",
+      "Apple M3"
+    ]
+  },
+  {
+    "phase": "consistency-branch",
+    "exit": 0,
+    "seconds": 0.3024696249049157,
+    "command": [
+      "dotnet",
+      "/tmp/beutl-renderdiff-review/compare/bin/Release/net10.0/Compare.dll",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/branch",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/px-branch",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/nondeterministic-branch-subset.txt"
+    ]
+  },
+  {
+    "phase": "pixels",
+    "exit": 0,
+    "seconds": 3.427430208073929,
+    "command": [
+      "dotnet",
+      "/tmp/beutl-renderdiff-review/compare/bin/Release/net10.0/Compare.dll",
+      "pixels",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/px-main",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/px-branch",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/pixels.csv"
+    ]
+  }
+]

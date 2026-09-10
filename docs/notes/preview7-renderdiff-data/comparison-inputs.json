@@ -1,0 +1,61 @@
+{
+  "harness_commit": "4a56166d3bc07f97f8e545d86cdb64aecba60804",
+  "main_commit": "8348f5e8da10d4a19da13f9fb3fb7fe5343a9ab0",
+  "branch_source_commit": "98a3040340219c33de33448997515de416164ea4",
+  "compile_configuration": {
+    "both_sides": "Release, net10.0, BRANCH_PIPELINE",
+    "reason": "Both current refs expose RenderIntent and default-disabled caches; explicitly enable identical cache axes."
+  },
+  "shared_source_sha256": {
+    "shared/Core/CaseModel.cs": "7d5751d5c3b07bbf16ce58f99dfcae42a8eea012e43a716a87c3fc359f4f4a98",
+    "shared/Core/CaseRegistry.cs": "b2071d5e9347bd37c2f9fa614dc07c0f4d233c313276486b30fc7f04eca60501",
+    "shared/Core/Runner.cs": "332e36041bfeaf6f558c9058e1cae6f8a3414014742a9a1625b469b07661e526",
+    "shared/Core/SceneBuilder.cs": "2b899f550f05229b7329e5fbeeb9f35b21de41f025480d7dd2847bd76e4bf869",
+    "shared/HarnessFonts.cs": "7ce41e162fc58ab3f7e0428672954f9f5224725622d210e144c632fe28101243",
+    "shared/HarnessPaths.cs": "212f38b8080ca2e3eee8bd8355fc8b3c2671f170578ddbfc04d5c26bdf64b7fe",
+    "shared/Orchestration.cs": "2b4dde338561b16729d154e5e2084819d1efb42b91879e15e68dece4afca13df",
+    "shared/Packs/AnimationPack.cs": "a23c20800d3c177a208316d9c9ec7267ce4c9a25520ce68f4d87a2d5cd763d93",
+    "shared/Packs/AudioVisualizerPack.cs": "76c983f93deed3b3b23e1a96295ac881693c2e8f3783fa41c7f3c8abdef5d1d5",
+    "shared/Packs/BrushesPack.cs": "67c0b3e434e67b20a5920e20960ab64910eff7455919c49ecad7c5c532fe122f",
+    "shared/Packs/ColorEffectsPack.cs": "fe67fafe930a8b575241ab4b01f1a1a8f0be2a40dd7d6d6e08e67ae9f1d09c25",
+    "shared/Packs/CompositionPack.cs": "1969c382d213f69cf44cdf9dbed35e5448d3b3c61f0027d7c3c8a4e8c0c24ed4",
+    "shared/Packs/ImagesPack.cs": "1f46d1793f5a3ce7874dd58bf4f5fd9e75e777fe82137f4a422f7b2261a5bf5b",
+    "shared/Packs/MasksPack.cs": "9e0a6fce057a278a8bb16ef20c4e3a49ca4e5de60c9fb24aaf5956589d28600b",
+    "shared/Packs/NodeGraphPack.cs": "78e83d2036e3056a631f41999aba6c8903ea8786b77f7d55e5b09c89cd6c6c32",
+    "shared/Packs/OpacityMatrixPack.cs": "4229d4473460f8a3c160f43f809024d5e1dfa59364b37eb78169ebbab5f840f1",
+    "shared/Packs/ParticlesPack.cs": "e178e1d815ec04361d7e278bdcc17d5caf9bfa4f29556d11cffd4ffcfeca133b",
+    "shared/Packs/PipelineStatePack.cs": "100b23e7f80252621bb59310ae08a7b240ccc14b02df6fa0eaa37367ac151c6b",
+    "shared/Packs/PresentersPack.cs": "bca70adf74bc250be44131532ca55ae32643642e83a7e59d1d18acb3b4d47432",
+    "shared/Packs/ScaleBoundsPack.cs": "4af2aff32bc83948cb58bd96a93626c2305e703f6bbe0b4fd98e8e154b5c40bf",
+    "shared/Packs/Scene3DPack.cs": "333645d5a33e8c14abc955b8d4402ae91efaf93024dd81e4337073f97787a94d",
+    "shared/Packs/ScriptEffectsPack.cs": "46a4e51aaf5e5b5a13d1f24e626245cbd96aed698e258b6dfe82d8ad31bb4fb7",
+    "shared/Packs/ShapesPack.cs": "78a7e7e59832310c9303727cd322294a254f84aff96f9934b32b724de929a798",
+    "shared/Packs/SmokePack.cs": "0accb104cad71444a471ab5d69d2c0ad5d67f15a4f942160850e9dbcda257c9b",
+    "shared/Packs/SpatialEffectsPack.cs": "12e7458b98c5c2f968a373403618b4facd710b70180bc2305942418d2a2ac7c7",
+    "shared/Packs/StructuralEffectsPack.cs": "eb8d7f60fbe2861967d54c76f9381039afb291b290eb0ed1be1c102e9c3fbe2c",
+    "shared/Packs/TextPack.cs": "96384e8d1ba4ec3986d7e31eaf535ad1349c2f9bc91208c629fe82de24f54a78",
+    "shared/Packs/TransformsPack.cs": "a402560fce0ec3d6392bc5a2f736f5a3b73a0f7b8b8fabcf1d2da35951c753a0",
+    "shared/Probe.cs": "5e775620a024879e03783e136204a951758bed8dc4672a14bbd38a3d43a63536",
+    "shared/Program.cs": "615b8438ec27bf313a244598e74d2a547d41c8f0757ad038371b95ce5b4edbd4"
+  },
+  "main_only_commits": [
+    "8348f5e8da10d4a19da13f9fb3fb7fe5343a9ab0"
+  ],
+  "gpu": "Apple M3",
+  "backend": "Beutl.Graphics.Backend.Composite.CompositeContext",
+  "os": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83",
+  "architecture": "arm64",
+  "sdk": "10.0.400",
+  "engine_binaries": {
+    "main": {
+      "sha256": "eb1982abb131c73ad7e6d8aa938bbe2b5610dbe737d1d4fc610f1d0fadcf2ca0",
+      "bytes": 3004416,
+      "mtime": 1789017972.551205
+    },
+    "branch": {
+      "sha256": "a86e38b4226c4b673a55e7f45fd33fdb5c3d656f4e608c0d33b20d605f65dfc0",
+      "bytes": 3013632,
+      "mtime": 1789018055.966094
+    }
+  }
+}

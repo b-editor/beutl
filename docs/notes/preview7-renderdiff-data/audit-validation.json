@@ -1,0 +1,37 @@
+{
+  "repeat-main": {
+    "shots": 94862,
+    "missing": 0,
+    "extra": 0,
+    "mismatches": 0,
+    "errors": 0,
+    "nonfinite_components": 0
+  },
+  "px-main": {
+    "shots": 1323,
+    "missing": 0,
+    "extra": 0,
+    "mismatches": 0,
+    "errors": 0,
+    "nonfinite_components": 0
+  },
+  "px-branch": {
+    "shots": 1323,
+    "missing": 0,
+    "extra": 0,
+    "mismatches": 0,
+    "errors": 0,
+    "nonfinite_components": 0
+  },
+  "pixel_metrics": {
+    "shots": 1323,
+    "max_mae_rgb": 0.0618738,
+    "min_ssim_luma": 0.852685,
+    "case_buckets": {
+      "A-PRECISION": 1,
+      "B-SMALL": 2,
+      "C-VISIBLE": 78,
+      "D-OVER": 42
+    }
+  }
+}

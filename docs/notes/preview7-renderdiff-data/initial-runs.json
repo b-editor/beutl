@@ -1,0 +1,30 @@
+[
+  {
+    "side": "main",
+    "exit": 0,
+    "seconds": 1137.0930553749204,
+    "command": [
+      "dotnet",
+      "/tmp/beutl-renderdiff-review/wt-main/renderdiff/bin/Release/net10.0/RenderDiff.dll",
+      "render-packs",
+      "--out",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/main",
+      "--gpu",
+      "Apple M3"
+    ]
+  },
+  {
+    "side": "branch",
+    "exit": 0,
+    "seconds": 996.4273707079701,
+    "command": [
+      "dotnet",
+      "/tmp/beutl-renderdiff-review/wt-branch/renderdiff/bin/Release/net10.0/RenderDiff.dll",
+      "render-packs",
+      "--out",
+      "/tmp/beutl-renderdiff-review/out/preview7-review-20260910/branch",
+      "--gpu",
+      "Apple M3"
+    ]
+  }
+]
