@@ -9,6 +9,25 @@ public class SceneTests
 {
     private string _tempDirectory = null!;
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void SceneReload_RejectsElementsOutsideTheSceneDirectory(bool symlink)
+    {
+        if (symlink && OperatingSystem.IsWindows()) Assert.Ignore("Requires symbolic link privileges.");
+        string directory = Path.Combine(_tempDirectory, "scene");
+        Directory.CreateDirectory(directory);
+        string outside = Path.Combine(_tempDirectory, "private.belm");
+        CoreSerializer.StoreToUri(new Element { Name = "outside" }, new Uri(outside));
+        byte[] original = File.ReadAllBytes(outside);
+        var scene = new Scene { Uri = new Uri(Path.Combine(directory, "main.scene")) };
+        JsonObject json = CoreSerializer.SerializeToJsonObject(scene, new CoreSerializerOptions { BaseUri = scene.Uri });
+        if (symlink) File.CreateSymbolicLink(Path.Combine(directory, "linked.belm"), outside);
+        json["Elements"] = new JsonObject { ["Include"] = symlink ? "linked.belm" : "../private.belm" };
+        json.JsonSave(scene.Uri.LocalPath);
+        Assert.Throws<System.Text.Json.JsonException>(() => CoreSerializer.RestoreFromUri<Scene>(scene.Uri));
+        Assert.That(File.ReadAllBytes(outside), Is.EqualTo(original));
+    }
+
     [TestCase("a#b.belm")]
     [TestCase("50%20off.belm")]
     public void SceneReload_PreservesLiteralElementFileNames(string fileName)
