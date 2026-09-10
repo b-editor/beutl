@@ -19,6 +19,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
     private readonly SemaphoreSlim _startLock = new(1, 1);
     private readonly bool _multiplexed;
+    private readonly Action<ProcessStartInfo> _configureWorkerStart;
     private Process? _process;
     private IpcConnection? _connection;
     private FFmpegWorkerLogPump? _logPump;
@@ -26,9 +27,14 @@ public sealed class FFmpegWorkerProcess : IDisposable
     private Exception? _lastStartupFailure;
     private long _retryStartupAt;
 
-    public FFmpegWorkerProcess(bool multiplexed = false)
+    public FFmpegWorkerProcess(bool multiplexed = false) : this(multiplexed, ConfigureWorkerProcess)
+    {
+    }
+
+    internal FFmpegWorkerProcess(bool multiplexed, Action<ProcessStartInfo> configureWorkerStart)
     {
         _multiplexed = multiplexed;
+        _configureWorkerStart = configureWorkerStart;
     }
 
     public bool IsRunning => _process is { HasExited: false } && _connection?.IsConnected == true;
@@ -93,12 +99,15 @@ public sealed class FFmpegWorkerProcess : IDisposable
             await StartWorkerAsync(ct).ConfigureAwait(false);
             _lastStartupFailure = null;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException and not FFmpegLibrariesNotFoundException)
+        catch (Exception ex)
         {
             try { Cleanup(); }
             catch (Exception cleanup) { s_logger.LogWarning(cleanup, "Failed to clean up an unsuccessful FFmpeg worker start."); }
-            _lastStartupFailure = ex;
-            _retryStartupAt = Environment.TickCount64 + 30_000;
+            if (ex is not OperationCanceledException and not FFmpegLibrariesNotFoundException)
+            {
+                _lastStartupFailure = ex;
+                _retryStartupAt = Environment.TickCount64 + 30_000;
+            }
             throw;
         }
     }
@@ -134,7 +143,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
         {
             // ワーカープロセス起動
             var startInfo = new ProcessStartInfo();
-            ConfigureWorkerProcess(startInfo);
+            _configureWorkerStart(startInfo);
             startInfo.ArgumentList.Add("--pipe");
             startInfo.ArgumentList.Add(_pipeName);
             startInfo.ArgumentList.Add("--parent");
