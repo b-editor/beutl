@@ -242,7 +242,7 @@ public class VersionControlSaveTests
             });
 
             await File.WriteAllTextAsync(Path.Combine(projectRoot, "close-marker.txt"), "close\n");
-            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
+            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
             int afterClose = await CountCommitsAsync(gitPath, projectRoot);
             int closeSnapshots = await CountCloseSnapshotsAsync(gitPath, projectRoot);
 
@@ -474,7 +474,7 @@ public class VersionControlSaveTests
             string projectFile = project.Uri!.LocalPath;
             string projectRoot = Path.GetDirectoryName(projectFile)!;
             int initialCommitCount = await CountCommitsAsync(gitPath, projectRoot);
-            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
+            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
             File.Delete(Path.Combine(projectRoot, ".gitignore"));
             File.Delete(Path.Combine(projectRoot, ".gitattributes"));
 
@@ -866,7 +866,7 @@ public class VersionControlSaveTests
             await AddRectangleAsync(adder);
             HeadlessTestHelpers.Settle();
 
-            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
+            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
 
             string committedScene = await RunGitAsync(
                 gitPath,
