@@ -1,4 +1,5 @@
-﻿using System.Reactive.Subjects;
+﻿using System.Reactive;
+using System.Reactive.Subjects;
 using System.Text.Json;
 
 using Beutl.Logging;
@@ -73,8 +74,33 @@ public class InstalledPackageRepository : IBeutlApiResource
         {
             // Observer failures cannot undo an already persisted registration or make
             // the installer roll back the payload while the repository records the new version.
-            try { _logger.LogError(ex, "An installed-package observer failed after registration was committed."); }
-            catch { }
+            ReportObserverFailure(ex);
+        }
+    }
+
+    private void ReportObserverFailure(Exception exception)
+    {
+        try { _logger.LogError(exception, "An installed-package observer failed while receiving a notification."); }
+        catch { }
+    }
+
+    // Wrap each subscription, not only the subject: one returned observable can
+    // itself have several observers through LightweightObservableBase.PublishNext.
+    private sealed class ObserverIsolatingObservable<T>(IObservable<T> source, Action<Exception> failure) : IObservable<T>
+    {
+        public IDisposable Subscribe(IObserver<T> observer)
+        {
+            ArgumentNullException.ThrowIfNull(observer);
+            return source.Subscribe(Observer.Create<T>(
+                value => Forward(() => observer.OnNext(value)),
+                error => Forward(() => observer.OnError(error)),
+                () => Forward(observer.OnCompleted)));
+
+            void Forward(Action notification)
+            {
+                try { notification(); }
+                catch (Exception ex) { failure(ex); }
+            }
         }
     }
 
@@ -182,12 +208,12 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     public IObservable<bool> GetObservable(string name, string? version = null)
     {
-        return new _Observable(this, name, version);
+        return new ObserverIsolatingObservable<bool>(new _Observable(this, name, version), ReportObserverFailure);
     }
 
     public IObservable<PackageIdentity?> GetPackageObservable(string name)
     {
-        return new _PackageObservable(this, name);
+        return new ObserverIsolatingObservable<PackageIdentity?>(new _PackageObservable(this, name), ReportObserverFailure);
     }
 
     public PackageIdentity[] GetPackagesNeedingDependencyReResolution()
