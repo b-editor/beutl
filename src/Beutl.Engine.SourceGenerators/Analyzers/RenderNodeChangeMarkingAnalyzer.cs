@@ -806,7 +806,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                  current = current.BaseType)
             foreach (IMethodSymbol constructor in current.InstanceConstructors)
             foreach (BodyWithModel body in GetBodies(constructor))
-            foreach (AnonymousFunctionExpressionSyntax lambda in body.Body.DescendantNodes().OfType<AnonymousFunctionExpressionSyntax>())
+            foreach (AnonymousFunctionExpressionSyntax lambda in body.Body.DescendantNodes(child => RunsNestedFunction(body.Model, body.Body, child,
+                         localFunctionsFollowedAsCallees: false)).OfType<AnonymousFunctionExpressionSyntax>())
             {
                 bool eventHandler = lambda.Parent is AssignmentExpressionSyntax assignment
                     && assignment.IsKind(SyntaxKind.AddAssignmentExpression)

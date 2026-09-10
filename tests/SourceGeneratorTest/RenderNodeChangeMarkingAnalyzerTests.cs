@@ -11,6 +11,30 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
 {
     [TestCase(false)]
     [TestCase(true)]
+    public void ConstructorSubscription_InLocalFunctionRequiresAReachableCall(bool called)
+    {
+        var diagnostics = Analyze($$"""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            class Signals { public event Action? Changed; }
+            sealed class Example : RenderNode
+            {
+                private Rect state;
+                public Example(Signals signals)
+                {
+                    void Register() { signals.Changed += () => state = new Rect(0, 0, 2, 2); }
+                    {{(called ? "Register();" : "")}}
+                }
+                public override void Process(RenderNodeContext context) => context.Publish(state);
+            }
+            """);
+        Assert.That(diagnostics.Count(d => d.Id == "BESG005" && d.GetMessage().Contains("constructor subscription")),
+            Is.EqualTo(called ? 1 : 0));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
     public void BaseConstructorSubscription_IsReportedWithoutDuplicateBaseDiagnostics(bool baseReadsState)
     {
         string baseProcess = baseReadsState
