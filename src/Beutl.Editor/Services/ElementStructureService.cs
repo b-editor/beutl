@@ -128,7 +128,13 @@ public sealed class ElementStructureService : IElementStructureService
             List<Exception> failures = [failure];
             foreach (string path in storedFiles)
             {
-                try { File.Delete(path); }
+                try
+                {
+                    if (scene.Children.Any(child => child.Uri is { IsFile: true } uri
+                        && FilePathComparison.AreSameCanonicalPath(path, uri.LocalPath)))
+                        continue;
+                    File.Delete(path);
+                }
                 catch (Exception cleanup) { failures.Add(cleanup); }
             }
             if (failures.Count > 1) throw new AggregateException("Split failed and new sidecars could not all be removed.", failures);

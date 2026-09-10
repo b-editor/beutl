@@ -87,6 +87,46 @@ public class ElementStructureServiceTests
         });
     }
 
+    [Test]
+    public void Split_RollbackFailureKeepsTheSidecarOfASurvivingChild()
+    {
+        Element first = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        string directory = Path.GetDirectoryName(_scene.Uri!.LocalPath)!;
+        var second = new FailingSplitElement
+        {
+            Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10), ZIndex = 1,
+            Uri = new Uri(Path.Combine(directory, "second.belm")),
+        };
+        _scene.Children.Add(second);
+        _history.Commit("Setup");
+        second.FailSerialization = true;
+        Element? survivor = null;
+        System.Collections.Specialized.NotifyCollectionChangedEventHandler handler = (_, change) =>
+        {
+            if (change.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove
+                && change.OldItems?.OfType<Element>().FirstOrDefault() is { } removed
+                && removed != first && removed != second)
+            {
+                survivor = removed;
+                _scene.Children.Add(removed);
+                throw new IOException("Injected child rollback failure");
+            }
+        };
+        _scene.Children.CollectionChanged += handler;
+        try
+        {
+            Assert.Catch<AggregateException>(() => _service.Split(_scene, [first, second], TimeSpan.FromSeconds(4)));
+            Assert.That(survivor, Is.Not.Null);
+            Assert.That(_scene.Children, Does.Contain(survivor));
+            Assert.That(File.Exists(survivor!.Uri!.LocalPath), Is.True);
+        }
+        finally
+        {
+            _scene.Children.CollectionChanged -= handler;
+            second.FailSerialization = false;
+        }
+    }
+
     public sealed class FailingSplitElement : Element
     {
         public bool FailSerialization { get; set; }
