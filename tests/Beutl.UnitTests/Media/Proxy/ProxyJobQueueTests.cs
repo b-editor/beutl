@@ -10,6 +10,30 @@ namespace Beutl.UnitTests.Media.Proxy;
 public class ProxyJobQueueTests
 {
     [Test]
+    public async Task AdmissionWaitSubscribers_ObserveWaitingBeforeReentrantCancellation()
+    {
+        var admission = new SequencedAdmission(rejections: int.MaxValue);
+        await using var queue = new ProxyJobQueue(new RecordingGenerator(), store: null,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30), maxUnavailableBackoff: TimeSpan.FromSeconds(30), admission);
+        var observed = new List<ProxyJobChangeKind>();
+        var canceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        queue.JobChanged += (_, change) =>
+        {
+            if (change.Kind == ProxyJobChangeKind.WaitingForAdmission)
+                Task.Run(() => queue.Cancel(change.Job.JobId)).GetAwaiter().GetResult();
+        };
+        queue.JobChanged += (_, change) =>
+        {
+            observed.Add(change.Kind);
+            if (change.Kind == ProxyJobChangeKind.Canceled) canceled.TrySetResult();
+        };
+        await queue.EnqueueAsync(CreateFingerprint("wait-cancel-order.mov"), ProxyPreset.Quarter);
+        await canceled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(observed.Where(kind => kind is ProxyJobChangeKind.WaitingForAdmission or ProxyJobChangeKind.Canceled),
+            Is.EqualTo(new[] { ProxyJobChangeKind.WaitingForAdmission, ProxyJobChangeKind.Canceled }));
+    }
+
+    [Test]
     public async Task EnqueueAsync_DispatchesSeriallyInArrivalOrder()
     {
         var generator = new RecordingGenerator();

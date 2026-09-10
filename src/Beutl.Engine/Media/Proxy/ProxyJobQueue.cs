@@ -23,6 +23,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private readonly List<WorkItem> _items = [];
     private readonly HashSet<Task> _admissionRetryTasks = [];
     private readonly Lock _lock = new();
+    private readonly Queue<(ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers)> _admissionNotifications = [];
+    private bool _publishingAdmissionNotifications;
     private readonly Task _drainTask;
     private readonly TimeSpan _minUnavailableBackoff;
     private readonly TimeSpan _maxUnavailableBackoff;
@@ -1143,20 +1145,45 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
     }
 
-    private void OnJobChanged(ProxyJob job, ProxyJobChangeKind kind)
+    private bool OnJobChanged(ProxyJob job, ProxyJobChangeKind kind)
     {
-        if (JobChanged is not { } handlers)
-            return;
-
-        var args = new ProxyJobChangedEventArgs
+        if (kind is ProxyJobChangeKind.WaitingForAdmission or ProxyJobChangeKind.Canceled)
         {
-            Job = job,
-            Kind = kind,
-        };
-        // JobChanged is plugin-facing and fires on the drain thread; a throwing subscriber must
-        // neither fault the queue nor starve the remaining subscribers of the notification.
-        foreach (EventHandler<ProxyJobChangedEventArgs> handler in
-                 Delegate.EnumerateInvocationList(handlers))
+            lock (_lock)
+            {
+                // The same gate orders cancellation's terminal transition and the wait
+                // notification reservation. Callbacks themselves never run under it.
+                if (kind == ProxyJobChangeKind.WaitingForAdmission && IsTerminal(job.Status))
+                    return false;
+                if (JobChanged is not { } handlers)
+                    return true;
+                _admissionNotifications.Enqueue((new ProxyJobChangedEventArgs { Job = job, Kind = kind }, handlers));
+                if (_publishingAdmissionNotifications)
+                    return true;
+                _publishingAdmissionNotifications = true;
+            }
+            while (true)
+            {
+                (ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers) notification;
+                lock (_lock)
+                {
+                    if (!_admissionNotifications.TryDequeue(out notification))
+                    {
+                        _publishingAdmissionNotifications = false;
+                        return true;
+                    }
+                }
+                NotifyJobChanged(notification.Args, notification.Handlers);
+            }
+        }
+        if (JobChanged is { } directHandlers)
+            NotifyJobChanged(new ProxyJobChangedEventArgs { Job = job, Kind = kind }, directHandlers);
+        return true;
+    }
+
+    private void NotifyJobChanged(ProxyJobChangedEventArgs args, EventHandler<ProxyJobChangedEventArgs> handlers)
+    {
+        foreach (EventHandler<ProxyJobChangedEventArgs> handler in Delegate.EnumerateInvocationList(handlers))
         {
             try
             {
@@ -1164,11 +1191,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             }
             catch (Exception ex)
             {
-                s_logger.LogError(
-                    ex,
-                    "A JobChanged subscriber threw for job {JobId} ({Kind}).",
-                    job.JobId,
-                    kind);
+                try { s_logger.LogError(ex, "A JobChanged subscriber threw for job {JobId} ({Kind}).", args.Job.JobId, args.Kind); }
+                catch { }
             }
         }
     }
@@ -1348,7 +1372,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
         public bool IsAdmissionDeferred => _admissionDeferred;
 
-        public bool TryPublishAdmissionWaiting(Action publish)
+        public bool TryPublishAdmissionWaiting(Func<bool> publish)
         {
             lock (_lock)
             {
@@ -1362,8 +1386,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 }
 
             }
-            publish();
-            return true;
+            return publish();
         }
 
         public bool TryCompleteSuccess()
