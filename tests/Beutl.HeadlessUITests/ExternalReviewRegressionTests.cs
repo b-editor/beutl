@@ -24,6 +24,26 @@ public sealed class ExternalReviewRegressionTests
     }
 
     [AvaloniaTest]
+    public async Task FileBrowser_ProtectsNestedFileBackedObjects()
+    {
+        EditViewModel editor = await CreateEditor("nested-sidecar-review");
+        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "brush.json");
+        var brush = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) { Uri = new Uri(path) };
+        var shape = new Beutl.Graphics.Shapes.RectShape();
+        shape.Fill.CurrentValue = brush;
+        var element = new Element();
+        element.Objects.Add(shape);
+        editor.Scene.Children.Add(element);
+        File.WriteAllText(path, "{}");
+        using var browser = new FileBrowserTabViewModel(editor);
+        using var item = new FileSystemItemViewModel(path, false);
+        await browser.RenameItemAsync(item, "renamed-brush.json");
+        Assert.That(File.Exists(path), Is.True);
+        await browser.DeleteItemAsync(item);
+        Assert.That(File.Exists(path), Is.True);
+    }
+
+    [AvaloniaTest]
     public async Task ReopeningCurrentProject_PreservesUnsavedSceneEdits()
     {
         EditViewModel editor = await CreateEditor("reopen-unsaved-review");

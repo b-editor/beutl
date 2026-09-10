@@ -81,11 +81,12 @@ public sealed class EditorService : IOutputOperationLeaseProvider, Beutl.Editor.
             .OfType<CoreObject>();
         if (BeutlApplication.Current.Project is { } project)
             objects = objects.Concat(project.Items).Prepend(project);
-        foreach (CoreObject obj in objects)
+        foreach (CoreObject obj in objects
+                     .SelectMany(Beutl.ProjectSystem.SerializedGraphTraversal.Enumerate)
+                     .OfType<CoreObject>()
+                     .Distinct<CoreObject>(ReferenceEqualityComparer.Instance))
         {
             if (Matches(obj.Uri)) return true;
-            if (obj is Beutl.ProjectSystem.Scene scene && scene.Children.Any(element => Matches(element.Uri)))
-                return true;
         }
         return false;
 
