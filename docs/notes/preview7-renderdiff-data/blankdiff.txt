@@ -1,3 +1,0 @@
-compared 94862 shots  (A=94862, B=94862)
-blank only in A : 0
-blank only in B : 0
