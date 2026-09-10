@@ -137,10 +137,7 @@ public static class CoreSerializer
         var baseUri = options?.BaseUri ?? parent?.BaseUri;
         if (json["Uri"] is JsonValue uriValue && uriValue.TryGetValue(out string? uriString))
         {
-            uriString = Uri.UnescapeDataString(uriString);
-            var uri = baseUri != null
-                ? new Uri(baseUri, uriString)
-                : new Uri(uriString, UriKind.RelativeOrAbsolute);
+            Uri uri = UriHelper.ResolvePersistedReference(uriString, baseUri, allowRelative: true);
             if (obj is CoreObject coreObj)
             {
                 coreObj.Uri = uri;
