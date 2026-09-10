@@ -96,18 +96,31 @@ internal class PackageOperationHandler
         var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
 
         bool isExtension = localPackage.Tags.GetPackageKind() == PackageKind.Extension;
-        if (!isExtension)
-            await Task.Run(() => _packageInstaller.InstallDataPackage(localPackage), cancellationToken).ConfigureAwait(false);
-
-        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        var deployment = await Task.Run(() => _packageInstaller.PrepareDataPackage(localPackage, cancellationToken), cancellationToken).ConfigureAwait(false);
+        try
         {
-            if (isExtension)
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                _packageManager.Load(localPackage);
-            }
-            _installedPackageRepository.UpgradePackages(packageId);
-        });
+                deployment.Commit();
+                // Publication is the commit point. Finish registration even if cancellation
+                // arrives during this synchronous section, rather than leaving unregistered data.
+                try
+                {
+                    if (isExtension) _packageManager.Load(localPackage);
+                    _installedPackageRepository.UpgradePackages(packageId);
+                }
+                catch
+                {
+                    deployment.PreserveBackup();
+                    throw;
+                }
+            }, Avalonia.Threading.DispatcherPriority.Default, cancellationToken).GetTask().ConfigureAwait(false);
+        }
+        finally
+        {
+            await Task.Run(deployment.Dispose).ConfigureAwait(false);
+        }
     }
 
     public async ValueTask<bool> UnloadPackages(string packageName)

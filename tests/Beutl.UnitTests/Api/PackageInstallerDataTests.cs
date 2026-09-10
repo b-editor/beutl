@@ -10,6 +10,42 @@ namespace Beutl.UnitTests.Api;
 [NonParallelizable]
 public class PackageInstallerDataTests
 {
+    [Test]
+    public void CancellationAfterStaging_LeavesPublishedDataAndRegistrationUnchanged()
+    {
+        const string name = "Beutl.Package.DataTest.CancelStaged";
+        LocalPackage old = CreateDataPackage(name, PackageKinds.MaterialTag, "1.0.0", [("materials/data.txt", "old")]);
+        LocalPackage current = CreateDataPackage(name, PackageKinds.MaterialTag, "2.0.0", [("materials/data.txt", "new")]);
+        _repository.AddPackage(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
+        _installer.InstallDataPackage(old);
+        using var cancellation = new CancellationTokenSource();
+        using (var deployment = _installer.PrepareDataPackage(current, cancellation.Token))
+        {
+            Assert.That(Directory.GetDirectories(Helper.AppRoot, ".data-install-*"), Is.Not.Empty);
+            cancellation.Cancel();
+            Assert.Throws<OperationCanceledException>(deployment.Commit);
+            Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "data.txt")), Is.EqualTo("old"));
+            Assert.That(_repository.ExistsPackage(name, "2.0.0"), Is.False);
+        }
+        Assert.That(Directory.GetDirectories(Helper.AppRoot, ".data-install-*"), Is.Empty);
+    }
+
+    [Test]
+    public void CancellationAfterPublication_DoesNotRevertACommittedDeployment()
+    {
+        const string name = "Beutl.Package.DataTest.CancelCommitted";
+        LocalPackage package = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/data.txt", "committed"));
+        using var cancellation = new CancellationTokenSource();
+        using (var deployment = _installer.PrepareDataPackage(package, cancellation.Token))
+        {
+            deployment.Commit();
+            cancellation.Cancel();
+            _repository.UpgradePackages(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
+        }
+        Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "data.txt")), Is.EqualTo("committed"));
+        Assert.That(_repository.ExistsPackage(name, "1.0.0"), Is.True);
+    }
+
     [TestCase("{")]
     [TestCase("null")]
     [TestCase("{}")]

@@ -23,120 +23,154 @@ public partial class PackageInstaller
     {
         TrackSyncOperation(() =>
         {
-            if (string.IsNullOrEmpty(package.InstalledPath))
-            {
-                throw new ArgumentException(
-                    $"'{package.Name}' has not been extracted yet.",
-                    nameof(package));
-            }
-
-            string name = ValidatePackageName(package.Name);
-            bool hasMaterial = package.Tags.Contains(PackageKinds.MaterialTag);
-            bool hasTemplate = package.Tags.Contains(PackageKinds.TemplateTag);
-            if (!hasMaterial && !hasTemplate)
-            {
-                throw new ArgumentException(
-                    $"'{package.Name}' is an extension package and has no data payload.",
-                    nameof(package));
-            }
-
-            lock (s_dataPackageGate)
-            {
-                InstallPayloads(package, name, hasMaterial, hasTemplate);
-            }
+            using var deployment = PrepareDataPackageCore(package, CancellationToken.None, requireData: true);
+            deployment.Commit();
         });
     }
 
-    private void InstallPayloads(LocalPackage package, string name, bool hasMaterial, bool hasTemplate)
+    internal DataPackageDeployment PrepareDataPackage(LocalPackage package, CancellationToken cancellationToken)
+        => TrackSyncOperation(() => PrepareDataPackageCore(package, cancellationToken, requireData: false));
+
+    private DataPackageDeployment PrepareDataPackageCore(LocalPackage package, CancellationToken token, bool requireData)
     {
-        // Keep staging outside the watched material/template directories.
+        token.ThrowIfCancellationRequested();
+        if (string.IsNullOrEmpty(package.InstalledPath))
+            throw new ArgumentException($"'{package.Name}' has not been extracted yet.", nameof(package));
+        string name = ValidatePackageName(package.Name);
+        bool material = package.Tags.Contains(PackageKinds.MaterialTag);
+        bool template = package.Tags.Contains(PackageKinds.TemplateTag);
+        if (requireData && !material && !template)
+            throw new ArgumentException($"'{package.Name}' is an extension package and has no data payload.", nameof(package));
+
         string staging = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), $".data-install-{Guid.NewGuid():N}");
         Directory.CreateDirectory(staging);
         var changes = new List<PayloadChange>();
-        bool preserveBackup = false;
         try
         {
-            Stage(MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath(), hasMaterial);
-            Stage(TemplatesContentDirectory, BeutlEnvironment.GetTemplatesDirectoryPath(), hasTemplate);
-            try
-            {
-                foreach (PayloadChange change in changes)
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(change.Destination)!);
-                    if (Directory.Exists(change.Destination))
-                    {
-                        Directory.Move(change.Destination, change.Backup);
-                        change.BackedUp = true;
-                    }
-                    if (Directory.Exists(change.Staged))
-                    {
-                        Directory.Move(change.Staged, change.Destination);
-                        change.Published = true;
-                    }
-                }
-            }
-            catch (Exception failure)
-            {
-                List<Exception> failures = [failure];
-                foreach (PayloadChange change in changes.AsEnumerable().Reverse())
-                {
-                    try
-                    {
-                        if (change.Published)
-                            Directory.Delete(change.Destination, recursive: true);
-                        if (change.BackedUp)
-                            Directory.Move(change.Backup, change.Destination);
-                    }
-                    catch (Exception rollbackFailure)
-                    {
-                        preserveBackup = true;
-                        failures.Add(rollbackFailure);
-                    }
-                }
-                if (preserveBackup)
-                    throw new AggregateException($"Package rollback failed; backups remain at '{staging}'.", failures);
-                throw;
-            }
+            Stage(MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath(), material);
+            Stage(TemplatesContentDirectory, BeutlEnvironment.GetTemplatesDirectoryPath(), template);
+            token.ThrowIfCancellationRequested();
+            return new DataPackageDeployment(this, name, staging, changes, token);
         }
-        finally
+        catch
         {
-            if (!preserveBackup)
-                DeleteIfExists(staging);
+            DeleteIfExists(staging);
+            throw;
         }
 
         void Stage(string kind, string root, bool enabled)
         {
-            string destination = Path.Combine(root, name);
-            bool owned = OwnsPayload(name, kind, destination);
-            if (!enabled && !owned)
-                return;
-            if (Directory.Exists(destination) && !owned)
-                throw new IOException($"The package cannot replace the unowned directory '{destination}'.");
+            token.ThrowIfCancellationRequested();
             string staged = Path.Combine(staging, kind);
-            changes.Add(new PayloadChange(destination, staged, Path.Combine(staging, "backup-" + kind)));
-            if (!enabled)
-                return;
+            changes.Add(new PayloadChange(kind, enabled, Path.Combine(root, name), staged, Path.Combine(staging, "backup-" + kind)));
+            if (!enabled) return;
             string source = Path.Combine(package.InstalledPath!, kind);
             FileAttributes attributes;
-            try
-            {
-                attributes = File.GetAttributes(source);
-            }
+            try { attributes = File.GetAttributes(source); }
             catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
             {
-                _logger.LogWarning("Package {PackageName} ships no {ContentDirectory} directory.", package.Name, kind);
+                _logger.LogWarning("Package {PackageName} ships no {ContentDirectory} directory.", name, kind);
                 return;
             }
             if ((attributes & FileAttributes.Directory) == 0)
                 throw new IOException($"Package payload '{source}' is not a directory.");
-            CopyDirectory(source, staged);
-            File.WriteAllText(Path.Combine(staged, PayloadOwnerFileName),
-                JsonSerializer.Serialize(new PayloadOwner(name, package.Version)));
+            CopyDirectory(source, staged, token);
+            token.ThrowIfCancellationRequested();
+            File.WriteAllText(Path.Combine(staged, PayloadOwnerFileName), JsonSerializer.Serialize(new PayloadOwner(name, package.Version)));
         }
     }
 
-    private sealed class PayloadChange(string destination, string staged, string backup)
+    internal sealed class DataPackageDeployment(
+        PackageInstaller owner, string name, string staging, List<PayloadChange> changes, CancellationToken token) : IDisposable
     {
+        private bool _attempted;
+        private bool _preserveBackup;
+        private bool _disposed;
+
+        // Cancellation is accepted until this short publication step starts. Once
+        // it starts, callers finish repository registration without cancellation.
+        public void Commit()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_attempted) throw new InvalidOperationException("This deployment was already attempted.");
+            _attempted = true;
+            owner.TrackSyncOperation(() =>
+            {
+                lock (s_dataPackageGate)
+                {
+                    token.ThrowIfCancellationRequested();
+                    var active = new List<PayloadChange>();
+                    foreach (PayloadChange change in changes)
+                    {
+                        bool owned = owner.OwnsPayload(name, change.Kind, change.Destination);
+                        if (!change.Enabled && !owned) continue;
+                        if (Directory.Exists(change.Destination) && !owned)
+                            throw new IOException($"The package cannot replace the unowned directory '{change.Destination}'.");
+                        active.Add(change);
+                    }
+                    token.ThrowIfCancellationRequested();
+                    try
+                    {
+                        foreach (PayloadChange change in active)
+                        {
+                            Directory.CreateDirectory(Path.GetDirectoryName(change.Destination)!);
+                            if (Directory.Exists(change.Destination))
+                            {
+                                Directory.Move(change.Destination, change.Backup);
+                                change.BackedUp = true;
+                            }
+                            if (Directory.Exists(change.Staged))
+                            {
+                                Directory.Move(change.Staged, change.Destination);
+                                change.Published = true;
+                            }
+                        }
+                    }
+                    catch (Exception failure)
+                    {
+                        List<Exception> failures = [failure];
+                        foreach (PayloadChange change in active.AsEnumerable().Reverse())
+                        {
+                            try
+                            {
+                                if (change.Published) Directory.Move(change.Destination, change.Staged);
+                                if (change.BackedUp) Directory.Move(change.Backup, change.Destination);
+                            }
+                            catch (Exception rollback)
+                            {
+                                _preserveBackup = true;
+                                failures.Add(rollback);
+                            }
+                        }
+                        if (_preserveBackup)
+                            throw new AggregateException($"Package rollback failed; backups remain at '{staging}'.", failures);
+                        throw;
+                    }
+                }
+            });
+        }
+
+        public void PreserveBackup()
+        {
+            if (changes.Any(change => change.BackedUp))
+            {
+                _preserveBackup = true;
+                owner._logger.LogWarning("Package registration failed; previous payload backups remain at {Staging}.", staging);
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            if (!_preserveBackup) owner.DeleteIfExists(staging);
+        }
+    }
+
+    internal sealed class PayloadChange(string kind, bool enabled, string destination, string staged, string backup)
+    {
+        public string Kind { get; } = kind;
+        public bool Enabled { get; } = enabled;
         public string Destination { get; } = destination;
         public string Staged { get; } = staged;
         public string Backup { get; } = backup;
@@ -263,16 +297,19 @@ public partial class PackageInstaller
         }
     }
 
-    private static void CopyDirectory(string source, string destination)
+    private static void CopyDirectory(string source, string destination, CancellationToken token)
     {
         Directory.CreateDirectory(destination);
 
         foreach (string file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
+            token.ThrowIfCancellationRequested();
             string relative = Path.GetRelativePath(source, file);
             string target = Path.Combine(destination, relative);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            File.Copy(file, target, overwrite: true);
+            using var input = File.OpenRead(file);
+            using var output = File.Create(target);
+            input.CopyToAsync(output, token).GetAwaiter().GetResult();
         }
     }
 }

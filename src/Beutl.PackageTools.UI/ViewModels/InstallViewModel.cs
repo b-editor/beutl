@@ -76,18 +76,33 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
             InstalledPackageRepository repos = app.GetResource<InstalledPackageRepository>();
             var pkg = new PackageIdentity(Model.Id, Model.Version);
 
-            // A material or template package is not loaded as an assembly; its payload is
-            // copied into the home directory after extraction.
-            if (!await Task.Run(() => DeployDataPackage(pkg), token))
+            var deployment = await Task.Run(() => PrepareDataPackage(pkg, token), token);
+            try
             {
-                goto Failed;
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    deployment.Commit();
+                    // Once published, complete the short registration step. Late cancellation
+                    // must not turn a committed install into an unregistered/canceled payload.
+                    try
+                    {
+                        repos.AddPackage(pkg);
+                        repos.UpgradePackages(pkg);
+                        Succeeded.Value = true;
+                    }
+                    catch
+                    {
+                        deployment.PreserveBackup();
+                        throw;
+                    }
+                }, Avalonia.Threading.DispatcherPriority.Default, token);
             }
-
-            repos.AddPackage(pkg);
-            repos.UpgradePackages(pkg);
-
+            finally
+            {
+                await Task.Run(deployment.Dispose);
+            }
             _logger.LogInformation("Package {PackageId} version {Version} installed successfully.", Model.Id, Model.Version.ToString());
-            Succeeded.Value = true;
             return;
 
         Failed:
@@ -116,32 +131,13 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
         }
     }
 
-    private bool DeployDataPackage(PackageIdentity pkg)
+    private PackageInstaller.DataPackageDeployment PrepareDataPackage(PackageIdentity pkg, CancellationToken token)
     {
         string? directory = Helper.PackagePathResolver.GetInstalledPath(pkg);
         if (!Directory.Exists(directory))
-        {
-            _logger.LogWarning("Installed directory not found for package {PackageId}.", pkg.Id);
-            return true;
-        }
-
-        var reader = new PackageFolderReader(directory);
+            throw new DirectoryNotFoundException($"Installed directory not found for package '{pkg.Id}'.");
+        using var reader = new PackageFolderReader(directory);
         var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        var installer = app.GetResource<PackageInstaller>();
-        if (localPackage.Tags.GetPackageKind() == PackageKind.Extension)
-        {
-            // An update may have turned a data package into an extension; the old
-            // payload directories have to go even though nothing is deployed now.
-            if (!installer.UninstallDataPackage(pkg.Id))
-            {
-                _logger.LogError("Failed to delete the obsolete data payload of {PackageId}.", pkg.Id);
-                return false;
-            }
-
-            return true;
-        }
-
-        installer.InstallDataPackage(localPackage);
-        return true;
+        return app.GetResource<PackageInstaller>().PrepareDataPackage(localPackage, token);
     }
 }

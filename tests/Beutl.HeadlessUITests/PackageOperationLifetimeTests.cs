@@ -14,6 +14,46 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class PackageOperationLifetimeTests
 {
+    [Avalonia.Headless.NUnit.AvaloniaTest]
+    public async Task CancellationWhilePublicationIsQueued_DoesNotPublishOrRegisterData()
+    {
+        await TestReset.ResetShellAsync();
+        using var http = new HttpClient();
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
+        string name = "QueuedDeployment." + Guid.NewGuid().ToString("N");
+        var identity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        string directory = Path.Combine(Helper.InstallPath, name + ".1.0.0");
+        Directory.CreateDirectory(Path.Combine(directory, "materials"));
+        File.WriteAllText(Path.Combine(directory, name + ".1.0.0.nupkg"), "");
+        File.WriteAllText(Path.Combine(directory, name + ".nuspec"),
+            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>test</authors><description>test</description><tags>{PackageKinds.MaterialTag}</tags></metadata></package>");
+        File.WriteAllText(Path.Combine(directory, "materials", "data.txt"), "data");
+        using var cancellation = new CancellationTokenSource();
+        var existing = Directory.GetDirectories(Helper.AppRoot, ".data-install-*").ToHashSet();
+        var activate = typeof(PackageOperationHandler).GetMethod("ActivateInstalledPackageAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        Task task = (Task)activate.Invoke(operation, new object[] { identity, cancellation.Token })!;
+        try
+        {
+            Assert.That(SpinWait.SpinUntil(() => Directory.GetDirectories(Helper.AppRoot, ".data-install-*")
+                .Any(path => !existing.Contains(path)), TimeSpan.FromSeconds(5)), Is.True);
+            cancellation.Cancel();
+            // The dispatcher is not pumped here: cancellation must complete the queued
+            // operation without depending on the callback ever being executed.
+            Assert.That(SpinWait.SpinUntil(() => task.IsCompleted, TimeSpan.FromSeconds(5)), Is.True);
+            Assert.CatchAsync<OperationCanceledException>(async () => await task);
+            Assert.That(Directory.Exists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name)), Is.False);
+            Assert.That(app.GetResource<InstalledPackageRepository>().ExistsPackage(name, "1.0.0"), Is.False);
+        }
+        finally
+        {
+            cancellation.Cancel();
+            try { await task; } catch (OperationCanceledException) { }
+            Directory.Delete(directory, true);
+        }
+    }
+
     [Test]
     public async Task ApplicationShutdown_CancelsAnInFlightPackageDownload()
     {
