@@ -3096,7 +3096,7 @@ internal sealed class VersionControlCoordinator :
         return false;
     }
 
-    private void PublishNotification(Action notification)
+    private void PublishNotification(Action notification, long? activationRevision = null)
     {
         lock (_stateGate)
         {
@@ -3108,19 +3108,19 @@ internal sealed class VersionControlCoordinator :
             if (!_dispatcher.CheckAccess())
             {
                 _notificationUsers++;
-                _ = PublishNotificationAsync(notification);
+                _ = PublishNotificationAsync(notification, activationRevision);
                 return;
             }
         }
 
-        TryPublishNotification(notification);
+        TryPublishNotification(notification, activationRevision);
     }
 
-    private async Task PublishNotificationAsync(Action notification)
+    private async Task PublishNotificationAsync(Action notification, long? activationRevision)
     {
         try
         {
-            await _dispatcher.InvokeAsync(() => TryPublishNotification(notification));
+            await _dispatcher.InvokeAsync(() => TryPublishNotification(notification, activationRevision));
         }
         catch (Exception ex)
         {
@@ -3142,13 +3142,25 @@ internal sealed class VersionControlCoordinator :
         }
     }
 
-    private void TryPublishNotification(Action notification)
+    private void TryPublishNotification(Action notification, long? activationRevision)
     {
         if (_dispatcher.CheckAccess())
         {
             try
             {
-                notification();
+                if (activationRevision is { } expected)
+                {
+                    lock (_stateGate)
+                    {
+                        if (_disposed || expected != _latestActivationRevision)
+                            return;
+                        notification();
+                    }
+                }
+                else
+                {
+                    notification();
+                }
             }
             catch (Exception ex)
             {
@@ -5107,7 +5119,7 @@ internal sealed class VersionControlCoordinator :
                 }
 
                 if (notify)
-                    PublishNotification(() => NotificationService.ShowWarning(Strings.VersionControl, MessageStrings.OperationFailed));
+                    PublishNotification(() => NotificationService.ShowWarning(Strings.VersionControl, MessageStrings.OperationFailed), activation.Revision);
                 throw;
             }
 
