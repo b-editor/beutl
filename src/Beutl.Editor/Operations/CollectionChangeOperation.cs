@@ -1,4 +1,6 @@
-﻿using Beutl.Editor.Infrastructure;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using Beutl.Editor.Infrastructure;
 using Beutl.Engine;
 using Beutl.NodeGraph;
 
@@ -48,10 +50,21 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
         if (actual.Count != expected.Count) return false;
         for (int i = 0; i < actual.Count; i++)
         {
-            bool same = typeof(T).IsValueType
-                ? EqualityComparer<T>.Default.Equals(actual[i], expected[i])
-                : ReferenceEquals(actual[i], expected[i]);
-            if (!same) return false;
+            if (!typeof(T).IsValueType)
+            {
+                if (!ReferenceEquals(actual[i], expected[i])) return false;
+            }
+            else
+            {
+                // Custom equality can ignore state (and floating-point equality hides
+                // signed zero). Require exact bytes, or conservatively report unknown.
+                if (RuntimeHelpers.IsReferenceOrContainsReferences<T>()) return false;
+                T left = actual[i];
+                T right = expected[i];
+                ReadOnlySpan<byte> leftBytes = MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<T, byte>(ref left), Unsafe.SizeOf<T>());
+                ReadOnlySpan<byte> rightBytes = MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<T, byte>(ref right), Unsafe.SizeOf<T>());
+                if (!leftBytes.SequenceEqual(rightBytes)) return false;
+            }
         }
         return true;
     }
