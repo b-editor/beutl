@@ -466,21 +466,30 @@ public sealed partial class MacWindow : Window
     {
         // Publish the in-flight task before a synchronous veto can clear it.
         await Task.Yield();
+        bool closeAccepted = false;
         try
         {
             if (!await viewModel.TryDisposeForWindowCloseAsync())
-            {
-                _viewModelDisposeTask = null;
                 return;
-            }
+            closeAccepted = true;
             await viewModel.WaitForDisposalAsync();
-            _viewModelDisposed = true;
-            Close();
         }
         catch (Exception ex)
         {
-            _viewModelDisposeTask = null;
             await ex.Handle();
+        }
+        finally
+        {
+            if (closeAccepted)
+            {
+                // Once closing is accepted, a cached cleanup failure cannot veto exit.
+                _viewModelDisposed = true;
+                Close();
+            }
+            else
+            {
+                _viewModelDisposeTask = null;
+            }
         }
     }
 
