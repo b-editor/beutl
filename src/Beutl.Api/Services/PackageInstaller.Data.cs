@@ -172,17 +172,47 @@ public partial class PackageInstaller
     private sealed record PayloadOwner(string Name, string Version);
 
     private static PayloadOwner? ReadPayloadOwner(string directory)
+        => ReadPayloadOwner(directory, out _);
+
+    private static PayloadOwner? ReadPayloadOwner(string directory, out bool markerPresent)
     {
         string marker = Path.Combine(directory, PayloadOwnerFileName);
-        return File.Exists(marker) ? JsonSerializer.Deserialize<PayloadOwner>(File.ReadAllText(marker)) : null;
+        markerPresent = true;
+        try
+        {
+            if ((File.GetAttributes(marker) & FileAttributes.Directory) != 0)
+                return null;
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            markerPresent = false;
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        try
+        {
+            PayloadOwner? owner = JsonSerializer.Deserialize<PayloadOwner>(File.ReadAllText(marker));
+            return owner is not null && !string.IsNullOrWhiteSpace(owner.Name)
+                && NuGet.Versioning.NuGetVersion.TryParse(owner.Version, out _) ? owner : null;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            // An existing unreadable marker is not proof of legacy ownership.
+            return null;
+        }
     }
 
     private bool OwnsPayload(string packageName, string kind, string directory)
     {
         if (!Directory.Exists(directory))
             return false;
-        if (ReadPayloadOwner(directory) is { } owner)
-            return StringComparer.OrdinalIgnoreCase.Equals(owner.Name, packageName);
+        PayloadOwner? owner = ReadPayloadOwner(directory, out bool markerPresent);
+        if (markerPresent)
+            return owner is not null && StringComparer.OrdinalIgnoreCase.Equals(owner.Name, packageName);
 
         // Older installations had no marker. Only extracted, registered package metadata
         // can authorize taking over their payload; a matching directory name is insufficient.

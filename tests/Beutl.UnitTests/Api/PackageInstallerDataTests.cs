@@ -10,6 +10,38 @@ namespace Beutl.UnitTests.Api;
 [NonParallelizable]
 public class PackageInstallerDataTests
 {
+    [TestCase("{")]
+    [TestCase("null")]
+    [TestCase("{}")]
+    [TestCase("[]")]
+    [TestCase("directory")]
+    public void InvalidOwnerMarker_DoesNotAuthorizeLegacyReplacementOrDeletion(string contents)
+    {
+        const string name = "Beutl.Package.DataTest.InvalidOwner";
+        LocalPackage package = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/new.txt", "package"));
+        File.WriteAllText(Path.Combine(package.InstalledPath!, name + ".nuspec"),
+            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>tests</authors><description>tests</description><tags>{PackageKinds.MaterialTag}</tags></metadata></package>");
+        _repository.AddPackage(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
+        string directory = MaterialsDirectoryOf(name);
+        Directory.CreateDirectory(directory);
+        string userFile = Path.Combine(directory, "mine.txt");
+        File.WriteAllText(userFile, "user data");
+        string marker = Path.Combine(directory, ".beutl-package-owner");
+        if (contents == "directory") Directory.CreateDirectory(marker);
+        else File.WriteAllText(marker, contents);
+
+        Assert.Throws<IOException>(() => _installer.InstallDataPackage(package));
+        Assert.That(_installer.UninstallDataPackage(name), Is.True);
+        Assert.That(File.ReadAllText(userFile), Is.EqualTo("user data"));
+
+        // Only actual absence enables the legacy fallback.
+        if (contents == "directory") Directory.Delete(marker);
+        else File.Delete(marker);
+        Assert.DoesNotThrow(() => _installer.InstallDataPackage(package));
+        Assert.That(File.Exists(userFile), Is.False);
+        Assert.That(File.ReadAllText(Path.Combine(directory, "new.txt")), Is.EqualTo("package"));
+    }
+
     [Test]
     public void UninstallOldIdentityKeepsCurrentPayload()
     {
