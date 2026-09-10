@@ -63,7 +63,11 @@ public class AutoSaveServiceTests
             element.Objects.Remove(shape);
             var removal = new RemoveCollectionItemOperation<EngineObject>
             {
-                Object = element, PropertyPath = nameof(element.Objects), Item = shape, Index = 0, SequenceNumber = 1,
+                Object = element,
+                PropertyPath = nameof(element.Objects),
+                Item = shape,
+                Index = 0,
+                SequenceNumber = 1,
             };
 
             service.AutoSave([removal]);
