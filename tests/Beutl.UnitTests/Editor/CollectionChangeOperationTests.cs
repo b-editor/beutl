@@ -29,7 +29,11 @@ public class CollectionChangeOperationTests
         owner.Items.AddRange([new EqualValue(2), new EqualValue(1)]);
         var operation = new MoveCollectionItemOperation<EqualValue>
         {
-            Object = owner, PropertyPath = "Items", OldIndex = 0, NewIndex = 1, SequenceNumber = 1,
+            Object = owner,
+            PropertyPath = "Items",
+            OldIndex = 0,
+            NewIndex = 1,
+            SequenceNumber = 1,
         };
         using var history = new Beutl.Editor.HistoryManager(owner, new Beutl.Editor.OperationSequenceGenerator());
         history.Record(operation);
@@ -93,7 +97,11 @@ public class CollectionChangeOperationTests
         owner.Items.AddRange(["B", "C", "A"]);
         var operation = new MoveCollectionItemOperation<string>
         {
-            Object = owner, PropertyPath = "Items", OldIndex = 0, NewIndex = 2, SequenceNumber = 1,
+            Object = owner,
+            PropertyPath = "Items",
+            OldIndex = 0,
+            NewIndex = 2,
+            SequenceNumber = 1,
         };
         using var history = new Beutl.Editor.HistoryManager(owner, new Beutl.Editor.OperationSequenceGenerator());
         history.Record(operation);

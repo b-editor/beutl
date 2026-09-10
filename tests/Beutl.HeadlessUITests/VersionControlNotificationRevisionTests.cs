@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.Api.Services;

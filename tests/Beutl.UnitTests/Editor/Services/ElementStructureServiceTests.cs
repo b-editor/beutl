@@ -94,7 +94,9 @@ public class ElementStructureServiceTests
         string directory = Path.GetDirectoryName(_scene.Uri!.LocalPath)!;
         var second = new FailingSplitElement
         {
-            Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10), ZIndex = 1,
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(10),
+            ZIndex = 1,
             Uri = new Uri(Path.Combine(directory, "second.belm")),
         };
         _scene.Children.Add(second);

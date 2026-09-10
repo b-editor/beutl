@@ -32,8 +32,8 @@ public class AudioVisualizerDrawableTests
             using Bitmap bitmap = GoldenImageHarness.RenderAtScale(resource, new PixelSize(400, 200), 1);
             bool hasOutset = false;
             for (int y = 40; y < 60; y++)
-            for (int x = 40; x < 360; x++)
-                hasOutset |= bitmap.SKBitmap.GetPixel(x, y).Alpha != 0;
+                for (int x = 40; x < 360; x++)
+                    hasOutset |= bitmap.SKBitmap.GetPixel(x, y).Alpha != 0;
             Assert.That(hasOutset, Is.True, "Caps/dots must survive above the nominal 80-pixel-high signal rectangle.");
         });
     }

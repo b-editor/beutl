@@ -1,6 +1,6 @@
-﻿using Beutl.Graphics.Backend;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Effects;

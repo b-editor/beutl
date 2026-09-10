@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using Beutl.Api;
 using Beutl.Api.Clients;
@@ -65,18 +65,40 @@ public sealed class PackageOperationLifetimeTests
         var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
         var ownerResponse = new ProfileResponse
         {
-            Id = "owner", Name = "owner", DisplayName = "Owner", Bio = null, IconId = null, IconUrl = null,
+            Id = "owner",
+            Name = "owner",
+            DisplayName = "Owner",
+            Bio = null,
+            IconId = null,
+            IconUrl = null,
         };
         var package = new Package(new Profile(ownerResponse, app), new PackageResponse
         {
-            Id = "package", Owner = ownerResponse, Name = "LifetimeTest." + Guid.NewGuid().ToString("N"),
-            DisplayName = "Package", Description = "", ShortDescription = "", WebSite = "", Tags = [],
-            LogoId = null, LogoUrl = null, Screenshots = [], Currency = null, Price = null, Paid = false, Owned = true,
+            Id = "package",
+            Owner = ownerResponse,
+            Name = "LifetimeTest." + Guid.NewGuid().ToString("N"),
+            DisplayName = "Package",
+            Description = "",
+            ShortDescription = "",
+            WebSite = "",
+            Tags = [],
+            LogoId = null,
+            LogoUrl = null,
+            Screenshots = [],
+            Currency = null,
+            Price = null,
+            Paid = false,
+            Owned = true,
         }, app);
         var release = new Release(package, new ReleaseResponse
         {
-            Id = "release", Version = "1.0.0", Title = "Release", Description = "", TargetVersion = null,
-            FileId = "archive", FileUrl = null,
+            Id = "release",
+            Version = "1.0.0",
+            Title = "Release",
+            Description = "",
+            TargetVersion = null,
+            FileId = "archive",
+            FileUrl = null,
         }, app);
         Task install = operation.DownloadAndLoadPackage(release,
             new PackageIdentity(package.Name, NuGetVersion.Parse("1.0.0")), CancellationToken.None);
@@ -107,13 +129,31 @@ public sealed class PackageOperationLifetimeTests
         var owner = new ProfileResponse { Id = "owner", Name = "owner", DisplayName = "Owner", Bio = null, IconId = null, IconUrl = null };
         var package = new Package(new Profile(owner, app), new PackageResponse
         {
-            Id = "package", Owner = owner, Name = "HashPolicy." + Guid.NewGuid().ToString("N"),
-            DisplayName = "Package", Description = "", ShortDescription = "", WebSite = "", Tags = [],
-            LogoId = null, LogoUrl = null, Screenshots = [], Currency = null, Price = null, Paid = false, Owned = true,
+            Id = "package",
+            Owner = owner,
+            Name = "HashPolicy." + Guid.NewGuid().ToString("N"),
+            DisplayName = "Package",
+            Description = "",
+            ShortDescription = "",
+            WebSite = "",
+            Tags = [],
+            LogoId = null,
+            LogoUrl = null,
+            Screenshots = [],
+            Currency = null,
+            Price = null,
+            Paid = false,
+            Owned = true,
         }, app);
         var release = new Release(package, new ReleaseResponse
         {
-            Id = "release", Version = "1.0.0", Title = "Release", Description = "", TargetVersion = null, FileId = "archive", FileUrl = null,
+            Id = "release",
+            Version = "1.0.0",
+            Title = "Release",
+            Description = "",
+            TargetVersion = null,
+            FileId = "archive",
+            FileUrl = null,
         }, app);
         var identity = new PackageIdentity(package.Name, NuGetVersion.Parse("1.0.0"));
         InvalidDataException? error = Assert.ThrowsAsync<InvalidDataException>(() => remote

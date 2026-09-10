@@ -1,4 +1,4 @@
-using Beutl.Api;
+﻿using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
 
@@ -23,8 +23,12 @@ public sealed class PackageInstallerVerificationTests
         context.NuGetPackageFile = path;
         context.Asset = new FileResponse
         {
-                Id = "hash-test", Name = name, ContentType = "application/octet-stream",
-                DownloadUrl = "https://example.com/package.nupkg", Size = 1, Sha256 = new string('0', 64),
+            Id = "hash-test",
+            Name = name,
+            ContentType = "application/octet-stream",
+            DownloadUrl = "https://example.com/package.nupkg",
+            Size = 1,
+            Sha256 = new string('0', 64),
         };
         try
         {

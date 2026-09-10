@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
@@ -67,7 +67,8 @@ public sealed class OutputProfileOrderTests
         public override FilePickerFileType GetFilePickerFileType() => new("Test output");
         public override bool IsSupported(Type type) => true;
         public override bool TryCreateControl(IEditorContext editor, IOutputContext context, IOutputExecutionController execution,
-            [NotNullWhen(true)] out Control? control) { control = new Border(); return true; }
+            [NotNullWhen(true)] out Control? control)
+        { control = new Border(); return true; }
         public override bool TryCreateContext(IEditorContext editor, [NotNullWhen(true)] out IOutputContext? context)
         {
             context = new OrderOutputContext(editor.Object, this);

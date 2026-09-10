@@ -15,7 +15,8 @@ public class HistoryManagerTests
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         void RecordAtomic(Action apply, Action revert) => manager.Record(new CustomOperation(_ => apply(), _ => revert())
         {
-            SequenceNumber = _sequenceGenerator.GetNext(), FailureIsAtomic = true,
+            SequenceNumber = _sequenceGenerator.GetNext(),
+            FailureIsAtomic = true,
         });
         int value = 2;
         bool fail = true;

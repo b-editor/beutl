@@ -61,7 +61,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
         var analysis = new TypeAnalysis(context.Compilation, type, renderNodeType);
         ImmutableHashSet<ISymbol> processClosure = analysis.CollectCallClosure(process);
-        for (INamedTypeSymbol? current = type; current is not null && current != renderNodeType; current = current.BaseType)
+        for (INamedTypeSymbol? current = type; current is not null && !SymbolEqualityComparer.Default.Equals(current, renderNodeType); current = current.BaseType)
         {
             if (current.GetMembers("ChildNodes").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod is { } getter)
             {
@@ -804,19 +804,19 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             for (INamedTypeSymbol? current = declaring;
                  current is not null && !SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, renderNodeType);
                  current = current.BaseType)
-            foreach (IMethodSymbol constructor in current.InstanceConstructors)
-            foreach (BodyWithModel body in GetBodies(constructor))
-            foreach (AnonymousFunctionExpressionSyntax lambda in body.Body.DescendantNodes(child => RunsNestedFunction(body.Model, body.Body, child,
-                         localFunctionsFollowedAsCallees: false)).OfType<AnonymousFunctionExpressionSyntax>())
-            {
-                bool eventHandler = lambda.Parent is AssignmentExpressionSyntax assignment
-                    && assignment.IsKind(SyntaxKind.AddAssignmentExpression)
-                    && body.Model.GetSymbolInfo(assignment.Left).Symbol is IEventSymbol;
-                bool subscription = lambda.Parent is ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax invocation }
-                    && body.Model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Subscribe" };
-                if ((eventHandler || subscription) && body.Model.GetOperation(lambda) is IAnonymousFunctionOperation operation)
-                    yield return operation.Symbol;
-            }
+                foreach (IMethodSymbol constructor in current.InstanceConstructors)
+                    foreach (BodyWithModel body in GetBodies(constructor))
+                        foreach (AnonymousFunctionExpressionSyntax lambda in body.Body.DescendantNodes(child => RunsNestedFunction(body.Model, body.Body, child,
+                                     localFunctionsFollowedAsCallees: false)).OfType<AnonymousFunctionExpressionSyntax>())
+                        {
+                            bool eventHandler = lambda.Parent is AssignmentExpressionSyntax assignment
+                                && assignment.IsKind(SyntaxKind.AddAssignmentExpression)
+                                && body.Model.GetSymbolInfo(assignment.Left).Symbol is IEventSymbol;
+                            bool subscription = lambda.Parent is ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax invocation }
+                                && body.Model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Subscribe" };
+                            if ((eventHandler || subscription) && body.Model.GetOperation(lambda) is IAnonymousFunctionOperation operation)
+                                yield return operation.Symbol;
+                        }
         }
 
         private IEnumerable<BodyWithModel> GetBodies(IMethodSymbol method)
