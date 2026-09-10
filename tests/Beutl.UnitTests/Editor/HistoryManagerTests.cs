@@ -13,6 +13,10 @@ public class HistoryManagerTests
     public void PartialHistoryFailure_RetryDoesNotRepeatSuccessfulOperations(bool redo)
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
+        void RecordAtomic(Action apply, Action revert) => manager.Record(new CustomOperation(_ => apply(), _ => revert())
+        {
+            SequenceNumber = _sequenceGenerator.GetNext(), FailureIsAtomic = true,
+        });
         int value = 2;
         bool fail = true;
         void FailsOnce()
@@ -23,13 +27,13 @@ public class HistoryManagerTests
         }
         if (redo)
         {
-            manager.Record(() => value++, () => value--);
-            manager.Record(() => { FailsOnce(); value++; }, () => value--);
+            RecordAtomic(() => value++, () => value--);
+            RecordAtomic(() => { FailsOnce(); value++; }, () => value--);
         }
         else
         {
-            manager.Record(() => value++, () => { FailsOnce(); value--; });
-            manager.Record(() => value++, () => value--);
+            RecordAtomic(() => value++, () => { FailsOnce(); value--; });
+            RecordAtomic(() => value++, () => value--);
         }
         manager.Commit("non-idempotent operations");
         if (redo) Assert.That(manager.Undo(), Is.True);
@@ -39,6 +43,22 @@ public class HistoryManagerTests
         Assert.That(value, Is.EqualTo(redo ? 2 : 0));
         Assert.That(redo ? manager.Undo() : manager.Redo(), Is.True);
         Assert.That(value, Is.EqualTo(redo ? 0 : 2));
+    }
+
+    [Test]
+    public void UnknownPartialFailure_CannotBeReplayedOrCommittedUntilHistoryIsCleared()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int value = 2;
+        manager.Record(() => value++, () => { value--; throw new IOException("partial mutation"); });
+        manager.Commit("unsafe operation");
+        Assert.Throws<IOException>(() => manager.Undo());
+        Assert.That(value, Is.EqualTo(1));
+        Assert.Throws<InvalidOperationException>(() => manager.Undo());
+        Assert.Throws<InvalidOperationException>(() => manager.Redo());
+        Assert.Throws<InvalidOperationException>(() => manager.Commit("unsafe"));
+        Assert.That(value, Is.EqualTo(1));
+        Assert.DoesNotThrow(manager.Clear);
     }
 
     [Test]
@@ -261,6 +281,7 @@ public class HistoryManagerTests
             },
             _sequenceGenerator,
             "Retryable revert");
+        operation.FailureIsAtomic = true;
         operation.Apply(new OperationExecutionContext(_root));
         manager.Record(operation);
 

@@ -267,8 +267,14 @@ public sealed class HistoryManager : IDisposable
         }
     }
 
-    private void ThrowIfHistoryControlIsBlocked_NoLock()
+    private void ThrowIfHistoryControlIsBlocked_NoLock(bool allowUncertainFailure = false)
     {
+        if (!allowUncertainFailure && (_currentTransaction.HasUncertainFailure
+            || _undoStack.Any(transaction => transaction.HasUncertainFailure)
+            || _redoStack.Any(transaction => transaction.HasUncertainFailure)))
+        {
+            throw new InvalidOperationException("History contains an operation with uncertain partial execution. Clear history or reopen the project before replaying it.");
+        }
         if (_isolatedTransactionActive)
         {
             throw new InvalidOperationException(
@@ -446,7 +452,9 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            ThrowIfHistoryControlIsBlocked_NoLock();
+            ThrowIfHistoryControlIsBlocked_NoLock(allowUncertainFailure: true);
+            if (_currentTransaction.HasUncertainFailure)
+                _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
             int undoCount = _undoStack.Count;
             int redoCount = _redoStack.Count;
             _undoStack.Clear();

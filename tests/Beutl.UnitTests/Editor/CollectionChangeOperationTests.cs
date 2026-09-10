@@ -22,6 +22,52 @@ public class CollectionChangeOperationTests
 
     #region InsertCollectionItemOperation Tests
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void StaleMoveDestination_DoesNotMutateTheCollectionWhenRetried(bool range)
+    {
+        var owner = new TestCoreObjectWithList();
+        owner.Items.AddRange(["A", "B", "C"]);
+        ChangeOperation operation = range
+            ? new MoveCollectionRangeOperation<string> { Object = owner, PropertyPath = "Items", OldIndex = 5, NewIndex = 0, Count = 2, SequenceNumber = 1 }
+            : new MoveCollectionItemOperation<string> { Object = owner, PropertyPath = "Items", OldIndex = 5, NewIndex = 0, SequenceNumber = 1 };
+        using var history = new Beutl.Editor.HistoryManager(owner, new Beutl.Editor.OperationSequenceGenerator());
+        history.Record(operation);
+        history.Commit("stale move");
+        for (int i = 0; i < 2; i++)
+        {
+            Assert.Catch<ArgumentOutOfRangeException>(() => history.Undo());
+            Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "C" }));
+        }
+    }
+
+    [Test]
+    public void CompletedMoveWithThrowingObserver_IsNotRepeatedOnRetry()
+    {
+        var owner = new TestCoreObjectWithList();
+        owner.Items.AddRange(["B", "C", "A"]);
+        var operation = new MoveCollectionItemOperation<string>
+        {
+            Object = owner, PropertyPath = "Items", OldIndex = 0, NewIndex = 2, SequenceNumber = 1,
+        };
+        using var history = new Beutl.Editor.HistoryManager(owner, new Beutl.Editor.OperationSequenceGenerator());
+        history.Record(operation);
+        history.Commit("move");
+        System.Collections.Specialized.NotifyCollectionChangedEventHandler handler = (_, change) =>
+        {
+            if (change.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+                throw new IOException("observer failure after insertion");
+        };
+        owner.Items.CollectionChanged += handler;
+        Assert.Throws<IOException>(() => history.Undo());
+        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "C" }));
+        Assert.That(history.Undo(), Is.True);
+        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "C" }));
+        owner.Items.CollectionChanged -= handler;
+        Assert.That(history.Redo(), Is.True);
+        Assert.That(owner.Items, Is.EqualTo(new[] { "B", "C", "A" }));
+    }
+
     [Test]
     public void InsertCollectionItemOperation_ApplyTo_ShouldInsertItemAtIndex()
     {

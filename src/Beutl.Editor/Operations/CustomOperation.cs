@@ -17,6 +17,12 @@ public sealed class CustomOperation : ChangeOperation
 
     public string? Description { get; }
 
+    /// <summary>Set only when both delegates leave state unchanged whenever they throw.</summary>
+    public bool FailureIsAtomic { get; set; }
+
+    public override ChangeOperationFailureState FailureState => FailureIsAtomic
+        ? ChangeOperationFailureState.Unchanged : ChangeOperationFailureState.Unknown;
+
     public override void Apply(OperationExecutionContext context)
     {
         _apply(context);
