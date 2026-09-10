@@ -329,17 +329,17 @@ public sealed class FileBrowserTabViewModel : IToolContext
     public async Task DeleteItemAsync(FileSystemItemViewModel item)
     {
         if (!CanMutateItem(item)) return;
-        var dialog = new ContentDialog
+        var dialog = new FAContentDialog
         {
             Title = Strings.Delete,
             Content = string.Format(MessageStrings.ConfirmDeleteFile, item.Name.Value),
             PrimaryButtonText = Strings.Yes,
             CloseButtonText = Strings.No,
-            DefaultButton = ContentDialogButton.Close
+            DefaultButton = FAContentDialogButton.Close
         };
 
         var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary)
+        if (result == FAContentDialogResult.Primary)
         {
             try
             {
@@ -373,17 +373,17 @@ public sealed class FileBrowserTabViewModel : IToolContext
             return;
         }
 
-        var dialog = new ContentDialog
+        var dialog = new FAContentDialog
         {
             Title = Strings.Delete,
             Content = string.Format(Strings.DeleteSelectedItems, items.Count),
             PrimaryButtonText = Strings.Yes,
             CloseButtonText = Strings.No,
-            DefaultButton = ContentDialogButton.Close
+            DefaultButton = FAContentDialogButton.Close
         };
 
         var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary)
+        if (result == FAContentDialogResult.Primary)
         {
             foreach (var item in items)
             {
@@ -444,7 +444,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
         if (File.Exists(newPath) || Directory.Exists(newPath))
         {
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 Title = Strings.Error,
                 Content = string.Format(MessageStrings.RenameConflict, item.Name.Value, newName),

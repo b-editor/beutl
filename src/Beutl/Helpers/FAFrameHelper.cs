@@ -5,11 +5,11 @@ namespace Beutl;
 
 public static class FAFrameHelper
 {
-    public static void RemoveAllStack(this Frame frame, Func<object, bool> func)
+    public static void RemoveAllStack(this FAFrame frame, Func<object, bool> func)
     {
         for (int i = frame.BackStack.Count - 1; i >= 0; i--)
         {
-            PageStackEntry item = frame.BackStack[i];
+            FAPageStackEntry item = frame.BackStack[i];
             if (func(item.Parameter))
             {
                 frame.BackStack.RemoveAt(i);
@@ -18,7 +18,7 @@ public static class FAFrameHelper
 
         for (int i = frame.ForwardStack.Count - 1; i >= 0; i--)
         {
-            PageStackEntry item = frame.ForwardStack[i];
+            FAPageStackEntry item = frame.ForwardStack[i];
             if (func(item.Parameter))
             {
                 frame.ForwardStack.RemoveAt(i);
@@ -26,11 +26,11 @@ public static class FAFrameHelper
         }
     }
 
-    public static T? FindParameter<T>(this Frame frame, Func<T, bool> func)
+    public static T? FindParameter<T>(this FAFrame frame, Func<T, bool> func)
     {
         for (int i = 0; i < frame.BackStack.Count; i++)
         {
-            PageStackEntry item = frame.BackStack[i];
+            FAPageStackEntry item = frame.BackStack[i];
             if (item.Parameter is T typed && func(typed))
             {
                 return typed;
@@ -39,7 +39,7 @@ public static class FAFrameHelper
 
         for (int i = 0; i < frame.ForwardStack.Count; i++)
         {
-            PageStackEntry item = frame.ForwardStack[i];
+            FAPageStackEntry item = frame.ForwardStack[i];
             if (item.Parameter is T typed && func(typed))
             {
                 return typed;

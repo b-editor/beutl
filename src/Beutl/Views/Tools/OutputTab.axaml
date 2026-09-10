@@ -35,16 +35,16 @@
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
                         <ui:FAMenuFlyout>
-                            <ui:MenuFlyoutItem Click="OnRemoveClick"
+                            <ui:FAMenuFlyoutItem Click="OnRemoveClick"
                                                CommandParameter="{Binding SelectedItem.Value}"
                                                IconSource="Delete"
                                                IsEnabled="{Binding CanRemove.Value}"
                                                Text="{x:Static lang:Strings.Remove}" />
-                            <ui:MenuFlyoutItem Click="OnRenameClick"
+                            <ui:FAMenuFlyoutItem Click="OnRenameClick"
                                                CommandParameter="{Binding SelectedItem.Value}"
                                                IsEnabled="{Binding !!SelectedItem.Value}"
                                                Text="{x:Static lang:Strings.Rename}" />
-                            <ui:MenuFlyoutItem Click="OnConvertPresetClick"
+                            <ui:FAMenuFlyoutItem Click="OnConvertPresetClick"
                                                CommandParameter="{Binding SelectedItem.Value}"
                                                IsEnabled="{Binding !!SelectedItem.Value}"
                                                Text="{x:Static lang:Strings.Convert_to_preset}" />

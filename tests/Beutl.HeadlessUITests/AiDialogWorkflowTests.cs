@@ -5440,7 +5440,7 @@ public sealed class AiDialogWorkflowTests
             transcription = viewModel.Transcribe.ExecuteAsync();
             await preparationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             HeadlessTestHelpers.Render();
-            ProgressRing progress = view.FindControl<ProgressRing>("TranscriptionProgressRing")!;
+            FAProgressRing progress = view.FindControl<FAProgressRing>("TranscriptionProgressRing")!;
             TextBlock status = view.FindControl<TextBlock>("TranscriptionStatusText")!;
             using (Assert.EnterMultipleScope())
             {

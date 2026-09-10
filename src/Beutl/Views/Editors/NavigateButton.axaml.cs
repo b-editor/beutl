@@ -93,7 +93,7 @@ public sealed class NavigateButton<T> : NavigateButton
                     {
                         var combobox = new ComboBox { ItemsSource = types, SelectedIndex = 0 };
 
-                        var dialog = new ContentDialog
+                        var dialog = new FAContentDialog
                         {
                             Content = combobox,
                             Title = MessageStrings.MultipleTypesAvailable,
@@ -101,7 +101,7 @@ public sealed class NavigateButton<T> : NavigateButton
                             CloseButtonText = Strings.Cancel
                         };
 
-                        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                        if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
                         {
                             return combobox.SelectedItem as Type;
                         }

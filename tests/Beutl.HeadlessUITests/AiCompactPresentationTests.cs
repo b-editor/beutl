@@ -704,7 +704,7 @@ public sealed class AiCompactPresentationTests
         {
             window.Show();
             HeadlessTestHelpers.Render();
-            ProgressRing progress = view.FindControl<ProgressRing>("TranscriptionProgressRing")!;
+            FAProgressRing progress = view.FindControl<FAProgressRing>("TranscriptionProgressRing")!;
             TextBlock status = view.FindControl<TextBlock>("TranscriptionStatusText")!;
             AutomationPeer statusPeer = ControlAutomationPeer.CreatePeerForElement(status);
             var automationChanges = new List<AutomationPropertyChangedEventArgs>();

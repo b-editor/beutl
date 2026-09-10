@@ -7,7 +7,7 @@ using FluentAvalonia.UI.Windowing;
 
 namespace Beutl;
 
-public partial class KeyModifierMonitor : AppWindow
+public partial class KeyModifierMonitor : FAAppWindow
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly Dictionary<Key, Button> _buttons = [];

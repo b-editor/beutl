@@ -23,11 +23,11 @@
                       ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Click="SetNullClick"
+                    <ui:FAMenuFlyoutItem Click="SetNullClick"
                                        Text="{x:Static lang:Strings.Null}" />
-                    <ui:MenuFlyoutItem Click="InitializeClick"
+                    <ui:FAMenuFlyoutItem Click="InitializeClick"
                                        Text="{x:Static lang:Strings.Initialize}" />
-                    <ui:MenuFlyoutItem Click="ImportFromSvgPathClick"
+                    <ui:FAMenuFlyoutItem Click="ImportFromSvgPathClick"
                                        Text="{x:Static lang:Strings.ImportSvgPath}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>

@@ -165,7 +165,7 @@
                                 Command="{Binding EnableVersionControlCommand}"
                                 IsVisible="{Binding CanEnableVersionControl.Value}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <ui:ProgressRing x:Name="EnableVersionControlProgress"
+                                <ui:FAProgressRing x:Name="EnableVersionControlProgress"
                                                  Width="16"
                                                  Height="16"
                                                  IsIndeterminate="True"

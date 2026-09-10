@@ -1022,10 +1022,10 @@ public class VersionControlSaveTests
                 TestShell.Editor,
                 TestShell.Project);
             bool primaryClosed = await packageHandler.HandleProjectCloseChoice(
-                ContentDialogResult.Primary,
+                FAContentDialogResult.Primary,
                 expected);
             bool secondaryClosed = await packageHandler.HandleProjectCloseChoice(
-                ContentDialogResult.Secondary,
+                FAContentDialogResult.Secondary,
                 expected);
             Assert.Multiple(() =>
             {
@@ -1092,7 +1092,7 @@ public class VersionControlSaveTests
                 TestShell.Project);
 
             bool closed = await packageHandler.HandleProjectCloseChoice(
-                ContentDialogResult.Primary,
+                FAContentDialogResult.Primary,
                 project);
 
             int commitsAfter = await CountCommitsAsync(gitPath, projectRoot);
@@ -1163,7 +1163,7 @@ public class VersionControlSaveTests
                 TestShell.Project);
 
             bool closed = await packageHandler.HandleProjectCloseChoice(
-                ContentDialogResult.Secondary,
+                FAContentDialogResult.Secondary,
                 project);
 
             int commitsAfter = await CountCommitsAsync(gitPath, projectRoot);
@@ -1265,7 +1265,7 @@ public class VersionControlSaveTests
             config.AutoCommitOnClose = false;
             Assert.That(
                 await packageHandler.HandleProjectCloseChoice(
-                    ContentDialogResult.Secondary,
+                    FAContentDialogResult.Secondary,
                     project),
                 Is.False);
             int commitsAfterFailedPackageSave = await CountCommitsAsync(gitPath, projectRoot);

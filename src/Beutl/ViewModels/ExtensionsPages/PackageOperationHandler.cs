@@ -246,25 +246,25 @@ internal class PackageOperationHandler
         if (expectedProject is null)
             return true;
 
-        var dialog = new ContentDialog
+        var dialog = new FAContentDialog
         {
             Title = ExtensionsStrings.PackageInstaller,
             Content = ExtensionsStrings.PackageInstaller_CloseProjectConfirmation,
             PrimaryButtonText = Strings.OK,
             SecondaryButtonText = ExtensionsStrings.PackageInstaller_SaveAndClose,
             CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Secondary
+            DefaultButton = FAContentDialogButton.Secondary
         };
 
         return await HandleProjectCloseChoice(await dialog.ShowAsync(), expectedProject);
     }
 
     internal async Task<bool> HandleProjectCloseChoice(
-        ContentDialogResult result,
+        FAContentDialogResult result,
         Project expectedProject)
     {
         ArgumentNullException.ThrowIfNull(expectedProject);
-        if (result == ContentDialogResult.Secondary)
+        if (result == FAContentDialogResult.Secondary)
         {
             IProjectFileWriteLease? fileWrite = null;
             IDisposable? editorSuspension = null;
@@ -297,7 +297,7 @@ internal class PackageOperationHandler
             }
         }
 
-        if (result == ContentDialogResult.Primary)
+        if (result == FAContentDialogResult.Primary)
         {
             return await _projectService.TryCloseProjectAsync(
                 expectedProject,

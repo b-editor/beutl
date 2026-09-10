@@ -1,4 +1,7 @@
 ﻿using Avalonia;
+#if DEBUG
+using Avalonia.Diagnostics;
+#endif
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
@@ -9,6 +12,9 @@ public class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+#if DEBUG
+        this.AttachDeveloperTools();
+#endif
     }
 
     public override void OnFrameworkInitializationCompleted()

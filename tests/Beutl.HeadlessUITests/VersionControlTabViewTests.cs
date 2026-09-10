@@ -145,7 +145,7 @@ public class VersionControlTabViewTests
                 Assert.That(branchButton.Flyout.IsOpen, Is.False);
                 Assert.That(branchPrompt.IsOpen, Is.True);
                 Assert.That(branchPrompt.Target, Is.SameAs(branchButton));
-                Assert.That(branchPrompt.Presenter, Is.TypeOf<PickerFlyoutPresenter>());
+                Assert.That(branchPrompt.Presenter, Is.TypeOf<FAPickerFlyoutPresenter>());
                 Assert.That(branchPrompt.Presenter!.Width, Is.EqualTo(320));
                 Assert.That(branchPrompt.Presenter.Padding, Is.EqualTo(new Thickness(8, 4)));
                 Assert.That(
@@ -476,7 +476,7 @@ public class VersionControlTabViewTests
                     tabPrompt.PrimaryTextBox.Text,
                     Is.EqualTo("https://example.invalid/old.git"));
                 Assert.That(tabPrompt.PrimaryTextBox.IsVisible, Is.True);
-                Assert.That(tabPrompt.Presenter, Is.TypeOf<PickerFlyoutPresenter>());
+                Assert.That(tabPrompt.Presenter, Is.TypeOf<FAPickerFlyoutPresenter>());
                 Assert.That(acceptButton.IsVisible, Is.True);
                 Assert.That(dismissButton.IsVisible, Is.True);
             });
@@ -519,7 +519,7 @@ public class VersionControlTabViewTests
                 Strings.VersionControl_Pull,
                 longWarning);
             HeadlessTestHelpers.Render();
-            PickerFlyoutPresenter presenter = tabPrompt.Presenter!;
+            FAPickerFlyoutPresenter presenter = tabPrompt.Presenter!;
             ScrollViewer presenterScrollViewer = presenter
                 .GetVisualDescendants()
                 .OfType<ScrollViewer>()

@@ -194,7 +194,7 @@
                         Content="{x:Static lang:Strings.AiSubtitle_Transcribe}"
                         IsEnabled="{CompiledBinding CanTranscribe.Value}" />
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                    <ui:ProgressRing x:Name="TranscriptionProgressRing"
+                    <ui:FAProgressRing x:Name="TranscriptionProgressRing"
                                      Width="16"
                                      Height="16"
                                      AutomationProperties.Name="{CompiledBinding TranscriptionStatusText.Value}"

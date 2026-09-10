@@ -9,7 +9,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Views.Tools;
 
-public sealed class OutputPickerFlyout(OutputPickerViewModel viewModel) : PickerFlyoutBase
+public sealed class OutputPickerFlyout(OutputPickerViewModel viewModel) : FAPickerFlyoutBase
 {
     public event TypedEventHandler<OutputPickerFlyout, EventArgs>? Confirmed;
 

@@ -10,7 +10,7 @@ public abstract class EditorExtension : ViewExtension
 {
     public abstract FilePickerFileType GetFilePickerFileType();
 
-    public abstract IconSource? GetIcon();
+    public abstract FAIconSource? GetIcon();
 
     public abstract bool TryCreateEditor(
         CoreObject obj,

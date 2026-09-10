@@ -149,17 +149,17 @@ public partial class PlayerView : UserControl
         if (useHdr)
         {
             var hdr = new HdrBitmapView();
-            hdr.Bind(HdrBitmapView.SourceProperty, new Binding("PreviewImage.Value") { Mode = BindingMode.OneWay });
-            hdr.Bind(HdrBitmapView.ToneMappingProperty, new Binding("ToneMappingMode.Value") { Mode = BindingMode.OneWay });
-            hdr.Bind(HdrBitmapView.ToneMappingExposureProperty, new Binding("ToneMappingExposure.Value") { Mode = BindingMode.OneWay });
+            hdr.Bind(HdrBitmapView.SourceProperty, new ReflectionBinding("PreviewImage.Value") { Mode = BindingMode.OneWay });
+            hdr.Bind(HdrBitmapView.ToneMappingProperty, new ReflectionBinding("ToneMappingMode.Value") { Mode = BindingMode.OneWay });
+            hdr.Bind(HdrBitmapView.ToneMappingExposureProperty, new ReflectionBinding("ToneMappingExposure.Value") { Mode = BindingMode.OneWay });
             newImage = hdr;
         }
         else
         {
             var sdr = new BitmapView();
-            sdr.Bind(BitmapView.SourceProperty, new Binding("PreviewImage.Value") { Mode = BindingMode.OneWay });
-            sdr.Bind(BitmapView.ToneMappingProperty, new Binding("ToneMappingMode.Value") { Mode = BindingMode.OneWay });
-            sdr.Bind(BitmapView.ToneMappingExposureProperty, new Binding("ToneMappingExposure.Value") { Mode = BindingMode.OneWay });
+            sdr.Bind(BitmapView.SourceProperty, new ReflectionBinding("PreviewImage.Value") { Mode = BindingMode.OneWay });
+            sdr.Bind(BitmapView.ToneMappingProperty, new ReflectionBinding("ToneMappingMode.Value") { Mode = BindingMode.OneWay });
+            sdr.Bind(BitmapView.ToneMappingExposureProperty, new ReflectionBinding("ToneMappingExposure.Value") { Mode = BindingMode.OneWay });
             newImage = sdr;
         }
 

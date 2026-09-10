@@ -1,4 +1,4 @@
-<ui:ContentDialog x:Class="Beutl.Views.Dialogs.OutputProgressDialog"
+<ui:FAContentDialog x:Class="Beutl.Views.Dialogs.OutputProgressDialog"
                   xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -13,9 +13,9 @@
                   x:DataType="tools:OutputViewModel"
                   CloseButtonClick="OnCloseButtonClick"
                   mc:Ignorable="d">
-    <ui:ContentDialog.Resources>
+    <ui:FAContentDialog.Resources>
         <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
-    </ui:ContentDialog.Resources>
+    </ui:FAContentDialog.Resources>
 
     <StackPanel Spacing="12">
         <TextBlock FontWeight="SemiBold"
@@ -68,4 +68,4 @@
             </StackPanel>
         </Grid>
     </StackPanel>
-</ui:ContentDialog>
+</ui:FAContentDialog>

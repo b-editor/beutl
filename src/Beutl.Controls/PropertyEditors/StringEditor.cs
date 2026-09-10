@@ -81,7 +81,7 @@ public class StringEditor : PropertyEditor
         return measured;
     }
 
-    protected virtual void OnTextBoxGotFocus(GotFocusEventArgs e)
+    protected virtual void OnTextBoxGotFocus(FocusChangedEventArgs e)
     {
         _oldValue = Text;
     }

@@ -1,4 +1,4 @@
-<ui:ContentDialog x:Class="Beutl.Extensions.FFmpeg.FFmpegInstallDialog"
+<ui:FAContentDialog x:Class="Beutl.Extensions.FFmpeg.FFmpegInstallDialog"
                   xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -14,9 +14,9 @@
                   x:DataType="local:FFmpegInstallDialogViewModel"
                   CloseButtonText="{Binding CloseButtonText.Value}"
                   mc:Ignorable="d">
-    <ui:ContentDialog.Resources>
+    <ui:FAContentDialog.Resources>
         <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
-    </ui:ContentDialog.Resources>
+    </ui:FAContentDialog.Resources>
 
     <StackPanel Spacing="12">
         <TextBlock IsVisible="{Binding !IsCompleted.Value}"
@@ -33,4 +33,4 @@
                      Maximum="{Binding ProgressMax.Value}"
                      Value="{Binding ProgressValue.Value}" />
     </StackPanel>
-</ui:ContentDialog>
+</ui:FAContentDialog>

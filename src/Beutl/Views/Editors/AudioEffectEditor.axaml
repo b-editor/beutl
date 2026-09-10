@@ -22,10 +22,10 @@
                       ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Click="ChangeEffectTypeClick"
+                    <ui:FAMenuFlyoutItem Click="ChangeEffectTypeClick"
                                        IconSource="New"
                                        Text="{x:Static lang:Strings.Change}" />
-                    <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                    <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>

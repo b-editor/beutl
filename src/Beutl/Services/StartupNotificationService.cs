@@ -83,9 +83,9 @@ internal static class StartupNotificationService
         return completion.Task;
     }
 
-    internal static ContentDialog CreateSideloadDetailsDialog(IReadOnlyList<string> packageNames)
+    internal static FAContentDialog CreateSideloadDetailsDialog(IReadOnlyList<string> packageNames)
     {
-        return new ContentDialog
+        return new FAContentDialog
         {
             Title = MessageStrings.ConfirmLoadSideloadExtensions,
             Content = new ListBox
@@ -103,7 +103,7 @@ internal static class StartupNotificationService
                 })
             },
             CloseButtonText = Strings.Close,
-            DefaultButton = ContentDialogButton.Close
+            DefaultButton = FAContentDialogButton.Close
         };
     }
 

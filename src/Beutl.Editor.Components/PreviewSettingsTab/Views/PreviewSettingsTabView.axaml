@@ -99,7 +99,7 @@
                               Theme="{StaticResource CompactToggleSwitchStyle}" />
             </Grid>
 
-            <ui:InfoBar Margin="8,8,8,0"
+            <ui:FAInfoBar Margin="8,8,8,0"
                         IsClosable="False"
                         IsOpen="{CompiledBinding IsNodeCacheEnabled.Value}"
                         Message="{x:Static lang:SettingsStrings.NodeCacheWarning}"

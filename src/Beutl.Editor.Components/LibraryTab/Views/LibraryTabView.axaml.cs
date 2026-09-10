@@ -36,8 +36,9 @@ public sealed partial class LibraryTabView : UserControl
             .Select(item =>
             {
                 var tabItem = new TabStripItem();
-                var binding = new Binding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]", BindingMode.OneWay)
+                var binding = new ReflectionBinding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]")
                 {
+                    Mode = BindingMode.OneWay,
                     Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
                 };
                 tabItem.Bind(IsVisibleProperty, binding);
@@ -49,9 +50,9 @@ public sealed partial class LibraryTabView : UserControl
                         new TextBlock { Text = item.Text }
                     }
                 };
-                var switchMenu = new ToggleMenuFlyoutItem
+                var switchMenu = new FAToggleMenuFlyoutItem
                 {
-                    [!ToggleMenuFlyoutItem.IsCheckedProperty] = binding,
+                    [!FAToggleMenuFlyoutItem.IsCheckedProperty] = binding,
                     Text = Strings.AlwaysDisplay
                 };
                 switchMenu.Click += (s, e) =>
@@ -75,13 +76,14 @@ public sealed partial class LibraryTabView : UserControl
         {
             ItemsSource = s_tabItems.Select(item =>
             {
-                var binding = new Binding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]", BindingMode.OneWay)
+                var binding = new ReflectionBinding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]")
                 {
+                    Mode = BindingMode.OneWay,
                     Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
                 };
-                var switchMenu = new ToggleMenuFlyoutItem
+                var switchMenu = new FAToggleMenuFlyoutItem
                 {
-                    [!ToggleMenuFlyoutItem.IsCheckedProperty] = binding,
+                    [!FAToggleMenuFlyoutItem.IsCheckedProperty] = binding,
                     Text = item.Text
                 };
                 switchMenu.Click += (s, e) =>

@@ -17,11 +17,11 @@ public partial class PackageDetailsPage : UserControl
     public PackageDetailsPage()
     {
         InitializeComponent();
-        AddHandler(Frame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
-        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+        AddHandler(FAFrame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
+        AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
     }
 
-    private void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    private void OnNavigatedTo(object? sender, FANavigationEventArgs e)
     {
         if (e.Parameter is Package package)
         {
@@ -31,7 +31,7 @@ public partial class PackageDetailsPage : UserControl
         }
     }
 
-    private void OnNavigatedFrom(object? sender, NavigationEventArgs e)
+    private void OnNavigatedFrom(object? sender, FANavigationEventArgs e)
     {
         DestoryDataContext();
     }
@@ -56,7 +56,7 @@ public partial class PackageDetailsPage : UserControl
         if (DataContext is PackageDetailsPageViewModel viewModel
             && viewModel.Package.WebSite.Value is string url)
         {
-            var dialog = new ContentDialog()
+            var dialog = new FAContentDialog()
             {
                 Title = ExtensionsStrings.OpenUrl_Title,
                 Content = new SelectableTextBlock()
@@ -67,7 +67,7 @@ public partial class PackageDetailsPage : UserControl
                 CloseButtonText = Strings.Cancel
             };
 
-            if (await dialog.ShowAsync() is ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() is FAContentDialogResult.Primary)
             {
                 Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
             }
@@ -77,7 +77,7 @@ public partial class PackageDetailsPage : UserControl
     private void OpenPublisherPage_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is PackageDetailsPageViewModel viewModel
-            && this.FindLogicalAncestorOfType<Frame>() is { } frame)
+            && this.FindLogicalAncestorOfType<FAFrame>() is { } frame)
         {
             frame.Navigate(typeof(UserProfilePage), viewModel.Package.Owner);
         }

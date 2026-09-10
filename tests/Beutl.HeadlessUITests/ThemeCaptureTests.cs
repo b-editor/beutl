@@ -178,7 +178,7 @@ public class ThemeCaptureTests
                         Spacing = 10,
                         Children =
                         {
-                            new FluentAvalonia.UI.Controls.NumberBox { Value = 1920, Width = 140 },
+                            new FluentAvalonia.UI.Controls.FANumberBox { Value = 1920, Width = 140 },
                             new AutoCompleteBox { Text = "1920", Width = 160 },
                             new FluentAvalonia.UI.Controls.ColorPickerButton(),
                             new Button
@@ -189,10 +189,10 @@ public class ThemeCaptureTests
                                 {
                                     Items =
                                     {
-                                        new FluentAvalonia.UI.Controls.MenuFlyoutItem { Text = "Cut" },
-                                        new FluentAvalonia.UI.Controls.MenuFlyoutItem { Text = "Copy" },
-                                        new FluentAvalonia.UI.Controls.MenuFlyoutSeparator(),
-                                        new FluentAvalonia.UI.Controls.ToggleMenuFlyoutItem { Text = "Snap to grid", IsChecked = true },
+                                        new FluentAvalonia.UI.Controls.FAMenuFlyoutItem { Text = "Cut" },
+                                        new FluentAvalonia.UI.Controls.FAMenuFlyoutItem { Text = "Copy" },
+                                        new FluentAvalonia.UI.Controls.FAMenuFlyoutSeparator(),
+                                        new FluentAvalonia.UI.Controls.FAToggleMenuFlyoutItem { Text = "Snap to grid", IsChecked = true },
                                     },
                                 },
                             },

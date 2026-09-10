@@ -20,7 +20,7 @@ public sealed class ExtensionsToolWindowExtension : ToolWindowExtension
 
     public override ToolWindowMode Mode => ToolWindowMode.Dialog;
 
-    public override IconSource? GetIcon()
+    public override FAIconSource? GetIcon()
         => new FluentIconSource() { Icon = Icon.PuzzlePiece };
 
     public override bool TryCreateContent([NotNullWhen(true)] out Window? window)

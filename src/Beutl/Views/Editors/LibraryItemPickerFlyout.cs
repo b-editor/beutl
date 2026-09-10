@@ -10,7 +10,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views.Editors;
 
-public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel viewModel) : PickerFlyoutBase
+public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel viewModel) : FAPickerFlyoutBase
 {
     public event TypedEventHandler<LibraryItemPickerFlyout, EventArgs>? Confirmed;
 

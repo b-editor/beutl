@@ -7,6 +7,8 @@
     <Optimize>true</Optimize>
     <RootDirectory>$(MSBuildThisFileDirectory)</RootDirectory>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Preserve reflection bindings for dynamic editor models; projects can opt into compiled bindings. -->
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
     <NoWarn>$(NoWarn);NU1507</NoWarn>
     <NBGV_ThisAssemblyIncludesPackageVersion>true</NBGV_ThisAssemblyIncludesPackageVersion>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>

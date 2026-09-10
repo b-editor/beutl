@@ -166,7 +166,7 @@ public class DarkBorderThemeColorTests
         }
     }
 
-    // The disabled text-input family (TextBox / NumberBox / AutoCompleteBox) must resolve the same
+    // The disabled text-input family (TextBox / FANumberBox / AutoCompleteBox) must resolve the same
     // disabled colors as ComboBox — nothing in the theme dictionaries keeps the two key families
     // in step.
     [AvaloniaTest]

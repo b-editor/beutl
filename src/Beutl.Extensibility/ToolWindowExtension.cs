@@ -23,7 +23,7 @@ public abstract class ToolWindowExtension : Extension
 
     public virtual bool CanMultiple => false;
 
-    public virtual IconSource? GetIcon() => null;
+    public virtual FAIconSource? GetIcon() => null;
 
     public abstract bool TryCreateContent([NotNullWhen(true)] out Window? window);
 

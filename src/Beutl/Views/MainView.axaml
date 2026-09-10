@@ -52,7 +52,7 @@
 
             <Menu x:Name="MenuBar"
                   Grid.Column="1"
-                  wnd:AppWindow.AllowInteractionInTitleBar="True">
+                  WindowDecorationProperties.ElementRole="User">
                 <!--  ファイル  -->
                 <MenuItem Header="{x:Static lang:Strings.File}">
                     <!--  新規作成  -->
@@ -258,11 +258,11 @@
                 <views:TitleBreadcrumbBar Name="TitleBreadcrumbBar"
                                           Margin="8,0,0,0"
                                           MinWidth="0"
-                                          wnd:AppWindow.AllowInteractionInTitleBar="True"
+                                          WindowDecorationProperties.ElementRole="User"
                                           DataContext="{Binding TitleBreadcrumbBar}" />
                 <views:TitleBarBranchView x:Name="TitleBarBranchWidget"
                                           VerticalAlignment="Center"
-                                          wnd:AppWindow.AllowInteractionInTitleBar="True"
+                                          WindowDecorationProperties.ElementRole="User"
                                           DataContext="{Binding TitleBarBranch}" />
             </StackPanel>
 
@@ -278,7 +278,7 @@
                            Text="{x:Static lang:Strings.Debug}" />
 
                 <Border Margin="4,0,0,0"
-                        wnd:AppWindow.AllowInteractionInTitleBar="True"
+                        WindowDecorationProperties.ElementRole="User"
                         Background="Transparent"
                         ToolTip.Tip="{x:Static lang:Strings.RunningStartupTasks}">
                     <ProgressRing Width="20"
@@ -291,7 +291,7 @@
                 </Border>
 
                 <Button x:Name="OpenFeedbackButton"
-                        wnd:AppWindow.AllowInteractionInTitleBar="True"
+                        WindowDecorationProperties.ElementRole="User"
                         Click="OpenFeedbackClick"
                         ToolTip.Tip="{x:Static lang:Strings.Feedback}"
                         Theme="{StaticResource TitleBarButtonStyle}">
@@ -301,7 +301,7 @@
                 <Button x:Name="OpenNotificationsButton"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
-                        wnd:AppWindow.AllowInteractionInTitleBar="True"
+                        WindowDecorationProperties.ElementRole="User"
                         Click="OpenNotificationsClick"
                         Theme="{StaticResource TitleBarButtonStyle}">
                     <Button.Flyout>
@@ -315,7 +315,7 @@
                         <icons:FluentIcon HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           Icon="Alert" />
-                        <ui:InfoBadge Width="8"
+                        <ui:FAInfoBadge Width="8"
                                       Height="8"
                                       Margin="0,4,4,0"
                                       HorizontalAlignment="Right"
@@ -342,7 +342,7 @@
                     VerticalAlignment="Top"
                     Spacing="4">
             <StackPanel.Styles>
-                <Style Selector="ui|InfoBar">
+                <Style Selector="ui|FAInfoBar">
                     <Style Selector="^">
                         <Style.Animations>
                             <Animation FillMode="Forward" Duration="00:00:00.250">
