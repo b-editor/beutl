@@ -54,8 +54,8 @@ internal class PackageOperationHandler
                 cancellationToken).ConfigureAwait(false);
             await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
             await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(context.Asset?.Sha256) && !context.HashVerified)
-                throw new InvalidDataException("The downloaded package does not match its advertised hash.");
+            if (!context.HashVerified)
+                throw new InvalidDataException("The package hash could not be verified.");
             await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -78,8 +78,8 @@ internal class PackageOperationHandler
                 cancellationToken);
             await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
             await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(context.Asset?.Sha256) && !context.HashVerified)
-                throw new InvalidDataException("The downloaded package does not match its advertised hash.");
+            if (!context.HashVerified)
+                throw new InvalidDataException("The package hash could not be verified.");
             await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();

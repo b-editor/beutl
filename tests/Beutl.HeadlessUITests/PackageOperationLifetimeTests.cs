@@ -55,6 +55,41 @@ public sealed class PackageOperationLifetimeTests
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ImmediateInstallation_RejectsMissingHashesBeforeExtraction(bool remote)
+    {
+        using var assetHandler = new AssetHandler();
+        using var http = new HttpClient(assetHandler);
+        using var download = new MemoryDownload();
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(), () => new HttpClient(download, false));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
+        var owner = new ProfileResponse { Id = "owner", Name = "owner", DisplayName = "Owner", Bio = null, IconId = null, IconUrl = null };
+        var package = new Package(new Profile(owner, app), new PackageResponse
+        {
+            Id = "package", Owner = owner, Name = "HashPolicy." + Guid.NewGuid().ToString("N"),
+            DisplayName = "Package", Description = "", ShortDescription = "", WebSite = "", Tags = [],
+            LogoId = null, LogoUrl = null, Screenshots = [], Currency = null, Price = null, Paid = false, Owned = true,
+        }, app);
+        var release = new Release(package, new ReleaseResponse
+        {
+            Id = "release", Version = "1.0.0", Title = "Release", Description = "", TargetVersion = null, FileId = "archive", FileUrl = null,
+        }, app);
+        var identity = new PackageIdentity(package.Name, NuGetVersion.Parse("1.0.0"));
+        InvalidDataException? error = Assert.ThrowsAsync<InvalidDataException>(() => remote
+            ? operation.DownloadAndLoadPackage(release, identity, CancellationToken.None)
+            : operation.DownloadAndLoadPackage(identity, CancellationToken.None));
+        Assert.That(error!.Message, Is.EqualTo("The package hash could not be verified."));
+        Assert.That(app.GetResource<InstalledPackageRepository>().ExistsPackage(package.Name, "1.0.0"), Is.False);
+        await Task.CompletedTask;
+    }
+
+    private sealed class MemoryDownload : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+            => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1, 2, 3]) });
+    }
+
     private sealed class AssetHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
