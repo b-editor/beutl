@@ -36,6 +36,9 @@ public class InstalledPackageRepository : IBeutlApiResource
     }
 
     public void UpgradePackages(PackageIdentity package)
+        => UpgradePackagesAndDeferNotifications(package)();
+
+    internal Action UpgradePackagesAndDeferNotifications(PackageIdentity package)
     {
         _logger.LogInformation("Upgrading package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
         PackageIdentity[] removedItems = [];
@@ -52,9 +55,12 @@ public class InstalledPackageRepository : IBeutlApiResource
         _packages.Add(package);
         _resolvedBeutlVersions[package.Id] = BeutlApplication.Version;
 
-        foreach (PackageIdentity removed in removedItems)
-            PublishCommittedChange(removed, false);
-        PublishCommittedChange(package, true);
+        return () =>
+        {
+            foreach (PackageIdentity removed in removedItems)
+                PublishCommittedChange(removed, false);
+            PublishCommittedChange(package, true);
+        };
     }
 
     private void PublishCommittedChange(PackageIdentity package, bool exists)

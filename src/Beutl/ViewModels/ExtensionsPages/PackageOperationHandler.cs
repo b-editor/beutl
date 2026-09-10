@@ -105,15 +105,17 @@ internal class PackageOperationHandler
                 bool extensionLoaded = false;
                 try
                 {
-                    deployment.Commit(() =>
+                    // Extension hooks and repository observers run outside the payload gate.
+                    // A failed load leaves the old payload untouched; failed publication or
+                    // persistence unloads this newly loaded extension in the catch below.
+                    if (isExtension)
                     {
-                        if (isExtension)
-                        {
-                            _packageManager.Load(localPackage);
-                            extensionLoaded = true;
-                        }
-                        _installedPackageRepository.UpgradePackages(packageId);
-                    });
+                        _packageManager.Load(localPackage);
+                        extensionLoaded = true;
+                    }
+                    Action? notify = null;
+                    deployment.Commit(() => notify = _installedPackageRepository.UpgradePackagesAndDeferNotifications(packageId));
+                    notify!();
                 }
                 catch (Exception failure)
                 {

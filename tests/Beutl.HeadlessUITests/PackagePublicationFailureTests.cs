@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Services;
@@ -85,6 +85,45 @@ public class PackagePublicationFailureTests
             else File.Delete(registrationFile);
             foreach (string directory in new[] { old.InstalledPath!, next.InstalledPath!, materials, templates })
                 if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task CommittedPackageObserver_CanUseTheInstallerFromAnotherThread()
+    {
+        await TestReset.ResetShellAsync();
+        string registrationFile = Path.Combine(Helper.AppRoot, "installedPackages.json");
+        byte[]? original = File.Exists(registrationFile) ? File.ReadAllBytes(registrationFile) : null;
+        using var http = new HttpClient();
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        string name = "PublicationObserver." + Guid.NewGuid().ToString("N");
+        var identity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        LocalPackage package = CreatePackage(identity, data: true);
+        var installer = app.GetResource<PackageInstaller>();
+        var repository = app.GetResource<InstalledPackageRepository>();
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
+        Task? nested = null;
+        bool completedInCallback = false;
+        using var subscription = repository.GetPackageObservable(name).Subscribe(value =>
+        {
+            if (value is null) return;
+            nested = Task.Run(() => installer.UninstallDataPackage(name + ".absent"));
+            completedInCallback = nested.Wait(TimeSpan.FromSeconds(3));
+        });
+        try
+        {
+            var method = typeof(PackageOperationHandler).GetMethod("ActivateInstalledPackageAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            await ((Task)method.Invoke(operation, new object[] { identity, CancellationToken.None })!).WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(completedInCallback, Is.True, "Repository observers must run after releasing the payload gate.");
+            Assert.That(repository.ExistsPackage(identity), Is.True);
+        }
+        finally
+        {
+            if (nested is not null) await nested;
+            installer.UninstallDataPackage(name);
+            Directory.Delete(package.InstalledPath!, true);
+            if (original is not null) File.WriteAllBytes(registrationFile, original);
+            else File.Delete(registrationFile);
         }
     }
 

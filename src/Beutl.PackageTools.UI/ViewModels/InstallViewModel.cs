@@ -84,7 +84,9 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
                     token.ThrowIfCancellationRequested();
                     // Cancellation is no longer accepted once publication starts. A failed
                     // registration still restores the previous payload as part of Commit.
-                    deployment.Commit(() => repos.UpgradePackages(pkg));
+                    Action? notify = null;
+                    deployment.Commit(() => notify = repos.UpgradePackagesAndDeferNotifications(pkg));
+                    notify!();
                     Succeeded.Value = true;
                 }, Avalonia.Threading.DispatcherPriority.Default, token);
             }
