@@ -188,6 +188,41 @@ public class Renderer3DTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void NonCastingParent_PreservesItsChildShadows(bool point)
+    {
+        void Configure(List<Light3D> lights)
+        {
+            if (point)
+            {
+                var light = new PointLight3D();
+                light.Position.CurrentValue = new Vector3(0, 3, 2);
+                light.Intensity.CurrentValue = 15;
+                light.Range.CurrentValue = 15;
+                light.CastsShadow.CurrentValue = true;
+                lights.Add(light);
+            }
+            else
+            {
+                var light = new DirectionalLight3D();
+                light.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -2, -1));
+                light.Intensity.CurrentValue = 2;
+                light.CastsShadow.CurrentValue = true;
+                light.ShadowDistance.CurrentValue = 30;
+                light.ShadowMapSize.CurrentValue = 15;
+                lights.Add(light);
+            }
+        }
+
+        byte[] reference = RenderShadowScene(Configure, parentCastShadows: true);
+        byte[] nonCastingParent = RenderShadowScene(Configure, parentCastShadows: false);
+        byte[] unshadowed = RenderShadowScene(Configure, castShadows: false, parentCastShadows: false);
+        AssertShadowsDarkenReceiver(reference, unshadowed);
+        Assert.That(nonCastingParent, Is.EqualTo(reference),
+            "CastShadows belongs to the current object and must not prune its children.");
+    }
+
     [Test]
     public void RenderDirectionalLightShadowScene_ProducesLitNonUniformFramebuffer()
     {
@@ -350,7 +385,7 @@ public class Renderer3DTests
     /// Renders the shared shadow scene (ground plane + three shadow-casting spheres) with a
     /// caller-supplied light rig, and returns the downloaded RGBA16Float framebuffer.
     /// </summary>
-    private byte[] RenderShadowScene(Action<List<Light3D>> configureLights, bool castShadows = true, bool receiveShadows = true)
+    private byte[] RenderShadowScene(Action<List<Light3D>> configureLights, bool castShadows = true, bool receiveShadows = true, bool? parentCastShadows = null)
     {
         return GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -399,6 +434,18 @@ public class Renderer3DTests
                         bool updateOnly = false;
                         obj.Update(original, renderContext, ref updateOnly);
                     }
+                }
+                if (parentCastShadows is { } parentCasts)
+                {
+                    var group = new Group3D();
+                    group.CastShadows.CurrentValue = parentCasts;
+                    foreach (Object3D.Resource obj in objects)
+                    {
+                        group.Children.Add(obj.RequireOriginal());
+                        obj.Dispose();
+                    }
+                    objects.Clear();
+                    objects.Add((Group3D.Resource)group.ToResource(renderContext));
                 }
                 var lightModels = new List<Light3D>();
                 configureLights(lightModels);
