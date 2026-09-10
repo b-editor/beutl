@@ -48,7 +48,7 @@
                 <TextBox Grid.Column="0"
                          IsReadOnly="True"
                          Text="{Binding OutputPath.Value}"
-                         Watermark="{x:Static lang:Strings.ClickBrowse}" />
+                         PlaceholderText="{x:Static lang:Strings.ClickBrowse}" />
                 <Button Grid.Column="2"
                         Click="OnBrowseClick"
                         Content="{x:Static lang:Strings.Browse}" />

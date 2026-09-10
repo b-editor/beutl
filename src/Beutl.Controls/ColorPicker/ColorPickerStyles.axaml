@@ -65,7 +65,7 @@
                              SelectionBrush="{TemplateBinding SelectionHighlightColor}"
                              TextAlignment="{TemplateBinding TextAlignment}"
                              Theme="{StaticResource NumberBoxTextBoxStyle}"
-                             Watermark="{TemplateBinding PlaceholderText}">
+                             PlaceholderText="{TemplateBinding PlaceholderText}">
                         <TextBox.InnerLeftContent>
                             <Border Name="Label"
                                     Width="32"

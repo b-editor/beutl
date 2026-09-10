@@ -61,7 +61,7 @@ public class ThemeCaptureTests
 
         Directory.CreateDirectory(OutputDirectory);
         string path = Path.Combine(OutputDirectory, name);
-        frame!.Save(path);
+        frame!.Save(path, PngBitmapEncoderOptions.Default);
         TestContext.Out.WriteLine($"Saved capture: {path}");
         return path;
     }
@@ -152,7 +152,7 @@ public class ThemeCaptureTests
                         Children =
                         {
                             new TextBox { Width = 200, Text = "1920" },
-                            new TextBox { Width = 200, Watermark = "Search..." },
+                            new TextBox { Width = 200, PlaceholderText = "Search..." },
                             comboBox,
                         },
                     },

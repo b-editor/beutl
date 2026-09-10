@@ -1,5 +1,5 @@
 ﻿using Avalonia;
-using Avalonia.Platform;
+using Avalonia.Interactivity;
 using Beutl.Controls.Navigation;
 using Beutl.Logging;
 using Beutl.Pages.SettingsPages;
@@ -17,6 +17,7 @@ public sealed partial class SettingsDialog : FAAppWindow
 {
     private readonly PageResolver _pageResolver;
     private readonly ILogger _logger = Log.CreateLogger<SettingsDialog>();
+    private object? _pendingNavigation;
 
     public SettingsDialog()
     {
@@ -44,20 +45,29 @@ public sealed partial class SettingsDialog : FAAppWindow
         nav.BackRequested += Nav_BackRequested;
 
         nav.SelectedItem = selected;
+        frame.Loaded += OnFrameLoaded;
+        Closed += OnClosed;
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    private void OnFrameLoaded(object? sender, RoutedEventArgs e)
     {
-        base.OnAttachedToVisualTree(e);
-        if (nav.SelectedItem is FANavigationViewItem selected)
+        // Avalonia 12 attaches the window from its base constructor, before InitializeComponent.
+        // Navigation also needs the frame's template, so wait for the frame to finish loading.
+        if (_pendingNavigation is { } parameter)
+        {
+            _pendingNavigation = null;
+            OnNavigateRequested(parameter);
+        }
+        else if (frame.Content is null && nav.SelectedItem is FANavigationViewItem selected)
         {
             OnItemInvoked(selected);
         }
     }
 
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    private void OnClosed(object? sender, EventArgs e)
     {
-        base.OnDetachedFromVisualTree(e);
+        frame.Loaded -= OnFrameLoaded;
+        _pendingNavigation = null;
         frame.SetNavigationState("|\n0\n0");
     }
 
@@ -72,6 +82,14 @@ public sealed partial class SettingsDialog : FAAppWindow
 
     private void OnNavigateRequested(object obj)
     {
+        // App requests the initial page before calling ShowDialog. Keep the latest request
+        // without creating an invisible page or an extra entry in the back stack.
+        if (!frame.IsLoaded)
+        {
+            _pendingNavigation = obj;
+            return;
+        }
+
         Type pageType = _pageResolver.GetPageType(obj.GetType());
 
         FANavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;

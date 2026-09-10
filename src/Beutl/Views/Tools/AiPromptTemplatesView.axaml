@@ -23,7 +23,7 @@
         <Grid ColumnDefinitions="*,Auto">
             <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptTemplateName}"
                      Text="{CompiledBinding TemplateName.Value}"
-                     Watermark="{x:Static lang:Strings.AiPromptTemplateName}" />
+                     PlaceholderText="{x:Static lang:Strings.AiPromptTemplateName}" />
             <Button Grid.Column="1"
                     Margin="8,0,0,0"
                     AutomationProperties.Name="{x:Static lang:Strings.AiPromptSaveTemplate}"

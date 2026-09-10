@@ -39,7 +39,7 @@
                          FontSize="16"
                          KeyDown="OnQueryKeyDown"
                          Text="{Binding Query.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         Watermark="{x:Static lang:Strings.CommandPalette_Placeholder}"
+                         PlaceholderText="{x:Static lang:Strings.CommandPalette_Placeholder}"
                          controls:TextBoxAttachment.EnterDownBehavior="None" />
 
                 <Border Grid.Row="1"

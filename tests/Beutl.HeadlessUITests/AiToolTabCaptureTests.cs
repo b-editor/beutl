@@ -165,7 +165,7 @@ public class AiToolTabCaptureTests
 
             Directory.CreateDirectory(OutputDirectory);
             string path = Path.Combine(OutputDirectory, name);
-            frame!.Save(path);
+            frame!.Save(path, PngBitmapEncoderOptions.Default);
             TestContext.Out.WriteLine($"Saved capture: {path}");
         }
         finally

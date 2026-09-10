@@ -7,7 +7,6 @@ using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Platform;
 using Avalonia.Skia;
-using FluentAvalonia.Core;
 using FluentAvalonia.UI.Media;
 using SkiaSharp;
 
@@ -782,8 +781,8 @@ public partial class ColorSpectrum : ColorPickerComponent
                 {
                     var sz = Bounds.Size;
 
-                    var pX = FAMathHelpers.Clamp(pt.X / sz.Width, 0, 1);
-                    var pY = FAMathHelpers.Clamp(pt.Y / sz.Height, 0, 1);
+                    var pX = double.Clamp(pt.X / sz.Width, 0, 1);
+                    var pY = double.Clamp(pt.Y / sz.Height, 0, 1);
 
                     switch (Component)
                     {
@@ -817,8 +816,8 @@ public partial class ColorSpectrum : ColorPickerComponent
                     if (theta < 0)
                         theta += 360;
 
-                    var dist = FAMathHelpers.Clamp(Math.Sqrt(dp.X * dp.X + dp.Y * dp.Y) / (_lastWheelRect.Width / 2), 0, 1);
-                    Color = Color2.FromHSVf((float)FAMathHelpers.Clamp(theta, 0, 360), (float)dist, Color.Valuef);
+                    var dist = double.Clamp(Math.Sqrt(dp.X * dp.X + dp.Y * dp.Y) / (_lastWheelRect.Width / 2), 0, 1);
+                    Color = Color2.FromHSVf((float)double.Clamp(theta, 0, 360), (float)dist, Color.Valuef);
                 }
                 break;
 

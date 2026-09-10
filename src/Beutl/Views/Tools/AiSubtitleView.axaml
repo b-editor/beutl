@@ -56,12 +56,12 @@
                              Margin="0,0,6,6"
                              AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Speaker}"
                              Text="{CompiledBinding Speaker}"
-                             Watermark="{x:Static lang:Strings.AiSubtitle_Speaker}" />
+                             PlaceholderText="{x:Static lang:Strings.AiSubtitle_Speaker}" />
                     <TextBox MinWidth="116"
                              Margin="0,0,0,6"
                              AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Language}"
                              Text="{CompiledBinding Language}"
-                             Watermark="{x:Static lang:Strings.AiSubtitle_Language}" />
+                             PlaceholderText="{x:Static lang:Strings.AiSubtitle_Language}" />
                 </WrapPanel>
                 <TextBox AcceptsReturn="True"
                          AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Text}"
@@ -69,7 +69,7 @@
                          MinHeight="48"
                          Text="{CompiledBinding Text}"
                          TextWrapping="Wrap"
-                         Watermark="{x:Static lang:Strings.AiSubtitle_Text}" />
+                         PlaceholderText="{x:Static lang:Strings.AiSubtitle_Text}" />
             </StackPanel>
         </DataTemplate>
     </UserControl.Resources>

@@ -197,7 +197,7 @@
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  Text="{Binding CommitMessage.Value}"
                                  TextWrapping="Wrap"
-                                 Watermark="{x:Static lang:Strings.VersionControl_CommitMessage}" />
+                                 PlaceholderText="{x:Static lang:Strings.VersionControl_CommitMessage}" />
                         <SplitButton x:Name="PrimaryActionSplitButton"
                                      Grid.Row="1"
                                      HorizontalAlignment="Stretch"

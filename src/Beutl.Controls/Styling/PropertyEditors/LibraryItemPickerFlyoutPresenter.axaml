@@ -247,7 +247,7 @@
                                      Classes="clearButton"
                                      IsVisible="False"
                                      Text="{TemplateBinding SearchText, Mode=TwoWay}"
-                                     Watermark="{x:Static lang:Strings.Search}" />
+                                     PlaceholderText="{x:Static lang:Strings.Search}" />
 
                             <ListBox x:Name="PART_ListBox"
                                      Height="250"

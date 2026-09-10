@@ -44,6 +44,7 @@ public partial class PlayerView : UserControl
     private readonly ILogger _logger = Log.CreateLogger<PlayerView>();
     private IDisposable? _imageConfigSubscription;
     private IDisposable? _boundsSubscription;
+    private TopLevel? _scalingTopLevel;
     internal Control image = null!;
 
     // The Resource is RenderThread-owned: create/update/dispose only via RenderThread.Dispatcher.
@@ -184,7 +185,8 @@ public partial class PlayerView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        if (e.Root is TopLevel topLevel)
+        _scalingTopLevel = TopLevel.GetTopLevel(this);
+        if (_scalingTopLevel is { } topLevel)
         {
             topLevel.ScalingChanged += OnTopLevelScalingChanged;
         }
@@ -193,10 +195,12 @@ public partial class PlayerView : UserControl
 
     protected override async void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (e.Root is TopLevel topLevel)
+        // The visual parent is already gone during detachment. Use the original subscription source.
+        if (_scalingTopLevel is { } topLevel)
         {
             topLevel.ScalingChanged -= OnTopLevelScalingChanged;
         }
+        _scalingTopLevel = null;
         base.OnDetachedFromVisualTree(e);
         _imageConfigSubscription?.Dispose();
         _boundsSubscription?.Dispose();

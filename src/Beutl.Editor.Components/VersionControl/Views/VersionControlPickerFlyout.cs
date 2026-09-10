@@ -90,7 +90,7 @@ internal sealed class VersionControlPickerFlyout : FAPickerFlyoutBase
         ConfigureContent(title);
         PrimaryLabelTextBlock.IsVisible = false;
         PrimaryTextBox.IsVisible = true;
-        PrimaryTextBox.Watermark = watermark;
+        PrimaryTextBox.PlaceholderText = watermark;
         PrimaryTextBox.Text = initialText;
         _confirmOnEnter = true;
 
@@ -196,12 +196,12 @@ internal sealed class VersionControlPickerFlyout : FAPickerFlyoutBase
         MessageTextBlock.IsVisible = false;
         PrimaryLabelTextBlock.Text = null;
         PrimaryLabelTextBlock.IsVisible = false;
-        PrimaryTextBox.Watermark = null;
+        PrimaryTextBox.PlaceholderText = null;
         PrimaryTextBox.Text = null;
         PrimaryTextBox.IsVisible = false;
         SecondaryLabelTextBlock.Text = null;
         SecondaryLabelTextBlock.IsVisible = false;
-        SecondaryTextBox.Watermark = null;
+        SecondaryTextBox.PlaceholderText = null;
         SecondaryTextBox.Text = null;
         SecondaryTextBox.IsVisible = false;
         _confirmOnEnter = false;

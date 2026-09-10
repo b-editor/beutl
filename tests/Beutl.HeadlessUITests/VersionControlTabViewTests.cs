@@ -152,7 +152,7 @@ public class VersionControlTabViewTests
                     branchPrompt.TitleTextBlock.Text,
                     Is.EqualTo(Strings.VersionControl_NewBranch));
                 Assert.That(
-                    branchPrompt.PrimaryTextBox.Watermark,
+                    branchPrompt.PrimaryTextBox.PlaceholderText,
                     Is.EqualTo(Strings.VersionControl_BranchName));
                 Assert.That(branchPrompt.PrimaryTextBox.Text, Is.Null);
                 Assert.That(branchPrompt.MessageTextBlock.IsVisible, Is.False);

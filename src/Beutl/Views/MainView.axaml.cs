@@ -98,7 +98,7 @@ public sealed partial class MainView : UserControl
     {
         base.OnAttachedToVisualTree(e);
 
-        if (e.Root is TopLevel b)
+        if (TopLevel.GetTopLevel(this) is { } b)
         {
             b.Opened += OnParentWindowOpened;
         }
