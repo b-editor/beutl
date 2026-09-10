@@ -21,17 +21,28 @@ public sealed class AutoSaveService : IDisposable
         ThrowIfDisposed();
 
         HashSet<CoreObject> objectsToSave = [];
+        HashSet<CoreObject> detachedCollectionItems = [];
 
         // ChangeOperationから保存対象のオブジェクトを収集
         foreach (ChangeOperation operation in operations)
         {
             CollectObjectsToSave(operation, objectsToSave);
+            if (operation is ICollectionChangeOperation collection)
+            {
+                foreach (CoreObject item in collection.Items.OfType<CoreObject>())
+                {
+                    if (item is IHierarchical { HierarchicalParent: null } and not (Project or ProjectItem))
+                        detachedCollectionItems.Add(item);
+                }
+            }
         }
 
-        SaveObjects(objectsToSave);
+        SaveObjects(objectsToSave, detachedCollectionItems);
     }
 
-    public void SaveObjects(IEnumerable<CoreObject> objectsToSave)
+    public void SaveObjects(IEnumerable<CoreObject> objectsToSave) => SaveObjects(objectsToSave, null);
+
+    private void SaveObjects(IEnumerable<CoreObject> objectsToSave, IReadOnlySet<CoreObject>? detachedCollectionItems)
     {
         ThrowIfDisposed();
         CoreObject[] objects = objectsToSave.ToArray();
@@ -51,11 +62,12 @@ public sealed class AutoSaveService : IDisposable
         {
             try
             {
-                if (obj is Element { HierarchicalParent: null })
+                if (obj is IHierarchical { HierarchicalParent: null }
+                    && (obj is Element || detachedCollectionItems?.Contains(obj) == true))
                 {
-                    if (obj.SuppressedStorageSource is null && obj.Uri!.Scheme == "file")
+                    if (obj.SuppressedStorageSource is null && obj.Uri is { IsFile: true } uri)
                     {
-                        var path = obj.Uri.LocalPath;
+                        var path = uri.LocalPath;
                         if (File.Exists(path))
                         {
                             File.Delete(path);

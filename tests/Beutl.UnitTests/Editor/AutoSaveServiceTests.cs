@@ -43,6 +43,57 @@ public class AutoSaveServiceTests
         finally { Directory.Delete(root, true); }
     }
 
+    [Test]
+    public void RemovedFileBackedEngineObject_DeletesItsSidecarAndRestoresItOnUndo()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-autosave-child-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var scene = new Beutl.ProjectSystem.Scene { Uri = new Uri(Path.Combine(directory, "main.scene")) };
+            var element = new Beutl.ProjectSystem.Element { Uri = new Uri(Path.Combine(directory, "element.belm")) };
+            var shape = new Beutl.Graphics.Shapes.RectShape { Uri = new Uri(Path.Combine(directory, "shape.json")) };
+            scene.Children.Add(element);
+            element.Objects.Add(shape);
+            using var service = new AutoSaveService();
+            var errors = new List<Exception>();
+            using var subscription = service.SaveError.Subscribe(errors.Add);
+            service.SaveObjects([scene, element, shape]);
+            Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
+            element.Objects.Remove(shape);
+            var removal = new RemoveCollectionItemOperation<EngineObject>
+            {
+                Object = element, PropertyPath = nameof(element.Objects), Item = shape, Index = 0, SequenceNumber = 1,
+            };
+
+            service.AutoSave([removal]);
+            Assert.That(File.Exists(shape.Uri.LocalPath), Is.False);
+            Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
+            Assert.That(File.Exists(scene.Uri.LocalPath), Is.True);
+
+            element.Objects.Add(shape);
+            service.AutoSave([removal]);
+            Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
+            Assert.That(errors, Is.Empty);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Test]
+    public void StandaloneFileBackedEngineObject_IsSavedWithoutACollectionRemoval()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-autosave-root-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var shape = new Beutl.Graphics.Shapes.RectShape { Uri = new Uri(Path.Combine(directory, "shape.json")) };
+            using var service = new AutoSaveService();
+            service.SaveObjects([shape]);
+            Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
     #region Constructor and Dispose Tests
 
     [Test]
