@@ -177,7 +177,7 @@ jobs:
           name: TestDiagnostics
           path: |
             tests/**/TestResults/**/*.trx
-            tests/**/TestResults/**/*Sequence.xml
+            tests/**/TestResults/**/Sequence_*.xml
             tests/**/TestResults/**/*.dmp
           if-no-files-found: ignore
           retention-days: 7
