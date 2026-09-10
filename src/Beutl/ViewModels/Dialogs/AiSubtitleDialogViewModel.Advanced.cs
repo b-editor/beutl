@@ -1640,8 +1640,10 @@ public sealed partial class AiSubtitleDialogViewModel
         double maximumEndSeconds)
     {
         const double TimestampToleranceSeconds = 0.05;
-        if (!double.IsFinite(maximumEndSeconds) || maximumEndSeconds <= 0 || segments.Count == 0)
-            throw new InvalidDataException("The transcription result or its duration is empty or invalid.");
+        if (!double.IsFinite(maximumEndSeconds) || maximumEndSeconds <= 0)
+            throw new InvalidDataException("The transcription chunk duration is invalid.");
+        if (segments.Count == 0)
+            return [];
         double previousStart = -1;
         double previousEnd = 0;
         var normalized = new AiTranscriptionSegment[segments.Count];
