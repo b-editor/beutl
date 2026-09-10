@@ -62,14 +62,21 @@ public partial class PackageInstaller
         {
             token.ThrowIfCancellationRequested();
             string staged = Path.Combine(staging, kind);
-            changes.Add(new PayloadChange(kind, enabled, Path.Combine(root, name), staged, Path.Combine(staging, "backup-" + kind)));
-            if (!enabled) return;
+            var change = new PayloadChange(kind, enabled, Path.Combine(root, name), staged, Path.Combine(staging, "backup-" + kind));
+            if (!enabled)
+            {
+                // Removing the tag explicitly retires the package's old payload.
+                changes.Add(change);
+                return;
+            }
             string source = Path.Combine(package.InstalledPath!, kind);
             FileAttributes attributes;
             try { attributes = File.GetAttributes(source); }
             catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
             {
-                _logger.LogWarning("Package {PackageName} ships no {ContentDirectory} directory.", name, kind);
+                // Omitting an enabled payload is a no-op, not an instruction to delete
+                // existing data. An explicitly shipped empty directory still replaces it.
+                _logger.LogWarning("Package {PackageName} ships no {ContentDirectory} directory; existing data is preserved.", name, kind);
                 return;
             }
             if ((attributes & FileAttributes.Directory) == 0)
@@ -77,6 +84,7 @@ public partial class PackageInstaller
             CopyDirectory(source, staged, token);
             token.ThrowIfCancellationRequested();
             File.WriteAllText(Path.Combine(staged, PayloadOwnerFileName), JsonSerializer.Serialize(new PayloadOwner(name, package.Version)));
+            changes.Add(change);
         }
     }
 

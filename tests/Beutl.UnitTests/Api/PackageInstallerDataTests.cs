@@ -395,6 +395,32 @@ public class PackageInstallerDataTests
         });
     }
 
+    [TestCase("materials", "templates")]
+    [TestCase("templates", "materials")]
+    public void UpgradeWithOmittedEnabledPayload_PreservesItsInstalledContents(string omitted, string updated)
+    {
+        const string name = "Beutl.Package.DataTest.OmittedPayload";
+        string[] tags = [PackageKinds.MaterialTag, PackageKinds.TemplateTag];
+        LocalPackage old = CreateDataPackage(name, tags, "1.0.0",
+            [("materials/item.txt", "old"), ("templates/item.txt", "old")]);
+        LocalPackage next = CreateDataPackage(name, tags, "2.0.0", [(updated + "/item.txt", "new")]);
+        _installer.InstallDataPackage(old);
+        string kept = omitted == "materials" ? MaterialsDirectoryOf(name) : TemplatesDirectoryOf(name);
+        byte[] marker = File.ReadAllBytes(Path.Combine(kept, ".beutl-package-owner"));
+
+        _installer.InstallDataPackage(next);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(Path.Combine(kept, "item.txt")), Is.EqualTo("old"));
+            Assert.That(File.ReadAllBytes(Path.Combine(kept, ".beutl-package-owner")), Is.EqualTo(marker));
+            string replaced = updated == "materials" ? MaterialsDirectoryOf(name) : TemplatesDirectoryOf(name);
+            Assert.That(File.ReadAllText(Path.Combine(replaced, "item.txt")), Is.EqualTo("new"));
+        });
+        Assert.That(_installer.UninstallDataPackage(name), Is.True);
+        Assert.That(Directory.Exists(kept), Is.False, "Preserved data must remain owned and removable.");
+    }
+
     [Test]
     public void InstallDataPackage_LeavesNothingBehind_WhenThePackageShipsNoPayload()
     {
