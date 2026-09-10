@@ -45,7 +45,8 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
         {
             if (parentContext.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
             {
-                CoreSerializer.StoreToUri(value, coreObj.Uri, parentContext.Mode);
+                CoreSerializer.StoreToUri(value, coreObj.Uri,
+                    CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
             }
 
             var serializedUri = coreObj.Uri;

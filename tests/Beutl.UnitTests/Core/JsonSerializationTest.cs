@@ -12,6 +12,32 @@ namespace Beutl.UnitTests.Core;
 
 public class JsonSerializationTest
 {
+    [Test]
+    public void EmbeddedParent_KeepsReferencesInSeparatelySavedSidecars()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-sidecar-mode-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var grandchild = new TestSerializable { Uri = new Uri(Path.Combine(directory, "grandchild.json")) };
+            var child = new TestSerializable { Uri = new Uri(Path.Combine(directory, "child.json")), Instance = grandchild };
+            var root = new TestSerializable { Instance = child };
+            JsonObject embedded = CoreSerializer.SerializeToJsonObject(root, new CoreSerializerOptions
+            {
+                BaseUri = new Uri(Path.Combine(directory, "root.json")),
+                Mode = CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects | CoreSerializationMode.EmbedReferencedObjects,
+            });
+            Assert.That(embedded["Instance"], Is.TypeOf<JsonObject>());
+            JsonObject sidecar = JsonNode.Parse(File.ReadAllText(child.Uri.LocalPath))!.AsObject();
+            Assert.That(sidecar["Instance"]!.GetValue<string>(), Is.EqualTo("grandchild.json"));
+            Assert.That(File.Exists(grandchild.Uri.LocalPath), Is.True);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
     private class TestSerializable : CoreObject
     {
         public TestSerializable? Instance { get; set; }

@@ -157,7 +157,7 @@ public partial class JsonSerializationContext
     private static void SaveObjectToFile(CoreObject value)
     {
         CoreSerializer.StoreToUri(value, value.Uri!,
-            ThreadLocalSerializationContext.Current?.Mode ?? CoreSerializationMode.ReadWrite);
+            CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
     }
 
     private static Uri ResolveSerializationUri(Uri objectUri, ICoreSerializationContext parent)
