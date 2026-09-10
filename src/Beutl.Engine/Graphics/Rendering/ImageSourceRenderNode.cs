@@ -69,6 +69,11 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
             return true;
         if (Pen?.Resource is not { } pen || pen.Thickness <= 0)
             return false;
+        // A negative offset can erase the contour before the stroke is applied.
+        // Increasing stroke thickness cannot bring an empty offset path back.
+        Rect offsetBounds = fillBounds.Inflate(pen.Offset);
+        if (offsetBounds.Width <= 0 || offsetBounds.Height <= 0)
+            return false;
         float outset = PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness) + pen.Offset;
         Rect outer = fillBounds.Inflate(outset);
         Rect inner = outer.Deflate(pen.Thickness);
