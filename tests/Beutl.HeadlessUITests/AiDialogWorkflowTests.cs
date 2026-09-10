@@ -1237,7 +1237,7 @@ public sealed class AiDialogWorkflowTests
         editor.Scene.Duration = TimeSpan.FromMilliseconds(50);
         await WaitUntilAsync(() => dialog.CanTranscribe.Value);
         await dialog.Transcribe.ExecuteAsync();
-        Assert.That(dialog.Error.Value, Is.Not.Null);
+        Assert.That(dialog.Error.Value, Is.Null, "The dedicated rejected-result banner must not be paired with a generic error.");
         Assert.That(dialog.HasOutstandingTranscriptionRequest.Value, Is.True);
         Assert.That(dialog.HasRejectedTranscriptionResult.Value, Is.True);
         await dialog.Transcribe.ExecuteAsync();

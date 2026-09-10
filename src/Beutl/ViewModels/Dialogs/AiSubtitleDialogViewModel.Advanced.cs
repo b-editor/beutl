@@ -1618,6 +1618,9 @@ public sealed partial class AiSubtitleDialogViewModel
         return responseById;
     }
 
+    private sealed class RejectedTranscriptionResultException(InvalidDataException inner)
+        : Exception("The transcription result was rejected by the client.", inner);
+
     private AiTranscriptionResponse NormalizeTranscriptionResponse(AiTranscriptionResponse response, double duration, long draftScopeRevision)
     {
         try
@@ -1627,11 +1630,11 @@ public sealed partial class AiSubtitleDialogViewModel
                 HasRejectedTranscriptionResult.Value = false;
             return response with { Segments = segments };
         }
-        catch (InvalidDataException)
+        catch (InvalidDataException ex)
         {
             if (!_disposed && IsCurrentCaptionDraftScope(draftScopeRevision))
                 HasRejectedTranscriptionResult.Value = true;
-            throw;
+            throw new RejectedTranscriptionResultException(ex);
         }
     }
 
