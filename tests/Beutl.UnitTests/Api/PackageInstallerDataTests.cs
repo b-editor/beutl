@@ -42,6 +42,47 @@ public class PackageInstallerDataTests
         Assert.That(File.ReadAllText(Path.Combine(directory, "new.txt")), Is.EqualTo("package"));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void FailedPayloadRepair_PreservesRetryStateAndProcessesOtherPackages(bool clean)
+    {
+        const string name = "Beutl.Package.DataTest.RepairFailure";
+        var oldId = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        var newId = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
+        LocalPackage old = CreateDataPackage(name, PackageKinds.MaterialTag, "1.0.0", [("materials/item.txt", "old")]);
+        LocalPackage current = CreateDataPackage(name, PackageKinds.MaterialTag, "2.0.0", [("materials/item.txt", "new")]);
+        File.WriteAllText(Path.Combine(old.InstalledPath!, name + ".nuspec"),
+            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>tests</authors><description>tests</description><tags>{PackageKinds.MaterialTag}</tags></metadata></package>");
+        LocalPackage other = CreateDataPackage(name + ".Other", PackageKinds.MaterialTag, ("materials/other.txt", "other"));
+        var otherId = new PackageIdentity(other.Name, NuGetVersion.Parse(other.Version));
+        foreach (var id in new[] { oldId, newId, otherId }) _repository.AddPackage(id);
+        _installer.InstallDataPackage(current);
+        _installer.InstallDataPackage(other);
+        PackageIdentity[] removed = [newId, otherId];
+        IReadOnlyList<string> failures;
+        using (var blocked = new FileStream(Path.Combine(old.InstalledPath!, "materials/item.txt"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            if (clean)
+            {
+                var context = new PackageCleanContext(removed, 1);
+                _installer.Clean(context, new Progress<double>());
+                failures = context.FailedPackages;
+            }
+            else
+            {
+                var context = new PackageUninstallContext(newId, current.InstalledPath) { UnnecessaryPackages = removed };
+                _installer.Uninstall(context, new Progress<double>());
+                failures = context.FailedPackages;
+            }
+        }
+        Assert.That(failures, Is.EquivalentTo(new[] { current.InstalledPath }));
+        Assert.That(Directory.Exists(current.InstalledPath), Is.True);
+        Assert.That(_repository.ExistsPackage(name, "2.0.0"), Is.True);
+        Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "item.txt")), Is.EqualTo("new"));
+        Assert.That(Directory.Exists(other.InstalledPath), Is.False);
+        Assert.That(Directory.Exists(MaterialsDirectoryOf(other.Name)), Is.False);
+    }
+
     [Test]
     public void UninstallOldIdentityKeepsCurrentPayload()
     {

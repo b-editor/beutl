@@ -103,8 +103,7 @@ public partial class PackageInstaller
                 // go even when the extracted package itself is already missing. The payload
                 // directory is keyed by id alone, so an update that leaves a newer identity
                 // installed still owns it — removing it here would strip the live version.
-                bool dataRemoved = KeepsAnotherInstalledIdentity(context.UnnecessaryPackages, package)
-                                   || UninstallDataPackage(package.Id);
+                bool dataRemoved = TryRemovePackagePayload(context.UnnecessaryPackages, package);
 
                 string directory = Helper.ResolveInstalledDirectory(package);
                 if (!dataRemoved)
@@ -174,32 +173,39 @@ public partial class PackageInstaller
         });
     }
 
-    // True when an installed identity sharing this package's id survives the clean, and
-    // therefore still owns the payload directory keyed by that id.
-    private bool KeepsAnotherInstalledIdentity(IReadOnlyCollection<PackageIdentity> removedPackages, PackageIdentity package)
+    // False means repair/removal failed, not that no survivor exists. Do not turn a
+    // failed restoration into an unconditional deletion of the surviving payload.
+    private bool TryRemovePackagePayload(IReadOnlyCollection<PackageIdentity> removedPackages, PackageIdentity package)
     {
-        PackageIdentity? survivor = _installedPackageRepository.GetLocalPackages(package.Id)
-            .Where(other => !other.Equals(package) && !removedPackages.Contains(other))
-            .OrderByDescending(other => other.Version)
-            .FirstOrDefault(other => Directory.Exists(Helper.ResolveInstalledDirectory(other)));
-        if (survivor is null)
-            return false;
-
-        string[] roots = [BeutlEnvironment.GetMaterialsDirectoryPath(), BeutlEnvironment.GetTemplatesDirectoryPath()];
-        if (roots.Select(root => ReadPayloadOwner(Path.Combine(root, package.Id)))
-            .Any(owner => owner is not null
-                && StringComparer.OrdinalIgnoreCase.Equals(owner.Name, package.Id)
-                && NuGetVersion.TryParse(owner.Version, out NuGetVersion? ownerVersion)
-                && ownerVersion == package.Version))
+        try
         {
-            string installed = Helper.ResolveInstalledDirectory(survivor);
-            using var reader = new PackageFolderReader(installed);
-            var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = installed };
-            if (localPackage.Tags.GetPackageKind() == PackageKind.Extension)
-                UninstallDataPackage(package.Id);
-            else
+            PackageIdentity? survivor = _installedPackageRepository.GetLocalPackages(package.Id)
+                .Where(other => !other.Equals(package) && !removedPackages.Contains(other))
+                .OrderByDescending(other => other.Version)
+                .FirstOrDefault(other => Directory.Exists(Helper.ResolveInstalledDirectory(other)));
+            if (survivor is null)
+                return UninstallDataPackage(package.Id);
+
+            string[] roots = [BeutlEnvironment.GetMaterialsDirectoryPath(), BeutlEnvironment.GetTemplatesDirectoryPath()];
+            if (roots.Select(root => ReadPayloadOwner(Path.Combine(root, package.Id)))
+                .Any(owner => owner is not null
+                    && StringComparer.OrdinalIgnoreCase.Equals(owner.Name, package.Id)
+                    && NuGetVersion.TryParse(owner.Version, out NuGetVersion? ownerVersion)
+                    && ownerVersion == package.Version))
+            {
+                string installed = Helper.ResolveInstalledDirectory(survivor);
+                using var reader = new PackageFolderReader(installed);
+                var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = installed };
+                if (localPackage.Tags.GetPackageKind() == PackageKind.Extension)
+                    return UninstallDataPackage(package.Id);
                 InstallDataPackage(localPackage);
+            }
+            return true;
         }
-        return true;
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to repair or remove the payload for package {PackageId}.", package.Id);
+            return false;
+        }
     }
 }
