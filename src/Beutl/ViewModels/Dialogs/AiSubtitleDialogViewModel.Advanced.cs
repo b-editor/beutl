@@ -747,7 +747,7 @@ public sealed partial class AiSubtitleDialogViewModel
                             runModel,
                             name.Key),
                         RequestToken);
-                    response = NormalizeTranscriptionResponse(response, chunk.UploadedDuration.TotalSeconds);
+                    response = NormalizeTranscriptionResponse(response, chunk.UploadedDuration.TotalSeconds, operation.ExpectedDraftScopeRevision);
                 }
                 catch (AiProviderErrorException)
                 {
@@ -1009,7 +1009,7 @@ public sealed partial class AiSubtitleDialogViewModel
                             runModel,
                                 name.Key),
                         RequestToken);
-                    response = NormalizeTranscriptionResponse(response, uploadedDuration.TotalSeconds);
+                    response = NormalizeTranscriptionResponse(response, uploadedDuration.TotalSeconds, operation.ExpectedDraftScopeRevision);
                 }
                 catch (AiProviderErrorException)
                 {
@@ -1618,17 +1618,19 @@ public sealed partial class AiSubtitleDialogViewModel
         return responseById;
     }
 
-    private AiTranscriptionResponse NormalizeTranscriptionResponse(AiTranscriptionResponse response, double duration)
+    private AiTranscriptionResponse NormalizeTranscriptionResponse(AiTranscriptionResponse response, double duration, long draftScopeRevision)
     {
         try
         {
             AiTranscriptionSegment[] segments = ValidateTranscriptionSegments(response.Segments, duration);
-            HasRejectedTranscriptionResult.Value = false;
+            if (!_disposed && IsCurrentCaptionDraftScope(draftScopeRevision))
+                HasRejectedTranscriptionResult.Value = false;
             return response with { Segments = segments };
         }
         catch (InvalidDataException)
         {
-            HasRejectedTranscriptionResult.Value = true;
+            if (!_disposed && IsCurrentCaptionDraftScope(draftScopeRevision))
+                HasRejectedTranscriptionResult.Value = true;
             throw;
         }
     }

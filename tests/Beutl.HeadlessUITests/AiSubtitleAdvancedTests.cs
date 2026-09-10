@@ -643,6 +643,7 @@ public sealed class AiSubtitleAdvancedTests
                 new AiTranscriptionSegment { Start = 0, End = 1, Text = "A displayed caption" },
             ];
             viewModel.SelectedSourceLanguage.Value = viewModel.SourceLanguages.Last();
+            viewModel.HasRejectedTranscriptionResult.Value = true;
 
             scopes.Value = userB;
 
@@ -653,6 +654,7 @@ public sealed class AiSubtitleAdvancedTests
                 Assert.That(viewModel.SelectedCue.Value, Is.Null);
                 Assert.That(viewModel.SelectedSourceLanguage.Value, Is.SameAs(viewModel.SourceLanguages[0]));
                 Assert.That(viewModel.HasPartialResult.Value, Is.True);
+                Assert.That(viewModel.HasRejectedTranscriptionResult.Value, Is.False);
             }
 
             ((ICommand)viewModel.ApplyPartialResult).Execute(null);
