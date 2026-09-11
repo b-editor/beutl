@@ -10,7 +10,8 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     internal static readonly BrowserMediaDownload Default = new(new HttpClient(new HttpClientHandler
     {
         AllowAutoRedirect = false,
-        UseCookies = false
+        UseCookies = false,
+        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli
     })
     { Timeout = TimeSpan.FromSeconds(30) });
 
@@ -71,6 +72,10 @@ internal sealed class BrowserMediaDownload(HttpClient client)
 
         using HttpResponseMessage response = await SendAsync(uri, referrer, cookies ?? [], cancellationToken);
         response.EnsureSuccessStatusCode();
+        // The handler decodes the outermost supported encoding. Never publish a representation
+        // that still has an unsupported or additional compression layer.
+        if (response.Content.Headers.ContentEncoding.Any(encoding => !encoding.Equals("identity", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException(Strings.WebDownloadUnsupported);
         Uri finalUri = response.RequestMessage?.RequestUri ?? uri;
         string? mediaType = response.Content.Headers.ContentType?.MediaType;
         string? nameHint = NormalizeFileName(response.Content.Headers.ContentDisposition?.FileNameStar)
@@ -159,8 +164,11 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
             request.Headers.Referrer = NormalizeReferrer(referrer, uri);
-            string header = cookieContainer.GetCookieHeader(uri);
-            if (header.Length > 0) request.Headers.Add("Cookie", header);
+            if (uri.Scheme == Uri.UriSchemeHttps)
+            {
+                string header = cookieContainer.GetCookieHeader(uri);
+                if (header.Length > 0) request.Headers.Add("Cookie", header);
+            }
             HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             try
             {

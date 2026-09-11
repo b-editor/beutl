@@ -81,6 +81,23 @@ public class BrowserSessionDownloadTests
         finally { Directory.Delete(directory, true); }
     }
 
+    [Test]
+    public async Task HttpStartOnlySendsSessionCookiesAfterAnHttpsUpgrade()
+    {
+        using var handler = new RecordingHandler(request => request.RequestUri!.Scheme == Uri.UriSchemeHttp
+            ? Redirect("https://source.test/media.mp4") : Media());
+        using var client = new HttpClient(handler);
+        string directory = NewDirectory();
+        try
+        {
+            await new BrowserMediaDownload(client).DownloadAsync(new Uri("http://source.test/media.mp4"), directory,
+                null, null, default, cookies: [new("session", "private", "/", "source.test")]);
+            Assert.That(handler.Requests[0].Cookies, Is.Empty);
+            Assert.That(handler.Requests[1].Cookies, Is.EqualTo("session=private"));
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
     [TestCase("http://source.test/final.mp4")]
     [TestCase("https://user:secret@source.test/final.mp4")]
     [TestCase("file:///tmp/movie.mp4")]
@@ -111,7 +128,7 @@ public class BrowserSessionDownloadTests
     }
 
     [Test]
-    public async Task DefaultTransportAuthenticatesWithoutForwardingCookiesToAnotherHost()
+    public async Task DefaultTransportDoesNotSendCookiesOverHttp()
     {
         var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
@@ -125,9 +142,7 @@ public class BrowserSessionDownloadTests
             await BrowserMediaDownload.Default.DownloadAsync(new Uri($"http://localhost:{port}/start.mp4"), directory,
                 null, null, timeout.Token, cookies: [new("session", "signed-in", "/", "localhost")]);
             await server;
-            Assert.That(headers[0], Does.Contain("session=signed-in"));
-            Assert.That(headers[1], Does.Contain("session=signed-in").And.Contain("handshake=ready"));
-            Assert.That(headers[2], Does.Not.Contain("Cookie:"));
+            Assert.That(headers, Is.All.Not.Contains("Cookie:"));
             Assert.That(File.ReadAllBytes(Directory.GetFiles(directory).Single()), Is.EqualTo(new byte[] { 1, 2, 3 }));
         }
         finally
