@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Pages;
 using Beutl.ViewModels;

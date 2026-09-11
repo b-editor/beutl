@@ -387,15 +387,22 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         base.SwapDockable(sourceDock, targetDock, sourceDockable, targetDockable);
     }
 
-    private static CompositeDisposable BeginToolContentReparenting(params IDockable?[] dockables)
+    internal static CompositeDisposable BeginToolContentReparenting(params IDockable?[] dockables)
     {
         var result = new CompositeDisposable();
-        foreach (IDockable? dockable in dockables)
+        try
         {
-            AddReparentingScopes(dockable, result);
+            foreach (IDockable? dockable in dockables)
+            {
+                AddReparentingScopes(dockable, result);
+            }
+            return result;
         }
-
-        return result;
+        catch
+        {
+            result.Dispose();
+            throw;
+        }
     }
 
     private static void AddReparentingScopes(IDockable? dockable, CompositeDisposable result)

@@ -1,4 +1,5 @@
 ﻿using System.Net.Http;
+using System.Text;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
@@ -70,6 +71,21 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             ?? NormalizeFileName(response.Content.Headers.ContentDisposition?.FileName)
             ?? NormalizeFileName(suggestedName);
         string name = CreateFileName(nameHint, finalUri, mediaType);
+        await using Stream input = await response.Content.ReadAsStreamAsync(cancellationToken);
+        byte[] prefix = [];
+        if (mediaType == null || mediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            prefix = new byte[4096];
+            int length = 0;
+            while (length < prefix.Length)
+            {
+                int count = await input.ReadAsync(prefix.AsMemory(length), cancellationToken);
+                if (count == 0) break;
+                length += count;
+            }
+            Array.Resize(ref prefix, length);
+            if (LooksLikeHtml(prefix)) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+        }
         Directory.CreateDirectory(directory);
         string temporaryPath = Path.Combine(directory, $".{Guid.NewGuid():N}.part");
         try
@@ -77,10 +93,15 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             long received = 0;
             var progressTimer = Stopwatch.StartNew();
             long? total = response.Content.Headers.ContentLength;
-            await using (Stream input = await response.Content.ReadAsStreamAsync(cancellationToken))
             await using (var output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
                              81920, FileOptions.Asynchronous))
             {
+                if (prefix.Length > 0)
+                {
+                    await output.WriteAsync(prefix, cancellationToken);
+                    received = prefix.Length;
+                    progress?.Report((received, total));
+                }
                 byte[] buffer = new byte[81920];
                 int count;
                 while ((count = await input.ReadAsync(buffer, cancellationToken)) > 0)
@@ -124,6 +145,41 @@ internal sealed class BrowserMediaDownload(HttpClient client)
                 File.Delete(temporaryPath);
             }
         }
+    }
+
+    private static bool LooksLikeHtml(byte[] prefix)
+    {
+        Encoding encoding = Encoding.UTF8;
+        if (prefix.AsSpan().StartsWith(new byte[] { 0xff, 0xfe, 0, 0 })) encoding = Encoding.UTF32;
+        else if (prefix.AsSpan().StartsWith(new byte[] { 0, 0, 0xfe, 0xff })) encoding = new UTF32Encoding(true, true);
+        else if (prefix.AsSpan().StartsWith(new byte[] { 0xff, 0xfe })) encoding = Encoding.Unicode;
+        else if (prefix.AsSpan().StartsWith(new byte[] { 0xfe, 0xff })) encoding = Encoding.BigEndianUnicode;
+        ReadOnlySpan<char> text = encoding.GetString(prefix).AsSpan().TrimStart('\uFEFF').TrimStart();
+        bool comment = false;
+        while (true)
+        {
+            if (text.StartsWith("<!--"))
+            {
+                int end = text.IndexOf("-->");
+                if (end < 0) return true;
+                comment = true;
+                text = text[(end + 3)..].TrimStart();
+            }
+            else if (text.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
+            {
+                int end = text.IndexOf("?>");
+                if (end < 0) return false;
+                text = text[(end + 2)..].TrimStart();
+            }
+            else break;
+        }
+        if (text.IsEmpty) return comment;
+        foreach (string tag in new[] { "<!doctype html", "<html", "<head", "<body", "<script", "<iframe", "<title", "<div", "<h1", "<table", "<p", "<font", "<a", "<style", "<b", "<br", "<form", "<meta" })
+        {
+            if (text.StartsWith(tag, StringComparison.OrdinalIgnoreCase)
+                && (text.Length == tag.Length || char.IsWhiteSpace(text[tag.Length]) || text[tag.Length] is '>' or '/')) return true;
+        }
+        return false;
     }
 
     internal static string CreateFileName(string? suggestedName, Uri uri, string? mediaType)

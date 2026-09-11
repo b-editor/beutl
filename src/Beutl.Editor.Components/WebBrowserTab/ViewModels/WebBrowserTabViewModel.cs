@@ -1,9 +1,8 @@
 ﻿using System.Text.Json.Nodes;
-
-using Reactive.Bindings;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
+using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.WebBrowserTab.ViewModels;
 
@@ -36,6 +35,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal WebBrowserTabViewModel(IEditorContext editorContext, Uri initialUri, BrowserProfile? profile = null)
     {
+        if (!IsPersistableUri(initialUri)) initialUri = BlankPage;
         Profile = profile ?? BrowserProfile.Default;
         Profile.HistoryCleared += ClearAddressHistory;
         _editorContext = editorContext;
@@ -157,7 +157,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         }
 
         if (Uri.TryCreate(candidate, UriKind.Absolute, out Uri? result)
-            && (result.Scheme == Uri.UriSchemeHttp || result.Scheme == Uri.UriSchemeHttps)
+            && BrowserMediaDownload.IsHttpUri(result)
             && !string.IsNullOrWhiteSpace(result.Host))
         {
             uri = result;
@@ -170,11 +170,14 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal void BeginNavigation(Uri uri)
     {
-        if (IsPersistableUri(uri))
+        if (!IsPersistableUri(uri))
         {
-            _currentUri.Value = uri;
-            _address.Value = FormatAddress(uri);
+            _isLoading.Value = false;
+            _errorMessage.Value = Strings.InvalidWebAddress;
+            return;
         }
+        _currentUri.Value = uri;
+        _address.Value = FormatAddress(uri);
 
         _isLoading.Value = true;
         _errorMessage.Value = null;
@@ -184,7 +187,13 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal void CompleteNavigation(Uri uri, bool isSuccess, bool canGoBack, bool canGoForward)
     {
-        if (isSuccess && uri != BlankPage && IsPersistableUri(uri) && string.IsNullOrEmpty(uri.UserInfo))
+        if (!IsPersistableUri(uri))
+        {
+            _isLoading.Value = false;
+            _errorMessage.Value = Strings.InvalidWebAddress;
+            return;
+        }
+        if (isSuccess && uri != BlankPage)
         {
             string address = FormatAddress(uri);
             _addressSuggestions.Remove(address);
@@ -267,7 +276,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal static string FormatAddress(Uri uri)
     {
-        return uri == BlankPage ? string.Empty : uri.AbsoluteUri;
+        return uri == BlankPage || !IsPersistableUri(uri) ? string.Empty : uri.AbsoluteUri;
     }
 
     private string BuildHeader(Uri uri, string? pageTitle)
@@ -291,8 +300,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     private static bool IsPersistableUri(Uri uri)
     {
         return uri == BlankPage
-            || uri.Scheme == Uri.UriSchemeHttp
-            || uri.Scheme == Uri.UriSchemeHttps;
+            || BrowserMediaDownload.IsHttpUri(uri);
     }
 
     public void ReadFromJson(JsonObject json)

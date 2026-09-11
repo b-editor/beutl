@@ -60,8 +60,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     {
         base.OnDataContextChanged(e);
 
-        if (_disposed || DataContext is not WebBrowserTabViewModel viewModel
-            || ReferenceEquals(_viewModel, viewModel))
+        if (_disposed) return;
+        var viewModel = DataContext as WebBrowserTabViewModel;
+        if (ReferenceEquals(_viewModel, viewModel))
         {
             return;
         }
@@ -70,6 +71,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         CloseBrowserPanel();
         _pageRevision++;
         _findRequest?.Cancel();
+        AddressTextBox.CancelSearchSuggestions();
         if (_viewModel != null)
         {
             _viewModel.Disposing -= Dispose;
@@ -78,6 +80,15 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
         }
         _viewModel = viewModel;
+        if (viewModel == null)
+        {
+            AddressTextBox.SuggestionsEnabled = false;
+            AddressTextBox.SuggestionProvider = static (_, _) => Task.FromResult<IReadOnlyList<string>>([]);
+            DisposeWebView();
+            UpdateBlankPageState();
+            OnCancelBookmarkEditorClick(this, new RoutedEventArgs());
+            return;
+        }
         viewModel.Disposing += Dispose;
         viewModel.Profile.SettingsChanged += OnProfileChanged;
         viewModel.Profile.Bookmarks.CollectionChanged += OnBookmarksChanged;
@@ -191,6 +202,13 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
+        if (e.Request is { IsAbsoluteUri: true } requestWithCredentials && !string.IsNullOrEmpty(requestWithCredentials.UserInfo))
+        {
+            e.Cancel = true;
+            _viewModel?.BeginNavigation(requestWithCredentials);
+            return;
+        }
+
         // The macOS WebView adapter forwards policy decisions for every target frame through this event,
         // without exposing IsMainFrame. Only completed navigation identifies the top-level URL.
         // App-initiated navigation and explicit download links are handled separately.
@@ -468,6 +486,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     internal void NavigateFromAddress()
     {
         EnsureWebView();
+        if (_webView == null) return;
         if (_viewModel?.TryCreateNavigationUri(out Uri uri) == true)
         {
             CloseBrowserPanel();
@@ -477,7 +496,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
                 return;
             }
             _viewModel.BeginNavigation(uri);
-            _webView?.Navigate(uri);
+            _webView.Navigate(uri);
         }
     }
 

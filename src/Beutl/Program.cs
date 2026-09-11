@@ -1,4 +1,4 @@
-using System.Runtime;
+﻿using System.Runtime;
 using Avalonia;
 using Avalonia.Media;
 using Beutl.Configuration;

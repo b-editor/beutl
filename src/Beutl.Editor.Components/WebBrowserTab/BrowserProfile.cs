@@ -28,26 +28,34 @@ internal sealed class BrowserProfile
     internal static BrowserProfile Default => s_default.Value;
     private readonly string _fileName;
     private bool _corrupt;
+    private readonly Action<string>? _writeSnapshot;
 
-    internal BrowserProfile(string fileName)
+    internal BrowserProfile(string fileName, Action<string>? writeSnapshot = null)
     {
         _fileName = fileName;
+        _writeSnapshot = writeSnapshot;
         if (!File.Exists(fileName)) return;
         try
         {
             var data = JsonSerializer.Deserialize<ProfileData>(File.ReadAllText(fileName));
             if (data == null || data.Version != 1) throw new JsonException("Unsupported browser profile.");
-            Engine = Enum.IsDefined(data.Engine) ? data.Engine : BrowserSearchEngine.Google;
+            BrowserBookmark[] bookmarks = (data.Bookmarks ?? []).Where(x => x != null && IsAllowedUrl(x.Url))
+                .DistinctBy(x => x.Url).Take(200).ToArray();
+            BrowserDownloadRecord[] downloads = (data.Downloads ?? []).Where(x => x != null && IsAllowedUrl(x.Url)
+                && !string.IsNullOrWhiteSpace(x.FilePath) && Path.IsPathFullyQualified(x.FilePath)).Take(200)
+                .Select(item =>
+                {
+                    Uri.TryCreate(item.Referrer, UriKind.Absolute, out Uri? referrer);
+                    return item with { Referrer = BrowserMediaDownload.NormalizeReferrer(referrer, new Uri(item.Url))?.AbsoluteUri };
+                }).ToArray();
+            BrowserSearchEngine engine = Enum.IsDefined(data.Engine) ? data.Engine : BrowserSearchEngine.Google;
+            if (engine != data.Engine || !bookmarks.SequenceEqual(data.Bookmarks ?? []) || !downloads.SequenceEqual(data.Downloads ?? []))
+                Save(data with { Engine = engine, Bookmarks = bookmarks, Downloads = downloads });
+            Engine = engine;
             SuggestionsEnabled = data.SuggestionsEnabled;
             RecordDownloads = data.RecordDownloads;
-            foreach (var item in (data.Bookmarks ?? []).Where(x => x != null && IsAllowedUrl(x.Url)).DistinctBy(x => x.Url).Take(200))
-                Bookmarks.Add(item);
-            foreach (var item in (data.Downloads ?? []).Where(x => x != null && IsAllowedUrl(x.Url)
-                         && !string.IsNullOrWhiteSpace(x.FilePath) && Path.IsPathFullyQualified(x.FilePath)).Take(200))
-            {
-                Uri.TryCreate(item.Referrer, UriKind.Absolute, out Uri? referrer);
-                Downloads.Add(item with { Referrer = BrowserMediaDownload.NormalizeReferrer(referrer, new Uri(item.Url))?.AbsoluteUri });
-            }
+            foreach (BrowserBookmark item in bookmarks) Bookmarks.Add(item);
+            foreach (BrowserDownloadRecord item in downloads) Downloads.Add(item);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -68,48 +76,71 @@ internal sealed class BrowserProfile
     internal static bool IsAllowedUrl(string? value) => Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
         && BrowserMediaDownload.IsHttpUri(uri);
 
+    private ProfileData Snapshot() => new(1, Engine, SuggestionsEnabled, RecordDownloads, Bookmarks.ToArray(), Downloads.ToArray());
+
     internal bool AddBookmark(Uri uri, string title)
     {
         if (!IsAllowedUrl(uri.AbsoluteUri)) return false;
-        var previous = Bookmarks.FirstOrDefault(x => x.Url == uri.AbsoluteUri);
-        if (previous != null) Bookmarks.Remove(previous);
-        Bookmarks.Insert(0, new BrowserBookmark(uri.AbsoluteUri, string.IsNullOrWhiteSpace(title) ? uri.Host : title));
+        var item = new BrowserBookmark(uri.AbsoluteUri, string.IsNullOrWhiteSpace(title) ? uri.Host : title);
+        BrowserBookmark[] previous = Bookmarks.Where(x => x.Url == uri.AbsoluteUri).ToArray();
+        BrowserBookmark[] candidate = Bookmarks.Except(previous).Prepend(item).Take(200).ToArray();
+        if (!Save(Snapshot() with { Bookmarks = candidate })) return false;
+        foreach (BrowserBookmark duplicate in previous) Bookmarks.Remove(duplicate);
+        Bookmarks.Insert(0, item);
         if (Bookmarks.Count > 200) Bookmarks.RemoveAt(200);
-        return Save();
+        return true;
     }
 
-    internal bool RemoveBookmark(BrowserBookmark item) { Bookmarks.Remove(item); return Save(); }
-    internal bool RemoveDownload(BrowserDownloadRecord item) { Downloads.Remove(item); return Save(); }
+    internal bool RemoveBookmark(BrowserBookmark item)
+    {
+        var candidate = Bookmarks.ToList();
+        candidate.Remove(item);
+        if (!Save(Snapshot() with { Bookmarks = candidate.ToArray() })) return false;
+        Bookmarks.Remove(item);
+        return true;
+    }
+
+    internal bool RemoveDownload(BrowserDownloadRecord item)
+    {
+        var candidate = Downloads.ToList();
+        candidate.Remove(item);
+        if (!Save(Snapshot() with { Downloads = candidate.ToArray() })) return false;
+        Downloads.Remove(item);
+        return true;
+    }
 
     internal bool AddDownload(Uri uri, string file, Uri? referrer = null)
     {
         if (!RecordDownloads || !IsAllowedUrl(uri.AbsoluteUri)) return true;
-        Downloads.Insert(0, new BrowserDownloadRecord(uri.AbsoluteUri, Path.GetFullPath(file), DateTimeOffset.UtcNow)
+        var item = new BrowserDownloadRecord(uri.AbsoluteUri, Path.GetFullPath(file), DateTimeOffset.UtcNow)
         {
             Referrer = BrowserMediaDownload.NormalizeReferrer(referrer, uri)?.AbsoluteUri
-        });
+        };
+        if (!Save(Snapshot() with { Downloads = Downloads.Prepend(item).Take(200).ToArray() })) return false;
+        Downloads.Insert(0, item);
         if (Downloads.Count > 200) Downloads.RemoveAt(200);
-        return Save();
+        return true;
     }
 
     internal bool UpdateSettings(BrowserSearchEngine engine, bool suggestionsEnabled, bool recordDownloads)
     {
+        if (!Save(Snapshot() with { Engine = engine, SuggestionsEnabled = suggestionsEnabled, RecordDownloads = recordDownloads })) return false;
         Engine = engine;
         SuggestionsEnabled = suggestionsEnabled;
         RecordDownloads = recordDownloads;
-        bool saved = Save();
         SettingsChanged?.Invoke();
-        return saved;
+        return true;
     }
 
     internal bool ClearHistory()
     {
+        if (!Save(Snapshot() with { Downloads = [] })) return false;
         Downloads.Clear();
         HistoryCleared?.Invoke();
-        return Save();
+        return true;
     }
 
-    private bool Save()
+    private bool Save(ProfileData snapshot)
     {
         string temporary = _fileName + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
@@ -120,9 +151,14 @@ internal sealed class BrowserProfile
                 File.Copy(_fileName, _fileName + ".recovery-" + Guid.NewGuid().ToString("N"));
                 _corrupt = false;
             }
-            File.WriteAllText(temporary, JsonSerializer.Serialize(new ProfileData(1, Engine, SuggestionsEnabled,
-                RecordDownloads, Bookmarks.ToArray(), Downloads.ToArray())));
-            File.Move(temporary, _fileName, overwrite: true);
+            string json = JsonSerializer.Serialize(snapshot);
+            if (_writeSnapshot != null) _writeSnapshot(json);
+            else
+            {
+                File.WriteAllText(temporary, json);
+                File.Move(temporary, _fileName, overwrite: true);
+            }
+            _corrupt = false;
             Error = null;
             return true;
         }

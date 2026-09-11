@@ -1,10 +1,10 @@
-using Avalonia.Controls;
-using Avalonia.Media.Imaging;
-using Avalonia.Headless.NUnit;
+﻿using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Headless.NUnit;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Controls;
-using Avalonia.Threading;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Pages;
 using Beutl.Pages.SettingsPages;
@@ -42,7 +42,7 @@ public class BrowserSettingsPageTests
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var vm = new BrowserSettingsPageViewModel(profile, null);
+        using var vm = new BrowserSettingsPageViewModel(profile, () => null);
         var page = new BrowserSettingsPage { DataContext = vm };
         var window = new Window { Content = page, Width = 760, Height = 840 };
         try
@@ -91,7 +91,7 @@ public class BrowserSettingsPageTests
         string file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "profile.json");
         var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int requests = 0;
-        var vm = new BrowserSettingsPageViewModel(new BrowserProfile(file), () => { requests++; return pending.Task; });
+        var vm = new BrowserSettingsPageViewModel(new BrowserProfile(file), () => () => { requests++; return pending.Task; });
         await vm.ClearCookiesAsync();
         Assert.That(requests, Is.Zero);
         vm.CookieDeletionConfirmed.Value = true;

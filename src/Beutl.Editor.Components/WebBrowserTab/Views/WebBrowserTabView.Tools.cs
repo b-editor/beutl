@@ -17,6 +17,7 @@ internal partial class WebBrowserTabView
         AddressTextBox.SuggestionsEnabled = vm.Profile.SuggestionsEnabled;
         AddressTextBox.SuggestionProvider = (query, token) => WebSearchSuggestions.Default.GetSuggestionsAsync(query, token, vm.Profile.Engine);
         SearchEngineLabel.Text = vm.Profile.Engine.ToString();
+        if (vm.Profile.Error != null) ShowToolStatus(string.Format(Strings.BrowserStorageError, vm.Profile.Error));
     }
 
     private void ShowToolStatus(string message)

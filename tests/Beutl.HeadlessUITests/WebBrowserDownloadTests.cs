@@ -1,13 +1,10 @@
 ﻿using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using FluentAvalonia.UI.Controls;
-
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
@@ -15,7 +12,7 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
-
+using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;

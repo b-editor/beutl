@@ -1,14 +1,10 @@
-﻿using System.Text.Json.Nodes;
-
-using System.Runtime.CompilerServices;
-
+﻿using System.Runtime.CompilerServices;
+using System.Text.Json.Nodes;
 using Avalonia.Platform;
-
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
 using Beutl.Language;
-
 using Moq;
 
 namespace Beutl.UnitTests.Editor;

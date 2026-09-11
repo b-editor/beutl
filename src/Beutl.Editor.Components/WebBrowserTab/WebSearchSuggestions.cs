@@ -1,4 +1,4 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 using System.Text.Json;
 
 namespace Beutl.Editor.Components.WebBrowserTab;

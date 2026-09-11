@@ -1,22 +1,24 @@
+﻿using System.ComponentModel;
 using Beutl.Editor.Components.WebBrowserTab;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
 
-public sealed class BrowserSettingsPageViewModel : IDisposable
+public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyChanged
 {
     private readonly BrowserProfile _profile;
     private bool _updating;
     private bool _disposed;
     private readonly CompositeDisposable _subscriptions = [];
-    private readonly Func<Task>? _clearCookies;
+    private readonly Func<Func<Task>?> _getClearCookies;
+    private bool _canClearCookies;
 
-    public BrowserSettingsPageViewModel() : this(BrowserProfile.Default, CreateCookieClearAction()) { }
+    public BrowserSettingsPageViewModel() : this(BrowserProfile.Default, CreateCookieClearAction) { }
 
-    internal BrowserSettingsPageViewModel(BrowserProfile profile, Func<Task>? clearCookies)
+    internal BrowserSettingsPageViewModel(BrowserProfile profile, Func<Func<Task>?> getClearCookies)
     {
         _profile = profile;
-        _clearCookies = clearCookies;
+        _getClearCookies = getClearCookies;
         SelectedEngineIndex = new((int)profile.Engine);
         SuggestionsEnabled = new(profile.SuggestionsEnabled);
         RecordDownloads = new(profile.RecordDownloads);
@@ -25,6 +27,8 @@ public sealed class BrowserSettingsPageViewModel : IDisposable
         _subscriptions.Add(SuggestionsEnabled.Skip(1).Subscribe(_ => Save()));
         _subscriptions.Add(RecordDownloads.Skip(1).Subscribe(_ => Save()));
         profile.SettingsChanged += Reload;
+        BrowserWebViewRegistry.Changed += RefreshCookieAvailability;
+        RefreshCookieAvailability();
     }
 
     public string[] Engines { get; } = ["Google", "Bing"];
@@ -34,13 +38,24 @@ public sealed class BrowserSettingsPageViewModel : IDisposable
     public ReactivePropertySlim<bool> CookieDeletionConfirmed { get; } = new();
     public ReactivePropertySlim<bool> IsClearingCookies { get; } = new();
     public ReactivePropertySlim<string?> Feedback { get; } = new();
-    public bool CanClearCookies => _clearCookies != null;
+    public bool CanClearCookies => _canClearCookies;
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void RefreshCookieAvailability()
+    {
+        if (_disposed) return;
+        bool available = _getClearCookies() != null;
+        if (_canClearCookies == available) return;
+        _canClearCookies = available;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanClearCookies)));
+    }
 
     private void Save()
     {
         if (_updating || SelectedEngineIndex.Value is < 0 or > 1) return;
         bool saved = _profile.UpdateSettings((BrowserSearchEngine)SelectedEngineIndex.Value,
             SuggestionsEnabled.Value, RecordDownloads.Value);
+        if (!saved) Reload();
         Feedback.Value = saved ? null : string.Format(Strings.BrowserStorageError, _profile.Error);
     }
 
@@ -64,12 +79,15 @@ public sealed class BrowserSettingsPageViewModel : IDisposable
 
     public async Task ClearCookiesAsync()
     {
-        if (_clearCookies == null || IsClearingCookies.Value) return;
+        if (_disposed || IsClearingCookies.Value) return;
+        RefreshCookieAvailability();
+        Func<Task>? clearCookies = _getClearCookies();
+        if (clearCookies == null) { Feedback.Value = Strings.BrowserCookiesUnsupported; return; }
         if (!CookieDeletionConfirmed.Value) { Feedback.Value = Strings.BrowserCookieWarning; return; }
         IsClearingCookies.Value = true;
         try
         {
-            await _clearCookies();
+            await clearCookies();
             if (_disposed) return;
             Feedback.Value = Strings.BrowserCookiesCleared;
             CookieDeletionConfirmed.Value = false;
@@ -94,6 +112,7 @@ public sealed class BrowserSettingsPageViewModel : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        BrowserWebViewRegistry.Changed -= RefreshCookieAvailability;
         _profile.SettingsChanged -= Reload;
         _subscriptions.Dispose();
         SelectedEngineIndex.Dispose();
