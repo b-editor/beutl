@@ -1,4 +1,4 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
@@ -8,13 +8,27 @@ internal sealed class BrowserMediaDownload(HttpClient client)
 
     private static readonly Dictionary<string, string> s_mediaTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["video/mp4"] = ".mp4", ["video/webm"] = ".webm", ["video/quicktime"] = ".mov",
-        ["video/x-matroska"] = ".mkv", ["video/x-msvideo"] = ".avi", ["video/mpeg"] = ".mpeg",
-        ["audio/mpeg"] = ".mp3", ["audio/mp4"] = ".m4a", ["audio/wav"] = ".wav",
-        ["audio/x-wav"] = ".wav", ["audio/flac"] = ".flac", ["audio/ogg"] = ".ogg",
-        ["audio/aac"] = ".aac", ["audio/webm"] = ".webm", ["application/ogg"] = ".ogg",
-        ["image/jpeg"] = ".jpg", ["image/png"] = ".png", ["image/gif"] = ".gif",
-        ["image/webp"] = ".webp", ["image/bmp"] = ".bmp", ["image/svg+xml"] = ".svg"
+        ["video/mp4"] = ".mp4",
+        ["video/webm"] = ".webm",
+        ["video/quicktime"] = ".mov",
+        ["video/x-matroska"] = ".mkv",
+        ["video/x-msvideo"] = ".avi",
+        ["video/mpeg"] = ".mpeg",
+        ["audio/mpeg"] = ".mp3",
+        ["audio/mp4"] = ".m4a",
+        ["audio/wav"] = ".wav",
+        ["audio/x-wav"] = ".wav",
+        ["audio/flac"] = ".flac",
+        ["audio/ogg"] = ".ogg",
+        ["audio/aac"] = ".aac",
+        ["audio/webm"] = ".webm",
+        ["application/ogg"] = ".ogg",
+        ["image/jpeg"] = ".jpg",
+        ["image/png"] = ".png",
+        ["image/gif"] = ".gif",
+        ["image/webp"] = ".webp",
+        ["image/bmp"] = ".bmp",
+        ["image/svg+xml"] = ".svg"
     };
 
     internal static bool IsMediaLink(Uri uri) => IsHttpUri(uri)
@@ -29,21 +43,33 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)
         || extension.Equals(".opus", StringComparison.OrdinalIgnoreCase);
 
+    internal static Uri? NormalizeReferrer(Uri? referrer, Uri destination)
+    {
+        if (referrer == null || !IsHttpUri(referrer) || !IsHttpUri(destination)
+            || (referrer.Scheme == Uri.UriSchemeHttps && destination.Scheme == Uri.UriSchemeHttp)) return null;
+
+        // Send only the initiating site's origin, never its path or query, including across CDN redirects.
+        return new Uri(referrer.GetLeftPart(UriPartial.Authority) + "/");
+    }
+
     internal async Task<string> DownloadAsync(Uri uri, string directory, string? suggestedName,
-        IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken)
+        IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken, Uri? referrer = null)
     {
         if (!IsHttpUri(uri))
         {
             throw new InvalidOperationException(Strings.WebDownloadUnsupported);
         }
 
-        using HttpResponseMessage response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        request.Headers.Referrer = NormalizeReferrer(referrer, request.RequestUri!);
+        using HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
         Uri finalUri = response.RequestMessage?.RequestUri ?? uri;
         string? mediaType = response.Content.Headers.ContentType?.MediaType;
-        string? headerName = response.Content.Headers.ContentDisposition?.FileNameStar
-            ?? response.Content.Headers.ContentDisposition?.FileName;
-        string name = CreateFileName(headerName ?? suggestedName, finalUri, mediaType);
+        string? nameHint = NormalizeFileName(response.Content.Headers.ContentDisposition?.FileNameStar)
+            ?? NormalizeFileName(response.Content.Headers.ContentDisposition?.FileName)
+            ?? NormalizeFileName(suggestedName);
+        string name = CreateFileName(nameHint, finalUri, mediaType);
         Directory.CreateDirectory(directory);
         string temporaryPath = Path.Combine(directory, $".{Guid.NewGuid():N}.part");
         try
@@ -102,10 +128,9 @@ internal sealed class BrowserMediaDownload(HttpClient client)
 
     internal static string CreateFileName(string? suggestedName, Uri uri, string? mediaType)
     {
-        string name = suggestedName?.Trim('"') ?? Uri.UnescapeDataString(Path.GetFileName(uri.AbsolutePath));
-        name = Path.GetFileName(name.Replace('\\', '/'));
-        name = string.Concat(name.Select(c => char.IsControl(c) || "<>:\"/\\|?*".Contains(c) ? '_' : c)).Trim(' ', '.');
-        if (string.IsNullOrWhiteSpace(name)) name = "media";
+        string name = NormalizeFileName(suggestedName)
+            ?? NormalizeFileName(Uri.UnescapeDataString(Path.GetFileName(uri.AbsolutePath)))
+            ?? "media";
         if (name.Length > 160) name = name[..140] + Path.GetExtension(name);
 
         if (mediaType != null && s_mediaTypes.TryGetValue(mediaType, out string? extension))
@@ -125,9 +150,20 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         }
         else
         {
+            if (string.Equals(mediaType, "text/html", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(mediaType, "application/xhtml+xml", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
             throw new InvalidOperationException(Strings.WebDownloadUnsupported);
         }
 
         return name;
+    }
+
+    private static string? NormalizeFileName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        string name = Path.GetFileName(value.Trim().Trim('"').Replace('\\', '/'));
+        name = string.Concat(name.Select(c => char.IsControl(c) || "<>:\"/\\|?*".Contains(c) ? '_' : c)).Trim(' ', '.');
+        return string.IsNullOrWhiteSpace(name) ? null : name;
     }
 }

@@ -2651,6 +2651,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="WebDownloadUnsupported" xml:space="preserve">
     <value>Only direct HTTP(S) image, audio, or video downloads are supported.</value>
   </data>
+  <data name="WebDownloadHtmlResponse" xml:space="preserve">
+    <value>This URL returned a web page instead of media. Use the file's download link.</value>
+  </data>
   <data name="WebDownloadIncomplete" xml:space="preserve">
     <value>The download was empty or incomplete.</value>
   </data>

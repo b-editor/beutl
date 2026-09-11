@@ -15,7 +15,11 @@ internal sealed record BrowserBookmark(string Url, string Title)
         ? Host.Substring(4, 1).ToUpperInvariant()
         : Host[..1].ToUpperInvariant();
 }
-internal sealed record BrowserDownloadRecord(string Url, string FilePath, DateTimeOffset CompletedAt);
+internal sealed record BrowserDownloadRecord(string Url, string FilePath, DateTimeOffset CompletedAt)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Referrer { get; init; }
+}
 
 internal sealed class BrowserProfile
 {
@@ -40,7 +44,10 @@ internal sealed class BrowserProfile
                 Bookmarks.Add(item);
             foreach (var item in (data.Downloads ?? []).Where(x => x != null && IsAllowedUrl(x.Url)
                          && !string.IsNullOrWhiteSpace(x.FilePath) && Path.IsPathFullyQualified(x.FilePath)).Take(200))
-                Downloads.Add(item);
+            {
+                Uri.TryCreate(item.Referrer, UriKind.Absolute, out Uri? referrer);
+                Downloads.Add(item with { Referrer = BrowserMediaDownload.NormalizeReferrer(referrer, new Uri(item.Url))?.AbsoluteUri });
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -74,10 +81,13 @@ internal sealed class BrowserProfile
     internal bool RemoveBookmark(BrowserBookmark item) { Bookmarks.Remove(item); return Save(); }
     internal bool RemoveDownload(BrowserDownloadRecord item) { Downloads.Remove(item); return Save(); }
 
-    internal bool AddDownload(Uri uri, string file)
+    internal bool AddDownload(Uri uri, string file, Uri? referrer = null)
     {
         if (!RecordDownloads || !IsAllowedUrl(uri.AbsoluteUri)) return true;
-        Downloads.Insert(0, new BrowserDownloadRecord(uri.AbsoluteUri, Path.GetFullPath(file), DateTimeOffset.UtcNow));
+        Downloads.Insert(0, new BrowserDownloadRecord(uri.AbsoluteUri, Path.GetFullPath(file), DateTimeOffset.UtcNow)
+        {
+            Referrer = BrowserMediaDownload.NormalizeReferrer(referrer, uri)?.AbsoluteUri
+        });
         if (Downloads.Count > 200) Downloads.RemoveAt(200);
         return Save();
     }

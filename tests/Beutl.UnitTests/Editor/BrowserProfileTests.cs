@@ -33,7 +33,7 @@ public class BrowserProfileTests
             profile.AddBookmark(new Uri("https://example.com/page"), "Updated");
             string media = Path.Combine(root, "clip.mp4");
             File.WriteAllText(media, "test");
-            profile.AddDownload(new Uri("https://example.com/clip.mp4"), media);
+            profile.AddDownload(new Uri("https://example.com/clip.mp4"), media, new Uri("https://referrer.example/page?token=referrer-secret#part"));
             profile.UpdateSettings(BrowserSearchEngine.Bing, false, false);
             profile.AddDownload(new Uri("https://example.com/ignored.mp4"), media);
             var restored = new BrowserProfile(path);
@@ -44,6 +44,8 @@ public class BrowserProfileTests
                 Assert.That(restored.RecordDownloads, Is.False);
                 Assert.That(restored.Bookmarks.Single().Title, Is.EqualTo("Updated"));
                 Assert.That(restored.Downloads, Has.Count.EqualTo(1));
+                Assert.That(restored.Downloads.Single().Referrer, Is.EqualTo("https://referrer.example/"));
+                Assert.That(File.ReadAllText(path), Does.Not.Contain("referrer-secret"));
             });
             bool cleared = false;
             restored.HistoryCleared += () => cleared = true;
@@ -57,6 +59,29 @@ public class BrowserProfileTests
             });
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [TestCase(null, null)]
+    [TestCase("file:///private/file", null)]
+    [TestCase("https://user:secret@example.com/", null)]
+    [TestCase("https://referrer.example/page?private=value", "https://referrer.example/")]
+    public void DownloadHistoryAcceptsOldRecordsAndNormalizesSavedReferrers(string? referrer, string? expected)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "profile.json");
+        try
+        {
+            File.WriteAllText(path, JsonSerializer.Serialize(new
+            {
+                Version = 1,
+                Downloads = new[] { new BrowserDownloadRecord("https://example.com/clip.mp4", Path.Combine(directory, "clip.mp4"), DateTimeOffset.UtcNow) { Referrer = referrer } }
+            }));
+            var profile = new BrowserProfile(path);
+            Assert.That(profile.Downloads, Has.Count.EqualTo(1));
+            Assert.That(profile.Downloads.Single().Referrer, Is.EqualTo(expected));
+        }
+        finally { Directory.Delete(directory, true); }
     }
 
     [Test]

@@ -201,7 +201,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
         {
             e.Cancel = true;
-            Dispatcher.UIThread.Post(() => _ = DownloadMediaAsync(mediaUri, null));
+            QueuePageDownload(mediaUri, null);
             return;
         }
 
@@ -296,7 +296,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
         {
             e.Handled = true;
-            Dispatcher.UIThread.Post(() => _ = DownloadMediaAsync(mediaUri, null));
+            QueuePageDownload(mediaUri, null);
             return;
         }
 

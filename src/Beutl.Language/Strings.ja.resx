@@ -2645,6 +2645,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="WebDownloadUnsupported" xml:space="preserve">
     <value>HTTP(S) の画像・音声・動画ファイルへの直接リンクに対応しています。</value>
   </data>
+  <data name="WebDownloadHtmlResponse" xml:space="preserve">
+    <value>ファイルではなくWebページが返されました。ファイル本体のダウンロードリンクを指定してください。</value>
+  </data>
   <data name="WebDownloadIncomplete" xml:space="preserve">
     <value>ダウンロードしたファイルが空、または不完全です。</value>
   </data>

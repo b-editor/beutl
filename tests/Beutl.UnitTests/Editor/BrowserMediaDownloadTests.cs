@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 
@@ -69,11 +69,37 @@ public class BrowserMediaDownloadTests
         Assert.That(BrowserMediaDownload.CreateFileName(name, new Uri("https://example.com/download"), type), Is.EqualTo(expected));
     }
 
-    [Test]
-    public void HtmlResponse_IsNotSavedAsMedia()
+    [TestCase("text/html")]
+    [TestCase("application/xhtml+xml")]
+    public void HtmlResponse_IsNotSavedAsMedia(string mediaType)
     {
-        Assert.Throws<InvalidOperationException>(() => BrowserMediaDownload.CreateFileName("clip.mp4",
-            new Uri("https://example.com/clip.mp4"), "text/html"));
+        var error = Assert.Throws<InvalidOperationException>(() => BrowserMediaDownload.CreateFileName("clip.mp4",
+            new Uri("https://example.com/clip.mp4"), mediaType));
+        Assert.That(error!.Message, Is.EqualTo(Beutl.Language.Strings.WebDownloadHtmlResponse));
+    }
+
+    [TestCase("")]
+    [TestCase("   ")]
+    [TestCase("\"\"")]
+    public void EmptyDownloadNamesFallBackToTheMediaUrl(string suggestedName)
+    {
+        Assert.That(BrowserMediaDownload.CreateFileName(suggestedName,
+            new Uri("https://example.com/clip.mp4?download=1"), "application/octet-stream"), Is.EqualTo("clip.mp4"));
+    }
+
+    [Test]
+    public async Task EmptyContentDispositionUsesTheDownloadAttributeName()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var client = new HttpClient(new EmptyFileNameHandler());
+        try
+        {
+            string file = await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://example.com/download"),
+                directory, "clip.mp4", null, default);
+            Assert.That(Path.GetFileName(file), Is.EqualTo("clip.mp4"));
+            Assert.That(File.ReadAllBytes(file), Is.EqualTo(new byte[] { 1, 2, 3 }));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
     [Test]
@@ -134,6 +160,17 @@ public class BrowserMediaDownloadTests
         {
             var content = new ByteArrayContent(new byte[200000]);
             content.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });
+        }
+    }
+
+    private sealed class EmptyFileNameHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var content = new ByteArrayContent([1, 2, 3]);
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment") { FileName = "\"\"" };
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });
         }
     }

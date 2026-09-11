@@ -126,6 +126,54 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public async Task LinkDownloadsKeepTheInitiatingSiteWhileChoosingOptions()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var page = new Uri("https://soundeffect-lab.info/sound/button/?private=value#section");
+        var context = new DownloadContext(new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) });
+        using var vm = new WebBrowserTabViewModel(context, page, new BrowserProfile(Path.Combine(root, "profile.json")));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
+        view.DataContext = vm;
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        var options = new TaskCompletionSource<WebBrowserTabView.BrowserDownloadOptions?>();
+        view.DownloadOptionsSelector = (_, _) => options.Task;
+        var imported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        context.OnImport = () => imported.TrySetResult();
+        var window = new Window { Content = view };
+        try
+        {
+            window.Show();
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            {
+                Body = """{"kind":"beutl-download","url":"https://soundeffect-lab.info/sound/button/mp3/decision1.mp3","name":"sound.mp3"}"""
+            });
+            Dispatcher.UIThread.RunJobs();
+            vm.CompleteNavigation(new Uri("https://elsewhere.example/"), true, false, false);
+            options.SetResult(new(root, true));
+            await imported.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://soundeffect-lab.info/")));
+            Assert.That(vm.Profile.Downloads.Single().Referrer, Is.EqualTo("https://soundeffect-lab.info/"));
+
+            var retried = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            context.OnImport = () => retried.TrySetResult();
+            view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, true));
+            var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
+            menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Beutl.Language.Strings.BrowserDownloads)
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            view.FindControl<ContentControl>("ToolPanelContent")!.GetVisualDescendants().OfType<Button>()
+                .Single(button => Equals(ToolTip.GetTip(button), Beutl.Language.Strings.BrowserRetry))
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await retried.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(context.Imported, Has.Count.EqualTo(2));
+            Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://soundeffect-lab.info/")));
+        }
+        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
     public void UnsavedScene_DisablesProjectDestinationAndTimelineImport()
     {
         using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()));
@@ -143,9 +191,23 @@ public class WebBrowserDownloadTests
         }
     }
 
+    private sealed class ReferrerHandler : HttpMessageHandler
+    {
+        internal Uri? Referrer { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Referrer = request.Headers.Referrer;
+            var content = new ByteArrayContent([1, 2, 3]);
+            content.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });
+        }
+    }
+
     private sealed class DownloadContext(Scene scene) : IEditorContext, IElementAdder
     {
         public List<ElementDescription> Imported { get; } = [];
+        internal Action? OnImport { get; set; }
         public CoreObject Object => scene;
         public EditorExtension Extension => null!;
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
@@ -160,6 +222,7 @@ public class WebBrowserDownloadTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             Imported.AddRange(descriptions);
+            OnImport?.Invoke();
             return ValueTask.FromResult(ElementAddResult.Succeeded(descriptions
                 .Select(description => new ElementAddItemResult(description, new Element(), [])).ToArray()));
         }

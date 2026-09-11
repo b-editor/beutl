@@ -229,7 +229,11 @@ internal partial class WebBrowserTabView
     }
 
     private void OnRetryHistoryClick(object? sender, RoutedEventArgs e) => WithHistoryRecord(sender,
-        record => { _ = DownloadMediaAsync(new Uri(record.Url), Path.GetFileName(record.FilePath)); });
+        record =>
+        {
+            Uri.TryCreate(record.Referrer, UriKind.Absolute, out Uri? referrer);
+            _ = DownloadMediaAsync(new Uri(record.Url), Path.GetFileName(record.FilePath), referrer);
+        });
 
     private void OnRemoveHistoryClick(object? sender, RoutedEventArgs e) => WithHistoryRecord(sender, record =>
     {

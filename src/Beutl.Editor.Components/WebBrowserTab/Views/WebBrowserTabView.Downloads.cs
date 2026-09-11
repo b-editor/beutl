@@ -48,7 +48,7 @@ internal partial class WebBrowserTabView
         }
     }
 
-    private void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
+    internal void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
     {
         if (e.Body is not { Length: > 0 and < 16384 } body) return;
         try
@@ -63,7 +63,7 @@ internal partial class WebBrowserTabView
             {
                 string? name = root.TryGetProperty("name", out var fileName) && fileName.ValueKind == JsonValueKind.String
                     ? fileName.GetString() : null;
-                Dispatcher.UIThread.Post(() => _ = DownloadMediaAsync(uri, name));
+                QueuePageDownload(uri, name);
             }
         }
         catch (JsonException)
@@ -72,11 +72,21 @@ internal partial class WebBrowserTabView
         }
     }
 
+    private void QueuePageDownload(Uri uri, string? suggestedName)
+    {
+        var owner = _viewModel;
+        Uri? referrer = owner?.CurrentUri;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ReferenceEquals(owner, _viewModel)) _ = DownloadMediaAsync(uri, suggestedName, referrer);
+        });
+    }
+
     private void OnDownloadMediaClick(object? sender, RoutedEventArgs e)
     {
         if (_viewModel is { } vm && BrowserMediaDownload.IsHttpUri(vm.CurrentUri))
         {
-            _ = DownloadMediaAsync(vm.CurrentUri, null);
+            _ = DownloadMediaAsync(vm.CurrentUri, null, vm.CurrentUri);
         }
     }
 
@@ -115,9 +125,10 @@ internal partial class WebBrowserTabView
         }
     }
 
-    internal async Task DownloadMediaAsync(Uri uri, string? suggestedName)
+    internal async Task DownloadMediaAsync(Uri uri, string? suggestedName, Uri? referrer = null)
     {
         if (_disposed || _downloadCancellation != null || _viewModel is not { } vm) return;
+        referrer = BrowserMediaDownload.NormalizeReferrer(referrer, uri);
         using var cancellation = new CancellationTokenSource();
         _downloadCancellation = cancellation;
         try
@@ -139,11 +150,11 @@ internal partial class WebBrowserTabView
                         : $"{value.Received / 1024:N0} KB";
                 }
             });
-            string file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token);
+            string file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer);
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));
             ToolTip.SetTip(DownloadStatusText, file);
-            CheckProfileSave(vm.Profile.AddDownload(uri, file));
+            CheckProfileSave(vm.Profile.AddDownload(uri, file, referrer));
             if (options.AddToTimeline)
             {
                 try { await vm.AddDownloadedMediaAsync(file, cancellation.Token); }
