@@ -28,7 +28,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private bool _disposed;
 
     public WebBrowserTabView()
-        : this(static uri => new NativeWebView { Source = uri }, GetWebViewAvailability)
+        : this(static uri => new NativeWebView { Source = uri }, GetWebViewAvailability, faviconLoader: BrowserFaviconLoader.Default)
     {
     }
 
@@ -38,7 +38,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         Func<Uri, Task<bool>>? launchInDefaultBrowser = null,
         Func<NativeWebView, Task<string?>>? getPageTitle = null,
         Func<NativeWebView, bool>? canReparentWebView = null,
-        bool? navigationStartedIncludesSubframes = null)
+        bool? navigationStartedIncludesSubframes = null,
+        BrowserFaviconLoader? faviconLoader = null)
     {
         _createWebView = createWebView;
         _getWebViewAvailability = getWebViewAvailability;
@@ -46,11 +47,14 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _getPageTitle = getPageTitle ?? (static webView => webView.InvokeScript("document.title"));
         _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
         _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? OperatingSystem.IsMacOS();
+        FaviconLoader = faviconLoader;
         InitializeComponent();
         AddressTextBox.SearchSuggestionsChanged += OnSearchSuggestionsChanged;
         AddHandler(KeyDownEvent, OnBrowserKeyDown, RoutingStrategies.Tunnel);
         Loaded += OnLoaded;
     }
+
+    public BrowserFaviconLoader? FaviconLoader { get; }
 
     protected override void OnDataContextChanged(EventArgs e)
     {
@@ -548,6 +552,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
         }
         _viewModel = null;
+        BookmarkItems.ItemsSource = null;
         DisposeWebView();
     }
 

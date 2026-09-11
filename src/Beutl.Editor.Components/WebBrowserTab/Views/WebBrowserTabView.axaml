@@ -291,12 +291,22 @@
                                                                 Height="40"
                                                                 Background="{DynamicResource SubtleFillColorSecondaryBrush}"
                                                                 CornerRadius="12">
-                                                            <TextBlock HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center"
-                                                                       FontSize="18"
-                                                                       FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                                                       Text="{Binding Initial}" />
+                                                            <Panel>
+                                                                <TextBlock HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"
+                                                                           FontSize="18"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                                                           IsVisible="{Binding #BookmarkIcon.Source, Converter={x:Static ObjectConverters.IsNull}}"
+                                                                           Text="{Binding Initial}" />
+                                                                <views:BrowserBookmarkIcon x:Name="BookmarkIcon"
+                                                                                           Width="24"
+                                                                                           Height="24"
+                                                                                           HorizontalAlignment="Center"
+                                                                                           VerticalAlignment="Center"
+                                                                                           Loader="{Binding $parent[views:WebBrowserTabView].FaviconLoader}"
+                                                                                           PageUrl="{Binding Url}" />
+                                                            </Panel>
                                                         </Border>
                                                         <StackPanel Grid.Column="1"
                                                                     VerticalAlignment="Center"
