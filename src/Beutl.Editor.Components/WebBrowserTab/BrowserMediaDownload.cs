@@ -29,6 +29,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         ["audio/x-wav"] = ".wav",
         ["audio/flac"] = ".flac",
         ["audio/ogg"] = ".ogg",
+        ["audio/opus"] = ".opus",
         ["audio/aac"] = ".aac",
         ["audio/webm"] = ".webm",
         ["application/ogg"] = ".ogg",
@@ -49,8 +50,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
 
     private static bool IsMediaExtension(string extension) =>
         s_mediaTypes.Values.Contains(extension, StringComparer.OrdinalIgnoreCase)
-        || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)
-        || extension.Equals(".opus", StringComparison.OrdinalIgnoreCase);
+        || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase);
 
     internal static Uri? NormalizeReferrer(Uri? referrer, Uri destination)
     {

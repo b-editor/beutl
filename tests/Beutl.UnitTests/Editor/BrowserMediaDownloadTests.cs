@@ -60,6 +60,25 @@ public class BrowserMediaDownloadTests
         }
     }
 
+    [TestCase("https://example.com/sound.opus", "audio/opus", "sound.opus")]
+    [TestCase("https://example.com/download", "audio/opus", "download.opus")]
+    [TestCase("https://example.com/sound.opus", "audio/ogg", "sound.opus")]
+    public async Task OpusDownloadsAcceptTheirContentTypeAndPreserveTheExtension(string address, string mediaType, string expectedName)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var client = new HttpClient(new MediaHandler(mediaType));
+        var uri = new Uri(address);
+        try
+        {
+            if (uri.AbsolutePath.EndsWith(".opus", StringComparison.Ordinal))
+                Assert.That(BrowserMediaDownload.IsMediaLink(uri), Is.True);
+            string file = await new BrowserMediaDownload(client).DownloadAsync(uri, directory, null, null, default);
+            Assert.That(Path.GetFileName(file), Is.EqualTo(expectedName));
+            Assert.That(File.ReadAllBytes(file), Has.Length.EqualTo(200000));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
     [TestCase("../../clip.mp4", "video/mp4", "clip.mp4")]
     [TestCase("..\\clip.mp4", "video/mp4", "clip.mp4")]
     [TestCase("program.exe", "video/mp4", "program.mp4")]
@@ -154,12 +173,12 @@ public class BrowserMediaDownloadTests
         public void Report((long Received, long? Total) value) => cancellation.Cancel();
     }
 
-    private sealed class MediaHandler : HttpMessageHandler
+    private sealed class MediaHandler(string mediaType = "video/mp4") : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var content = new ByteArrayContent(new byte[200000]);
-            content.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
+            content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });
         }
     }
