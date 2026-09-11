@@ -247,6 +247,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         if (e.IsSuccess) ResetPageDownloadRequests();
+        else SettleAbortedPageNavigation();
         _pageRevision++;
         _findRequest?.Cancel();
         Uri uri = e.Request ?? _webView.Source;
@@ -375,10 +376,13 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     private void OnStopClick(object? sender, RoutedEventArgs e)
     {
-        if (_webView?.Stop() == true && _viewModel != null)
-        {
-            _viewModel.StopNavigation();
-        }
+        if (_webView?.Stop() == true) OnNavigationStopped();
+    }
+
+    internal void OnNavigationStopped()
+    {
+        _viewModel?.StopNavigation();
+        SettleAbortedPageNavigation();
     }
 
     private void OnNewTabClick(object? sender, RoutedEventArgs e)

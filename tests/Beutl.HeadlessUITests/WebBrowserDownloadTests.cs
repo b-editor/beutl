@@ -279,11 +279,69 @@ public class WebBrowserDownloadTests
         view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
         Request();
         Dispatcher.UIThread.RunJobs();
-        Assert.That(confirm.IsVisible, Is.False);
+        Assert.That(confirm.IsVisible, Is.True);
         view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
         Request();
         Dispatcher.UIThread.RunJobs();
         Assert.That(confirm.IsVisible, Is.True);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DownloadsAfterAbortedNavigationOmitUncertainPageMetadata(bool stopped)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var initial = new Uri("https://original.example/");
+        var next = new Uri("https://failed.example/");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), initial, profile);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            getPageTitle: _ => Task.FromResult<string?>("Page"), navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        view.PageScriptRunner = _ => Task.FromResult<string?>("true");
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        view.DownloadCookiesProvider = (_, _) => Task.FromResult<IReadOnlyList<Cookie>>(
+            [new("session", "private", "/", "files.example") { Secure = true }]);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        try
+        {
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3"}""" });
+            Dispatcher.UIThread.RunJobs();
+            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+            Assert.That(confirm.IsVisible, Is.True);
+            view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+            if (stopped) view.OnNavigationStopped();
+            else view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(confirm.IsVisible, Is.False);
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3"}""" });
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(confirm.IsVisible, Is.True);
+            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(handler.Referrer, Is.Null);
+            Assert.That(handler.CookieHeader, Is.Null);
+            Assert.That(profile.Downloads.Single().Referrer, Is.Null);
+
+            completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs
+            { Request = new Uri("https://files.example/page"), IsSuccess = true });
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3"}""" });
+            Dispatcher.UIThread.RunJobs();
+            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://files.example/")));
+            Assert.That(handler.CookieHeader, Is.EqualTo("session=private"));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
     [AvaloniaTest]
@@ -480,10 +538,12 @@ public class WebBrowserDownloadTests
     private sealed class ReferrerHandler : HttpMessageHandler
     {
         internal Uri? Referrer { get; private set; }
+        internal string? CookieHeader { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Referrer = request.Headers.Referrer;
+            CookieHeader = request.Headers.TryGetValues("Cookie", out var cookies) ? string.Join("; ", cookies) : null;
             var content = new ByteArrayContent([1, 2, 3]);
             content.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });

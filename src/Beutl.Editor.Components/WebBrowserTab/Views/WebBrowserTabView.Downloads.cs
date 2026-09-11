@@ -16,6 +16,7 @@ internal partial class WebBrowserTabView
     private int _pageDownloadDocumentId;
     private bool _pageDownloadRequestsSuppressed;
     private bool _pageDownloadNavigationPending;
+    private bool _pageDownloadReferrerUncertain;
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId);
 
@@ -91,7 +92,9 @@ internal partial class WebBrowserTabView
         var owner = _viewModel;
         var source = _webView;
         int documentId = _pageDownloadDocumentId;
-        Uri? referrer = owner?.CurrentUri;
+        // BlankPage deliberately prevents the downloader's direct-navigation fallback from
+        // using destination cookies when the surviving document's origin is unknown.
+        Uri? referrer = _pageDownloadReferrerUncertain ? ViewModels.WebBrowserTabViewModel.BlankPage : owner?.CurrentUri;
         var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId);
         _pendingPageDownloadRequest = request;
         Dispatcher.UIThread.Post(() =>
@@ -138,6 +141,14 @@ internal partial class WebBrowserTabView
         InvalidatePageDownloadRequests();
         _pageDownloadRequestsSuppressed = false;
         _pageDownloadNavigationPending = false;
+        _pageDownloadReferrerUncertain = false;
+    }
+
+    private void SettleAbortedPageNavigation()
+    {
+        InvalidatePageDownloadRequests();
+        _pageDownloadNavigationPending = false;
+        _pageDownloadReferrerUncertain = true;
     }
 
     private void InvalidatePageDownloadRequests(bool navigationStarted = false)
@@ -229,7 +240,8 @@ internal partial class WebBrowserTabView
                         : $"{value.Received / 1024:N0} KB";
                 }
             });
-            IReadOnlyList<Cookie> cookies = await DownloadCookiesProvider(initiatingWebView, cancellation.Token);
+            IReadOnlyList<Cookie> cookies = referrer != null && !BrowserMediaDownload.IsHttpUri(referrer)
+                ? [] : await DownloadCookiesProvider(initiatingWebView, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             string file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies);
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
