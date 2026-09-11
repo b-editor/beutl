@@ -39,6 +39,26 @@ Track a project's editing history with Git, restore earlier versions, create exp
 ## 📥 Installation
 Refer to the [documentation](https://docs.beutl.beditor.net/get-started/install) here.
 
+## Development
+
+On a fresh checkout, initialize the Git submodules first with `git submodule update --init --recursive`.
+
+Run the application from the repository root using the included scripts, which do not require the global Nuke tool.
+
+macOS/Linux:
+
+```sh
+./build.sh dev
+```
+
+Windows (PowerShell):
+
+```powershell
+.\build.ps1 dev
+```
+
+This runs `src/Beutl` in Debug configuration, automatically selecting `net10.0-windows` on Windows and `net10.0` on macOS/Linux. If the global Nuke tool is already installed, you can also use `nuke dev`.
+
 ## License
 
 This project is licensed under the **MIT License** ([LICENSE](https://github.com/b-editor/beutl/blob/main/LICENSE)).

@@ -28,6 +28,7 @@
         "BundleApp",
         "Clean",
         "Compile",
+        "Dev",
         "NuGetPack",
         "Publish",
         "Restore",

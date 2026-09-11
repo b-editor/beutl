@@ -60,11 +60,23 @@ class Build : NukeBuild
                 .EnableNoRestore());
         });
 
+    Target Dev => _ => _
+        .Description("Run Beutl in Debug configuration for the current platform")
+        .Executes(() =>
+        {
+            string tfm = GetTFM();
+
+            DotNetRun(s => s
+                .SetConfiguration(Configuration.Debug)
+                .SetFramework(OperatingSystem.IsWindows() ? $"{tfm}-windows" : tfm)
+                .SetProjectFile(SourceDirectory / "Beutl" / "Beutl.csproj"));
+        });
+
     private string GetTFM()
     {
         AbsolutePath mainProj = SourceDirectory / "Beutl" / "Beutl.csproj";
         using IProcess proc = StartProcess(DotNetPath, $"msbuild --getProperty:TargetFrameworks {mainProj}");
-        proc.WaitForExit();
+        proc.AssertZeroExitCode();
         return proc.Output.First().Text.Split(';')[0];
     }
 
