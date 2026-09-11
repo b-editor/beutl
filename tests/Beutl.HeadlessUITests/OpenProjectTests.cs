@@ -40,8 +40,17 @@ public class OpenProjectTests
             Project original = (await TestShell.Project.CreateProject(320, 180, 30, 44100,
                 "original", NewWorkspace($"failed-project-switch-{failActivation}")))!;
             Scene scene = original.Items.OfType<Scene>().Single();
+            var otherScene = new Scene(320, 180, "other")
+            {
+                Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "other.scene")),
+            };
+            CoreSerializer.StoreToUri(otherScene, otherScene.Uri);
+            original.Items.Add(otherScene);
+            CoreSerializer.StoreToUri(original, original.Uri!);
+            HeadlessTestHelpers.Settle();
             TestShell.Editor.ActivateTabItem(scene);
             HeadlessTestHelpers.Settle();
+            Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value?.Object, Is.SameAs(scene));
             string target = Path.Combine(Path.GetDirectoryName(original.Uri!.LocalPath)!, "target.bep");
             File.Copy(original.Uri.LocalPath, target);
             GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = false;
@@ -80,6 +89,7 @@ public class OpenProjectTests
             {
                 Assert.That(failedAtExpectedStage, Is.True);
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(original));
+                Assert.That(TestShell.Editor.TabItems, Has.Count.EqualTo(2));
                 Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value?.Object, Is.SameAs(scene));
                 Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
                 Assert.That(published.LastOrDefault(), Is.SameAs(original));
