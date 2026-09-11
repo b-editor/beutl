@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageDownload Include="nbgv" Version="[3.6.133]" />
+    <PackageDownload Include="nbgv" Version="[3.10.94]" />
   </ItemGroup>
 
 </Project>
