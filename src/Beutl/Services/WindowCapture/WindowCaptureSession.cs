@@ -114,7 +114,7 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
 
         // If timer setup fails after ffmpeg/writer are running, leave _stopped=false
         // so the caller's DisposeAsync routes through StopAsync and reclaims them.
-        _timer = new DispatcherTimer(DispatcherPriority.Render)
+        _timer = new DispatcherTimer(DispatcherPriority.Render, _window.Dispatcher)
         {
             Interval = TimeSpan.FromSeconds(1.0 / _frameRate),
         };

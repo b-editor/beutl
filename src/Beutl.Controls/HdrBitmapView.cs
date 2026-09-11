@@ -109,7 +109,7 @@ public class HdrBitmapView : NativeControlHost
     {
         if (_renderer != null && Bounds.Width > 0 && Bounds.Height > 0)
         {
-            var scaling = VisualRoot?.RenderScaling ?? 1.0;
+            var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
             _renderer.Resize(
                 (uint)(Bounds.Width * scaling),
                 (uint)(Bounds.Height * scaling));
@@ -152,7 +152,7 @@ public class HdrBitmapView : NativeControlHost
 
         if (_renderer != null && e.NewSize.Width > 0 && e.NewSize.Height > 0)
         {
-            var scaling = VisualRoot?.RenderScaling ?? 1.0;
+            var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
             _renderer.Resize(
                 (uint)(e.NewSize.Width * scaling),
                 (uint)(e.NewSize.Height * scaling));
@@ -202,7 +202,7 @@ public class HdrBitmapView : NativeControlHost
         {
             _renderer = new VulkanSwapchainRenderer();
 
-            var scaling = VisualRoot?.RenderScaling ?? 1.0;
+            var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
             _renderer.Initialize(
                 handle.Handle,
                 handle.HandleDescriptor ?? "",

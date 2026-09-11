@@ -7,7 +7,7 @@ using FluentAvalonia.UI.Media.Animation;
 
 namespace Beutl.Pages.ExtensionsPages;
 
-public sealed class FadeNavigationTransitionInfo : NavigationTransitionInfo
+public sealed class FadeNavigationTransitionInfo : FANavigationTransitionInfo
 {
     public override async void RunAnimation(Animatable ctrl, CancellationToken ct)
     {

@@ -51,7 +51,7 @@ public partial class MainWindow : Window
         frame.NavigateFromObject(viewmodel);
     }
 
-    public sealed class MyNavigationPageFactory : INavigationPageFactory
+    public sealed class MyNavigationPageFactory : IFANavigationPageFactory
     {
         public Control GetPage(Type srcType)
         {

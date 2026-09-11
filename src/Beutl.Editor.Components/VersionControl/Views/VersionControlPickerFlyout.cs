@@ -10,7 +10,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Editor.Components.VersionControl.Views;
 
-internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
+internal sealed class VersionControlPickerFlyout : FAPickerFlyoutBase
 {
     private sealed record CancellationRequest(
         VersionControlPickerFlyout Flyout,
@@ -77,7 +77,7 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
 
     internal TextBox SecondaryTextBox { get; }
 
-    internal PickerFlyoutPresenter? Presenter { get; private set; }
+    internal FAPickerFlyoutPresenter? Presenter { get; private set; }
 
     public async Task<string?> ShowTextInputAsync(
         Control anchor,
@@ -90,7 +90,7 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
         ConfigureContent(title);
         PrimaryLabelTextBlock.IsVisible = false;
         PrimaryTextBox.IsVisible = true;
-        PrimaryTextBox.Watermark = watermark;
+        PrimaryTextBox.PlaceholderText = watermark;
         PrimaryTextBox.Text = initialText;
         _confirmOnEnter = true;
 
@@ -150,7 +150,7 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
 
     protected override Control CreatePresenter()
     {
-        Presenter = new PickerFlyoutPresenter
+        Presenter = new FAPickerFlyoutPresenter
         {
             Width = PresenterWidth,
             Padding = new(PresenterHorizontalPadding, 4),
@@ -196,12 +196,12 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
         MessageTextBlock.IsVisible = false;
         PrimaryLabelTextBlock.Text = null;
         PrimaryLabelTextBlock.IsVisible = false;
-        PrimaryTextBox.Watermark = null;
+        PrimaryTextBox.PlaceholderText = null;
         PrimaryTextBox.Text = null;
         PrimaryTextBox.IsVisible = false;
         SecondaryLabelTextBlock.Text = null;
         SecondaryLabelTextBlock.IsVisible = false;
-        SecondaryTextBox.Watermark = null;
+        SecondaryTextBox.PlaceholderText = null;
         SecondaryTextBox.Text = null;
         SecondaryTextBox.IsVisible = false;
         _confirmOnEnter = false;
@@ -267,14 +267,14 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
     }
 
     private void OnPresenterConfirmed(
-        PickerFlyoutPresenter sender,
+        FAPickerFlyoutPresenter sender,
         object args)
     {
         OnConfirmed();
     }
 
     private void OnPresenterDismissed(
-        PickerFlyoutPresenter sender,
+        FAPickerFlyoutPresenter sender,
         object args)
     {
         Complete(confirmed: false, hide: true);

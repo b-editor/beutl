@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Beutl.Animation;
@@ -998,12 +999,12 @@ public partial class PlayerView
 
                 if (ViewModel.TcsForCrop == null)
                 {
-                    var copyAsString = new MenuFlyoutItem()
+                    var copyAsString = new FAMenuFlyoutItem()
                     {
                         Text = Strings.Copy,
                         IconSource = new FluentIconSource() { Icon = Icon.Copy }
                     };
-                    var saveAsImage = new MenuFlyoutItem()
+                    var saveAsImage = new FAMenuFlyoutItem()
                     {
                         Text = Strings.SaveAsImage,
                         IconSource = new FluentIconSource() { Icon = Icon.SaveImage }
@@ -1041,10 +1042,10 @@ public partial class PlayerView
                         }
                     };
 
-                    var list = new List<MenuFlyoutItem>();
+                    var list = new List<FAMenuFlyoutItem>();
                     if (OperatingSystem.IsWindows())
                     {
-                        var copyAsImage = new MenuFlyoutItem()
+                        var copyAsImage = new FAMenuFlyoutItem()
                         {
                             Text = Strings.CopyAsImage,
                             IconSource = new FluentIconSource() { Icon = Icon.ImageCopy }
@@ -1668,7 +1669,7 @@ public partial class PlayerView
             if (_movementTimer != null)
                 return;
 
-            _movementTimer = new DispatcherTimer
+            _movementTimer = new DispatcherTimer(DispatcherPriority.Background, View.Dispatcher)
             {
                 Interval = TimeSpan.FromMilliseconds(16) // ~60fps
             };

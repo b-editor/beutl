@@ -12,7 +12,7 @@
              mc:Ignorable="d">
     <Grid ColumnDefinitions="16,8,*">
         <Grid HorizontalAlignment="Center" RowDefinitions="Auto,*">
-            <ui:InfoBadge Classes="step"
+            <ui:FAInfoBadge Classes="step"
                           Classes.Critical="{Binding Failed.Value, FallbackValue=False}"
                           Classes.Informational="{Binding !IsRunning.Value, FallbackValue=True}"
                           Classes.Success="{Binding Succeeded.Value, FallbackValue=False}"

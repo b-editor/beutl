@@ -1,6 +1,9 @@
 ﻿using System.Globalization;
 
 using Avalonia;
+#if DEBUG
+using Avalonia.Diagnostics;
+#endif
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -25,6 +28,9 @@ public partial class App : Application
         CultureInfo.CurrentUICulture = view.UICulture;
 
         AvaloniaXamlLoader.Load(this);
+#if DEBUG
+        this.AttachDeveloperTools();
+#endif
         var theme = (FluentAvaloniaTheme)Styles[0];
 
         Color? designAccent = null;

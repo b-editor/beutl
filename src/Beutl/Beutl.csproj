@@ -60,7 +60,7 @@
     <PackageReference Include="Avalonia.Controls.ItemsRepeater" />
     <PackageReference Include="PanAndZoom" />
     <PackageReference Include="Avalonia.Desktop" />
-    <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="ReactiveUI.Avalonia" />
     <PackageReference Include="Svg.Controls.Skia.Avalonia" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
@@ -77,7 +77,6 @@
     <PackageReference Include="ModelContextProtocol" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="OpenTelemetry" />
-    <PackageReference Include="PanelExtension" />
     <PackageReference Include="ReactiveProperty" />
     <PackageReference Include="Dock.Avalonia" />
     <PackageReference Include="Dock.Model.Inpc" />

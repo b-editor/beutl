@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using Beutl.Configuration;
+using Beutl.Helpers;
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -16,6 +17,7 @@ namespace Beutl.Views;
 public sealed partial class MacWindow : Window
 {
     private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
+    private MacOSTitleBar? _titleBar;
 
     public MacWindow()
     {
@@ -23,8 +25,6 @@ public sealed partial class MacWindow : Window
         {
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaTitleBarHeightHint = 40;
-            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.OSXThickTitleBar |
-                                          ExtendClientAreaChromeHints.PreferSystemChrome;
         }
 
         InitializeComponent();
@@ -41,10 +41,6 @@ public sealed partial class MacWindow : Window
             var rect = new PixelRect(pos.Value.X, pos.Value.Y, size.Value.Width, size.Value.Height);
             SetRect(rect);
         }
-
-#if DEBUG
-        this.AttachDevTools();
-#endif
     }
 
     private void SetRect(PixelRect rect)
@@ -57,6 +53,7 @@ public sealed partial class MacWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        _titleBar ??= MacOSTitleBar.TryAttach(this);
         Screen? screen = Screens.ScreenFromWindow(this);
         if (screen != null && WindowState != WindowState.Maximized)
         {

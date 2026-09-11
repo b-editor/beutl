@@ -133,7 +133,7 @@
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBox MinWidth="250"
                                  VerticalAlignment="Center"
-                                 Watermark="{x:Static lang:SettingsStrings.VersionControl_GitExecutablePath_Automatic}"
+                                 PlaceholderText="{x:Static lang:SettingsStrings.VersionControl_GitExecutablePath_Automatic}"
                                  Text="{CompiledBinding GitExecutablePath.Value, Mode=TwoWay}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
@@ -268,7 +268,7 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ui:InfoBar IsClosable="False"
+                <ui:FAInfoBar IsClosable="False"
                             IsOpen="{CompiledBinding IsNodeCacheEnabled.Value}"
                             Message="{x:Static lang:SettingsStrings.NodeCacheWarning}"
                             Severity="Warning" />

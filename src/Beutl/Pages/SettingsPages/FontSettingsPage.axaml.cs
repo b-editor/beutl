@@ -15,7 +15,7 @@ public sealed partial class FontSettingsPage : UserControl
 
     public async void AddClick(object? sender, RoutedEventArgs e)
     {
-        if (VisualRoot is Window window && DataContext is FontSettingsPageViewModel vm)
+        if (TopLevel.GetTopLevel(this) is Window window && DataContext is FontSettingsPageViewModel vm)
         {
             var options = new FolderPickerOpenOptions
             {

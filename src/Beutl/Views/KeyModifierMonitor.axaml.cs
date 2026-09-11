@@ -7,7 +7,7 @@ using FluentAvalonia.UI.Windowing;
 
 namespace Beutl;
 
-public partial class KeyModifierMonitor : AppWindow
+public partial class KeyModifierMonitor : FAAppWindow
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly Dictionary<Key, Button> _buttons = [];
@@ -20,6 +20,7 @@ public partial class KeyModifierMonitor : AppWindow
 
     protected override void OnOpened(EventArgs e)
     {
+        base.OnOpened(e);
         if (Owner != null)
         {
             Owner.AddDisposableHandler(KeyDownEvent, OnOwnerKeyDown, RoutingStrategies.Tunnel)

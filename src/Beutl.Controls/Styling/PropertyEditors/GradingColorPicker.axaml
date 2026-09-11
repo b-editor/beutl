@@ -83,7 +83,7 @@
                                         Orientation="Horizontal"
                                         Spacing="4">
                                 <ToggleButton Name="ToggleDetailsButton" ToolTip.Tip="{x:Static lang:Strings.ShowSliders}">
-                                    <ui:FontIcon Glyph="&#xE9E9;" />
+                                    <ui:FAFontIcon Glyph="&#xE9E9;" />
                                 </ToggleButton>
                             </StackPanel>
 
@@ -111,7 +111,7 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Theme" Value="{StaticResource TransparentToggleButton}" />
 
-            <Style Selector="^ &gt; ui|FontIcon">
+            <Style Selector="^ &gt; ui|FAFontIcon">
                 <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
             </Style>
         </Style>

@@ -3,12 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:api="using:Beutl.Api.Objects"
              xmlns:asyncImageLoader="using:AsyncImageLoader"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:extensionsPage="using:Beutl.ViewModels.ExtensionsPages"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:panelx="using:PanelExtension"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.ExtensionsPages.DiscoverPages"
              d:DesignHeight="450"
@@ -52,9 +52,9 @@
 
                 <ItemsRepeater ItemsSource="{Binding Packages}">
                     <ItemsRepeater.Layout>
-                        <panelx:HorizontalGridLayout ColumnSpacing="16"
-                                                     MinItemWidth="345"
-                                                     RowSpacing="16" />
+                        <controls:HorizontalGridLayout ColumnSpacing="16"
+                                                       MinItemWidth="345"
+                                                       RowSpacing="16" />
                     </ItemsRepeater.Layout>
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate>

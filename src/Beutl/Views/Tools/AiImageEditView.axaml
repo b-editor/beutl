@@ -46,7 +46,7 @@
                     <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiEditSourceImage}"
                              IsReadOnly="True"
                              Text="{CompiledBinding SourceFilePath.Value}"
-                             Watermark="{x:Static lang:Strings.AiEditNoSourceSelected}" />
+                             PlaceholderText="{x:Static lang:Strings.AiEditNoSourceSelected}" />
                     <Button Grid.Column="1"
                             Margin="8,0,0,0"
                             AutomationProperties.Name="{x:Static lang:Strings.AiEditBrowse}"
@@ -93,7 +93,7 @@
                          MaxLength="4000"
                          Text="{CompiledBinding Prompt.Value}"
                          TextWrapping="Wrap"
-                         Watermark="{CompiledBinding PromptWatermark.Value}" />
+                         PlaceholderText="{CompiledBinding PromptWatermark.Value}" />
                 <TextBlock AutomationProperties.LiveSetting="Assertive"
                            Foreground="{DynamicResource SystemFillColorCautionBrush}"
                            IsVisible="{CompiledBinding VisiblePromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"

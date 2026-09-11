@@ -121,3 +121,7 @@ Extension authors should also read the
 before implementing custom drawables, filter effects, brushes, or shaders, and
 the [tool-tab extension guide](docs/extension-authoring/tool-tabs.md) before
 adding a dockable editor tool.
+
+Extensions built for Avalonia 11 must follow the
+[Avalonia 12 migration guide](docs/extension-authoring/avalonia-12-migration.md)
+before targeting the upgraded host.

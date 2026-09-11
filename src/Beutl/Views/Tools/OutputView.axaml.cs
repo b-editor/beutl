@@ -30,7 +30,7 @@ public partial class OutputView : UserControl
     private async void SelectDestinationFileClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is OutputViewModel viewModel
-            && VisualRoot is TopLevel topLevel)
+            && TopLevel.GetTopLevel(this) is TopLevel topLevel)
         {
             var options = new FilePickerSaveOptions()
             {

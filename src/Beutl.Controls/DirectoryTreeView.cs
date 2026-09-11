@@ -225,32 +225,32 @@ public sealed class DirectoryTreeView : TreeView
     {
         if (SelectedItem is DirectoryTreeItem directory)
         {
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 Content = MessageStrings.ConfirmDeleteDirectory,
                 PrimaryButtonText = Strings.OK,
                 CloseButtonText = Strings.Cancel,
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = FAContentDialogButton.Primary,
                 IsSecondaryButtonEnabled = false,
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
             {
                 directory.Info.Delete(true);
             }
         }
         else if (SelectedItem is FileTreeItem file)
         {
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 Content = MessageStrings.ConfirmDeleteFile,
                 PrimaryButtonText = Strings.OK,
                 CloseButtonText = Strings.Cancel,
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = FAContentDialogButton.Primary,
                 IsSecondaryButtonEnabled = false,
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
             {
                 file.Info.Delete();
             }
@@ -555,11 +555,11 @@ public sealed class FileTreeItem : TreeViewItem
             {
                 string content = MessageStrings.RenameConflict;
                 content = string.Format(content, Info.Name, tb.Text);
-                var dialog = new ContentDialog()
+                var dialog = new FAContentDialog()
                 {
                     CloseButtonText = Strings.Close,
                     Content = content,
-                    DefaultButton = ContentDialogButton.None,
+                    DefaultButton = FAContentDialogButton.None,
                     IsPrimaryButtonEnabled = false,
                     IsSecondaryButtonEnabled = false,
                 };
@@ -785,11 +785,11 @@ public sealed class DirectoryTreeItem : TreeViewItem
             {
                 string content = MessageStrings.RenameConflict;
                 content = string.Format(content, Info.Name, tb.Text);
-                var dialog = new ContentDialog()
+                var dialog = new FAContentDialog()
                 {
                     CloseButtonText = Strings.Close,
                     Content = content,
-                    DefaultButton = ContentDialogButton.None,
+                    DefaultButton = FAContentDialogButton.None,
                     IsPrimaryButtonEnabled = false,
                     IsSecondaryButtonEnabled = false,
                 };

@@ -163,7 +163,7 @@ public partial class OutputTab : UserControl
         {
             case OutputProfileItem profile:
                 {
-                    var removeItem = new MenuFlyoutItem
+                    var removeItem = new FAMenuFlyoutItem
                     {
                         Text = Language.Strings.Remove,
                         IconSource = new FluentIconSource { Icon = Icon.Delete }
@@ -175,11 +175,11 @@ public partial class OutputTab : UserControl
                     };
                     menu.Items.Add(removeItem);
 
-                    var renameItem = new MenuFlyoutItem { Text = Language.Strings.Rename };
+                    var renameItem = new FAMenuFlyoutItem { Text = Language.Strings.Rename };
                     renameItem.Click += (_, _) => ShowRenameFlyout(profile, args.Anchor);
                     menu.Items.Add(renameItem);
 
-                    var convertItem = new MenuFlyoutItem { Text = Language.Strings.Convert_to_preset };
+                    var convertItem = new FAMenuFlyoutItem { Text = Language.Strings.Convert_to_preset };
                     convertItem.Click += (_, _) =>
                     {
                         OutputPresetService.Instance.AddItem(profile.Context, $"{profile.Context.Name.Value} (Preset)");
@@ -190,7 +190,7 @@ public partial class OutputTab : UserControl
                 }
             case OutputPresetItem preset:
                 {
-                    var removeItem = new MenuFlyoutItem
+                    var removeItem = new FAMenuFlyoutItem
                     {
                         Text = Language.Strings.Remove,
                         IconSource = new FluentIconSource { Icon = Icon.Delete }
@@ -202,7 +202,7 @@ public partial class OutputTab : UserControl
                     };
                     menu.Items.Add(removeItem);
 
-                    var renameItem = new MenuFlyoutItem { Text = Language.Strings.Rename };
+                    var renameItem = new FAMenuFlyoutItem { Text = Language.Strings.Rename };
                     renameItem.Click += (_, _) => ShowRenameFlyout(preset, args.Anchor);
                     menu.Items.Add(renameItem);
                     break;

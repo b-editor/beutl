@@ -13,6 +13,7 @@ public class FileItemDragBehavior : Behavior<Control>
 {
     private const double DragThreshold = 5;
     private Point? _dragStartPoint;
+    private PointerPressedEventArgs? _dragStartEvent;
     private FileSystemItemViewModel? _dragItem;
     private bool _isDragStarting;
 
@@ -28,6 +29,7 @@ public class FileItemDragBehavior : Behavior<Control>
         {
             AssociatedObject.PointerPressed += OnPointerPressed;
             AssociatedObject.PointerMoved += OnPointerMoved;
+            AssociatedObject.PointerReleased += OnPointerReleased;
         }
     }
 
@@ -37,9 +39,23 @@ public class FileItemDragBehavior : Behavior<Control>
         {
             AssociatedObject.PointerPressed -= OnPointerPressed;
             AssociatedObject.PointerMoved -= OnPointerMoved;
+            AssociatedObject.PointerReleased -= OnPointerReleased;
         }
 
+        _dragStartEvent = null;
+        _dragStartPoint = null;
+        _dragItem = null;
         base.OnDetaching();
+    }
+
+    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_isDragStarting)
+        {
+            _dragStartEvent = null;
+            _dragStartPoint = null;
+            _dragItem = null;
+        }
     }
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -50,6 +66,7 @@ public class FileItemDragBehavior : Behavior<Control>
         if (e.GetCurrentPoint(AssociatedObject).Properties.IsLeftButtonPressed
             && sender is Control { DataContext: FileSystemItemViewModel item })
         {
+            _dragStartEvent = e;
             _dragStartPoint = e.GetPosition(AssociatedObject);
             _dragItem = item;
         }
@@ -57,11 +74,12 @@ public class FileItemDragBehavior : Behavior<Control>
 
     private async void OnPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (_dragStartPoint == null || _dragItem == null || _isDragStarting || AssociatedObject == null)
+        if (_dragStartEvent == null || _dragStartPoint == null || _dragItem == null || _isDragStarting || AssociatedObject == null)
             return;
 
         if (!e.GetCurrentPoint(AssociatedObject).Properties.IsLeftButtonPressed)
         {
+            _dragStartEvent = null;
             _dragStartPoint = null;
             _dragItem = null;
             return;
@@ -77,6 +95,7 @@ public class FileItemDragBehavior : Behavior<Control>
         if (TopLevel.GetTopLevel(AssociatedObject) is not { StorageProvider: IStorageProvider storageProvider })
             return;
 
+        PointerPressedEventArgs dragStartEvent = _dragStartEvent;
         _isDragStarting = true;
         IsInternalDragInProgress = true;
         try
@@ -104,10 +123,11 @@ public class FileItemDragBehavior : Behavior<Control>
 
             // 外部アプリ（Finder/Explorer等）にMoveを要求させないため、ソース側ではCopyのみを許可する。
             // FileBrowserTab内部での移動は、ドロップハンドラ側で IsInternalDragInProgress を見て実施する。
-            await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy);
+            await DragDrop.DoDragDropAsync(dragStartEvent, data, DragDropEffects.Copy);
         }
         finally
         {
+            _dragStartEvent = null;
             _dragStartPoint = null;
             _dragItem = null;
             _isDragStarting = false;

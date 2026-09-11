@@ -3214,24 +3214,24 @@ public sealed partial class AiSubtitleDialogViewModel
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var dialog = new ContentDialog
+        var dialog = new FAContentDialog
         {
             Title = Strings.AiSubtitle_LossySrtExportTitle,
             Content = Strings.AiSubtitle_LossySrtExportMessage,
             PrimaryButtonText = Strings.AiSubtitle_Export,
             CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Close,
+            DefaultButton = FAContentDialogButton.Close,
         };
         var showDialog = dialog.ShowAsync();
         using CancellationTokenRegistration cancellationRegistration =
             cancellationToken.Register(static state =>
             {
-                var contentDialog = (ContentDialog)state!;
+                var contentDialog = (FAContentDialog)state!;
                 Dispatcher.UIThread.Post(contentDialog.Hide);
             }, dialog);
-        ContentDialogResult result = await showDialog;
+        FAContentDialogResult result = await showDialog;
         cancellationToken.ThrowIfCancellationRequested();
-        return result == ContentDialogResult.Primary;
+        return result == FAContentDialogResult.Primary;
     }
 
     private void DeleteCueCore()

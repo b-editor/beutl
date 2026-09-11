@@ -602,14 +602,14 @@ public sealed partial class TimelineTabView : UserControl
         {
             case SingleTypeLibraryItem single when single.Format == KnownLibraryItemFormats.EngineObject:
                 {
-                    var menuItem = new MenuFlyoutItem { Text = single.DisplayName, Tag = single.ImplementationType };
+                    var menuItem = new FAMenuFlyoutItem { Text = single.DisplayName, Tag = single.ImplementationType };
                     menuItem.Click += AddElementWithTypeClick;
                     return menuItem;
                 }
 
             case MultipleTypeLibraryItem multiple when multiple.Types.TryGetValue(KnownLibraryItemFormats.EngineObject, out Type? type):
                 {
-                    var menuItem = new MenuFlyoutItem { Text = multiple.DisplayName, Tag = type };
+                    var menuItem = new FAMenuFlyoutItem { Text = multiple.DisplayName, Tag = type };
                     menuItem.Click += AddElementWithTypeClick;
                     return menuItem;
                 }
@@ -629,7 +629,7 @@ public sealed partial class TimelineTabView : UserControl
                     if (subItems.Count == 0)
                         return null;
 
-                    var subMenu = new MenuFlyoutSubItem { Text = group.DisplayName };
+                    var subMenu = new FAMenuFlyoutSubItem { Text = group.DisplayName };
                     foreach (Control subItem in subItems)
                     {
                         subMenu.Items.Add(subItem);
@@ -645,7 +645,7 @@ public sealed partial class TimelineTabView : UserControl
     private void AddElementWithTypeClick(object? sender, RoutedEventArgs e)
     {
         if (ViewModel == null) return;
-        if (sender is not MenuFlyoutItem { Tag: Type operatorType }) return;
+        if (sender is not FAMenuFlyoutItem { Tag: Type operatorType }) return;
 
         ViewModel.AddElement.Execute(new ElementDescription(
             ViewModel.ClickedFrame,
@@ -673,7 +673,7 @@ public sealed partial class TimelineTabView : UserControl
         foreach (ObjectTemplateItem template in ObjectTemplateService.Instance
             .FindByBaseType(typeof(Element)))
         {
-            var menuItem = new MenuFlyoutItem { Text = template.Name.Value, Tag = template };
+            var menuItem = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
             menuItem.Click += AddElementFromTemplateClick;
             AddFromTemplateSubMenu.Items.Add(menuItem);
         }
@@ -684,7 +684,7 @@ public sealed partial class TimelineTabView : UserControl
     private void AddElementFromTemplateClick(object? sender, RoutedEventArgs e)
     {
         if (ViewModel == null) return;
-        if (sender is not MenuFlyoutItem { Tag: ObjectTemplateItem template }) return;
+        if (sender is not FAMenuFlyoutItem { Tag: ObjectTemplateItem template }) return;
 
         ViewModel.AddElement.Execute(ElementTemplateResolver.CreateDescription(
             template,
@@ -782,7 +782,7 @@ public sealed partial class TimelineTabView : UserControl
 
     private void ZoomClick(object? sender, RoutedEventArgs e)
     {
-        if (e.Source is MenuFlyoutItem menuItem && ViewModel != null)
+        if (e.Source is FAMenuFlyoutItem menuItem && ViewModel != null)
         {
             float zoom;
             switch (menuItem.CommandParameter)

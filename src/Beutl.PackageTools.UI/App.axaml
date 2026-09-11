@@ -23,7 +23,7 @@
             </Setter>
         </Style>
 
-        <Style Selector="ui|InfoBadge.step">
+        <Style Selector="ui|FAInfoBadge.step">
             <Setter Property="Margin" Value="0,2,0,6" />
             <Setter Property="VerticalAlignment" Value="Top" />
         </Style>

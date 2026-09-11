@@ -1,5 +1,6 @@
 ﻿using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
@@ -70,7 +71,7 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
         if (bitmap is null) return null;
 
         using var ms = new MemoryStream();
-        bitmap.Save(ms);
+        bitmap.Save(ms, PngBitmapEncoderOptions.Default);
         return ms.ToArray();
     }
 

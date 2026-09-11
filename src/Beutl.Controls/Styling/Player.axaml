@@ -64,7 +64,7 @@
                                  controls:TextBoxAttachment.EnterDownBehavior="None"
                                  FontWeight="SemiBold"
                                  IsVisible="False"
-                                 Watermark="{x:Static lang:Strings.GotoTimecode_InputHint}" />
+                                 PlaceholderText="{x:Static lang:Strings.GotoTimecode_InputHint}" />
 
                         <Popup Name="PART_MarkerPopup"
                                Grid.Row="1"

@@ -92,7 +92,10 @@ public sealed class EditorSettingsPageViewModelTests
 
         try
         {
+            config.GitExecutablePath = null;
             using var viewModel = new EditorSettingsPageViewModel();
+
+            Assert.That(viewModel.GitExecutablePath.Value, Is.EqualTo(string.Empty));
 
             viewModel.EnableVersionControlForNewProjects.Value = false;
             viewModel.AutoCommitOnSave.Value = false;
@@ -114,6 +117,7 @@ public sealed class EditorSettingsPageViewModelTests
 
             viewModel.GitExecutablePath.Value = "  ";
             Assert.That(config.GitExecutablePath, Is.Null);
+            Assert.That(viewModel.GitExecutablePath.Value, Is.EqualTo(string.Empty));
         }
         finally
         {

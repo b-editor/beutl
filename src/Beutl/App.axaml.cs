@@ -1,4 +1,7 @@
 ﻿using Avalonia;
+#if DEBUG
+using Avalonia.Diagnostics;
+#endif
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
@@ -57,6 +60,9 @@ public sealed class App : Application
         GraphicsContextFactory.SelectGpuByName(config.GraphicsConfig.SelectedGpuName);
 
         AvaloniaXamlLoader.Load(this);
+#if DEBUG
+        this.AttachDeveloperTools();
+#endif
         RegisterBundledEngineFonts();
         _startUp = GetMainViewModel().RunStartupTask();
         _sideloadExtensionTask = _startUp.GetTask<LoadSideloadExtensionTask>();

@@ -7,7 +7,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Editor.Components.Views;
 
-public sealed class BpmGridFlyout : PickerFlyoutBase
+public sealed class BpmGridFlyout : FAPickerFlyoutBase
 {
     public static readonly StyledProperty<bool> IsEnabledCheckedProperty
         = AvaloniaProperty.Register<BpmGridFlyout, bool>(nameof(IsEnabledChecked));
@@ -109,7 +109,7 @@ public sealed class BpmGridFlyout : PickerFlyoutBase
             }
         };
 
-        var pfp = new PickerFlyoutPresenter
+        var pfp = new FAPickerFlyoutPresenter
         {
             Width = 240,
             Padding = new Thickness(8),
@@ -146,12 +146,12 @@ public sealed class BpmGridFlyout : PickerFlyoutBase
 
     protected override bool ShouldShowConfirmationButtons() => true;
 
-    private void OnFlyoutConfirmed(PickerFlyoutPresenter sender, object args)
+    private void OnFlyoutConfirmed(FAPickerFlyoutPresenter sender, object args)
     {
         OnConfirmed();
     }
 
-    private void OnFlyoutDismissed(PickerFlyoutPresenter sender, object args)
+    private void OnFlyoutDismissed(FAPickerFlyoutPresenter sender, object args)
     {
         IsEnabledChecked = _initialOptions.IsEnabled;
         Bpm = (decimal)_initialOptions.Bpm;

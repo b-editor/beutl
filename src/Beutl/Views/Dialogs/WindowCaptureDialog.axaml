@@ -1,4 +1,4 @@
-<ui:ContentDialog x:Class="Beutl.Views.Dialogs.WindowCaptureDialog"
+<ui:FAContentDialog x:Class="Beutl.Views.Dialogs.WindowCaptureDialog"
                   xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -16,9 +16,9 @@
                   IsPrimaryButtonEnabled="{Binding CanStart.Value}"
                   PrimaryButtonText="{x:Static lang:Strings.Start}"
                   mc:Ignorable="d">
-    <ui:ContentDialog.Resources>
+    <ui:FAContentDialog.Resources>
         <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
-    </ui:ContentDialog.Resources>
+    </ui:FAContentDialog.Resources>
 
     <StackPanel Spacing="12">
         <StackPanel Spacing="4">
@@ -48,11 +48,11 @@
                 <TextBox Grid.Column="0"
                          IsReadOnly="True"
                          Text="{Binding OutputPath.Value}"
-                         Watermark="{x:Static lang:Strings.ClickBrowse}" />
+                         PlaceholderText="{x:Static lang:Strings.ClickBrowse}" />
                 <Button Grid.Column="2"
                         Click="OnBrowseClick"
                         Content="{x:Static lang:Strings.Browse}" />
             </Grid>
         </StackPanel>
     </StackPanel>
-</ui:ContentDialog>
+</ui:FAContentDialog>

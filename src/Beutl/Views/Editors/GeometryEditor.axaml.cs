@@ -80,7 +80,7 @@ public partial class GeometryEditor : UserControl
         if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
 
         _logger.LogInformation("Importing from SVG path.");
-        var dialog = new ContentDialog()
+        var dialog = new FAContentDialog()
         {
             Title = Strings.ImportSvgPath,
             PrimaryButtonText = Strings.Import,
@@ -90,7 +90,7 @@ public partial class GeometryEditor : UserControl
         var description = new TextBlock() { Text = Strings.ImportSvgPath_Description };
         var textBox = new TextBox();
 
-        dialog[!ContentDialog.IsPrimaryButtonEnabledProperty] = textBox.GetObservable(TextBox.TextProperty)
+        dialog[!FAContentDialog.IsPrimaryButtonEnabledProperty] = textBox.GetObservable(TextBox.TextProperty)
             .Select(s => !string.IsNullOrWhiteSpace(s))
             .ToBinding();
 
@@ -98,7 +98,7 @@ public partial class GeometryEditor : UserControl
         stack.Children.Add(textBox);
         dialog.Content = stack;
 
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
         {
             string? path = textBox.Text;
             if (string.IsNullOrWhiteSpace(path))

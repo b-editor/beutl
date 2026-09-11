@@ -73,7 +73,7 @@
                                            FontSize="{TemplateBinding FontSize}"
                                            Foreground="{DynamicResource SystemAccentColor}"
                                            IsVisible="False"
-                                           Text="{TemplateBinding Watermark}" />
+                                           Text="{TemplateBinding PlaceholderText}" />
                                 <ScrollViewer AllowAutoHide="{TemplateBinding (ScrollViewer.AllowAutoHide)}"
                                               HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
                                               IsScrollChainingEnabled="{TemplateBinding (ScrollViewer.IsScrollChainingEnabled)}"
@@ -84,7 +84,7 @@
                                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                                    IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNullOrEmpty}}"
                                                    Opacity="0.5"
-                                                   Text="{TemplateBinding Watermark}"
+                                                   Text="{TemplateBinding PlaceholderText}"
                                                    TextAlignment="{TemplateBinding TextAlignment}"
                                                    TextWrapping="{TemplateBinding TextWrapping}" />
                                         <TextPresenter Name="PART_TextPresenter"

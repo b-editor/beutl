@@ -14,7 +14,7 @@ using FluentAvalonia.Core;
 
 namespace Beutl.Controls.PropertyEditors;
 
-// PickerFlyoutPresenter.cs
+// FAPickerFlyoutPresenter.cs
 public class DraggablePickerFlyoutPresenter : ContentControl
 {
     public static readonly StyledProperty<bool> ShowHideButtonsProperty =

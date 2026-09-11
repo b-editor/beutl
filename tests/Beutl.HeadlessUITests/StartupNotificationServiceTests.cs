@@ -159,7 +159,7 @@ public sealed class StartupNotificationServiceTests
     {
         string[] packageNames = ["First\nPackage", new('A', 100), "Third", "Fourth", "Fifth"];
 
-        ContentDialog dialog = StartupNotificationService.CreateSideloadDetailsDialog(packageNames);
+        FAContentDialog dialog = StartupNotificationService.CreateSideloadDetailsDialog(packageNames);
         var listBox = (ListBox)dialog.Content!;
 
         Assert.Multiple(() =>
@@ -168,7 +168,7 @@ public sealed class StartupNotificationServiceTests
             Assert.That(listBox.MaxHeight, Is.EqualTo(400));
             Assert.That(listBox.MaxWidth, Is.EqualTo(520));
             Assert.That(dialog.CloseButtonText, Is.EqualTo(Strings.Close));
-            Assert.That(dialog.DefaultButton, Is.EqualTo(ContentDialogButton.Close));
+            Assert.That(dialog.DefaultButton, Is.EqualTo(FAContentDialogButton.Close));
         });
     }
 
@@ -221,7 +221,7 @@ public sealed class StartupNotificationServiceTests
             ],
             IsClosable: false);
         var handler = new NotificationServiceHandler();
-        InfoBar infoBar = handler.BuildInfoBar(notification, dismissed, () => { });
+        FAInfoBar infoBar = handler.BuildInfoBar(notification, dismissed, () => { });
         var actionPanel = (WrapPanel)infoBar.ActionButton!;
         var detailsButton = (Button)actionPanel.Children[0];
         var acceptButton = (Button)actionPanel.Children[1];

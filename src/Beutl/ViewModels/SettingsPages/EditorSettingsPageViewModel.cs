@@ -213,7 +213,7 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         GitExecutablePath = _versionControlConfig
             .GetObservable(VersionControlConfig.GitExecutablePathProperty)
             .Select(static value => value ?? string.Empty)
-            .ToReactiveProperty()
+            .ToReactiveProperty(initialValue: string.Empty)
             .DisposeWith(_disposables);
         GitExecutablePath.Subscribe(value =>
             {

@@ -133,7 +133,7 @@ public sealed class SceneEditorExtension : EditorExtension
         return false;
     }
 
-    public override IconSource? GetIcon()
+    public override FAIconSource? GetIcon()
     {
         return new FluentIconSource { Icon = Icon.Document };
     }

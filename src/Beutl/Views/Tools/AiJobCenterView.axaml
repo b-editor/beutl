@@ -64,7 +64,7 @@
                            Text="{CompiledBinding ConfirmationMessage.Value}"
                            TextWrapping="Wrap" />
                 <WrapPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                    <ui:ProgressRing Width="18"
+                    <ui:FAProgressRing Width="18"
                                      Height="18"
                                      Margin="0,0,8,8"
                                      AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_CheckingRetryCost}"
@@ -193,13 +193,13 @@
                                                     ToolTip.Tip="{x:Static lang:Strings.Delete}">
                                                 <icons:FluentIcon FontSize="16" Icon="Delete" />
                                             </Button>
-                                            <ui:ProgressRing Width="18"
+                                            <ui:FAProgressRing Width="18"
                                                              Height="18"
                                                              Margin="0,0,6,6"
                                                              AutomationProperties.Name="{CompiledBinding StatusDisplayName}"
                                                              IsIndeterminate="True"
                                                              IsVisible="{CompiledBinding ShouldPoll}" />
-                                            <ui:ProgressRing Width="18"
+                                            <ui:FAProgressRing Width="18"
                                                              Height="18"
                                                              Margin="0,0,0,6"
                                                              AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_StatusRunning}"
@@ -225,7 +225,7 @@
                             Content="{x:Static lang:Strings.AiJobCenter_LoadMore}"
                             IsVisible="{CompiledBinding HasMore.Value}"
                             ToolTip.Tip="{x:Static lang:Strings.AiJobCenter_LoadMore}" />
-                    <ui:ProgressRing Width="18"
+                    <ui:FAProgressRing Width="18"
                                      Height="18"
                                      Margin="0,0,0,8"
                                      AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
@@ -234,7 +234,7 @@
                 </WrapPanel>
             </Grid>
 
-            <ui:ProgressRing Width="28"
+            <ui:FAProgressRing Width="28"
                              Height="28"
                              HorizontalAlignment="Center"
                              VerticalAlignment="Center"

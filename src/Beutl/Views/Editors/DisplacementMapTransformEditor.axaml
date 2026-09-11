@@ -22,31 +22,31 @@
                       ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
+                    <ui:FARadioMenuFlyoutItem Click="TransformTypeClicked"
                                             IsChecked="{Binding IsTranslate.Value, Mode=OneWay}"
                                             Tag="Translate"
                                             Text="{x:Static lang:GraphicsStrings.TranslateTransform}">
-                        <ui:RadioMenuFlyoutItem.IconSource>
-                            <ui:PathIconSource Data="{StaticResource TranslateTransformIconData}" />
-                        </ui:RadioMenuFlyoutItem.IconSource>
-                    </ui:RadioMenuFlyoutItem>
-                    <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
+                        <ui:FARadioMenuFlyoutItem.IconSource>
+                            <ui:FAPathIconSource Data="{StaticResource TranslateTransformIconData}" />
+                        </ui:FARadioMenuFlyoutItem.IconSource>
+                    </ui:FARadioMenuFlyoutItem>
+                    <ui:FARadioMenuFlyoutItem Click="TransformTypeClicked"
                                             IsChecked="{Binding IsRotation.Value, Mode=OneWay}"
                                             Tag="Rotation"
                                             Text="{x:Static lang:GraphicsStrings.Rotation}">
-                        <ui:RadioMenuFlyoutItem.IconSource>
-                            <ui:PathIconSource Data="{StaticResource RotationTransformIconData}" />
-                        </ui:RadioMenuFlyoutItem.IconSource>
-                    </ui:RadioMenuFlyoutItem>
-                    <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
+                        <ui:FARadioMenuFlyoutItem.IconSource>
+                            <ui:FAPathIconSource Data="{StaticResource RotationTransformIconData}" />
+                        </ui:FARadioMenuFlyoutItem.IconSource>
+                    </ui:FARadioMenuFlyoutItem>
+                    <ui:FARadioMenuFlyoutItem Click="TransformTypeClicked"
                                             IsChecked="{Binding IsScale.Value, Mode=OneWay}"
                                             Tag="Scale"
                                             Text="{x:Static lang:GraphicsStrings.Scale}">
-                        <ui:RadioMenuFlyoutItem.IconSource>
-                            <ui:PathIconSource Data="{StaticResource ScaleTransformIconData}" />
-                        </ui:RadioMenuFlyoutItem.IconSource>
-                    </ui:RadioMenuFlyoutItem>
-                    <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
+                        <ui:FARadioMenuFlyoutItem.IconSource>
+                            <ui:FAPathIconSource Data="{StaticResource ScaleTransformIconData}" />
+                        </ui:FARadioMenuFlyoutItem.IconSource>
+                    </ui:FARadioMenuFlyoutItem>
+                    <ui:FARadioMenuFlyoutItem Click="TransformTypeClicked"
                                             IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                             Tag="Null"
                                             Text="{x:Static lang:Strings.Null}" />

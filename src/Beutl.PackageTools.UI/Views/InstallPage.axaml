@@ -14,10 +14,10 @@
                        mc:Ignorable="d">
     <!--  コードビハインドから指定  -->
     <!--<local:PackageToolPage.ButtonsContainer>
-        <uip:TaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
-            <uip:TaskDialogButtonHost Content="戻る" />
-            <uip:TaskDialogButtonHost Classes="accent" Content="次へ" />
-        </uip:TaskDialogButtonsPanel>
+        <uip:FATaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
+            <uip:FATaskDialogButtonHost Content="戻る" />
+            <uip:FATaskDialogButtonHost Classes="accent" Content="次へ" />
+        </uip:FATaskDialogButtonsPanel>
     </local:PackageToolPage.ButtonsContainer>-->
 
     <Grid Margin="18,9" RowDefinitions="Auto,*">

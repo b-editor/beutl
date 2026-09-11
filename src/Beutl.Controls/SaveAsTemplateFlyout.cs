@@ -8,7 +8,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Controls;
 
-public sealed class SaveAsTemplateFlyout : PickerFlyoutBase
+public sealed class SaveAsTemplateFlyout : FAPickerFlyoutBase
 {
     private TextBox? _textBox;
     private string _text = string.Empty;
@@ -28,9 +28,9 @@ public sealed class SaveAsTemplateFlyout : PickerFlyoutBase
 
     protected override Control CreatePresenter()
     {
-        _textBox ??= new TextBox { Watermark = Strings.EnterTemplateName };
+        _textBox ??= new TextBox { PlaceholderText = Strings.EnterTemplateName };
         _textBox.Text = _text;
-        var pfp = new PickerFlyoutPresenter()
+        var pfp = new FAPickerFlyoutPresenter()
         {
             Width = 280,
             Padding = new(8, 4),
@@ -62,18 +62,18 @@ public sealed class SaveAsTemplateFlyout : PickerFlyoutBase
     protected override void OnOpening(CancelEventArgs args)
     {
         base.OnOpening(args);
-        _textBox ??= new TextBox { Watermark = Strings.EnterTemplateName };
+        _textBox ??= new TextBox { PlaceholderText = Strings.EnterTemplateName };
         _textBox.Text = _text;
         _textBox.SelectAll();
         _textBox.Focus();
     }
 
-    private void OnFlyoutDismissed(PickerFlyoutPresenter sender, object args)
+    private void OnFlyoutDismissed(FAPickerFlyoutPresenter sender, object args)
     {
         Hide();
     }
 
-    private void OnFlyoutConfirmed(PickerFlyoutPresenter sender, object args)
+    private void OnFlyoutConfirmed(FAPickerFlyoutPresenter sender, object args)
     {
         OnConfirmed();
     }

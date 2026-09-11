@@ -13,7 +13,7 @@ public static class BindingHelper
 {
     private static readonly Dictionary<Type, CompiledBindingPath> s_cache = [];
 
-    public static IBinding ToPropertyBinding<T>(this IReactiveProperty<T> property, BindingMode bindingMode = BindingMode.Default)
+    public static BindingBase ToPropertyBinding<T>(this IReactiveProperty<T> property, BindingMode bindingMode = BindingMode.Default)
     {
         if (!s_cache.TryGetValue(typeof(T), out CompiledBindingPath? path))
         {

@@ -15,7 +15,7 @@
         <TextBox x:Name="SearchBox"
                  Classes="clearButton"
                  InputMethod.IsInputMethodEnabled="True"
-                 Watermark="{x:Static lang:Strings.Search}" />
+                 PlaceholderText="{x:Static lang:Strings.Search}" />
 
         <ListBox x:Name="searchResult"
                  Grid.Row="2"

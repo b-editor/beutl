@@ -315,15 +315,15 @@ public partial class MainView
         {
             string path = element.Uri!.LocalPath;
             string name = Path.GetFileName(path);
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = FAContentDialogButton.Primary,
                 Content = MessageStrings.ConfirmDeleteFile + "\n" + name
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
             {
                 viewModel.GetRequiredService<IElementStructureService>()
                     .Delete(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
@@ -344,15 +344,15 @@ public partial class MainView
             if (projItem == null)
                 return;
 
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = FAContentDialogButton.Primary,
                 Content = MessageStrings.ConfirmExcludeItem + "\n" + filePath
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
             {
                 try
                 {
@@ -370,7 +370,7 @@ public partial class MainView
 
     private async Task OnOpenFile()
     {
-        if (VisualRoot is not Window window || DataContext is not MainViewModel viewModel)
+        if (TopLevel.GetTopLevel(this) is not Window window || DataContext is not MainViewModel viewModel)
         {
             return;
         }
@@ -397,7 +397,7 @@ public partial class MainView
 
     private async Task OnOpenProject()
     {
-        if (VisualRoot is Window window)
+        if (TopLevel.GetTopLevel(this) is Window window)
         {
             var options = new FilePickerOpenOptions
             {
@@ -421,7 +421,7 @@ public partial class MainView
 
     private async Task OnExportProject()
     {
-        if (VisualRoot is not Window window)
+        if (TopLevel.GetTopLevel(this) is not Window window)
         {
             return;
         }
@@ -496,7 +496,7 @@ public partial class MainView
 
     private async Task OnImportProject()
     {
-        if (VisualRoot is not Window window)
+        if (TopLevel.GetTopLevel(this) is not Window window)
         {
             return;
         }
