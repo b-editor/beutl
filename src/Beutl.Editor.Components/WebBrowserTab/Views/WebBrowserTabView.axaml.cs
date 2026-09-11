@@ -255,6 +255,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     {
         NativeWebView? webView = _webView;
         WebBrowserTabViewModel? viewModel = _viewModel;
+        int revision = _pageRevision;
         if (webView == null || viewModel == null)
         {
             return;
@@ -275,7 +276,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (!_disposed && ReferenceEquals(_webView, webView) && ReferenceEquals(_viewModel, viewModel))
+                if (!_disposed && revision == _pageRevision
+                    && ReferenceEquals(_webView, webView) && ReferenceEquals(_viewModel, viewModel))
                 {
                     viewModel.SetPageTitle(uri, title);
                 }

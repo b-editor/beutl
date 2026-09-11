@@ -193,6 +193,9 @@ internal sealed class WebBrowserTabViewModel : IToolContext
             _errorMessage.Value = Strings.InvalidWebAddress;
             return;
         }
+        // Some adapters complete page-initiated navigation without a reliable top-level start.
+        // A title from the previous document must not survive that transition, even at the same URI.
+        _pageTitle.Value = null;
         if (isSuccess && uri != BlankPage)
         {
             string address = FormatAddress(uri);
@@ -214,10 +217,6 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         _canGoBack.Value = canGoBack;
         _canGoForward.Value = canGoForward;
         _errorMessage.Value = isSuccess || _navigationStopped ? null : Strings.WebPageLoadFailed;
-        if (!isSuccess)
-        {
-            _pageTitle.Value = null;
-        }
         _navigationStopped = false;
     }
 

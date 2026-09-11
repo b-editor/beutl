@@ -277,7 +277,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         // Windows reserves these basenames even before multiple extensions. Keep names portable.
         int dot = name.IndexOf('.');
         string stem = (dot < 0 ? name : name[..dot]).TrimEnd(' ').ToUpperInvariant();
-        bool reserved = stem is "CON" or "PRN" or "AUX" or "NUL"
+        bool reserved = stem is "CON" or "PRN" or "AUX" or "NUL" or "CONIN$" or "CONOUT$"
             || (stem.Length == 4 && (stem[..3] is "COM" or "LPT")
                 && (stem[3] is >= '1' and <= '9' or '¹' or '²' or '³'));
         return reserved ? "_" + name : name;

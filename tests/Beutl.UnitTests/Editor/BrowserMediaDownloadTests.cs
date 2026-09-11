@@ -91,6 +91,9 @@ public class BrowserMediaDownloadTests
     [TestCase("CON.mp4", "_CON.mp4")]
     [TestCase("prn.wav", "_prn.mp4")]
     [TestCase("AUX", "_AUX.mp4")]
+    [TestCase("CONIN$.mp4", "_CONIN$.mp4")]
+    [TestCase("conout$.backup.mp4", "_conout$.backup.mp4")]
+    [TestCase("CONOUT$", "_CONOUT$.mp4")]
     [TestCase("nul.backup.mp4", "_nul.backup.mp4")]
     [TestCase("COM1.mp4", "_COM1.mp4")]
     [TestCase("COM9.mp4", "_COM9.mp4")]
@@ -104,6 +107,7 @@ public class BrowserMediaDownloadTests
     [TestCase("COM0.mp4", "COM0.mp4")]
     [TestCase("LPT10.mp4", "LPT10.mp4")]
     [TestCase("report.CON.mp4", "report.CON.mp4")]
+    [TestCase("CONINPUT.mp4", "CONINPUT.mp4")]
     public void DownloadNamesAvoidWindowsDevicesWithoutChangingOrdinaryNames(string name, string expected)
     {
         Assert.That(BrowserMediaDownload.CreateFileName(name, new Uri("https://example.com/media"), "video/mp4"), Is.EqualTo(expected));

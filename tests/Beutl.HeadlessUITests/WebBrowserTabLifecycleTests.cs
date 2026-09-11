@@ -785,6 +785,47 @@ public class WebBrowserTabLifecycleTests
     }
 
     [AvaloniaTest]
+    public async Task MacPageNavigationFallsBackToTheNewHostWhenTitleRetrievalFails()
+    {
+        var first = new Uri("https://first.example/page");
+        var next = new Uri("https://second.example/page");
+        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), first);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            getPageTitle: _ => Task.FromException<string?>(new InvalidOperationException("Script unavailable")),
+            navigationStartedIncludesSubframes: true)
+        { DataContext = vm };
+        vm.CompleteNavigation(first, true, false, false);
+        vm.SetPageTitle(first, "Previous document");
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        await view.UpdatePageTitleAsync(next);
+        Assert.That(vm.CurrentUri, Is.EqualTo(next));
+        Assert.That(vm.Header.Value, Does.EndWith(": second.example"));
+        Assert.That(vm.IsLoading.Value, Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task OldTitleResultCannotReplaceTheTitleAfterReloadingTheSameUri()
+    {
+        var uri = new Uri("https://example.com/page");
+        var oldTitle = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool reloaded = false;
+        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), uri);
+        using var view = new WebBrowserTabView(source => new NativeWebView { Source = source }, () => (true, null, false),
+            getPageTitle: _ => reloaded ? Task.FromResult<string?>("New document") : oldTitle.Task,
+            navigationStartedIncludesSubframes: true)
+        { DataContext = vm };
+        Task previousRequest = view.UpdatePageTitleAsync(uri);
+        reloaded = true;
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = uri, IsSuccess = true });
+        await view.UpdatePageTitleAsync(uri);
+        Assert.That(vm.Header.Value, Is.EqualTo("New document"));
+        oldTitle.SetResult("Previous document");
+        await previousRequest;
+        Assert.That(vm.Header.Value, Is.EqualTo("New document"));
+    }
+
+    [AvaloniaTest]
     public void MissingLinuxRuntime_ShowsTheSetupGuideButtonWithoutCreatingAWebView()
     {
         Uri? launchedUri = null;

@@ -193,6 +193,24 @@ public class WebBrowserTabViewModelTests
         Assert.That(viewModel.ErrorMessage.Value, Is.Not.Null.And.Not.Empty);
     }
 
+    [TestCase("https://first.example/page")]
+    [TestCase("https://second.example/page")]
+    public void CompletionWithoutAStartEventDiscardsThePreviousDocumentTitle(string destination)
+    {
+        var first = new Uri("https://first.example/page");
+        var next = new Uri(destination);
+        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, first);
+        vm.CompleteNavigation(first, true, false, false);
+        vm.SetPageTitle(first, "Previous document");
+        vm.CompleteNavigation(next, true, true, false);
+        Assert.That(vm.CurrentUri, Is.EqualTo(next));
+        Assert.That(vm.Header.Value, Does.EndWith(": " + next.Host));
+        Assert.That(vm.Header.Value, Does.Not.Contain("Previous document"));
+        Assert.That(vm.IsLoading.Value, Is.False);
+        vm.SetPageTitle(next, "New document");
+        Assert.That(vm.Header.Value, Is.EqualTo("New document"));
+    }
+
     [Test]
     public void StoppedNavigation_DoesNotReportALoadFailure()
     {
