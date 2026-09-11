@@ -92,7 +92,8 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             length += count;
         }
         Array.Resize(ref prefix, length);
-        var inspector = new BrowserMediaContentInspector(prefix, isFinal: length < 4096);
+        var inspector = new BrowserMediaContentInspector(prefix, isFinal: length < 4096,
+            charset: response.Content.Headers.ContentType?.CharSet);
         if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
         Directory.CreateDirectory(directory);
         string temporaryPath = Path.Combine(directory, $".{Guid.NewGuid():N}.part");

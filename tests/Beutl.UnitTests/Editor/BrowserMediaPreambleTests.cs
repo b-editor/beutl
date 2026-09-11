@@ -24,6 +24,53 @@ public class BrowserMediaPreambleTests
         await AssertSvgIsPreserved(body);
     }
 
+    [TestCase("utf16le", "utf-16", "image/svg+xml")]
+    [TestCase("utf16le", "utf-16LE", "application/octet-stream")]
+    [TestCase("utf16be", "utf-16BE", "image/svg+xml")]
+    [TestCase("utf32le", "utf-32", "application/octet-stream")]
+    [TestCase("utf32be", "utf-32BE", "image/svg+xml")]
+    [TestCase("utf16be", "\"UTF-16BE\"", "image/svg+xml")]
+    public void DeclaredBomlessUnicodeHtmlIsRejected(string encoding, string charset, string mediaType)
+    {
+        byte[] body = GetEncoding(encoding).GetBytes(" \n<!-- sign in -->\n<html><body>Login</body></html>");
+        AssertHtmlIsRejected(body, charset, mediaType);
+    }
+
+    [TestCase("utf16le", "utf-16")]
+    [TestCase("utf16be", "utf-16BE")]
+    [TestCase("utf32le", "utf-32")]
+    [TestCase("utf32be", "utf-32BE")]
+    public async Task DeclaredBomlessUnicodeSvgKeepsItsOriginalBytes(string encoding, string charset)
+    {
+        byte[] body = GetEncoding(encoding).GetBytes("<?xml version='1.0'?><!--" + new string('界', 7000)
+            + "--><svg xmlns='http://www.w3.org/2000/svg'/>");
+        await AssertSvgIsPreserved(body, charset);
+    }
+
+    [TestCase("utf-16")]
+    [TestCase("utf-32BE")]
+    [TestCase("x-unsupported-charset")]
+    public void AFalseCharsetDoesNotDisableUtf8HtmlInspection(string charset)
+    {
+        byte[] body = Encoding.UTF8.GetBytes("<!--" + new string('x', 9000) + "--><html>Login</html>");
+        AssertHtmlIsRejected(body, charset, "image/svg+xml");
+    }
+
+    [Test]
+    public async Task Utf8BomOverridesAnIncorrectWideCharset()
+    {
+        byte[] body = [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes("<!--" + new string('x', 9000)
+            + "--><svg xmlns='http://www.w3.org/2000/svg'/>")];
+        await AssertSvgIsPreserved(body, "utf-16");
+    }
+
+    [Test]
+    public void UnicodeBomOverridesAnIncorrectUtf8Charset()
+    {
+        byte[] body = [.. Encoding.BigEndianUnicode.GetPreamble(), .. Encoding.BigEndianUnicode.GetBytes("<html>Login</html>")];
+        AssertHtmlIsRejected(body, "utf-8", "application/octet-stream");
+    }
+
     [TestCase(4088)]
     [TestCase(4089)]
     [TestCase(4090)]
@@ -71,10 +118,23 @@ public class BrowserMediaPreambleTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
-    private static async Task AssertSvgIsPreserved(byte[] body)
+    private static void AssertHtmlIsRejected(byte[] body, string charset, string mediaType)
     {
         string directory = NewDirectory();
-        using var client = new HttpClient(new BodyHandler(body));
+        using var client = new HttpClient(new BodyHandler(body, charset, mediaType));
+        try
+        {
+            Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
+                new Uri("https://example.com/image.svg"), directory, null, null, default));
+            Assert.That(Directory.Exists(directory) ? Directory.GetFiles(directory) : [], Is.Empty);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    private static async Task AssertSvgIsPreserved(byte[] body, string? charset = null)
+    {
+        string directory = NewDirectory();
+        using var client = new HttpClient(new BodyHandler(body, charset));
         try
         {
             string file = await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://example.com/image.svg"),
@@ -95,14 +155,14 @@ public class BrowserMediaPreambleTests
         _ => new UTF8Encoding(false)
     };
 
-    private sealed class BodyHandler(byte[] body) : HttpMessageHandler
+    private sealed class BodyHandler(byte[] body, string? charset = null, string mediaType = "image/svg+xml") : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 RequestMessage = request,
                 Content = new StreamContent(new SmallReadStream(body))
-                { Headers = { ContentType = new MediaTypeHeaderValue("image/svg+xml") } }
+                { Headers = { ContentType = new MediaTypeHeaderValue(mediaType) { CharSet = charset } } }
             });
     }
 

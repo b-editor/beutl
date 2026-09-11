@@ -8,26 +8,53 @@ internal sealed class BrowserMediaContentInspector
         ["<!doctype html", "<html", "<head", "<body", "<script", "<iframe", "<title", "<div", "<h1", "<table", "<p", "<font", "<a", "<style", "<b", "<br", "<form", "<meta"];
     private readonly Encoding _encoding;
     private readonly Decoder _decoder;
+    private readonly BrowserMediaContentInspector? _utf8Fallback;
     private char[] _characters = [];
     private string _pending = string.Empty;
     private State _state;
     private bool _sawComment;
+    private bool _isHtml;
 
-    internal BrowserMediaContentInspector(ReadOnlySpan<byte> prefix, bool isFinal)
+    internal BrowserMediaContentInspector(ReadOnlySpan<byte> prefix, bool isFinal, string? charset)
     {
-        _encoding = Encoding.UTF8;
-        if (prefix.StartsWith(new byte[] { 0xff, 0xfe, 0, 0 })) _encoding = Encoding.UTF32;
-        else if (prefix.StartsWith(new byte[] { 0, 0, 0xfe, 0xff })) _encoding = new UTF32Encoding(true, true);
-        else if (prefix.StartsWith(new byte[] { 0xff, 0xfe })) _encoding = Encoding.Unicode;
-        else if (prefix.StartsWith(new byte[] { 0xfe, 0xff })) _encoding = Encoding.BigEndianUnicode;
+        Encoding? bomEncoding = GetBomEncoding(prefix);
+        _encoding = bomEncoding ?? GetDeclaredEncoding(charset) ?? Encoding.UTF8;
         _decoder = _encoding.GetDecoder();
+        // An incorrect charset must not disable the existing UTF-8/ASCII HTML check.
+        // BOMs are authoritative; otherwise both interpretations remain bounded streaming probes.
+        if (bomEncoding == null && _encoding.CodePage != Encoding.UTF8.CodePage)
+            _utf8Fallback = new BrowserMediaContentInspector(Encoding.UTF8);
         Inspect(prefix, isFinal);
     }
 
-    internal bool IsHtml { get; private set; }
+    private BrowserMediaContentInspector(Encoding encoding)
+    {
+        _encoding = encoding;
+        _decoder = encoding.GetDecoder();
+    }
+
+    private static Encoding? GetBomEncoding(ReadOnlySpan<byte> prefix)
+    {
+        if (prefix.StartsWith(new byte[] { 0xff, 0xfe, 0, 0 })) return Encoding.UTF32;
+        if (prefix.StartsWith(new byte[] { 0, 0, 0xfe, 0xff })) return new UTF32Encoding(true, true);
+        if (prefix.StartsWith(new byte[] { 0xff, 0xfe })) return Encoding.Unicode;
+        if (prefix.StartsWith(new byte[] { 0xfe, 0xff })) return Encoding.BigEndianUnicode;
+        if (prefix.StartsWith(new byte[] { 0xef, 0xbb, 0xbf })) return Encoding.UTF8;
+        return null;
+    }
+
+    private static Encoding? GetDeclaredEncoding(string? charset)
+    {
+        if (string.IsNullOrWhiteSpace(charset)) return null;
+        try { return Encoding.GetEncoding(charset.Trim().Trim('"')); }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException) { return null; }
+    }
+
+    internal bool IsHtml => _isHtml || _utf8Fallback?.IsHtml == true;
 
     internal void Inspect(ReadOnlySpan<byte> bytes, bool isFinal = false)
     {
+        _utf8Fallback?.Inspect(bytes, isFinal);
         if (_state == State.Finished) return;
         int capacity = _encoding.GetMaxCharCount(bytes.Length);
         if (_characters.Length < capacity) _characters = new char[capacity];
@@ -99,7 +126,7 @@ internal sealed class BrowserMediaContentInspector
 
     private void Finish(bool isHtml)
     {
-        IsHtml = isHtml;
+        _isHtml = isHtml;
         _state = State.Finished;
         _pending = string.Empty;
         _characters = [];
