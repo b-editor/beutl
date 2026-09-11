@@ -354,7 +354,8 @@ public class PreviewRenderErrorTests
             new BufferedPlayer.RenderFailure(new InvalidOperationException(PreviewFaultDrawable.ErrorMessage), frame),
             rate,
             static () => true);
-        HeadlessTestHelpers.Settle();
+        // Check the synchronous failure state before pumping queued work: updating the clock
+        // schedules a preview, and a successful recovery render may clear the error again.
 
         Assert.Multiple(() =>
         {

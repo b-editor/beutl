@@ -7,7 +7,7 @@ using Iciclecreek.Terminal;
 
 namespace Beutl.Editor.Components.TerminalTab.Views;
 
-public partial class TerminalTabView : UserControl
+public partial class TerminalTabView : UserControl, IDisposable
 {
     private TerminalTabViewModel? _viewModel;
     private TerminalTabViewModel? _launchedViewModel;
@@ -34,6 +34,7 @@ public partial class TerminalTabView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        if (_disposed) return;
 
         _viewModel = DataContext as TerminalTabViewModel;
         if (_viewModel != null)
@@ -47,7 +48,6 @@ public partial class TerminalTabView : UserControl
                 // a dock/reparent.
                 _launched = false;
                 _launching = false;
-                _disposed = false;
             }
 
             // Pass the locale per spawn so it never mutates the shared process environment
@@ -92,9 +92,7 @@ public partial class TerminalTabView : UserControl
     {
         TerminalTabViewModel viewModel = _viewModel!;
         _launching = true;
-        // Bind the dispose subscription to the view-model this PTY serves so it survives a same-VM
-        // rebind through null and still tears the PTY down when that view-model is disposed.
-        SetLaunchedViewModel(viewModel);
+        _launchedViewModel = viewModel;
         viewModel.IsProcessExited.Value = false;
         // Clear the previous session title; the new shell may not emit OSC 0/2.
         viewModel.TerminalTitle.Value = null;
@@ -126,7 +124,7 @@ public partial class TerminalTabView : UserControl
             if (_disposed)
             {
                 // Torn down mid-launch: tear down any PTY that did spawn and never touch the disposed
-                // view-model. Shutdown is idempotent with the teardown OnViewModelDisposed already ran.
+                // view-model. Shutdown is idempotent with the view teardown that already ran.
                 Terminal.Shutdown();
                 return;
             }
@@ -166,22 +164,6 @@ public partial class TerminalTabView : UserControl
         }
     }
 
-    private void SetLaunchedViewModel(TerminalTabViewModel viewModel)
-    {
-        if (ReferenceEquals(_launchedViewModel, viewModel))
-        {
-            return;
-        }
-
-        if (_launchedViewModel != null)
-        {
-            _launchedViewModel.Disposed -= OnViewModelDisposed;
-        }
-
-        _launchedViewModel = viewModel;
-        _launchedViewModel.Disposed += OnViewModelDisposed;
-    }
-
     private void OnProcessExited(object? sender, ProcessExitedEventArgs e)
     {
         // Report on the view-model that owns the PTY, not the current DataContext, so a process exit
@@ -193,9 +175,16 @@ public partial class TerminalTabView : UserControl
         }
     }
 
-    private void OnViewModelDisposed(object? sender, EventArgs e)
+    public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
+        Loaded -= OnLoaded;
+        Terminal.RemoveHandler(TerminalView.TitleChangedEvent, OnTerminalTitleChanged);
         // Shutdown (not just Kill) so the connection and read-cancellation source are disposed even
         // when no later detach runs the cleanup — an inactive tab is already detached when closed.
         Terminal.EndReparent();
@@ -207,5 +196,8 @@ public partial class TerminalTabView : UserControl
         {
             // The PTY may already be gone; tearing down the tab must not throw.
         }
+
+        _viewModel = null;
+        _launchedViewModel = null;
     }
 }

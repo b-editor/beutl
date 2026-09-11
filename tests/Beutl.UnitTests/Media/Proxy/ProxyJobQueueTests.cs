@@ -15,7 +15,8 @@ public class ProxyJobQueueTests
         var admission = new SequencedAdmission(rejections: int.MaxValue);
         await using var queue = new ProxyJobQueue(new RecordingGenerator(), store: null,
             minUnavailableBackoff: TimeSpan.FromSeconds(30), maxUnavailableBackoff: TimeSpan.FromSeconds(30), admission);
-        var observed = new List<ProxyJobChangeKind>();
+        // Enqueued can be delivered concurrently with admission/cancellation callbacks.
+        var observed = new System.Collections.Concurrent.ConcurrentQueue<ProxyJobChangeKind>();
         var canceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         queue.JobChanged += (_, change) =>
         {
@@ -24,7 +25,7 @@ public class ProxyJobQueueTests
         };
         queue.JobChanged += (_, change) =>
         {
-            observed.Add(change.Kind);
+            observed.Enqueue(change.Kind);
             if (change.Kind == ProxyJobChangeKind.Canceled) canceled.TrySetResult();
         };
         await queue.EnqueueAsync(CreateFingerprint("wait-cancel-order.mov"), ProxyPreset.Quarter);
