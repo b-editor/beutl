@@ -347,25 +347,36 @@
                                    TextWrapping="Wrap" />
                         <TextBlock x:Name="DownloadProgressText"
                                    Classes="browserSecondary"
+                                   TextTrimming="CharacterEllipsis"
                                    IsVisible="False" />
                     </StackPanel>
-                    <Panel Grid.Column="2" VerticalAlignment="Center">
-                        <Button x:Name="DownloadCancelButton"
-                                AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal" Spacing="4">
+                        <Button x:Name="ConfirmPageDownloadButton"
+                                AutomationProperties.Name="{x:Static lang:Strings.WebDownloadMedia}"
                                 Classes="browserIcon"
-                                Click="OnCancelDownloadClick"
+                                Click="OnConfirmPageDownloadClick"
                                 IsVisible="False"
-                                ToolTip.Tip="{x:Static lang:Strings.Cancel}">
-                            <icons:FluentIcon FontSize="16" Icon="Dismiss" />
+                                ToolTip.Tip="{x:Static lang:Strings.WebDownloadMedia}">
+                            <icons:FluentIcon FontSize="16" Icon="ArrowDownload" />
                         </Button>
-                        <Button x:Name="DismissDownloadStatusButton"
-                                AutomationProperties.Name="{x:Static lang:Strings.Close}"
-                                Classes="browserIcon"
-                                Click="OnDismissDownloadStatusClick"
-                                ToolTip.Tip="{x:Static lang:Strings.Close}">
-                            <icons:FluentIcon FontSize="16" Icon="Dismiss" />
-                        </Button>
-                    </Panel>
+                        <Panel>
+                            <Button x:Name="DownloadCancelButton"
+                                    AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
+                                    Classes="browserIcon"
+                                    Click="OnCancelDownloadClick"
+                                    IsVisible="False"
+                                    ToolTip.Tip="{x:Static lang:Strings.Cancel}">
+                                <icons:FluentIcon FontSize="16" Icon="Dismiss" />
+                            </Button>
+                            <Button x:Name="DismissDownloadStatusButton"
+                                    AutomationProperties.Name="{x:Static lang:Strings.Close}"
+                                    Classes="browserIcon"
+                                    Click="OnDismissDownloadStatusClick"
+                                    ToolTip.Tip="{x:Static lang:Strings.Close}">
+                                <icons:FluentIcon FontSize="16" Icon="Dismiss" />
+                            </Button>
+                        </Panel>
+                    </StackPanel>
                     <ProgressBar x:Name="DownloadProgressBar"
                                  Grid.Row="1"
                                  Grid.ColumnSpan="3"

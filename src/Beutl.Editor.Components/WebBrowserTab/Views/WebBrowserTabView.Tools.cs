@@ -22,6 +22,7 @@ internal partial class WebBrowserTabView
 
     private void ShowToolStatus(string message)
     {
+        ClearPageDownloadRequest();
         DownloadStatusPanel.IsVisible = true;
         DownloadStatusText.Text = message;
         ToolTip.SetTip(DownloadStatusText, null);

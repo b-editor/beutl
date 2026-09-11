@@ -2803,4 +2803,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="BrowserFindUnavailable" xml:space="preserve">
     <value>このページでは検索を利用できません。</value>
   </data>
+  <data name="BrowserPageDownloadRequest" xml:space="preserve">
+    <value>このページからのダウンロード要求</value>
+  </data>
+  <data name="BrowserIgnorePageDownloads" xml:space="preserve">
+    <value>ページを再読み込みするまでダウンロード要求を無視</value>
+  </data>
 </root>

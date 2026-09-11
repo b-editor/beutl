@@ -2,6 +2,7 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json.Nodes;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
@@ -148,6 +149,8 @@ public class WebBrowserDownloadTests
                 Body = """{"kind":"beutl-download","url":"https://soundeffect-lab.info/sound/button/mp3/decision1.mp3","name":"sound.mp3"}"""
             });
             Dispatcher.UIThread.RunJobs();
+            view.FindControl<Button>("ConfirmPageDownloadButton")!
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             vm.CompleteNavigation(new Uri("https://elsewhere.example/"), true, false, false);
             options.SetResult(new(root, true));
             await imported.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -169,6 +172,165 @@ public class WebBrowserDownloadTests
             Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://soundeffect-lab.info/")));
         }
         finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void PageMessagesCannotOpenDownloadOptionsWithoutNativeConfirmation(bool anotherPanelOpen)
+    {
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+        var existingContent = new TextBlock { Text = "Existing panel" };
+        if (anotherPanelOpen) view.ShowBrowserPanel("Existing panel", existingContent);
+        int optionsOpened = 0;
+        Uri? requested = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            requested = uri;
+            optionsOpened++;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4","isTrusted":true}""" });
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = """{"kind":"beutl-download","url":"https://attacker.example/queued.mp4"}""" });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(optionsOpened, Is.Zero);
+        Assert.That(view.FindControl<Grid>("BrowserSurface")!.IsVisible, Is.EqualTo(!anotherPanelOpen));
+        Assert.That(view.FindControl<Grid>("ToolPanel")!.IsVisible, Is.EqualTo(anotherPanelOpen));
+        if (anotherPanelOpen) Assert.That(view.FindControl<ContentControl>("ToolPanelContent")!.Content, Is.SameAs(existingContent));
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(confirm.IsVisible, Is.True);
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = """{"kind":"beutl-download","url":"https://attacker.example/replacement.mp4"}""" });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo("https://files.example/movie.mp4"));
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Assert.That(optionsOpened, Is.EqualTo(1));
+        Assert.That(requested, Is.EqualTo(new Uri("https://files.example/movie.mp4")));
+        Assert.That(confirm.IsVisible, Is.False);
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Assert.That(optionsOpened, Is.EqualTo(1));
+    }
+
+    [AvaloniaTest]
+    public void DismissingPageDownloadsSuppressesRepeatedRequestsUntilANewDocument()
+    {
+        var initial = new Uri("https://page.example/");
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), initial);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            getPageTitle: _ => Task.FromResult<string?>("Page"))
+        { DataContext = vm };
+        view.PageScriptRunner = _ => Task.FromResult<string?>("true");
+        void Request()
+        {
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
+            Dispatcher.UIThread.RunJobs();
+        }
+        Request();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        view.FindControl<Button>("DismissDownloadStatusButton")!
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Request();
+        Assert.That(view.FindControl<Grid>("DownloadStatusPanel")!.IsVisible, Is.False);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = initial, IsSuccess = false });
+        Request();
+        Assert.That(view.FindControl<Grid>("DownloadStatusPanel")!.IsVisible, Is.False);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = initial, IsSuccess = true });
+        Request();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void PageDownloadRequestsExpireWithTheirDocumentOrContext(bool clearContext, bool queued)
+    {
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            getPageTitle: _ => Task.FromResult<string?>("Page"))
+        { DataContext = vm };
+        view.PageScriptRunner = _ => Task.FromResult<string?>("true");
+        int optionsOpened = 0;
+        view.DownloadOptionsSelector = (_, _) => { optionsOpened++; return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null); };
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
+        if (!queued) Dispatcher.UIThread.RunJobs();
+        if (clearContext) view.DataContext = null;
+        else view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = new Uri("https://next.example/"), IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(confirm.IsVisible, Is.False);
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Assert.That(optionsOpened, Is.Zero);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void PageMediaNavigationsAndPopupsAlsoRequireNativeConfirmation(bool popup)
+    {
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        int optionsOpened = 0;
+        view.DownloadOptionsSelector = (_, _) => { optionsOpened++; return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null); };
+        var media = new Uri("https://files.example/movie.mp4");
+        if (popup)
+        {
+            var request = new WebViewNewWindowRequestedEventArgs { Request = media };
+            view.OnNewWindowRequested(null, request);
+            Assert.That(request.Handled, Is.True);
+        }
+        else
+        {
+            var request = new WebViewNavigationStartingEventArgs { Request = media };
+            view.OnNavigationStarted(null, request);
+            Assert.That(request.Cancel, Is.True);
+        }
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(optionsOpened, Is.Zero);
+        view.FindControl<Button>("ConfirmPageDownloadButton")!
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Assert.That(optionsOpened, Is.EqualTo(1));
+    }
+
+    [AvaloniaTest]
+    [TestCase(320)]
+    [TestCase(640)]
+    public void PageDownloadNotificationStaysCompactAndKeepsThePageVisible(int width)
+    {
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+        var window = new Window { Width = width, Height = 520, Content = view };
+        try
+        {
+            window.Show();
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = new JsonObject { ["kind"] = "beutl-download", ["url"] = "https://files.example/" + new string('a', 500) + ".mp4" }.ToJsonString() });
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            var status = view.FindControl<Grid>("DownloadStatusPanel")!;
+            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+            Assert.That(view.FindControl<Grid>("BrowserSurface")!.IsVisible, Is.True);
+            Assert.That(status.Bounds.Height, Is.InRange(1, 110));
+            var position = confirm.TranslatePoint(default, status)!.Value;
+            Assert.That(position.X, Is.GreaterThanOrEqualTo(0));
+            Assert.That(position.X + confirm.Bounds.Width, Is.LessThanOrEqualTo(status.Bounds.Width));
+            if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(new Avalonia.PixelSize(width, 520), new Avalonia.Vector(96, 96));
+                bitmap.Render(window);
+                bitmap.Save(Path.Combine(directory, $"page-download-request-{width}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+            }
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]

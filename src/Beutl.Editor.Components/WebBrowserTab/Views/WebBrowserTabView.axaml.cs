@@ -68,6 +68,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         _downloadCancellation?.Cancel();
+        ResetPageDownloadRequests();
         CloseBrowserPanel();
         _pageRevision++;
         _findRequest?.Cancel();
@@ -220,7 +221,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
         {
             e.Cancel = true;
-            QueuePageDownload(mediaUri, null);
+            QueuePageDownloadRequest(mediaUri, null);
             return;
         }
 
@@ -237,6 +238,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
+        if (e.IsSuccess) ResetPageDownloadRequests();
         _pageRevision++;
         _findRequest?.Cancel();
         Uri uri = e.Request ?? _webView.Source;
@@ -325,7 +327,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
         {
             e.Handled = true;
-            QueuePageDownload(mediaUri, null);
+            QueuePageDownloadRequest(mediaUri, null);
             return;
         }
 
@@ -573,6 +575,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         _disposed = true;
+        ResetPageDownloadRequests();
         _pageRevision++;
         _findRequest?.Cancel();
         CloseBrowserPanel();

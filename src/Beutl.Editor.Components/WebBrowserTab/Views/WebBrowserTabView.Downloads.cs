@@ -12,6 +12,11 @@ namespace Beutl.Editor.Components.WebBrowserTab.Views;
 internal partial class WebBrowserTabView
 {
     private CancellationTokenSource? _downloadCancellation;
+    private PageDownloadRequest? _pendingPageDownloadRequest;
+    private int _pageDownloadDocumentId;
+    private bool _pageDownloadRequestsSuppressed;
+
+    private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId);
 
     internal BrowserMediaDownload MediaDownloader { get; set; } = BrowserMediaDownload.Default;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
@@ -54,6 +59,8 @@ internal partial class WebBrowserTabView
 
     internal void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
     {
+        if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed
+            || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
         if (e.Body is not { Length: > 0 and < 16384 } body) return;
         try
         {
@@ -67,7 +74,7 @@ internal partial class WebBrowserTabView
             {
                 string? name = root.TryGetProperty("name", out var fileName) && fileName.ValueKind == JsonValueKind.String
                     ? fileName.GetString() : null;
-                QueuePageDownload(uri, name);
+                QueuePageDownloadRequest(uri, name);
             }
         }
         catch (JsonException)
@@ -76,14 +83,68 @@ internal partial class WebBrowserTabView
         }
     }
 
-    private void QueuePageDownload(Uri uri, string? suggestedName)
+    private void QueuePageDownloadRequest(Uri uri, string? suggestedName)
     {
+        if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed
+            || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
         var owner = _viewModel;
+        var source = _webView;
+        int documentId = _pageDownloadDocumentId;
         Uri? referrer = owner?.CurrentUri;
+        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId);
+        _pendingPageDownloadRequest = request;
         Dispatcher.UIThread.Post(() =>
         {
-            if (ReferenceEquals(owner, _viewModel)) _ = DownloadMediaAsync(uri, suggestedName, referrer);
+            if (_disposed || owner == null || !ReferenceEquals(owner, _viewModel) || !ReferenceEquals(source, _webView)
+                || documentId != _pageDownloadDocumentId || _pageDownloadRequestsSuppressed
+                || !ReferenceEquals(_pendingPageDownloadRequest, request) || _downloadCancellation != null) return;
+
+            // Page scripts control bridge messages and navigation requests. Only native UI can authorize opening options.
+            SetDownloadRunning(false);
+            DownloadStatusText.MaxLines = 1;
+            DownloadStatusText.TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis;
+            DownloadStatusText.Text = Strings.BrowserPageDownloadRequest;
+            DownloadProgressText.Text = uri.AbsoluteUri;
+            DownloadProgressText.IsVisible = true;
+            ToolTip.SetTip(DownloadStatusText, uri.AbsoluteUri);
+            ToolTip.SetTip(DownloadProgressText, uri.AbsoluteUri);
+            ToolTip.SetTip(DismissDownloadStatusButton, Strings.BrowserIgnorePageDownloads);
+            Avalonia.Automation.AutomationProperties.SetName(DismissDownloadStatusButton, Strings.BrowserIgnorePageDownloads);
+            ConfirmPageDownloadButton.IsVisible = true;
+            DownloadStatusPanel.IsVisible = true;
         });
+    }
+
+    private void ClearPageDownloadRequest()
+    {
+        if (_pendingPageDownloadRequest != null && ConfirmPageDownloadButton.IsVisible)
+        {
+            DownloadStatusPanel.IsVisible = false;
+            DownloadProgressText.IsVisible = false;
+            DownloadProgressText.Text = string.Empty;
+            ToolTip.SetTip(DownloadProgressText, null);
+        }
+        _pendingPageDownloadRequest = null;
+        ConfirmPageDownloadButton.IsVisible = false;
+        DownloadStatusText.MaxLines = 0;
+        DownloadStatusText.TextTrimming = Avalonia.Media.TextTrimming.None;
+        ToolTip.SetTip(DismissDownloadStatusButton, Strings.Close);
+        Avalonia.Automation.AutomationProperties.SetName(DismissDownloadStatusButton, Strings.Close);
+    }
+
+    private void ResetPageDownloadRequests()
+    {
+        _pageDownloadDocumentId++;
+        _pageDownloadRequestsSuppressed = false;
+        ClearPageDownloadRequest();
+    }
+
+    private async void OnConfirmPageDownloadClick(object? sender, RoutedEventArgs e)
+    {
+        if (!ConfirmPageDownloadButton.IsVisible || _pendingPageDownloadRequest is not { } request) return;
+        ClearPageDownloadRequest();
+        if (_disposed || request.DocumentId != _pageDownloadDocumentId) return;
+        await DownloadMediaAsync(request.Uri, request.SuggestedName, request.Referrer);
     }
 
     private void OnDownloadMediaClick(object? sender, RoutedEventArgs e)
@@ -94,7 +155,12 @@ internal partial class WebBrowserTabView
         }
     }
 
-    private void OnDismissDownloadStatusClick(object? sender, RoutedEventArgs e) => DownloadStatusPanel.IsVisible = false;
+    private void OnDismissDownloadStatusClick(object? sender, RoutedEventArgs e)
+    {
+        if (_pendingPageDownloadRequest != null) _pageDownloadRequestsSuppressed = true;
+        ClearPageDownloadRequest();
+        DownloadStatusPanel.IsVisible = false;
+    }
 
     private void SetDownloadRunning(bool running)
     {
@@ -132,6 +198,7 @@ internal partial class WebBrowserTabView
     internal async Task DownloadMediaAsync(Uri uri, string? suggestedName, Uri? referrer = null)
     {
         if (_disposed || _downloadCancellation != null || _viewModel is not { } vm) return;
+        ClearPageDownloadRequest();
         NativeWebView? initiatingWebView = _webView;
         using var cancellation = new CancellationTokenSource();
         _downloadCancellation = cancellation;

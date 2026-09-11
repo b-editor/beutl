@@ -2808,4 +2808,10 @@ when history recording is enabled.</value>
   <data name="BrowserFindUnavailable" xml:space="preserve">
     <value>Search is unavailable on this page.</value>
   </data>
+  <data name="BrowserPageDownloadRequest" xml:space="preserve">
+    <value>Download requested by this page</value>
+  </data>
+  <data name="BrowserIgnorePageDownloads" xml:space="preserve">
+    <value>Ignore download requests until this page is reloaded</value>
+  </data>
 </root>

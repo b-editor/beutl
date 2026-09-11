@@ -10,7 +10,7 @@ internal sealed class WebSearchSuggestions(HttpClient client)
     internal static bool IsSearchQuery(string? text)
     {
         string query = text?.Trim() ?? string.Empty;
-        if (query.Length == 0 || query.Length > 200 || query.Contains("://", StringComparison.Ordinal)
+        if (query.Length == 0 || query.Contains("://", StringComparison.Ordinal)
             || query.Contains('@') || query.Equals("localhost", StringComparison.OrdinalIgnoreCase))
         {
             return false;
@@ -40,7 +40,7 @@ internal sealed class WebSearchSuggestions(HttpClient client)
     internal async Task<IReadOnlyList<string>> GetSuggestionsAsync(string query, CancellationToken cancellationToken,
         BrowserSearchEngine engine = BrowserSearchEngine.Google)
     {
-        if (!IsSearchQuery(query) || query.Trim().Length < 2)
+        if (query.Trim().Length is < 2 or > 200 || !IsSearchQuery(query))
         {
             return [];
         }

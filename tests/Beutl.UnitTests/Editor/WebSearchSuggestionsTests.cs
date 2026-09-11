@@ -69,6 +69,45 @@ public class WebSearchSuggestionsTests
         Assert.That(uri.AbsoluteUri, Is.EqualTo(expected));
     }
 
+    [TestCase(0, "www.google.com")]
+    [TestCase(1, "www.bing.com")]
+    public void LongQuestionsRemainSearches(int engineIndex, string expectedHost)
+    {
+        string text = string.Join(' ', Enumerable.Repeat("Explain this lengthy error message", 12));
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var profile = new BrowserProfile(Path.Combine(directory, "profile.json"));
+        try
+        {
+            Assert.That(profile.UpdateSettings((BrowserSearchEngine)engineIndex, true, true), Is.True);
+            using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, WebBrowserTabViewModel.BlankPage, profile);
+            vm.Address.Value = text;
+            Assert.That(vm.TryCreateNavigationUri(out Uri uri), Is.True);
+            Assert.That(uri.Host, Is.EqualTo(expectedHost));
+            Assert.That(Uri.UnescapeDataString(uri.Query[3..]), Is.EqualTo(text));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Test]
+    public async Task LongSearchesDoNotRequestRemoteSuggestions()
+    {
+        var handler = new SuggestionHandler();
+        using var client = new HttpClient(handler);
+        string text = string.Join(' ', Enumerable.Repeat("long question", 30));
+        Assert.That(await new WebSearchSuggestions(client).GetSuggestionsAsync(text, CancellationToken.None), Is.Empty);
+        Assert.That(handler.RequestUri, Is.Null);
+    }
+
+    [Test]
+    public void VeryLongQuestionsRemainSearches()
+    {
+        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        vm.Address.Value = new string('x', 100000) + " question";
+        Assert.That(vm.TryCreateNavigationUri(out Uri uri), Is.True);
+        Assert.That(uri.Host, Is.EqualTo("www.google.com"));
+        Assert.That(Uri.UnescapeDataString(uri.Query[3..]), Is.EqualTo(vm.Address.Value));
+    }
+
     private sealed class SuggestionHandler : HttpMessageHandler
     {
         internal Uri? RequestUri { get; private set; }
