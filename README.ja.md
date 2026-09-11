@@ -40,13 +40,21 @@ Beutl アカウントを作成して、拡張機能を取得したり、自身�
 
 初回チェックアウト時は、先に `git submodule update --init --recursive` でGitサブモジュールを初期化してください。
 
-リポジトリのルートで次のコマンドを実行します。
+リポジトリのルートで、付属のスクリプトを実行します。Nukeのグローバルツールのインストールは不要です。
+
+macOS/Linux:
 
 ```sh
-nuke dev
+./build.sh dev
 ```
 
-`src/Beutl` をDebug構成で実行します。TFMはWindowsでは `net10.0-windows`、macOS/Linuxでは `net10.0` を自動選択します。Nukeのグローバルツールをインストールせずに、macOS/Linuxでは `./build.sh dev`、PowerShellでは `./build.ps1 dev` も使用できます。
+Windows (PowerShell):
+
+```powershell
+.\build.ps1 dev
+```
+
+`src/Beutl` をDebug構成で実行します。TFMはWindowsでは `net10.0-windows`、macOS/Linuxでは `net10.0` を自動選択します。Nukeのグローバルツールをインストール済みの場合は、`nuke dev` も使用できます。
 
 ## License
 

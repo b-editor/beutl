@@ -43,13 +43,21 @@ Refer to the [documentation](https://docs.beutl.beditor.net/get-started/install)
 
 On a fresh checkout, initialize the Git submodules first with `git submodule update --init --recursive`.
 
-Run the application from the repository root:
+Run the application from the repository root using the included scripts, which do not require the global Nuke tool.
+
+macOS/Linux:
 
 ```sh
-nuke dev
+./build.sh dev
 ```
 
-This runs `src/Beutl` in Debug configuration, automatically selecting `net10.0-windows` on Windows and `net10.0` on macOS/Linux. You can also use `./build.sh dev` on macOS/Linux or `./build.ps1 dev` in PowerShell without installing the global Nuke tool.
+Windows (PowerShell):
+
+```powershell
+.\build.ps1 dev
+```
+
+This runs `src/Beutl` in Debug configuration, automatically selecting `net10.0-windows` on Windows and `net10.0` on macOS/Linux. If the global Nuke tool is already installed, you can also use `nuke dev`.
 
 ## License
 
