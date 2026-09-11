@@ -1,15 +1,15 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.VisualTree;
+using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
-using Beutl.Extensibility;
 using Beutl.Views;
 using Dock.Avalonia.Controls;
 using Dock.Model.Controls;
@@ -120,6 +120,21 @@ public class DockTabCloseButtonTests
                 Assert.That(close.IsHitTestVisible, Is.False);
                 Assert.That(title.OpacityMask, Is.Null);
             });
+
+            Assert.That(close.Focus(NavigationMethod.Tab), Is.True);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(close.Opacity, Is.EqualTo(1), "Keyboard focus reveals the close button.");
+                Assert.That(close.IsHitTestVisible, Is.True);
+                Assert.That(title.OpacityMask, Is.InstanceOf<LinearGradientBrush>());
+            });
+
+            window.MouseMove(new Point(1, window.Bounds.Height - 1));
+            window.MouseDown(new Point(1, window.Bounds.Height - 1), MouseButton.Left);
+            window.MouseUp(new Point(1, window.Bounds.Height - 1), MouseButton.Left);
+            HeadlessTestHelpers.Settle();
 
             IToolDock playerDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Player)!;
             IDockable player = playerDock.VisibleDockables!.Single(d => !d.CanClose);
