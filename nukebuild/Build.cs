@@ -76,7 +76,7 @@ class Build : NukeBuild
     {
         AbsolutePath mainProj = SourceDirectory / "Beutl" / "Beutl.csproj";
         using IProcess proc = StartProcess(DotNetPath, $"msbuild --getProperty:TargetFrameworks {mainProj}");
-        proc.WaitForExit();
+        proc.AssertZeroExitCode();
         return proc.Output.First().Text.Split(';')[0];
     }
 
