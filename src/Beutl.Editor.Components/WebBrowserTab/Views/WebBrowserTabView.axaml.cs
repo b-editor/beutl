@@ -501,6 +501,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             CloseBrowserPanel();
             if (BrowserMediaDownload.IsMediaLink(uri))
             {
+                // Downloading does not replace the page hosted by the WebView.
+                _viewModel.Address.Value = WebBrowserTabViewModel.FormatAddress(_viewModel.CurrentUri);
                 _ = DownloadMediaAsync(uri, null);
                 return;
             }

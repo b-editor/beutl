@@ -16,6 +16,13 @@ internal sealed class WebSearchSuggestions(HttpClient client)
             return false;
         }
 
+        if (query.StartsWith('[')
+            && Uri.TryCreate($"https://{query}", UriKind.Absolute, out Uri? address)
+            && address.HostNameType == UriHostNameType.IPv6)
+        {
+            return false;
+        }
+
         int colon = query.IndexOf(':');
         if (colon > 0 && Uri.CheckSchemeName(query[..colon]))
         {

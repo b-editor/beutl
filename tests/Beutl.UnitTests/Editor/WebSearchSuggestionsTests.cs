@@ -32,6 +32,9 @@ public class WebSearchSuggestionsTests
     [TestCase("example.com/path")]
     [TestCase("person@example.com")]
     [TestCase("localhost")]
+    [TestCase("[::1]")]
+    [TestCase("[::1]:5000")]
+    [TestCase("[2001:db8::1]")]
     [TestCase("")]
     public async Task Addresses_DoNotSendSuggestionRequests(string text)
     {
@@ -53,6 +56,11 @@ public class WebSearchSuggestionsTests
     [TestCase("avalonia", "https://www.google.com/search?q=avalonia")]
     [TestCase("C#", "https://www.google.com/search?q=C%23")]
     [TestCase("example.com/path", "https://example.com/path")]
+    [TestCase("[::1]", "https://[::1]/")]
+    [TestCase("[::1]:5000", "https://[::1]:5000/")]
+    [TestCase("[2001:db8::1]", "https://[2001:db8::1]/")]
+    [TestCase("[::1]:5000/path", "https://[::1]:5000/path")]
+    [TestCase("[topic]", "https://www.google.com/search?q=%5Btopic%5D")]
     public void Enter_SearchesWordsAndNavigatesAddresses(string text, string expected)
     {
         using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);

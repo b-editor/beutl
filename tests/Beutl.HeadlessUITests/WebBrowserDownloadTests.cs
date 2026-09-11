@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
@@ -168,6 +169,51 @@ public class WebBrowserDownloadTests
             Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://soundeffect-lab.info/")));
         }
         finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase("about:blank", false)]
+    [TestCase("about:blank", true)]
+    [TestCase("https://page.example/current", false)]
+    [TestCase("https://page.example/current", true)]
+    public async Task TypedMediaDownloadsKeepTheDisplayedPageState(string initialAddress, bool confirm)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var initialUri = new Uri(initialAddress);
+        var mediaUri = new Uri("https://downloads.example/clip.mp4");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), initialUri, profile);
+        var native = new NativeWebView { Source = initialUri };
+        using var view = new WebBrowserTabView(_ => native, () => (true, null, false)) { DataContext = vm };
+        using var client = new HttpClient(new MediaHandler());
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        Uri? requested = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            requested = uri;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(confirm ? new(root, false) : null);
+        };
+        vm.CompleteNavigation(initialUri, true, false, false);
+        string header = vm.Header.Value;
+        try
+        {
+            vm.Address.Value = mediaUri.AbsoluteUri;
+            view.NavigateFromAddress();
+            if (confirm) await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(requested, Is.EqualTo(mediaUri));
+            Assert.That(vm.Address.Value, Is.EqualTo(WebBrowserTabViewModel.FormatAddress(initialUri)));
+            Assert.That(vm.CurrentUri, Is.EqualTo(initialUri));
+            Assert.That(native.Source, Is.EqualTo(initialUri));
+            Assert.That(vm.Header.Value, Is.EqualTo(header));
+            Assert.That(vm.HasWebAddress.Value, Is.EqualTo(initialUri != WebBrowserTabViewModel.BlankPage));
+            Assert.That(vm.IsLoading.Value, Is.False);
+            var saved = new JsonObject();
+            vm.WriteToJson(saved);
+            Assert.That(saved["source"]!.GetValue<string>(), Is.EqualTo(vm.Address.Value));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
     [AvaloniaTest]
