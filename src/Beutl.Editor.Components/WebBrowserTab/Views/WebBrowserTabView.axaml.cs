@@ -202,10 +202,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
-        if (e.Request is { IsAbsoluteUri: true } requestWithCredentials && !string.IsNullOrEmpty(requestWithCredentials.UserInfo))
+        if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
+            && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
         {
             e.Cancel = true;
-            _viewModel?.BeginNavigation(requestWithCredentials);
+            _viewModel?.BeginNavigation(unsupportedRequest);
             return;
         }
 
@@ -309,8 +310,16 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         return title;
     }
 
-    private void OnNewWindowRequested(object? sender, WebViewNewWindowRequestedEventArgs e)
+    internal void OnNewWindowRequested(object? sender, WebViewNewWindowRequestedEventArgs e)
     {
+        if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
+            && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
+        {
+            e.Handled = true;
+            _viewModel?.BeginNavigation(unsupportedRequest);
+            return;
+        }
+
         if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
         {
             e.Handled = true;
@@ -596,7 +605,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _webView = null;
     }
 
-    private static (bool IsAvailable, string? Detail, bool ShowLinuxRuntimeHelp) GetWebViewAvailability()
+    internal static (bool IsAvailable, string? Detail, bool ShowLinuxRuntimeHelp) GetWebViewAvailability()
     {
         WebViewAdapterType[] candidates = OperatingSystem.IsWindows()
             ? [WebViewAdapterType.WebView2, WebViewAdapterType.WebView1]

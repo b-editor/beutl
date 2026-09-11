@@ -48,7 +48,7 @@
                             <CheckBox IsEnabled="{Binding CanClearCookies}" IsChecked="{Binding CookieDeletionConfirmed.Value, Mode=TwoWay}">
                                 <TextBlock Text="{x:Static lang:Strings.BrowserCookieWarning}" TextWrapping="Wrap" />
                             </CheckBox>
-                            <TextBlock Text="{x:Static lang:Strings.BrowserCookieSessionRequired}" IsVisible="{Binding !CanClearCookies}" TextWrapping="Wrap" Opacity="0.65" />
+                            <TextBlock Text="{x:Static lang:Strings.BrowserCookiesUnsupported}" IsVisible="{Binding !CanClearCookies}" TextWrapping="Wrap" Opacity="0.65" />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>

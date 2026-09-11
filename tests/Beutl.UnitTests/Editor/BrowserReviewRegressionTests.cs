@@ -45,7 +45,10 @@ public class BrowserReviewRegressionTests
     [TestCase(null, "utf8")]
     [TestCase("application/octet-stream", "utf8")]
     [TestCase("application/octet-stream", "utf16")]
-    public void AmbiguousHtmlResponsesAreRejectedBeforePublishingAFile(string? mediaType, string encoding)
+    [TestCase("video/mp4", "utf8")]
+    [TestCase("audio/mpeg", "utf8")]
+    [TestCase("image/png", "utf16")]
+    public void HtmlResponsesAreRejectedBeforePublishingAFile(string? mediaType, string encoding)
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Encoding codec = encoding == "utf16" ? Encoding.Unicode : new UTF8Encoding(true);

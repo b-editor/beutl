@@ -79,6 +79,43 @@ public class BrowserReviewLifecycleTests
     }
 
     [AvaloniaTest]
+    [TestCase("file:///tmp/media.html", false)]
+    [TestCase("file:///tmp/media.html", true)]
+    [TestCase("data:text/html,hello", false)]
+    [TestCase("data:text/html,hello", true)]
+    [TestCase("custom:open", false)]
+    [TestCase("custom:open", true)]
+    public void UnsupportedNativeNavigationIsCanceled(string address, bool includesSubframes)
+    {
+        var safe = new Uri("https://safe.example/");
+        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, safe);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: includesSubframes);
+        view.DataContext = vm;
+        var request = new WebViewNavigationStartingEventArgs { Request = new Uri(address) };
+        view.OnNavigationStarted(null, request);
+        Assert.That(request.Cancel, Is.True);
+        Assert.That(vm.CurrentUri, Is.EqualTo(safe));
+        Assert.That(vm.IsLoading.Value, Is.False);
+    }
+
+    [AvaloniaTest]
+    [TestCase("file:///tmp/media.html")]
+    [TestCase("data:text/html,hello")]
+    [TestCase("custom:open")]
+    [TestCase("https://user:secret@safe.example/")]
+    public void UnsupportedNewWindowRequestsAreHandled(string address)
+    {
+        var safe = new Uri("https://safe.example/");
+        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, safe);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+        var request = new WebViewNewWindowRequestedEventArgs { Request = new Uri(address) };
+        view.OnNewWindowRequested(null, request);
+        Assert.That(request.Handled, Is.True);
+        Assert.That(vm.CurrentUri, Is.EqualTo(safe));
+    }
+
+    [AvaloniaTest]
     public void FailedReparentingRestoresPreviouslyAcquiredScopes()
     {
         int restored = 0;

@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Net;
+using System.Text.Json;
 
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -14,6 +15,9 @@ internal partial class WebBrowserTabView
 
     internal BrowserMediaDownload MediaDownloader { get; set; } = BrowserMediaDownload.Default;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
+    internal Func<NativeWebView?, CancellationToken, Task<IReadOnlyList<Cookie>>> DownloadCookiesProvider { get; set; } =
+        static async (webView, cancellation) => webView?.TryGetCookieManager() is { } manager
+            ? await manager.GetCookiesAsync().WaitAsync(cancellation) : [];
     internal sealed record BrowserDownloadOptions(string Directory, bool AddToTimeline);
 
     // Capture explicit download links as well as media links added dynamically by the page.
@@ -128,7 +132,7 @@ internal partial class WebBrowserTabView
     internal async Task DownloadMediaAsync(Uri uri, string? suggestedName, Uri? referrer = null)
     {
         if (_disposed || _downloadCancellation != null || _viewModel is not { } vm) return;
-        referrer = BrowserMediaDownload.NormalizeReferrer(referrer, uri);
+        NativeWebView? initiatingWebView = _webView;
         using var cancellation = new CancellationTokenSource();
         _downloadCancellation = cancellation;
         try
@@ -150,7 +154,9 @@ internal partial class WebBrowserTabView
                         : $"{value.Received / 1024:N0} KB";
                 }
             });
-            string file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer);
+            IReadOnlyList<Cookie> cookies = await DownloadCookiesProvider(initiatingWebView, cancellation.Token);
+            cancellation.Token.ThrowIfCancellationRequested();
+            string file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies);
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));
             ToolTip.SetTip(DownloadStatusText, file);

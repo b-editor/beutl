@@ -1,11 +1,18 @@
-﻿using System.Net.Http;
+﻿using System.Net;
+using System.Net.Http;
 using System.Text;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
 internal sealed class BrowserMediaDownload(HttpClient client)
 {
-    internal static readonly BrowserMediaDownload Default = new(new HttpClient { Timeout = TimeSpan.FromSeconds(30) });
+    // Redirects and cookies belong to each download, not to this shared transport.
+    internal static readonly BrowserMediaDownload Default = new(new HttpClient(new HttpClientHandler
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false
+    })
+    { Timeout = TimeSpan.FromSeconds(30) });
 
     private static readonly Dictionary<string, string> s_mediaTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -54,16 +61,15 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     }
 
     internal async Task<string> DownloadAsync(Uri uri, string directory, string? suggestedName,
-        IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken, Uri? referrer = null)
+        IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken, Uri? referrer = null,
+        IReadOnlyList<Cookie>? cookies = null)
     {
         if (!IsHttpUri(uri))
         {
             throw new InvalidOperationException(Strings.WebDownloadUnsupported);
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-        request.Headers.Referrer = NormalizeReferrer(referrer, request.RequestUri!);
-        using HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using HttpResponseMessage response = await SendAsync(uri, referrer, cookies ?? [], cancellationToken);
         response.EnsureSuccessStatusCode();
         Uri finalUri = response.RequestMessage?.RequestUri ?? uri;
         string? mediaType = response.Content.Headers.ContentType?.MediaType;
@@ -72,20 +78,16 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             ?? NormalizeFileName(suggestedName);
         string name = CreateFileName(nameHint, finalUri, mediaType);
         await using Stream input = await response.Content.ReadAsStreamAsync(cancellationToken);
-        byte[] prefix = [];
-        if (mediaType == null || mediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+        byte[] prefix = new byte[4096];
+        int length = 0;
+        while (length < prefix.Length)
         {
-            prefix = new byte[4096];
-            int length = 0;
-            while (length < prefix.Length)
-            {
-                int count = await input.ReadAsync(prefix.AsMemory(length), cancellationToken);
-                if (count == 0) break;
-                length += count;
-            }
-            Array.Resize(ref prefix, length);
-            if (LooksLikeHtml(prefix)) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+            int count = await input.ReadAsync(prefix.AsMemory(length), cancellationToken);
+            if (count == 0) break;
+            length += count;
         }
+        Array.Resize(ref prefix, length);
+        if (LooksLikeHtml(prefix)) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
         Directory.CreateDirectory(directory);
         string temporaryPath = Path.Combine(directory, $".{Guid.NewGuid():N}.part");
         try
@@ -144,6 +146,48 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             {
                 File.Delete(temporaryPath);
             }
+        }
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(Uri uri, Uri? referrer, IReadOnlyList<Cookie> cookies,
+        CancellationToken cancellationToken)
+    {
+        // The native API omits SameSite/partition metadata. Do not import another site's
+        // existing login session merely because the download redirects to that site.
+        CookieContainer cookieContainer = BrowserSessionCookies.CreateContainer(cookies, referrer ?? uri);
+        for (int redirects = 0; ; redirects++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.Referrer = NormalizeReferrer(referrer, uri);
+            string header = cookieContainer.GetCookieHeader(uri);
+            if (header.Length > 0) request.Headers.Add("Cookie", header);
+            HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            try
+            {
+                if (response.Headers.TryGetValues("Set-Cookie", out var values))
+                {
+                    foreach (string value in values)
+                    {
+                        try { cookieContainer.SetCookies(uri, value); }
+                        catch (CookieException) { /* Ignore invalid response cookies, as browsers do. */ }
+                    }
+                }
+                if (response.StatusCode is not (HttpStatusCode.MovedPermanently or HttpStatusCode.Found
+                    or HttpStatusCode.SeeOther or HttpStatusCode.TemporaryRedirect or HttpStatusCode.PermanentRedirect)
+                    || response.Headers.Location is not { } location || redirects >= 10)
+                    return response;
+
+                Uri next = new(uri, location);
+                if (!IsHttpUri(next) || (uri.Scheme == Uri.UriSchemeHttps && next.Scheme == Uri.UriSchemeHttp))
+                    throw new InvalidOperationException(Strings.WebDownloadUnsupported);
+                uri = next;
+            }
+            catch
+            {
+                response.Dispose();
+                throw;
+            }
+            response.Dispose();
         }
     }
 
