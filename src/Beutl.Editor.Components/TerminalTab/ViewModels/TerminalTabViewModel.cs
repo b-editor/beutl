@@ -14,6 +14,7 @@ public sealed class TerminalTabViewModel : IToolContext
     private static int s_lastInstanceNumber;
 
     private readonly ReadOnlyReactivePropertySlim<string> _header;
+    private bool _disposed;
 
     public TerminalTabViewModel(IEditorContext editorContext)
     {
@@ -56,8 +57,6 @@ public sealed class TerminalTabViewModel : IToolContext
     public ReactivePropertySlim<bool> IsProcessExited { get; } = new();
 
     public ReactivePropertySlim<int> ExitCode { get; } = new();
-
-    internal event EventHandler? Disposed;
 
     internal static (string Path, string[] Args) ResolveShell(
         Func<string, string?> getEnvironmentVariable, bool isWindows, bool isMacOS)
@@ -125,8 +124,12 @@ public sealed class TerminalTabViewModel : IToolContext
 
     public void Dispose()
     {
-        Disposed?.Invoke(this, EventArgs.Empty);
-        Disposed = null;
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         IsSelected.Dispose();
         IsProcessExited.Dispose();
         ExitCode.Dispose();
