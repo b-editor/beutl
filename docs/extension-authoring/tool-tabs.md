@@ -32,6 +32,7 @@ Use localized resources for `DisplayName`, menu `Header`, and the context's tab 
 
 - The `IToolContext` owns subscriptions and state that must survive view unload/reload. Dispose them from `IToolContext.Dispose` when the dockable closes.
 - A reused content control may still leave and re-enter the visual tree; do not use view attachment as the lifetime of editor services.
+- When reused content implements `IDisposable`, the dock host disposes it before its `IToolContext`. Make disposal idempotent and do not share externally owned resources with the view.
 - Save per-tab state in `WriteToJson` and restore it in `ReadFromJson`.
 - Resolve editor services through the supplied `IEditorContext`; forward `GetService` when the context itself is used as a service provider.
 - Push reactive UI state, including a changing tab title, on the UI thread.
