@@ -36,6 +36,18 @@ Beutl アカウントを作成して、拡張機能を取得したり、自身�
 ## 📥 インストール
 [こちら](https://docs.beutl.beditor.net/get-started/install)のドキュメントを参照してください。
 
+## 開発
+
+初回チェックアウト時は、先に `git submodule update --init --recursive` でGitサブモジュールを初期化してください。
+
+リポジトリのルートで次のコマンドを実行します。
+
+```sh
+nuke dev
+```
+
+`src/Beutl` をDebug構成で実行します。TFMはWindowsでは `net10.0-windows`、macOS/Linuxでは `net10.0` を自動選択します。Nukeのグローバルツールをインストールせずに、macOS/Linuxでは `./build.sh dev`、PowerShellでは `./build.ps1 dev` も使用できます。
+
 ## License
 
 このプロジェクトは **MIT License** ([LICENSE](https://github.com/b-editor/beutl/blob/main/LICENSE)) の下でライセンスされています。
