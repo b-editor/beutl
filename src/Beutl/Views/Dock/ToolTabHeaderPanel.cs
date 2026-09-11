@@ -43,19 +43,22 @@ public sealed class ToolTabHeaderPanel : Panel
     {
         (Control? strip, Control? addButton, Control? freeSpace) = GetSlots();
 
+        // Reserve the button's width before handing the rest to the strip, so the button survives
+        // an arrange that is narrower than the measure pass (e.g. mid-resize).
+        double buttonWidth = addButton is null ? 0 : Math.Min(addButton.DesiredSize.Width, finalSize.Width);
+
         double x = 0;
         if (strip is not null)
         {
-            double width = Math.Min(strip.DesiredSize.Width, finalSize.Width);
+            double width = Math.Min(strip.DesiredSize.Width, Math.Max(0, finalSize.Width - buttonWidth));
             strip.Arrange(new Rect(x, 0, width, finalSize.Height));
             x += width;
         }
 
         if (addButton is not null)
         {
-            double width = Math.Min(addButton.DesiredSize.Width, Math.Max(0, finalSize.Width - x));
-            addButton.Arrange(new Rect(x, 0, width, finalSize.Height));
-            x += width;
+            addButton.Arrange(new Rect(x, 0, buttonWidth, finalSize.Height));
+            x += buttonWidth;
         }
 
         freeSpace?.Arrange(new Rect(x, 0, Math.Max(0, finalSize.Width - x), finalSize.Height));

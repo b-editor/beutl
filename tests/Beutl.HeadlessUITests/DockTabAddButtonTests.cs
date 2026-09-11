@@ -203,6 +203,28 @@ public class DockTabAddButtonTests
     }
 
     [AvaloniaTest]
+    public void Header_panel_keeps_the_add_button_when_arranged_narrower_than_measured()
+    {
+        // Explicit widths would win over the arrange rect, so size the slots through their content,
+        // the way ToolTabStrip and the add-button Border are sized in the real template.
+        var strip = new Border { Child = new Border { Width = 200, Height = 28 } };
+        var addButton = new Border { Child = new Border { Width = 36, Height = 28 } };
+        var freeSpace = new Border();
+        var panel = new ToolTabHeaderPanel { Children = { strip, addButton, freeSpace } };
+
+        panel.Measure(new Size(300, 28));
+        panel.Arrange(new Rect(0, 0, 150, 28));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(strip.Bounds.Width, Is.EqualTo(114));
+            Assert.That(addButton.Bounds.Left, Is.EqualTo(114));
+            Assert.That(addButton.Bounds.Width, Is.EqualTo(36));
+            Assert.That(freeSpace.Bounds.Width, Is.EqualTo(0));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task Add_menu_disables_open_singletons_and_opens_the_selected_tool_in_its_dock()
     {
         await ResetProjectAsync();
