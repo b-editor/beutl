@@ -8,9 +8,12 @@ public static class DataContextEvents
         where T : class
     {
         T? prevContext = null;
+        bool isDisposed = false;
 
         void OnAttachedToLogicalTree(object? sender, Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
         {
+            if (isDisposed) return;
+
             if (self.DataContext is T newContext && prevContext != newContext)
             {
                 attached?.Invoke(newContext);
@@ -20,6 +23,8 @@ public static class DataContextEvents
 
         void OnDetachedFromLogicalTree(object? sender, Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
         {
+            if (isDisposed) return;
+
             if (prevContext != null)
             {
                 detached?.Invoke(prevContext);
@@ -29,6 +34,8 @@ public static class DataContextEvents
 
         void OnDataContextChanged(object? sender, EventArgs e)
         {
+            if (isDisposed) return;
+
             if (prevContext != null)
             {
                 detached?.Invoke(prevContext);
@@ -54,8 +61,16 @@ public static class DataContextEvents
 
         return Disposable.Create(self, s =>
         {
+            // An event invocation may already hold this handler when another handler disposes us.
+            isDisposed = true;
             s.AttachedToLogicalTree -= OnAttachedToLogicalTree;
             s.DetachedFromLogicalTree -= OnDetachedFromLogicalTree;
+            s.DataContextChanged -= OnDataContextChanged;
+            if (prevContext is { } context)
+            {
+                prevContext = null;
+                detached?.Invoke(context);
+            }
         });
     }
 }

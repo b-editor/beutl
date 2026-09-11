@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Controls.Platform;
 using Avalonia.Headless;
 using Beutl.HeadlessUITests;
 using Beutl.Testing.Headless;
@@ -20,6 +21,7 @@ public static class TestAppBuilder
         OpenALPreload.EnsureLoaded();
         return AppBuilder.Configure<TestApp>()
             .UseSkia()
+            .With<IStorageProviderFactory>(new TestStorageProviderFactory())
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
     }
 }

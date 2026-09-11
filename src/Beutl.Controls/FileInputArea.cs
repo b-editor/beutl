@@ -109,7 +109,7 @@ public class FileInputArea : ContentControl
 
     private async void OnButtonClick(object sender, RoutedEventArgs e)
     {
-        if (VisualRoot is TopLevel toplevel)
+        if (TopLevel.GetTopLevel(this) is TopLevel toplevel)
         {
             try
             {

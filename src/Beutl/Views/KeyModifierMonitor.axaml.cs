@@ -20,6 +20,7 @@ public partial class KeyModifierMonitor : FAAppWindow
 
     protected override void OnOpened(EventArgs e)
     {
+        base.OnOpened(e);
         if (Owner != null)
         {
             Owner.AddDisposableHandler(KeyDownEvent, OnOwnerKeyDown, RoutingStrategies.Tunnel)
