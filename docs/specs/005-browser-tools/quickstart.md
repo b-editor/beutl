@@ -30,3 +30,12 @@ The 35-test browser/settings UI suite passes, including form validation, bookmar
 
 ## Settings and download-history visual validation
 Shared settings-card structure and immediate-save bindings are covered by the 35-test browser/settings UI suite. Settings and download-history captures were reviewed; history actions wrap into two rows at 320px. Removing history preserves the file, and missing-file cards disable opening. No ContentDialog was introduced.
+
+## Avalonia 12 rebase validation (2026-09-11)
+- Base: origin/main 575e83aa0; Avalonia 12.1.2, WebView 12.1.0, FluentAvalonia 3.1.0, Dock 12.1.0.6.
+- Application build: net10.0 on macOS.
+- Browser/terminal unit tests: 79 passed. Browser/settings/terminal headless and real editor import tests: 46 passed. Public API and boundary contract tests: 235 passed.
+- Native media import goes through the real asynchronous element-add pipeline; produced video/audio keep their two-second decoded duration and are undone as one operation.
+- The disposed-view rebind regression was observed before the fix, then passed for both terminal and browser content.
+- New-tab and settings Skia headless captures preserve the approved layout after the major upgrade. Windows/Linux native UI was not exercised.
+- main's removal of AI tooling is preserved; reusable-content lifecycle guidance resides in docs/extension-authoring/tool-tabs.md.

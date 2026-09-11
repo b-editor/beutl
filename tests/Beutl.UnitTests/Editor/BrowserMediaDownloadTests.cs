@@ -77,13 +77,16 @@ public class BrowserMediaDownloadTests
     }
 
     [Test]
-    public void ProjectDestinationAndImport_UseOwningProjectAndCurrentPlayhead()
+    public async Task ProjectDestinationAndImport_UseOwningProjectAndCurrentPlayhead()
     {
         string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var project = new Project { Uri = new Uri(Path.Combine(directory, "project.bep")) };
         var scene = new Scene { Uri = new Uri(Path.Combine(directory, "scene.scene")) };
         project.Items.Add(scene);
         var adder = new Mock<IElementAdder>();
+        adder.Setup(x => x.AddAsync(It.IsAny<IReadOnlyList<ElementDescription>>(), It.IsAny<CancellationToken>()))
+            .Returns((IReadOnlyList<ElementDescription> descriptions, CancellationToken _) =>
+                ValueTask.FromResult(ElementAddResult.Succeeded([new ElementAddItemResult(descriptions[0], new Element(), [])])));
         var clock = new Mock<IEditorClock>();
         using var time = new ReactivePropertySlim<TimeSpan>(TimeSpan.FromSeconds(12));
         clock.SetupGet(x => x.CurrentTime).Returns(time);
@@ -93,9 +96,31 @@ public class BrowserMediaDownloadTests
         context.Setup(x => x.GetService(typeof(IEditorClock))).Returns(clock.Object);
         using var vm = new WebBrowserTabViewModel(context.Object);
         Assert.That(vm.ProjectDownloadDirectory, Is.EqualTo(Path.Combine(directory, "resources", "downloads")));
-        vm.AddDownloadedMedia("clip.mp4");
-        adder.Verify(x => x.AddElement(It.Is<ElementDescription>(d => d.FileName == "clip.mp4"
-            && d.Start == TimeSpan.FromSeconds(12) && d.Layer == 0)), Times.Once);
+        using var cancellation = new CancellationTokenSource();
+        await vm.AddDownloadedMediaAsync("clip.mp4", cancellation.Token);
+        adder.Verify(x => x.AddAsync(It.Is<IReadOnlyList<ElementDescription>>(items => items.Count == 1
+            && ((ElementSource.File)items[0].Source).FileName == "clip.mp4"
+            && items[0].Start == TimeSpan.FromSeconds(12) && items[0].Layer == 0 && items[0].Length == TimeSpan.FromSeconds(5)),
+            cancellation.Token), Times.Once);
+    }
+
+    [Test]
+    public void Import_AwaitsThePipelineAndReportsReturnedFailures()
+    {
+        var completion = new TaskCompletionSource<ElementAddResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var adder = new Mock<IElementAdder>();
+        adder.Setup(x => x.AddAsync(It.IsAny<IReadOnlyList<ElementDescription>>(), It.IsAny<CancellationToken>()))
+            .Returns(() => new ValueTask<ElementAddResult>(completion.Task));
+        var context = new Mock<IEditorContext>();
+        context.SetupGet(x => x.Object).Returns(new Scene { Uri = new Uri(Path.Combine(Path.GetTempPath(), "browser-import.scene")) });
+        context.Setup(x => x.GetService(typeof(IElementAdder))).Returns(adder.Object);
+        using var vm = new WebBrowserTabViewModel(context.Object);
+
+        Task pending = vm.AddDownloadedMediaAsync("clip.mp4", CancellationToken.None);
+        Assert.That(pending.IsCompleted, Is.False);
+        completion.SetResult(ElementAddResult.Failed(new ElementSourcePreflightFailure("Decoder unavailable")));
+        var error = Assert.ThrowsAsync<InvalidOperationException>(async () => await pending);
+        Assert.That(error!.Message, Is.EqualTo("Decoder unavailable"));
     }
 
     private sealed class CancelProgress(CancellationTokenSource cancellation) : IProgress<(long Received, long? Total)>

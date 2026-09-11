@@ -94,7 +94,7 @@
                          Address="{Binding Address.Value, Mode=TwoWay}"
                          Suggestions="{Binding AddressSuggestions}"
                          VerticalContentAlignment="Center"
-                         Watermark="{x:Static lang:Strings.WebAddress}" />
+                         PlaceholderText="{x:Static lang:Strings.WebAddress}" />
                 <Button x:Name="BrowserMenuButton"
                         Grid.Column="4"
                         Padding="6"
@@ -102,23 +102,23 @@
                         ToolTip.Tip="{x:Static lang:Strings.Menu}">
                     <Button.Flyout>
                         <ui:FAMenuFlyout>
-                            <ui:MenuFlyoutItem Click="OnNewTabClick" Text="{x:Static lang:Strings.NewTab}" />
-                            <ui:MenuFlyoutSeparator />
-                            <ui:MenuFlyoutItem Click="OnDownloadHistoryClick" Text="{x:Static lang:Strings.BrowserDownloads}" />
-                            <ui:MenuFlyoutItem Click="OnFindPageClick" Text="{x:Static lang:Strings.BrowserFind}" />
-                            <ui:MenuFlyoutSeparator />
-                            <ui:MenuFlyoutItem Click="OnZoomInClick" Text="{x:Static lang:Strings.BrowserZoomIn}" />
-                            <ui:MenuFlyoutItem Click="OnZoomOutClick" Text="{x:Static lang:Strings.BrowserZoomOut}" />
-                            <ui:MenuFlyoutItem x:Name="ZoomResetMenuItem" Click="OnZoomResetClick" Text="{x:Static lang:Strings.BrowserZoomReset}" />
-                            <ui:MenuFlyoutSeparator />
-                            <ui:MenuFlyoutItem Click="OnBrowserSettingsClick" Text="{x:Static lang:Strings.BrowserSettings}" />
-                            <ui:MenuFlyoutItem Click="OnDownloadMediaClick"
+                            <ui:FAMenuFlyoutItem Click="OnNewTabClick" Text="{x:Static lang:Strings.NewTab}" />
+                            <ui:FAMenuFlyoutSeparator />
+                            <ui:FAMenuFlyoutItem Click="OnDownloadHistoryClick" Text="{x:Static lang:Strings.BrowserDownloads}" />
+                            <ui:FAMenuFlyoutItem Click="OnFindPageClick" Text="{x:Static lang:Strings.BrowserFind}" />
+                            <ui:FAMenuFlyoutSeparator />
+                            <ui:FAMenuFlyoutItem Click="OnZoomInClick" Text="{x:Static lang:Strings.BrowserZoomIn}" />
+                            <ui:FAMenuFlyoutItem Click="OnZoomOutClick" Text="{x:Static lang:Strings.BrowserZoomOut}" />
+                            <ui:FAMenuFlyoutItem x:Name="ZoomResetMenuItem" Click="OnZoomResetClick" Text="{x:Static lang:Strings.BrowserZoomReset}" />
+                            <ui:FAMenuFlyoutSeparator />
+                            <ui:FAMenuFlyoutItem Click="OnBrowserSettingsClick" Text="{x:Static lang:Strings.BrowserSettings}" />
+                            <ui:FAMenuFlyoutItem Click="OnDownloadMediaClick"
                                               IsEnabled="{Binding HasWebAddress.Value}"
                                               Text="{x:Static lang:Strings.WebDownloadMedia}" />
-                            <ui:MenuFlyoutItem Click="OnOpenInDefaultBrowserClick"
+                            <ui:FAMenuFlyoutItem Click="OnOpenInDefaultBrowserClick"
                                                    IsEnabled="{Binding HasWebAddress.Value}"
                                                    Text="{x:Static lang:Strings.OpenInDefaultBrowser}" />
-                            <ui:MenuFlyoutItem Click="OnPrintClick"
+                            <ui:FAMenuFlyoutItem Click="OnPrintClick"
                                                    IsEnabled="{Binding HasWebAddress.Value}"
                                                    Text="{x:Static lang:Strings.Print}" />
                         </ui:FAMenuFlyout>
@@ -164,7 +164,7 @@
         </Grid>
 
         <Grid x:Name="FindPanel" Grid.Row="4" Margin="4" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="4" IsVisible="False">
-                <TextBox x:Name="FindTextBox" MinWidth="60" Watermark="{x:Static lang:Strings.BrowserFind}"
+                <TextBox x:Name="FindTextBox" MinWidth="60" PlaceholderText="{x:Static lang:Strings.BrowserFind}"
                          controls:TextBoxAttachment.EnterDownBehavior="None"
                          TextChanged="OnFindTextChanged" KeyDown="OnFindKeyDown" />
                 <Button Grid.Column="1" Content="↑" Click="OnFindPreviousClick" ToolTip.Tip="{x:Static lang:Strings.BrowserFindPrevious}" />
@@ -206,8 +206,8 @@
                             <Border x:Name="BookmarkEditor" IsVisible="False" Padding="16" CornerRadius="12"
                                     Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}">
                                 <StackPanel Spacing="10">
-                                    <TextBox x:Name="BookmarkUrlInput" Watermark="{x:Static lang:Strings.WebAddress}" />
-                                    <TextBox x:Name="BookmarkNameInput" Watermark="{x:Static lang:Strings.Name}" />
+                                    <TextBox x:Name="BookmarkUrlInput" PlaceholderText="{x:Static lang:Strings.WebAddress}" />
+                                    <TextBox x:Name="BookmarkNameInput" PlaceholderText="{x:Static lang:Strings.Name}" />
                                     <TextBlock x:Name="BookmarkEditorError" TextWrapping="Wrap" />
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <Button x:Name="SaveBookmarkButton" Content="{x:Static lang:Strings.Add}" Click="OnSaveBookmarkClick" />

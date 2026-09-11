@@ -22,3 +22,5 @@ Dependencies: T001 precedes T002/T004/T005. T003 can be researched independently
 - [x] T009 Refine the blank-page hierarchy, search entry point, empty state, and bookmark cards; remove the toolbar star and add a validated inline URL/name form.
 
 - [x] T010 Align browser settings with common settings rows and redesign download history as responsive per-file cards.
+
+- [x] T011 Rebase onto Avalonia 12 main, migrate UI/async-import APIs, preserve host-owned disposal, and verify browser/terminal regressions.

@@ -154,7 +154,7 @@ public sealed partial class SettingsDialog : FAAppWindow
                 Tag = typeof(BrowserSettingsPage),
                 IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Globe }
             },
-            new NavigationViewItem()
+            new FANavigationViewItem()
             {
                 Content = Strings.Info,
                 Tag = typeof(InformationPage),

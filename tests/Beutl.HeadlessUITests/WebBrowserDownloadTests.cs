@@ -70,7 +70,7 @@ public class WebBrowserDownloadTests
                     new Uri("https://example.com/media.mp4"), CancellationToken.None);
                 Dispatcher.UIThread.RunJobs();
                 var content = (StackPanel)view.FindControl<ContentControl>("ToolPanelContent")!.Content!;
-                Assert.That(window.GetVisualDescendants().OfType<ContentDialog>(), Is.Empty);
+                Assert.That(window.GetVisualDescendants().OfType<FAContentDialog>(), Is.Empty);
                 var combo = content.Children.OfType<ComboBox>().Single();
                 var checkbox = content.Children.OfType<CheckBox>().Single();
                 Assert.That(checkbox.IsEnabled, Is.True);
@@ -111,7 +111,7 @@ public class WebBrowserDownloadTests
                 await view.DownloadMediaAsync(new Uri("https://example.com/video.mp4"), null);
                 Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(1));
                 Assert.That(context.Imported.Count, Is.EqualTo(add ? 1 : 0));
-                if (add) Assert.That(context.Imported[0].FileName, Does.StartWith(directory));
+                if (add) Assert.That(((ElementSource.File)context.Imported[0].Source).FileName, Does.StartWith(directory));
             }
 
             view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
@@ -155,7 +155,13 @@ public class WebBrowserDownloadTests
         public bool OpenToolTab(IToolContext item) => false;
         public void CloseToolTab(IToolContext item) { }
         public object? GetService(Type type) => type == typeof(IElementAdder) ? this : null;
-        public void AddElement(ElementDescription description) => Imported.Add(description);
-        public void AddElementFromTemplate(ObjectTemplateItem template, TimeSpan start, int layer) => throw new NotSupportedException();
+        public IElementSourceHandlerRegistry SourceHandlers { get; } = new ElementSourceHandlerRegistry();
+        public ValueTask<ElementAddResult> AddAsync(IReadOnlyList<ElementDescription> descriptions, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Imported.AddRange(descriptions);
+            return ValueTask.FromResult(ElementAddResult.Succeeded(descriptions
+                .Select(description => new ElementAddItemResult(description, new Element(), [])).ToArray()));
+        }
     }
 }

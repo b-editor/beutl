@@ -166,8 +166,12 @@ internal partial class WebBrowserTabView
             CheckProfileSave(vm.Profile.AddDownload(uri, file));
             if (options.AddToTimeline)
             {
-                try { vm.AddDownloadedMedia(file); }
-                catch (Exception ex) { DownloadStatusText.Text = string.Format(Strings.WebDownloadImportFailed, file, ex.Message); }
+                try { await vm.AddDownloadedMediaAsync(file, cancellation.Token); }
+                catch (Exception ex)
+                {
+                    if (!_disposed && ReferenceEquals(_viewModel, vm))
+                        DownloadStatusText.Text = string.Format(Strings.WebDownloadImportFailed, file, ex.Message);
+                }
             }
         }
         catch (OperationCanceledException)

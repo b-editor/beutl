@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -12,6 +13,8 @@ using Avalonia.Layout;
 using Avalonia.VisualTree;
 
 using Beutl.Controls;
+using Beutl.Editor.Components.TerminalTab.ViewModels;
+using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
@@ -32,6 +35,38 @@ namespace Beutl.HeadlessUITests;
 public class WebBrowserTabLifecycleTests
 {
     [AvaloniaTest]
+    public void DisposedToolViews_DoNotReactivateWhenReboundToTheirOriginalContext()
+    {
+        var context = new TestEditorContext();
+        using var browserVm = new WebBrowserTabViewModel(context);
+        int browserCreations = 0;
+        using var browser = new WebBrowserTabView(uri =>
+        {
+            browserCreations++;
+            return new NativeWebView { Source = uri };
+        }, () => (true, null, false));
+        browser.DataContext = browserVm;
+        browser.Dispose();
+        browser.DataContext = null;
+        browser.DataContext = browserVm;
+
+        using var terminalVm = new TerminalTabViewModel(context);
+        using var terminal = new TerminalTabView { DataContext = terminalVm };
+        terminal.Dispose();
+        var terminalControl = terminal.FindControl<Iciclecreek.Terminal.TerminalControl>("Terminal")!;
+        var marker = new Dictionary<string, string> { ["BEUTL_TEST_MARKER"] = "unchanged" };
+        terminalControl.EnvironmentOverrides = marker;
+        terminal.DataContext = null;
+        terminal.DataContext = terminalVm;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(browserCreations, Is.EqualTo(1));
+            Assert.That(browser.FindControl<ContentControl>("WebViewHost")!.Content, Is.Null);
+            Assert.That(terminalControl.EnvironmentOverrides, Is.SameAs(marker));
+        }
+    }
+
+    [AvaloniaTest]
     public void DownloadHistory_UsesInlinePanelAndOnlyRemovesMetadata()
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -48,8 +83,8 @@ public class WebBrowserTabLifecycleTests
         {
             window.Show();
             var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
-            menu.Items.OfType<MenuFlyoutItem>().Single(item => item.Text == Strings.BrowserDownloads)
-                .RaiseEvent(new RoutedEventArgs(MenuFlyoutItem.ClickEvent));
+            menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.BrowserDownloads)
+                .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
             Dispatcher.UIThread.RunJobs();
             Assert.That(view.FindControl<Grid>("ToolPanel")!.IsVisible, Is.True);
             var content = view.FindControl<ContentControl>("ToolPanelContent")!;
@@ -58,17 +93,17 @@ public class WebBrowserTabLifecycleTests
             {
                 Directory.CreateDirectory(directory);
                 using var wide = window.CaptureRenderedFrame();
-                wide?.Save(Path.Combine(directory, "downloads-640.png"));
+                wide?.Save(Path.Combine(directory, "downloads-640.png"), PngBitmapEncoderOptions.Default);
                 window.Width = 320;
                 window.UpdateLayout();
                 using var narrow = window.CaptureRenderedFrame();
-                narrow?.Save(Path.Combine(directory, "downloads-320.png"));
+                narrow?.Save(Path.Combine(directory, "downloads-320.png"), PngBitmapEncoderOptions.Default);
             }
             content.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "×"))
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(profile.Downloads, Is.Empty);
             Assert.That(File.Exists(file), Is.True);
-            Assert.That(window.GetVisualDescendants().OfType<ContentDialog>(), Is.Empty);
+            Assert.That(window.GetVisualDescendants().OfType<FAContentDialog>(), Is.Empty);
             profile.AddDownload(new Uri("https://example.com/missing.mp4"), Path.Combine(root, "missing.mp4"));
             Dispatcher.UIThread.RunJobs();
             Assert.That(content.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, Strings.Open)).IsEnabled, Is.False);
@@ -144,10 +179,10 @@ public class WebBrowserTabLifecycleTests
         {
             window.Show();
             var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
-            menu.Items.OfType<MenuFlyoutItem>().Single(x => x.Text == Strings.BrowserSettings)
-                .RaiseEvent(new RoutedEventArgs(MenuFlyoutItem.ClickEvent));
+            menu.Items.OfType<FAMenuFlyoutItem>().Single(x => x.Text == Strings.BrowserSettings)
+                .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
             Assert.That(host.Owner, Is.SameAs(window));
-            Assert.That(window.GetVisualDescendants().OfType<ContentDialog>(), Is.Empty);
+            Assert.That(window.GetVisualDescendants().OfType<FAContentDialog>(), Is.Empty);
         }
         finally { window.Close(); }
     }
@@ -166,7 +201,7 @@ public class WebBrowserTabLifecycleTests
         {
             window.Show();
             var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
-            Assert.That(menu.Items.OfType<MenuFlyoutItem>().Any(item => item.Text == Strings.BrowserBookmarks
+            Assert.That(menu.Items.OfType<FAMenuFlyoutItem>().Any(item => item.Text == Strings.BrowserBookmarks
                 || item.Text == Strings.BrowserAddBookmark), Is.False);
             Assert.That(view.FindControl<Button>("BookmarkButton"), Is.Null);
             Assert.That(view.FindControl<Border>("BookmarkEmptyState")!.IsVisible, Is.True);
@@ -175,7 +210,7 @@ public class WebBrowserTabLifecycleTests
                 if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is not { Length: > 0 } directory) return;
                 Directory.CreateDirectory(directory);
                 using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, name + ".png"));
+                image?.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
             }
             Dispatcher.UIThread.RunJobs();
             Capture("empty-640");
@@ -211,7 +246,7 @@ public class WebBrowserTabLifecycleTests
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(vm.CurrentUri, Is.EqualTo(uri));
             Assert.That(view.FindControl<ScrollViewer>("BlankPagePanel")!.IsVisible, Is.False);
-            Assert.That(window.GetVisualDescendants().OfType<ContentDialog>(), Is.Empty);
+            Assert.That(window.GetVisualDescendants().OfType<FAContentDialog>(), Is.Empty);
         }
         finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
@@ -268,10 +303,10 @@ public class WebBrowserTabLifecycleTests
         await view.FindInPageAsync(0);
         Assert.That(view.FindControl<TextBlock>("FindCountText")!.Text, Does.Contain("1").And.Contain("2"));
         await view.SetPageZoomAsync(300);
-        Assert.That(view.FindControl<MenuFlyoutItem>("ZoomResetMenuItem")!.Text, Does.EndWith("(200%)"));
+        Assert.That(view.FindControl<FAMenuFlyoutItem>("ZoomResetMenuItem")!.Text, Does.EndWith("(200%)"));
         Assert.That(scripts[0], Does.Contain(System.Text.Json.JsonSerializer.Serialize("quote \" and slash \\")));
         await view.SetPageZoomAsync(10);
-        Assert.That(view.FindControl<MenuFlyoutItem>("ZoomResetMenuItem")!.Text, Does.EndWith("(50%)"));
+        Assert.That(view.FindControl<FAMenuFlyoutItem>("ZoomResetMenuItem")!.Text, Does.EndWith("(50%)"));
     }
 
     [AvaloniaTest]

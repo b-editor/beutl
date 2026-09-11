@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.Headless.NUnit;
 using Avalonia.Headless;
 using Avalonia.VisualTree;
@@ -27,7 +28,7 @@ public class BrowserSettingsPageTests
             Task pending = host.OpenBrowserSettingsAsync(owner);
             Dispatcher.UIThread.RunJobs();
             var dialog = owner.OwnedWindows.OfType<SettingsDialog>().Single();
-            Assert.That(dialog.FindControl<Frame>("frame")!.Content, Is.TypeOf<BrowserSettingsPage>());
+            Assert.That(dialog.FindControl<FAFrame>("frame")!.Content, Is.TypeOf<BrowserSettingsPage>());
             await host.OpenBrowserSettingsAsync(owner);
             Assert.That(owner.OwnedWindows, Has.Count.EqualTo(1));
             dialog.Close();
@@ -53,7 +54,7 @@ public class BrowserSettingsPageTests
             {
                 Directory.CreateDirectory(directory);
                 using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, "settings.png"));
+                image?.Save(Path.Combine(directory, "settings.png"), PngBitmapEncoderOptions.Default);
             }
             page.FindControl<ComboBox>("SearchEngineComboBox")!.SelectedIndex = 1;
             page.FindControl<ToggleSwitch>("SuggestionsToggle")!.IsChecked = false;
@@ -75,11 +76,11 @@ public class BrowserSettingsPageTests
             vm.GoToBrowserSettingsPage();
             dialog.Show();
             Dispatcher.UIThread.RunJobs();
-            var frame = dialog.FindControl<Frame>("frame")!;
+            var frame = dialog.FindControl<FAFrame>("frame")!;
             Assert.That(frame.Content, Is.TypeOf<BrowserSettingsPage>());
             Assert.That(((Control)frame.Content!).DataContext, Is.SameAs(vm.Browser));
-            var nav = dialog.FindControl<NavigationView>("nav")!;
-            Assert.That(((NavigationViewItem)nav.SelectedItem!).Tag, Is.EqualTo(typeof(BrowserSettingsPage)));
+            var nav = dialog.FindControl<FANavigationView>("nav")!;
+            Assert.That(((FANavigationViewItem)nav.SelectedItem!).Tag, Is.EqualTo(typeof(BrowserSettingsPage)));
         }
         finally { dialog.Close(); }
     }

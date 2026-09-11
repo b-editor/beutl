@@ -34,6 +34,7 @@ public partial class TerminalTabView : UserControl, IDisposable
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        if (_disposed) return;
 
         _viewModel = DataContext as TerminalTabViewModel;
         if (_viewModel != null)
@@ -47,7 +48,6 @@ public partial class TerminalTabView : UserControl, IDisposable
                 // a dock/reparent.
                 _launched = false;
                 _launching = false;
-                _disposed = false;
             }
 
             // Pass the locale per spawn so it never mutates the shared process environment

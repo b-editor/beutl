@@ -56,7 +56,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     {
         base.OnDataContextChanged(e);
 
-        if (DataContext is not WebBrowserTabViewModel viewModel
+        if (_disposed || DataContext is not WebBrowserTabViewModel viewModel
             || ReferenceEquals(_viewModel, viewModel))
         {
             return;
@@ -79,7 +79,6 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         UpdateBookmarkEmptyState();
         OnCancelBookmarkEditorClick(this, new RoutedEventArgs());
         OnProfileChanged();
-        _disposed = false;
 
         if (_webView != null && _webView.Source != viewModel.CurrentUri)
         {
@@ -186,7 +185,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
-        // WKWebView 11.4.1 forwards policy decisions for every target frame through this event,
+        // The macOS WebView adapter forwards policy decisions for every target frame through this event,
         // without exposing IsMainFrame. Only completed navigation identifies the top-level URL.
         // App-initiated navigation and explicit download links are handled separately.
         if (_navigationStartedIncludesSubframes) return;

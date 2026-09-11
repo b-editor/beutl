@@ -187,11 +187,23 @@ internal partial class WebBrowserTabView
         Process.Start(new ProcessStartInfo(directory) { UseShellExecute = true });
     });
 
-    private void OnImportHistoryClick(object? sender, RoutedEventArgs e) => WithHistoryRecord(sender, record =>
+    private async void OnImportHistoryClick(object? sender, RoutedEventArgs e)
     {
-        RequireHistoryFile(record);
-        _viewModel?.AddDownloadedMedia(record.FilePath);
-    });
+        if (sender is not Button { Tag: BrowserDownloadRecord record } || _viewModel is not { } vm) return;
+        try
+        {
+            RequireHistoryFile(record);
+            await vm.AddDownloadedMediaAsync(record.FilePath, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            if (!_disposed && ReferenceEquals(_viewModel, vm) && _historyFeedback != null)
+            {
+                _historyFeedback.Text = ex.Message;
+                _historyFeedback.IsVisible = true;
+            }
+        }
+    }
 
     private void OnRetryHistoryClick(object? sender, RoutedEventArgs e) => WithHistoryRecord(sender,
         record => { _ = DownloadMediaAsync(new Uri(record.Url), Path.GetFileName(record.FilePath)); });

@@ -86,7 +86,7 @@ public sealed class BrowserSettingsPageViewModel : IDisposable
             var manager = BrowserWebViewRegistry.GetCookieManager()
                 ?? throw new InvalidOperationException(Strings.BrowserCookiesUnsupported);
             foreach (var cookie in await manager.GetCookiesAsync())
-                manager.DeleteCookie(cookie.Name, cookie.Domain, cookie.Path);
+                manager.DeleteCookie(cookie);
         };
     }
 

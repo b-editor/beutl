@@ -77,7 +77,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     internal bool CanAddDownloadedMedia => !_disposed && _editorContext.Object is Scene { Uri.IsFile: true }
         && _editorContext.GetService(typeof(IElementAdder)) is IElementAdder;
 
-    internal void AddDownloadedMedia(string fileName)
+    internal async Task AddDownloadedMediaAsync(string fileName, CancellationToken cancellationToken)
     {
         if (!CanAddDownloadedMedia || _editorContext.Object is not Scene scene)
         {
@@ -88,8 +88,10 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         while (layer < 10_000 && (scene.IsLayerLocked(layer) || scene.IsLayerLocked(layer + 1))) layer++;
         if (layer >= 10_000) throw new InvalidOperationException(Strings.WebBrowserActionFailed);
         TimeSpan start = (_editorContext.GetService(typeof(IEditorClock)) as IEditorClock)?.CurrentTime.Value ?? TimeSpan.Zero;
-        ((IElementAdder)_editorContext.GetService(typeof(IElementAdder))!).AddElement(
-            new ElementDescription(start, TimeSpan.FromSeconds(5), layer, FileName: fileName));
+        ElementAddResult result = await ((IElementAdder)_editorContext.GetService(typeof(IElementAdder))!).AddAsync(
+            [new ElementDescription(start, TimeSpan.FromSeconds(5), layer, new ElementSource.File(fileName))], cancellationToken);
+        if (!result.IsSuccess)
+            throw new InvalidOperationException(result.Failure!.Message, result.Failure.Exception);
     }
 
     public IReadOnlyReactiveProperty<bool> CanGoBack => _canGoBack;

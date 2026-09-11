@@ -2,6 +2,7 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Audio;
 using Beutl.Editor.Models;
+using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -62,6 +63,30 @@ public class VideoFileImportTests
 
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
         return (EditViewModel)tab.Context.Value;
+    }
+
+    [AvaloniaTest]
+    public async Task BrowserDownloadImport_UsesAsyncPipelineAndPreservesMediaDuration()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("browser-video-import");
+        RegisterImportDecoder();
+        string path = CreateImportFile("browser-download", withAudio: true);
+        int undoCount = editor.HistoryManager.UndoCount;
+        using var browser = new WebBrowserTabViewModel(editor);
+
+        await browser.AddDownloadedMediaAsync(path, CancellationToken.None);
+        HeadlessTestHelpers.Settle();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(editor.Scene.Children, Has.Count.EqualTo(2));
+            Assert.That(editor.Scene.Children.Select(element => element.Length),
+                Is.All.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(editor.Scene.Groups, Has.Count.EqualTo(1));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+        }
+        Assert.That(editor.HistoryManager.Undo(), Is.True);
+        Assert.That(editor.Scene.Children, Is.Empty);
     }
 
     [AvaloniaTest]
