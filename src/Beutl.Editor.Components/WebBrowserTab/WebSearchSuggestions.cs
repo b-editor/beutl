@@ -11,7 +11,7 @@ internal sealed class WebSearchSuggestions(HttpClient client)
     {
         string query = text?.Trim() ?? string.Empty;
         if (query.Length == 0 || query.Contains("://", StringComparison.Ordinal)
-            || query.Contains('@') || query.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+            || query.Equals("localhost", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -29,7 +29,7 @@ internal sealed class WebSearchSuggestions(HttpClient client)
             return false;
         }
 
-        return query.Any(char.IsWhiteSpace)
+        return query.Contains('@') || query.Any(char.IsWhiteSpace)
             || (!query.Contains('/') && !query.Contains('\\') && !query.Contains('?') && !query.Contains('.'));
     }
 
@@ -40,7 +40,7 @@ internal sealed class WebSearchSuggestions(HttpClient client)
     internal async Task<IReadOnlyList<string>> GetSuggestionsAsync(string query, CancellationToken cancellationToken,
         BrowserSearchEngine engine = BrowserSearchEngine.Google)
     {
-        if (query.Trim().Length is < 2 or > 200 || !IsSearchQuery(query))
+        if (query.Trim().Length is < 2 or > 200 || query.Contains('@') || !IsSearchQuery(query))
         {
             return [];
         }

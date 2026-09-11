@@ -75,7 +75,8 @@ public class BrowserReviewLifecycleTests
         view.OnNavigationStarted(null, request);
         Assert.That(request.Cancel, Is.True);
         Assert.That(vm.CurrentUri, Is.EqualTo(safe));
-        Assert.That(vm.IsLoading.Value, Is.False);
+        Assert.That(vm.IsLoading.Value, Is.EqualTo(includesSubframes));
+        if (includesSubframes) Assert.That(vm.ErrorMessage.Value, Is.Null);
     }
 
     [AvaloniaTest]
@@ -83,6 +84,7 @@ public class BrowserReviewLifecycleTests
     [TestCase("file:///tmp/media.html", true)]
     [TestCase("data:text/html,hello", false)]
     [TestCase("data:text/html,hello", true)]
+    [TestCase("blob:https://safe.example/object", true)]
     [TestCase("custom:open", false)]
     [TestCase("custom:open", true)]
     public void UnsupportedNativeNavigationIsCanceled(string address, bool includesSubframes)
@@ -96,7 +98,8 @@ public class BrowserReviewLifecycleTests
         view.OnNavigationStarted(null, request);
         Assert.That(request.Cancel, Is.True);
         Assert.That(vm.CurrentUri, Is.EqualTo(safe));
-        Assert.That(vm.IsLoading.Value, Is.False);
+        Assert.That(vm.IsLoading.Value, Is.EqualTo(includesSubframes));
+        if (includesSubframes) Assert.That(vm.ErrorMessage.Value, Is.Null);
     }
 
     [AvaloniaTest]
@@ -109,10 +112,13 @@ public class BrowserReviewLifecycleTests
         var safe = new Uri("https://safe.example/");
         using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, safe);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+        vm.BeginNavigation(safe);
         var request = new WebViewNewWindowRequestedEventArgs { Request = new Uri(address) };
         view.OnNewWindowRequested(null, request);
         Assert.That(request.Handled, Is.True);
         Assert.That(vm.CurrentUri, Is.EqualTo(safe));
+        Assert.That(vm.IsLoading.Value, Is.True);
+        Assert.That(vm.ErrorMessage.Value, Is.Null);
     }
 
     [AvaloniaTest]

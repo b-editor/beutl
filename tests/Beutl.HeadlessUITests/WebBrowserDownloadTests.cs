@@ -248,6 +248,73 @@ public class WebBrowserDownloadTests
     [TestCase(false, true)]
     [TestCase(true, false)]
     [TestCase(true, true)]
+    public void LeavingThePageInvalidatesDownloadRequestsBeforeCompletion(bool typedAddress, bool queued)
+    {
+        var initial = new Uri("https://page.example/");
+        var next = new Uri("https://next.example/");
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), initial);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            getPageTitle: _ => Task.FromResult<string?>("Page"), navigationStartedIncludesSubframes: typedAddress)
+        { DataContext = vm };
+        view.PageScriptRunner = _ => Task.FromResult<string?>("true");
+        int optionsOpened = 0;
+        view.DownloadOptionsSelector = (_, _) => { optionsOpened++; return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null); };
+        void Request()
+        {
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
+        }
+        Request();
+        if (!queued) Dispatcher.UIThread.RunJobs();
+        if (typedAddress) { vm.Address.Value = next.AbsoluteUri; view.NavigateFromAddress(); }
+        else view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(confirm.IsVisible, Is.False);
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Assert.That(optionsOpened, Is.Zero);
+        Request();
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(confirm.IsVisible, Is.False);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+        Request();
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(confirm.IsVisible, Is.False);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        Request();
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(confirm.IsVisible, Is.True);
+    }
+
+    [AvaloniaTest]
+    public void AmbiguousNavigationInvalidatesAnOfferWithoutReenablingDismissedRequests()
+    {
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true)
+        { DataContext = vm };
+        void Request()
+        {
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
+            Dispatcher.UIThread.RunJobs();
+        }
+        Request();
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = new Uri("https://other.example/") });
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+        Request();
+        view.FindControl<Button>("DismissDownloadStatusButton")!
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = new Uri("https://frame.example/") });
+        Request();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
     public void PageDownloadRequestsExpireWithTheirDocumentOrContext(bool clearContext, bool queued)
     {
         using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));

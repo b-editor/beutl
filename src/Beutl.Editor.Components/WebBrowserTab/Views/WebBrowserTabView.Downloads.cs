@@ -15,6 +15,7 @@ internal partial class WebBrowserTabView
     private PageDownloadRequest? _pendingPageDownloadRequest;
     private int _pageDownloadDocumentId;
     private bool _pageDownloadRequestsSuppressed;
+    private bool _pageDownloadNavigationPending;
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId);
 
@@ -59,7 +60,7 @@ internal partial class WebBrowserTabView
 
     internal void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
     {
-        if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed
+        if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
             || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
         if (e.Body is not { Length: > 0 and < 16384 } body) return;
         try
@@ -85,7 +86,7 @@ internal partial class WebBrowserTabView
 
     private void QueuePageDownloadRequest(Uri uri, string? suggestedName)
     {
-        if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed
+        if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
             || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
         var owner = _viewModel;
         var source = _webView;
@@ -96,7 +97,7 @@ internal partial class WebBrowserTabView
         Dispatcher.UIThread.Post(() =>
         {
             if (_disposed || owner == null || !ReferenceEquals(owner, _viewModel) || !ReferenceEquals(source, _webView)
-                || documentId != _pageDownloadDocumentId || _pageDownloadRequestsSuppressed
+                || documentId != _pageDownloadDocumentId || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
                 || !ReferenceEquals(_pendingPageDownloadRequest, request) || _downloadCancellation != null) return;
 
             // Page scripts control bridge messages and navigation requests. Only native UI can authorize opening options.
@@ -134,14 +135,21 @@ internal partial class WebBrowserTabView
 
     private void ResetPageDownloadRequests()
     {
-        _pageDownloadDocumentId++;
+        InvalidatePageDownloadRequests();
         _pageDownloadRequestsSuppressed = false;
+        _pageDownloadNavigationPending = false;
+    }
+
+    private void InvalidatePageDownloadRequests(bool navigationStarted = false)
+    {
+        _pageDownloadDocumentId++;
+        if (navigationStarted) _pageDownloadNavigationPending = true;
         ClearPageDownloadRequest();
     }
 
     private async void OnConfirmPageDownloadClick(object? sender, RoutedEventArgs e)
     {
-        if (!ConfirmPageDownloadButton.IsVisible || _pendingPageDownloadRequest is not { } request) return;
+        if (_pageDownloadNavigationPending || !ConfirmPageDownloadButton.IsVisible || _pendingPageDownloadRequest is not { } request) return;
         ClearPageDownloadRequest();
         if (_disposed || request.DocumentId != _pageDownloadDocumentId) return;
         await DownloadMediaAsync(request.Uri, request.SuggestedName, request.Referrer);

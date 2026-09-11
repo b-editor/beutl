@@ -100,6 +100,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         if (_webView != null && _webView.Source != viewModel.CurrentUri)
         {
+            InvalidatePageDownloadRequests(navigationStarted: true);
             viewModel.BeginNavigation(viewModel.CurrentUri);
             _webView.Source = viewModel.CurrentUri;
         }
@@ -207,14 +208,20 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
         {
             e.Cancel = true;
-            _viewModel?.BeginNavigation(unsupportedRequest);
+            if (!_navigationStartedIncludesSubframes) _viewModel?.BeginNavigation(unsupportedRequest);
             return;
         }
 
         // The macOS WebView adapter forwards policy decisions for every target frame through this event,
         // without exposing IsMainFrame. Only completed navigation identifies the top-level URL.
         // App-initiated navigation and explicit download links are handled separately.
-        if (_navigationStartedIncludesSubframes) return;
+        if (_navigationStartedIncludesSubframes)
+        {
+            // Any start may replace the document. Expire the offer without treating a frame
+            // navigation as a new page or re-enabling requests dismissed by the user.
+            InvalidatePageDownloadRequests();
+            return;
+        }
 
         _pageRevision++;
         _findRequest?.Cancel();
@@ -227,6 +234,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         if (e.Request is { } request)
         {
+            InvalidatePageDownloadRequests(navigationStarted: true);
             _viewModel?.BeginNavigation(request);
         }
     }
@@ -320,7 +328,6 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
         {
             e.Handled = true;
-            _viewModel?.BeginNavigation(unsupportedRequest);
             return;
         }
 
@@ -340,21 +347,30 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private void OnBackClick(object? sender, RoutedEventArgs e)
     {
         CloseBrowserPanel();
-        if (_webView?.GoBack() == true) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
+        if (_webView != null && StartNativePageNavigation(_webView.GoBack)) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
         UpdateHistoryState();
     }
 
     private void OnForwardClick(object? sender, RoutedEventArgs e)
     {
         CloseBrowserPanel();
-        if (_webView?.GoForward() == true) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
+        if (_webView != null && StartNativePageNavigation(_webView.GoForward)) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
         UpdateHistoryState();
     }
 
     private void OnRefreshClick(object? sender, RoutedEventArgs e)
     {
         CloseBrowserPanel();
-        if (_webView?.Refresh() == true) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
+        if (_webView != null && StartNativePageNavigation(_webView.Refresh)) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
+    }
+
+    private bool StartNativePageNavigation(Func<bool> navigate)
+    {
+        bool wasPending = _pageDownloadNavigationPending;
+        InvalidatePageDownloadRequests(navigationStarted: true);
+        bool started = navigate();
+        if (!started) _pageDownloadNavigationPending = wasPending;
+        return started;
     }
 
     private void OnStopClick(object? sender, RoutedEventArgs e)
@@ -510,6 +526,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
                 _ = DownloadMediaAsync(uri, null);
                 return;
             }
+            InvalidatePageDownloadRequests(navigationStarted: true);
             _viewModel.BeginNavigation(uri);
             _webView.Navigate(uri);
         }

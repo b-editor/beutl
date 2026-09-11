@@ -108,6 +108,34 @@ public class WebSearchSuggestionsTests
         Assert.That(Uri.UnescapeDataString(uri.Query[3..]), Is.EqualTo(vm.Address.Value));
     }
 
+    [TestCase(0, "person@example.com", "www.google.com")]
+    [TestCase(1, "person+tag@example.com", "www.bing.com")]
+    public void SubmittedEmailLikeTextIsSearched(int engineIndex, string text, string expectedHost)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var profile = new BrowserProfile(Path.Combine(directory, "profile.json"));
+        try
+        {
+            profile.UpdateSettings((BrowserSearchEngine)engineIndex, true, true);
+            using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, WebBrowserTabViewModel.BlankPage, profile);
+            vm.Address.Value = text;
+            Assert.That(vm.TryCreateNavigationUri(out Uri uri), Is.True);
+            Assert.That(uri.Host, Is.EqualTo(expectedHost));
+            Assert.That(Uri.UnescapeDataString(uri.Query[3..]), Is.EqualTo(text));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [TestCase("https://user:password@example.com/")]
+    [TestCase("http://user@example.com/")]
+    [TestCase("user:password@example.com")]
+    public void CredentialUrlsAreNotConvertedToSearches(string text)
+    {
+        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        vm.Address.Value = text;
+        Assert.That(vm.TryCreateNavigationUri(out _), Is.False);
+    }
+
     private sealed class SuggestionHandler : HttpMessageHandler
     {
         internal Uri? RequestUri { get; private set; }
