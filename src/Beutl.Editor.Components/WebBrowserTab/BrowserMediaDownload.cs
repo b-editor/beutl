@@ -1,6 +1,5 @@
 ﻿using System.Net;
 using System.Net.Http;
-using System.Text;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
@@ -92,7 +91,8 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             length += count;
         }
         Array.Resize(ref prefix, length);
-        if (LooksLikeHtml(prefix)) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+        var inspector = new BrowserMediaContentInspector(prefix, isFinal: length < 4096);
+        if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
         Directory.CreateDirectory(directory);
         string temporaryPath = Path.Combine(directory, $".{Guid.NewGuid():N}.part");
         try
@@ -113,6 +113,8 @@ internal sealed class BrowserMediaDownload(HttpClient client)
                 int count;
                 while ((count = await input.ReadAsync(buffer, cancellationToken)) > 0)
                 {
+                    inspector.Inspect(buffer.AsSpan(0, count));
+                    if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
                     await output.WriteAsync(buffer.AsMemory(0, count), cancellationToken);
                     received += count;
                     if (progressTimer.ElapsedMilliseconds >= 100 || received == total)
@@ -121,6 +123,8 @@ internal sealed class BrowserMediaDownload(HttpClient client)
                         progressTimer.Restart();
                     }
                 }
+                inspector.Inspect([], isFinal: true);
+                if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
             }
 
             if (received == 0 || (total.HasValue && total != received))
@@ -197,41 +201,6 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             }
             response.Dispose();
         }
-    }
-
-    private static bool LooksLikeHtml(byte[] prefix)
-    {
-        Encoding encoding = Encoding.UTF8;
-        if (prefix.AsSpan().StartsWith(new byte[] { 0xff, 0xfe, 0, 0 })) encoding = Encoding.UTF32;
-        else if (prefix.AsSpan().StartsWith(new byte[] { 0, 0, 0xfe, 0xff })) encoding = new UTF32Encoding(true, true);
-        else if (prefix.AsSpan().StartsWith(new byte[] { 0xff, 0xfe })) encoding = Encoding.Unicode;
-        else if (prefix.AsSpan().StartsWith(new byte[] { 0xfe, 0xff })) encoding = Encoding.BigEndianUnicode;
-        ReadOnlySpan<char> text = encoding.GetString(prefix).AsSpan().TrimStart('\uFEFF').TrimStart();
-        bool comment = false;
-        while (true)
-        {
-            if (text.StartsWith("<!--"))
-            {
-                int end = text.IndexOf("-->");
-                if (end < 0) return true;
-                comment = true;
-                text = text[(end + 3)..].TrimStart();
-            }
-            else if (text.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
-            {
-                int end = text.IndexOf("?>");
-                if (end < 0) return false;
-                text = text[(end + 2)..].TrimStart();
-            }
-            else break;
-        }
-        if (text.IsEmpty) return comment;
-        foreach (string tag in new[] { "<!doctype html", "<html", "<head", "<body", "<script", "<iframe", "<title", "<div", "<h1", "<table", "<p", "<font", "<a", "<style", "<b", "<br", "<form", "<meta" })
-        {
-            if (text.StartsWith(tag, StringComparison.OrdinalIgnoreCase)
-                && (text.Length == tag.Length || char.IsWhiteSpace(text[tag.Length]) || text[tag.Length] is '>' or '/')) return true;
-        }
-        return false;
     }
 
     internal static string CreateFileName(string? suggestedName, Uri uri, string? mediaType)
