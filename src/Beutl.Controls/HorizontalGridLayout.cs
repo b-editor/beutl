@@ -1,6 +1,6 @@
 ﻿// Adapted from PanelExtension (MIT).
 // https://github.com/yuto-trd/PanelExtension/blob/cb809602b4cbae93c00b0527dd6ede2d21a4c514/PanelExtension.Avalonia/HorizontalGridLayout.cs
-// Copyright (c) [year] Yuto Terada. See the PanelExtension entry in THIRD_PARTY_NOTICES.md.
+// Copyright (c) 2022 Yuto Terada. See the PanelExtension entry in THIRD_PARTY_NOTICES.md.
 
 using Avalonia;
 using Avalonia.Layout;

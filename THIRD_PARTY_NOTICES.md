@@ -1205,11 +1205,14 @@ Third party licenses may be applicable. These have been disclosed in THIRD_PARTY
 ## PanelExtension
 https://github.com/yuto-trd/PanelExtension
 
-HorizontalGridLayout source is included in Beutl.Controls.
+HorizontalGridLayout source is included in Beutl.Controls, adapted from
+[commit cb809602b4cbae93c00b0527dd6ede2d21a4c514](https://github.com/yuto-trd/PanelExtension/tree/cb809602b4cbae93c00b0527dd6ede2d21a4c514).
+The upstream license's year placeholder is filled from the source's
+[2022 commit history](https://github.com/yuto-trd/PanelExtension/commit/4fb24e26fcbf161c7ce8830e861d2a514a0df271).
 
 MIT License
 
-Copyright (c) [year] Yuto Terada
+Copyright (c) 2022 Yuto Terada
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -60,6 +60,93 @@ public class DataContextEventsTests
     }
 
     [AvaloniaTest]
+    public void Disposing_from_detached_during_a_context_change_releases_the_context_once()
+    {
+        var context = new object();
+        var control = new TextBlock { DataContext = context };
+        var attached = new List<object>();
+        var detached = new List<object>();
+        IDisposable? subscription = null;
+        using (subscription = control.SubscribeDataContextChange<object>(attached.Add, value =>
+               {
+                   detached.Add(value);
+                   subscription?.Dispose();
+               }))
+        {
+            control.DataContext = new object();
+            control.DataContext = new object();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(attached, Is.EqualTo(new[] { context }));
+                Assert.That(detached, Is.EqualTo(new[] { context }));
+            });
+        }
+    }
+
+    [AvaloniaTest]
+    public void Disposing_from_detached_during_tree_removal_releases_the_context_once()
+    {
+        var context = new object();
+        var control = new TextBlock { DataContext = context };
+        var attached = new List<object>();
+        var detached = new List<object>();
+        IDisposable? subscription = null;
+        using (subscription = control.SubscribeDataContextChange<object>(attached.Add, value =>
+               {
+                   detached.Add(value);
+                   subscription?.Dispose();
+               }))
+        {
+            var window = new Window { Content = control };
+            try
+            {
+                window.Show();
+                HeadlessTestHelpers.Settle();
+                window.Content = null;
+                window.Content = control;
+                control.DataContext = new object();
+                HeadlessTestHelpers.Settle();
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(attached, Is.EqualTo(new[] { context }));
+                    Assert.That(detached, Is.EqualTo(new[] { context }));
+                });
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+    }
+
+    [AvaloniaTest]
+    public void Disposing_from_attached_releases_the_context_once()
+    {
+        var context = new object();
+        var control = new TextBlock();
+        var attached = new List<object>();
+        var detached = new List<object>();
+        IDisposable? subscription = null;
+        using (subscription = control.SubscribeDataContextChange<object>(value =>
+               {
+                   attached.Add(value);
+                   subscription?.Dispose();
+               }, detached.Add))
+        {
+            control.DataContext = context;
+            control.DataContext = new object();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(attached, Is.EqualTo(new[] { context }));
+                Assert.That(detached, Is.EqualTo(new[] { context }));
+            });
+        }
+    }
+
+    [AvaloniaTest]
     public void Reattaching_a_view_balances_its_context_callbacks()
     {
         var context = new object();

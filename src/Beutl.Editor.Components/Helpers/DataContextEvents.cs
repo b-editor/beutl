@@ -10,54 +10,52 @@ public static class DataContextEvents
         T? prevContext = null;
         bool isDisposed = false;
 
-        void OnAttachedToLogicalTree(object? sender, Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+        void AttachContext()
         {
             if (isDisposed) return;
 
             if (self.DataContext is T newContext && prevContext != newContext)
             {
-                attached?.Invoke(newContext);
+                // Callbacks may synchronously dispose the subscription or change the context.
                 prevContext = newContext;
+                attached?.Invoke(newContext);
             }
+        }
+
+        void DetachContext()
+        {
+            if (prevContext is { } context)
+            {
+                prevContext = null;
+                detached?.Invoke(context);
+            }
+        }
+
+        void OnAttachedToLogicalTree(object? sender, Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+        {
+            AttachContext();
         }
 
         void OnDetachedFromLogicalTree(object? sender, Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
         {
             if (isDisposed) return;
 
-            if (prevContext != null)
-            {
-                detached?.Invoke(prevContext);
-                prevContext = null;
-            }
+            DetachContext();
         }
 
         void OnDataContextChanged(object? sender, EventArgs e)
         {
             if (isDisposed) return;
 
-            if (prevContext != null)
-            {
-                detached?.Invoke(prevContext);
-                prevContext = null;
-            }
-
-            if (self.DataContext is T newContext && prevContext != newContext)
-            {
-                attached?.Invoke(newContext);
-                prevContext = newContext;
-            }
+            DetachContext();
+            AttachContext();
         }
 
         self.AttachedToLogicalTree += OnAttachedToLogicalTree;
         self.DetachedFromLogicalTree += OnDetachedFromLogicalTree;
         self.DataContextChanged += OnDataContextChanged;
 
-        if (self.DataContext is T newContext && prevContext != newContext)
-        {
-            attached?.Invoke(newContext);
-            prevContext = newContext;
-        }
+        AttachContext();
 
         return Disposable.Create(self, s =>
         {
@@ -66,11 +64,7 @@ public static class DataContextEvents
             s.AttachedToLogicalTree -= OnAttachedToLogicalTree;
             s.DetachedFromLogicalTree -= OnDetachedFromLogicalTree;
             s.DataContextChanged -= OnDataContextChanged;
-            if (prevContext is { } context)
-            {
-                prevContext = null;
-                detached?.Invoke(context);
-            }
+            DetachContext();
         });
     }
 }
