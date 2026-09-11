@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -111,6 +112,57 @@ public class BrowserMediaDownloadTests
     public void DownloadNamesAvoidWindowsDevicesWithoutChangingOrdinaryNames(string name, string expected)
     {
         Assert.That(BrowserMediaDownload.CreateFileName(name, new Uri("https://example.com/media"), "video/mp4"), Is.EqualTo(expected));
+    }
+
+    [TestCase("japanese")]
+    [TestCase("emoji")]
+    [TestCase("combining")]
+    [TestCase("ascii")]
+    public void DownloadNamesFitTheEncodedComponentLimitWithoutSplittingUnicode(string kind)
+    {
+        string stem = kind switch
+        {
+            "japanese" => new string('界', 100),
+            "emoji" => "a" + string.Concat(Enumerable.Repeat("😀", 100)),
+            "combining" => string.Concat(Enumerable.Repeat("e\u0301", 150)),
+            _ => new string('a', 300)
+        };
+        string name = BrowserMediaDownload.CreateFileName(stem + ".mp4", new Uri("https://example.com/media"), "video/mp4");
+        Assert.That(new UTF8Encoding(false, true).GetByteCount(name), Is.LessThanOrEqualTo(240));
+        Assert.That(Path.GetExtension(name), Is.EqualTo(".mp4"));
+        Assert.That(stem.StartsWith(Path.GetFileNameWithoutExtension(name), StringComparison.Ordinal), Is.True);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task MultibyteNamesAndCollisionSuffixesStayWithinTheComponentLimit(bool useResponseHeader)
+    {
+        string name = new string('界', 100) + ".mp4";
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var client = new HttpClient(new MediaHandler(fileName: useResponseHeader ? name : null));
+        var downloader = new BrowserMediaDownload(client);
+        var uri = new Uri("https://example.com/" + (useResponseHeader ? "media.mp4" : Uri.EscapeDataString(name)));
+        try
+        {
+            string first = await downloader.DownloadAsync(uri, directory, null, null, default);
+            string second = await downloader.DownloadAsync(uri, directory, null, null, default);
+            Assert.That(first, Is.Not.EqualTo(second));
+            foreach (string file in new[] { first, second })
+            {
+                Assert.That(Encoding.UTF8.GetByteCount(Path.GetFileName(file)), Is.LessThanOrEqualTo(255));
+                Assert.That(Path.GetExtension(file), Is.EqualTo(".mp4"));
+                Assert.That(File.ReadAllBytes(file), Has.Length.EqualTo(200000));
+            }
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Test]
+    public void TruncationCannotCreateAReservedWindowsName()
+    {
+        string name = BrowserMediaDownload.CreateFileName("CON" + new string(' ', 500) + "tail.mp4",
+            new Uri("https://example.com/media"), "video/mp4");
+        Assert.That(name, Is.EqualTo("_CON.mp4"));
     }
 
     [TestCase(false)]

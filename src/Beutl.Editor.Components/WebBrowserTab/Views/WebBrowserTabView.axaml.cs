@@ -129,6 +129,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         Uri initialUri = _viewModel.CurrentUri;
         bool downloadInitialMedia = BrowserMediaDownload.IsMediaLink(initialUri);
+        if (downloadInitialMedia)
+            _viewModel.CompleteNavigation(WebBrowserTabViewModel.BlankPage, true, false, false);
         if (initialUri != WebBrowserTabViewModel.BlankPage && !downloadInitialMedia)
             _viewModel.BeginNavigation(initialUri);
         NativeWebView webView = _createWebView(downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri);

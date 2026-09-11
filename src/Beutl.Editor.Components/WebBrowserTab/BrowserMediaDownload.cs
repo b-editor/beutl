@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http;
+using System.Text;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
@@ -208,7 +209,6 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         string name = NormalizeFileName(suggestedName)
             ?? NormalizeFileName(Uri.UnescapeDataString(Path.GetFileName(uri.AbsolutePath)))
             ?? "media";
-        if (name.Length > 160) name = name[..140] + Path.GetExtension(name);
 
         if (mediaType != null && s_mediaTypes.TryGetValue(mediaType, out string? extension))
         {
@@ -233,7 +233,26 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             throw new InvalidOperationException(Strings.WebDownloadUnsupported);
         }
 
-        return name;
+        return LimitFileName(name);
+    }
+
+    private static string LimitFileName(string name)
+    {
+        // Leave room within a 255-byte component for collision suffixes and a device-name prefix.
+        const int maximumBytes = 240;
+        if (Encoding.UTF8.GetByteCount(name) <= maximumBytes) return name;
+        string extension = Path.GetExtension(name);
+        string stem = Path.GetFileNameWithoutExtension(name);
+        int remaining = maximumBytes - Encoding.UTF8.GetByteCount(extension);
+        int characters = 0;
+        foreach (Rune rune in stem.EnumerateRunes())
+        {
+            if (rune.Utf8SequenceLength > remaining) break;
+            remaining -= rune.Utf8SequenceLength;
+            characters += rune.Utf16SequenceLength;
+        }
+        string shortened = stem[..characters].TrimEnd(' ', '.') + extension;
+        return NormalizeFileName(shortened) ?? "media" + extension;
     }
 
     private static string? NormalizeFileName(string? value)

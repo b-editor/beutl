@@ -525,6 +525,47 @@ public class WebBrowserDownloadTests
         Assert.That(vm.CanAddDownloadedMedia, Is.False);
     }
 
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task RestoredMediaTabsKeepBlankStateWhenTheDownloadIsCanceledOrCompleted(bool confirm)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var media = new Uri("https://files.example/restored.mp4");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), WebBrowserTabViewModel.BlankPage, profile);
+        vm.ReadFromJson(new JsonObject { ["source"] = media.AbsoluteUri });
+        var native = new NativeWebView();
+        using var view = new WebBrowserTabView(uri => { native.Source = uri; return native; }, () => (true, null, false));
+        using var client = new HttpClient(new MediaHandler());
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        Uri? requested = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            requested = uri;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(confirm ? new(root, false) : null);
+        };
+        try
+        {
+            view.DataContext = vm;
+            Dispatcher.UIThread.RunJobs();
+            if (confirm) await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(requested, Is.EqualTo(media));
+            Assert.That(native.Source, Is.EqualTo(WebBrowserTabViewModel.BlankPage));
+            Assert.That(vm.CurrentUri, Is.EqualTo(native.Source));
+            Assert.That(vm.Address.Value, Is.Empty);
+            Assert.That(vm.HasWebAddress.Value, Is.False);
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(vm.Header.Value, Does.Not.Contain(media.Host));
+            var saved = new JsonObject();
+            vm.WriteToJson(saved);
+            Assert.That(saved["source"]!.GetValue<string>(), Is.Empty);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
     private sealed class MediaHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
