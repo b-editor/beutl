@@ -69,12 +69,15 @@ public class DockTabAddButtonTests
             IToolDock playerDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Player)!;
             ToolControl playerControl = controls.Single(control => ReferenceEquals(control.DataContext, playerDock));
             ToolTabAddButton button = FindAddButton(playerControl)!;
-            Grid header = playerControl.GetVisualDescendants()
-                .OfType<Grid>()
-                .Single(control => control.Name == "PART_TabHeader");
+            ToolTabHeaderPanel header = playerControl.GetVisualDescendants()
+                .OfType<ToolTabHeaderPanel>()
+                .Single();
             Border addButtonBorder = playerControl.GetVisualDescendants()
                 .OfType<Border>()
                 .Single(control => control.Name == "PART_AddButtonBorder");
+            ToolTabStrip tabStrip = playerControl.GetVisualDescendants()
+                .OfType<ToolTabStrip>()
+                .Single();
 
             Assert.Multiple(() =>
             {
@@ -82,6 +85,12 @@ public class DockTabAddButtonTests
                     addButtonBorder.BorderBrush,
                     Is.SameAs(addButtonBorder.FindResource("DockBorderSubtleBrush")));
                 Assert.That(addButtonBorder.BorderThickness.Bottom, Is.EqualTo(1));
+                // The button follows the last tab instead of sitting at the far right of the header.
+                Assert.That(addButtonBorder.Bounds.Left, Is.EqualTo(tabStrip.Bounds.Right).Within(0.5));
+                Assert.That(addButtonBorder.Bounds.Right, Is.LessThan(header.Bounds.Width - addButtonBorder.Bounds.Width));
+                Assert.That(
+                    button.CornerRadius,
+                    Is.EqualTo((CornerRadius)button.FindResource("DockDocumentTabCreateButtonCornerRadius")!));
                 Assert.That(button.Opacity, Is.EqualTo(0));
                 Assert.That(button.IsHitTestVisible, Is.True);
                 Assert.That(button.IsTabStop, Is.True);
@@ -126,6 +135,93 @@ public class DockTabAddButtonTests
             window.Close();
             HeadlessTestHelpers.Settle();
         }
+    }
+
+    [AvaloniaTest]
+    public async Task Add_button_stays_visible_when_tabs_overflow_the_header()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-overflow");
+
+        var view = new EditView { DataContext = editor };
+        var window = new Window { Content = view, Width = 900, Height = 700 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            IToolDock target = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
+            ToolControl targetControl = view.GetVisualDescendants()
+                .OfType<ToolControl>()
+                .Single(control => ReferenceEquals(control.DataContext, target));
+            ToolTabAddButton button = FindAddButton(targetControl)!;
+            ToolTabHeaderPanel header = targetControl.GetVisualDescendants()
+                .OfType<ToolTabHeaderPanel>()
+                .Single();
+            Border addButtonBorder = targetControl.GetVisualDescendants()
+                .OfType<Border>()
+                .Single(control => control.Name == "PART_AddButtonBorder");
+            ToolTabStrip tabStrip = targetControl.GetVisualDescendants()
+                .OfType<ToolTabStrip>()
+                .Single();
+
+            var factory = (BeutlDockFactory)editor.DockHost.Factory;
+            foreach (ToolTabExtension extension in factory.EnumerateToolTabExtensions())
+            {
+                if (extension.CanMultiple || !factory.IsToolTabOpen(extension))
+                {
+                    factory.OpenToolTab(extension, target);
+                }
+            }
+
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(tabStrip.Bounds.Width, Is.EqualTo(header.Bounds.Width - addButtonBorder.Bounds.Width).Within(0.5));
+                Assert.That(addButtonBorder.Bounds.Left, Is.EqualTo(tabStrip.Bounds.Right).Within(0.5));
+                Assert.That(button.Bounds.Width, Is.EqualTo(28));
+                Assert.That(button.IsEffectivelyVisible, Is.True);
+            });
+
+            Point? buttonLeft = button.TranslatePoint(new Point(0, 0), header);
+            Point? buttonRight = button.TranslatePoint(new Point(button.Bounds.Width, 0), header);
+            Assert.Multiple(() =>
+            {
+                Assert.That(buttonLeft, Is.Not.Null);
+                Assert.That(buttonRight, Is.Not.Null);
+                Assert.That(buttonLeft!.Value.X, Is.GreaterThanOrEqualTo(tabStrip.Bounds.Right - 0.5));
+                Assert.That(buttonRight!.Value.X, Is.LessThanOrEqualTo(header.Bounds.Width + 0.5));
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Header_panel_keeps_the_add_button_when_arranged_narrower_than_measured()
+    {
+        // Explicit widths would win over the arrange rect, so size the slots through their content,
+        // the way ToolTabStrip and the add-button Border are sized in the real template.
+        var strip = new Border { Child = new Border { Width = 200, Height = 28 } };
+        var addButton = new Border { Child = new Border { Width = 36, Height = 28 } };
+        var freeSpace = new Border();
+        var panel = new ToolTabHeaderPanel { Children = { strip, addButton, freeSpace } };
+
+        panel.Measure(new Size(300, 28));
+        panel.Arrange(new Rect(0, 0, 150, 28));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(strip.Bounds.Width, Is.EqualTo(114));
+            Assert.That(addButton.Bounds.Left, Is.EqualTo(114));
+            Assert.That(addButton.Bounds.Width, Is.EqualTo(36));
+            Assert.That(freeSpace.Bounds.Width, Is.EqualTo(0));
+        });
     }
 
     [AvaloniaTest]
@@ -183,6 +279,8 @@ public class DockTabAddButtonTests
 
             menu.Close();
             HeadlessTestHelpers.Settle();
+            // The button follows the last tab, so it moved when the new tab was added.
+            buttonCenter = Center(button, window);
             window.MouseDown(buttonCenter, MouseButton.Right);
             window.MouseUp(buttonCenter, MouseButton.Right);
             HeadlessTestHelpers.Settle();

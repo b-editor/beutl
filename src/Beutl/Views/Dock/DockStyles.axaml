@@ -35,11 +35,46 @@
 
             <Setter Property="HeaderTemplate">
                 <DataTemplate DataType="core:IDockable">
-                    <TextBlock MaxWidth="180"
-                               Padding="{DynamicResource DockHeaderContentPadding}"
-                               Text="{Binding Title}"
-                               TextTrimming="CharacterEllipsis"
-                               ToolTip.Tip="{Binding Title}" />
+                    <!--
+                        The close button lives in a zero-width Canvas anchored to the title's right edge, so it
+                        overlays the text without adding to the tab width. Hover styling (button reveal and the
+                        title fade) is in the ToolTabStripItem style block below.
+                    -->
+                    <Panel Classes.closable="{Binding CanClose}">
+                        <!--
+                            The hover fade mask goes on this Border rather than the TextBlock: a TextBlock's
+                            mask is laid out against the glyph extents, so its fade would drift with the title
+                            length instead of staying anchored to the tab's right edge.
+                        -->
+                        <Border x:Name="PART_TabTitleHost"
+                                MaxWidth="180"
+                                Background="Transparent">
+                            <TextBlock x:Name="PART_TabTitle"
+                                       Padding="{DynamicResource DockHeaderContentPadding}"
+                                       Text="{Binding Title}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding Title}" />
+                        </Border>
+                        <Canvas Width="0"
+                                Height="0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                ClipToBounds="False">
+                            <Button x:Name="PART_TabCloseButton"
+                                    Canvas.Right="0"
+                                    Canvas.Top="-10"
+                                    Width="20"
+                                    Height="20"
+                                    Padding="0"
+                                    AutomationProperties.Name="{x:Static lang:Strings.Close}"
+                                    Command="{Binding Factory.CloseDockable}"
+                                    CommandParameter="{Binding}"
+                                    IsVisible="{Binding CanClose}"
+                                    ToolTip.Tip="{x:Static lang:Strings.Close}">
+                                <icons:FluentIcon FontSize="12" Icon="Dismiss" />
+                            </Button>
+                        </Canvas>
+                    </Panel>
                 </DataTemplate>
             </Setter>
 
@@ -56,11 +91,11 @@
                     <DockPanel x:Name="PART_DockPanel"
                                DockProperties.IsDockTarget="True"
                                DockProperties.IsDropArea="True">
-                        <Grid x:Name="PART_TabHeader"
-                              MinHeight="28"
-                              Background="Transparent"
-                              ColumnDefinitions="*,Auto"
-                              DockPanel.Dock="Top">
+                        <!--  Children are positional: tab strip, add button, free space (see ToolTabHeaderPanel).  -->
+                        <local:ToolTabHeaderPanel x:Name="PART_TabHeader"
+                                                  MinHeight="28"
+                                                  Background="Transparent"
+                                                  DockPanel.Dock="Top">
                             <ToolTabStrip x:Name="PART_TabStrip"
                                           DockProperties.DockAdornerHost="{Binding #PART_DockPanel}"
                                           DockProperties.IsDropArea="True"
@@ -70,21 +105,25 @@
                                           ModifiedTemplate="{TemplateBinding ModifiedTemplate}"
                                           SelectedItem="{Binding ActiveDockable, Mode=TwoWay}" />
                             <Border x:Name="PART_AddButtonBorder"
-                                    Grid.Column="1"
                                     BorderBrush="{DynamicResource DockBorderSubtleBrush}"
                                     BorderThickness="0,0,0,1">
                                 <local:ToolTabAddButton x:Name="PART_AddButton"
                                                         Width="28"
                                                         Height="28"
+                                                        Margin="4,0"
                                                         Padding="0"
                                                         AutomationProperties.Name="{x:Static lang:Strings.Add}"
+                                                        CornerRadius="{DynamicResource DockDocumentTabCreateButtonCornerRadius}"
                                                         IsTabStop="True"
                                                         Opacity="0"
                                                         ToolTip.Tip="{x:Static lang:Strings.Add}">
                                     <icons:FluentIcon Icon="Add" />
                                 </local:ToolTabAddButton>
                             </Border>
-                        </Grid>
+                            <Border x:Name="PART_FreeSpace"
+                                    BorderBrush="{DynamicResource DockBorderSubtleBrush}"
+                                    BorderThickness="0,0,0,1" />
+                        </local:ToolTabHeaderPanel>
                         <Border x:Name="PART_Border">
                             <DockableControl DataContext="{Binding ActiveDockable}" TrackingMode="Visible">
                                 <ContentControl x:Name="PART_ContentPresenter"
@@ -119,7 +158,7 @@
                 <Setter Property="BorderThickness" Value="0" />
             </Style>
 
-            <Style Selector="^/template/ Grid#PART_TabHeader:pointerover local|ToolTabAddButton#PART_AddButton">
+            <Style Selector="^/template/ local|ToolTabHeaderPanel#PART_TabHeader:pointerover local|ToolTabAddButton#PART_AddButton">
                 <Setter Property="Opacity" Value="1" />
             </Style>
 
@@ -264,6 +303,44 @@
         <Style Selector="^ /template/ Border">
             <!--  Top corners only, so it tracks ControlCornerRadius by hand.  -->
             <Setter Property="CornerRadius" Value="8,8,0,0" />
+        </Style>
+
+        <!--  Close button: hidden until the tab is hovered; the title fades out underneath it.  -->
+        <Style Selector="^ Button#PART_TabCloseButton">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
+        </Style>
+        <Style Selector="^ Button#PART_TabCloseButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource DockChromeButtonHoverBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimary}" />
+        </Style>
+        <Style Selector="^ Button#PART_TabCloseButton:pressed">
+            <Setter Property="Background" Value="{DynamicResource DockChromeButtonPressedBackgroundBrush}" />
+        </Style>
+        <!--  :focus-visible keeps the keyboard tab stop from being an invisible way to close the tab.  -->
+        <Style Selector="^:pointerover Button#PART_TabCloseButton, ^ Button#PART_TabCloseButton:focus-visible">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="^:pointerover Panel.closable Border#PART_TabTitleHost, ^ Panel.closable:focus-within Border#PART_TabTitleHost">
+            <Setter Property="OpacityMask">
+                <!--
+                    Absolute points are anchored to the left edge, so the brush is mirrored about its centre
+                    to measure from the right instead: fully transparent 20px from the right edge (the close
+                    button's left edge), fully opaque 46px from it.
+                -->
+                <LinearGradientBrush StartPoint="20,0" EndPoint="46,0" TransformOrigin="50%,50%">
+                    <LinearGradientBrush.Transform>
+                        <ScaleTransform ScaleX="-1" />
+                    </LinearGradientBrush.Transform>
+                    <GradientStop Offset="0" Color="Transparent" />
+                    <GradientStop Offset="1" Color="Black" />
+                </LinearGradientBrush>
+            </Setter>
         </Style>
     </Style>
 
