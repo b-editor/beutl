@@ -1669,7 +1669,7 @@ public partial class PlayerView
             if (_movementTimer != null)
                 return;
 
-            _movementTimer = new DispatcherTimer
+            _movementTimer = new DispatcherTimer(DispatcherPriority.Background, View.Dispatcher)
             {
                 Interval = TimeSpan.FromMilliseconds(16) // ~60fps
             };

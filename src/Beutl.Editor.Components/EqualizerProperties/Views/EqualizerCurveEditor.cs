@@ -313,7 +313,7 @@ public sealed class EqualizerCurveEditor : Control
     {
         if (_wheelCommitTimer is null)
         {
-            _wheelCommitTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+            _wheelCommitTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher) { Interval = TimeSpan.FromMilliseconds(400) };
             _wheelCommitTimer.Tick += OnWheelCommitTick;
         }
         _wheelCommitTimer.Stop();

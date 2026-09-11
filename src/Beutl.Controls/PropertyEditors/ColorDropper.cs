@@ -8,7 +8,7 @@ namespace Beutl.Controls.PropertyEditors;
 
 public partial class ColorDropper : IDisposable
 {
-    private readonly DispatcherTimer _timer = new(DispatcherPriority.Normal);
+    private readonly DispatcherTimer _timer = new(DispatcherPriority.Normal, Dispatcher.UIThread);
     private readonly TaskCompletionSource<(Color2, int X, int Y)> _tcs;
     private readonly CancellationToken _ct;
 
