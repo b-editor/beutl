@@ -2673,7 +2673,7 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>Bookmarks</value>
   </data>
   <data name="BrowserAddBookmark" xml:space="preserve">
-    <value>Bookmark this page</value>
+    <value>Add bookmark</value>
   </data>
   <data name="BrowserSettings" xml:space="preserve">
     <value>Search and privacy</value>
@@ -2745,10 +2745,10 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>Open a browser tab to manage cookies. Some browser engines do not support cookie deletion.</value>
   </data>
   <data name="BrowserStartDescription" xml:space="preserve">
-    <value>Find inspiration and keep useful pages close at hand.</value>
+    <value>Find references and media while you edit. Download media and add it to your timeline.</value>
   </data>
   <data name="BrowserStartSearch" xml:space="preserve">
-    <value>Search or enter a web address</value>
+    <value>Start browsing</value>
   </data>
   <data name="BrowserBookmarksEmpty" xml:space="preserve">
     <value>Your favorite pages, in one place</value>

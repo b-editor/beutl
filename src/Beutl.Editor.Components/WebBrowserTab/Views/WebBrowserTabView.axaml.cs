@@ -78,7 +78,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         viewModel.Profile.SettingsChanged += OnProfileChanged;
         viewModel.Profile.Bookmarks.CollectionChanged += OnBookmarksChanged;
         viewModel.Profile.Downloads.CollectionChanged += OnDownloadHistoryChanged;
-        UpdateBookmarkEmptyState();
+        UpdateBlankPageState();
         OnCancelBookmarkEditorClick(this, new RoutedEventArgs());
         OnProfileChanged();
 
@@ -218,7 +218,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _findRequest?.Cancel();
         Uri uri = e.Request ?? _webView.Source;
         _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
-        UpdateBookmarkEmptyState();
+        UpdateBlankPageState();
         if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage)
         {
             _ = UpdatePageTitleAsync(uri);

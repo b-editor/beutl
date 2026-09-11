@@ -1,10 +1,8 @@
+﻿using System.Collections.Specialized;
 using System.Diagnostics;
-
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
-
-using System.Collections.Specialized;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
@@ -54,9 +52,17 @@ internal partial class WebBrowserTabView
 
     private void OnCloseBrowserPanelClick(object? sender, RoutedEventArgs e) => CloseBrowserPanel();
 
-    private void OnBookmarksChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateBookmarkEmptyState();
+    private void OnBookmarksChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateBlankPageState();
 
-    private void UpdateBookmarkEmptyState() => BookmarkEmptyState.IsVisible = _viewModel?.Bookmarks.Count is null or 0;
+    private void UpdateBlankPageState()
+    {
+        bool hasBookmarks = _viewModel?.Bookmarks.Count > 0;
+        BrowserEmptyState.IsVisible = !hasBookmarks && !BookmarkEditor.IsVisible;
+        BookmarkListPanel.IsVisible = hasBookmarks && !BookmarkEditor.IsVisible;
+        BlankPageContent.VerticalAlignment = hasBookmarks && !BookmarkEditor.IsVisible
+            ? Avalonia.Layout.VerticalAlignment.Top
+            : Avalonia.Layout.VerticalAlignment.Center;
+    }
 
     private void OnStartSearchClick(object? sender, RoutedEventArgs e)
     {
@@ -68,6 +74,8 @@ internal partial class WebBrowserTabView
     {
         BookmarkEditor.IsVisible = true;
         BookmarkEditorError.Text = string.Empty;
+        BookmarkEditorError.IsVisible = false;
+        UpdateBlankPageState();
         BookmarkUrlInput.Focus();
     }
 
@@ -77,6 +85,8 @@ internal partial class WebBrowserTabView
         BookmarkUrlInput.Text = string.Empty;
         BookmarkNameInput.Text = string.Empty;
         BookmarkEditorError.Text = string.Empty;
+        BookmarkEditorError.IsVisible = false;
+        UpdateBlankPageState();
     }
 
     private void OnSaveBookmarkClick(object? sender, RoutedEventArgs e)
@@ -86,11 +96,13 @@ internal partial class WebBrowserTabView
             || !BrowserProfile.IsAllowedUrl(uri.AbsoluteUri))
         {
             BookmarkEditorError.Text = Strings.InvalidWebAddress;
+            BookmarkEditorError.IsVisible = true;
             return;
         }
         if (!vm.Profile.AddBookmark(uri, BookmarkNameInput.Text?.Trim() ?? string.Empty))
         {
             BookmarkEditorError.Text = string.Format(Strings.BrowserStorageError, vm.Profile.Error);
+            BookmarkEditorError.IsVisible = true;
             return;
         }
         OnCancelBookmarkEditorClick(sender, e);
@@ -131,18 +143,26 @@ internal partial class WebBrowserTabView
         var empty = new Border
         {
             Padding = new Avalonia.Thickness(20, 24),
-            Child = new StackPanel { Spacing = 6, Children =
+            Child = new StackPanel
+            {
+                Spacing = 6,
+                Children =
             {
                 new TextBlock { Text = Strings.BrowserHistoryEmpty, FontWeight = Avalonia.Media.FontWeight.SemiBold },
                 new TextBlock { Text = Strings.BrowserHistoryEmptyHint, Opacity = 0.65, TextWrapping = Avalonia.Media.TextWrapping.Wrap }
-            } }
+            }
+            }
         };
         var feedback = new TextBlock { TextWrapping = Avalonia.Media.TextWrapping.Wrap, IsVisible = false };
-        var content = new StackPanel { Spacing = 12, Children =
+        var content = new StackPanel
+        {
+            Spacing = 12,
+            Children =
         {
             new TextBlock { Text = Strings.BrowserHistoryIntro, Opacity = 0.65, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
             feedback, empty, items
-        } };
+        }
+        };
         ShowBrowserPanel(Strings.BrowserDownloads, content, () =>
         {
             _historyItems = null;

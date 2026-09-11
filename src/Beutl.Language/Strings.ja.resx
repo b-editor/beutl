@@ -2667,7 +2667,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>ブックマーク</value>
   </data>
   <data name="BrowserAddBookmark" xml:space="preserve">
-    <value>このページをブックマーク</value>
+    <value>ブックマークを追加</value>
   </data>
   <data name="BrowserSettings" xml:space="preserve">
     <value>検索・プライバシー</value>
@@ -2739,10 +2739,11 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>Cookie を管理するにはブラウザータブを開いてください。エンジンによっては Cookie の削除を利用できません。</value>
   </data>
   <data name="BrowserStartDescription" xml:space="preserve">
-    <value>参考資料や素材を探して、よく使うページを手元に。</value>
+    <value>編集しながら、参考資料や素材を検索。
+素材をタイムラインへ取り込めます。</value>
   </data>
   <data name="BrowserStartSearch" xml:space="preserve">
-    <value>検索する、または URL を入力</value>
+    <value>検索を始める</value>
   </data>
   <data name="BrowserBookmarksEmpty" xml:space="preserve">
     <value>よく使うページを、ここに</value>

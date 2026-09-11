@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Beutl.Editor.Components.WebBrowserTab;
 
@@ -7,6 +7,20 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class BrowserProfileTests
 {
+    [TestCase("https://www.example.com/path?q=hello", "www.example.com", "E")]
+    [TestCase("https://docs.beutl.com/reference", "docs.beutl.com", "D")]
+    [TestCase("http://localhost:8080/", "localhost", "L")]
+    [TestCase("https://www./", "www.", "W")]
+    public void Bookmark_DisplayUsesTheHostWithoutChangingItsSavedAddress(string url, string host, string initial)
+    {
+        var bookmark = new BrowserBookmark(url, "Example");
+        Assert.That(bookmark.Host, Is.EqualTo(host));
+        Assert.That(bookmark.Initial, Is.EqualTo(initial));
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(bookmark));
+        Assert.That(json.RootElement.GetProperty("Url").GetString(), Is.EqualTo(url));
+        Assert.That(json.RootElement.EnumerateObject().Select(property => property.Name), Is.EquivalentTo(new[] { "Url", "Title" }));
+    }
+
     [Test]
     public void Profile_RoundTripsSettingsBookmarksAndDownloads_AndClearsOnlyHistory()
     {

@@ -1,16 +1,14 @@
 ﻿using System.Text.Json.Nodes;
-
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Media.Imaging;
 using Avalonia.Headless;
-using Avalonia.Input;
-using Avalonia.Threading;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
-
 using Beutl.Controls;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -18,12 +16,9 @@ using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.ViewModels.Dock;
-
 using Dock.Model.Controls;
 using Dock.Model.Core;
-
 using FluentAvalonia.UI.Controls;
-
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -223,7 +218,14 @@ public class WebBrowserTabLifecycleTests
             Assert.That(menu.Items.OfType<FAMenuFlyoutItem>().Any(item => item.Text == Strings.BrowserBookmarks
                 || item.Text == Strings.BrowserAddBookmark), Is.False);
             Assert.That(view.FindControl<Button>("BookmarkButton"), Is.Null);
-            Assert.That(view.FindControl<Border>("BookmarkEmptyState")!.IsVisible, Is.True);
+            Assert.That(view.FindControl<Border>("BrowserEmptyState")!.IsVisible, Is.True);
+            var intro = view.FindControl<Border>("BrowserEmptyState")!;
+            Assert.That(intro.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text),
+                Does.Contain(Strings.WebBrowser).And.Contain(Strings.BrowserStartDescription)
+                    .And.Not.Contain(Strings.BrowserBookmarksEmpty).And.Not.Contain(Strings.BrowserBookmarksHint));
+            view.FindControl<Button>("StartBrowsingButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(view.FindControl<WebBrowserAddressBox>("AddressTextBox")!.IsFocused, Is.True);
+            Assert.That(vm.CurrentUri, Is.EqualTo(WebBrowserTabViewModel.BlankPage));
             void Capture(string name)
             {
                 if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is not { Length: > 0 } directory) return;
@@ -239,16 +241,25 @@ public class WebBrowserTabLifecycleTests
             window.Width = 640;
             view.FindControl<Button>("AddBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(view.FindControl<Border>("BookmarkEditor")!.IsVisible, Is.True);
+            Assert.That(view.FindControl<Border>("BrowserEmptyState")!.IsVisible, Is.False);
             view.FindControl<TextBox>("BookmarkUrlInput")!.Text = "javascript:alert(1)";
             view.FindControl<Button>("SaveBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(profile.Bookmarks, Is.Empty);
             Assert.That(view.FindControl<TextBlock>("BookmarkEditorError")!.Text, Is.Not.Empty);
+            Assert.That(view.FindControl<TextBlock>("BookmarkEditorError")!.IsVisible, Is.True);
             view.FindControl<TextBox>("BookmarkUrlInput")!.Text = uri.AbsoluteUri;
             view.FindControl<TextBox>("BookmarkNameInput")!.Text = "Example";
             view.FindControl<Button>("SaveBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(view.FindControl<Border>("BookmarkEditor")!.IsVisible, Is.False);
-            Assert.That(view.FindControl<Border>("BookmarkEmptyState")!.IsVisible, Is.False);
+            Assert.That(view.FindControl<Border>("BrowserEmptyState")!.IsVisible, Is.False);
             Dispatcher.UIThread.RunJobs();
+            Assert.That(view.GetVisualDescendants().OfType<TextBlock>()
+                .Where(text => text.IsEffectivelyVisible)
+                .Select(text => text.Text), Does.Not.Contain(Strings.NewTab)
+                .And.Not.Contain(Strings.WebBrowser)
+                .And.Not.Contain(Strings.BrowserStartDescription)
+                .And.Not.Contain(Strings.BrowserStartSearch)
+                .And.Not.Contain(Strings.BrowserBookmarks));
             Capture("bookmarks-640");
             Assert.That(profile.Bookmarks.Single().Url, Is.EqualTo(uri.AbsoluteUri));
             vm.CompleteNavigation(WebBrowserTabViewModel.BlankPage, true, false, false);
@@ -256,16 +267,98 @@ public class WebBrowserTabLifecycleTests
             Assert.That(view.FindControl<ScrollViewer>("BlankPagePanel")!.IsVisible, Is.True);
             var items = view.FindControl<ItemsControl>("BookmarkItems")!;
             Assert.That(items.ItemCount, Is.EqualTo(1));
-            items.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "×"))
+            Assert.That(items.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text),
+                Does.Contain("example.com").And.Not.Contain(uri.AbsoluteUri));
+            items.GetVisualDescendants().OfType<Button>().Single(button => button.Classes.Contains("removeBookmark"))
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(profile.Bookmarks, Is.Empty);
+            Assert.That(view.FindControl<Border>("BrowserEmptyState")!.IsVisible, Is.True);
+            Assert.That(view.FindControl<StackPanel>("BookmarkListPanel")!.IsVisible, Is.False);
             profile.AddBookmark(uri, "Example");
             Dispatcher.UIThread.RunJobs();
-            items.GetVisualDescendants().OfType<Button>().Single(button => button.Content is Grid)
+            items.GetVisualDescendants().OfType<Button>().Single(button => button.Classes.Contains("openBookmark"))
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(vm.CurrentUri, Is.EqualTo(uri));
             Assert.That(view.FindControl<ScrollViewer>("BlankPagePanel")!.IsVisible, Is.False);
             Assert.That(window.GetVisualDescendants().OfType<FAContentDialog>(), Is.Empty);
+        }
+        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(320, false)]
+    [TestCase(640, false)]
+    [TestCase(320, true)]
+    [TestCase(640, true)]
+    public void BlankPage_RestoresBookmarksAndSwitchesStatesWithoutHorizontalOverflow(int width, bool lightTheme)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        profile.AddBookmark(new Uri("https://www.pexels.com/ja-jp/videos/"), "Pexels — 動画素材");
+        profile.AddBookmark(new Uri("https://www.youtube.com/"), "YouTube");
+        profile.AddBookmark(new Uri("https://docs.beutl.com/reference/a-long-page-address"),
+            "Beutl ドキュメント — エフェクトとアニメーションのリファレンス");
+        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), WebBrowserTabViewModel.BlankPage,
+            new BrowserProfile(Path.Combine(root, "profile.json")));
+        using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
+        view.DataContext = vm;
+        var window = new Window
+        {
+            Content = view,
+            Width = width,
+            Height = 520,
+            RequestedThemeVariant = lightTheme ? Avalonia.Styling.ThemeVariant.Light : Avalonia.Styling.ThemeVariant.Dark
+        };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var blank = view.FindControl<ScrollViewer>("BlankPagePanel")!;
+            var empty = view.FindControl<Border>("BrowserEmptyState")!;
+            var list = view.FindControl<StackPanel>("BookmarkListPanel")!;
+            var editor = view.FindControl<Border>("BookmarkEditor")!;
+            Assert.That(empty.IsVisible, Is.False);
+            Assert.That(list.IsVisible, Is.True);
+            Assert.That(blank.Extent.Width, Is.LessThanOrEqualTo(blank.Viewport.Width));
+            foreach (var button in list.GetVisualDescendants().OfType<Button>())
+            {
+                Point position = button.TranslatePoint(default, blank)!.Value;
+                Assert.That(position.X, Is.GreaterThanOrEqualTo(0));
+                Assert.That(position.X + button.Bounds.Width, Is.LessThanOrEqualTo(blank.Bounds.Width));
+            }
+            Capture("bookmarks");
+
+            view.FindControl<Button>("AddAnotherBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(editor.IsVisible, Is.True);
+            Assert.That(empty.IsVisible, Is.False);
+            Assert.That(list.IsVisible, Is.False);
+            Capture("editor");
+            view.FindControl<Button>("CancelBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(editor.IsVisible, Is.False);
+            Assert.That(list.IsVisible, Is.True);
+
+            vm.Profile.Bookmarks.Clear();
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(empty.IsVisible, Is.True);
+            Assert.That(list.IsVisible, Is.False);
+            Assert.That(blank.Extent.Width, Is.LessThanOrEqualTo(blank.Viewport.Width));
+            Capture("empty");
+            Point emptyPosition = empty.TranslatePoint(default, blank)!.Value;
+            Assert.That(emptyPosition.Y + empty.Bounds.Height / 2, Is.EqualTo(blank.Bounds.Height / 2).Within(1));
+
+            vm.Profile.AddBookmark(new Uri("https://example.com/"), "Example");
+            Assert.That(empty.IsVisible, Is.False);
+            Assert.That(list.IsVisible, Is.True);
+
+            void Capture(string state)
+            {
+                if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is not { Length: > 0 } directory) return;
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                Directory.CreateDirectory(directory);
+                using var image = window.CaptureRenderedFrame();
+                image?.Save(Path.Combine(directory, $"{state}-{width}-{(lightTheme ? "light" : "dark")}.png"), PngBitmapEncoderOptions.Default);
+            }
         }
         finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
     }

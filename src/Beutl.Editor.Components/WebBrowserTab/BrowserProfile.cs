@@ -1,10 +1,20 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
 internal enum BrowserSearchEngine { Google, Bing }
-internal sealed record BrowserBookmark(string Url, string Title);
+internal sealed record BrowserBookmark(string Url, string Title)
+{
+    [JsonIgnore]
+    public string Host => new Uri(Url).Host;
+
+    [JsonIgnore]
+    public string Initial => Host.Length > 4 && Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
+        ? Host.Substring(4, 1).ToUpperInvariant()
+        : Host[..1].ToUpperInvariant();
+}
 internal sealed record BrowserDownloadRecord(string Url, string FilePath, DateTimeOffset CompletedAt);
 
 internal sealed class BrowserProfile

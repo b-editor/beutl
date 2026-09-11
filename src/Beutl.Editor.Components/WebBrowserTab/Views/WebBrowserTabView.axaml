@@ -16,6 +16,21 @@
              x:CompileBindings="True"
              x:DataType="viewModel:WebBrowserTabViewModel"
              mc:Ignorable="d">
+    <UserControl.Styles>
+        <Style Selector="Border.bookmarkCard">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        </Style>
+        <Style Selector="Border.bookmarkCard:pointerover, Border.bookmarkCard:focus-within">
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+        </Style>
+        <Style Selector="Button.removeBookmark">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+        </Style>
+        <Style Selector="Border.bookmarkCard:pointerover Button.removeBookmark, Border.bookmarkCard:focus-within Button.removeBookmark">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
     <UserControl.Resources>
         <DataTemplate x:Key="DownloadHistoryItemTemplate" x:DataType="views:BrowserDownloadHistoryItem">
             <Border Padding="16" Margin="0,0,0,12" CornerRadius="12"
@@ -180,72 +195,200 @@
                                 IsVisible="{Binding HasWebAddress.Value}"
                                 HorizontalContentAlignment="Stretch"
                                 VerticalContentAlignment="Stretch" />
-                <ScrollViewer x:Name="BlankPagePanel" IsVisible="{Binding !HasWebAddress.Value}">
-                    <StackPanel Margin="24,36,24,24" MaxWidth="620" HorizontalAlignment="Stretch" Spacing="24">
-                        <StackPanel Spacing="8">
-                            <Border Width="48" Height="48" CornerRadius="14" HorizontalAlignment="Left"
-                                    Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}">
-                                <icons:FluentIcon Icon="Globe" FontSize="26" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Text="{x:Static lang:Strings.NewTab}" FontSize="28" FontWeight="SemiBold" />
-                            <TextBlock Text="{x:Static lang:Strings.BrowserStartDescription}" Opacity="0.65" TextWrapping="Wrap" />
-                        </StackPanel>
-                        <Button Click="OnStartSearchClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                Padding="16,12" CornerRadius="12">
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                                <icons:FluentIcon Icon="Search" FontSize="18" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="1" Text="{x:Static lang:Strings.BrowserStartSearch}" Opacity="0.75" TextWrapping="Wrap" />
-                            </Grid>
-                        </Button>
-                        <StackPanel Spacing="12">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <TextBlock Text="{x:Static lang:Strings.BrowserBookmarks}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                <Button x:Name="AddBookmarkButton" Grid.Column="1" Click="OnShowBookmarkEditorClick"
-                                        Content="{x:Static lang:Strings.Add}" Padding="12,6" CornerRadius="8" />
-                            </Grid>
-                            <Border x:Name="BookmarkEditor" IsVisible="False" Padding="16" CornerRadius="12"
-                                    Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}">
+                <ScrollViewer x:Name="BlankPagePanel"
+                              HorizontalContentAlignment="Stretch"
+                              Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                              HorizontalScrollBarVisibility="Disabled"
+                              IsVisible="{Binding !HasWebAddress.Value}">
+                    <StackPanel x:Name="BlankPageContent"
+                                MaxWidth="520"
+                                Margin="24"
+                                VerticalAlignment="Center"
+                                Spacing="16">
+                        <Border x:Name="BrowserEmptyState" Padding="8,24">
+                            <StackPanel MaxWidth="320"
+                                        HorizontalAlignment="Center"
+                                        Spacing="24">
+                                <Border Width="64"
+                                        Height="64"
+                                        HorizontalAlignment="Center"
+                                        Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="20">
+                                    <icons:FluentIcon HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"
+                                                      FontSize="30"
+                                                      Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                                      Icon="Globe" />
+                                </Border>
                                 <StackPanel Spacing="10">
-                                    <TextBox x:Name="BookmarkUrlInput" PlaceholderText="{x:Static lang:Strings.WebAddress}" />
-                                    <TextBox x:Name="BookmarkNameInput" PlaceholderText="{x:Static lang:Strings.Name}" />
-                                    <TextBlock x:Name="BookmarkEditorError" TextWrapping="Wrap" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Button x:Name="SaveBookmarkButton" Content="{x:Static lang:Strings.Add}" Click="OnSaveBookmarkClick" />
-                                        <Button Content="{x:Static lang:Strings.Cancel}" Click="OnCancelBookmarkEditorClick" />
-                                    </StackPanel>
+                                    <TextBlock FontSize="20"
+                                               FontWeight="SemiBold"
+                                               Text="{x:Static lang:Strings.WebBrowser}"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock FontSize="13"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               LineHeight="22"
+                                               Text="{x:Static lang:Strings.BrowserStartDescription}"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap" />
                                 </StackPanel>
-                            </Border>
-                            <Border x:Name="BookmarkEmptyState" Padding="20,24" CornerRadius="12"
-                                    Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}">
-                                <StackPanel Spacing="6">
-                                    <TextBlock Text="{x:Static lang:Strings.BrowserBookmarksEmpty}" FontWeight="SemiBold" />
-                                    <TextBlock Text="{x:Static lang:Strings.BrowserBookmarksHint}" Opacity="0.65" TextWrapping="Wrap" />
+                                <StackPanel HorizontalAlignment="Center"
+                                            Orientation="Horizontal"
+                                            Spacing="8">
+                                    <Button x:Name="StartBrowsingButton"
+                                            Padding="14,9"
+                                            AutomationProperties.Name="{x:Static lang:Strings.BrowserStartSearch}"
+                                            Click="OnStartSearchClick"
+                                            CornerRadius="8">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <icons:FluentIcon VerticalAlignment="Center"
+                                                              FontSize="16"
+                                                              Icon="Search" />
+                                            <TextBlock Text="{x:Static lang:Strings.BrowserStartSearch}" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="AddBookmarkButton"
+                                            Width="36"
+                                            Height="36"
+                                            Padding="9"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.Name="{x:Static lang:Strings.BrowserAddBookmark}"
+                                            Click="OnShowBookmarkEditorClick"
+                                            CornerRadius="8"
+                                            Theme="{StaticResource TransparentButton}"
+                                            ToolTip.Tip="{x:Static lang:Strings.BrowserAddBookmark}">
+                                        <icons:FluentIcon FontSize="18" Icon="Add" />
+                                    </Button>
                                 </StackPanel>
-                            </Border>
-                            <ItemsControl x:Name="BookmarkItems" ItemsSource="{Binding Bookmarks}">
+                            </StackPanel>
+                        </Border>
+                        <StackPanel x:Name="BookmarkListPanel"
+                                    IsVisible="False"
+                                    Spacing="8">
+                            <ItemsControl x:Name="BookmarkItems"
+                                          AutomationProperties.Name="{x:Static lang:Strings.BrowserBookmarks}"
+                                          ItemsSource="{Binding Bookmarks}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="browser:BrowserBookmark">
-                                        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8" ColumnSpacing="4">
-                                            <Button Tag="{Binding}" Click="OnOpenBookmarkClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                                    Padding="14,12" CornerRadius="10">
-                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                                                    <Border Width="36" Height="36" CornerRadius="10" Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}">
-                                                        <icons:FluentIcon Icon="Globe" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                    </Border>
-                                                    <StackPanel Grid.Column="1" Spacing="3">
-                                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                        <TextBlock Text="{Binding Url}" TextTrimming="CharacterEllipsis" Opacity="0.6" FontSize="12" />
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Button>
-                                            <Button Grid.Column="1" Content="×" Tag="{Binding}" Click="OnRemoveBookmarkClick"
-                                                    Padding="8" VerticalAlignment="Center" Theme="{StaticResource TransparentButton}"
-                                                    ToolTip.Tip="{x:Static lang:Strings.Delete}" />
-                                        </Grid>
+                                        <Border Margin="0,0,0,8"
+                                                BorderThickness="1"
+                                                Classes="bookmarkCard"
+                                                CornerRadius="12">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <Button Padding="12"
+                                                        HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Stretch"
+                                                        AutomationProperties.Name="{Binding Title}"
+                                                        Classes="openBookmark"
+                                                        Click="OnOpenBookmarkClick"
+                                                        CornerRadius="11"
+                                                        Tag="{Binding}"
+                                                        Theme="{StaticResource TransparentButton}"
+                                                        ToolTip.Tip="{Binding Url}">
+                                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                                        <Border Width="40"
+                                                                Height="40"
+                                                                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                                                CornerRadius="12">
+                                                            <TextBlock HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       FontSize="18"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                                                       Text="{Binding Initial}" />
+                                                        </Border>
+                                                        <StackPanel Grid.Column="1"
+                                                                    VerticalAlignment="Center"
+                                                                    Spacing="4">
+                                                            <TextBlock FontSize="14"
+                                                                       FontWeight="SemiBold"
+                                                                       Text="{Binding Title}"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock FontSize="12"
+                                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                                       Text="{Binding Host}"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Button>
+                                                <Button Grid.Column="1"
+                                                        Width="32"
+                                                        Height="32"
+                                                        Margin="0,0,8,0"
+                                                        Padding="8"
+                                                        VerticalAlignment="Center"
+                                                        AutomationProperties.Name="{x:Static lang:Strings.Delete}"
+                                                        Classes="removeBookmark"
+                                                        Click="OnRemoveBookmarkClick"
+                                                        CornerRadius="8"
+                                                        Tag="{Binding}"
+                                                        Theme="{StaticResource TransparentButton}"
+                                                        ToolTip.Tip="{x:Static lang:Strings.Delete}">
+                                                    <icons:FluentIcon FontSize="14" Icon="Dismiss" />
+                                                </Button>
+                                            </Grid>
+                                        </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            <Button x:Name="AddAnotherBookmarkButton"
+                                    Width="36"
+                                    Height="36"
+                                    Padding="9"
+                                    HorizontalAlignment="Center"
+                                    AutomationProperties.Name="{x:Static lang:Strings.BrowserAddBookmark}"
+                                    Click="OnShowBookmarkEditorClick"
+                                    CornerRadius="10"
+                                    Theme="{StaticResource TransparentButton}"
+                                    ToolTip.Tip="{x:Static lang:Strings.BrowserAddBookmark}">
+                                <icons:FluentIcon FontSize="18" Icon="Add" />
+                            </Button>
                         </StackPanel>
+                        <Border x:Name="BookmarkEditor"
+                                Padding="20"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                IsVisible="False">
+                            <StackPanel Spacing="16">
+                                <TextBlock FontSize="16"
+                                           FontWeight="SemiBold"
+                                           Text="{x:Static lang:Strings.BrowserAddBookmark}" />
+                                <StackPanel Spacing="6">
+                                    <TextBlock FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="URL" />
+                                    <TextBox x:Name="BookmarkUrlInput"
+                                             AutomationProperties.Name="URL"
+                                             PlaceholderText="https://example.com" />
+                                </StackPanel>
+                                <StackPanel Spacing="6">
+                                    <TextBlock FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{x:Static lang:Strings.Name}" />
+                                    <TextBox x:Name="BookmarkNameInput"
+                                             AutomationProperties.Name="{x:Static lang:Strings.Name}"
+                                             PlaceholderText="{x:Static lang:Strings.Name}" />
+                                </StackPanel>
+                                <TextBlock x:Name="BookmarkEditorError"
+                                           Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                                           IsVisible="False"
+                                           TextWrapping="Wrap" />
+                                <StackPanel HorizontalAlignment="Right"
+                                            Orientation="Horizontal"
+                                            Spacing="8">
+                                    <Button x:Name="CancelBookmarkButton"
+                                            Click="OnCancelBookmarkEditorClick"
+                                            Content="{x:Static lang:Strings.Cancel}" />
+                                    <Button x:Name="SaveBookmarkButton"
+                                            Classes="accent"
+                                            Click="OnSaveBookmarkClick"
+                                            Content="{x:Static lang:Strings.Add}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
