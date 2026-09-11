@@ -130,6 +130,7 @@ jobs:
           dotnet test Beutl.slnx --no-build --verbosity normal -f net10.0
           --collect:"XPlat Code Coverage" --settings coverlet.runsettings --logger trx
           --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini
+          --blame-crash --blame-crash-dump-type mini
         env:
           # GPU golden tests must fail loudly (not Assert.Ignore) when the bundled
           # SwiftShader Vulkan ICD fails to load; see GpuGoldenSuiteCanaryTests.
@@ -162,13 +163,24 @@ jobs:
         run: |
           dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj --no-build -f net10.0 \
             --filter "TestCategory!=KnownVulkanSkiaLayoutInterop" --logger trx \
-            --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini
+            --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini \
+            --blame-crash --blame-crash-dump-type mini
           dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj --no-build -f net10.0 \
             --filter "TestCategory!=KnownVulkanSkiaLayoutInterop" --logger trx \
-            --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini
+            --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini \
+            --blame-crash --blame-crash-dump-type mini
         env:
           BEUTL_REQUIRE_GPU: "1"
           BEUTL_VULKAN_VALIDATION: "1"
+
+      - name: Capture runner diagnostics after failure
+        if: failure()
+        run: |
+          mkdir -p tests/ci-diagnostics
+          free -h > tests/ci-diagnostics/memory.log
+          df -h > tests/ci-diagnostics/disk.log
+          ps -eo pid,ppid,comm,rss,etimes > tests/ci-diagnostics/processes.log
+          sudo dmesg --ctime > tests/ci-diagnostics/kernel.log 2>&1 || true
 
       - name: Save test diagnostics
         if: always()
@@ -179,6 +191,7 @@ jobs:
             tests/**/TestResults/**/*.trx
             tests/**/TestResults/**/Sequence_*.xml
             tests/**/TestResults/**/*.dmp
+            tests/ci-diagnostics/
           if-no-files-found: ignore
           retention-days: 7
 
