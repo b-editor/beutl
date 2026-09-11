@@ -455,8 +455,17 @@ public sealed class ProjectService
                 return;
             }
 
-            var project = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(file));
-            await CloseProjectCoreAsync(transition, CancellationToken.None);
+            Uri projectUri = UriHelper.CreateFromPath(file);
+            if (_app.Project is not null)
+            {
+                // Validate before closing so an invalid project leaves the current one open.
+                // Closing can save scenes or sidecars shared with this project, so discard
+                // the preflight graph and load the committed files after the close completes.
+                _ = CoreSerializer.RestoreFromUri<Project>(projectUri);
+                await CloseProjectCoreAsync(transition, CancellationToken.None);
+            }
+
+            var project = CoreSerializer.RestoreFromUri<Project>(projectUri);
             await ActivateProjectAsync(project);
 
             TryAddToRecentProjects(file);
