@@ -150,6 +150,12 @@ public sealed partial class SettingsDialog : FAAppWindow
             },
             new FANavigationViewItem()
             {
+                Content = Strings.WebBrowser,
+                Tag = typeof(BrowserSettingsPage),
+                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Globe }
+            },
+            new NavigationViewItem()
+            {
                 Content = Strings.Info,
                 Tag = typeof(InformationPage),
                 IconSource = new FluentIconSource()
@@ -187,6 +193,7 @@ public sealed partial class SettingsDialog : FAAppWindow
                 "FontSettingsPage" => settingsPage.Font,
                 "ExtensionsSettingsPage" => settingsPage.ExtensionsPage,
                 "AiAgentSettingsPage" => settingsPage.AiAgent,
+                "BrowserSettingsPage" => settingsPage.Browser,
                 "InformationPage" => settingsPage.Information,
                 "KeyMapSettingsPage" => settingsPage.KeyMap,
                 _ => null,
@@ -227,6 +234,7 @@ public sealed partial class SettingsDialog : FAAppWindow
                 || pagetype == typeof(FontSettingsPage)
                 || pagetype == typeof(ExtensionsSettingsPage)
                 || pagetype == typeof(AiAgentSettingsPage)
+                || pagetype == typeof(BrowserSettingsPage)
                 || pagetype == typeof(InformationPage))
             {
                 return 0;
@@ -256,8 +264,9 @@ public sealed partial class SettingsDialog : FAAppWindow
                 "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage"
                     or "AnExtensionSettingsPage" => 5,
                 "AiAgentSettingsPage" => 6,
-                "StorageSettingsPage" or "StorageDetailPage" => 7,
-                "InformationPage" or "TelemetrySettingsPage" => 8,
+                "BrowserSettingsPage" => 7,
+                "StorageSettingsPage" or "StorageDetailPage" => 8,
+                "InformationPage" or "TelemetrySettingsPage" => 9,
                 _ => 0,
             };
         }
@@ -273,6 +282,7 @@ public sealed partial class SettingsDialog : FAAppWindow
                 "FontSettingsPageViewModel" => typeof(FontSettingsPage),
                 "ExtensionsSettingsPageViewModel" => typeof(ExtensionsSettingsPage),
                 "AiAgentSettingsPageViewModel" => typeof(AiAgentSettingsPage),
+                "BrowserSettingsPageViewModel" => typeof(BrowserSettingsPage),
                 "EditorExtensionPriorityPageViewModel" => typeof(EditorExtensionPriorityPage),
                 "DecoderPriorityPageViewModel" => typeof(DecoderPriorityPage),
                 "TelemetrySettingsPageViewModel" => typeof(TelemetrySettingsPage),

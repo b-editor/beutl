@@ -18,6 +18,7 @@ public sealed class SettingsDialogViewModel : IDisposable
     private readonly Lazy<InformationPageViewModel> _information;
     private readonly Lazy<KeyMapSettingsPageViewModel> _keyMap;
     private readonly Lazy<AiAgentSettingsPageViewModel> _aiAgent;
+    private readonly Lazy<BrowserSettingsPageViewModel> _browser = new(() => new BrowserSettingsPageViewModel());
 
     public SettingsDialogViewModel(
         BeutlApiApplication clients,
@@ -52,6 +53,10 @@ public sealed class SettingsDialogViewModel : IDisposable
 
     public AiAgentSettingsPageViewModel AiAgent => _aiAgent.Value;
 
+    public BrowserSettingsPageViewModel Browser => _browser.Value;
+
+    public void GoToBrowserSettingsPage() => _navigateRequested.OnNext(Browser);
+
     public IObservable<object> NavigateRequested => _navigateRequested;
 
     public void GoToSettingsPage()
@@ -67,6 +72,7 @@ public sealed class SettingsDialogViewModel : IDisposable
     public void Dispose()
     {
         _navigateRequested.Dispose();
+        if (_browser.IsValueCreated) _browser.Value.Dispose();
         if (_account.IsValueCreated)
             _account.Value.Dispose();
 

@@ -21,7 +21,9 @@ internal sealed class WebBrowserAddressBox : TextBox
     private CancellationTokenSource? _suggestionRequest;
 
     internal Func<string, CancellationToken, Task<IReadOnlyList<string>>> SuggestionProvider { get; set; } =
-        WebSearchSuggestions.Default.GetSuggestionsAsync;
+        (query, token) => WebSearchSuggestions.Default.GetSuggestionsAsync(query, token);
+
+    internal bool SuggestionsEnabled { get; set; } = true;
 
     internal TimeSpan SuggestionDelay { get; set; } = TimeSpan.FromMilliseconds(250);
 
@@ -107,7 +109,7 @@ internal sealed class WebBrowserAddressBox : TextBox
     internal async Task RefreshSearchSuggestionsAsync(string query)
     {
         CancelSearchSuggestions();
-        if (!IsFocused || !WebSearchSuggestions.IsSearchQuery(query) || query.Trim().Length < 2)
+        if (!SuggestionsEnabled || !IsFocused || !WebSearchSuggestions.IsSearchQuery(query) || query.Trim().Length < 2)
         {
             return;
         }

@@ -1,0 +1,59 @@
+<UserControl x:Class="Beutl.Pages.SettingsPages.BrowserSettingsPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.ViewModels.SettingsPages"
+             x:CompileBindings="True"
+             x:DataType="vm:BrowserSettingsPageViewModel">
+    <Grid Margin="18" RowDefinitions="Auto,*">
+        <TextBlock Margin="10,8" Text="{x:Static lang:Strings.WebBrowser}"
+                   Theme="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Margin="10,16,10,0" VerticalAlignment="Stretch" Orientation="Vertical" Spacing="4">
+                <TextBlock Text="{x:Static lang:Strings.BrowserSearchSection}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.BrowserSearchEngine}" Description="{x:Static lang:Strings.BrowserSearchEngineDescription}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox x:Name="SearchEngineComboBox" MinWidth="250" ItemsSource="{Binding Engines}"
+                                  SelectedIndex="{Binding SelectedEngineIndex.Value, Mode=TwoWay}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.BrowserSuggestionsTitle}" Description="{x:Static lang:Strings.BrowserRemoteSuggestions}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch x:Name="SuggestionsToggle" Classes="left" Theme="{StaticResource CompactToggleSwitchStyle}"
+                                      IsChecked="{Binding SuggestionsEnabled.Value, Mode=TwoWay}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+                <TextBlock Margin="0,16,0,0" Text="{x:Static lang:Strings.BrowserPrivacySection}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.BrowserRecordDownloads}" Description="{x:Static lang:Strings.BrowserRecordDownloadsDescription}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left" Theme="{StaticResource CompactToggleSwitchStyle}"
+                                      IsChecked="{Binding RecordDownloads.Value, Mode=TwoWay}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.BrowserClearHistory}" Description="{x:Static lang:Strings.BrowserHistoryDescription}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <Button Content="{x:Static lang:Strings.Delete}" Click="OnClearHistoryClick" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.BrowserClearCookies}" Description="{x:Static lang:Strings.BrowserCookiesDescription}"
+                                         Expands="True" IsExpanded="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <StackPanel IsEnabled="{Binding !IsClearingCookies.Value}">
+                            <Button Content="{x:Static lang:Strings.Delete}" IsEnabled="{Binding CanClearCookies}" Click="OnClearCookiesClick" />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <StackPanel Spacing="8">
+                            <CheckBox IsEnabled="{Binding CanClearCookies}" IsChecked="{Binding CookieDeletionConfirmed.Value, Mode=TwoWay}">
+                                <TextBlock Text="{x:Static lang:Strings.BrowserCookieWarning}" TextWrapping="Wrap" />
+                            </CheckBox>
+                            <TextBlock Text="{x:Static lang:Strings.BrowserCookieSessionRequired}" IsVisible="{Binding !CanClearCookies}" TextWrapping="Wrap" Opacity="0.65" />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+                <TextBlock Margin="0,8,0,0" Text="{Binding Feedback.Value}" TextWrapping="Wrap" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

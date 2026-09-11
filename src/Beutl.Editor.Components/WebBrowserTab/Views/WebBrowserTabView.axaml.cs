@@ -22,6 +22,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private readonly Func<Uri, Task<bool>>? _launchInDefaultBrowser;
     private readonly Func<NativeWebView, Task<string?>> _getPageTitle;
     private readonly Func<NativeWebView, bool> _canReparentWebView;
+    private readonly bool _navigationStartedIncludesSubframes;
     private NativeWebView? _webView;
     private WebBrowserTabViewModel? _viewModel;
     private bool _disposed;
@@ -36,15 +37,18 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         Func<(bool IsAvailable, string? Detail, bool ShowLinuxRuntimeHelp)> getWebViewAvailability,
         Func<Uri, Task<bool>>? launchInDefaultBrowser = null,
         Func<NativeWebView, Task<string?>>? getPageTitle = null,
-        Func<NativeWebView, bool>? canReparentWebView = null)
+        Func<NativeWebView, bool>? canReparentWebView = null,
+        bool? navigationStartedIncludesSubframes = null)
     {
         _createWebView = createWebView;
         _getWebViewAvailability = getWebViewAvailability;
         _launchInDefaultBrowser = launchInDefaultBrowser;
         _getPageTitle = getPageTitle ?? (static webView => webView.InvokeScript("document.title"));
         _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
+        _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? OperatingSystem.IsMacOS();
         InitializeComponent();
         AddressTextBox.SearchSuggestionsChanged += OnSearchSuggestionsChanged;
+        AddHandler(KeyDownEvent, OnBrowserKeyDown, RoutingStrategies.Tunnel);
         Loaded += OnLoaded;
     }
 
@@ -58,11 +62,28 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
+        _downloadCancellation?.Cancel();
+        CloseBrowserPanel();
+        _pageRevision++;
+        _findRequest?.Cancel();
+        if (_viewModel != null)
+        {
+            _viewModel.Profile.SettingsChanged -= OnProfileChanged;
+            _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
+            _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
+        }
         _viewModel = viewModel;
+        viewModel.Profile.SettingsChanged += OnProfileChanged;
+        viewModel.Profile.Bookmarks.CollectionChanged += OnBookmarksChanged;
+        viewModel.Profile.Downloads.CollectionChanged += OnDownloadHistoryChanged;
+        UpdateBookmarkEmptyState();
+        OnCancelBookmarkEditorClick(this, new RoutedEventArgs());
+        OnProfileChanged();
         _disposed = false;
 
         if (_webView != null && _webView.Source != viewModel.CurrentUri)
         {
+            viewModel.BeginNavigation(viewModel.CurrentUri);
             _webView.Source = viewModel.CurrentUri;
         }
 
@@ -88,7 +109,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
-        NativeWebView webView = _createWebView(_viewModel.CurrentUri);
+        Uri initialUri = _viewModel.CurrentUri;
+        bool downloadInitialMedia = BrowserMediaDownload.IsMediaLink(initialUri);
+        if (initialUri != WebBrowserTabViewModel.BlankPage && !downloadInitialMedia)
+            _viewModel.BeginNavigation(initialUri);
+        NativeWebView webView = _createWebView(downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri);
         if (OperatingSystem.IsMacOS())
         {
             webView.EnvironmentRequested += ConfigureMacOSWebViewEnvironment;
@@ -97,8 +122,18 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         webView.NavigationStarted += OnNavigationStarted;
         webView.NavigationCompleted += OnNavigationCompleted;
         webView.NewWindowRequested += OnNewWindowRequested;
+        webView.WebMessageReceived += OnWebMessageReceived;
         _webView = webView;
+        BrowserWebViewRegistry.Register(webView);
         WebViewHost.Content = webView;
+        if (downloadInitialMedia)
+        {
+            WebBrowserTabViewModel initiatingViewModel = _viewModel;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (ReferenceEquals(_viewModel, initiatingViewModel)) _ = DownloadMediaAsync(initialUri, null);
+            });
+        }
     }
 
     internal static void ConfigureMacOSWebViewEnvironment(object? sender, WebViewEnvironmentRequestedEventArgs e)
@@ -149,26 +184,46 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         webView.IsVisible = wasVisible;
     }
 
-    private void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
+    internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
+        // WKWebView 11.4.1 forwards policy decisions for every target frame through this event,
+        // without exposing IsMainFrame. Only completed navigation identifies the top-level URL.
+        // App-initiated navigation and explicit download links are handled separately.
+        if (_navigationStartedIncludesSubframes) return;
+
+        _pageRevision++;
+        _findRequest?.Cancel();
+        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
+        {
+            e.Cancel = true;
+            Dispatcher.UIThread.Post(() => _ = DownloadMediaAsync(mediaUri, null));
+            return;
+        }
+
         if (e.Request is { } request)
         {
             _viewModel?.BeginNavigation(request);
         }
     }
 
-    private void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
+    internal void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
     {
         if (_viewModel == null || _webView == null)
         {
             return;
         }
 
+        _pageRevision++;
+        _findRequest?.Cancel();
         Uri uri = e.Request ?? _webView.Source;
         _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
+        UpdateBookmarkEmptyState();
         if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage)
         {
             _ = UpdatePageTitleAsync(uri);
+            _ = InstallDownloadLinkHandlerAsync(_webView);
+            _ = SetPageZoomAsync(_zoomPercent);
+            if (FindPanel.IsVisible) _ = FindInPageAsync(0);
         }
     }
 
@@ -233,6 +288,13 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     private void OnNewWindowRequested(object? sender, WebViewNewWindowRequestedEventArgs e)
     {
+        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
+        {
+            e.Handled = true;
+            Dispatcher.UIThread.Post(() => _ = DownloadMediaAsync(mediaUri, null));
+            return;
+        }
+
         if (e.Request is { } request && _viewModel?.TryOpenNewTab(request) == true)
         {
             e.Handled = true;
@@ -241,19 +303,22 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     private void OnBackClick(object? sender, RoutedEventArgs e)
     {
-        _webView?.GoBack();
+        CloseBrowserPanel();
+        if (_webView?.GoBack() == true) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
         UpdateHistoryState();
     }
 
     private void OnForwardClick(object? sender, RoutedEventArgs e)
     {
-        _webView?.GoForward();
+        CloseBrowserPanel();
+        if (_webView?.GoForward() == true) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
         UpdateHistoryState();
     }
 
     private void OnRefreshClick(object? sender, RoutedEventArgs e)
     {
-        _webView?.Refresh();
+        CloseBrowserPanel();
+        if (_webView?.Refresh() == true) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
     }
 
     private void OnStopClick(object? sender, RoutedEventArgs e)
@@ -387,16 +452,23 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         AddressTextBox.CancelSearchSuggestions();
         if (_viewModel != null)
         {
-            _viewModel.Address.Value = WebSearchSuggestions.CreateSearchUri(query).AbsoluteUri;
+            _viewModel.Address.Value = WebSearchSuggestions.CreateSearchUri(query, _viewModel.Profile.Engine).AbsoluteUri;
             NavigateFromAddress();
         }
     }
 
-    private void NavigateFromAddress()
+    internal void NavigateFromAddress()
     {
         EnsureWebView();
         if (_viewModel?.TryCreateNavigationUri(out Uri uri) == true)
         {
+            CloseBrowserPanel();
+            if (BrowserMediaDownload.IsMediaLink(uri))
+            {
+                _ = DownloadMediaAsync(uri, null);
+                return;
+            }
+            _viewModel.BeginNavigation(uri);
             _webView?.Navigate(uri);
         }
     }
@@ -461,8 +533,18 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         _disposed = true;
+        _pageRevision++;
+        _findRequest?.Cancel();
+        CloseBrowserPanel();
+        _downloadCancellation?.Cancel();
         AddressTextBox.CancelSearchSuggestions();
         Loaded -= OnLoaded;
+        if (_viewModel != null)
+        {
+            _viewModel.Profile.SettingsChanged -= OnProfileChanged;
+            _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
+            _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
+        }
         _viewModel = null;
         DisposeWebView();
     }
@@ -479,6 +561,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _webView.NavigationStarted -= OnNavigationStarted;
         _webView.NavigationCompleted -= OnNavigationCompleted;
         _webView.NewWindowRequested -= OnNewWindowRequested;
+        _webView.WebMessageReceived -= OnWebMessageReceived;
+        BrowserWebViewRegistry.Unregister(_webView);
         WebViewHost.Content = null;
         _webView = null;
     }

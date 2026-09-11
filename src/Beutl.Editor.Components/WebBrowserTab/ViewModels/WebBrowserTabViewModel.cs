@@ -1,6 +1,9 @@
 ﻿using System.Text.Json.Nodes;
 
 using Reactive.Bindings;
+using Beutl.Editor.Models;
+using Beutl.Editor.Services;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.WebBrowserTab.ViewModels;
 
@@ -31,8 +34,10 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     {
     }
 
-    internal WebBrowserTabViewModel(IEditorContext editorContext, Uri initialUri)
+    internal WebBrowserTabViewModel(IEditorContext editorContext, Uri initialUri, BrowserProfile? profile = null)
     {
+        Profile = profile ?? BrowserProfile.Default;
+        Profile.HistoryCleared += ClearAddressHistory;
         _editorContext = editorContext;
         _instanceNumber = Interlocked.Increment(ref s_lastInstanceNumber);
 
@@ -48,6 +53,10 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     public ToolTabExtension Extension => WebBrowserTabExtension.Instance;
 
+    internal BrowserProfile Profile { get; }
+    internal string BookmarkTitle => _pageTitle.Value ?? CurrentUri.Host;
+    private void ClearAddressHistory() => _addressSuggestions.Clear();
+
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
     public IReadOnlyReactiveProperty<string> Header => _header;
@@ -57,6 +66,31 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     public IReactiveProperty<string> Address => _address;
 
     public IReadOnlyList<string> AddressSuggestions => _addressSuggestions;
+
+    public System.Collections.ObjectModel.ObservableCollection<BrowserBookmark> Bookmarks => Profile.Bookmarks;
+
+    internal string? ProjectDownloadDirectory => _editorContext.Object is Scene scene
+        && scene.FindHierarchicalParent<Project>()?.Uri is { IsFile: true } projectUri
+            ? Path.Combine(Path.GetDirectoryName(projectUri.LocalPath)!, "resources", "downloads")
+            : null;
+
+    internal bool CanAddDownloadedMedia => !_disposed && _editorContext.Object is Scene { Uri.IsFile: true }
+        && _editorContext.GetService(typeof(IElementAdder)) is IElementAdder;
+
+    internal void AddDownloadedMedia(string fileName)
+    {
+        if (!CanAddDownloadedMedia || _editorContext.Object is not Scene scene)
+        {
+            throw new InvalidOperationException(Strings.WebBrowserActionFailed);
+        }
+
+        int layer = scene.Children.Select(element => element.ZIndex).DefaultIfEmpty(-1).Max() + 1;
+        while (layer < 10_000 && (scene.IsLayerLocked(layer) || scene.IsLayerLocked(layer + 1))) layer++;
+        if (layer >= 10_000) throw new InvalidOperationException(Strings.WebBrowserActionFailed);
+        TimeSpan start = (_editorContext.GetService(typeof(IEditorClock)) as IEditorClock)?.CurrentTime.Value ?? TimeSpan.Zero;
+        ((IElementAdder)_editorContext.GetService(typeof(IElementAdder))!).AddElement(
+            new ElementDescription(start, TimeSpan.FromSeconds(5), layer, FileName: fileName));
+    }
 
     public IReadOnlyReactiveProperty<bool> CanGoBack => _canGoBack;
 
@@ -74,7 +108,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     {
         if (WebSearchSuggestions.IsSearchQuery(_address.Value))
         {
-            uri = WebSearchSuggestions.CreateSearchUri(_address.Value);
+            uri = WebSearchSuggestions.CreateSearchUri(_address.Value, Profile.Engine);
             _errorMessage.Value = null;
             return true;
         }
@@ -217,7 +251,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
             return false;
         }
 
-        var context = new WebBrowserTabViewModel(_editorContext, uri);
+        var context = new WebBrowserTabViewModel(_editorContext, uri, Profile);
         if (_editorContext.OpenToolTab(context))
         {
             return true;
@@ -284,6 +318,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         }
 
         _disposed = true;
+        Profile.HistoryCleared -= ClearAddressHistory;
         IsSelected.Dispose();
         _currentUri.Dispose();
         _address.Dispose();

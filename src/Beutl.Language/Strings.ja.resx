@@ -2627,4 +2627,160 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="TimeAgoDaysFormat" xml:space="preserve">
     <value>{0} 日前</value>
   </data>
+  <data name="WebDownloadMedia" xml:space="preserve">
+    <value>メディアをダウンロード</value>
+  </data>
+  <data name="WebDownloadProject" xml:space="preserve">
+    <value>プロジェクトディレクトリ</value>
+  </data>
+  <data name="WebDownloadMaterials" xml:space="preserve">
+    <value>共通の素材フォルダー</value>
+  </data>
+  <data name="WebDownloadAddToTimeline" xml:space="preserve">
+    <value>ダウンロード後にタイムラインに追加</value>
+  </data>
+  <data name="WebDownloadProjectUnavailable" xml:space="preserve">
+    <value>プロジェクト内に保存するには、先にプロジェクトを保存してください。</value>
+  </data>
+  <data name="WebDownloadUnsupported" xml:space="preserve">
+    <value>HTTP(S) の画像・音声・動画ファイルへの直接リンクに対応しています。</value>
+  </data>
+  <data name="WebDownloadIncomplete" xml:space="preserve">
+    <value>ダウンロードしたファイルが空、または不完全です。</value>
+  </data>
+  <data name="WebDownloadComplete" xml:space="preserve">
+    <value>保存しました: {0}</value>
+  </data>
+  <data name="WebDownloadFailed" xml:space="preserve">
+    <value>ダウンロードに失敗しました: {0}</value>
+  </data>
+  <data name="WebDownloadCanceled" xml:space="preserve">
+    <value>ダウンロードをキャンセルしました。</value>
+  </data>
+  <data name="WebDownloadImportFailed" xml:space="preserve">
+    <value>{0} に保存しましたが、タイムラインへの追加に失敗しました: {1}</value>
+  </data>
+  <data name="BrowserDownloads" xml:space="preserve">
+    <value>ダウンロード履歴</value>
+  </data>
+  <data name="BrowserBookmarks" xml:space="preserve">
+    <value>ブックマーク</value>
+  </data>
+  <data name="BrowserAddBookmark" xml:space="preserve">
+    <value>このページをブックマーク</value>
+  </data>
+  <data name="BrowserSettings" xml:space="preserve">
+    <value>検索・プライバシー</value>
+  </data>
+  <data name="BrowserRetry" xml:space="preserve">
+    <value>再ダウンロード</value>
+  </data>
+  <data name="BrowserFileMissing" xml:space="preserve">
+    <value>保存したファイルまたはフォルダーが見つかりません。</value>
+  </data>
+  <data name="BrowserStorageError" xml:space="preserve">
+    <value>ブラウザーデータを保存できませんでした: {0}</value>
+  </data>
+  <data name="BrowserSearchEngine" xml:space="preserve">
+    <value>検索エンジン</value>
+  </data>
+  <data name="BrowserRemoteSuggestions" xml:space="preserve">
+    <value>入力した検索語を送信して候補を取得する</value>
+  </data>
+  <data name="BrowserRecordDownloads" xml:space="preserve">
+    <value>ダウンロード履歴を記録する</value>
+  </data>
+  <data name="BrowserClearHistory" xml:space="preserve">
+    <value>ローカル履歴を削除</value>
+  </data>
+  <data name="BrowserHistoryDescription" xml:space="preserve">
+    <value>全タブのアドレス補完履歴とダウンロード履歴を削除します。ファイルとブックマークは残ります。</value>
+  </data>
+  <data name="BrowserHistoryCleared" xml:space="preserve">
+    <value>ローカル履歴を削除しました。</value>
+  </data>
+  <data name="BrowserClearCookies" xml:space="preserve">
+    <value>ブラウザーの Cookie を削除</value>
+  </data>
+  <data name="BrowserCookieWarning" xml:space="preserve">
+    <value>Cookie の削除によりサイトからログアウトする可能性があることを確認しました。</value>
+  </data>
+  <data name="BrowserCookiesCleared" xml:space="preserve">
+    <value>Cookie の削除を要求しました。キャッシュやサイトのストレージは削除していません。</value>
+  </data>
+  <data name="BrowserCookiesUnsupported" xml:space="preserve">
+    <value>このブラウザーエンジンでは Cookie を削除できません。</value>
+  </data>
+  <data name="BrowserFind" xml:space="preserve">
+    <value>ページ内検索</value>
+  </data>
+  <data name="BrowserFindNext" xml:space="preserve">
+    <value>次の一致</value>
+  </data>
+  <data name="BrowserFindPrevious" xml:space="preserve">
+    <value>前の一致</value>
+  </data>
+  <data name="BrowserFindCount" xml:space="preserve">
+    <value>{0} / {1}</value>
+  </data>
+  <data name="BrowserPageToolsUnavailable" xml:space="preserve">
+    <value>このページではページ内検索・ズームを使用できません。</value>
+  </data>
+  <data name="BrowserZoomIn" xml:space="preserve">
+    <value>拡大</value>
+  </data>
+  <data name="BrowserZoomOut" xml:space="preserve">
+    <value>縮小</value>
+  </data>
+  <data name="BrowserZoomReset" xml:space="preserve">
+    <value>ズームをリセット</value>
+  </data>
+  <data name="BrowserCookieSessionRequired" xml:space="preserve">
+    <value>Cookie を管理するにはブラウザータブを開いてください。エンジンによっては Cookie の削除を利用できません。</value>
+  </data>
+  <data name="BrowserStartDescription" xml:space="preserve">
+    <value>参考資料や素材を探して、よく使うページを手元に。</value>
+  </data>
+  <data name="BrowserStartSearch" xml:space="preserve">
+    <value>検索する、または URL を入力</value>
+  </data>
+  <data name="BrowserBookmarksEmpty" xml:space="preserve">
+    <value>よく使うページを、ここに</value>
+  </data>
+  <data name="BrowserBookmarksHint" xml:space="preserve">
+    <value>「追加」からブックマークを登録すると、参考ページや素材サイトをすぐに開けます。</value>
+  </data>
+  <data name="BrowserSearchSection" xml:space="preserve">
+    <value>検索</value>
+  </data>
+  <data name="BrowserSearchEngineDescription" xml:space="preserve">
+    <value>アドレス欄の検索と検索候補に使用します。</value>
+  </data>
+  <data name="BrowserSuggestionsTitle" xml:space="preserve">
+    <value>検索候補</value>
+  </data>
+  <data name="BrowserPrivacySection" xml:space="preserve">
+    <value>履歴とプライバシー</value>
+  </data>
+  <data name="BrowserRecordDownloadsDescription" xml:space="preserve">
+    <value>ダウンロードしたファイルを後から開いたり、タイムラインに追加したりできます。</value>
+  </data>
+  <data name="BrowserCookiesDescription" xml:space="preserve">
+    <value>サイトのログイン状態や設定を保持する Cookie を削除します。</value>
+  </data>
+  <data name="BrowserHistoryIntro" xml:space="preserve">
+    <value>保存した素材を、すぐに使える場所に。</value>
+  </data>
+  <data name="BrowserHistoryEmpty" xml:space="preserve">
+    <value>ダウンロード履歴はありません</value>
+  </data>
+  <data name="BrowserHistoryEmptyHint" xml:space="preserve">
+    <value>履歴の記録が有効な場合、ダウンロードした素材がここに表示されます。</value>
+  </data>
+  <data name="BrowserAddToTimeline" xml:space="preserve">
+    <value>タイムラインに追加</value>
+  </data>
+  <data name="BrowserRemoveHistoryItem" xml:space="preserve">
+    <value>履歴から削除</value>
+  </data>
 </root>

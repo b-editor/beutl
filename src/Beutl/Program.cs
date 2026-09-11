@@ -1,4 +1,4 @@
-﻿using System.Runtime;
+using System.Runtime;
 using Avalonia;
 using Avalonia.Media;
 using Beutl.Configuration;
@@ -47,10 +47,6 @@ internal static class Program
             .With(new Win32PlatformOptions()
             {
                 WinUICompositionBackdropCornerRadius = 8f
-            })
-            .With(new AvaloniaNativePlatformOptions()
-            {
-                OverlayPopups = true
             })
             .With(new FontManagerOptions
             {

@@ -26,10 +26,12 @@ internal sealed class WebSearchSuggestions(HttpClient client)
             || (!query.Contains('/') && !query.Contains('\\') && !query.Contains('?') && !query.Contains('.'));
     }
 
-    internal static Uri CreateSearchUri(string query) =>
-        new("https://www.google.com/search?q=" + Uri.EscapeDataString(query.Trim()));
+    internal static Uri CreateSearchUri(string query, BrowserSearchEngine engine = BrowserSearchEngine.Google) =>
+        new((engine == BrowserSearchEngine.Bing ? "https://www.bing.com/search?q=" : "https://www.google.com/search?q=")
+            + Uri.EscapeDataString(query.Trim()));
 
-    internal async Task<IReadOnlyList<string>> GetSuggestionsAsync(string query, CancellationToken cancellationToken)
+    internal async Task<IReadOnlyList<string>> GetSuggestionsAsync(string query, CancellationToken cancellationToken,
+        BrowserSearchEngine engine = BrowserSearchEngine.Google)
     {
         if (!IsSearchQuery(query) || query.Trim().Length < 2)
         {
@@ -37,7 +39,8 @@ internal sealed class WebSearchSuggestions(HttpClient client)
         }
 
         string json = await client.GetStringAsync(
-            "https://suggestqueries.google.com/complete/search?client=firefox&q=" + Uri.EscapeDataString(query.Trim()),
+            (engine == BrowserSearchEngine.Bing ? "https://api.bing.com/osjson.aspx?query="
+                : "https://suggestqueries.google.com/complete/search?client=firefox&q=") + Uri.EscapeDataString(query.Trim()),
             cancellationToken);
         return ParseResponse(json);
     }

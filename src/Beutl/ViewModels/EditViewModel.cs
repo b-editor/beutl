@@ -962,6 +962,8 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
     {
         if (serviceType == typeof(Beutl.Editor.Services.IEditorFileUsage))
             return EditorService;
+        if (serviceType == typeof(Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost))
+            return EditorService.BrowserSettingsHost;
         if (serviceType == typeof(Scene))
             return Scene;
 

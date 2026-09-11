@@ -9,12 +9,14 @@ using Avalonia.Threading;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.VisualTree;
 
 using Beutl.Controls;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.ViewModels.Dock;
 
 using Dock.Model.Controls;
@@ -29,6 +31,249 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class WebBrowserTabLifecycleTests
 {
+    [AvaloniaTest]
+    public void DownloadHistory_UsesInlinePanelAndOnlyRemovesMetadata()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string file = Path.Combine(root, "clip.mp4");
+        File.WriteAllText(file, "test");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        profile.AddDownload(new Uri("https://example.com/clip.mp4"), file);
+        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (true, null, false));
+        view.DataContext = vm;
+        var window = new Window { Content = view, Width = 640, Height = 720 };
+        try
+        {
+            window.Show();
+            var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
+            menu.Items.OfType<MenuFlyoutItem>().Single(item => item.Text == Strings.BrowserDownloads)
+                .RaiseEvent(new RoutedEventArgs(MenuFlyoutItem.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(view.FindControl<Grid>("ToolPanel")!.IsVisible, Is.True);
+            var content = view.FindControl<ContentControl>("ToolPanelContent")!;
+            Assert.That(content.GetVisualDescendants().OfType<ItemsControl>().Single().ItemCount, Is.EqualTo(1));
+            if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                using var wide = window.CaptureRenderedFrame();
+                wide?.Save(Path.Combine(directory, "downloads-640.png"));
+                window.Width = 320;
+                window.UpdateLayout();
+                using var narrow = window.CaptureRenderedFrame();
+                narrow?.Save(Path.Combine(directory, "downloads-320.png"));
+            }
+            content.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "×"))
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(profile.Downloads, Is.Empty);
+            Assert.That(File.Exists(file), Is.True);
+            Assert.That(window.GetVisualDescendants().OfType<ContentDialog>(), Is.Empty);
+            profile.AddDownload(new Uri("https://example.com/missing.mp4"), Path.Combine(root, "missing.mp4"));
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(content.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, Strings.Open)).IsEnabled, Is.False);
+            view.CloseBrowserPanel();
+            Assert.That(view.FindControl<Grid>("BrowserSurface")!.IsVisible, Is.True);
+        }
+        finally { window.Close(); Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    public void ExplicitMediaAddress_StillRequestsDownloadOnMacOS()
+    {
+        var google = new Uri("https://www.google.com/");
+        var media = new Uri("https://example.com/video.mp4");
+        var nativeView = new NativeWebView { Source = google };
+        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), google);
+        using var view = new WebBrowserTabView(_ => nativeView, () => (true, null, false),
+            navigationStartedIncludesSubframes: true);
+        view.DataContext = vm;
+        Uri? requested = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            requested = uri;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+        vm.Address.Value = media.AbsoluteUri;
+        view.NavigateFromAddress();
+        Assert.That(requested, Is.EqualTo(media));
+        Assert.That(nativeView.Source, Is.EqualTo(google));
+    }
+
+    [AvaloniaTest]
+    public void SubframeNavigation_DoesNotReplaceTopLevelAddressOrStartDownloads()
+    {
+        var google = new Uri("https://www.google.com/");
+        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), google);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri },
+            () => (true, null, false), navigationStartedIncludesSubframes: true);
+        view.DataContext = vm;
+        vm.CompleteNavigation(google, true, false, false);
+        vm.SetPageTitle(google, "Google");
+
+        foreach (string address in new[] { "https://ogs.google.com/widget/app/so?origin=https%3A%2F%2Fwww.google.com", "https://media.example/frame.mp4" })
+        {
+            var starting = new WebViewNavigationStartingEventArgs { Request = new Uri(address) };
+            view.OnNavigationStarted(null, starting);
+            Assert.Multiple(() =>
+            {
+                Assert.That(starting.Cancel, Is.False);
+                Assert.That(vm.CurrentUri, Is.EqualTo(google));
+                Assert.That(vm.Address.Value, Is.EqualTo(google.AbsoluteUri));
+                Assert.That(vm.Header.Value, Is.EqualTo("Google"));
+                Assert.That(vm.IsLoading.Value, Is.False);
+                Assert.That(vm.AddressSuggestions, Is.EqualTo(new[] { google.AbsoluteUri }));
+            });
+        }
+
+        var next = new Uri("https://example.com/page");
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        Assert.That(vm.CurrentUri, Is.EqualTo(next));
+        Assert.That(vm.Address.Value, Is.EqualTo(next.AbsoluteUri));
+    }
+
+    [AvaloniaTest]
+    public void BrowserSettingsMenu_UsesApplicationSettingsHost()
+    {
+        var host = new SettingsHostProbe();
+        using var vm = new WebBrowserTabViewModel(new TestEditorContext(host));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (false, null, false));
+        view.DataContext = vm;
+        var window = new Window { Content = view };
+        try
+        {
+            window.Show();
+            var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
+            menu.Items.OfType<MenuFlyoutItem>().Single(x => x.Text == Strings.BrowserSettings)
+                .RaiseEvent(new RoutedEventArgs(MenuFlyoutItem.ClickEvent));
+            Assert.That(host.Owner, Is.SameAs(window));
+            Assert.That(window.GetVisualDescendants().OfType<ContentDialog>(), Is.Empty);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    public void BlankPage_ShowsBookmarksWithOpenAndRemoveActions_WithoutBookmarkMenu()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        var uri = new Uri("https://example.com/page");
+        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
+        using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
+        view.DataContext = vm;
+        var window = new Window { Content = view, Width = 640, Height = 720 };
+        try
+        {
+            window.Show();
+            var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
+            Assert.That(menu.Items.OfType<MenuFlyoutItem>().Any(item => item.Text == Strings.BrowserBookmarks
+                || item.Text == Strings.BrowserAddBookmark), Is.False);
+            Assert.That(view.FindControl<Button>("BookmarkButton"), Is.Null);
+            Assert.That(view.FindControl<Border>("BookmarkEmptyState")!.IsVisible, Is.True);
+            void Capture(string name)
+            {
+                if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is not { Length: > 0 } directory) return;
+                Directory.CreateDirectory(directory);
+                using var image = window.CaptureRenderedFrame();
+                image?.Save(Path.Combine(directory, name + ".png"));
+            }
+            Dispatcher.UIThread.RunJobs();
+            Capture("empty-640");
+            window.Width = 320;
+            window.UpdateLayout();
+            Capture("empty-320");
+            window.Width = 640;
+            view.FindControl<Button>("AddBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(view.FindControl<Border>("BookmarkEditor")!.IsVisible, Is.True);
+            view.FindControl<TextBox>("BookmarkUrlInput")!.Text = "javascript:alert(1)";
+            view.FindControl<Button>("SaveBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(profile.Bookmarks, Is.Empty);
+            Assert.That(view.FindControl<TextBlock>("BookmarkEditorError")!.Text, Is.Not.Empty);
+            view.FindControl<TextBox>("BookmarkUrlInput")!.Text = uri.AbsoluteUri;
+            view.FindControl<TextBox>("BookmarkNameInput")!.Text = "Example";
+            view.FindControl<Button>("SaveBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(view.FindControl<Border>("BookmarkEditor")!.IsVisible, Is.False);
+            Assert.That(view.FindControl<Border>("BookmarkEmptyState")!.IsVisible, Is.False);
+            Dispatcher.UIThread.RunJobs();
+            Capture("bookmarks-640");
+            Assert.That(profile.Bookmarks.Single().Url, Is.EqualTo(uri.AbsoluteUri));
+            vm.CompleteNavigation(WebBrowserTabViewModel.BlankPage, true, false, false);
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(view.FindControl<ScrollViewer>("BlankPagePanel")!.IsVisible, Is.True);
+            var items = view.FindControl<ItemsControl>("BookmarkItems")!;
+            Assert.That(items.ItemCount, Is.EqualTo(1));
+            items.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "×"))
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(profile.Bookmarks, Is.Empty);
+            profile.AddBookmark(uri, "Example");
+            Dispatcher.UIThread.RunJobs();
+            items.GetVisualDescendants().OfType<Button>().Single(button => button.Content is Grid)
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(vm.CurrentUri, Is.EqualTo(uri));
+            Assert.That(view.FindControl<ScrollViewer>("BlankPagePanel")!.IsVisible, Is.False);
+            Assert.That(window.GetVisualDescendants().OfType<ContentDialog>(), Is.Empty);
+        }
+        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    public async Task PrivacyChanges_CancelPendingSuggestionsAcrossTabsAndClearAddressHistory()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var firstVm = new WebBrowserTabViewModel(new TestEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
+        using var secondVm = new WebBrowserTabViewModel(new TestEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
+        using var first = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (false, null, false));
+        using var second = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (false, null, false));
+        first.DataContext = firstVm;
+        second.DataContext = secondVm;
+        var window = new Window { Content = new StackPanel { Children = { first, second } } };
+        try
+        {
+            window.Show();
+            var address = first.FindControl<WebBrowserAddressBox>("AddressTextBox")!;
+            address.Focus();
+            Dispatcher.UIThread.RunJobs();
+            var response = new TaskCompletionSource<IReadOnlyList<string>>();
+            address.SuggestionDelay = TimeSpan.Zero;
+            address.SuggestionProvider = (_, _) => response.Task;
+            Task pending = address.RefreshSearchSuggestionsAsync("old query");
+            profile.UpdateSettings(BrowserSearchEngine.Bing, false, false);
+            response.SetResult(["stale result"]);
+            await pending;
+            Assert.That(first.FindControl<StackPanel>("SearchSuggestionsPanel")!.IsVisible, Is.False);
+            Assert.That(address.SuggestionsEnabled, Is.False);
+            Assert.That(second.FindControl<WebBrowserAddressBox>("AddressTextBox")!.SuggestionsEnabled, Is.False);
+            firstVm.CompleteNavigation(new Uri("https://example.com/one"), true, false, false);
+            secondVm.CompleteNavigation(new Uri("https://example.com/two"), true, false, false);
+            profile.ClearHistory();
+            Assert.That(firstVm.AddressSuggestions, Is.Empty);
+            Assert.That(secondVm.AddressSuggestions, Is.Empty);
+        }
+        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    public async Task PageTools_UseEscapedQueriesAndBoundZoom()
+    {
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (false, null, false));
+        var scripts = new List<string>();
+        view.PageScriptRunner = script =>
+        {
+            scripts.Add(script);
+            return Task.FromResult<string?>(script.Contains("const percent") ? "\"true\"" : "{\"Index\":1,\"Count\":2}");
+        };
+        view.FindControl<Grid>("FindPanel")!.IsVisible = true;
+        view.FindControl<TextBox>("FindTextBox")!.Text = "quote \" and slash \\";
+        await view.FindInPageAsync(0);
+        Assert.That(view.FindControl<TextBlock>("FindCountText")!.Text, Does.Contain("1").And.Contain("2"));
+        await view.SetPageZoomAsync(300);
+        Assert.That(view.FindControl<MenuFlyoutItem>("ZoomResetMenuItem")!.Text, Does.EndWith("(200%)"));
+        Assert.That(scripts[0], Does.Contain(System.Text.Json.JsonSerializer.Serialize("quote \" and slash \\")));
+        await view.SetPageZoomAsync(10);
+        Assert.That(view.FindControl<MenuFlyoutItem>("ZoomResetMenuItem")!.Text, Does.EndWith("(50%)"));
+    }
+
     [AvaloniaTest]
     public void SearchSuggestions_KeyboardSelectionNavigatesToSearch()
     {
@@ -459,7 +704,7 @@ public class WebBrowserTabLifecycleTests
         }
     }
 
-    private sealed class TestEditorContext : IEditorContext
+    private sealed class TestEditorContext(IBrowserSettingsHost? settingsHost = null) : IEditorContext
     {
         public CoreObject Object { get; } = new TestCoreObject();
 
@@ -479,7 +724,13 @@ public class WebBrowserTabLifecycleTests
         {
         }
 
-        public object? GetService(Type serviceType) => null;
+        public object? GetService(Type serviceType) => serviceType == typeof(IBrowserSettingsHost) ? settingsHost : null;
+    }
+
+    private sealed class SettingsHostProbe : IBrowserSettingsHost
+    {
+        internal Window? Owner { get; private set; }
+        public Task OpenBrowserSettingsAsync(Window owner) { Owner = owner; return Task.CompletedTask; }
     }
 
     private sealed class TestCoreObject : CoreObject;
