@@ -68,11 +68,13 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _findRequest?.Cancel();
         if (_viewModel != null)
         {
+            _viewModel.Disposing -= Dispose;
             _viewModel.Profile.SettingsChanged -= OnProfileChanged;
             _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
             _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
         }
         _viewModel = viewModel;
+        viewModel.Disposing += Dispose;
         viewModel.Profile.SettingsChanged += OnProfileChanged;
         viewModel.Profile.Bookmarks.CollectionChanged += OnBookmarksChanged;
         viewModel.Profile.Downloads.CollectionChanged += OnDownloadHistoryChanged;
@@ -540,6 +542,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         Loaded -= OnLoaded;
         if (_viewModel != null)
         {
+            _viewModel.Disposing -= Dispose;
             _viewModel.Profile.SettingsChanged -= OnProfileChanged;
             _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
             _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;

@@ -68,20 +68,8 @@ public class BeutlToolDockable : Tool, IDisposable
         PropertyChanged -= OnPropertyChanged;
         _headerSubscription.Dispose();
         _isSelectedSubscription.Dispose();
-        Control? content = ToolContent;
+        ToolContext.Dispose();
         ToolContent = null;
-        try
-        {
-            if (content is IDisposable disposableContent
-                && !ReferenceEquals(disposableContent, ToolContext))
-            {
-                disposableContent.Dispose();
-            }
-        }
-        finally
-        {
-            ToolContext.Dispose();
-        }
     }
 
     // Resolve empty per-instance/menu headers to a readable display or extension name.

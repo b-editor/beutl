@@ -30,8 +30,7 @@ public abstract class ToolTabExtension : ViewExtension
     /// <remarks>
     /// Reused controls can still be unloaded from and loaded into the visual tree. State and
     /// resources that must survive those transitions and require deterministic cleanup should be
-    /// owned by the control or the <see cref="IToolContext"/>. When its dockable closes, a reused
-    /// control that implements <see cref="IDisposable"/> is disposed before its context.
+    /// owned by the <see cref="IToolContext"/>, which is disposed when its dockable closes.
     /// </remarks>
     public virtual bool ReuseContentAcrossActivation => false;
 

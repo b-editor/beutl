@@ -53,6 +53,8 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     public ToolTabExtension Extension => WebBrowserTabExtension.Instance;
 
+    internal event Action? Disposing;
+
     internal BrowserProfile Profile { get; }
     internal string BookmarkTitle => _pageTitle.Value ?? CurrentUri.Host;
     private void ClearAddressHistory() => _addressSuggestions.Clear();
@@ -320,17 +322,25 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         }
 
         _disposed = true;
-        Profile.HistoryCleared -= ClearAddressHistory;
-        IsSelected.Dispose();
-        _currentUri.Dispose();
-        _address.Dispose();
-        _canGoBack.Dispose();
-        _canGoForward.Dispose();
-        _isLoading.Dispose();
-        _isLinuxRuntimeHelpVisible.Dispose();
-        _errorMessage.Dispose();
-        _pageTitle.Dispose();
-        _header.Dispose();
-        _hasWebAddress.Dispose();
+        try
+        {
+            Disposing?.Invoke();
+        }
+        finally
+        {
+            Disposing = null;
+            Profile.HistoryCleared -= ClearAddressHistory;
+            IsSelected.Dispose();
+            _currentUri.Dispose();
+            _address.Dispose();
+            _canGoBack.Dispose();
+            _canGoForward.Dispose();
+            _isLoading.Dispose();
+            _isLinuxRuntimeHelpVisible.Dispose();
+            _errorMessage.Dispose();
+            _pageTitle.Dispose();
+            _header.Dispose();
+            _hasWebAddress.Dispose();
+        }
     }
 }

@@ -212,19 +212,22 @@ public class TerminalTabViewModelTests
     }
 
     [Test]
-    public void Dispose_IsIdempotent()
+    public void Dispose_RaisesDisposedOnce()
     {
         var scene = new Scene(640, 480, string.Empty);
         var editorContext = new TestEditorContext(scene);
         var viewModel = new TerminalTabViewModel(editorContext);
+        int disposedCount = 0;
+        viewModel.Disposed += (_, _) => disposedCount++;
 
-        Assert.DoesNotThrow(() =>
+        viewModel.Dispose();
+        viewModel.Dispose();
+
+        Assert.Multiple(() =>
         {
-            viewModel.Dispose();
-            viewModel.Dispose();
+            Assert.That(disposedCount, Is.EqualTo(1));
+            Assert.That(viewModel.Extension, Is.SameAs(TerminalTabExtension.Instance));
         });
-
-        Assert.That(viewModel.Extension, Is.SameAs(TerminalTabExtension.Instance));
     }
 
     private sealed class TestEditorContext(CoreObject obj) : IEditorContext

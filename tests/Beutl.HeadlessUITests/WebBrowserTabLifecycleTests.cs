@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -13,8 +12,6 @@ using Avalonia.Layout;
 using Avalonia.VisualTree;
 
 using Beutl.Controls;
-using Beutl.Editor.Components.TerminalTab.ViewModels;
-using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
@@ -35,7 +32,38 @@ namespace Beutl.HeadlessUITests;
 public class WebBrowserTabLifecycleTests
 {
     [AvaloniaTest]
-    public void DisposedToolViews_DoNotReactivateWhenReboundToTheirOriginalContext()
+    public void ClosingBrowserContext_ReleasesViewWithTheExistingDockHost()
+    {
+        var context = new TestEditorContext();
+        using var vm = new WebBrowserTabViewModel(context);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
+        view.DataContext = vm;
+        var dockable = new BeutlToolDockable(vm, null!) { ToolContent = view };
+
+        dockable.Dispose();
+
+        Assert.That(view.FindControl<ContentControl>("WebViewHost")!.Content, Is.Null);
+        Assert.That(dockable.ToolContent, Is.Null);
+    }
+
+    [AvaloniaTest]
+    public void ReboundView_IsReleasedOnlyByItsCurrentContext()
+    {
+        var context = new TestEditorContext();
+        using var first = new WebBrowserTabViewModel(context);
+        using var second = new WebBrowserTabViewModel(context);
+        var nativeView = new NativeWebView();
+        using var view = new WebBrowserTabView(_ => nativeView, () => (true, null, false));
+        view.DataContext = first;
+        view.DataContext = second;
+        first.Dispose();
+        Assert.That(view.FindControl<ContentControl>("WebViewHost")!.Content, Is.SameAs(nativeView));
+        second.Dispose();
+        Assert.That(view.FindControl<ContentControl>("WebViewHost")!.Content, Is.Null);
+    }
+
+    [AvaloniaTest]
+    public void DisposedBrowserView_DoesNotReactivateWhenReboundToItsOriginalContext()
     {
         var context = new TestEditorContext();
         using var browserVm = new WebBrowserTabViewModel(context);
@@ -50,19 +78,10 @@ public class WebBrowserTabLifecycleTests
         browser.DataContext = null;
         browser.DataContext = browserVm;
 
-        using var terminalVm = new TerminalTabViewModel(context);
-        using var terminal = new TerminalTabView { DataContext = terminalVm };
-        terminal.Dispose();
-        var terminalControl = terminal.FindControl<Iciclecreek.Terminal.TerminalControl>("Terminal")!;
-        var marker = new Dictionary<string, string> { ["BEUTL_TEST_MARKER"] = "unchanged" };
-        terminalControl.EnvironmentOverrides = marker;
-        terminal.DataContext = null;
-        terminal.DataContext = terminalVm;
         using (Assert.EnterMultipleScope())
         {
             Assert.That(browserCreations, Is.EqualTo(1));
             Assert.That(browser.FindControl<ContentControl>("WebViewHost")!.Content, Is.Null);
-            Assert.That(terminalControl.EnvironmentOverrides, Is.SameAs(marker));
         }
     }
 
@@ -597,146 +616,6 @@ public class WebBrowserTabLifecycleTests
         Assert.That(launchedUri, Is.EqualTo(WebBrowserTabView.LinuxWebViewSetupGuide));
 
         view.Dispose();
-    }
-
-    [AvaloniaTest]
-    public void Dockable_DisposesReusableContentBeforeItsContext()
-    {
-        var disposeOrder = new List<string>();
-        var context = new DisposableToolContext(disposeOrder);
-        var content = new DisposableControl(disposeOrder);
-        var dockable = new BeutlToolDockable(context, null!)
-        {
-            ToolContent = content
-        };
-
-        dockable.Dispose();
-
-        Assert.That(disposeOrder, Is.EqualTo(new[] { "content", "context" }));
-    }
-
-    [AvaloniaTest]
-    public void Dockable_DisposesACombinedContentContextOnlyOnce()
-    {
-        var combined = new CombinedToolContentContext();
-        var dockable = new BeutlToolDockable(combined, null!)
-        {
-            ToolContent = combined
-        };
-
-        dockable.Dispose();
-        dockable.Dispose();
-
-        Assert.That(combined.DisposeCount, Is.EqualTo(1));
-    }
-
-    [AvaloniaTest]
-    public void Dockable_DisposesContextWhenContentDisposalThrows()
-    {
-        var disposeOrder = new List<string>();
-        var context = new DisposableToolContext(disposeOrder);
-        var content = new ThrowingDisposableControl(disposeOrder);
-        var dockable = new BeutlToolDockable(context, null!)
-        {
-            ToolContent = content
-        };
-
-        Assert.Throws<InvalidOperationException>(() => dockable.Dispose());
-        Assert.That(disposeOrder, Is.EqualTo(new[] { "content", "context" }));
-    }
-
-    private sealed class DisposableControl(List<string> disposeOrder) : Control, IDisposable
-    {
-        public void Dispose()
-        {
-            disposeOrder.Add("content");
-        }
-    }
-
-    private sealed class ThrowingDisposableControl(List<string> disposeOrder) : Control, IDisposable
-    {
-        public void Dispose()
-        {
-            disposeOrder.Add("content");
-            throw new InvalidOperationException("Content disposal failed.");
-        }
-    }
-
-    private sealed class DisposableToolContext(List<string> disposeOrder) : IToolContext
-    {
-        public ToolTabExtension Extension => DisposableToolExtension.Instance;
-
-        public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-
-        public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>("Disposable");
-
-        public void Dispose()
-        {
-            disposeOrder.Add("context");
-            IsSelected.Dispose();
-        }
-
-        public object? GetService(Type serviceType) => null;
-
-        public void ReadFromJson(JsonObject json)
-        {
-        }
-
-        public void WriteToJson(JsonObject json)
-        {
-        }
-    }
-
-    private sealed class DisposableToolExtension : ToolTabExtension
-    {
-        public static readonly DisposableToolExtension Instance = new();
-
-        public override bool CanMultiple => false;
-
-        public override bool ReuseContentAcrossActivation => true;
-
-        public override bool TryCreateContent(
-            IEditorContext editorContext,
-            [NotNullWhen(true)] out Control? control)
-        {
-            control = null;
-            return false;
-        }
-
-        public override bool TryCreateContext(
-            IEditorContext editorContext,
-            [NotNullWhen(true)] out IToolContext? context)
-        {
-            context = null;
-            return false;
-        }
-    }
-
-    private sealed class CombinedToolContentContext : Control, IToolContext
-    {
-        public int DisposeCount { get; private set; }
-
-        public ToolTabExtension Extension => DisposableToolExtension.Instance;
-
-        public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-
-        public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>("Combined");
-
-        public void Dispose()
-        {
-            DisposeCount++;
-            IsSelected.Dispose();
-        }
-
-        public object? GetService(Type serviceType) => null;
-
-        public void ReadFromJson(JsonObject json)
-        {
-        }
-
-        public void WriteToJson(JsonObject json)
-        {
-        }
     }
 
     private sealed class TestEditorContext(IBrowserSettingsHost? settingsHost = null) : IEditorContext
