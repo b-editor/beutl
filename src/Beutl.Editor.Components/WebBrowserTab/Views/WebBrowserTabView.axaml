@@ -30,41 +30,147 @@
         <Style Selector="Border.bookmarkCard:pointerover Button.removeBookmark, Border.bookmarkCard:focus-within Button.removeBookmark">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
+        <Style Selector="Button.browserIcon">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Theme" Value="{StaticResource TransparentButton}" />
+        </Style>
+        <Style Selector="TextBlock.browserSecondary">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
     </UserControl.Styles>
     <UserControl.Resources>
         <DataTemplate x:Key="DownloadHistoryItemTemplate" x:DataType="views:BrowserDownloadHistoryItem">
-            <Border Padding="16" Margin="0,0,0,12" CornerRadius="12"
-                    Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}">
-                <StackPanel Spacing="10">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                        <icons:FluentIcon Icon="Document" FontSize="24" VerticalAlignment="Top" Margin="0,4,0,0" />
-                        <StackPanel Grid.Column="1" Spacing="4">
-                            <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}" />
-                            <TextBlock Text="{Binding Record.FilePath}" FontSize="12" Opacity="0.65" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Record.FilePath}" />
-                            <WrapPanel>
-                                <TextBlock Text="{Binding SourceHost}" FontSize="12" Opacity="0.65" Margin="0,0,12,0" ToolTip.Tip="{Binding Record.Url}" />
-                                <TextBlock Text="{Binding DownloadedAt}" FontSize="12" Opacity="0.65" />
-                            </WrapPanel>
+            <Border Margin="0,0,0,12"
+                    Padding="14"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                <StackPanel Spacing="12">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <Border Width="40"
+                                Height="40"
+                                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="10">
+                            <TextBlock HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                       Text="{Binding FileExtension}" />
+                        </Border>
+                        <StackPanel Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Spacing="5">
+                            <TextBlock FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding FileName}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding FileName}" />
+                            <TextBlock Classes="browserSecondary"
+                                       Text="{Binding SourceHost}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding Record.Url}" />
                         </StackPanel>
-                        <Button Grid.Column="2" Content="×" Tag="{Binding Record}" Click="OnRemoveHistoryClick" VerticalAlignment="Top"
-                                Padding="6" Theme="{StaticResource TransparentButton}" ToolTip.Tip="{x:Static lang:Strings.BrowserRemoveHistoryItem}" />
+                        <Button Grid.Column="2"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="{x:Static lang:Strings.BrowserRemoveHistoryItem}"
+                                Classes="browserIcon removeHistory"
+                                Click="OnRemoveHistoryClick"
+                                Tag="{Binding Record}"
+                                ToolTip.Tip="{x:Static lang:Strings.BrowserRemoveHistoryItem}">
+                            <icons:FluentIcon FontSize="14"
+                                              Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                              Icon="Dismiss" />
+                        </Button>
                     </Grid>
-                    <TextBlock Text="{x:Static lang:Strings.BrowserFileMissing}" IsVisible="{Binding !FileExists}" TextWrapping="Wrap" Opacity="0.7" />
-                    <WrapPanel>
-                        <Button Content="{x:Static lang:Strings.Open}" Tag="{Binding Record}" Click="OnOpenHistoryFileClick"
-                                IsEnabled="{Binding FileExists}" FontSize="13" Padding="8,6" Margin="0,2,6,0" CornerRadius="8" />
-                        <Button Content="{x:Static lang:Strings.OpenFolder}" Tag="{Binding Record}" Click="OnOpenHistoryFolderClick"
-                                FontSize="13" Padding="8,6" Margin="0,2,6,0" CornerRadius="8" />
-                        <Button Content="{x:Static lang:Strings.BrowserAddToTimeline}" Tag="{Binding Record}" Click="OnImportHistoryClick"
-                                IsEnabled="{Binding CanImport}" FontSize="13" Padding="8,6" Margin="0,2,6,0" CornerRadius="8" />
-                        <Button Content="{x:Static lang:Strings.BrowserRetry}" Tag="{Binding Record}" Click="OnRetryHistoryClick"
-                                FontSize="13" Padding="8,6" Margin="0,2,6,0" CornerRadius="8" />
-                    </WrapPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Classes="browserSecondary"
+                                   FontSize="11"
+                                   Text="{Binding Record.FilePath}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding Record.FilePath}" />
+                        <TextBlock Classes="browserSecondary"
+                                   FontSize="11"
+                                   Text="{Binding DownloadedAt}" />
+                    </StackPanel>
+                    <TextBlock FontSize="12"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               IsVisible="{Binding !FileExists}"
+                               Text="{x:Static lang:Strings.BrowserFileMissing}"
+                               TextWrapping="Wrap" />
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="4">
+                        <Button Padding="14,6"
+                                Click="OnOpenHistoryFileClick"
+                                Content="{x:Static lang:Strings.Open}"
+                                CornerRadius="8"
+                                FontSize="13"
+                                IsEnabled="{Binding FileExists}"
+                                Tag="{Binding Record}" />
+                        <Button Grid.Column="2"
+                                AutomationProperties.Name="{x:Static lang:Strings.OpenFolder}"
+                                Classes="browserIcon"
+                                Click="OnOpenHistoryFolderClick"
+                                Tag="{Binding Record}"
+                                ToolTip.Tip="{x:Static lang:Strings.OpenFolder}">
+                            <icons:FluentIcon FontSize="16" Icon="Folder" />
+                        </Button>
+                        <Button Grid.Column="3"
+                                AutomationProperties.Name="{x:Static lang:Strings.BrowserAddToTimeline}"
+                                Classes="browserIcon"
+                                Click="OnImportHistoryClick"
+                                IsEnabled="{Binding CanImport}"
+                                Tag="{Binding Record}"
+                                ToolTip.Tip="{x:Static lang:Strings.BrowserAddToTimeline}">
+                            <icons:FluentIcon FontSize="16" Icon="Add" />
+                        </Button>
+                        <Button Grid.Column="4"
+                                AutomationProperties.Name="{x:Static lang:Strings.BrowserRetry}"
+                                Classes="browserIcon"
+                                Click="OnRetryHistoryClick"
+                                Tag="{Binding Record}"
+                                ToolTip.Tip="{x:Static lang:Strings.BrowserRetry}">
+                            <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="DownloadHistoryEmptyTemplate" x:DataType="viewModel:WebBrowserTabViewModel">
+            <Border MaxWidth="360" Padding="16,24">
+                <StackPanel Spacing="20">
+                    <Border Width="64"
+                            Height="64"
+                            HorizontalAlignment="Center"
+                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                            CornerRadius="20">
+                        <icons:FluentIcon HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          FontSize="28"
+                                          Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                          Icon="ArrowDownload" />
+                    </Border>
+                    <StackPanel Spacing="10">
+                        <TextBlock FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Text="{x:Static lang:Strings.BrowserHistoryEmpty}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Classes="browserSecondary"
+                                   LineHeight="20"
+                                   Text="{x:Static lang:Strings.BrowserHistoryEmptyHint}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
         </DataTemplate>
     </UserControl.Resources>
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
         <Border Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
                 BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                 BorderThickness="0,0,0,1"
@@ -159,37 +265,192 @@
             </StackPanel>
         </Border>
 
-        <StackPanel x:Name="SearchSuggestionsPanel" Grid.Row="2" IsVisible="False">
-            <TextBlock x:Name="SearchEngineLabel" Text="Google" Margin="8,4" />
-            <ListBox x:Name="SearchSuggestionsList"
-                     MaxHeight="220"
-                     Focusable="False"
-                     PointerReleased="OnSearchSuggestionPointerReleased">
-                <ListBox.Styles>
-                    <Style Selector="ListBoxItem">
-                        <Setter Property="Focusable" Value="False" />
-                    </Style>
-                </ListBox.Styles>
-            </ListBox>
-        </StackPanel>
+        <Popup x:Name="SearchSuggestionsPopup"
+               Width="{Binding #AddressTextBox.Bounds.Width}"
+               Closed="OnSearchSuggestionsPopupClosed"
+               IsLightDismissEnabled="True"
+               OverlayDismissEventPassThrough="True"
+               OverlayInputPassThroughElement="{Binding #AddressTextBox}"
+               Placement="Bottom"
+               PlacementTarget="{Binding #AddressTextBox}"
+               ShouldUseOverlayLayer="False"
+               TakesFocusFromNativeControl="False"
+               VerticalOffset="4"
+               WindowManagerAddShadowHint="True">
+            <Border Padding="4"
+                    Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10">
+                <StackPanel>
+                    <TextBlock x:Name="SearchEngineLabel"
+                               Margin="10,6,10,4"
+                               FontSize="11"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="Google" />
+                    <ListBox x:Name="SearchSuggestionsList"
+                             MaxHeight="280"
+                             Padding="0"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Focusable="False"
+                             PointerReleased="OnSearchSuggestionPointerReleased"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Focusable" Value="False" />
+                                <Setter Property="Padding" Value="10,8" />
+                                <Setter Property="CornerRadius" Value="6" />
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                    <icons:FluentIcon VerticalAlignment="Center"
+                                                      FontSize="14"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                      Icon="Search" />
+                                    <TextBlock Grid.Column="1"
+                                               FontSize="13"
+                                               Text="{Binding}"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </Border>
+        </Popup>
 
-        <Grid x:Name="DownloadStatusPanel" Grid.Row="3" ColumnDefinitions="*,Auto" IsVisible="False" Margin="8,4">
-            <TextBlock x:Name="DownloadStatusText" TextWrapping="Wrap" VerticalAlignment="Center" />
-            <Button x:Name="DownloadCancelButton" Grid.Column="1" Content="{x:Static lang:Strings.Cancel}" Click="OnCancelDownloadClick" />
+        <Grid x:Name="DownloadStatusPanel"
+              Grid.Row="2"
+              Margin="8,6"
+              IsVisible="False">
+            <Border Padding="12"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10">
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                      ColumnSpacing="10"
+                      RowDefinitions="Auto,Auto"
+                      RowSpacing="8">
+                    <icons:FluentIcon VerticalAlignment="Center"
+                                      FontSize="18"
+                                      Icon="ArrowDownload" />
+                    <StackPanel Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="4">
+                        <TextBlock x:Name="DownloadStatusText"
+                                   FontSize="13"
+                                   TextWrapping="Wrap" />
+                        <TextBlock x:Name="DownloadProgressText"
+                                   Classes="browserSecondary"
+                                   IsVisible="False" />
+                    </StackPanel>
+                    <Panel Grid.Column="2" VerticalAlignment="Center">
+                        <Button x:Name="DownloadCancelButton"
+                                AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
+                                Classes="browserIcon"
+                                Click="OnCancelDownloadClick"
+                                IsVisible="False"
+                                ToolTip.Tip="{x:Static lang:Strings.Cancel}">
+                            <icons:FluentIcon FontSize="16" Icon="Dismiss" />
+                        </Button>
+                        <Button x:Name="DismissDownloadStatusButton"
+                                AutomationProperties.Name="{x:Static lang:Strings.Close}"
+                                Classes="browserIcon"
+                                Click="OnDismissDownloadStatusClick"
+                                ToolTip.Tip="{x:Static lang:Strings.Close}">
+                            <icons:FluentIcon FontSize="16" Icon="Dismiss" />
+                        </Button>
+                    </Panel>
+                    <ProgressBar x:Name="DownloadProgressBar"
+                                 Grid.Row="1"
+                                 Grid.ColumnSpan="3"
+                                 Height="3"
+                                 IsVisible="False"
+                                 Maximum="100"
+                                 Minimum="0" />
+                </Grid>
+            </Border>
         </Grid>
-
-        <Grid x:Name="FindPanel" Grid.Row="4" Margin="4" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="4" IsVisible="False">
-                <TextBox x:Name="FindTextBox" MinWidth="60" PlaceholderText="{x:Static lang:Strings.BrowserFind}"
+        <Grid x:Name="FindPanel"
+              Grid.Row="3"
+              Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+              IsVisible="False"
+              RowDefinitions="Auto,Auto">
+            <Grid Margin="8"
+                  ColumnDefinitions="*,Auto,Auto,Auto"
+                  ColumnSpacing="4">
+                <TextBox x:Name="FindTextBox"
+                         MinWidth="60"
+                         VerticalContentAlignment="Center"
                          controls:TextBoxAttachment.EnterDownBehavior="None"
-                         TextChanged="OnFindTextChanged" KeyDown="OnFindKeyDown" />
-                <Button Grid.Column="1" Content="↑" Click="OnFindPreviousClick" ToolTip.Tip="{x:Static lang:Strings.BrowserFindPrevious}" />
-                <Button Grid.Column="2" Content="↓" Click="OnFindNextClick" ToolTip.Tip="{x:Static lang:Strings.BrowserFindNext}" />
-                <TextBlock x:Name="FindCountText" Grid.Column="3" MaxWidth="80" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                <Button Grid.Column="4" Content="×" Click="OnCloseFindClick" ToolTip.Tip="{x:Static lang:Strings.Close}" />
-
+                         CornerRadius="8"
+                         KeyDown="OnFindKeyDown"
+                         PlaceholderText="{x:Static lang:Strings.BrowserFind}"
+                         TextChanged="OnFindTextChanged">
+                    <TextBox.InnerLeftContent>
+                        <icons:FluentIcon Margin="8,0,4,0"
+                                          VerticalAlignment="Center"
+                                          FontSize="16"
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                          Icon="Search" />
+                    </TextBox.InnerLeftContent>
+                    <TextBox.InnerRightContent>
+                        <Border Margin="4,0,6,0"
+                                Padding="5,2"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="5"
+                                IsVisible="{Binding #FindCountText.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock x:Name="FindCountText"
+                                       MaxWidth="64"
+                                       FontSize="11"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding #FindCountText.Text}" />
+                        </Border>
+                    </TextBox.InnerRightContent>
+                </TextBox>
+                <Button x:Name="FindPreviousButton"
+                        Grid.Column="1"
+                        AutomationProperties.Name="{x:Static lang:Strings.BrowserFindPrevious}"
+                        Classes="browserIcon"
+                        Click="OnFindPreviousClick"
+                        IsEnabled="False"
+                        ToolTip.Tip="{x:Static lang:Strings.BrowserFindPrevious}">
+                    <icons:FluentIcon FontSize="16" Icon="ChevronUp" />
+                </Button>
+                <Button x:Name="FindNextButton"
+                        Grid.Column="2"
+                        AutomationProperties.Name="{x:Static lang:Strings.BrowserFindNext}"
+                        Classes="browserIcon"
+                        Click="OnFindNextClick"
+                        IsEnabled="False"
+                        ToolTip.Tip="{x:Static lang:Strings.BrowserFindNext}">
+                    <icons:FluentIcon FontSize="16" Icon="ChevronDown" />
+                </Button>
+                <Button x:Name="CloseFindButton"
+                        Grid.Column="3"
+                        AutomationProperties.Name="{x:Static lang:Strings.Close}"
+                        Classes="browserIcon"
+                        Click="OnCloseFindClick"
+                        ToolTip.Tip="{x:Static lang:Strings.Close}">
+                    <icons:FluentIcon FontSize="16" Icon="Dismiss" />
+                </Button>
+            </Grid>
+            <TextBlock x:Name="FindStatusText"
+                       Grid.Row="1"
+                       Margin="12,0,12,8"
+                       FontSize="12"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       IsVisible="False"
+                       TextWrapping="Wrap" />
         </Grid>
 
-        <Grid Grid.Row="5">
+        <Grid Grid.Row="4">
             <Grid x:Name="BrowserSurface">
                 <ContentControl x:Name="WebViewHost"
                                 IsVisible="{Binding HasWebAddress.Value}"
@@ -402,14 +663,33 @@
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
-            <Grid x:Name="ToolPanel" IsVisible="False" RowDefinitions="Auto,*" Margin="12">
-                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-                    <TextBlock x:Name="ToolPanelTitle" FontSize="20" VerticalAlignment="Center" />
-                    <Button Grid.Column="1" Content="×" Click="OnCloseBrowserPanelClick" ToolTip.Tip="{x:Static lang:Strings.Close}" />
-                </Grid>
-                <ScrollViewer Grid.Row="1">
-                    <ContentControl x:Name="ToolPanelContent" HorizontalContentAlignment="Stretch" />
-                </ScrollViewer>
+            <Grid x:Name="ToolPanel"
+                  Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                  IsVisible="False"
+                  RowDefinitions="Auto,*">
+                <Border Padding="16,12"
+                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="0,0,0,1">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <TextBlock x:Name="ToolPanelTitle"
+                                   VerticalAlignment="Center"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+                        <Button x:Name="CloseBrowserPanelButton"
+                                Grid.Column="1"
+                                AutomationProperties.Name="{x:Static lang:Strings.Close}"
+                                Classes="browserIcon"
+                                Click="OnCloseBrowserPanelClick"
+                                ToolTip.Tip="{x:Static lang:Strings.Close}">
+                            <icons:FluentIcon FontSize="16" Icon="Dismiss" />
+                        </Button>
+                    </Grid>
+                </Border>
+                <ContentControl x:Name="ToolPanelContent"
+                                Grid.Row="1"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch" />
             </Grid>
         </Grid>
     </Grid>

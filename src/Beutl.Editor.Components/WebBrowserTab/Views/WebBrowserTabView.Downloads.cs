@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -80,53 +80,29 @@ internal partial class WebBrowserTabView
         }
     }
 
+    private void OnDismissDownloadStatusClick(object? sender, RoutedEventArgs e) => DownloadStatusPanel.IsVisible = false;
+
+    private void SetDownloadRunning(bool running)
+    {
+        DownloadCancelButton.IsVisible = running;
+        DismissDownloadStatusButton.IsVisible = !running;
+        DownloadProgressBar.IsVisible = running;
+        DownloadProgressText.IsVisible = running;
+        DownloadProgressBar.IsIndeterminate = running;
+        DownloadProgressBar.Value = 0;
+        DownloadProgressText.Text = string.Empty;
+    }
+
     private void OnCancelDownloadClick(object? sender, RoutedEventArgs e) => _downloadCancellation?.Cancel();
 
     internal async Task<BrowserDownloadOptions?> ChooseDownloadOptionsAsync(Uri uri, CancellationToken cancellation)
     {
         if (_disposed || _viewModel is not { } vm || cancellation.IsCancellationRequested) return null;
-        string? projectDirectory = vm.ProjectDownloadDirectory;
-        string materialsDirectory = BeutlEnvironment.GetMaterialsDirectoryPath();
-        var destination = new ComboBox
-        {
-            ItemsSource = new[]
-            {
-                new ComboBoxItem { Content = Strings.WebDownloadProject, IsEnabled = projectDirectory != null },
-                new ComboBoxItem { Content = Strings.WebDownloadMaterials }
-            },
-            SelectedIndex = projectDirectory != null ? 0 : 1,
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
-        };
-        var location = new TextBlock { TextWrapping = Avalonia.Media.TextWrapping.Wrap };
-        void UpdateLocation() => location.Text = destination.SelectedIndex == 0 ? projectDirectory : materialsDirectory;
-        destination.SelectionChanged += (_, _) => UpdateLocation();
-        UpdateLocation();
-        var addToTimeline = new CheckBox
-        {
-            Content = Strings.WebDownloadAddToTimeline,
-            IsEnabled = vm.CanAddDownloadedMedia,
-            IsChecked = vm.CanAddDownloadedMedia
-        };
-        var content = new StackPanel { Spacing = 8, Children =
-        {
-            new TextBlock { Text = uri.AbsoluteUri, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MaxWidth = 440 },
-            destination, location, addToTimeline
-        } };
-        if (projectDirectory == null)
-        {
-            content.Children.Add(new TextBlock { Text = Strings.WebDownloadProjectUnavailable, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
-        }
-
+        var content = new BrowserDownloadOptionsView(uri, vm.ProjectDownloadDirectory,
+            BeutlEnvironment.GetMaterialsDirectoryPath(), vm.CanAddDownloadedMedia);
         var completion = new TaskCompletionSource<BrowserDownloadOptions?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var save = new Button { Name = "ConfirmDownloadButton", Content = Strings.Save };
-        var cancel = new Button { Name = "CancelDownloadOptionsButton", Content = Strings.Cancel };
-        save.Click += (_, _) => completion.TrySetResult(new BrowserDownloadOptions(
-            destination.SelectedIndex == 0 ? projectDirectory! : materialsDirectory, addToTimeline.IsChecked == true));
-        cancel.Click += (_, _) => completion.TrySetResult(null);
-        content.Children.Add(new StackPanel
-        {
-            Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, Children = { save, cancel }
-        });
+        content.Confirmed += () => completion.TrySetResult(new BrowserDownloadOptions(content.SelectedDirectory, content.AddToTimeline));
+        content.Canceled += () => completion.TrySetResult(null);
         ShowBrowserPanel(Strings.WebDownloadMedia, content, () => completion.TrySetResult(null));
         try
         {
@@ -149,20 +125,24 @@ internal partial class WebBrowserTabView
             BrowserDownloadOptions? options = await (DownloadOptionsSelector ?? ChooseDownloadOptionsAsync)(uri, cancellation.Token);
             if (options == null || cancellation.IsCancellationRequested) return;
             DownloadStatusPanel.IsVisible = true;
-            DownloadCancelButton.IsVisible = true;
+            SetDownloadRunning(true);
+            ToolTip.SetTip(DownloadStatusText, uri.AbsoluteUri);
             DownloadStatusText.Text = Strings.WebDownloadMedia;
             var progress = new Progress<(long Received, long? Total)>(value =>
             {
                 if (!_disposed && ReferenceEquals(_downloadCancellation, cancellation) && !cancellation.IsCancellationRequested)
                 {
-                    DownloadStatusText.Text = value.Total is > 0
-                        ? $"{Strings.WebDownloadMedia}: {value.Received * 100.0 / value.Total:0}%"
-                        : $"{Strings.WebDownloadMedia}: {value.Received / 1024:N0} KB";
+                    DownloadProgressBar.IsIndeterminate = value.Total is not > 0;
+                    DownloadProgressBar.Value = value.Total is > 0 ? Math.Clamp(value.Received * 100.0 / value.Total.Value, 0, 100) : 0;
+                    DownloadProgressText.Text = value.Total is > 0
+                        ? $"{DownloadProgressBar.Value:0}%"
+                        : $"{value.Received / 1024:N0} KB";
                 }
             });
             string file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token);
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
-            DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, file);
+            DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));
+            ToolTip.SetTip(DownloadStatusText, file);
             CheckProfileSave(vm.Profile.AddDownload(uri, file));
             if (options.AddToTimeline)
             {
@@ -170,7 +150,7 @@ internal partial class WebBrowserTabView
                 catch (Exception ex)
                 {
                     if (!_disposed && ReferenceEquals(_viewModel, vm))
-                        DownloadStatusText.Text = string.Format(Strings.WebDownloadImportFailed, file, ex.Message);
+                        DownloadStatusText.Text = string.Format(Strings.WebDownloadImportFailed, Path.GetFileName(file), ex.Message);
                 }
             }
         }
@@ -189,7 +169,7 @@ internal partial class WebBrowserTabView
         finally
         {
             _downloadCancellation = null;
-            if (!_disposed) DownloadCancelButton.IsVisible = false;
+            if (!_disposed) SetDownloadRunning(false);
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
@@ -113,7 +114,7 @@ public class WebBrowserTabLifecycleTests
                 using var narrow = window.CaptureRenderedFrame();
                 narrow?.Save(Path.Combine(directory, "downloads-320.png"), PngBitmapEncoderOptions.Default);
             }
-            content.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "×"))
+            content.GetVisualDescendants().OfType<Button>().Single(button => button.Classes.Contains("removeHistory"))
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(profile.Downloads, Is.Empty);
             Assert.That(File.Exists(file), Is.True);
@@ -388,7 +389,7 @@ public class WebBrowserTabLifecycleTests
             profile.UpdateSettings(BrowserSearchEngine.Bing, false, false);
             response.SetResult(["stale result"]);
             await pending;
-            Assert.That(first.FindControl<StackPanel>("SearchSuggestionsPanel")!.IsVisible, Is.False);
+            Assert.That(first.FindControl<Popup>("SearchSuggestionsPopup")!.IsOpen, Is.False);
             Assert.That(address.SuggestionsEnabled, Is.False);
             Assert.That(second.FindControl<WebBrowserAddressBox>("AddressTextBox")!.SuggestionsEnabled, Is.False);
             firstVm.CompleteNavigation(new Uri("https://example.com/one"), true, false, false);
@@ -422,6 +423,111 @@ public class WebBrowserTabLifecycleTests
     }
 
     [AvaloniaTest]
+    [TestCase(320, false)]
+    [TestCase(640, false)]
+    [TestCase(320, true)]
+    [TestCase(640, true)]
+    public void SearchSuggestions_DoNotResizePageWhenOpenedOrClosed(int width, bool light)
+    {
+        var uri = new Uri("https://example.com/page");
+        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), uri);
+        using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
+        view.DataContext = vm;
+        vm.CompleteNavigation(uri, true, false, false);
+        var window = new Window
+        {
+            Content = view,
+            Width = width,
+            Height = 500,
+            RequestedThemeVariant = light ? Avalonia.Styling.ThemeVariant.Light : Avalonia.Styling.ThemeVariant.Dark
+        };
+        try
+        {
+            window.Show();
+            var address = view.FindControl<WebBrowserAddressBox>("AddressTextBox")!;
+            address.SuggestionDelay = TimeSpan.Zero;
+            address.SuggestionProvider = (_, _) => Task.FromResult<IReadOnlyList<string>>(["avalonia", "avalonia tutorial", "avalonia examples"]);
+            address.Focus();
+            Dispatcher.UIThread.RunJobs();
+            Rect pageBounds = view.FindControl<ContentControl>("WebViewHost")!.Bounds;
+            Point? pagePosition = view.FindControl<ContentControl>("WebViewHost")!.TranslatePoint(default, view);
+            window.KeyTextInput("ava");
+            window.UpdateLayout();
+            var popup = view.FindControl<Popup>("SearchSuggestionsPopup")!;
+            Assert.That(popup.IsOpen, Is.True);
+            Assert.That(popup.ShouldUseOverlayLayer, Is.False);
+            Assert.That(popup.Child!.Bounds.Width, Is.EqualTo(address.Bounds.Width).Within(1));
+            Assert.That(address.IsFocused, Is.True);
+            Assert.That(view.FindControl<ContentControl>("WebViewHost")!.Bounds, Is.EqualTo(pageBounds));
+            Assert.That(view.FindControl<ContentControl>("WebViewHost")!.TranslatePoint(default, view), Is.EqualTo(pagePosition));
+            if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                using var image = window.CaptureRenderedFrame();
+                image?.Save(Path.Combine(directory, $"suggestions-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
+            }
+            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            window.UpdateLayout();
+            Assert.That(popup.IsOpen, Is.False);
+            Assert.That(address.IsFocused, Is.True);
+            Assert.That(view.FindControl<ContentControl>("WebViewHost")!.Bounds, Is.EqualTo(pageBounds));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    public void SearchSuggestions_AllowAddressClicksAndDismissWithoutConsumingOutsideClicks()
+    {
+        using var vm = new WebBrowserTabViewModel(new TestEditorContext());
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
+        view.DataContext = vm;
+        int clicks = 0;
+        var other = new Button { Content = "Other", Height = 36 };
+        other.Click += (_, _) => clicks++;
+        Grid.SetRow(other, 1);
+        var window = new Window { Content = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Children = { view, other } }, Width = 360, Height = 500 };
+        try
+        {
+            window.Show();
+            var address = view.FindControl<WebBrowserAddressBox>("AddressTextBox")!;
+            var popup = view.FindControl<Popup>("SearchSuggestionsPopup")!;
+            address.SuggestionDelay = TimeSpan.Zero;
+            address.SuggestionProvider = (_, _) => Task.FromResult<IReadOnlyList<string>>(["suggestion"]);
+            address.Focus();
+            Dispatcher.UIThread.RunJobs();
+            window.KeyTextInput("query");
+            window.UpdateLayout();
+            Point addressPoint = address.TranslatePoint(new Point(8, 8), window)!.Value;
+            window.MouseDown(addressPoint, MouseButton.Left);
+            window.MouseUp(addressPoint, MouseButton.Left);
+            Assert.That(popup.IsOpen, Is.True);
+            Point otherPoint = other.TranslatePoint(new Point(8, 8), window)!.Value;
+            window.MouseDown(otherPoint, MouseButton.Left);
+            window.MouseUp(otherPoint, MouseButton.Left);
+            Assert.That(popup.IsOpen, Is.False);
+            Assert.That(clicks, Is.EqualTo(1));
+
+            address.Focus();
+            Dispatcher.UIThread.RunJobs();
+            window.KeyTextInput("another query");
+            Assert.That(popup.IsOpen, Is.True);
+            object? content = window.Content;
+            window.Content = null;
+            Assert.That(popup.IsOpen, Is.False);
+            window.Content = content;
+            Assert.That(popup.IsOpen, Is.False);
+            address.Focus();
+            Dispatcher.UIThread.RunJobs();
+            window.KeyTextInput("last query");
+            Assert.That(popup.IsOpen, Is.True);
+            view.Dispose();
+            Assert.That(popup.IsOpen, Is.False);
+            Assert.That(view.FindControl<ListBox>("SearchSuggestionsList")!.ItemCount, Is.Zero);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
     public void SearchSuggestions_KeyboardSelectionNavigatesToSearch()
     {
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
@@ -437,11 +543,11 @@ public class WebBrowserTabLifecycleTests
             address.Focus();
             Dispatcher.UIThread.RunJobs();
             window.KeyTextInput("ava");
-            Assert.That(view.FindControl<StackPanel>("SearchSuggestionsPanel")!.IsVisible, Is.True);
+            Assert.That(view.FindControl<Popup>("SearchSuggestionsPopup")!.IsOpen, Is.True);
             window.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
             window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
             Assert.That(vm.Address.Value, Is.EqualTo("https://www.google.com/search?q=avalonia%20tutorial"));
-            Assert.That(view.FindControl<StackPanel>("SearchSuggestionsPanel")!.IsVisible, Is.False);
+            Assert.That(view.FindControl<Popup>("SearchSuggestionsPopup")!.IsOpen, Is.False);
 
             address.SelectAll();
             address.SuggestionProvider = (_, _) => Task.FromResult<IReadOnlyList<string>>(["mouse choice"]);
@@ -449,9 +555,10 @@ public class WebBrowserTabLifecycleTests
             window.UpdateLayout();
             var list = view.FindControl<ListBox>("SearchSuggestionsList")!;
             Control item = list.ContainerFromIndex(0)!;
-            Point point = item.TranslatePoint(new Point(8, 8), window)!.Value;
-            window.MouseDown(point, MouseButton.Left);
-            window.MouseUp(point, MouseButton.Left);
+            var popupRoot = TopLevel.GetTopLevel(item)!;
+            Point point = item.TranslatePoint(new Point(8, 8), popupRoot)!.Value;
+            popupRoot.MouseDown(point, MouseButton.Left);
+            popupRoot.MouseUp(point, MouseButton.Left);
             Assert.That(vm.Address.Value, Is.EqualTo("https://www.google.com/search?q=mouse%20choice"));
         }
         finally

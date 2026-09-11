@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 
@@ -69,13 +69,13 @@ public class WebBrowserDownloadTests
                 Task<WebBrowserTabView.BrowserDownloadOptions?> pending = view.ChooseDownloadOptionsAsync(
                     new Uri("https://example.com/media.mp4"), CancellationToken.None);
                 Dispatcher.UIThread.RunJobs();
-                var content = (StackPanel)view.FindControl<ContentControl>("ToolPanelContent")!.Content!;
+                var content = (BrowserDownloadOptionsView)view.FindControl<ContentControl>("ToolPanelContent")!.Content!;
                 Assert.That(window.GetVisualDescendants().OfType<FAContentDialog>(), Is.Empty);
-                var combo = content.Children.OfType<ComboBox>().Single();
-                var checkbox = content.Children.OfType<CheckBox>().Single();
+                var choice = content.FindControl<RadioButton>(destination == 0 ? "ProjectDestination" : "MaterialsDestination")!;
+                var checkbox = content.FindControl<CheckBox>("AddToTimelineCheckBox")!;
                 Assert.That(checkbox.IsEnabled, Is.True);
                 Assert.That(view.FindControl<Grid>("BrowserSurface")!.IsVisible, Is.False);
-                combo.SelectedIndex = destination;
+                choice.IsChecked = true;
                 checkbox.IsChecked = destination == 0;
                 content.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "ConfirmDownloadButton")
                     .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));

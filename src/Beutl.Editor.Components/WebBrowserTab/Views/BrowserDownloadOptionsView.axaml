@@ -1,0 +1,138 @@
+﻿<UserControl x:Class="Beutl.Editor.Components.WebBrowserTab.Views.BrowserDownloadOptionsView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:views="using:Beutl.Editor.Components.WebBrowserTab.Views"
+             x:ClassModifier="internal"
+             x:CompileBindings="True"
+             x:DataType="views:BrowserDownloadOptionsView">
+    <UserControl.Styles>
+        <Style Selector="Border.destinationCard">
+            <Setter Property="Padding" Value="14" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+        <Style Selector="Border.destinationCard.selected">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        </Style>
+        <Style Selector="TextBlock.secondary">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+    <Grid RowDefinitions="*,Auto">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <StackPanel MaxWidth="560"
+                        Margin="16"
+                        Spacing="24">
+                <Border Padding="14"
+                        Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                        CornerRadius="12">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <icons:FluentIcon VerticalAlignment="Center"
+                                          FontSize="28"
+                                          Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                          Icon="Document" />
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding FileName}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding SourceUrl}" />
+                            <TextBlock Classes="secondary"
+                                       Text="{Binding SourceHost}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <StackPanel Spacing="10">
+                    <TextBlock FontSize="13"
+                               FontWeight="SemiBold"
+                               Text="{x:Static lang:Strings.BrowserDownloadDestination}" />
+                    <Border Classes="destinationCard" Classes.selected="{Binding #ProjectDestination.IsChecked}">
+                        <RadioButton x:Name="ProjectDestination"
+                                     Padding="10,6,0,0"
+                                     HorizontalAlignment="Stretch"
+                                     HorizontalContentAlignment="Stretch"
+                                     GroupName="{Binding DestinationGroup}"
+                                     IsEnabled="{Binding HasProject}">
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="{x:Static lang:Strings.WebDownloadProject}" TextWrapping="Wrap" />
+                                <TextBlock Classes="secondary"
+                                           Text="{Binding ProjectLocation}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding ProjectLocation}" />
+                            </StackPanel>
+                        </RadioButton>
+                    </Border>
+                    <Border Classes="destinationCard" Classes.selected="{Binding #MaterialsDestination.IsChecked}">
+                        <RadioButton x:Name="MaterialsDestination"
+                                     Padding="10,6,0,0"
+                                     HorizontalAlignment="Stretch"
+                                     HorizontalContentAlignment="Stretch"
+                                     GroupName="{Binding DestinationGroup}">
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="{x:Static lang:Strings.WebDownloadMaterials}" TextWrapping="Wrap" />
+                                <TextBlock Classes="secondary"
+                                           Text="{Binding MaterialsDirectory}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding MaterialsDirectory}" />
+                            </StackPanel>
+                        </RadioButton>
+                    </Border>
+                    <TextBlock Classes="secondary"
+                               IsVisible="{Binding !HasProject}"
+                               Text="{x:Static lang:Strings.WebDownloadProjectUnavailable}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Spacing="10">
+                    <TextBlock FontSize="13"
+                               FontWeight="SemiBold"
+                               Text="{x:Static lang:Strings.BrowserDownloadAfter}" />
+                    <Border Padding="14"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                        <CheckBox x:Name="AddToTimelineCheckBox"
+                                  AutomationProperties.Name="{x:Static lang:Strings.WebDownloadAddToTimeline}"
+                                  IsEnabled="{Binding CanImport}">
+                            <TextBlock Text="{x:Static lang:Strings.BrowserAddToTimeline}" TextWrapping="Wrap" />
+                        </CheckBox>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="1"
+                Padding="16"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0">
+            <Grid MaxWidth="560">
+                <StackPanel HorizontalAlignment="Right"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                    <Button x:Name="CancelDownloadOptionsButton"
+                            Padding="14,9"
+                            Click="OnCancelClick"
+                            Content="{x:Static lang:Strings.Cancel}"
+                            CornerRadius="8" />
+                    <Button x:Name="ConfirmDownloadButton"
+                            Padding="14,9"
+                            Classes="accent"
+                            Click="OnConfirmClick"
+                            CornerRadius="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <icons:FluentIcon VerticalAlignment="Center"
+                                              FontSize="16"
+                                              Icon="ArrowDownload" />
+                            <TextBlock Text="{x:Static lang:Strings.BrowserDownloadStart}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

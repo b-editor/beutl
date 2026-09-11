@@ -23,6 +23,7 @@ internal partial class WebBrowserTabView
     {
         DownloadStatusPanel.IsVisible = true;
         DownloadStatusText.Text = message;
+        ToolTip.SetTip(DownloadStatusText, null);
     }
 
     private void CheckProfileSave(bool success)
@@ -126,6 +127,7 @@ internal partial class WebBrowserTabView
     private ItemsControl? _historyItems;
     private Border? _historyEmpty;
     private TextBlock? _historyFeedback;
+    private StackPanel? _historyContent;
 
     private void OnDownloadHistoryChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshDownloadHistory();
 
@@ -133,45 +135,46 @@ internal partial class WebBrowserTabView
     {
         if (_historyItems == null || _viewModel is not { } vm) return;
         _historyItems.ItemsSource = vm.Profile.Downloads.Select(record => new BrowserDownloadHistoryItem(record, vm.CanAddDownloadedMedia)).ToArray();
-        _historyEmpty!.IsVisible = vm.Profile.Downloads.Count == 0;
+        bool empty = vm.Profile.Downloads.Count == 0;
+        _historyEmpty!.IsVisible = empty;
+        _historyItems.IsVisible = !empty;
+        _historyContent!.VerticalAlignment = empty ? Avalonia.Layout.VerticalAlignment.Center : Avalonia.Layout.VerticalAlignment.Top;
     }
 
     private void OnDownloadHistoryClick(object? sender, RoutedEventArgs e)
     {
         if (_viewModel is not { } vm) return;
         var items = new ItemsControl { ItemTemplate = (IDataTemplate)Resources["DownloadHistoryItemTemplate"]! };
-        var empty = new Border
+        var empty = (Border)((IDataTemplate)Resources["DownloadHistoryEmptyTemplate"]!).Build(vm)!;
+        var feedback = new TextBlock
         {
-            Padding = new Avalonia.Thickness(20, 24),
-            Child = new StackPanel
-            {
-                Spacing = 6,
-                Children =
-            {
-                new TextBlock { Text = Strings.BrowserHistoryEmpty, FontWeight = Avalonia.Media.FontWeight.SemiBold },
-                new TextBlock { Text = Strings.BrowserHistoryEmptyHint, Opacity = 0.65, TextWrapping = Avalonia.Media.TextWrapping.Wrap }
-            }
-            }
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            IsVisible = false,
+            Classes = { "browserSecondary" }
         };
-        var feedback = new TextBlock { TextWrapping = Avalonia.Media.TextWrapping.Wrap, IsVisible = false };
         var content = new StackPanel
         {
+            MaxWidth = 600,
+            Margin = new Avalonia.Thickness(16),
             Spacing = 12,
-            Children =
-        {
-            new TextBlock { Text = Strings.BrowserHistoryIntro, Opacity = 0.65, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-            feedback, empty, items
-        }
+            Children = { feedback, empty, items }
         };
-        ShowBrowserPanel(Strings.BrowserDownloads, content, () =>
+        var scroll = new ScrollViewer
+        {
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Content = content
+        };
+        ShowBrowserPanel(Strings.BrowserDownloads, scroll, () =>
         {
             _historyItems = null;
             _historyEmpty = null;
             _historyFeedback = null;
+            _historyContent = null;
         });
         _historyItems = items;
         _historyEmpty = empty;
         _historyFeedback = feedback;
+        _historyContent = content;
         RefreshDownloadHistory();
     }
 

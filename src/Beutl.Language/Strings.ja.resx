@@ -2776,12 +2776,28 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>ダウンロード履歴はありません</value>
   </data>
   <data name="BrowserHistoryEmptyHint" xml:space="preserve">
-    <value>履歴の記録が有効な場合、ダウンロードした素材がここに表示されます。</value>
+    <value>履歴の記録が有効なら、
+保存した素材がここに表示されます。</value>
   </data>
   <data name="BrowserAddToTimeline" xml:space="preserve">
     <value>タイムラインに追加</value>
   </data>
   <data name="BrowserRemoveHistoryItem" xml:space="preserve">
     <value>履歴から削除</value>
+  </data>
+  <data name="BrowserDownloadDestination" xml:space="preserve">
+    <value>保存先</value>
+  </data>
+  <data name="BrowserDownloadAfter" xml:space="preserve">
+    <value>ダウンロード後</value>
+  </data>
+  <data name="BrowserDownloadStart" xml:space="preserve">
+    <value>ダウンロード</value>
+  </data>
+  <data name="BrowserFindNoResults" xml:space="preserve">
+    <value>一致するテキストはありません。</value>
+  </data>
+  <data name="BrowserFindUnavailable" xml:space="preserve">
+    <value>このページでは検索を利用できません。</value>
   </data>
 </root>

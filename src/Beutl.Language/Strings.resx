@@ -2781,12 +2781,28 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>No downloads yet</value>
   </data>
   <data name="BrowserHistoryEmptyHint" xml:space="preserve">
-    <value>Downloaded media will appear here when history recording is enabled.</value>
+    <value>Downloaded media appears here
+when history recording is enabled.</value>
   </data>
   <data name="BrowserAddToTimeline" xml:space="preserve">
     <value>Add to timeline</value>
   </data>
   <data name="BrowserRemoveHistoryItem" xml:space="preserve">
     <value>Remove from history</value>
+  </data>
+  <data name="BrowserDownloadDestination" xml:space="preserve">
+    <value>Save to</value>
+  </data>
+  <data name="BrowserDownloadAfter" xml:space="preserve">
+    <value>After download</value>
+  </data>
+  <data name="BrowserDownloadStart" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="BrowserFindNoResults" xml:space="preserve">
+    <value>No matches found.</value>
+  </data>
+  <data name="BrowserFindUnavailable" xml:space="preserve">
+    <value>Search is unavailable on this page.</value>
   </data>
 </root>

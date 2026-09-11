@@ -398,7 +398,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     private void OnAddressKeyDown(object? sender, KeyEventArgs e)
     {
-        if (SearchSuggestionsPanel.IsVisible)
+        if (SearchSuggestionsPopup.IsOpen)
         {
             int count = SearchSuggestionsList.ItemCount;
             if (e.Key is Key.Down or Key.Up && count > 0)
@@ -439,8 +439,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     {
         SearchSuggestionsList.ItemsSource = suggestions;
         SearchSuggestionsList.SelectedIndex = -1;
-        SearchSuggestionsPanel.IsVisible = suggestions.Count > 0;
+        SearchSuggestionsPopup.IsOpen = !_disposed && suggestions.Count > 0 && AddressTextBox.IsFocused
+            && TopLevel.GetTopLevel(this) != null;
     }
+
+    private void OnSearchSuggestionsPopupClosed(object? sender, EventArgs e) => AddressTextBox.CancelSearchSuggestions();
 
     private void OnSearchSuggestionPointerReleased(object? sender, PointerReleasedEventArgs e)
     {

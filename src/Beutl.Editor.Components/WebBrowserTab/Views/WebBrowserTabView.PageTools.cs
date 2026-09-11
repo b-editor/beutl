@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
@@ -8,6 +8,7 @@ internal partial class WebBrowserTabView
 {
     private int _zoomPercent = 100;
     private int _pageRevision;
+    private int _findRevision;
     private CancellationTokenSource? _findRequest;
     internal Func<string, Task<string?>>? PageScriptRunner { get; set; }
     internal Task<string?> RunPageScriptAsync(string script) => PageScriptRunner?.Invoke(script)
@@ -19,10 +20,14 @@ internal partial class WebBrowserTabView
         FindPanel.IsVisible = true;
         FindTextBox.Focus();
         FindTextBox.SelectAll();
+        if (!string.IsNullOrEmpty(FindTextBox.Text)) _ = FindInPageAsync(0);
+        else ResetFindFeedback();
     }
 
     private async void OnFindTextChanged(object? sender, TextChangedEventArgs e)
     {
+        if (_disposed || !FindPanel.IsVisible) return;
+        ResetFindFeedback();
         _findRequest?.Cancel();
         using var request = new CancellationTokenSource();
         _findRequest = request;
@@ -35,23 +40,37 @@ internal partial class WebBrowserTabView
         finally { if (ReferenceEquals(_findRequest, request)) _findRequest = null; }
     }
 
+    private void ResetFindFeedback()
+    {
+        _findRevision++;
+        FindCountText.Text = string.Empty;
+        FindStatusText.IsVisible = false;
+        FindPreviousButton.IsEnabled = false;
+        FindNextButton.IsEnabled = false;
+    }
+
     internal async Task FindInPageAsync(int direction)
     {
         int revision = _pageRevision;
+        int request = ++_findRevision;
         string query = FindTextBox.Text ?? string.Empty;
+        BrowserPageTools.FindResult? result;
         try
         {
-            var result = BrowserPageTools.ParseFindResult(await RunPageScriptAsync(BrowserPageTools.FindScript(query, direction)));
-            if (!_disposed && revision == _pageRevision && FindTextBox.Text == query && FindPanel.IsVisible)
-            {
-                FindCountText.Text = result == null ? Strings.BrowserPageToolsUnavailable
-                    : string.Format(Strings.BrowserFindCount, result.Index, result.Count);
-            }
+            result = BrowserPageTools.ParseFindResult(await RunPageScriptAsync(BrowserPageTools.FindScript(query, direction)));
         }
-        catch
+        catch { result = null; }
+        if (_disposed || revision != _pageRevision || request != _findRevision || FindTextBox.Text != query || !FindPanel.IsVisible) return;
+        if (query.Length == 0)
         {
-            if (!_disposed && revision == _pageRevision) FindCountText.Text = Strings.BrowserPageToolsUnavailable;
+            ResetFindFeedback();
+            return;
         }
+        FindCountText.Text = result == null ? string.Empty : string.Format(Strings.BrowserFindCount, result.Index, result.Count);
+        FindStatusText.Text = result == null ? Strings.BrowserFindUnavailable : Strings.BrowserFindNoResults;
+        FindStatusText.IsVisible = result == null || result.Count == 0;
+        FindPreviousButton.IsEnabled = result?.Count > 0;
+        FindNextButton.IsEnabled = result?.Count > 0;
     }
 
     private async void OnFindNextClick(object? sender, RoutedEventArgs e) => await FindInPageAsync(1);
@@ -61,6 +80,7 @@ internal partial class WebBrowserTabView
     {
         _findRequest?.Cancel();
         FindPanel.IsVisible = false;
+        ResetFindFeedback();
         try { await RunPageScriptAsync(BrowserPageTools.FindScript("", 0)); }
         catch { }
     }
