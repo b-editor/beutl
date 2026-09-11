@@ -176,7 +176,11 @@ public class WebBrowserDownloadTests
     [TestCase("about:blank", true)]
     [TestCase("https://page.example/current", false)]
     [TestCase("https://page.example/current", true)]
-    public async Task TypedMediaDownloadsKeepTheDisplayedPageState(string initialAddress, bool confirm)
+    [TestCase("about:blank", false, true)]
+    [TestCase("about:blank", true, true)]
+    [TestCase("https://page.example/current", false, true)]
+    [TestCase("https://page.example/current", true, true)]
+    public async Task TypedMediaDownloadsKeepTheNavigationState(string initialAddress, bool confirm, bool navigationPending = false)
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var initialUri = new Uri(initialAddress);
@@ -196,6 +200,8 @@ public class WebBrowserDownloadTests
             return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(confirm ? new(root, false) : null);
         };
         vm.CompleteNavigation(initialUri, true, false, false);
+        Uri currentUri = navigationPending ? new Uri("https://pending.example/page") : initialUri;
+        if (navigationPending) vm.BeginNavigation(currentUri);
         string header = vm.Header.Value;
         try
         {
@@ -203,12 +209,20 @@ public class WebBrowserDownloadTests
             view.NavigateFromAddress();
             if (confirm) await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(requested, Is.EqualTo(mediaUri));
-            Assert.That(vm.Address.Value, Is.EqualTo(WebBrowserTabViewModel.FormatAddress(initialUri)));
-            Assert.That(vm.CurrentUri, Is.EqualTo(initialUri));
+            Assert.That(vm.Address.Value, Is.EqualTo(WebBrowserTabViewModel.FormatAddress(currentUri)));
+            Assert.That(vm.CurrentUri, Is.EqualTo(currentUri));
             Assert.That(native.Source, Is.EqualTo(initialUri));
             Assert.That(vm.Header.Value, Is.EqualTo(header));
-            Assert.That(vm.HasWebAddress.Value, Is.EqualTo(initialUri != WebBrowserTabViewModel.BlankPage));
-            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(vm.HasWebAddress.Value, Is.EqualTo(currentUri != WebBrowserTabViewModel.BlankPage));
+            Assert.That(vm.IsLoading.Value, Is.EqualTo(navigationPending));
+            if (navigationPending)
+            {
+                view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = currentUri, IsSuccess = false });
+                Assert.That(vm.IsLoading.Value, Is.False);
+                Assert.That(vm.ErrorMessage.Value, Is.Not.Empty);
+                Assert.That(vm.CurrentUri, Is.EqualTo(currentUri));
+                Assert.That(vm.AddressSuggestions, Does.Not.Contain(currentUri.AbsoluteUri));
+            }
             var saved = new JsonObject();
             vm.WriteToJson(saved);
             Assert.That(saved["source"]!.GetValue<string>(), Is.EqualTo(vm.Address.Value));
