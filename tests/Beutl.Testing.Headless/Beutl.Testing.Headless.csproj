@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Headless" />
+    <PackageReference Include="HarfBuzzSharp" />
   </ItemGroup>
 
 </Project>
