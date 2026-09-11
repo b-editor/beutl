@@ -88,6 +88,48 @@ public class BrowserMediaDownloadTests
         Assert.That(BrowserMediaDownload.CreateFileName(name, new Uri("https://example.com/download"), type), Is.EqualTo(expected));
     }
 
+    [TestCase("CON.mp4", "_CON.mp4")]
+    [TestCase("prn.wav", "_prn.mp4")]
+    [TestCase("AUX", "_AUX.mp4")]
+    [TestCase("nul.backup.mp4", "_nul.backup.mp4")]
+    [TestCase("COM1.mp4", "_COM1.mp4")]
+    [TestCase("COM9.mp4", "_COM9.mp4")]
+    [TestCase("LPT1.mp4", "_LPT1.mp4")]
+    [TestCase("LPT9.mp4", "_LPT9.mp4")]
+    [TestCase("COM¹.mp4", "_COM¹.mp4")]
+    [TestCase("LPT².mp4", "_LPT².mp4")]
+    [TestCase("com³.mp4", "_com³.mp4")]
+    [TestCase(" CON .mp4. ", "_CON .mp4")]
+    [TestCase("CONCERT.mp4", "CONCERT.mp4")]
+    [TestCase("COM0.mp4", "COM0.mp4")]
+    [TestCase("LPT10.mp4", "LPT10.mp4")]
+    [TestCase("report.CON.mp4", "report.CON.mp4")]
+    public void DownloadNamesAvoidWindowsDevicesWithoutChangingOrdinaryNames(string name, string expected)
+    {
+        Assert.That(BrowserMediaDownload.CreateFileName(name, new Uri("https://example.com/media"), "video/mp4"), Is.EqualTo(expected));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ReservedNamesFromUrlsAndResponseHeadersPublishDistinctSafeFiles(bool useResponseHeader)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var client = new HttpClient(new MediaHandler(fileName: useResponseHeader ? "CON.mp4" : null));
+        var uri = new Uri(useResponseHeader ? "https://example.com/media.mp4" : "https://example.com/CON.mp4");
+        var downloader = new BrowserMediaDownload(client);
+        try
+        {
+            string first = await downloader.DownloadAsync(uri, directory, null, null, default);
+            string second = await downloader.DownloadAsync(uri, directory, null, null, default);
+            Assert.That(Path.GetFileName(first), Is.EqualTo("_CON.mp4"));
+            Assert.That(Path.GetFileName(second), Is.EqualTo("_CON (1).mp4"));
+            Assert.That(File.ReadAllBytes(first), Has.Length.EqualTo(200000));
+            Assert.That(File.ReadAllBytes(second), Has.Length.EqualTo(200000));
+            Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(2));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
     [TestCase("text/html")]
     [TestCase("application/xhtml+xml")]
     public void HtmlResponse_IsNotSavedAsMedia(string mediaType)
@@ -173,12 +215,13 @@ public class BrowserMediaDownloadTests
         public void Report((long Received, long? Total) value) => cancellation.Cancel();
     }
 
-    private sealed class MediaHandler(string mediaType = "video/mp4") : HttpMessageHandler
+    private sealed class MediaHandler(string mediaType = "video/mp4", string? fileName = null) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var content = new ByteArrayContent(new byte[200000]);
             content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+            if (fileName != null) content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment") { FileName = fileName };
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });
         }
     }

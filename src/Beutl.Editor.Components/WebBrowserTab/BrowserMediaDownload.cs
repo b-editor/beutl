@@ -272,6 +272,14 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         if (string.IsNullOrWhiteSpace(value)) return null;
         string name = Path.GetFileName(value.Trim().Trim('"').Replace('\\', '/'));
         name = string.Concat(name.Select(c => char.IsControl(c) || "<>:\"/\\|?*".Contains(c) ? '_' : c)).Trim(' ', '.');
-        return string.IsNullOrWhiteSpace(name) ? null : name;
+        if (string.IsNullOrWhiteSpace(name)) return null;
+
+        // Windows reserves these basenames even before multiple extensions. Keep names portable.
+        int dot = name.IndexOf('.');
+        string stem = (dot < 0 ? name : name[..dot]).TrimEnd(' ').ToUpperInvariant();
+        bool reserved = stem is "CON" or "PRN" or "AUX" or "NUL"
+            || (stem.Length == 4 && (stem[..3] is "COM" or "LPT")
+                && (stem[3] is >= '1' and <= '9' or '¹' or '²' or '³'));
+        return reserved ? "_" + name : name;
     }
 }
