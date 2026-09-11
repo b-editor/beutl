@@ -42,12 +42,12 @@
                     -->
                     <Panel Classes.closable="{Binding CanClose}">
                         <!--
-                            Fixed width so every tab is the same size; long titles trim with an ellipsis. The
-                            hover fade mask goes on this Border rather than the TextBlock: a TextBlock's mask
-                            is laid out against the glyph extents, so its fade would move with the title length.
+                            The hover fade mask goes on this Border rather than the TextBlock: a TextBlock's
+                            mask is laid out against the glyph extents, so its fade would drift with the title
+                            length instead of staying anchored to the tab's right edge.
                         -->
                         <Border x:Name="PART_TabTitleHost"
-                                Width="120"
+                                MaxWidth="180"
                                 Background="Transparent">
                             <TextBlock x:Name="PART_TabTitle"
                                        Padding="{DynamicResource DockHeaderContentPadding}"

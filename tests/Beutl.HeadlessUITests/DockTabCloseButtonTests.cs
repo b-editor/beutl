@@ -86,14 +86,8 @@ public class DockTabCloseButtonTests
             Border title = TitleOf(tab);
             double widthBefore = tab.Bounds.Width;
 
-            double[] tabWidths = leftDock.VisibleDockables
-                .Select(dockable => TabFor(view, dockable).Bounds.Width)
-                .ToArray();
-
             Assert.Multiple(() =>
             {
-                Assert.That(tabWidths, Has.Length.GreaterThan(1));
-                Assert.That(tabWidths, Is.All.EqualTo(tabWidths[0]).Within(0.5), "Tabs have a fixed width.");
                 Assert.That(first.CanClose, Is.True);
                 Assert.That(close.IsVisible, Is.True);
                 Assert.That(close.Opacity, Is.EqualTo(0));
