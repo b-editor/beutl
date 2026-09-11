@@ -35,6 +35,11 @@ public class WebSearchSuggestionsTests
     [TestCase("[::1]")]
     [TestCase("[::1]:5000")]
     [TestCase("[2001:db8::1]")]
+    [TestCase("site:example.com browser")]
+    [TestCase("error: connection refused")]
+    [TestCase("javascript:alert('private value')")]
+    [TestCase("data:text/plain,private value")]
+    [TestCase("user:private value@example.com")]
     [TestCase("")]
     public async Task Addresses_DoNotSendSuggestionRequests(string text)
     {
@@ -130,6 +135,32 @@ public class WebSearchSuggestionsTests
     [TestCase("http://user@example.com/")]
     [TestCase("user:password@example.com")]
     public void CredentialUrlsAreNotConvertedToSearches(string text)
+    {
+        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        vm.Address.Value = text;
+        Assert.That(vm.TryCreateNavigationUri(out _), Is.False);
+    }
+
+    [TestCase("site:example.com browser")]
+    [TestCase("site:example.com")]
+    [TestCase("filetype:pdf")]
+    [TestCase("error: connection refused")]
+    [TestCase("System.InvalidOperationException: operation failed")]
+    public void ColonBearingQueriesUseTheSelectedSearchEngine(string text)
+    {
+        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        vm.Address.Value = text;
+        Assert.That(vm.TryCreateNavigationUri(out Uri uri), Is.True);
+        Assert.That(uri.Host, Is.EqualTo("www.google.com"));
+        Assert.That(Uri.UnescapeDataString(uri.Query[3..]), Is.EqualTo(text));
+    }
+
+    [TestCase("javascript:alert('private value')")]
+    [TestCase("data:text/plain,private value")]
+    [TestCase("mailto:person@example.com?subject=private value")]
+    [TestCase("user:private value@example.com")]
+    [TestCase("C:\\private folder\\file.txt")]
+    public void ExplicitUrisAndCredentialsWithSpacesAreNotConvertedToSearches(string text)
     {
         using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
         vm.Address.Value = text;
