@@ -34,6 +34,13 @@ public class ContextCommandExecution
     public string CommandName { get; }
 
     public KeyEventArgs? KeyEventArgs { get; set; }
+
+    /// <summary>
+    /// Whether the triggering key event came from a text-entry control (a <c>TextBox</c>, a terminal, ...).
+    /// Handlers bound to plain keys should not run in that case so the keystroke is typed instead.
+    /// See <see cref="ContextCommandInput"/>.
+    /// </summary>
+    public bool IsFromTextInput => ContextCommandInput.IsFromTextInput(KeyEventArgs);
 }
 
 [AttributeUsage(AttributeTargets.Method)]

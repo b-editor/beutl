@@ -100,11 +100,12 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     {
         if (execution.KeyEventArgs != null)
             execution.KeyEventArgs.Handled = true;
-        bool isFromTextBox = execution.KeyEventArgs?.Source is TextBox;
+        // Plain-key gestures must keep typing into text boxes, terminals and other text-entry surfaces.
+        bool isFromTextInput = execution.IsFromTextInput;
         Task operation = Task.CompletedTask;
         switch (execution.CommandName)
         {
-            case "PlayPause" when !isFromTextBox:
+            case "PlayPause" when !isFromTextInput:
                 operation = Player.PlayPause.ExecuteAsync();
                 break;
             case "Next":
@@ -119,43 +120,43 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             case "SeekEnd":
                 Player.End.Execute();
                 break;
-            case "ShuttleForward" when !isFromTextBox:
+            case "ShuttleForward" when !isFromTextInput:
                 Player.ShuttleForward();
                 break;
-            case "ShuttleForwardFine" when !isFromTextBox:
+            case "ShuttleForwardFine" when !isFromTextInput:
                 Player.ShuttleForward(fineGrain: true);
                 break;
-            case "ShuttleBackward" when !isFromTextBox:
+            case "ShuttleBackward" when !isFromTextInput:
                 Player.ShuttleBackward();
                 break;
-            case "ShuttleBackwardFine" when !isFromTextBox:
+            case "ShuttleBackwardFine" when !isFromTextInput:
                 Player.ShuttleBackward(fineGrain: true);
                 break;
-            case "ShuttleStop" when !isFromTextBox:
+            case "ShuttleStop" when !isFromTextInput:
                 Player.ShuttleStop();
                 break;
-            case "ToggleLoop" when !isFromTextBox:
+            case "ToggleLoop" when !isFromTextInput:
                 Player.ToggleLoop();
                 break;
-            case "ToggleMarker" when !isFromTextBox:
+            case "ToggleMarker" when !isFromTextInput:
                 ToggleMarkerAtCurrentTime();
                 break;
-            case "NextMarker" when !isFromTextBox:
+            case "NextMarker" when !isFromTextInput:
                 SeekToAdjacentMarker(forward: true);
                 break;
-            case "PreviousMarker" when !isFromTextBox:
+            case "PreviousMarker" when !isFromTextInput:
                 SeekToAdjacentMarker(forward: false);
                 break;
-            case "GotoTimecode" when !isFromTextBox:
+            case "GotoTimecode" when !isFromTextInput:
                 Player.RequestEditTimecode();
                 break;
-            case "NextKeyFrame" when !isFromTextBox:
+            case "NextKeyFrame" when !isFromTextInput:
                 SeekToAdjacentKeyFrame(forward: true);
                 break;
-            case "PreviousKeyFrame" when !isFromTextBox:
+            case "PreviousKeyFrame" when !isFromTextInput:
                 SeekToAdjacentKeyFrame(forward: false);
                 break;
-            case "ToggleOnionSkin" when !isFromTextBox:
+            case "ToggleOnionSkin" when !isFromTextInput:
                 {
                     EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
                     editorConfig.IsOnionSkinEnabled = !editorConfig.IsOnionSkinEnabled;
