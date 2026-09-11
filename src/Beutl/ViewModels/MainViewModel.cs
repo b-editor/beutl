@@ -322,6 +322,23 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         }
     }
 
+    internal async Task<bool> TryDisposeForWindowCloseAsync()
+    {
+        try
+        {
+            await _projectService.CloseProjectAsync();
+            lock (_disposeGate)
+            {
+                _disposeTask ??= DisposeCoreAsync();
+            }
+            return true;
+        }
+        catch (ProjectCloseAbortedException)
+        {
+            return false;
+        }
+    }
+
     internal Task WaitForDisposalAsync()
     {
         lock (_disposeGate)
@@ -634,7 +651,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
         try
         {
-            _projectService.CloseProject();
+            await _projectService.CloseProjectAsync();
         }
         catch (Exception ex)
         {

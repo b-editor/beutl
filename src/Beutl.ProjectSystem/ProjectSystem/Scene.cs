@@ -672,7 +672,14 @@ public class Scene : ProjectItem, INotifyEdited
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Scene.SyncronizeFiles");
 
-        var uriToElement = pathToElement.Select(x => new Uri(Uri!, Uri.UnescapeDataString(x))).ToArray();
+        string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
+        var uriToElement = pathToElement.Select(path =>
+        {
+            string fullPath = Path.GetFullPath(Path.Combine(sceneDirectory, path));
+            if (!FilePathComparison.IsSameOrDescendant(sceneDirectory, fullPath))
+                throw new JsonException($"Element path escapes the scene directory: {path}");
+            return UriHelper.CreateFromPath(fullPath);
+        }).ToArray();
 
         // 削除するElements
         Element[] elementsRemove = Children.ExceptBy(uriToElement, x => x.Uri).ToArray();

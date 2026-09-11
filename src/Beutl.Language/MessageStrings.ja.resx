@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -436,5 +436,14 @@
   </data>
   <data name="FFmpegErrorStreamNotFound" xml:space="preserve">
     <value>入力に適切なストリームが見つかりませんでした。</value>
+  </data>
+  <data name="FileInUse" xml:space="preserve">
+    <value>名前変更や削除の前に、この項目のファイルをエディターで閉じてください。</value>
+  </data>
+  <data name="AiRejectedTranscriptionResult" xml:space="preserve">
+    <value>文字起こし結果を受理できませんでした。再試行では課金済みの同じリクエストを使います。この結果を破棄すると新しいリクエストを開始できます。次の文字起こしで再度課金される場合があります。</value>
+  </data>
+  <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
+    <value>受理できない結果を破棄</value>
   </data>
 </root>

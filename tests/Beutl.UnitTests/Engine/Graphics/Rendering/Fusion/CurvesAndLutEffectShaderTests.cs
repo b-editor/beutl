@@ -19,6 +19,24 @@ public sealed class CurvesAndLutEffectShaderTests
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
 
     [Test]
+    public void IdentityLut_PreservesIntermediateValuesInLinearTarget()
+    {
+        var source = new CubeSource();
+        const string cube = "LUT_1D_SIZE 3\n0 0 0\n0.5 0.5 0.5\n1 1 1\n";
+        source.ReadFrom(new Uri("data:text/plain;base64," + Convert.ToBase64String(Encoding.ASCII.GetBytes(cube))));
+        using Brush.Resource fill = new SolidColorBrush(new Color(255, 128, 64, 192)).ToResource(CompositionContext.Default);
+        var effect = new LutEffect { Source = { CurrentValue = source } };
+        SKColor control = Render(new LutEffect(), fill: fill);
+        SKColor actual = Render(effect, fill: fill);
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual.Red, Is.EqualTo(control.Red).Within(2));
+            Assert.That(actual.Green, Is.EqualTo(control.Green).Within(2));
+            Assert.That(actual.Blue, Is.EqualTo(control.Blue).Within(2));
+        });
+    }
+
+    [Test]
     public void Curves_RecordsTypedResourcesAndFusesUnderEveryCapabilityProfile()
     {
         var effect = new Curves();
@@ -395,13 +413,13 @@ public sealed class CurvesAndLutEffectShaderTests
         return bitmap.SKBitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 2);
     }
 
-    private static SKColor Render(FilterEffect effect, int? expectedShaderStages = null)
+    private static SKColor Render(FilterEffect effect, int? expectedShaderStages = null, Brush.Resource? fill = null)
     {
         using var root = new FilterEffectRenderNode(
             effect.ToResource(CompositionContext.Default));
         root.AddChild(new RectangleRenderNode(
             s_bounds,
-            Brushes.Resource.Red,
+            fill ?? Brushes.Resource.Red,
             null));
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {

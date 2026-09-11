@@ -32,6 +32,114 @@ public class ElementStructureServiceTests
         => _harness.AddElement(start, length, zIndex);
 
     [Test]
+    public void Split_WriteFailureKeepsOriginalClipAndHistory()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        Uri original = _scene.Uri!;
+        string blocker = Path.Combine(Path.GetDirectoryName(original.LocalPath)!, "blocked");
+        File.WriteAllText(blocker, "file rather than directory");
+        _scene.Uri = new Uri(Path.Combine(blocker, "main.scene"));
+        _history.Commit("Setup");
+        int before = _history.UndoCount;
+        try
+        {
+            Assert.That(() => _service.Split(_scene, [element], TimeSpan.FromSeconds(4)), Throws.InstanceOf<IOException>());
+            Assert.Multiple(() =>
+            {
+                Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(10)));
+                Assert.That(_scene.Children, Has.Count.EqualTo(1));
+                Assert.That(_history.UndoCount, Is.EqualTo(before));
+                Assert.That(_history.HasPendingOperations, Is.False);
+            });
+        }
+        finally
+        {
+            _scene.Uri = original;
+            File.Delete(blocker);
+        }
+    }
+
+    [Test]
+    public void Split_LaterFailureRollsBackEarlierClipsAndNewSidecars()
+    {
+        Element first = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        string directory = Path.GetDirectoryName(_scene.Uri!.LocalPath)!;
+        var second = new FailingSplitElement
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(10),
+            ZIndex = 1,
+            Uri = new Uri(Path.Combine(directory, "second.belm")),
+        };
+        _scene.Children.Add(second);
+        _history.Commit("Setup");
+        int before = _history.UndoCount;
+        string[] files = Directory.GetFiles(directory, "*.belm", SearchOption.AllDirectories);
+        second.FailSerialization = true;
+        Assert.That(() => _service.Split(_scene, [first, second], TimeSpan.FromSeconds(4)), Throws.InstanceOf<IOException>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Length, Is.EqualTo(TimeSpan.FromSeconds(10)));
+            Assert.That(_scene.Children, Has.Count.EqualTo(2));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(_history.HasPendingOperations, Is.False);
+            Assert.That(Directory.GetFiles(directory, "*.belm", SearchOption.AllDirectories), Is.EquivalentTo(files));
+        });
+    }
+
+    [Test]
+    public void Split_RollbackFailureKeepsTheSidecarOfASurvivingChild()
+    {
+        Element first = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        string directory = Path.GetDirectoryName(_scene.Uri!.LocalPath)!;
+        var second = new FailingSplitElement
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(10),
+            ZIndex = 1,
+            Uri = new Uri(Path.Combine(directory, "second.belm")),
+        };
+        _scene.Children.Add(second);
+        _history.Commit("Setup");
+        second.FailSerialization = true;
+        Element? survivor = null;
+        System.Collections.Specialized.NotifyCollectionChangedEventHandler handler = (_, change) =>
+        {
+            if (change.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove
+                && change.OldItems?.OfType<Element>().FirstOrDefault() is { } removed
+                && removed != first && removed != second)
+            {
+                survivor = removed;
+                _scene.Children.Add(removed);
+                throw new IOException("Injected child rollback failure");
+            }
+        };
+        _scene.Children.CollectionChanged += handler;
+        try
+        {
+            Assert.Catch<AggregateException>(() => _service.Split(_scene, [first, second], TimeSpan.FromSeconds(4)));
+            Assert.That(survivor, Is.Not.Null);
+            Assert.That(_scene.Children, Does.Contain(survivor));
+            Assert.That(File.Exists(survivor!.Uri!.LocalPath), Is.True);
+        }
+        finally
+        {
+            _scene.Children.CollectionChanged -= handler;
+            second.FailSerialization = false;
+        }
+    }
+
+    public sealed class FailingSplitElement : Element
+    {
+        public bool FailSerialization { get; set; }
+        public override void Serialize(Beutl.Serialization.ICoreSerializationContext context)
+        {
+            if (FailSerialization) throw new IOException("Injected split serialization failure");
+            base.Serialize(context);
+        }
+    }
+
+    [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => new ElementStructureService(null!));
@@ -139,6 +247,7 @@ public class ElementStructureServiceTests
     public void Split_AtMidPoint_ProducesBackwardClipAndCommits()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
+        _history.Commit("Add element");
         int before = _history.UndoCount;
         int childrenBefore = _scene.Children.Count;
         TimeSpan splitAt = TimeSpan.FromSeconds(3);

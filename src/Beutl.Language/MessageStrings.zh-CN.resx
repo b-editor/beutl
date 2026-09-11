@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:schema id="root">
     <xs:element name="root" ns1:IsDataSet="true">
@@ -442,5 +442,14 @@
   </data>
   <data name="FFmpegErrorStreamNotFound" xml:space="preserve">
     <value>在输入中未找到合适的流。</value>
+  </data>
+  <data name="FileInUse" xml:space="preserve">
+    <value>重命名或删除此项目之前，请先在编辑器中关闭相关文件。</value>
+  </data>
+  <data name="AiRejectedTranscriptionResult" xml:space="preserve">
+    <value>无法使用转录结果。重试会保留同一已付费请求。可以丢弃此结果以开始新请求；下次转录可能会再次收费。</value>
+  </data>
+  <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
+    <value>丢弃不可用结果</value>
   </data>
 </root>

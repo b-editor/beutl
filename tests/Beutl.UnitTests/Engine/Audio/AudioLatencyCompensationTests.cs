@@ -51,6 +51,30 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_InlineDrainCountsPaddingOnceAcrossBothLimiters()
+    {
+        var duration = ExactDuration(SampleRate, SampleRate);
+        var padding = ExactDuration(120, SampleRate);
+        var sound = new LimiterAfterClipTailSound
+        {
+            LimiterBeforeClip = true,
+            LookaheadMs = 5f,
+            TimeRange = new TimeRange(TimeSpan.Zero, duration),
+        };
+        using var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+        using var composer = new Composer { SampleRate = SampleRate };
+        var range = new TimeRange(TimeSpan.Zero, duration + padding);
+        var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), range, default, eligibility);
+        using var first = composer.Compose(range, frame);
+        Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(360));
+        var nextRange = new TimeRange(range.End, ExactDuration(360, SampleRate));
+        using var tail = composer.Compose(nextRange, new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty, nextRange, default, eligibility));
+        Assert.That(HasNonZero(tail!.GetChannelData(0)[^120..]), Is.True);
+    }
+
+    [Test]
     public void Flush_RecoversTheTailHeldInTheDelayLine()
     {
         const float lookaheadMs = 5f;

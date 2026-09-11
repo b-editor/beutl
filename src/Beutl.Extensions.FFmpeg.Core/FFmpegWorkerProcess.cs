@@ -19,14 +19,22 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
     private readonly SemaphoreSlim _startLock = new(1, 1);
     private readonly bool _multiplexed;
+    private readonly Action<ProcessStartInfo> _configureWorkerStart;
     private Process? _process;
     private IpcConnection? _connection;
     private FFmpegWorkerLogPump? _logPump;
     private string? _pipeName;
+    private Exception? _lastStartupFailure;
+    private long _retryStartupAt;
 
-    public FFmpegWorkerProcess(bool multiplexed = false)
+    public FFmpegWorkerProcess(bool multiplexed = false) : this(multiplexed, ConfigureWorkerProcess)
+    {
+    }
+
+    internal FFmpegWorkerProcess(bool multiplexed, Action<ProcessStartInfo> configureWorkerStart)
     {
         _multiplexed = multiplexed;
+        _configureWorkerStart = configureWorkerStart;
     }
 
     public bool IsRunning => _process is { HasExited: false } && _connection?.IsConnected == true;
@@ -49,7 +57,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             ThrowIfLibrariesMissing();
 
             // 同期コンテキストから非同期メソッドを呼び出す（タイムアウト付き）
-            StartWorkerAsync(CancellationToken.None).GetAwaiter().GetResult();
+            StartWorkerWithCooldownAsync(CancellationToken.None).GetAwaiter().GetResult();
             return _connection!;
         }
         finally
@@ -65,7 +73,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
         ThrowIfLibrariesMissing();
 
-        await _startLock.WaitAsync(ct);
+        await _startLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             if (_connection != null && _process is { HasExited: false })
@@ -73,12 +81,34 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
             ThrowIfLibrariesMissing();
 
-            await StartWorkerAsync(ct);
+            await StartWorkerWithCooldownAsync(ct).ConfigureAwait(false);
             return _connection!;
         }
         finally
         {
             _startLock.Release();
+        }
+    }
+
+    private async Task StartWorkerWithCooldownAsync(CancellationToken ct)
+    {
+        if (_lastStartupFailure is not null && Environment.TickCount64 < _retryStartupAt)
+            throw new InvalidOperationException("FFmpeg worker startup failed recently; retry after the cooldown.", _lastStartupFailure);
+        try
+        {
+            await StartWorkerAsync(ct).ConfigureAwait(false);
+            _lastStartupFailure = null;
+        }
+        catch (Exception ex)
+        {
+            try { Cleanup(); }
+            catch (Exception cleanup) { s_logger.LogWarning(cleanup, "Failed to clean up an unsuccessful FFmpeg worker start."); }
+            if (ex is not OperationCanceledException and not FFmpegLibrariesNotFoundException)
+            {
+                _lastStartupFailure = ex;
+                _retryStartupAt = Environment.TickCount64 + 30_000;
+            }
+            throw;
         }
     }
 
@@ -113,7 +143,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
         {
             // ワーカープロセス起動
             var startInfo = new ProcessStartInfo();
-            ConfigureWorkerProcess(startInfo);
+            _configureWorkerStart(startInfo);
             startInfo.ArgumentList.Add("--pipe");
             startInfo.ArgumentList.Add(_pipeName);
             startInfo.ArgumentList.Add("--parent");
@@ -144,7 +174,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             if (completed == exitTask)
             {
                 // キャンセル経由でexitTaskが完了した場合は OperationCanceledException を再スロー
-                await exitTask;
+                await exitTask.ConfigureAwait(false);
 
                 int code = _process.ExitCode;
 
@@ -171,7 +201,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             }
 
             // 接続が先に成立。例外があれば伝播させる
-            await connectTask;
+            await connectTask.ConfigureAwait(false);
             // 敗者となった exitTask の例外を観測しておく（UnobservedTaskException 防止）
             _ = exitTask.ContinueWith(
                 static t => { _ = t.Exception; },
@@ -209,7 +239,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
         };
 
         // ハンドシェイク待機（プロトコルバージョン検証）
-        var handshake = await _connection.ReceiveAsync(ct)
+        var handshake = await _connection.ReceiveAsync(ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Worker closed connection during handshake");
 
         if (handshake.Type != MessageType.HandshakeAck)

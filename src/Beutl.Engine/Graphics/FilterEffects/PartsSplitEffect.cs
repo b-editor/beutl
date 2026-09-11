@@ -30,15 +30,15 @@ public partial class PartsSplitEffect : FilterEffect
             using (parentIndices)
             {
                 var newTargets = new EffectTargets();
-
+                var pathes = new List<(SKPath Path, int Parent, int Index)>(points.Count);
                 try
                 {
-                    var pathes = new List<(SKPath Path, int Parent, int Index)>(points.Count);
                     for (int i1 = 0; i1 < points.Count; i1++)
                     {
                         ReadOnlySpan<PixelPoint> inner = points[i1];
                         int parent = parentIndices[i1];
                         var skpath = new SKPath();
+                        pathes.Add((skpath, parent, i1));
                         for (int j = 0; j < inner.Length; j++)
                         {
                             if (j == 0)
@@ -48,7 +48,6 @@ public partial class PartsSplitEffect : FilterEffect
                         }
 
                         skpath.Close();
-                        pathes.Add((skpath, parent, i1));
                     }
 
                     for (int j = 0; j < pathes.Count; j++)
@@ -79,7 +78,6 @@ public partial class PartsSplitEffect : FilterEffect
 
                     // Contours are device px; convert path bounds to logical (/ w).
                     float w = context.WorkingScale;
-                    int completedPathCount = 0;
                     bool allocationFailed = false;
                     foreach ((SKPath skpath, _, _) in pathes)
                     {
@@ -97,6 +95,7 @@ public partial class PartsSplitEffect : FilterEffect
                             break;
                         }
 
+                        newTargets.Add(newTarget);
                         // Clip path and source blit are device px; enter device space.
                         using (ImmediateCanvas newCanvas = context.Open(newTarget))
                         using (newCanvas.PushDeviceSpace())
@@ -108,24 +107,15 @@ public partial class PartsSplitEffect : FilterEffect
                             newCanvas.DrawRenderTarget(srcRenderTarget, default);
                         }
 
-                        newTargets.Add(newTarget);
-
-                        skpath.Dispose();
-                        completedPathCount++;
                     }
 
                     if (allocationFailed)
                     {
-                        for (int j = completedPathCount; j < pathes.Count; j++)
-                        {
-                            pathes[j].Path.Dispose();
-                        }
-
                         newTargets.Dispose();
                         continue;
                     }
 
-                    srcRenderTarget.Dispose();
+                    target.Dispose();
                     context.Targets.RemoveAt(i);
                     context.Targets.InsertRange(i, newTargets);
                     i += newTargets.Count - 1;
@@ -133,6 +123,12 @@ public partial class PartsSplitEffect : FilterEffect
                 catch
                 {
                     newTargets.Dispose();
+                    throw;
+                }
+                finally
+                {
+                    foreach (var path in pathes)
+                        path.Path.Dispose();
                 }
             }
         }

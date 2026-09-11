@@ -258,8 +258,9 @@ public sealed partial class LutEffect : FilterEffect
 
         public SKShader CreateShader()
         {
+            using SKColorSpace colorSpace = SKColorSpace.CreateSrgbLinear();
             using SKImage image = SKImage.Create(
-                new SKImageInfo(_data.Length, 1, SKColorType.RgbaF32));
+                new SKImageInfo(_data.Length, 1, SKColorType.RgbaF32, SKAlphaType.Premul, colorSpace));
             using (SKPixmap pixmap = image.PeekPixels())
             {
                 Span<Vector4> pixels = pixmap.GetPixelSpan<Vector4>();

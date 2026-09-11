@@ -10,6 +10,82 @@ namespace Beutl.UnitTests.Media.Proxy;
 public class ProxyJobQueueTests
 {
     [Test]
+    public async Task AdmissionWaitSubscribers_ObserveWaitingBeforeReentrantCancellation()
+    {
+        var admission = new SequencedAdmission(rejections: int.MaxValue);
+        await using var queue = new ProxyJobQueue(new RecordingGenerator(), store: null,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30), maxUnavailableBackoff: TimeSpan.FromSeconds(30), admission);
+        var observed = new List<ProxyJobChangeKind>();
+        var canceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        queue.JobChanged += (_, change) =>
+        {
+            if (change.Kind == ProxyJobChangeKind.WaitingForAdmission)
+                Task.Run(() => queue.Cancel(change.Job.JobId)).GetAwaiter().GetResult();
+        };
+        queue.JobChanged += (_, change) =>
+        {
+            observed.Add(change.Kind);
+            if (change.Kind == ProxyJobChangeKind.Canceled) canceled.TrySetResult();
+        };
+        await queue.EnqueueAsync(CreateFingerprint("wait-cancel-order.mov"), ProxyPreset.Quarter);
+        await canceled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(observed.Where(kind => kind is ProxyJobChangeKind.WaitingForAdmission or ProxyJobChangeKind.Canceled),
+            Is.EqualTo(new[] { ProxyJobChangeKind.WaitingForAdmission, ProxyJobChangeKind.Canceled }));
+    }
+
+    [Test]
+    public async Task AdmissionWaitForAnotherJob_IsPublishedBeforeThatJobCanComplete()
+    {
+        var admission = new SequencedAdmission(rejections: 2);
+        var firstDelayStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCancellation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var succeeded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var observed = new System.Collections.Concurrent.ConcurrentQueue<ProxyJobChangeKind>();
+        ProxyFingerprint first = CreateFingerprint("blocked-cancellation.mov");
+        ProxyFingerprint second = CreateFingerprint("independent-admission.mov");
+        int delays = 0;
+        await using var queue = new ProxyJobQueue(new RecordingGenerator(), store: null,
+            minUnavailableBackoff: TimeSpan.FromMilliseconds(1), maxUnavailableBackoff: TimeSpan.FromMilliseconds(1), admission,
+            (_, token) =>
+            {
+                if (Interlocked.Increment(ref delays) != 1) return Task.CompletedTask;
+                firstDelayStarted.TrySetResult();
+                return Task.Delay(Timeout.InfiniteTimeSpan, token);
+            });
+        queue.JobChanged += (_, change) =>
+        {
+            if (change.Job.Source == first && change.Kind == ProxyJobChangeKind.Canceled)
+            {
+                cancellationStarted.TrySetResult();
+                releaseCancellation.Task.GetAwaiter().GetResult();
+            }
+            if (change.Job.Source == second)
+            {
+                observed.Enqueue(change.Kind);
+                if (change.Kind == ProxyJobChangeKind.Succeeded) succeeded.TrySetResult();
+            }
+        };
+        Task? cancellation = null;
+        try
+        {
+            ProxyJob firstJob = await queue.EnqueueAsync(first, ProxyPreset.Quarter);
+            await firstDelayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            cancellation = Task.Run(() => queue.Cancel(firstJob.JobId));
+            await cancellationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await queue.EnqueueAsync(second, ProxyPreset.Quarter);
+            await succeeded.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            releaseCancellation.TrySetResult();
+            if (cancellation is not null) await cancellation.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        Assert.That(observed.Where(kind => kind is ProxyJobChangeKind.WaitingForAdmission or ProxyJobChangeKind.Succeeded),
+            Is.EqualTo(new[] { ProxyJobChangeKind.WaitingForAdmission, ProxyJobChangeKind.Succeeded }));
+    }
+
+    [Test]
     public async Task EnqueueAsync_DispatchesSeriallyInArrivalOrder()
     {
         var generator = new RecordingGenerator();
@@ -147,6 +223,41 @@ public class ProxyJobQueueTests
         await delayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         admission.SignalAvailability();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(admission.Attempts, Is.EqualTo(2));
+            Assert.That(generator.Sources, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Priority_promotion_wakes_a_deferred_job_before_its_backoff()
+    {
+        var generator = new RecordingGenerator();
+        var admission = new SequencedAdmission(rejections: 1);
+        var delayStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30),
+            maxUnavailableBackoff: TimeSpan.FromSeconds(30),
+            admission,
+            async (_, cancellationToken) =>
+            {
+                delayStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            });
+
+        ProxyFingerprint source = CreateFingerprint("priority-signal.mov");
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await delayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        ProxyJob promoted = await queue.EnqueueAsync(source, ProxyPreset.Quarter, priority: 10);
+        Assert.That(promoted, Is.SameAs(job));
         await WaitForTerminalAsync(job);
 
         Assert.Multiple(() =>

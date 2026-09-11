@@ -113,8 +113,7 @@ public sealed class DefaultPreferences : IPreferences
         string? dir = Path.GetDirectoryName(_filePath);
         Directory.CreateDirectory(dir!);
 
-        using FileStream stream = File.Create(_filePath);
-        JsonSerializer.Serialize(stream, _preferences);
+        JsonSerializer.SerializeToNode(_preferences)!.JsonSave(_filePath);
     }
 
     internal static void CheckIsSupportedType<T>()

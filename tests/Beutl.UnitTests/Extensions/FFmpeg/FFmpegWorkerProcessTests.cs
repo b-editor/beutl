@@ -1,12 +1,46 @@
 ﻿using System.IO;
 using System.Threading;
 using Beutl.Extensions.FFmpeg;
+using Beutl.FFmpegIpc;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
 
 [TestFixture]
 public class FFmpegWorkerProcessTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task FailedStartup_ReleasesProcessAndLogPumpWithoutApplyingGenericCooldown(bool canceled)
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("Uses a POSIX worker fixture.");
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var cooldown = typeof(FFmpegLibraryState).GetField("s_missingSinceTicks", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        object? previousCooldown = cooldown.GetValue(null);
+        using var cancellation = new CancellationTokenSource();
+        using var worker = new FFmpegWorkerProcess(false, start =>
+        {
+            start.FileName = "/bin/sh";
+            start.ArgumentList.Add("-c");
+            start.ArgumentList.Add(canceled ? "exec sleep 30" : "exit 2");
+            if (canceled) cancellation.Cancel();
+        });
+        try
+        {
+            var method = typeof(FFmpegWorkerProcess).GetMethod("StartWorkerWithCooldownAsync", flags)!;
+            Task start = (Task)method.Invoke(worker, new object[] { cancellation.Token })!;
+            if (canceled) Assert.CatchAsync<OperationCanceledException>(async () => await start);
+            else Assert.ThrowsAsync<FFmpegLibrariesNotFoundException>(async () => await start);
+            Assert.That(worker.WorkerPid, Is.Zero);
+            Assert.That(typeof(FFmpegWorkerProcess).GetField("_logPump", flags)!.GetValue(worker), Is.Null);
+            Assert.That(typeof(FFmpegWorkerProcess).GetField("_lastStartupFailure", flags)!.GetValue(worker), Is.Null);
+            await Task.CompletedTask;
+        }
+        finally
+        {
+            cooldown.SetValue(null, previousCooldown);
+        }
+    }
+
     private const string DotnetHost = "/usr/bin/dotnet";
 
     private static string SubDirApphost(string baseDir, bool isWindows) =>

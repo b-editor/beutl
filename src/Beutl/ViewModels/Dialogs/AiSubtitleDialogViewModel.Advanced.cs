@@ -274,6 +274,10 @@ public sealed partial class AiSubtitleDialogViewModel
 
     public ReactiveCommand DiscardPartialResult { get; private set; } = null!;
 
+    public ReactivePropertySlim<bool> HasRejectedTranscriptionResult { get; } = new();
+
+    public ReactiveCommand DiscardRejectedTranscriptionResult { get; private set; } = null!;
+
     public AsyncReactiveCommand ImportCaptions { get; private set; } = null!;
 
     public AsyncReactiveCommand ExportCaptions { get; private set; } = null!;
@@ -409,6 +413,19 @@ public sealed partial class AiSubtitleDialogViewModel
         DiscardPartialResult = new ReactiveCommand(HasPartialResult)
             .DisposeWith(_captionDisposables);
         DiscardPartialResult.Subscribe(ClearPartialResult).DisposeWith(_captionDisposables);
+        DiscardRejectedTranscriptionResult = new ReactiveCommand(
+                HasRejectedTranscriptionResult.CombineLatest(IsTranscribing,
+                    (rejected, busy) => rejected && !busy))
+            .DisposeWith(_captionDisposables);
+        DiscardRejectedTranscriptionResult.Subscribe(() =>
+        {
+            // Only an explicit user action abandons the paid but unusable response.
+            // Completed chunks are retained; the next request buys only the remainder.
+            RetireTranscriptionRunNames();
+            HasRejectedTranscriptionResult.Value = false;
+            Error.Value = null;
+            _transcriptionEstimateRevision.Value++;
+        }).DisposeWith(_captionDisposables);
         ImportCaptions = new AsyncReactiveCommand()
             .WithSubscribe(ImportCaptionsCore)
             .DisposeWith(_captionDisposables);
@@ -730,7 +747,7 @@ public sealed partial class AiSubtitleDialogViewModel
                             runModel,
                             name.Key),
                         RequestToken);
-                    ValidateTranscriptionSegments(response.Segments, chunk.UploadedDuration.TotalSeconds);
+                    response = NormalizeTranscriptionResponse(response, chunk.UploadedDuration.TotalSeconds, operation.ExpectedDraftScopeRevision);
                 }
                 catch (AiProviderErrorException)
                 {
@@ -992,7 +1009,7 @@ public sealed partial class AiSubtitleDialogViewModel
                             runModel,
                                 name.Key),
                         RequestToken);
-                    ValidateTranscriptionSegments(response.Segments, uploadedDuration.TotalSeconds);
+                    response = NormalizeTranscriptionResponse(response, uploadedDuration.TotalSeconds, operation.ExpectedDraftScopeRevision);
                 }
                 catch (AiProviderErrorException)
                 {
@@ -1601,29 +1618,70 @@ public sealed partial class AiSubtitleDialogViewModel
         return responseById;
     }
 
-    internal static void ValidateTranscriptionSegments(
+    private sealed class RejectedTranscriptionResultException(InvalidDataException inner)
+        : Exception("The transcription result was rejected by the client.", inner);
+
+    private AiTranscriptionResponse NormalizeTranscriptionResponse(AiTranscriptionResponse response, double duration, long draftScopeRevision)
+    {
+        try
+        {
+            AiTranscriptionSegment[] segments = ValidateTranscriptionSegments(response.Segments, duration);
+            if (!_disposed && IsCurrentCaptionDraftScope(draftScopeRevision))
+                HasRejectedTranscriptionResult.Value = false;
+            return response with { Segments = segments };
+        }
+        catch (InvalidDataException ex)
+        {
+            if (!_disposed && IsCurrentCaptionDraftScope(draftScopeRevision))
+                HasRejectedTranscriptionResult.Value = true;
+            throw new RejectedTranscriptionResultException(ex);
+        }
+    }
+
+    internal static AiTranscriptionSegment[] ValidateTranscriptionSegments(
         IReadOnlyList<AiTranscriptionSegment> segments,
         double maximumEndSeconds)
     {
+        const double TimestampToleranceSeconds = 0.05;
+        if (!double.IsFinite(maximumEndSeconds) || maximumEndSeconds <= 0)
+            throw new InvalidDataException("The transcription chunk duration is invalid.");
+        if (segments.Count == 0)
+            return [];
+        double previousStart = -1;
         double previousEnd = 0;
-        foreach (AiTranscriptionSegment segment in segments)
+        var normalized = new AiTranscriptionSegment[segments.Count];
+        for (int i = 0; i < segments.Count; i++)
         {
+            AiTranscriptionSegment segment = segments[i];
             if (segment is null
                 || !double.IsFinite(segment.Start)
                 || !double.IsFinite(segment.End)
-                || segment.Start < previousEnd
+                || segment.Start < 0
+                || segment.Start < previousStart
+                || segment.End < previousEnd
+                || segment.Start < previousEnd - TimestampToleranceSeconds
                 || segment.End <= segment.Start
-                || segment.End > maximumEndSeconds
+                || segment.End > maximumEndSeconds + TimestampToleranceSeconds
+                || Math.Min(segment.End, maximumEndSeconds) <= segment.Start
                 || !IsTimeSpanRepresentable(segment.Start)
                 || !IsTimeSpanRepresentable(segment.End)
                 || string.IsNullOrWhiteSpace(segment.Text))
             {
-                throw new AiProviderErrorException(new InvalidDataException(
-                    "The transcription provider returned an invalid segment set."));
+                // This is a client-side rejection of a potentially paid success, not a
+                // settled provider failure. Keep its request key available for recovery.
+                throw new InvalidDataException("The transcription provider returned an invalid segment set.");
             }
 
-            previousEnd = segment.End;
+            normalized[i] = new AiTranscriptionSegment
+            {
+                Start = segment.Start,
+                End = Math.Min(segment.End, maximumEndSeconds),
+                Text = segment.Text,
+            };
+            previousStart = segment.Start;
+            previousEnd = normalized[i].End;
         }
+        return normalized;
     }
 
     private static bool IsTimeSpanRepresentable(double seconds)
@@ -2251,6 +2309,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void ResetCurrentCaptionRecovery()
     {
+        HasRejectedTranscriptionResult.Value = false;
         _partialResult = null;
         _pendingTranslation = null;
         _pendingSceneTranscription = null;
@@ -2977,6 +3036,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void ResetCaptionStateForAccountChange()
     {
+        HasRejectedTranscriptionResult.Value = false;
         _partialResult = null;
         _pendingTranslation = null;
         _pendingSceneTranscription = null;

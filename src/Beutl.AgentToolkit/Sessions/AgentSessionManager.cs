@@ -370,6 +370,6 @@ public sealed class SessionUnavailableException : Exception
             ErrorCode.NoActiveEditorSession,
             Message,
             null,
-            "Call attach_active_editor for an open editor scene, or call create_project/open_project to start a file-backed session before read_document_summary, read_document, apply_edit, render_still, or export_video.");
+            "If the editor is exporting or switching projects, wait until it is enabled and retry. Otherwise call attach_active_editor for an open editor scene, or call create_project/open_project to start a file-backed session before read_document_summary, read_document, apply_edit, render_still, or export_video.");
     }
 }

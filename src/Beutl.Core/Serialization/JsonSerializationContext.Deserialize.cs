@@ -191,27 +191,8 @@ public partial class JsonSerializationContext
     private static object DeserializeObjectFile(
         string? uriString, Type type, ICoreSerializationContext? parent)
     {
-        Uri uri = ResolveUri(uriString, parent);
+        Uri uri = UriHelper.ResolvePersistedReference(uriString, parent?.BaseUri);
         return CoreSerializer.RestoreFromUri(uri, type);
-    }
-
-    private static Uri ResolveUri(string? uriString, ICoreSerializationContext? parent)
-    {
-        uriString = uriString != null ? Uri.UnescapeDataString(uriString) : null;
-
-        if (!Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out Uri? uri))
-            throw new JsonException($"Invalid URI: {uriString}");
-
-        if (uri.IsAbsoluteUri)
-            return uri;
-
-        if (parent == null)
-            throw new JsonException("Cannot resolve relative URI without a parent context.");
-
-        if (!Uri.TryCreate(parent.BaseUri, uriString, out uri))
-            throw new JsonException($"Invalid relative URI: {uriString}");
-
-        return uri;
     }
 
     public T? GetValue<T>(string name)

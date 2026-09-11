@@ -557,6 +557,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardErrorEncoding = Encoding.UTF8,
         };
         foreach (string argument in arguments)
         {

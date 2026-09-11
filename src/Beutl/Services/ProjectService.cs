@@ -413,6 +413,7 @@ public sealed class ProjectService
         await App.WaitLoadingExtensions();
 
         using Activity? activity = Telemetry.StartActivity();
+        Project? previousProject = null;
         try
         {
             if (Opening is { } opening)
@@ -430,7 +431,14 @@ public sealed class ProjectService
                 return;
             }
 
-            await CloseProjectCoreAsync(transition, CancellationToken.None);
+            // Selecting the active project from Recents must not replace in-memory edits
+            // with a snapshot read before the close path has saved them.
+            if (_app.Project?.Uri is { IsFile: true } currentUri
+                && FilePathComparison.AreSameCanonicalPath(currentUri.LocalPath, file))
+            {
+                TryAddToRecentProjects(file);
+                return;
+            }
 
             (NuGetVersion appVersion, NuGetVersion minVersion) = await GetProjectVersion(file);
             activity?.SetTag(nameof(appVersion), appVersion.ToString());
@@ -448,8 +456,18 @@ public sealed class ProjectService
                 return;
             }
 
-            var project = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(file));
+            Uri projectUri = UriHelper.CreateFromPath(file);
+            previousProject = _app.Project;
+            if (previousProject is not null)
+            {
+                // Validate before closing so an invalid project leaves the current one open.
+                // Closing can save scenes or sidecars shared with this project, so discard
+                // the preflight graph and load the committed files after the close completes.
+                _ = CoreSerializer.RestoreFromUri<Project>(projectUri);
+                await CloseProjectCoreAsync(transition, CancellationToken.None);
+            }
 
+            var project = CoreSerializer.RestoreFromUri<Project>(projectUri);
             await ActivateProjectAsync(project);
 
             TryAddToRecentProjects(file);
@@ -461,6 +479,23 @@ public sealed class ProjectService
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to open the project. File: {File}", file);
+            if (previousProject is not null && _app.Project is null)
+            {
+                try
+                {
+                    // A fresh restore or activation can fail after the old editors have
+                    // closed. Reuse their model so even unsaved edits survive the failure.
+                    await ActivateProjectAsync(previousProject);
+                    if (previousProject.Uri is { IsFile: true } previousUri)
+                        TryAddToRecentProjects(previousUri.LocalPath);
+                    PublishProjectChange((New: previousProject, null));
+                    PublishTransitionCommitted(previousProject);
+                }
+                catch (Exception recoveryFailure)
+                {
+                    _logger.LogError(recoveryFailure, "Unable to restore the previous project after opening {File} failed.", file);
+                }
+            }
             NotificationService.ShowInformation(Strings.Project, MessageStrings.FailedToOpenProject);
         }
     }
@@ -613,9 +648,9 @@ public sealed class ProjectService
 
     private async Task ActivateProjectAsync(Project project)
     {
-        _app.Project = project;
         try
         {
+            _app.Project = project;
             await NotifyOpenedAsync(project);
         }
         catch

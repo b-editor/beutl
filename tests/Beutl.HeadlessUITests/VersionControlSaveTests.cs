@@ -242,7 +242,7 @@ public class VersionControlSaveTests
             });
 
             await File.WriteAllTextAsync(Path.Combine(projectRoot, "close-marker.txt"), "close\n");
-            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
+            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
             int afterClose = await CountCommitsAsync(gitPath, projectRoot);
             int closeSnapshots = await CountCloseSnapshotsAsync(gitPath, projectRoot);
 
@@ -474,7 +474,7 @@ public class VersionControlSaveTests
             string projectFile = project.Uri!.LocalPath;
             string projectRoot = Path.GetDirectoryName(projectFile)!;
             int initialCommitCount = await CountCommitsAsync(gitPath, projectRoot);
-            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
+            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
             File.Delete(Path.Combine(projectRoot, ".gitignore"));
             File.Delete(Path.Combine(projectRoot, ".gitattributes"));
 
@@ -866,7 +866,7 @@ public class VersionControlSaveTests
             await AddRectangleAsync(adder);
             HeadlessTestHelpers.Settle();
 
-            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
+            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
 
             string committedScene = await RunGitAsync(
                 gitPath,
@@ -895,6 +895,72 @@ public class VersionControlSaveTests
             config.AutoCommitOnSave = oldAutoCommitOnSave;
             config.AutoCommitOnClose = oldAutoCommitOnClose;
             config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Opening_another_project_reloads_shared_scenes_saved_on_close()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        bool oldAutoSave = GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = true;
+            config.UseLfsWhenAvailable = false;
+
+            string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shared-scene-on-close");
+            Directory.CreateDirectory(location);
+            Project original = (await TestShell.Project.CreateProject(320, 180, 30, 44100, "original", location))!;
+            Assert.That(await TestShell.VersionControl.InitializeCurrentProjectAsync(original,
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity("Beutl Headless Test", "headless@example.invalid"))), Is.True);
+
+            Scene scene = original.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            HeadlessTestHelpers.Settle();
+            string alternate = Path.Combine(Path.GetDirectoryName(original.Uri!.LocalPath)!, "alternate.bep");
+            File.Copy(original.Uri.LocalPath, alternate);
+
+            GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = false;
+            scene.Duration = TimeSpan.FromSeconds(73);
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.Not.EqualTo(scene.Duration));
+
+            await TestShell.Project.OpenProject(alternate);
+            Project opened = TestShell.Project.CurrentProject.Value!;
+            Scene openedScene = opened.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(openedScene);
+            HeadlessTestHelpers.Settle();
+            Assert.That(await TestShell.Editor.SelectedTabItem.Value!.Commands.Value!.OnSave(), Is.True);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(opened.Uri!.LocalPath, Is.EqualTo(alternate));
+                Assert.That(openedScene.Uri, Is.EqualTo(scene.Uri));
+                Assert.That(openedScene.Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+                Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration,
+                    Is.EqualTo(TimeSpan.FromSeconds(73)), "Saving the newly opened project must retain the close-time edits.");
+            });
+        }
+        finally
+        {
+            try { await TestReset.ResetShellAsync(); }
+            finally
+            {
+                config.GitExecutablePath = oldGitPath;
+                config.AutoCommitOnSave = oldAutoCommitOnSave;
+                config.AutoCommitOnClose = oldAutoCommitOnClose;
+                config.UseLfsWhenAvailable = oldUseLfs;
+                GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = oldAutoSave;
+            }
         }
     }
 

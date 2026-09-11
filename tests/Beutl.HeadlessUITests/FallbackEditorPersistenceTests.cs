@@ -60,9 +60,9 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public void BrushTryPasteJson_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task BrushTryPasteJson_LastFallbackResumesPersistenceInReplacementTransaction()
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         string root = Path.Combine(
             BeutlHomeIsolation.CurrentHome!,
@@ -134,33 +134,33 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public void BrushPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task BrushPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
     {
-        AssertPresenterTargetClearResumesPersistence(PresenterKind.Brush);
+        await AssertPresenterTargetClearResumesPersistence(PresenterKind.Brush);
     }
 
     [AvaloniaTest]
-    public void TransformPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task TransformPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
     {
-        AssertPresenterTargetClearResumesPersistence(PresenterKind.Transform);
+        await AssertPresenterTargetClearResumesPersistence(PresenterKind.Transform);
     }
 
     [AvaloniaTest]
-    public void FilterEffectPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task FilterEffectPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
     {
-        AssertPresenterTargetClearResumesPersistence(PresenterKind.FilterEffect);
+        await AssertPresenterTargetClearResumesPersistence(PresenterKind.FilterEffect);
     }
 
     [AvaloniaTest]
-    public void GenericPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task GenericPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
     {
-        AssertPresenterTargetClearResumesPersistence(PresenterKind.Transform, genericEditor: true);
+        await AssertPresenterTargetClearResumesPersistence(PresenterKind.Transform, genericEditor: true);
     }
 
     [AvaloniaTest]
-    public void PenWholeValueReplacements_ResumePersistenceInReplacementTransaction()
+    public async Task PenWholeValueReplacements_ResumePersistenceInReplacementTransaction()
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         string root = CreateRoot();
         try
@@ -221,9 +221,9 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public void EasingRepair_ResumesPersistenceAndWritesRepairedSidecar()
+    public async Task EasingRepair_ResumesPersistenceAndWritesRepairedSidecar()
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         string root = CreateRoot();
         try
@@ -262,27 +262,27 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public void RemoveKeyFrame_LastLossyEasingResumesPersistenceInReplacementTransaction()
+    public async Task RemoveKeyFrame_LastLossyEasingResumesPersistenceInReplacementTransaction()
     {
-        AssertAnimationDiscardResumesPersistence(AnimationDiscardKind.RemoveKeyFrame);
+        await AssertAnimationDiscardResumesPersistence(AnimationDiscardKind.RemoveKeyFrame);
     }
 
     [AvaloniaTest]
-    public void RemoveAnimation_LastLossyEasingResumesPersistenceInReplacementTransaction()
+    public async Task RemoveAnimation_LastLossyEasingResumesPersistenceInReplacementTransaction()
     {
-        AssertAnimationDiscardResumesPersistence(AnimationDiscardKind.RemoveAnimation);
+        await AssertAnimationDiscardResumesPersistence(AnimationDiscardKind.RemoveAnimation);
     }
 
     [AvaloniaTest]
-    public void SetExpression_LastLossyEasingResumesPersistenceInReplacementTransaction()
+    public async Task SetExpression_LastLossyEasingResumesPersistenceInReplacementTransaction()
     {
-        AssertAnimationDiscardResumesPersistence(AnimationDiscardKind.SetExpression);
+        await AssertAnimationDiscardResumesPersistence(AnimationDiscardKind.SetExpression);
     }
 
     [AvaloniaTest]
-    public void CoreObjectApplyTemplate_UpdatesEditingKeyFrameOnly()
+    public async Task CoreObjectApplyTemplate_UpdatesEditingKeyFrameOnly()
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         var holder = new EditorValueHolder();
         var property = (AnimatableProperty<EngineObject>)holder.CoreValue;
@@ -308,9 +308,9 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public void GeometryApplyTemplate_UpdatesEditingKeyFrameOnly()
+    public async Task GeometryApplyTemplate_UpdatesEditingKeyFrameOnly()
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         var holder = new EditorValueHolder();
         var property = (AnimatableProperty<Geometry?>)holder.GeometryValue;
@@ -336,9 +336,9 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public void BrushApplyTemplate_UpdatesEditingKeyFrameOnly()
+    public async Task BrushApplyTemplate_UpdatesEditingKeyFrameOnly()
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         var holder = new EditorValueHolder();
         var property = (AnimatableProperty<Brush?>)holder.BrushValue;
@@ -365,9 +365,9 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public void TextureDrawableTypeRepair_ResumesPersistenceInReplacementTransaction()
+    public async Task TextureDrawableTypeRepair_ResumesPersistenceInReplacementTransaction()
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         string root = CreateRoot();
         try
@@ -428,9 +428,9 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public void TextureSourceReplacement_ResumesPersistenceInReplacementTransaction()
+    public async Task TextureSourceReplacement_ResumesPersistenceInReplacementTransaction()
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         string root = CreateRoot();
         try
@@ -492,9 +492,9 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public void TextureDrawableTargetRepair_ResumesPersistenceInReplacementTransaction()
+    public async Task TextureDrawableTargetRepair_ResumesPersistenceInReplacementTransaction()
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         string root = CreateRoot();
         try
@@ -556,20 +556,20 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public void ListRemoveItem_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task ListRemoveItem_LastFallbackResumesPersistenceInReplacementTransaction()
     {
-        AssertListClearResumesPersistence(initialize: false);
+        await AssertListClearResumesPersistence(initialize: false);
     }
 
     [AvaloniaTest]
-    public void ListInitialize_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task ListInitialize_LastFallbackResumesPersistenceInReplacementTransaction()
     {
-        AssertListClearResumesPersistence(initialize: true);
+        await AssertListClearResumesPersistence(initialize: true);
     }
 
-    private static void AssertListClearResumesPersistence(bool initialize)
+    private static async Task AssertListClearResumesPersistence(bool initialize)
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         string root = CreateRoot();
         try
@@ -637,9 +637,9 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public void NullRecoveredTransform_ChangeTypeResumesPersistenceAndUndoRestoresBytes()
+    public async Task NullRecoveredTransform_ChangeTypeResumesPersistenceAndUndoRestoresBytes()
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
         string root = CreateRoot();
         try
         {
@@ -689,9 +689,9 @@ public sealed class FallbackEditorPersistenceTests
         return animation;
     }
 
-    private static void AssertPresenterTargetClearResumesPersistence(PresenterKind kind, bool genericEditor = false)
+    private static async Task AssertPresenterTargetClearResumesPersistence(PresenterKind kind, bool genericEditor = false)
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         string root = CreateRoot();
         try
@@ -757,9 +757,9 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
-    private static void AssertAnimationDiscardResumesPersistence(AnimationDiscardKind kind)
+    private static async Task AssertAnimationDiscardResumesPersistence(AnimationDiscardKind kind)
     {
-        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        await TestReset.ResetShellAsync();
 
         string root = CreateRoot();
         try

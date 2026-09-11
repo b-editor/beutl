@@ -524,6 +524,10 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
             RetireTranscriptionRunNames();
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted);
         }
+        catch (RejectedTranscriptionResultException ex)
+        {
+            _logger.LogWarning(ex, "Rejected the transcription result; retaining its recovery key.");
+        }
         catch (SubtitleInputException ex)
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, ex.Message);

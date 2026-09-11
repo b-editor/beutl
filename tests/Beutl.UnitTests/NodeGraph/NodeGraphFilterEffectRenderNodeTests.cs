@@ -82,6 +82,51 @@ public class NodeGraphFilterEffectRenderNodeTests
     }
 
     [Test]
+    public void SingleConsumer_DoesNotRasterizeTheGraphInputIntoALayer()
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var input = new FilterEffectInputNode();
+        var output = new OutputNode();
+        model.Nodes.Add(input);
+        model.Nodes.Add(output);
+        model.Connect(output.InputPort, input.Output);
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 8, 8));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
+        var domain = new Rect(0, 0, 8, 8);
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview, RenderRequestPurpose.Frame, domain, domain,
+            cachePolicy: RenderCacheOptions.Disabled));
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(pipeline);
+        Assert.That(graph.Fragments.Any(fragment => fragment.Payload is LayerRenderFragmentPayload), Is.False,
+            "A single-consumer graph must preserve the original recording without an intermediate raster layer.");
+    }
+
+    [Test]
+    public void NonValueInput_CanFeedTwoSeparateBranches()
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var input = new FilterEffectInputNode();
+        model.Nodes.Add(input);
+        foreach (int ignored in new[] { 0, 1 })
+        {
+            var branch = new CountingPassThroughGraphNode();
+            var output = new OutputNode();
+            model.Nodes.Add(branch);
+            model.Nodes.Add(output);
+            model.Connect(branch.Input, input.Output);
+            model.Connect(output.InputPort, branch.Output);
+        }
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 8, 8));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
+        Assert.DoesNotThrow(() => renderer.Measure());
+    }
+
+    [Test]
     public void ToResource_CapturesProxyPreferencesFromCompositionContext()
     {
         var effect = new NodeGraphFilterEffect();
@@ -1026,11 +1071,70 @@ public class NodeGraphFilterEffectRenderNodeTests
             TargetDomain = new Rect(0, 0, 64, 48),
         };
         snapshot.Build(model, context);
+        renderNode.MarkChanged();
         snapshot.Evaluate(CompositionTarget.Graphics, context);
+        Assert.That(renderNode.HasChanges, Is.True, "An auxiliary preview must not consume the main render's change flag.");
 
         Assert.Multiple(() =>
         {
             Assert.That(source.ExecutionCount, Is.EqualTo(1));
+            Assert.That(monitor.Value, Is.Not.Null);
+            // A Full isolation scope makes the composition domain the root output extent,
+            // which covers conservative final writes; only Measure/HitTest report the tight
+            // query bounds.
+            Assert.That(monitor.Value!.Value.Width, Is.EqualTo(64));
+            Assert.That(monitor.Value.Value.Height, Is.EqualTo(48));
+        });
+
+        monitor.Value?.Dispose();
+    }
+
+    [Test]
+    public void StandalonePreview_IgnoresOldCacheWithoutConsumingDirtyFlags()
+    {
+        var source = new PreviewCacheableSourceRenderNode();
+        using var renderNode = new LayerRenderNode(default);
+        renderNode.AddChild(source);
+        var model = new GraphModel();
+        var sourceNode = new FixedRenderNodeGraphNode(renderNode);
+        var previewNode = new PreviewNode();
+        model.Nodes.Add(sourceNode);
+        model.Nodes.Add(previewNode);
+        model.Connect(previewNode.Input, sourceNode.Output);
+        NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(previewNode);
+        monitor.IsEnabled = true;
+        using var snapshot = new GraphSnapshot();
+
+        var context = new CompositionContext(TimeSpan.Zero)
+        {
+            TargetDomain = new Rect(0, 0, 64, 48),
+        };
+        snapshot.Build(model, context);
+        using (var mainRenderer = new RenderNodeRenderer(renderNode, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = context.TargetDomain,
+            Purpose = RenderRequestPurpose.Frame,
+            CacheOptions = RenderCacheOptions.Enabled,
+        }))
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                using var result = mainRenderer.Rasterize();
+            }
+        }
+        Assert.That(source.ExecutionCount, Is.LessThan(8), "The control must actually have cached an earlier frame.");
+        int priorExecutions = source.ExecutionCount;
+        source.DrawColor = Colors.Red;
+        source.MarkChanged();
+        renderNode.MarkChanged();
+        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        Assert.That(renderNode.HasChanges, Is.True, "An auxiliary preview must not consume the main render's change flag.");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(source.ExecutionCount, Is.EqualTo(priorExecutions + 1));
+            Assert.That(monitor.Value!.Value.SKBitmap.GetPixel(2, 2), Is.EqualTo(SKColors.Red));
             Assert.That(monitor.Value, Is.Not.Null);
             // A Full isolation scope makes the composition domain the root output extent,
             // which covers conservative final writes; only Measure/HitTest report the tight
@@ -1643,5 +1747,38 @@ internal sealed class EmptyZeroOrOneRenderNode(Rect bounds) : RenderNode
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.ZeroOrOne,
             RenderScaleContract.MaterializeAtWorkingScale)));
+    }
+}
+
+internal sealed class PreviewCacheableSourceRenderNode : RenderNode
+{
+    private sealed class Probe { public int Count; }
+    private static readonly RenderResourceSlot<Probe> s_probeSlot = new();
+    private static readonly Rect s_bounds = new(0, 0, 14, 9);
+    private readonly Probe _probe = new();
+    public int ExecutionCount => _probe.Count;
+    private Color _drawColor = Colors.CornflowerBlue;
+    public Color DrawColor
+    {
+        get => _drawColor;
+        set { _drawColor = value; MarkChanged(); }
+    }
+
+    public override void Process(RenderNodeContext context)
+    {
+        context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+            DrawColor,
+            static (session, color) => session.UseResource(s_probeSlot, probe =>
+            {
+                probe.Count++;
+                using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
+                output.Canvas.Use(canvas => canvas.Clear(color));
+                session.Publish(output);
+            }),
+            OpaqueRenderBoundsContract.Source(s_bounds),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale,
+            resources: [s_probeSlot.Bind(context.Borrow(_probe))])));
     }
 }

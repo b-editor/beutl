@@ -18,6 +18,21 @@ public sealed class DrawableGroupIsolationTests
     private static readonly PixelSize s_frame = new(400, 400);
 
     [Test]
+    public void NestedHalfOpacityGroups_ApplyEachFactorOnce()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var inner = new DrawableGroup();
+            inner.Opacity.CurrentValue = 50;
+            inner.Children.Add(CreateRectangle(400, 240, Brushes.White));
+            using Drawable.Resource outer = CreateGroup(50, null, inner);
+            using Bitmap bitmap = RenderScene(outer);
+            Assert.That(ReadPixel(bitmap, 200, 200).Alpha, Is.EqualTo(0.25f).Within(0.003f));
+        });
+    }
+
+    [Test]
     public void OverlappingChildren_GroupOpacityAppliesOnceToComposite()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -624,8 +639,9 @@ public sealed class DrawableGroupIsolationTests
         });
     }
 
-    [Test]
-    public void SourceBackdropInsideGroup_MatchesBareBackdrop()
+    [TestCase(100f)]
+    [TestCase(50f)]
+    public void SourceBackdropInsideGroup_MatchesBareBackdrop(float opacity)
     {
         var frame = new PixelSize(256, 144);
 
@@ -652,7 +668,12 @@ public sealed class DrawableGroupIsolationTests
             {
                 var group = new DrawableGroup();
                 group.Children.Add(backdrop);
+                group.Opacity.CurrentValue = opacity;
                 effect = group;
+            }
+            else
+            {
+                backdrop.Opacity.CurrentValue = opacity;
             }
 
             return
@@ -672,10 +693,24 @@ public sealed class DrawableGroupIsolationTests
             using Bitmap actual = RenderScene(frame, actualResources);
             using Bitmap omitted = RenderScene(frame, omittedResources);
 
-            AssertByteIdentical(
-                expected,
-                actual,
-                "a SourceBackdrop nested in a DrawableGroup");
+            if (opacity == 100)
+            {
+                AssertByteIdentical(expected, actual, "a SourceBackdrop nested in a DrawableGroup");
+            }
+            else
+            {
+                // SourceBackdrop overrides Render and does not apply its own Opacity.
+                // Build the control from the full effect and the untouched opaque scene.
+                var full = expected.GetPixelSpan<Half>();
+                var background = omitted.GetPixelSpan<Half>();
+                var faded = actual.GetPixelSpan<Half>();
+                float factor = opacity / 100f;
+                for (int i = 0; i < full.Length; i++)
+                {
+                    float reference = (float)background[i] * (1 - factor) + (float)full[i] * factor;
+                    Assert.That((float)faded[i], Is.EqualTo(reference).Within(0.002f), $"component {i}");
+                }
+            }
             Assert.That(
                 actual.GetPixelSpan().SequenceEqual(omitted.GetPixelSpan()),
                 Is.False,

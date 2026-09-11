@@ -12,6 +12,9 @@ public record CoreSerializerOptions
 
 public static class CoreSerializer
 {
+    [ThreadStatic]
+    private static Dictionary<ICoreSerializable, HashSet<Uri>>? t_activeWrites;
+
     // Complete this preflight for the whole save before replacing any migrated sidecar.
     internal static void PersistProjectMigrationMetadata(IEnumerable<CoreObject> objects)
     {
@@ -137,10 +140,7 @@ public static class CoreSerializer
         var baseUri = options?.BaseUri ?? parent?.BaseUri;
         if (json["Uri"] is JsonValue uriValue && uriValue.TryGetValue(out string? uriString))
         {
-            uriString = Uri.UnescapeDataString(uriString);
-            var uri = baseUri != null
-                ? new Uri(baseUri, uriString)
-                : new Uri(uriString, UriKind.RelativeOrAbsolute);
+            Uri uri = UriHelper.ResolvePersistedReference(uriString, baseUri, allowRelative: true);
             if (obj is CoreObject coreObj)
             {
                 coreObj.Uri = uri;
@@ -369,6 +369,39 @@ public static class CoreSerializer
         string? authorizedRootPath)
         where T : ICoreSerializable
     {
+        // Serialization is synchronous, like ThreadLocalSerializationContext. Track
+        // object identity AND destination so back edges retain their URI without
+        // re-entering a file that this call chain is already writing.
+        var activeWrites = t_activeWrites ??= new(ReferenceEqualityComparer.Instance);
+        ICoreSerializable identity = obj;
+        if (!activeWrites.TryGetValue(identity, out HashSet<Uri>? destinations))
+        {
+            destinations = [];
+            activeWrites.Add(identity, destinations);
+        }
+        if (!destinations.Add(uri)) return;
+
+        try
+        {
+            StoreToUriImpl(obj, uri, mode, authorizedRootPath);
+        }
+        finally
+        {
+            // Only in-progress writes are suppressed. A later save may carry new
+            // values, and failed saves must always be retryable.
+            destinations.Remove(uri);
+            if (destinations.Count == 0) activeWrites.Remove(identity);
+            if (activeWrites.Count == 0) t_activeWrites = null;
+        }
+    }
+
+    private static void StoreToUriImpl<T>(
+        T obj,
+        Uri uri,
+        CoreSerializationMode? mode,
+        string? authorizedRootPath)
+        where T : ICoreSerializable
+    {
         if (obj is CoreObject { SuppressedStorageSource: { } suppressed } suppressedObj)
         {
             if (uri == suppressed.SourceUri)
@@ -405,15 +438,7 @@ public static class CoreSerializer
             string rehomedPath = uri.LocalPath;
             if (File.Exists(rehomedPath))
             {
-                try
-                {
-                    EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
-                }
-                catch
-                {
-                    suppressedObj.Uri = suppressed.SourceUri;
-                    throw;
-                }
+                EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
 
                 CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
                 suppressed.WasReinstated = false;
@@ -448,15 +473,7 @@ public static class CoreSerializer
                 }
                 catch (IOException) when (File.Exists(rehomedPath))
                 {
-                    try
-                    {
-                        EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
-                    }
-                    catch
-                    {
-                        suppressedObj.Uri = suppressed.SourceUri;
-                        throw;
-                    }
+                    EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
 
                     suppressed.WasReinstated = false;
                     suppressedObj.Uri = uri;

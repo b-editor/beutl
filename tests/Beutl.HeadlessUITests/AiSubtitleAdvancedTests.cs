@@ -27,6 +27,17 @@ namespace Beutl.HeadlessUITests;
 public sealed class AiSubtitleAdvancedTests
 {
     [Test]
+    public void TranscriptionSegments_AcceptServerToleranceAndClampEnd()
+    {
+        AiTranscriptionSegment[] normalized = AiSubtitleDialogViewModel.ValidateTranscriptionSegments(
+        [
+            new() { Start = 0, End = 1, Text = "first" },
+            new() { Start = 0.98, End = 2.02, Text = "second" },
+        ], 2);
+        Assert.That(normalized[1].End, Is.EqualTo(2));
+    }
+
+    [Test]
     public void TranscriptionSegments_CannotExtendBeyondTheUploadedChunk()
     {
         var withinChunk = new[]
@@ -35,14 +46,14 @@ public sealed class AiSubtitleAdvancedTests
         };
         var beyondChunk = new[]
         {
-            new AiTranscriptionSegment { Start = 0, End = 0.051, Text = "outside" },
+            new AiTranscriptionSegment { Start = 0, End = 0.101, Text = "outside" },
         };
 
         Assert.DoesNotThrow(() =>
             AiSubtitleDialogViewModel.ValidateTranscriptionSegments(withinChunk, 0.05));
-        Assert.Throws<AiProviderErrorException>(() =>
+        Assert.Throws<InvalidDataException>(() =>
             AiSubtitleDialogViewModel.ValidateTranscriptionSegments(beyondChunk, 0.05));
-        Assert.Throws<AiProviderErrorException>(() =>
+        Assert.Throws<InvalidDataException>(() =>
             AiSubtitleDialogViewModel.ValidateTranscriptionSegments([null!], 0.05));
     }
 
@@ -632,6 +643,7 @@ public sealed class AiSubtitleAdvancedTests
                 new AiTranscriptionSegment { Start = 0, End = 1, Text = "A displayed caption" },
             ];
             viewModel.SelectedSourceLanguage.Value = viewModel.SourceLanguages.Last();
+            viewModel.HasRejectedTranscriptionResult.Value = true;
 
             scopes.Value = userB;
 
@@ -642,6 +654,7 @@ public sealed class AiSubtitleAdvancedTests
                 Assert.That(viewModel.SelectedCue.Value, Is.Null);
                 Assert.That(viewModel.SelectedSourceLanguage.Value, Is.SameAs(viewModel.SourceLanguages[0]));
                 Assert.That(viewModel.HasPartialResult.Value, Is.True);
+                Assert.That(viewModel.HasRejectedTranscriptionResult.Value, Is.False);
             }
 
             ((ICommand)viewModel.ApplyPartialResult).Execute(null);

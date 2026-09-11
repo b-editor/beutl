@@ -31,6 +31,74 @@ public class Renderer3DTests
     }
 
     [Test]
+    public void TransparentChildren_UseTheirWorldTransformsAndForwardPass()
+    {
+        Assert.That(RenderPair(true, 2, grouped: true), Is.EqualTo(RenderPair(true, 2)));
+    }
+
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    public void MaterialBindings_SurviveResizeAndSharedDraws(int kind)
+    {
+        byte[] shared = RenderPair(true, kind);
+        byte[] independent = RenderPair(false, kind);
+        Assert.That(shared, Is.EqualTo(independent), "Sharing a material must not move both meshes to the last draw's transform.");
+    }
+
+    private byte[] RenderPair(bool shared, int kind, bool grouped = false)
+    {
+        return GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var renderer = new Renderer3D(_context);
+            renderer.Initialize(64, 64);
+            var composition = new CompositionContext(TimeSpan.Zero);
+            var camera = new PerspectiveCamera();
+            camera.Position.CurrentValue = new Vector3(0, 0, 4);
+            camera.Target.CurrentValue = Vector3.Zero;
+            using var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(composition);
+            Material3D CreateMaterial() => kind switch
+            {
+                0 => new BasicMaterial(),
+                1 => new PBRMaterial(),
+                _ => new TransparentMaterial(),
+            };
+            Material3D material = CreateMaterial();
+            var objects = new List<Object3D.Resource>();
+            var group = new Group3D();
+            group.Position.CurrentValue = new Vector3(1, 0, 0);
+            try
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    var sphere = new Sphere3D();
+                    sphere.Position.CurrentValue = new Vector3((i == 0 ? -0.75f : 0.75f) - (grouped ? 1 : 0), 0, 0);
+                    sphere.Radius.CurrentValue = 0.4f;
+                    sphere.Material.CurrentValue = shared ? material : CreateMaterial();
+                    if (grouped) group.Children.Add(sphere);
+                    else objects.Add((Object3D.Resource)sphere.ToResource(composition));
+                }
+                if (grouped) objects.Add((Object3D.Resource)group.ToResource(composition));
+                renderer.Render(composition, cameraResource, objects, [], Colors.Black, Colors.White, 1f);
+                renderer.Resize(96, 96);
+                renderer.Render(composition, cameraResource, objects, [], Colors.Black, Colors.White, 1f);
+                byte[] pixels = renderer.DownloadPixels();
+                var values = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(pixels);
+                bool lit = false;
+                for (int i = 0; i < values.Length; i += 4)
+                    lit |= (float)values[i] > 0.001f || (float)values[i + 1] > 0.001f || (float)values[i + 2] > 0.001f;
+                Assert.That(lit, Is.True);
+                return pixels;
+            }
+            finally
+            {
+                foreach (var obj in objects)
+                    obj.Dispose();
+            }
+        });
+    }
+
+    [Test]
     public void RenderPbrMaterialGrid_ProducesLitNonUniformFramebuffer()
     {
         byte[] varied = RenderPbrGrid(varyMaterials: true);
@@ -120,6 +188,41 @@ public class Renderer3DTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void NonCastingParent_PreservesItsChildShadows(bool point)
+    {
+        void Configure(List<Light3D> lights)
+        {
+            if (point)
+            {
+                var light = new PointLight3D();
+                light.Position.CurrentValue = new Vector3(0, 3, 2);
+                light.Intensity.CurrentValue = 15;
+                light.Range.CurrentValue = 15;
+                light.CastsShadow.CurrentValue = true;
+                lights.Add(light);
+            }
+            else
+            {
+                var light = new DirectionalLight3D();
+                light.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -2, -1));
+                light.Intensity.CurrentValue = 2;
+                light.CastsShadow.CurrentValue = true;
+                light.ShadowDistance.CurrentValue = 30;
+                light.ShadowMapSize.CurrentValue = 15;
+                lights.Add(light);
+            }
+        }
+
+        byte[] reference = RenderShadowScene(Configure, parentCastShadows: true);
+        byte[] nonCastingParent = RenderShadowScene(Configure, parentCastShadows: false);
+        byte[] unshadowed = RenderShadowScene(Configure, castShadows: false, parentCastShadows: false);
+        AssertShadowsDarkenReceiver(reference, unshadowed);
+        Assert.That(nonCastingParent, Is.EqualTo(reference),
+            "CastShadows belongs to the current object and must not prune its children.");
+    }
+
     [Test]
     public void RenderDirectionalLightShadowScene_ProducesLitNonUniformFramebuffer()
     {
@@ -141,6 +244,8 @@ public class Renderer3DTests
 
         byte[] shadowed = RenderShadowScene(Configure);
         byte[] unshadowed = RenderShadowScene(Configure, castShadows: false);
+        byte[] nonReceiving = RenderShadowScene(Configure, receiveShadows: false);
+        Assert.That(nonReceiving, Is.EqualTo(unshadowed));
 
         AssertLitFramebuffer(shadowed);
         AssertShadowsDarkenReceiver(shadowed, unshadowed);
@@ -280,7 +385,7 @@ public class Renderer3DTests
     /// Renders the shared shadow scene (ground plane + three shadow-casting spheres) with a
     /// caller-supplied light rig, and returns the downloaded RGBA16Float framebuffer.
     /// </summary>
-    private byte[] RenderShadowScene(Action<List<Light3D>> configureLights, bool castShadows = true)
+    private byte[] RenderShadowScene(Action<List<Light3D>> configureLights, bool castShadows = true, bool receiveShadows = true, bool? parentCastShadows = null)
     {
         return GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -320,6 +425,28 @@ public class Renderer3DTests
                 objects.Add(CreateShadowSphere(renderContext, new Vector3(-3, 0.3f, 1), 0.7f, new Color(255, 80, 200, 80), 0.5f, 0.8f));
                 objects.Add(CreateShadowSphere(renderContext, new Vector3(2.5f, 0.4f, -1), 0.8f, new Color(255, 80, 120, 220), 0.2f, 0.9f));
 
+                if (!receiveShadows)
+                {
+                    foreach (Object3D.Resource obj in objects)
+                    {
+                        Object3D original = obj.RequireOriginal();
+                        original.ReceiveShadows.CurrentValue = false;
+                        bool updateOnly = false;
+                        obj.Update(original, renderContext, ref updateOnly);
+                    }
+                }
+                if (parentCastShadows is { } parentCasts)
+                {
+                    var group = new Group3D();
+                    group.CastShadows.CurrentValue = parentCasts;
+                    foreach (Object3D.Resource obj in objects)
+                    {
+                        group.Children.Add(obj.RequireOriginal());
+                        obj.Dispose();
+                    }
+                    objects.Clear();
+                    objects.Add((Group3D.Resource)group.ToResource(renderContext));
+                }
                 var lightModels = new List<Light3D>();
                 configureLights(lightModels);
                 if (!castShadows)

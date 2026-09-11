@@ -91,7 +91,7 @@ public sealed partial class MainWindow : AppWindow
         if (!_viewModelDisposed && DataContext is MainViewModel viewModel)
         {
             e.Cancel = true;
-            if (_viewModelDisposeTask is null && viewModel.TryDisposeForWindowClose())
+            if (_viewModelDisposeTask is null)
             {
                 _viewModelDisposeTask = DisposeViewModelAndCloseAsync(viewModel);
             }
@@ -107,14 +107,32 @@ public sealed partial class MainWindow : AppWindow
 
     private async Task DisposeViewModelAndCloseAsync(MainViewModel viewModel)
     {
+        // Publish the in-flight task before a synchronous veto can clear it.
+        await Task.Yield();
+        bool closeAccepted = false;
         try
         {
+            if (!await viewModel.TryDisposeForWindowCloseAsync())
+                return;
+            closeAccepted = true;
             await viewModel.WaitForDisposalAsync();
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
         }
         finally
         {
-            _viewModelDisposed = true;
-            Close();
+            if (closeAccepted)
+            {
+                // Once closing is accepted, a cached cleanup failure cannot veto exit.
+                _viewModelDisposed = true;
+                Close();
+            }
+            else
+            {
+                _viewModelDisposeTask = null;
+            }
         }
     }
 

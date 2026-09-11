@@ -12,6 +12,25 @@ public sealed class SkslSnippetMergerTests
     private const string Identity = "half4 apply(half4 color) { return color; }";
 
     [Test]
+    public void CurrentPixel_AllowsSeparateLoopVariablesWithTheSameName()
+    {
+        Assert.DoesNotThrow(() => ShaderDescription.CurrentPixel("""
+            half4 apply(half4 color) {
+                for (int i = 0; i < 2; i++) { color.rgb *= 0.9; }
+                for (int i = 0; i < 2; i++) { color.rgb *= 0.9; }
+                return color;
+            }
+            """));
+    }
+
+    [Test]
+    public void CurrentPixel_RejectsUnsupportedBooleanUniform()
+    {
+        Assert.Throws<ArgumentException>(() => ShaderDescription.CurrentPixel(
+            "uniform bool enabled; half4 apply(half4 color) { return enabled ? color : half4(0); }"));
+    }
+
+    [Test]
     public void Merge_IsolatesTopLevelSymbolsWithoutRenamingMembersOrComments()
     {
         const string source =

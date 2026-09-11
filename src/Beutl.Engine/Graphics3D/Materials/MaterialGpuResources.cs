@@ -14,6 +14,30 @@ internal static class MaterialGpuResources
             MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
     }
 
+    public static (IBuffer Buffer, IDescriptorSet Descriptors) CreateDrawBindings<TUbo>(
+        IGraphicsContext context, IPipeline3D pipeline, uint textureCount)
+        where TUbo : struct
+    {
+        IBuffer buffer = CreateUniformBuffer<TUbo>(context);
+        IDescriptorSet? descriptors = null;
+        try
+        {
+            descriptors = context.CreateDescriptorSet(pipeline,
+            [
+                new(DescriptorType.UniformBuffer, 1),
+                new(DescriptorType.CombinedImageSampler, textureCount),
+            ]);
+            descriptors.UpdateBuffer(0, buffer);
+            return (buffer, descriptors);
+        }
+        catch
+        {
+            descriptors?.Dispose();
+            buffer.Dispose();
+            throw;
+        }
+    }
+
     public static ISampler CreateLinearRepeatSampler(IGraphicsContext graphicsContext)
     {
         return graphicsContext.CreateSampler(

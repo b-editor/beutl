@@ -138,7 +138,7 @@ public sealed class RenderNodeRenderer : IDisposable
         ExceptionDispatchInfo? primary = null;
         try
         {
-            cacheLifecycle = RenderNodeCacheHelper.BeginLifecycle(Root);
+            cacheLifecycle = effectiveRequest.ManageCacheLifecycle ? RenderNodeCacheHelper.BeginLifecycle(Root) : null;
             request = RecordAndCompile(
                 effectiveRequest.Purpose,
                 destination.Density,
@@ -350,7 +350,7 @@ public sealed class RenderNodeRenderer : IDisposable
         try
         {
             targets = _targetPool.BeginSession(effectiveRequest.Intent);
-            cacheLifecycle = RenderNodeCacheHelper.BeginLifecycle(Root);
+            cacheLifecycle = effectiveRequest.ManageCacheLifecycle ? RenderNodeCacheHelper.BeginLifecycle(Root) : null;
             request = RecordAndCompile(
                 effectiveRequest.Purpose,
                 effectiveRequest.OutputScale,

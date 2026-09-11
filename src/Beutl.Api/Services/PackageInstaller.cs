@@ -651,9 +651,19 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             string version = context.Version;
             string downloadUrl = context.DownloadUrl;
             context.NuGetPackageFile = Helper.GetNupkgFilePath(name, version);
-            using (FileStream destination = File.Create(context.NuGetPackageFile))
+            string temporaryPath = context.NuGetPackageFile + $".{Guid.NewGuid():N}.tmp";
+            try
             {
-                await Download(downloadUrl, destination, progress, cancellationToken).ConfigureAwait(false);
+                using (FileStream destination = File.Create(temporaryPath))
+                {
+                    await Download(downloadUrl, destination, progress, cancellationToken).ConfigureAwait(false);
+                    destination.Flush(flushToDisk: true);
+                }
+                File.Move(temporaryPath, context.NuGetPackageFile, overwrite: true);
+            }
+            finally
+            {
+                File.Delete(temporaryPath);
             }
 
             context.Phase = PackageInstallPhase.Downloaded;
@@ -692,6 +702,9 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
                 progress?.Report(totalBytesRead / (double)totalLength);
             }
+
+            if (totalBytesRead == 0)
+                algorithm.TransformFinalBlock([], 0, 0);
 
             if (algorithm.Hash == null)
             {
@@ -732,7 +745,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 ];
 
                 long totalLength = items.Count(x => !string.IsNullOrWhiteSpace(x.Item2)) * stream.Length;
-                if (totalLength == 0)
+                if (items.All(item => string.IsNullOrWhiteSpace(item.Item2)))
                 {
                     context.HashVerified = false;
                     return;
@@ -746,7 +759,15 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                         if (!await Varify(algorithm, stream, totalLength, hash))
                         {
                             context.HashVerified = false;
-                            return;
+                            // Do not leave a rejected download where the local-package path
+                            // can later load it without the server's advertised digest.
+                            stream.Dispose();
+                            File.Delete(context.NuGetPackageFile);
+                            var identity = new PackageIdentity(context.PackageName, NuGetVersion.Parse(context.Version));
+                            if (_installingContexts.TryGetValue(identity, out PackageInstallContext? cached)
+                                && ReferenceEquals(cached, context))
+                                _installingContexts.Remove(identity);
+                            throw new InvalidDataException("The downloaded package does not match its advertised hash.");
                         }
                     }
                 }
@@ -903,8 +924,13 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        if (_apiApplication.AuthenticatedUser.Value is { } user)
+        var apiOrigin = new Uri(BeutlApiApplication.BaseUrl);
+        Uri downloadUri = new(apiOrigin, url);
+        using var request = new HttpRequestMessage(HttpMethod.Get, downloadUri);
+        if (downloadUri.Scheme == apiOrigin.Scheme
+            && downloadUri.IdnHost == apiOrigin.IdnHost
+            && downloadUri.Port == apiOrigin.Port
+            && _apiApplication.AuthenticatedUser.Value is { } user)
         {
             try
             {
@@ -923,6 +949,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
         using (HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
         {
+            response.EnsureSuccessStatusCode();
             long? contentLength = response.Content.Headers.ContentLength;
 
             using (Stream download = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))

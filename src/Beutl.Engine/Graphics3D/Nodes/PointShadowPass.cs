@@ -365,8 +365,9 @@ void main() {
             RenderObject(child, lightVP, worldMatrix);
         }
 
-        // Render this object's mesh if any
-        RenderMesh(obj, lightVP, worldMatrix);
+        // CastShadows is per object; enabled children still traverse a non-casting parent.
+        if (obj.CastShadows)
+            RenderMesh(obj, lightVP, worldMatrix);
     }
 
     private void RenderMesh(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 worldMatrix)

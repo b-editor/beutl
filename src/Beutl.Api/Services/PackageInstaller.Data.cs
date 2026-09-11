@@ -1,9 +1,15 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using NuGet.Packaging;
 
 namespace Beutl.Api.Services;
 
 public partial class PackageInstaller
 {
+    private static readonly object s_dataPackageGate = new();
+
+    private const string PayloadOwnerFileName = ".beutl-package-owner";
+
     private const string MaterialsContentDirectory = "materials";
 
     private const string TemplatesContentDirectory = "templates";
@@ -17,80 +23,278 @@ public partial class PackageInstaller
     {
         TrackSyncOperation(() =>
         {
-            if (string.IsNullOrEmpty(package.InstalledPath))
-            {
-                throw new ArgumentException(
-                    $"'{package.Name}' has not been extracted yet.",
-                    nameof(package));
-            }
-
-            string name = ValidatePackageName(package.Name);
-            bool hasMaterial = package.Tags.Contains(PackageKinds.MaterialTag);
-            bool hasTemplate = package.Tags.Contains(PackageKinds.TemplateTag);
-            if (!hasMaterial && !hasTemplate)
-            {
-                throw new ArgumentException(
-                    $"'{package.Name}' is an extension package and has no data payload.",
-                    nameof(package));
-            }
-
-            // An update may have dropped a kind, so clear both payload directories; the
-            // removed kind's payload would otherwise stay registered.
-            if (!DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name))
-                || !DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name)))
-            {
-                throw new IOException($"Could not clear the existing package data directories for '{name}'.");
-            }
-
-            if (hasMaterial)
-            {
-                InstallPayload(package, name, MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath());
-            }
-
-            if (hasTemplate)
-            {
-                InstallPayload(package, name, TemplatesContentDirectory, BeutlEnvironment.GetTemplatesDirectoryPath());
-            }
+            using var deployment = PrepareDataPackageCore(package, CancellationToken.None, requireData: true);
+            deployment.Commit();
         });
     }
 
-    private void InstallPayload(LocalPackage package, string name, string contentDirectory, string root)
-    {
-        string source = Path.Combine(package.InstalledPath!, contentDirectory);
-        string destination = Path.Combine(root, name);
+    internal DataPackageDeployment PrepareDataPackage(LocalPackage package, CancellationToken cancellationToken)
+        => TrackSyncOperation(() => PrepareDataPackageCore(package, cancellationToken, requireData: false));
 
-        if (!Directory.Exists(source))
+    private DataPackageDeployment PrepareDataPackageCore(LocalPackage package, CancellationToken token, bool requireData)
+    {
+        token.ThrowIfCancellationRequested();
+        if (string.IsNullOrEmpty(package.InstalledPath))
+            throw new ArgumentException($"'{package.Name}' has not been extracted yet.", nameof(package));
+        string name = ValidatePackageName(package.Name);
+        bool material = package.Tags.Contains(PackageKinds.MaterialTag);
+        bool template = package.Tags.Contains(PackageKinds.TemplateTag);
+        if (requireData && !material && !template)
+            throw new ArgumentException($"'{package.Name}' is an extension package and has no data payload.", nameof(package));
+
+        string staging = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), $".data-install-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(staging);
+        var changes = new List<PayloadChange>();
+        try
         {
-            _logger.LogWarning(
-                "Package {PackageName} is tagged {PackageKind} but ships no {ContentDirectory} directory.",
-                package.Name, package.Tags.GetPackageKind(), contentDirectory);
-            return;
+            Stage(MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath(), material);
+            Stage(TemplatesContentDirectory, BeutlEnvironment.GetTemplatesDirectoryPath(), template);
+            token.ThrowIfCancellationRequested();
+            return new DataPackageDeployment(this, name, staging, changes, token);
+        }
+        catch
+        {
+            DeleteIfExists(staging);
+            throw;
         }
 
-        CopyDirectory(source, destination);
-        _logger.LogInformation(
-            "Installed the {ContentDirectory} payload of {PackageName} into {Destination}.",
-            contentDirectory, package.Name, destination);
+        void Stage(string kind, string root, bool enabled)
+        {
+            token.ThrowIfCancellationRequested();
+            string staged = Path.Combine(staging, kind);
+            var change = new PayloadChange(kind, enabled, Path.Combine(root, name), staged, Path.Combine(staging, "backup-" + kind));
+            if (!enabled)
+            {
+                // Removing the tag explicitly retires the package's old payload.
+                changes.Add(change);
+                return;
+            }
+            string source = Path.Combine(package.InstalledPath!, kind);
+            FileAttributes attributes;
+            try { attributes = File.GetAttributes(source); }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                // Omitting an enabled payload is a no-op, not an instruction to delete
+                // existing data. An explicitly shipped empty directory still replaces it.
+                _logger.LogWarning("Package {PackageName} ships no {ContentDirectory} directory; existing data is preserved.", name, kind);
+                return;
+            }
+            if ((attributes & FileAttributes.Directory) == 0)
+                throw new IOException($"Package payload '{source}' is not a directory.");
+            CopyDirectory(source, staged, token);
+            token.ThrowIfCancellationRequested();
+            File.WriteAllText(Path.Combine(staged, PayloadOwnerFileName), JsonSerializer.Serialize(new PayloadOwner(name, package.Version)));
+            changes.Add(change);
+        }
+    }
+
+    internal sealed class DataPackageDeployment(
+        PackageInstaller owner, string name, string staging, List<PayloadChange> changes, CancellationToken token) : IDisposable
+    {
+        private bool _attempted;
+        private bool _preserveBackup;
+        private bool _disposed;
+
+        // Cancellation is accepted until this short publication step starts. Once
+        // it starts, callers finish repository registration without cancellation.
+        public void Commit() => Commit(static () => { });
+
+        public void Commit(Action register)
+        {
+            ArgumentNullException.ThrowIfNull(register);
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_attempted) throw new InvalidOperationException("This deployment was already attempted.");
+            _attempted = true;
+            owner.TrackSyncOperation(() =>
+            {
+                lock (s_dataPackageGate)
+                {
+                    token.ThrowIfCancellationRequested();
+                    var active = new List<PayloadChange>();
+                    foreach (PayloadChange change in changes)
+                    {
+                        PayloadOwnership ownership = owner.GetPayloadOwnership(name, change.Kind, change.Destination);
+                        if (ownership == PayloadOwnership.Unknown)
+                            throw new IOException($"Cannot determine ownership of the legacy package directory '{change.Destination}' without its installed metadata.");
+                        bool owned = ownership == PayloadOwnership.Owned;
+                        if (!change.Enabled && !owned) continue;
+                        if (Directory.Exists(change.Destination) && !owned)
+                            throw new IOException($"The package cannot replace the unowned directory '{change.Destination}'.");
+                        active.Add(change);
+                    }
+                    token.ThrowIfCancellationRequested();
+                    try
+                    {
+                        foreach (PayloadChange change in active)
+                        {
+                            Directory.CreateDirectory(Path.GetDirectoryName(change.Destination)!);
+                            if (Directory.Exists(change.Destination))
+                            {
+                                Directory.Move(change.Destination, change.Backup);
+                                change.BackedUp = true;
+                            }
+                            if (Directory.Exists(change.Staged))
+                            {
+                                Directory.Move(change.Staged, change.Destination);
+                                change.Published = true;
+                            }
+                        }
+                        // Registration is part of the same transaction. Its failure restores
+                        // replacements and removals while the previous backups still exist.
+                        register();
+                    }
+                    catch (Exception failure)
+                    {
+                        List<Exception> failures = [failure];
+                        foreach (PayloadChange change in active.AsEnumerable().Reverse())
+                        {
+                            try
+                            {
+                                if (change.Published) Directory.Move(change.Destination, change.Staged);
+                                if (change.BackedUp) Directory.Move(change.Backup, change.Destination);
+                            }
+                            catch (Exception rollback)
+                            {
+                                _preserveBackup = true;
+                                failures.Add(rollback);
+                            }
+                        }
+                        if (_preserveBackup)
+                            throw new AggregateException($"Package rollback failed; backups remain at '{staging}'.", failures);
+                        throw;
+                    }
+                }
+            });
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            if (!_preserveBackup) owner.DeleteIfExists(staging);
+        }
+    }
+
+    internal sealed class PayloadChange(string kind, bool enabled, string destination, string staged, string backup)
+    {
+        public string Kind { get; } = kind;
+        public bool Enabled { get; } = enabled;
+        public string Destination { get; } = destination;
+        public string Staged { get; } = staged;
+        public string Backup { get; } = backup;
+        public bool BackedUp { get; set; }
+        public bool Published { get; set; }
     }
 
     /// <summary>
     /// Removes the payload directories <see cref="InstallDataPackage"/> created.
-    /// Returns <see langword="false"/> when something was left behind.
+    /// Returns <see langword="false"/> when removal fails or legacy ownership cannot be determined.
     /// </summary>
     /// <remarks>
-    /// Both candidates are removed without consulting the nuspec: uninstall also runs when
-    /// the extracted package is already gone, and the directory a package never created
-    /// simply is not there.
+    /// Owner markers remain sufficient when the extracted package is gone. Markerless legacy
+    /// directories require installed metadata; missing metadata must not authorize deletion
+    /// or let callers discard the package registration as if removal had succeeded.
     /// </remarks>
     public bool UninstallDataPackage(string packageName)
     {
         return TrackSyncOperation(() =>
         {
-            string name = ValidatePackageName(packageName);
-            bool templates = DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name));
-            bool materials = DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name));
-            return templates && materials;
+            lock (s_dataPackageGate)
+            {
+                string name = ValidatePackageName(packageName);
+                string templatesPath = Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name);
+                string materialsPath = Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name);
+                bool templates = RemoveOwnedPayload(name, TemplatesContentDirectory, templatesPath);
+                bool materials = RemoveOwnedPayload(name, MaterialsContentDirectory, materialsPath);
+                return templates && materials;
+            }
         });
+    }
+
+    private bool RemoveOwnedPayload(string packageName, string kind, string directory)
+    {
+        switch (GetPayloadOwnership(packageName, kind, directory))
+        {
+            case PayloadOwnership.Owned:
+                return DeleteIfExists(directory);
+            case PayloadOwnership.Unknown:
+                _logger.LogWarning("Cannot determine ownership of {Directory} because installed package metadata is missing. Keeping the directory and package registration.", directory);
+                return false;
+            default:
+                return true;
+        }
+    }
+
+    private enum PayloadOwnership
+    {
+        Unowned,
+        Owned,
+        Unknown,
+    }
+
+    private sealed record PayloadOwner(string Name, string Version);
+
+    private static PayloadOwner? ReadPayloadOwner(string directory)
+        => ReadPayloadOwner(directory, out _);
+
+    private static PayloadOwner? ReadPayloadOwner(string directory, out bool markerPresent)
+    {
+        string marker = Path.Combine(directory, PayloadOwnerFileName);
+        markerPresent = true;
+        try
+        {
+            if ((File.GetAttributes(marker) & FileAttributes.Directory) != 0)
+                return null;
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            markerPresent = false;
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        try
+        {
+            PayloadOwner? owner = JsonSerializer.Deserialize<PayloadOwner>(File.ReadAllText(marker));
+            return owner is not null && !string.IsNullOrWhiteSpace(owner.Name)
+                && NuGet.Versioning.NuGetVersion.TryParse(owner.Version, out _) ? owner : null;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            // An existing unreadable marker is not proof of legacy ownership.
+            return null;
+        }
+    }
+
+    private PayloadOwnership GetPayloadOwnership(string packageName, string kind, string directory)
+    {
+        if (!Directory.Exists(directory))
+            return PayloadOwnership.Unowned;
+        PayloadOwner? owner = ReadPayloadOwner(directory, out bool markerPresent);
+        if (markerPresent)
+            return owner is not null && StringComparer.OrdinalIgnoreCase.Equals(owner.Name, packageName)
+                ? PayloadOwnership.Owned : PayloadOwnership.Unowned;
+
+        // Older installations had no marker. Only extracted, registered package metadata
+        // can authorize taking over their payload; a matching directory name is insufficient.
+        string tag = kind == MaterialsContentDirectory ? PackageKinds.MaterialTag : PackageKinds.TemplateTag;
+        bool missingMetadata = false;
+        foreach (var identity in _installedPackageRepository.GetLocalPackages(packageName))
+        {
+            string installed = Helper.ResolveInstalledDirectory(identity);
+            if (!Directory.Exists(installed))
+            {
+                missingMetadata = true;
+                continue;
+            }
+            using var reader = new PackageFolderReader(installed);
+            if (new LocalPackage(reader.NuspecReader).Tags.Contains(tag))
+                return PayloadOwnership.Owned;
+        }
+        return missingMetadata ? PayloadOwnership.Unknown : PayloadOwnership.Unowned;
     }
 
     // The name is a NuGet id read out of a downloaded nuspec, and it becomes a directory
@@ -127,16 +331,19 @@ public partial class PackageInstaller
         }
     }
 
-    private static void CopyDirectory(string source, string destination)
+    private static void CopyDirectory(string source, string destination, CancellationToken token)
     {
         Directory.CreateDirectory(destination);
 
         foreach (string file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
+            token.ThrowIfCancellationRequested();
             string relative = Path.GetRelativePath(source, file);
             string target = Path.Combine(destination, relative);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            File.Copy(file, target, overwrite: true);
+            using var input = File.OpenRead(file);
+            using var output = File.Create(target);
+            input.CopyToAsync(output, token).GetAwaiter().GetResult();
         }
     }
 }

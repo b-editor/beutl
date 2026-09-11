@@ -42,7 +42,20 @@ public sealed class ObjectTemplateService
     public async ValueTask<ObjectTemplateItem?> AddFromInstanceAsync(
         ICoreSerializable instance, string name, CancellationToken cancellationToken = default)
     {
-        var item = ObjectTemplateItem.CreateFromInstance(instance, name);
+        if (string.IsNullOrWhiteSpace(name) || name is "." or ".."
+            || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || name.Contains('/') || name.Contains('\\'))
+            return null;
+        ObjectTemplateItem item;
+        try
+        {
+            item = ObjectTemplateItem.CreateFromInstance(instance, name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unable to serialize template {Name}.", name);
+            return null;
+        }
         item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(instance, cancellationToken);
 
         return await Task.Run(
@@ -296,16 +309,16 @@ public sealed class ObjectTemplateService
             Directory.CreateDirectory(_directoryPath);
             _watcher = new FileSystemWatcher(_directoryPath)
             {
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite,
-                Filter = "*.json",
-                IncludeSubdirectories = true,
-                EnableRaisingEvents = true
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
+                Filter = "*",
+                IncludeSubdirectories = true
             };
 
             _watcher.Created += OnFileSystemEvent;
             _watcher.Deleted += OnFileSystemEvent;
             _watcher.Renamed += OnFileSystemEvent;
             _watcher.Changed += OnFileSystemEvent;
+            _watcher.EnableRaisingEvents = true;
 
             _logger.LogInformation("Started watching templates directory: {DirectoryPath}", _directoryPath);
         }

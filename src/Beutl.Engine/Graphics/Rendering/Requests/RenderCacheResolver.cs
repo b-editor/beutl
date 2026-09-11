@@ -342,7 +342,7 @@ internal sealed class RenderCacheResolver
         IReadOnlySet<RenderFragmentReference> deviceGridAffectedReferences,
         IReadOnlySet<RenderFragmentReference> transformDependentReferences)
     {
-        if (!request.Options.CachePolicy.IsEnabled)
+        if (!request.Options.CachePolicy.IsEnabled || request.HasCacheDisabledInput(reference))
             return CandidateEvaluation.Bypass(RenderCacheBypassReason.CacheDisabled);
         if (request.Options.Purpose is RenderRequestPurpose.Bounds or RenderRequestPurpose.HitTest)
             return CandidateEvaluation.Bypass(RenderCacheBypassReason.MetadataOnlyPurpose);

@@ -19,6 +19,21 @@ public sealed class RenderCacheResolutionTests
         new RenderCacheDeviceContextIdentity("device-a", "context-a"));
 
     [Test]
+    public void LayerDoesNotCacheAnOptedOutDescendant()
+    {
+        var child = new SolidCacheNode(disableCache: true);
+        using var layer = new LayerRenderNode(s_bounds);
+        layer.AddChild(child);
+        layer.Cache.RecordStableRequests();
+        using var renderer = CreateFrameRenderer(layer);
+        for (int i = 0; i < 8; i++)
+        {
+            using var raster = renderer.Rasterize();
+        }
+        Assert.That(child.ExecuteCount, Is.EqualTo(8), "An ancestor cache must not suppress execution of an opted-out child.");
+    }
+
+    [Test]
     public void Recorder_DeclaresOnlyWarmEnabledNodeCandidatesWithoutReadingCachePixels()
     {
         using var coldNode = new CacheableNode(disableCache: false);
@@ -2033,12 +2048,13 @@ public sealed class RenderCacheResolutionTests
         }
     }
 
-    private sealed class SolidCacheNode(bool throwOnExecute = false) : RenderNode
+    private sealed class SolidCacheNode(bool throwOnExecute = false, bool disableCache = false) : RenderNode
     {
         private static readonly RenderResourceSlot<Brush.Resource> s_fillSlot = new();
 
         public override void Process(RenderNodeContext context)
         {
+            if (disableCache) context.DisableRenderCache();
             Brush.Resource fill = Brushes.Resource.Red;
             RenderResource<Brush.Resource> fillResource = context.Borrow(fill);
             RenderResource<SolidCacheProbe> probeResource = context.Borrow(_probe);

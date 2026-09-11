@@ -2,6 +2,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Beutl.Language;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Api.Services;
 
@@ -218,12 +220,6 @@ internal abstract class MeteredAiJobRetryHandler(
         try
         {
             await operation(key, isRepeat);
-            retryContext.Store.TryRetire(
-                job,
-                authenticated.AccountId,
-                key,
-                generation,
-                attempt.Token);
         }
         catch (Exception ex) when (IsDefinitive(ex))
         {
@@ -247,6 +243,16 @@ internal abstract class MeteredAiJobRetryHandler(
                 generation,
                 attempt.Token);
             throw;
+        }
+        try
+        {
+            retryContext.Store.TryRetire(job, authenticated.AccountId, key, generation, attempt.Token);
+        }
+        catch (AiRetryStoreUnavailableException ex)
+        {
+            try { retryContext.Store.TryRelease(job, authenticated.AccountId, key, generation, attempt.Token); }
+            catch (AiRetryStoreUnavailableException) { }
+            Log.CreateLogger(typeof(BuiltInAiJobKinds)).LogWarning(ex, "The AI retry succeeded, but its recovery key could not be retired.");
         }
     }
 

@@ -23,6 +23,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private readonly List<WorkItem> _items = [];
     private readonly HashSet<Task> _admissionRetryTasks = [];
     private readonly Lock _lock = new();
+    private readonly Dictionary<Guid, Queue<(ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers)>> _admissionNotifications = [];
     private readonly Task _drainTask;
     private readonly TimeSpan _minUnavailableBackoff;
     private readonly TimeSpan _maxUnavailableBackoff;
@@ -237,6 +238,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         WorkItem? newItem = null;
         ProxyJob? existingJob = null;
         bool promoted = false;
+        WorkItem? promotedItem = null;
         lock (_lock)
         {
             if (_itemsByKey.TryGetValue(key, out WorkItem? existing))
@@ -248,6 +250,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     {
                         existingJob.Priority = priority;
                         promoted = true;
+                        promotedItem = existing;
                     }
                 }
                 else
@@ -285,7 +288,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         if (existingJob != null)
         {
             if (promoted)
+            {
+                if (promotedItem!.TryGetAdmissionWait(out long generation, out _))
+                    promotedItem.SignalAdmissionAvailability(generation);
                 OnJobChanged(existingJob, ProxyJobChangeKind.Enqueued);
+            }
             return new ValueTask<ProxyJob>(existingJob);
         }
 
@@ -1137,20 +1144,53 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
     }
 
-    private void OnJobChanged(ProxyJob job, ProxyJobChangeKind kind)
+    private bool OnJobChanged(ProxyJob job, ProxyJobChangeKind kind)
     {
-        if (JobChanged is not { } handlers)
-            return;
-
-        var args = new ProxyJobChangedEventArgs
+        if (kind is ProxyJobChangeKind.WaitingForAdmission or ProxyJobChangeKind.Canceled)
         {
-            Job = job,
-            Kind = kind,
-        };
-        // JobChanged is plugin-facing and fires on the drain thread; a throwing subscriber must
-        // neither fault the queue nor starve the remaining subscribers of the notification.
-        foreach (EventHandler<ProxyJobChangedEventArgs> handler in
-                 Delegate.EnumerateInvocationList(handlers))
+            Queue<(ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers)> notifications;
+            lock (_lock)
+            {
+                // The same gate orders cancellation's terminal transition and the wait
+                // notification reservation. Callbacks themselves never run under it.
+                if (kind == ProxyJobChangeKind.WaitingForAdmission && IsTerminal(job.Status))
+                    return false;
+                if (JobChanged is not { } handlers)
+                    return true;
+                var notification = (new ProxyJobChangedEventArgs { Job = job, Kind = kind }, handlers);
+                if (_admissionNotifications.TryGetValue(job.JobId, out notifications!))
+                {
+                    notifications.Enqueue(notification);
+                    return true;
+                }
+                // An unrelated job's canceled callback must not defer this wait notification
+                // beyond the serial drain's next attempt to start or complete this job.
+                notifications = new();
+                notifications.Enqueue(notification);
+                _admissionNotifications.Add(job.JobId, notifications);
+            }
+            while (true)
+            {
+                (ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers) notification;
+                lock (_lock)
+                {
+                    if (!notifications.TryDequeue(out notification))
+                    {
+                        _admissionNotifications.Remove(job.JobId);
+                        return true;
+                    }
+                }
+                NotifyJobChanged(notification.Args, notification.Handlers);
+            }
+        }
+        if (JobChanged is { } directHandlers)
+            NotifyJobChanged(new ProxyJobChangedEventArgs { Job = job, Kind = kind }, directHandlers);
+        return true;
+    }
+
+    private void NotifyJobChanged(ProxyJobChangedEventArgs args, EventHandler<ProxyJobChangedEventArgs> handlers)
+    {
+        foreach (EventHandler<ProxyJobChangedEventArgs> handler in Delegate.EnumerateInvocationList(handlers))
         {
             try
             {
@@ -1158,11 +1198,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             }
             catch (Exception ex)
             {
-                s_logger.LogError(
-                    ex,
-                    "A JobChanged subscriber threw for job {JobId} ({Kind}).",
-                    job.JobId,
-                    kind);
+                try { s_logger.LogError(ex, "A JobChanged subscriber threw for job {JobId} ({Kind}).", args.Job.JobId, args.Kind); }
+                catch { }
             }
         }
     }
@@ -1342,7 +1379,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
         public bool IsAdmissionDeferred => _admissionDeferred;
 
-        public bool TryPublishAdmissionWaiting(Action publish)
+        public bool TryPublishAdmissionWaiting(Func<bool> publish)
         {
             lock (_lock)
             {
@@ -1355,9 +1392,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     return false;
                 }
 
-                publish();
-                return true;
             }
+            return publish();
         }
 
         public bool TryCompleteSuccess()

@@ -2,6 +2,28 @@
 
 internal static class UriHelper
 {
+    public static Uri ResolvePersistedReference(string? value, Uri? baseUri, bool allowRelative = false)
+    {
+        if (!Uri.TryCreate(value, UriKind.RelativeOrAbsolute, out Uri? uri))
+            throw new System.Text.Json.JsonException($"Invalid URI: {value}");
+        if (uri.IsAbsoluteUri)
+            return uri;
+        if (baseUri is null)
+        {
+            if (allowRelative) return uri;
+            throw new System.Text.Json.JsonException("Cannot resolve relative URI without a base URI.");
+        }
+
+        // Native file-path Uris treat relative strings as paths, escaping '%' again.
+        // Persisted references are already URI-escaped: resolve them against an explicit
+        // URI so literal percent sequences and fragment characters are decoded only once.
+        if (baseUri.IsAbsoluteUri)
+            baseUri = new Uri(baseUri.AbsoluteUri, UriKind.Absolute);
+        if (!Uri.TryCreate(baseUri, uri, out Uri? resolved))
+            throw new System.Text.Json.JsonException($"Invalid relative URI: {value}");
+        return resolved;
+    }
+
     public static byte[] ResolveByteArray(Uri uri)
     {
         if (uri.Scheme == "data")

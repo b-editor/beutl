@@ -477,8 +477,8 @@ public sealed class FilterEffectContext : IDisposable
                 int h = data.kernelSize.Height - 1;
 
                 return rect.Inflate(new Thickness(
-                    data.kernelOffset.X - w,
-                    data.kernelOffset.Y - h,
+                    w - data.kernelOffset.X,
+                    h - data.kernelOffset.Y,
                     data.kernelOffset.X,
                     data.kernelOffset.Y));
             });

@@ -38,9 +38,13 @@ public partial class PreviewNode : GraphNode
                 {
                     using var renderer = new RenderNodeRenderer(
                         renderNode,
-                        new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
+                        new RenderNodeRenderRequest { Intent = RenderIntent.Preview, ManageCacheLifecycle = false });
                     using RenderNodeRasterization rasterization = renderer.Rasterize();
                     node.ReplacePreview(rasterization.Bitmap?.Clone());
+                }
+                catch (RenderTargetDomainRequiredException) when (context.TargetDomain is null)
+                {
+                    node.ReplacePreview(null);
                 }
                 catch (RenderTargetDomainRequiredException) when (context.TargetDomain is { } domain)
                 {
@@ -48,6 +52,7 @@ public partial class PreviewNode : GraphNode
                     {
                         Intent = RenderIntent.Preview,
                         TargetDomain = domain,
+                        ManageCacheLifecycle = false,
                     });
                     using RenderNodeRasterization rasterization = renderer.Rasterize();
                     node.ReplacePreview(rasterization.Bitmap?.Clone());

@@ -54,5 +54,7 @@ public sealed record RenderNodeRenderRequest
     /// </remarks>
     public RenderRequestPurpose Purpose { get; init; } = RenderRequestPurpose.Auxiliary;
 
+    internal bool ManageCacheLifecycle { get; init; } = true;
+
     internal FusionMode FusionMode { get; init; } = FusionMode.Enabled;
 }

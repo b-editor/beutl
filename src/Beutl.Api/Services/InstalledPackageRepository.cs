@@ -1,4 +1,5 @@
-﻿using System.Reactive.Subjects;
+﻿using System.Reactive;
+using System.Reactive.Subjects;
 using System.Text.Json;
 
 using Beutl.Logging;
@@ -36,6 +37,9 @@ public class InstalledPackageRepository : IBeutlApiResource
     }
 
     public void UpgradePackages(PackageIdentity package)
+        => UpgradePackagesAndDeferNotifications(package)();
+
+    internal Action UpgradePackagesAndDeferNotifications(PackageIdentity package)
     {
         _logger.LogInformation("Upgrading package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
         PackageIdentity[] removedItems = [];
@@ -43,18 +47,61 @@ public class InstalledPackageRepository : IBeutlApiResource
         {
             removedItems = GetLocalPackages(package.Id).ToArray();
         }
+        PackageIdentity[] upgraded = [.. _packages.Where(x => !StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id)), package];
+        // Persist a candidate snapshot before publishing the new registration in memory.
+        Save(upgraded.Select(x => new S_Package(x.Id, x.Version.ToString(),
+            StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id)
+                ? BeutlApplication.Version : _resolvedBeutlVersions.GetValueOrDefault(x.Id))));
         _packages.RemoveWhere(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id));
         _packages.Add(package);
         _resolvedBeutlVersions[package.Id] = BeutlApplication.Version;
-        Save();
 
-        foreach (PackageIdentity removed in removedItems)
+        return () =>
         {
-            _subject.OnNext((removed, false));
-        }
+            foreach (PackageIdentity removed in removedItems)
+                PublishCommittedChange(removed, false);
+            PublishCommittedChange(package, true);
+        };
+    }
 
-        _subject.OnNext((package, true));
-        _logger.LogInformation("Upgraded package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
+    private void PublishCommittedChange(PackageIdentity package, bool exists)
+    {
+        try
+        {
+            _subject.OnNext((package, exists));
+        }
+        catch (Exception ex)
+        {
+            // Observer failures cannot undo an already persisted registration or make
+            // the installer roll back the payload while the repository records the new version.
+            ReportObserverFailure(ex);
+        }
+    }
+
+    private void ReportObserverFailure(Exception exception)
+    {
+        try { _logger.LogError(exception, "An installed-package observer failed while receiving a notification."); }
+        catch { }
+    }
+
+    // Wrap each subscription, not only the subject: one returned observable can
+    // itself have several observers through LightweightObservableBase.PublishNext.
+    private sealed class ObserverIsolatingObservable<T>(IObservable<T> source, Action<Exception> failure) : IObservable<T>
+    {
+        public IDisposable Subscribe(IObserver<T> observer)
+        {
+            ArgumentNullException.ThrowIfNull(observer);
+            return source.Subscribe(Observer.Create<T>(
+                value => Forward(() => observer.OnNext(value)),
+                error => Forward(() => observer.OnError(error)),
+                () => Forward(observer.OnCompleted)));
+
+            void Forward(Action notification)
+            {
+                try { notification(); }
+                catch (Exception ex) { failure(ex); }
+            }
+        }
     }
 
     public void AddPackage(string name, string version)
@@ -161,12 +208,12 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     public IObservable<bool> GetObservable(string name, string? version = null)
     {
-        return new _Observable(this, name, version);
+        return new ObserverIsolatingObservable<bool>(new _Observable(this, name, version), ReportObserverFailure);
     }
 
     public IObservable<PackageIdentity?> GetPackageObservable(string name)
     {
-        return new _PackageObservable(this, name);
+        return new ObserverIsolatingObservable<PackageIdentity?>(new _PackageObservable(this, name), ReportObserverFailure);
     }
 
     public PackageIdentity[] GetPackagesNeedingDependencyReResolution()
@@ -186,19 +233,13 @@ public class InstalledPackageRepository : IBeutlApiResource
     }
 
     private void Save()
+        => Save(_packages.Select(x => new S_Package(x.Id, x.Version.ToString(), _resolvedBeutlVersions.GetValueOrDefault(x.Id))));
+
+    private void Save(IEnumerable<S_Package> packages)
     {
         _logger.LogInformation("Saving installed packages to file.");
         string fileName = Path.Combine(Helper.AppRoot, FileName);
-        using (FileStream stream = File.Create(fileName))
-        {
-            JsonSerializer.Serialize(stream, _packages
-                .Select(x => new S_Package(
-                    x.Id,
-                    x.Version.ToString(),
-                    _resolvedBeutlVersions.GetValueOrDefault(x.Id)))
-                .ToArray());
-        }
-        _logger.LogInformation("Saved {Count} packages to file.", _packages.Count);
+        JsonSerializer.SerializeToNode(packages.ToArray())!.JsonSave(fileName);
     }
 
     private void Restore()

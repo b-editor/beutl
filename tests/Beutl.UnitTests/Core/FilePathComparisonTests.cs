@@ -6,6 +6,27 @@ namespace Beutl.UnitTests.Core;
 public class FilePathComparisonTests
 {
     [Test]
+    public void DistinctNonLinkChildren_DoNotRequireParentEnumeration()
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("Unix directory permissions are required.");
+        string parent = CreateTemporaryDirectory();
+        File.WriteAllText(Path.Combine(parent, "clip"), "a");
+        File.WriteAllText(Path.Combine(parent, ".beutl"), "b");
+        UnixFileMode original = File.GetUnixFileMode(parent);
+        try
+        {
+            File.SetUnixFileMode(parent, UnixFileMode.UserExecute);
+            Assert.That(FilePathComparison.TryAreSameChildPath(parent, "clip", ".beutl", out bool same), Is.True);
+            Assert.That(same, Is.False);
+        }
+        finally
+        {
+            File.SetUnixFileMode(parent, original);
+            Directory.Delete(parent, true);
+        }
+    }
+
+    [Test]
     public void Canonical_identity_accepts_whitespace_only_posix_components()
     {
         if (OperatingSystem.IsWindows())

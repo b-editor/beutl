@@ -32,6 +32,85 @@ public class InstalledPackageRepositoryTests
     }
 
     [Test]
+    public void FailedUpgradePersistence_KeepsThePreviousInMemoryRegistration()
+    {
+        var repo = new InstalledPackageRepository();
+        var old = new PackageIdentity("Beutl.Package.UpdateTest.FailedSave", NuGetVersion.Parse("1.0.0"));
+        var next = new PackageIdentity(old.Id, NuGetVersion.Parse("2.0.0"));
+        repo.UpgradePackages(old);
+        string backup = InstalledPackagesFile + ".test-backup";
+        File.Move(InstalledPackagesFile, backup);
+        Directory.CreateDirectory(InstalledPackagesFile);
+        try
+        {
+            Assert.Catch(() => repo.UpgradePackages(next));
+            Assert.That(repo.GetLocalPackages(old.Id), Is.EqualTo(new[] { old }));
+        }
+        finally
+        {
+            Directory.Delete(InstalledPackagesFile);
+            File.Move(backup, InstalledPackagesFile);
+        }
+        Assert.That(new InstalledPackageRepository().GetLocalPackages(old.Id), Is.EqualTo(new[] { old }));
+    }
+
+    [Test]
+    public void UpgradeNotificationFailure_DoesNotFailTheCommittedRegistration()
+    {
+        var repo = new InstalledPackageRepository();
+        var next = new PackageIdentity("Beutl.Package.UpdateTest.ObserverFailure", NuGetVersion.Parse("2.0.0"));
+        using var subscription = repo.GetPackageObservable(next.Id).Subscribe(value =>
+        {
+            if (value is not null) throw new InvalidOperationException("observer failed");
+        });
+        Assert.DoesNotThrow(() => repo.UpgradePackages(next));
+        Assert.That(new InstalledPackageRepository().ExistsPackage(next), Is.True);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ThrowingPackageObserver_DoesNotStarveLaterObservers(bool reuseObservable)
+    {
+        var repository = new InstalledPackageRepository();
+        const string name = "Beutl.Package.UpdateTest.ObserverIsolation";
+        var first = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        var second = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
+        var observable = repository.GetPackageObservable(name);
+        using var broken = observable.Subscribe(value =>
+        {
+            if (value is not null) throw new InvalidOperationException("observer failed");
+        });
+        var received = new List<PackageIdentity?>();
+        using var healthy = (reuseObservable ? observable : repository.GetPackageObservable(name)).Subscribe(received.Add);
+
+        repository.UpgradePackages(first);
+        repository.UpgradePackages(second);
+
+        Assert.That(received, Does.Contain(first));
+        Assert.That(received.Last(), Is.EqualTo(second));
+        Assert.That(new InstalledPackageRepository().ExistsPackage(second), Is.True);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ThrowingBooleanPackageObserver_DoesNotStarveLaterObservers(bool specificVersion)
+    {
+        var repository = new InstalledPackageRepository();
+        const string name = "Beutl.Package.UpdateTest.BooleanObserverIsolation";
+        var identity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        var observable = repository.GetObservable(name, specificVersion ? "1.0.0" : null);
+        using var broken = observable.Subscribe(value =>
+        {
+            if (value) throw new InvalidOperationException("observer failed");
+        });
+        var received = new List<bool>();
+        using var healthy = observable.Subscribe(received.Add);
+        repository.UpgradePackages(identity);
+        repository.RemovePackage(identity);
+        Assert.That(received, Is.EqualTo(new[] { false, true, false }));
+    }
+
+    [Test]
     public void GetPackageObservable_EmitsNull_WhenNotInstalled()
     {
         const string name = "Beutl.Package.UpdateTest.None";

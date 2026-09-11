@@ -12,6 +12,80 @@ namespace Beutl.HeadlessUITests;
 public sealed class MainViewModelShutdownTests
 {
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CleanupFailure_AfterCloseWasAccepted_StillClosesWindow(bool mac)
+    {
+        await TestReset.ResetShellAsync();
+        var viewModel = new MainViewModel();
+        Avalonia.Controls.Window window = mac ? new MacWindow() : new MainWindow();
+        window.DataContext = viewModel;
+        window.Content = null;
+        var disposal = typeof(MainViewModel).GetField("_disposeTask",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        // Model the cached task produced when a late disposal step throws.
+        disposal.SetValue(viewModel, Task.FromException(new IOException("cleanup failed")));
+        try
+        {
+            window.Show();
+            window.Close();
+            var closing = (Task)window.GetType().GetField("_viewModelDisposeTask",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
+            await closing.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(window.IsVisible, Is.False, "A faulted disposal task must not permanently veto closing.");
+        }
+        finally
+        {
+            window.DataContext = null;
+            window.Close();
+            disposal.SetValue(viewModel, null);
+            viewModel.Dispose();
+            await viewModel.WaitForDisposalAsync();
+            viewModel.CompleteShutdown();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CloseVeto_KeepsWindowOpenAndAllowsRetry(bool mac)
+    {
+        await TestReset.ResetShellAsync();
+        var viewModel = new MainViewModel();
+        Avalonia.Controls.Window window = mac ? new MacWindow() : new MainWindow();
+        window.DataContext = viewModel;
+        window.Content = null;
+        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "window-veto-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(location);
+        await viewModel.ProjectService.CreateProject(640, 480, 30, 44100, "veto", location);
+        Func<Beutl.Services.ProjectService.ProjectCloseContext, CancellationToken, Task> veto = (_, _) =>
+            Task.FromException(new Beutl.Services.ProjectCloseAbortedException("veto"));
+        viewModel.ProjectService.ClosingPreparing += veto;
+        try
+        {
+            window.Show();
+            window.Close();
+            var closing = (Task)window.GetType().GetField("_viewModelDisposeTask",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
+            await closing.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(window.IsVisible, Is.True);
+            Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Not.Null);
+            viewModel.ProjectService.ClosingPreparing -= veto;
+            window.Close();
+            await WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(10));
+        }
+        finally
+        {
+            viewModel.ProjectService.ClosingPreparing -= veto;
+            window.DataContext = null;
+            window.Close();
+            viewModel.Dispose();
+            await viewModel.WaitForDisposalAsync();
+            viewModel.CompleteShutdown();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ClosingRealShell_WaitsForPackageInstallerBeforeHandoff()
     {
         await TestReset.ResetShellAsync();

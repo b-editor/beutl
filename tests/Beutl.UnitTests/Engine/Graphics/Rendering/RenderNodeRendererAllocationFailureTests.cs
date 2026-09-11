@@ -3,6 +3,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 
 using SkiaSharp;
@@ -13,6 +14,48 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 public sealed class RenderNodeRendererAllocationFailureTests
 {
     private static readonly Rect s_domain = new(0, 0, 100, 100);
+
+    [TestCase(2)]
+    [TestCase(3)]
+    public void SharedRootAllocationFailure_DoesNotReexecuteConsumedInputs(int failureAt)
+    {
+        using var root = new SharedShaderRoots();
+        var factory = new FailNthTargetFactory(failureAt);
+        using var renderer = CreateRenderer(root, RenderIntent.Preview, factory);
+        Assert.DoesNotThrow(() => { using var result = renderer.Rasterize(); });
+        Assert.That(factory.FailureConsumed, Is.True);
+    }
+
+    private sealed class SharedShaderRoots : RenderNode
+    {
+        private readonly RectangleRenderNode _source = new(new Rect(0, 0, 50, 50), Brushes.Resource.White, null);
+        public override void Process(RenderNodeContext context)
+        {
+            context.DisableRenderCache();
+            RenderFragmentHandle input = context.RecordSubtree(_source).Single();
+            RenderFragmentHandle output = context.Shader(input, ShaderDescription.WholeSource(
+                "uniform shader src; half4 main(float2 p) { return src.eval(p * 0.5); }",
+                RenderBoundsContract.CreateFullInput(static _ => new Rect(0, 0, 100, 100))));
+            context.Publish(output);
+            context.Publish(output);
+        }
+        protected override void OnDispose(bool disposing) => _source.Dispose();
+    }
+
+    private sealed class FailNthTargetFactory(int failureAt) : CpuTargetFactory
+    {
+        public bool FailureConsumed { get; private set; }
+        public override RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            CreateCalls++;
+            if (CreateCalls == failureAt)
+            {
+                FailureConsumed = true;
+                return null;
+            }
+            return CreateTarget(allocation.DeviceSize);
+        }
+    }
 
     [Test]
     public void PreviewMaterializationAllocationFailure_DropsContributionAndRecordsDiagnostics()

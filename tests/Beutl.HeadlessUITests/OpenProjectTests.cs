@@ -1,5 +1,7 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reactive.Linq;
+using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
+using Beutl.Configuration;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -19,6 +21,94 @@ public class OpenProjectTests
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
         Directory.CreateDirectory(location);
         return location;
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Failed_project_switch_restores_the_previous_project_and_edits(bool failActivation)
+    {
+        await ResetProjectAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldAutoSave = GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled;
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task>? corruptTarget = null;
+        Func<Project, Task>? rejectTarget = null;
+        try
+        {
+            config.AutoCommitOnClose = false;
+            Project original = (await TestShell.Project.CreateProject(320, 180, 30, 44100,
+                "original", NewWorkspace($"failed-project-switch-{failActivation}")))!;
+            Scene scene = original.Items.OfType<Scene>().Single();
+            var otherScene = new Scene(320, 180, "other")
+            {
+                Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "other.scene")),
+            };
+            CoreSerializer.StoreToUri(otherScene, otherScene.Uri);
+            original.Items.Add(otherScene);
+            CoreSerializer.StoreToUri(original, original.Uri!);
+            HeadlessTestHelpers.Settle();
+            TestShell.Editor.ActivateTabItem(scene);
+            HeadlessTestHelpers.Settle();
+            Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value?.Object, Is.SameAs(scene));
+            string target = Path.Combine(Path.GetDirectoryName(original.Uri!.LocalPath)!, "target.bep");
+            File.Copy(original.Uri.LocalPath, target);
+            GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = false;
+            scene.Duration = TimeSpan.FromSeconds(73);
+
+            bool failedAtExpectedStage = false;
+            if (failActivation)
+            {
+                rejectTarget = project =>
+                {
+                    if (project.Uri!.LocalPath == target)
+                    {
+                        failedAtExpectedStage = true;
+                        throw new IOException("The target project cannot be activated.");
+                    }
+                    return Task.CompletedTask;
+                };
+                TestShell.Project.Opened += rejectTarget;
+            }
+            else
+            {
+                corruptTarget = (_, _) =>
+                {
+                    failedAtExpectedStage = true;
+                    File.WriteAllText(target, "{ invalid json");
+                    return Task.CompletedTask;
+                };
+                TestShell.Project.ClosingFinalizing += corruptTarget;
+            }
+
+            var published = new List<Project?>();
+            using IDisposable subscription = TestShell.Project.ProjectObservable.Subscribe(change => published.Add(change.New));
+            await TestShell.Project.OpenProject(target);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(failedAtExpectedStage, Is.True);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(original));
+                Assert.That(TestShell.Editor.TabItems, Has.Count.EqualTo(2));
+                Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value?.Object, Is.SameAs(scene));
+                Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+                Assert.That(published.LastOrDefault(), Is.SameAs(original));
+                Assert.That(GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile, Is.EqualTo(original.Uri.LocalPath));
+            });
+            Assert.That(await TestShell.Editor.SelectedTabItem.Value!.Commands.Value!.OnSave(), Is.True);
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+        }
+        finally
+        {
+            if (corruptTarget is not null) TestShell.Project.ClosingFinalizing -= corruptTarget;
+            if (rejectTarget is not null) TestShell.Project.Opened -= rejectTarget;
+            try { await ResetProjectAsync(); }
+            finally
+            {
+                config.AutoCommitOnClose = oldAutoCommitOnClose;
+                GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = oldAutoSave;
+            }
+        }
     }
 
     [AvaloniaTest]

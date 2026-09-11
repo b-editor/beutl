@@ -524,17 +524,39 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
             .Where(x => x.IsSupported(type)).ToArray();
     }
 
+    private readonly List<(OutputProfileItem? Item, JsonNode? Unavailable)> _restoredProfileOrder = [];
+
     public void SaveItems()
     {
         if (!_isRestored) return;
 
         var array = new JsonArray();
+        var current = _items.ToHashSet();
+        var before = new Dictionary<OutputProfileItem, List<JsonNode>>();
+        var pending = new List<JsonNode>();
+        foreach (var slot in _restoredProfileOrder)
+        {
+            if (slot.Unavailable is { } unavailable)
+                pending.Add(unavailable);
+            else if (slot.Item is { } item && current.Contains(item))
+            {
+                before[item] = pending;
+                pending = [];
+            }
+        }
+        // Hidden profiles stay attached to the next surviving restored profile.
+        // New profiles append after the old trailing hidden entries.
+        OutputProfileItem? lastRestored = _items.LastOrDefault(before.ContainsKey);
+        if (lastRestored is null)
+            foreach (JsonNode unavailable in pending) array.Add(unavailable.DeepClone());
         foreach (OutputProfileItem item in _items.GetMarshal().Value)
         {
-            JsonNode json = OutputProfileItem.ToJson(item);
-            array.Add(json);
+            if (before.TryGetValue(item, out List<JsonNode>? hidden))
+                foreach (JsonNode unavailable in hidden) array.Add(unavailable.DeepClone());
+            array.Add(OutputProfileItem.ToJson(item));
+            if (ReferenceEquals(item, lastRestored))
+                foreach (JsonNode unavailable in pending) array.Add(unavailable.DeepClone());
         }
-
         array.JsonSave(_filePath);
         _logger.LogInformation("Saved {Count} OutputProfileItems to file: {FilePath}", _items.Count, _filePath);
     }
@@ -553,7 +575,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
                 return;
             }
 
-            using FileStream stream = File.Open(_filePath, FileMode.Open);
+            using FileStream stream = File.OpenRead(_filePath);
             var jsonNode = JsonNode.Parse(stream);
             if (jsonNode is not JsonArray jsonArray)
             {
@@ -569,6 +591,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
                 item.Dispose();
             }
 
+            _restoredProfileOrder.Clear();
             _items.EnsureCapacity(jsonArray.Count);
 
             foreach (JsonNode? jsonItem in jsonArray)
@@ -579,6 +602,11 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
                 if (item != null)
                 {
                     _items.Add(item);
+                    _restoredProfileOrder.Add((item, null));
+                }
+                else
+                {
+                    _restoredProfileOrder.Add((null, jsonItem.DeepClone()));
                 }
             }
 

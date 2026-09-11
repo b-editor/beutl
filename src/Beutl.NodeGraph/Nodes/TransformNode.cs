@@ -15,6 +15,13 @@ public partial class TransformNode : ConfigureNode
 
     public partial class Resource
     {
+        partial void PostDispose(bool disposing)
+        {
+            if (disposing)
+                OutputPort?.Dispose();
+            OutputPort = null;
+        }
+
         protected override void UpdateCore(GraphCompositionContext context)
         {
             var node = RequireOriginal();

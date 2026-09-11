@@ -103,6 +103,16 @@ internal sealed class FilterEffectInputBinding : IDisposable
         return CalculateRecordedQueryBounds(outputs);
     }
 
+    internal void PrepareInputForFanOut()
+    {
+        IReadOnlyList<RenderFragmentHandle> outputs = RecordSubtree(_inputFacade);
+        // Ordering-only input has no image to share. Leave it alone for a single
+        // consumer; the existing consumption guard still rejects an actual fan-out.
+        if (outputs.Any(static output => !output.CanBeUsedAsValueInput)
+            && !HasEmptyOutputExtent(outputs))
+            ReplaceWithFiniteLayer(_inputFacade, outputs);
+    }
+
     internal void EnsureFanOutSafe(RenderNode node)
     {
         IReadOnlyList<RenderFragmentHandle> outputs = RecordSubtree(node);

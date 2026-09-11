@@ -125,7 +125,12 @@ jobs:
           key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-${{ github.sha }}
 
       - name: Test
-        run: dotnet test Beutl.slnx --no-build --verbosity normal -f net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+        timeout-minutes: 45
+        run: >-
+          dotnet test Beutl.slnx --no-build --verbosity normal -f net10.0
+          --collect:"XPlat Code Coverage" --settings coverlet.runsettings --logger trx
+          --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini
+          --blame-crash --blame-crash-dump-type mini
         env:
           # GPU golden tests must fail loudly (not Assert.Ignore) when the bundled
           # SwiftShader Vulkan ICD fails to load; see GpuGoldenSuiteCanaryTests.
@@ -154,14 +159,41 @@ jobs:
       # that never reach the render thread only cost their own runtime, and the ones that do are checked.
       # KnownVulkanSkiaLayoutInterop is the one held-back category (#2263).
       - name: GPU tests under Vulkan validation
+        timeout-minutes: 30
         run: |
           dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj --no-build -f net10.0 \
-            --filter "TestCategory!=KnownVulkanSkiaLayoutInterop"
+            --filter "TestCategory!=KnownVulkanSkiaLayoutInterop" --logger trx \
+            --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini \
+            --blame-crash --blame-crash-dump-type mini
           dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj --no-build -f net10.0 \
-            --filter "TestCategory!=KnownVulkanSkiaLayoutInterop"
+            --filter "TestCategory!=KnownVulkanSkiaLayoutInterop" --logger trx \
+            --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini \
+            --blame-crash --blame-crash-dump-type mini
         env:
           BEUTL_REQUIRE_GPU: "1"
           BEUTL_VULKAN_VALIDATION: "1"
+
+      - name: Capture runner diagnostics after failure
+        if: failure()
+        run: |
+          mkdir -p tests/ci-diagnostics
+          free -h > tests/ci-diagnostics/memory.log
+          df -h > tests/ci-diagnostics/disk.log
+          ps -eo pid,ppid,comm,rss,etimes > tests/ci-diagnostics/processes.log
+          sudo dmesg --ctime > tests/ci-diagnostics/kernel.log 2>&1 || true
+
+      - name: Save test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: TestDiagnostics
+          path: |
+            tests/**/TestResults/**/*.trx
+            tests/**/TestResults/**/Sequence_*.xml
+            tests/**/TestResults/**/*.dmp
+            tests/ci-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Merge coverage reports
         # Every test project now collects coverage (coverlet.collector is shared via

@@ -156,20 +156,8 @@ public partial class JsonSerializationContext
 
     private static void SaveObjectToFile(CoreObject value)
     {
-        var node = CoreSerializer.SerializeToJsonObject(
-            value,
-            new CoreSerializerOptions { BaseUri = value.Uri });
-
-        string path = value.Uri!.LocalPath;
-        string? directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        using var stream = File.Create(path);
-        using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
-        node.WriteTo(writer);
+        CoreSerializer.StoreToUri(value, value.Uri!,
+            CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
     }
 
     private static Uri ResolveSerializationUri(Uri objectUri, ICoreSerializationContext parent)

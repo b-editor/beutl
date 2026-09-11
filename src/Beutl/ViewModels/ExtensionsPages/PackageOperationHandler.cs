@@ -15,6 +15,7 @@ internal class PackageOperationHandler
 {
     private static readonly ILogger s_logger = Log.CreateLogger<PackageOperationHandler>();
 
+    private readonly BeutlApiApplication _app;
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
     private readonly PackageManager _packageManager;
@@ -25,6 +26,7 @@ internal class PackageOperationHandler
 
     public PackageOperationHandler(BeutlApiApplication app, EditorService editorService, ProjectService projectService)
     {
+        _app = app;
         _installedPackageRepository = app.GetResource<InstalledPackageRepository>();
         _queue = app.GetResource<PackageChangesQueue>();
         _packageManager = app.GetResource<PackageManager>();
@@ -42,6 +44,8 @@ internal class PackageOperationHandler
         PackageIdentity packageId,
         CancellationToken cancellationToken)
     {
+        using var lifetime = _app.CreateLifetimeLinkedTokenSource(cancellationToken);
+        cancellationToken = lifetime.Token;
         await _packageInstaller.TrackInstallOperationWithShutdownFallbackAsync(async () =>
         {
             PackageInstallContext context = await _packageInstaller.PrepareForInstall(
@@ -50,16 +54,12 @@ internal class PackageOperationHandler
                 cancellationToken).ConfigureAwait(false);
             await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
             await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (!context.HashVerified)
+                throw new InvalidDataException("The package hash could not be verified.");
             await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
-            // Plugin activation may touch the UI; run it on the UI thread.
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                _installedPackageRepository.UpgradePackages(packageId);
-                ActivateInstalledPackage(packageId);
-            });
+            await ActivateInstalledPackageAsync(packageId, cancellationToken).ConfigureAwait(false);
         }, () => _queue.InstallQueue(packageId)).ConfigureAwait(false);
     }
 
@@ -67,6 +67,8 @@ internal class PackageOperationHandler
         PackageIdentity packageId,
         CancellationToken cancellationToken)
     {
+        using var lifetime = _app.CreateLifetimeLinkedTokenSource(cancellationToken);
+        cancellationToken = lifetime.Token;
         await _packageInstaller.TrackInstallOperationWithShutdownFallbackAsync(async () =>
         {
             PackageInstallContext context = _packageInstaller.PrepareForInstall(
@@ -76,34 +78,66 @@ internal class PackageOperationHandler
                 cancellationToken);
             await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
             await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (!context.HashVerified)
+                throw new InvalidDataException("The package hash could not be verified.");
             await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
-            // Plugin activation may touch the UI; run it on the UI thread.
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                _installedPackageRepository.UpgradePackages(packageId);
-                ActivateInstalledPackage(packageId);
-            });
+            await ActivateInstalledPackageAsync(packageId, cancellationToken).ConfigureAwait(false);
         }, () => _queue.InstallQueue(packageId)).ConfigureAwait(false);
     }
 
-    private void ActivateInstalledPackage(PackageIdentity packageId)
+    private async Task ActivateInstalledPackageAsync(PackageIdentity packageId, CancellationToken cancellationToken)
     {
         string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
                            ?? throw new InvalidOperationException(
                                $"Package '{packageId}' was not found under the install directory after installation.");
-        PackageFolderReader reader = new(directory);
+        using PackageFolderReader reader = new(directory);
         var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
 
-        if (localPackage.Tags.GetPackageKind() != PackageKind.Extension)
+        bool isExtension = localPackage.Tags.GetPackageKind() == PackageKind.Extension;
+        var deployment = await Task.Run(() => _packageInstaller.PrepareDataPackage(localPackage, cancellationToken), cancellationToken).ConfigureAwait(false);
+        try
         {
-            _packageInstaller.InstallDataPackage(localPackage);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync<Task>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                bool extensionLoaded = false;
+                try
+                {
+                    // Extension hooks and repository observers run outside the payload gate.
+                    // A failed load leaves the old payload untouched; failed publication or
+                    // persistence unloads this newly loaded extension in the catch below.
+                    if (isExtension)
+                    {
+                        _packageManager.Load(localPackage);
+                        extensionLoaded = true;
+                    }
+                    Action? notify = null;
+                    deployment.Commit(() => notify = _installedPackageRepository.UpgradePackagesAndDeferNotifications(packageId));
+                    notify!();
+                }
+                catch (Exception failure)
+                {
+                    if (extensionLoaded)
+                    {
+                        try
+                        {
+                            if (!await _packageManager.Unload(localPackage))
+                                throw new InvalidOperationException("The unregistered extension could not be unloaded.");
+                        }
+                        catch (Exception cleanup)
+                        {
+                            throw new AggregateException("Package registration and extension cleanup failed.", failure, cleanup);
+                        }
+                    }
+                    throw;
+                }
+            }, Avalonia.Threading.DispatcherPriority.Default, cancellationToken).GetTask().Unwrap().ConfigureAwait(false);
         }
-        else
+        finally
         {
-            _packageManager.Load(localPackage);
+            await Task.Run(deployment.Dispose).ConfigureAwait(false);
         }
     }
 

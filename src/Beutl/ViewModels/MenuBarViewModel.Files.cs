@@ -26,7 +26,7 @@ public partial class MenuBarViewModel
         CloseFileCore = new ReactiveCommandSlim<EditorTabItem>()
             .WithSubscribe(OnCloseFileCore);
 
-        CloseProject = new ReactiveCommandSlim(IsProjectOpened)
+        CloseProject = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(CloseProjectCore);
 
         Save = new AsyncReactiveCommand(IsProjectOpened)
@@ -95,7 +95,7 @@ public partial class MenuBarViewModel
 
     public ReactiveCommandSlim CloseFile { get; private set; }
 
-    public ReactiveCommandSlim CloseProject { get; private set; }
+    public AsyncReactiveCommand CloseProject { get; private set; }
 
     public AsyncReactiveCommand Save { get; private set; }
 
@@ -119,11 +119,11 @@ public partial class MenuBarViewModel
 
     public AsyncReactiveCommand ImportProject { get; } = new();
 
-    private void CloseProjectCore()
+    private async Task CloseProjectCore()
     {
         try
         {
-            _projectService.CloseProject();
+            await _projectService.CloseProjectAsync();
         }
         catch (ProjectCloseAbortedException)
         {
@@ -266,7 +266,8 @@ public partial class MenuBarViewModel
             var uri = UriHelper.CreateFromPath(file);
             ProjectItem? projItem = null;
             if (project != null)
-                projItem = project.Items.FirstOrDefault(i => i.Uri == uri);
+                projItem = project.Items.FirstOrDefault(i => i.Uri is { IsFile: true } current
+                    && FilePathComparison.AreSameCanonicalPath(current.LocalPath, uri.LocalPath));
 
             projItem ??= CoreSerializer.RestoreFromUri<ProjectItem>(uri);
 
@@ -285,17 +286,24 @@ public partial class MenuBarViewModel
 
     private async void OnCloseFileCore(EditorTabItem? item)
     {
-        if (IsProjectOpened.Value)
+        try
         {
-            RemoveFromProject.Execute(item);
-        }
-        else
-        {
-            EditorTabItem? tabItem = item ?? _editorService.SelectedTabItem.Value;
-            if (tabItem != null)
+            if (IsProjectOpened.Value)
             {
-                await _editorService.CloseTabItem(tabItem);
+                RemoveFromProject.Execute(item);
             }
+            else
+            {
+                EditorTabItem? tabItem = item ?? _editorService.SelectedTabItem.Value;
+                if (tabItem != null)
+                {
+                    await _editorService.CloseTabItem(tabItem);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
         }
     }
 }

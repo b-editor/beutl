@@ -26,7 +26,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
             return;
         }
 
-        FilterEffectInputRenderNode? inputFacade = FindInputFacade(model, graphResource);
+        FilterEffectInputRenderNode? inputFacade = FindInputFacade(model, graphResource, out bool inputHasMultipleConsumers);
         if (inputFacade == null)
         {
             context.PassThrough();
@@ -35,6 +35,8 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
 
         using (FilterEffectInputBinding binding = inputFacade.Bind(context))
         {
+            if (inputHasMultipleConsumers)
+                binding.PrepareInputForFanOut();
             _compositionContext.Time = lastTime.Value;
             _compositionContext.PreferProxy = graphResource.PreferProxy;
             _compositionContext.PreferredProxyPreset = graphResource.PreferredProxyPreset;
@@ -45,7 +47,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
             var outputRenderNodes = PullOutputValue(model, graphResource);
             if (outputRenderNodes.Count == 0)
             {
-                context.PassThrough();
+                context.PublishRange(binding.RecordSubtreeForPublication(inputFacade));
             }
             else
             {
@@ -68,17 +70,22 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
 
     private static FilterEffectInputRenderNode? FindInputFacade(
         GraphModel model,
-        NodeGraphFilterEffect.Resource graphResource)
+        NodeGraphFilterEffect.Resource graphResource,
+        out bool inputHasMultipleConsumers)
     {
+        inputHasMultipleConsumers = false;
         foreach (var node in model.Nodes)
         {
-            if (node is FilterEffectInputNode)
+            if (node is FilterEffectInputNode inputNode)
             {
                 int slotIndex = graphResource.Snapshot.FindSlotIndex(node);
                 if (slotIndex < 0) continue;
                 var resource = graphResource.Snapshot.GetResource(slotIndex);
                 if (resource is FilterEffectInputNode.Resource inputResource)
+                {
+                    inputHasMultipleConsumers = inputNode.Output.Connections.Count > 1;
                     return inputResource.InputFacade;
+                }
             }
         }
 

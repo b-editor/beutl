@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.Runtime.CompilerServices;
 using Avalonia.Threading;
 using Beutl.Logging;
 using Beutl.Services;
@@ -13,6 +14,7 @@ public class EditorHostViewModel
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
     private readonly object _operationGate = new();
+    private readonly ConditionalWeakTable<Project, ClosedProjectSelection> _closedSelections = new();
     private Task _operationTail = Task.CompletedTask;
     private Project? _subscribedProject;
     private long _subscriptionGeneration;
@@ -35,6 +37,10 @@ public class EditorHostViewModel
             CoreObject? selectedObject = _editorService.SelectedTabItem.Value?.Context.Value?.Object;
             if (project is not null)
             {
+                // Failed activation may close the target too. Keep each model's selection
+                // separately without retaining projects after a successful switch.
+                _closedSelections.Remove(project);
+                _closedSelections.Add(project, new ClosedProjectSelection(selectedObject));
                 closeContext.RegisterCompletion(projectClosed =>
                     RestoreAfterAbortedCloseAsync(project, selectedObject, projectClosed));
             }
@@ -45,8 +51,19 @@ public class EditorHostViewModel
 
     private Task OnProjectOpenedAsync(Project project)
     {
-        return QueueOperationAsync(() => DispatchProjectChangeAsync(project, null));
+        return QueueOperationAsync(async () =>
+        {
+            await DispatchProjectChangeAsync(project, null);
+            if (_closedSelections.TryGetValue(project, out ClosedProjectSelection? selection))
+            {
+                _closedSelections.Remove(project);
+                if (selection.SelectedObject is ProjectItem item && project.Items.Contains(item))
+                    await DispatchAsync(() => _editorService.ActivateTabItem(item));
+            }
+        });
     }
+
+    private sealed record ClosedProjectSelection(CoreObject? SelectedObject);
 
     private async Task DispatchProjectChangeAsync(Project? @new, Project? old)
     {

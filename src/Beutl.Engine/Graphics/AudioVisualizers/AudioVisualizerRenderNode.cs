@@ -37,7 +37,7 @@ internal sealed class AudioVisualizerRenderNode(AudioVisualizerDrawable.Resource
             static (canvas, _, _, state) => state.Resource.RenderToCanvas(canvas, state.Bounds),
             fill,
             null,
-            bounds,
+            bounds.Inflate(GetRasterOutset(resource)),
             RenderHitTestContract.None,
             RenderScaleContract.Vector,
             // A visualizer strokes bars and curves that overlap one another, so its coverage cannot be
@@ -45,6 +45,16 @@ internal sealed class AudioVisualizerRenderNode(AudioVisualizerDrawable.Resource
             supportsDirectDstOut: false,
             bindings: [s_visualizerSlot.Bind(resourceToken)]));
     }
+
+    private static float GetRasterOutset(AudioVisualizerDrawable.Resource resource)
+        => resource is AudioWaveformDrawable.Resource waveform
+            ? waveform.Shape switch
+            {
+                LineWaveformShape.Resource line => MathF.Max(0, line.Thickness) / 2,
+                DotsWaveformShape.Resource dots => MathF.Max(0.5f, dots.DotRadius),
+                _ => 0,
+            }
+            : 0;
 
     protected override void OnDispose(bool disposing)
     {

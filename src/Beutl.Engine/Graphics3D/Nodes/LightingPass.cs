@@ -505,7 +505,7 @@ public sealed class LightingPass : GraphicsNode3D
             return mix(1.0, shadow, info.shadowStrength);
         }
 
-        vec3 calculateLight(int lightIdx, Light light, vec3 worldPos, vec3 N, vec3 V, vec3 F0, vec3 albedo, float metallic, float roughness) {
+        vec3 calculateLight(int lightIdx, Light light, vec3 worldPos, vec3 N, vec3 V, vec3 F0, vec3 albedo, float metallic, float roughness, bool receiveShadows) {
             vec3 L;
             float attenuation = 1.0;
             float spotEffect = 1.0;
@@ -528,7 +528,7 @@ public sealed class LightingPass : GraphicsNode3D
 
             // Calculate shadow factor
             float shadowFactor = 1.0;
-            if (light.shadowIndex >= 0) {
+            if (receiveShadows && light.shadowIndex >= 0) {
                 if (light.type == LIGHT_POINT) {
                     shadowFactor = calculateShadowCube(light.shadowIndex, worldPos, N);
                 } else {
@@ -584,7 +584,7 @@ public sealed class LightingPass : GraphicsNode3D
             // Accumulate lighting
             vec3 Lo = vec3(0.0);
             for (int i = 0; i < lighting.lightCount && i < MAX_LIGHTS; i++) {
-                Lo += calculateLight(i, lighting.lights[i], worldPos, N, V, F0, albedo, metallic, roughness);
+                Lo += calculateLight(i, lighting.lights[i], worldPos, N, V, F0, albedo, metallic, roughness, positionSample.a < 1.5);
             }
 
             // Ambient lighting

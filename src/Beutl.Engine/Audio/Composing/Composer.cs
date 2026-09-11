@@ -447,9 +447,8 @@ public class Composer : IComposer
         int remainingLatency = 0;
         foreach (InlineDrainBranch branch in branches)
         {
-            int upstreamRemaining = SubtractTail(branch.LatencySamples, branch.DrainedSamples);
-            int downstreamRemaining = SubtractTail(branch.DownstreamLatencySamples, branch.PaddingSamples);
-            int branchRemaining = AddLatency(upstreamRemaining, downstreamRemaining);
+            int branchRemaining = SubtractTail(
+                AddLatency(branch.LatencySamples, branch.DownstreamLatencySamples), branch.PaddingSamples);
             if (branchRemaining == int.MaxValue)
             {
                 remainingLatency = int.MaxValue;

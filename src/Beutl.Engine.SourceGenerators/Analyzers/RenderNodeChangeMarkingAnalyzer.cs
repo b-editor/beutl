@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace Beutl.Engine.SourceGenerators.Analyzers;
 
@@ -60,12 +61,33 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
         var analysis = new TypeAnalysis(context.Compilation, type, renderNodeType);
         ImmutableHashSet<ISymbol> processClosure = analysis.CollectCallClosure(process);
+        for (INamedTypeSymbol? current = type; current is not null && !SymbolEqualityComparer.Default.Equals(current, renderNodeType); current = current.BaseType)
+        {
+            if (current.GetMembers("ChildNodes").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod is { } getter)
+            {
+                processClosure = processClosure.Union(analysis.CollectCallClosure(getter));
+                break;
+            }
+        }
         ImmutableHashSet<ISymbol> readState = analysis.CollectReadInstanceState(processClosure);
         if (readState.IsEmpty)
             return;
 
         ReportUnmarkedMutators(context, analysis, type, renderNodeType, processClosure, readState);
         ReportExternallyWritableState(context, analysis, type, renderNodeType, readState);
+        List<ReportedByBase> reportedByBases = CollectReportsByBaseTypes(analysis, type, renderNodeType);
+        foreach (IMethodSymbol callback in analysis.ConstructorSubscriptions(type))
+        {
+            if (analysis.MarksChanged(callback)) continue;
+            foreach (StateAssignment assignment in analysis.FindStateAssignments(callback, readState))
+            {
+                if (IsReportedByABaseType(reportedByBases, callback, assignment.State))
+                    continue;
+                context.ReportDiagnostic(Diagnostic.Create(
+                    DiagnosticDescriptors.UnmarkedRenderNodeMutation, assignment.Location,
+                    type.Name, "constructor subscription", assignment.State.Name, CallMarkChanged));
+            }
+        }
     }
 
     /// <summary>Reports the writes to <paramref name="readState"/> made by the methods this node runs.</summary>
@@ -106,7 +128,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         foreach (IMethodSymbol method in EnumerateChainMethods(type, renderNodeType))
         {
             if (!RunsBetweenRecordings(method, renderNodeType, processClosure, overridden)
-                || !reachedUnmarked.Contains(method)
+                || !reachedUnmarked.Contains(method.OriginalDefinition)
                 || analysis.MarksChanged(method))
             {
                 continue;
@@ -156,6 +178,9 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                 analysis.CollectCallClosure(process),
                 CollectOverriddenMethods(declaring, renderNodeType));
 
+            members = members.Union(analysis.ConstructorSubscriptions(declaring)
+                .Where(callback => !analysis.MarksChanged(callback))
+                .Select(callback => (ISymbol)callback.OriginalDefinition));
             if (!members.IsEmpty)
                 reported.Add(new ReportedByBase(state, members));
         }
@@ -170,7 +195,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     {
         foreach (ReportedByBase reported in reportedByBases)
         {
-            if (reported.State.Contains(state) && reported.Members.Contains(method))
+            if (reported.State.Contains(state.OriginalDefinition) && reported.Members.Contains(method.OriginalDefinition))
                 return true;
         }
 
@@ -274,7 +299,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                or MethodKind.Destructor)
            && !method.IsStatic
            && !IsDisposalOverride(method, renderNodeType)
-           && !processClosure.Contains(method)
+           && !processClosure.Contains(method.OriginalDefinition)
            && !overridden.Contains(method.OriginalDefinition);
 
     private static bool IsReachableFromOutsideTheChain(IMethodSymbol method)
@@ -518,8 +543,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         {
             var visited = ImmutableHashSet.CreateBuilder<ISymbol>(SymbolEqualityComparer.Default);
             var pending = new Stack<IMethodSymbol>();
-            pending.Push(entryPoint);
-            visited.Add(entryPoint);
+            pending.Push(entryPoint.OriginalDefinition);
+            visited.Add(entryPoint.OriginalDefinition);
 
             while (pending.Count > 0)
             {
@@ -535,9 +560,9 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                         {
                             if (IsOwnTypeChainMember(callee)
                                 && callee.DeclaringSyntaxReferences.Length > 0
-                                && visited.Add(callee))
+                                && visited.Add(callee.OriginalDefinition))
                             {
-                                pending.Push(callee);
+                                pending.Push(callee.OriginalDefinition);
                             }
                         }
                     }
@@ -588,7 +613,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                         // A simple assignment overwrites without reading, so the target alone does not make
                         // the member part of what Process depends on.
                         if (!IsSimpleAssignmentTarget(reference.Access))
-                            read.Add(symbol);
+                            read.Add(symbol.OriginalDefinition);
                     }
                 }
             }
@@ -653,7 +678,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     if (GetStateReference(body.Model, node) is not { Symbol: { } symbol } reference)
                         continue;
 
-                    if (!trackedState.Contains(symbol))
+                    if (!trackedState.Contains(symbol.OriginalDefinition))
                         continue;
 
                     // An assignment to another instance of the same type is a different object's state, and
@@ -738,6 +763,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return symbol switch
             {
                 IFieldSymbol { IsConst: false, AssociatedSymbol: null } => true,
+                IParameterSymbol parameter => parameter.DeclaringSyntaxReferences.Any(reference =>
+                    reference.GetSyntax() is ParameterSyntax { Parent.Parent: TypeDeclarationSyntax }),
 
                 // The backing field a property body names with the field keyword. Nothing else in source can
                 // reach it, so tracking it reports the setter that writes it and never doubles up with the
@@ -772,6 +799,26 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
+        public IEnumerable<IMethodSymbol> ConstructorSubscriptions(INamedTypeSymbol declaring)
+        {
+            for (INamedTypeSymbol? current = declaring;
+                 current is not null && !SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, renderNodeType);
+                 current = current.BaseType)
+                foreach (IMethodSymbol constructor in current.InstanceConstructors)
+                    foreach (BodyWithModel body in GetBodies(constructor))
+                        foreach (AnonymousFunctionExpressionSyntax lambda in body.Body.DescendantNodes(child => RunsNestedFunction(body.Model, body.Body, child,
+                                     localFunctionsFollowedAsCallees: false)).OfType<AnonymousFunctionExpressionSyntax>())
+                        {
+                            bool eventHandler = lambda.Parent is AssignmentExpressionSyntax assignment
+                                && assignment.IsKind(SyntaxKind.AddAssignmentExpression)
+                                && body.Model.GetSymbolInfo(assignment.Left).Symbol is IEventSymbol;
+                            bool subscription = lambda.Parent is ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax invocation }
+                                && body.Model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Subscribe" };
+                            if ((eventHandler || subscription) && body.Model.GetOperation(lambda) is IAnonymousFunctionOperation operation)
+                                yield return operation.Symbol;
+                        }
+        }
+
         private IEnumerable<BodyWithModel> GetBodies(IMethodSymbol method)
         {
             foreach (SyntaxReference reference in method.DeclaringSyntaxReferences)
@@ -782,6 +829,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     BaseMethodDeclarationSyntax m => (SyntaxNode?)m.Body ?? m.ExpressionBody,
                     AccessorDeclarationSyntax a => (SyntaxNode?)a.Body ?? a.ExpressionBody,
                     LocalFunctionStatementSyntax f => (SyntaxNode?)f.Body ?? f.ExpressionBody,
+                    AnonymousFunctionExpressionSyntax lambda => lambda.Body,
                     ArrowExpressionClauseSyntax arrow => arrow,
                     _ => null,
                 };
@@ -840,7 +888,14 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Whether <paramref name="expression"/> leaves the state naming it holding something else.</summary>
     private static bool ChangesTheState(SemanticModel model, ExpressionSyntax expression)
-        => ChangesTheValueBehind(expression) || MutatesInPlace(model, expression);
+    {
+        if (ChangesTheValueBehind(expression) || MutatesInPlace(model, expression))
+            return true;
+        return model.GetTypeInfo(expression).Type is { IsValueType: true }
+            && expression.Parent is MemberAccessExpressionSyntax member
+            && member.Expression == expression
+            && ChangesTheState(model, member);
+    }
 
     /// <summary>Whether a call written on <paramref name="state"/> changes what it holds.</summary>
     /// <remarks>

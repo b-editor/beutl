@@ -107,9 +107,9 @@ public sealed partial class MacWindow : Window
         try
         {
             var rootMenu = NativeMenu.GetMenu(this)!;
-            var fileMenu = (NativeMenuItem)rootMenu.Items[0];
-            recentFiles = ((NativeMenuItem)fileMenu.Menu!.Items[^4]).Menu;
-            recentProj = ((NativeMenuItem)fileMenu.Menu!.Items[^3]).Menu;
+            var fileMenu = FindMenuItem(rootMenu, Strings.File);
+            recentFiles = FindMenuItem(fileMenu?.Menu, Strings.RecentFiles)?.Menu;
+            recentProj = FindMenuItem(fileMenu?.Menu, Strings.RecentProjects)?.Menu;
         }
         catch
         {
@@ -448,7 +448,7 @@ public sealed partial class MacWindow : Window
         if (!_viewModelDisposed && DataContext is MainViewModel viewModel)
         {
             e.Cancel = true;
-            if (_viewModelDisposeTask is null && viewModel.TryDisposeForWindowClose())
+            if (_viewModelDisposeTask is null)
             {
                 _viewModelDisposeTask = DisposeViewModelAndCloseAsync(viewModel);
             }
@@ -464,14 +464,32 @@ public sealed partial class MacWindow : Window
 
     private async Task DisposeViewModelAndCloseAsync(MainViewModel viewModel)
     {
+        // Publish the in-flight task before a synchronous veto can clear it.
+        await Task.Yield();
+        bool closeAccepted = false;
         try
         {
+            if (!await viewModel.TryDisposeForWindowCloseAsync())
+                return;
+            closeAccepted = true;
             await viewModel.WaitForDisposalAsync();
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
         }
         finally
         {
-            _viewModelDisposed = true;
-            Close();
+            if (closeAccepted)
+            {
+                // Once closing is accepted, a cached cleanup failure cannot veto exit.
+                _viewModelDisposed = true;
+                Close();
+            }
+            else
+            {
+                _viewModelDisposeTask = null;
+            }
         }
     }
 

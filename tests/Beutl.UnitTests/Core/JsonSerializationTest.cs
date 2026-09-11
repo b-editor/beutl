@@ -12,6 +12,101 @@ namespace Beutl.UnitTests.Core;
 
 public class JsonSerializationTest
 {
+    [Test]
+    public void EmbeddedParent_KeepsReferencesInSeparatelySavedSidecars()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-sidecar-mode-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var grandchild = new TestSerializable { Uri = new Uri(Path.Combine(directory, "grandchild.json")) };
+            var child = new TestSerializable { Uri = new Uri(Path.Combine(directory, "child.json")), Instance = grandchild };
+            var root = new TestSerializable { Instance = child };
+            JsonObject embedded = CoreSerializer.SerializeToJsonObject(root, new CoreSerializerOptions
+            {
+                BaseUri = new Uri(Path.Combine(directory, "root.json")),
+                Mode = CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects | CoreSerializationMode.EmbedReferencedObjects,
+            });
+            Assert.That(embedded["Instance"], Is.TypeOf<JsonObject>());
+            JsonObject sidecar = JsonNode.Parse(File.ReadAllText(child.Uri.LocalPath))!.AsObject();
+            Assert.That(sidecar["Instance"]!.GetValue<string>(), Is.EqualTo("grandchild.json"));
+            Assert.That(File.Exists(grandchild.Uri.LocalPath), Is.True);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [TestCase("literal%20name.json", false, false)]
+    [TestCase("literal%20name.json", false, true)]
+    [TestCase("literal%20name.json", true, false)]
+    [TestCase("literal%20name.json", true, true)]
+    [TestCase("literal%2Fname.json", false, false)]
+    [TestCase("literal%2Fname.json", false, true)]
+    [TestCase("literal%2Fname.json", true, false)]
+    [TestCase("literal%2Fname.json", true, true)]
+    [TestCase("hash#name.json", false, false)]
+    [TestCase("hash#name.json", false, true)]
+    [TestCase("hash#name.json", true, false)]
+    [TestCase("hash#name.json", true, true)]
+    [TestCase("space name.json", false, false)]
+    [TestCase("space name.json", false, true)]
+    [TestCase("space name.json", true, false)]
+    [TestCase("space name.json", true, true)]
+    public void PersistedReference_RoundTripPreservesLiteralFileName(string fileName, bool embed, bool explicitBase)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-uri-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var baseUri = new Uri(Path.Combine(directory, "root.json"));
+            if (explicitBase) baseUri = new Uri(baseUri.AbsoluteUri);
+            var childUri = new Uri(Path.Combine(directory, fileName));
+            var child = new TestSerializable { Uri = childUri };
+            var root = new TestSerializable { Instance = child };
+            var mode = CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects;
+            if (embed) mode |= CoreSerializationMode.EmbedReferencedObjects;
+            JsonObject json = CoreSerializer.SerializeToJsonObject(root, new CoreSerializerOptions { BaseUri = baseUri, Mode = mode });
+            var restored = (TestSerializable)CoreSerializer.DeserializeFromJsonObject(json, typeof(TestSerializable),
+                new CoreSerializerOptions { BaseUri = baseUri });
+            Assert.That(restored.Instance, Is.Not.Null);
+            Assert.That(restored.Instance!.Uri!.LocalPath, Is.EqualTo(Path.Combine(directory, fileName)));
+            CoreSerializer.StoreToUri(restored, baseUri, CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
+            Assert.That(Directory.GetFiles(directory).Select(Path.GetFileName), Is.EquivalentTo(new[] { fileName, "root.json" }));
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [TestCase("literal%20name.json", false)]
+    [TestCase("literal%20name.json", true)]
+    [TestCase("literal%2Fname.json", false)]
+    [TestCase("literal%2Fname.json", true)]
+    [TestCase("hash#name.json", false)]
+    [TestCase("hash#name.json", true)]
+    public void PersistedReference_ConverterPreservesTheSameLiteralFileName(string fileName, bool explicitBase)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-uri-converter-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var baseUri = new Uri(Path.Combine(directory, "root.json"));
+            if (explicitBase) baseUri = new Uri(baseUri.AbsoluteUri);
+            var uri = new Uri(Path.Combine(directory, fileName));
+            var child = new TestSerializable { Uri = uri };
+            CoreSerializer.StoreToUri(child, uri);
+            var context = new JsonSerializationContext(typeof(TestSerializable), options: new CoreSerializerOptions { BaseUri = baseUri });
+            using (ThreadLocalSerializationContext.Enter(context))
+            {
+                string json = System.Text.Json.JsonSerializer.Serialize<ICoreSerializable>(child);
+                var restored = (TestSerializable)System.Text.Json.JsonSerializer.Deserialize<ICoreSerializable>(json)!;
+                Assert.That(restored.Uri!.LocalPath, Is.EqualTo(Path.Combine(directory, fileName)));
+                Assert.That(restored.Id, Is.EqualTo(child.Id));
+            }
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
     private class TestSerializable : CoreObject
     {
         public TestSerializable? Instance { get; set; }

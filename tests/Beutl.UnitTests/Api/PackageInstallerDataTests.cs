@@ -10,6 +10,229 @@ namespace Beutl.UnitTests.Api;
 [NonParallelizable]
 public class PackageInstallerDataTests
 {
+    [Test]
+    public void CancellationAfterStaging_LeavesPublishedDataAndRegistrationUnchanged()
+    {
+        const string name = "Beutl.Package.DataTest.CancelStaged";
+        LocalPackage old = CreateDataPackage(name, PackageKinds.MaterialTag, "1.0.0", [("materials/data.txt", "old")]);
+        LocalPackage current = CreateDataPackage(name, PackageKinds.MaterialTag, "2.0.0", [("materials/data.txt", "new")]);
+        _repository.AddPackage(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
+        _installer.InstallDataPackage(old);
+        using var cancellation = new CancellationTokenSource();
+        using (var deployment = _installer.PrepareDataPackage(current, cancellation.Token))
+        {
+            Assert.That(Directory.GetDirectories(Helper.AppRoot, ".data-install-*"), Is.Not.Empty);
+            cancellation.Cancel();
+            Assert.Throws<OperationCanceledException>(deployment.Commit);
+            Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "data.txt")), Is.EqualTo("old"));
+            Assert.That(_repository.ExistsPackage(name, "2.0.0"), Is.False);
+        }
+        Assert.That(Directory.GetDirectories(Helper.AppRoot, ".data-install-*"), Is.Empty);
+    }
+
+    [Test]
+    public void CancellationAfterPublication_DoesNotRevertACommittedDeployment()
+    {
+        const string name = "Beutl.Package.DataTest.CancelCommitted";
+        LocalPackage package = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/data.txt", "committed"));
+        using var cancellation = new CancellationTokenSource();
+        using (var deployment = _installer.PrepareDataPackage(package, cancellation.Token))
+        {
+            deployment.Commit();
+            cancellation.Cancel();
+            _repository.UpgradePackages(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
+        }
+        Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "data.txt")), Is.EqualTo("committed"));
+        Assert.That(_repository.ExistsPackage(name, "1.0.0"), Is.True);
+    }
+
+    [TestCase("{")]
+    [TestCase("null")]
+    [TestCase("{}")]
+    [TestCase("[]")]
+    [TestCase("directory")]
+    public void InvalidOwnerMarker_DoesNotAuthorizeLegacyReplacementOrDeletion(string contents)
+    {
+        const string name = "Beutl.Package.DataTest.InvalidOwner";
+        LocalPackage package = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/new.txt", "package"));
+        File.WriteAllText(Path.Combine(package.InstalledPath!, name + ".nuspec"),
+            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>tests</authors><description>tests</description><tags>{PackageKinds.MaterialTag}</tags></metadata></package>");
+        _repository.AddPackage(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
+        string directory = MaterialsDirectoryOf(name);
+        Directory.CreateDirectory(directory);
+        string userFile = Path.Combine(directory, "mine.txt");
+        File.WriteAllText(userFile, "user data");
+        string marker = Path.Combine(directory, ".beutl-package-owner");
+        if (contents == "directory") Directory.CreateDirectory(marker);
+        else File.WriteAllText(marker, contents);
+
+        Assert.Throws<IOException>(() => _installer.InstallDataPackage(package));
+        Assert.That(_installer.UninstallDataPackage(name), Is.True);
+        Assert.That(File.ReadAllText(userFile), Is.EqualTo("user data"));
+
+        // Only actual absence enables the legacy fallback.
+        if (contents == "directory") Directory.Delete(marker);
+        else File.Delete(marker);
+        Assert.DoesNotThrow(() => _installer.InstallDataPackage(package));
+        Assert.That(File.Exists(userFile), Is.False);
+        Assert.That(File.ReadAllText(Path.Combine(directory, "new.txt")), Is.EqualTo("package"));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void FailedPayloadRepair_PreservesRetryStateAndProcessesOtherPackages(bool clean)
+    {
+        const string name = "Beutl.Package.DataTest.RepairFailure";
+        var oldId = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        var newId = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
+        LocalPackage old = CreateDataPackage(name, PackageKinds.MaterialTag, "1.0.0", [("materials/item.txt", "old")]);
+        LocalPackage current = CreateDataPackage(name, PackageKinds.MaterialTag, "2.0.0", [("materials/item.txt", "new")]);
+        File.WriteAllText(Path.Combine(old.InstalledPath!, name + ".nuspec"),
+            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>tests</authors><description>tests</description><tags>{PackageKinds.MaterialTag}</tags></metadata></package>");
+        LocalPackage other = CreateDataPackage(name + ".Other", PackageKinds.MaterialTag, ("materials/other.txt", "other"));
+        var otherId = new PackageIdentity(other.Name, NuGetVersion.Parse(other.Version));
+        foreach (var id in new[] { oldId, newId, otherId }) _repository.AddPackage(id);
+        _installer.InstallDataPackage(current);
+        _installer.InstallDataPackage(other);
+        PackageIdentity[] removed = [newId, otherId];
+        IReadOnlyList<string> failures;
+        using (var blocked = new FileStream(Path.Combine(old.InstalledPath!, "materials/item.txt"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            if (clean)
+            {
+                var context = new PackageCleanContext(removed, 1);
+                _installer.Clean(context, new Progress<double>());
+                failures = context.FailedPackages;
+            }
+            else
+            {
+                var context = new PackageUninstallContext(newId, current.InstalledPath) { UnnecessaryPackages = removed };
+                _installer.Uninstall(context, new Progress<double>());
+                failures = context.FailedPackages;
+            }
+        }
+        Assert.That(failures, Is.EquivalentTo(new[] { current.InstalledPath }));
+        Assert.That(Directory.Exists(current.InstalledPath), Is.True);
+        Assert.That(_repository.ExistsPackage(name, "2.0.0"), Is.True);
+        Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "item.txt")), Is.EqualTo("new"));
+        Assert.That(Directory.Exists(other.InstalledPath), Is.False);
+        Assert.That(Directory.Exists(MaterialsDirectoryOf(other.Name)), Is.False);
+    }
+
+    [Test]
+    public void UninstallOldIdentityKeepsCurrentPayload()
+    {
+        const string name = "Beutl.Package.DataTest.UninstallOld";
+        var oldId = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        var newId = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
+        LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "old")]);
+        LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag], "2.0.0", [("materials/a.png", "new")]);
+        _repository.AddPackage(newId);
+        _installer.InstallDataPackage(current);
+        _installer.Uninstall(new PackageUninstallContext(oldId, old.InstalledPath) { UnnecessaryPackages = [oldId] }, new Progress<double>());
+        Assert.That(_repository.ExistsPackage(newId), Is.True);
+        Assert.That(File.Exists(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.True, "Current version still owns this material");
+    }
+
+    [Test]
+    public void FailedInstallKeepsPreviousPayload()
+    {
+        const string name = "Beutl.Package.DataTest.InstallFailure";
+        LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "old")]);
+        LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag], "2.0.0", [("materials/a.png", "new")]);
+        _installer.InstallDataPackage(old);
+        string unreadable = Path.Combine(current.InstalledPath!, "materials", "a.png");
+        using (new FileStream(unreadable, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            Assert.Throws<IOException>(() => _installer.InstallDataPackage(current));
+        }
+        Assert.That(File.Exists(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.True, "Failed update must preserve the installed material");
+    }
+
+    [Test]
+    public void FailedSecondPayloadPublicationRestoresFirstPayload()
+    {
+        const string name = "Beutl.Package.DataTest.PublishRollback";
+        LocalPackage old = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/a.png", "old"));
+        _installer.InstallDataPackage(old);
+        LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag, PackageKinds.TemplateTag],
+            "2.0.0", [("materials/a.png", "new"), ("templates/title.json", "new")]);
+        string obstruction = TemplatesDirectoryOf(name);
+        Directory.CreateDirectory(Path.GetDirectoryName(obstruction)!);
+        File.WriteAllText(obstruction, "existing file");
+        try
+        {
+            Assert.Throws<IOException>(() => _installer.InstallDataPackage(current));
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.EqualTo("old"));
+                Assert.That(File.ReadAllText(obstruction), Is.EqualTo("existing file"));
+                Assert.That(Directory.GetDirectories(BeutlEnvironment.GetHomeDirectoryPath(), ".data-install-*"), Is.Empty);
+            });
+        }
+        finally
+        {
+            File.Delete(obstruction);
+        }
+    }
+
+    [Test]
+    public void FailedSecondPayloadStagingKeepsBothPreviousPayloads()
+    {
+        const string name = "Beutl.Package.DataTest.StageRollback";
+        string[] tags = [PackageKinds.MaterialTag, PackageKinds.TemplateTag];
+        LocalPackage old = CreateDataPackage(name, tags, "1.0.0", [("materials/a.png", "old"), ("templates/title.json", "old")]);
+        _installer.InstallDataPackage(old);
+        LocalPackage current = CreateDataPackage(name, tags, "2.0.0", [("materials/a.png", "new"), ("templates/title.json", "new")]);
+        using (new FileStream(Path.Combine(current.InstalledPath!, "templates", "title.json"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            Assert.Throws<IOException>(() => _installer.InstallDataPackage(current));
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.EqualTo("old"));
+            Assert.That(File.ReadAllText(Path.Combine(TemplatesDirectoryOf(name), "title.json")), Is.EqualTo("old"));
+        });
+    }
+
+    [Test]
+    public void MaterialInstallAndUninstall_PreserveUnownedTemplateDirectory()
+    {
+        const string name = "Beutl.Package.DataTest.Unowned";
+        LocalPackage package = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/a.png", "package"));
+        string userDirectory = TemplatesDirectoryOf(name);
+        Directory.CreateDirectory(userDirectory);
+        string userFile = Path.Combine(userDirectory, "mine.json");
+        File.WriteAllText(userFile, "user template");
+        _installer.InstallDataPackage(package);
+        Assert.That(File.ReadAllText(userFile), Is.EqualTo("user template"));
+        _installer.UninstallDataPackage(name);
+        Assert.That(File.ReadAllText(userFile), Is.EqualTo("user template"));
+    }
+
+    [TestCase("2.0.0", false)]
+    [TestCase("2.0", false)]
+    [TestCase("2.0.0", true)]
+    public void RemovingPublishedVersion_RestoresSurvivingVersionPayload(string ownerVersion, bool missingSurvivor)
+    {
+        const string name = "Beutl.Package.DataTest.Downgrade";
+        var oldId = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        var newId = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
+        LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "old")]);
+        LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag], "2.0.0", [("materials/a.png", "new")]);
+        File.WriteAllText(Path.Combine(old.InstalledPath!, name + ".nuspec"),
+            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>tests</authors><description>tests</description><tags>{PackageKinds.MaterialTag}</tags></metadata></package>");
+        _repository.AddPackage(oldId);
+        _repository.AddPackage(newId);
+        _installer.InstallDataPackage(current);
+        File.WriteAllText(Path.Combine(MaterialsDirectoryOf(name), ".beutl-package-owner"),
+            System.Text.Json.JsonSerializer.Serialize(new { Name = name, Version = ownerVersion }));
+        if (missingSurvivor) Directory.Delete(old.InstalledPath!, true);
+        _installer.Uninstall(new PackageUninstallContext(newId, current.InstalledPath) { UnnecessaryPackages = [newId] }, new Progress<double>());
+        if (missingSurvivor)
+            Assert.That(Directory.Exists(MaterialsDirectoryOf(name)), Is.False);
+        else
+            Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.EqualTo("old"));
+    }
+
     private static string InstalledPackagesFile => Path.Combine(Helper.AppRoot, "installedPackages.json");
 
     private HttpClient _httpClient = null!;
@@ -172,6 +395,32 @@ public class PackageInstallerDataTests
         });
     }
 
+    [TestCase("materials", "templates")]
+    [TestCase("templates", "materials")]
+    public void UpgradeWithOmittedEnabledPayload_PreservesItsInstalledContents(string omitted, string updated)
+    {
+        const string name = "Beutl.Package.DataTest.OmittedPayload";
+        string[] tags = [PackageKinds.MaterialTag, PackageKinds.TemplateTag];
+        LocalPackage old = CreateDataPackage(name, tags, "1.0.0",
+            [("materials/item.txt", "old"), ("templates/item.txt", "old")]);
+        LocalPackage next = CreateDataPackage(name, tags, "2.0.0", [(updated + "/item.txt", "new")]);
+        _installer.InstallDataPackage(old);
+        string kept = omitted == "materials" ? MaterialsDirectoryOf(name) : TemplatesDirectoryOf(name);
+        byte[] marker = File.ReadAllBytes(Path.Combine(kept, ".beutl-package-owner"));
+
+        _installer.InstallDataPackage(next);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(Path.Combine(kept, "item.txt")), Is.EqualTo("old"));
+            Assert.That(File.ReadAllBytes(Path.Combine(kept, ".beutl-package-owner")), Is.EqualTo(marker));
+            string replaced = updated == "materials" ? MaterialsDirectoryOf(name) : TemplatesDirectoryOf(name);
+            Assert.That(File.ReadAllText(Path.Combine(replaced, "item.txt")), Is.EqualTo("new"));
+        });
+        Assert.That(_installer.UninstallDataPackage(name), Is.True);
+        Assert.That(Directory.Exists(kept), Is.False, "Preserved data must remain owned and removable.");
+    }
+
     [Test]
     public void InstallDataPackage_LeavesNothingBehind_WhenThePackageShipsNoPayload()
     {
@@ -195,9 +444,9 @@ public class PackageInstallerDataTests
     public void UninstallDataPackage_RemovesBothPayloadDirectories()
     {
         const string Name = "Beutl.Package.DataTest.Uninstall";
-        LocalPackage templates = CreateDataPackage(Name, PackageKinds.TemplateTag, ("templates/a.json", "{}"));
+        LocalPackage templates = CreateDataPackage(Name, [PackageKinds.TemplateTag, PackageKinds.MaterialTag], "1.0.0",
+            [("templates/a.json", "{}"), ("materials/a.png", "image")]);
         _installer.InstallDataPackage(templates);
-        Directory.CreateDirectory(MaterialsDirectoryOf(Name));
 
         bool removed = _installer.UninstallDataPackage(Name);
 
@@ -414,6 +663,97 @@ public class PackageInstallerDataTests
             new Progress<double>());
 
         Assert.That(Directory.Exists(TemplatesDirectoryOf(identity.Id)), Is.False);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void MissingLegacyMetadata_PreservesRegistrationAndReportsFailureUntilRepair(bool clean)
+    {
+        const string name = "Beutl.Package.DataTest.MissingLegacyMetadata";
+        var identity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        LocalPackage package = CreateDataPackage(name, [PackageKinds.MaterialTag, PackageKinds.TemplateTag], "1.0.0",
+            [("materials/item.txt", "material"), ("templates/item.json", "template")]);
+        _repository.AddPackage(identity);
+        _installer.InstallDataPackage(package);
+        File.Delete(Path.Combine(MaterialsDirectoryOf(name), ".beutl-package-owner"));
+        File.Delete(Path.Combine(TemplatesDirectoryOf(name), ".beutl-package-owner"));
+        string installedPath = package.InstalledPath!;
+        Directory.Delete(installedPath, true);
+
+        LocalPackage other = CreateDataPackage(name + ".Other", PackageKinds.MaterialTag, ("materials/other.txt", "other"));
+        var otherIdentity = new PackageIdentity(other.Name, NuGetVersion.Parse(other.Version));
+        _repository.AddPackage(otherIdentity);
+        _installer.InstallDataPackage(other);
+
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            IReadOnlyList<string> failures = Remove([identity, otherIdentity]);
+            Assert.Multiple(() =>
+            {
+                Assert.That(failures, Is.EqualTo(new[] { installedPath }));
+                Assert.That(_repository.ExistsPackage(identity), Is.True);
+                Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "item.txt")), Is.EqualTo("material"));
+                Assert.That(File.ReadAllText(Path.Combine(TemplatesDirectoryOf(name), "item.json")), Is.EqualTo("template"));
+                Assert.That(_repository.ExistsPackage(otherIdentity), Is.False);
+                Assert.That(Directory.Exists(MaterialsDirectoryOf(other.Name)), Is.False);
+            });
+        }
+
+        // Restoring the installed metadata supplies proof of ownership for the legacy directories.
+        Directory.CreateDirectory(installedPath);
+        File.WriteAllText(Path.Combine(installedPath, name + ".nuspec"),
+            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>tests</authors><description>tests</description><tags>{PackageKinds.MaterialTag} {PackageKinds.TemplateTag}</tags></metadata></package>");
+        File.WriteAllText(Path.Combine(installedPath, name + ".1.0.0.nupkg"), "");
+        Assert.That(Remove([identity]), Is.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(_repository.ExistsPackage(identity), Is.False);
+            Assert.That(Directory.Exists(MaterialsDirectoryOf(name)), Is.False);
+            Assert.That(Directory.Exists(TemplatesDirectoryOf(name)), Is.False);
+        });
+
+        IReadOnlyList<string> Remove(PackageIdentity[] identities)
+        {
+            if (clean)
+            {
+                var context = new PackageCleanContext(identities, 1);
+                _installer.Clean(context, new Progress<double>());
+                return context.FailedPackages;
+            }
+            else
+            {
+                var context = new PackageUninstallContext(identity, installedPath)
+                {
+                    UnnecessaryPackages = identities,
+                    SizeToBeReleased = 1,
+                };
+                _installer.Uninstall(context, new Progress<double>());
+                return context.FailedPackages;
+            }
+        }
+    }
+
+    [Test]
+    public void TypeChange_DoesNotForgetAnUnverifiableLegacyPayload()
+    {
+        const string name = "Beutl.Package.DataTest.LegacyTypeChange";
+        var oldIdentity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
+        var newIdentity = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
+        LocalPackage old = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/item.txt", "legacy"));
+        _repository.AddPackage(oldIdentity);
+        _installer.InstallDataPackage(old);
+        File.Delete(Path.Combine(MaterialsDirectoryOf(name), ".beutl-package-owner"));
+        Directory.Delete(old.InstalledPath!, true);
+
+        LocalPackage extension = CreateDataPackage(name, "effects", "2.0.0", []);
+        using var deployment = _installer.PrepareDataPackage(extension, CancellationToken.None);
+        Assert.Throws<IOException>(() => deployment.Commit(() => _repository.UpgradePackages(newIdentity)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(_repository.ExistsPackage(oldIdentity), Is.True);
+            Assert.That(_repository.ExistsPackage(newIdentity), Is.False);
+            Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "item.txt")), Is.EqualTo("legacy"));
+        });
     }
 
     private static string TemplatesDirectoryOf(string packageName)

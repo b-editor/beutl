@@ -267,8 +267,14 @@ public sealed class HistoryManager : IDisposable
         }
     }
 
-    private void ThrowIfHistoryControlIsBlocked_NoLock()
+    private void ThrowIfHistoryControlIsBlocked_NoLock(bool allowUncertainFailure = false)
     {
+        if (!allowUncertainFailure && (_currentTransaction.HasUncertainFailure
+            || _undoStack.Any(transaction => transaction.HasUncertainFailure)
+            || _redoStack.Any(transaction => transaction.HasUncertainFailure)))
+        {
+            throw new InvalidOperationException("History contains an operation with uncertain partial execution. Clear history or reopen the project before replaying it.");
+        }
         if (_isolatedTransactionActive)
         {
             throw new InvalidOperationException(
@@ -394,68 +400,50 @@ public sealed class HistoryManager : IDisposable
         }
     }
 
-    public bool Undo()
+    public bool Undo() => MoveHistory(redo: false);
+
+    public bool Redo() => MoveHistory(redo: true);
+
+    private bool MoveHistory(bool redo)
     {
         ThrowIfDisposed();
-
         FireBeforeMutation();
-
-        lock (_lock)
+        bool attemptedMutation = false;
+        try
         {
-            ThrowIfHistoryControlIsBlocked_NoLock();
-            Rollback();
-
-            if (_undoStack.Count == 0)
+            lock (_lock)
             {
-                _logger.LogDebug("Undo requested but undo stack is empty");
-                return false;
+                ThrowIfHistoryControlIsBlocked_NoLock();
+                attemptedMutation = _currentTransaction.HasOperations;
+                Rollback();
+                Stack<HistoryTransaction> source = redo ? _redoStack : _undoStack;
+                Stack<HistoryTransaction> destination = redo ? _undoStack : _redoStack;
+                if (source.Count == 0)
+                    return false;
+
+                HistoryTransaction transaction = source.Peek();
+                _logger.LogDebug("{Action} transaction: {TransactionName} (ID: {TransactionId})",
+                    redo ? "Redoing" : "Undoing", transaction.Name, transaction.Id);
+                attemptedMutation = true;
+                using (SuppressRecording())
+                {
+                    if (redo)
+                        transaction.Apply(_context);
+                    else
+                        transaction.Revert(_context);
+                }
+                source.Pop();
+                destination.Push(transaction);
+                return true;
             }
-
-            HistoryTransaction transaction = _undoStack.Pop();
-            _logger.LogDebug("Undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
-
-            using (SuppressRecording())
-            {
-                transaction.Revert(_context);
-            }
-
-            _redoStack.Push(transaction);
         }
-
-        NotifyStateChanged();
-        return true;
-    }
-
-    public bool Redo()
-    {
-        ThrowIfDisposed();
-
-        FireBeforeMutation();
-
-        lock (_lock)
+        finally
         {
-            ThrowIfHistoryControlIsBlocked_NoLock();
-            Rollback();
-
-            if (_redoStack.Count == 0)
-            {
-                _logger.LogDebug("Redo requested but redo stack is empty");
-                return false;
-            }
-
-            HistoryTransaction transaction = _redoStack.Pop();
-            _logger.LogDebug("Redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
-
-            using (SuppressRecording())
-            {
-                transaction.Apply(_context);
-            }
-
-            _undoStack.Push(transaction);
+            // A failing operation can already have changed the model. Keep its history
+            // entry and publish the surviving state, including on partial failure.
+            if (attemptedMutation)
+                NotifyStateChanged();
         }
-
-        NotifyStateChanged();
-        return true;
     }
 
     public void Clear()
@@ -464,7 +452,9 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            ThrowIfHistoryControlIsBlocked_NoLock();
+            ThrowIfHistoryControlIsBlocked_NoLock(allowUncertainFailure: true);
+            if (_currentTransaction.HasUncertainFailure)
+                _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
             int undoCount = _undoStack.Count;
             int redoCount = _redoStack.Count;
             _undoStack.Clear();

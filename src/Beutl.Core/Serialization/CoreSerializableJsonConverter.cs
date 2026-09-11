@@ -16,22 +16,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
         else if (jsonNode is JsonValue jsonValue && jsonValue.TryGetValue(out string? uriString))
         {
             var parentContext = ThreadLocalSerializationContext.Current;
-            uriString = Uri.UnescapeDataString(uriString);
-            if (!Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out Uri? uri))
-            {
-                throw new JsonException($"Invalid URI: {uriString}");
-            }
-
-            if (!uri.IsAbsoluteUri)
-            {
-                if (parentContext == null)
-                    throw new JsonException("Cannot resolve relative URI without a parent context.");
-
-                if (!Uri.TryCreate(parentContext.BaseUri, uriString, out uri))
-                {
-                    throw new JsonException($"Invalid relative URI: {uriString}");
-                }
-            }
+            Uri uri = UriHelper.ResolvePersistedReference(uriString, parentContext?.BaseUri);
 
             return CoreSerializer.RestoreFromUri(uri, typeToConvert) as ICoreSerializable;
         }
@@ -46,13 +31,8 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
         {
             if (parentContext.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
             {
-                var node = CoreSerializer.SerializeToJsonObject(value,
-                    new CoreSerializerOptions { BaseUri = coreObj.Uri });
-
-                var path = coreObj.Uri.LocalPath;
-                using var stream = File.Create(path);
-                using var innerWriter = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
-                node.WriteTo(innerWriter);
+                CoreSerializer.StoreToUri(value, coreObj.Uri,
+                    CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
             }
 
             var serializedUri = coreObj.Uri;

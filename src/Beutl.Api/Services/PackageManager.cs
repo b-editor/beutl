@@ -70,13 +70,18 @@ public sealed class PackageManager : PackageLoader
 
         foreach (string file in files)
         {
-            using FileStream stream = File.OpenRead(file);
-            if (Helper.ReadLocalPackageFromNupkgFile(stream) is { } localPackage)
+            try
             {
-                if (!packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, localPackage.Name)))
+                using FileStream stream = File.OpenRead(file);
+                if (Helper.ReadLocalPackageFromNupkgFile(stream) is { } localPackage
+                    && !packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, localPackage.Name)))
                 {
                     list.Add(localPackage);
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Unable to read local package {Path}; continuing with other packages.", file);
             }
         }
 

@@ -1169,7 +1169,46 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
-    public async Task Rejected_successful_transcription_retires_its_key_before_retry()
+    public async Task Silent_transcription_chunk_completes_before_the_next_spoken_chunk()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("silent-transcription-chunk");
+        var keys = new List<string?>();
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
+            {
+                keys.Add(IdempotencyKeyOf(request));
+                return keys.Count == 1
+                    ? JsonResponse(HttpStatusCode.OK, """{"segments":[]}""")
+                    : JsonResponse(HttpStatusCode.OK, """{"segments":[{"start":0,"end":0.05,"text":"speech"}]}""");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var http = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
+        SetAuthenticatedUser(clients, http);
+        using var dialog = CreateSubtitleDialog(clients, editor);
+        dialog.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
+        dialog.SceneMixAudioComposer = (start, duration, _) => Task.FromResult<AudioFrameSnapshot?>(
+            new AudioFrameSnapshot(new float[Math.Max(1, (int)(duration.TotalSeconds * 16000))], 16000, 1, start));
+        await WaitUntilAsync(() => dialog.Usage.HasSnapshot.Value && dialog.SelectedAudioSource.Value?.IsSceneMix == true);
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        await WaitUntilAsync(() => dialog.CanTranscribe.Value);
+        await dialog.Transcribe.ExecuteAsync();
+        Assert.That(dialog.Error.Value, Is.Null);
+        Assert.That(dialog.HasRejectedTranscriptionResult.Value, Is.False);
+        Assert.That(dialog.HasOutstandingTranscriptionRequest.Value, Is.False);
+        Assert.That(keys, Has.Count.EqualTo(2));
+        Assert.That(dialog.ResultSegments.Value, Has.Length.EqualTo(1));
+        Assert.That(dialog.ResultSegments.Value![0].Start, Is.EqualTo(0.05));
+        Assert.That(dialog.ResultSegments.Value![0].End, Is.EqualTo(0.1));
+    }
+
+    [AvaloniaTest]
+    public async Task Rejected_successful_transcription_keeps_its_key_until_explicit_discard()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("rejected-transcription-key");
@@ -1181,9 +1220,9 @@ public sealed class AiDialogWorkflowTests
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
             {
                 keys.Add(IdempotencyKeyOf(request));
-                return keys.Count == 1
+                return keys.Count <= 2
                     ? JsonResponse(HttpStatusCode.OK, """{"segments":[{"start":0,"end":100,"text":"invalid"}]}""")
-                    : CreateTranscriptionResponse("valid-retry");
+                    : JsonResponse(HttpStatusCode.OK, """{"segments":[{"start":0,"end":0.07,"text":"valid-retry"}]}""");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
@@ -1198,11 +1237,22 @@ public sealed class AiDialogWorkflowTests
         editor.Scene.Duration = TimeSpan.FromMilliseconds(50);
         await WaitUntilAsync(() => dialog.CanTranscribe.Value);
         await dialog.Transcribe.ExecuteAsync();
-        Assert.That(dialog.Error.Value, Is.Not.Null);
-        Assert.That(dialog.HasOutstandingTranscriptionRequest.Value, Is.False);
+        Assert.That(dialog.Error.Value, Is.Null, "The dedicated rejected-result banner must not be paired with a generic error.");
+        Assert.That(dialog.HasOutstandingTranscriptionRequest.Value, Is.True);
+        Assert.That(dialog.HasRejectedTranscriptionResult.Value, Is.True);
         await dialog.Transcribe.ExecuteAsync();
         Assert.That(keys, Has.Count.EqualTo(2));
-        Assert.That(keys[1], Is.Not.EqualTo(keys[0]));
+        Assert.That(keys[1], Is.EqualTo(keys[0]), "A normal retry must not buy the rejected result again.");
+        dialog.DiscardRejectedTranscriptionResult.Execute();
+        Assert.That(dialog.HasOutstandingTranscriptionRequest.Value, Is.False);
+        Assert.That(dialog.HasRejectedTranscriptionResult.Value, Is.False);
+        await WaitUntilAsync(() => dialog.CanTranscribe.Value);
+        await dialog.Transcribe.ExecuteAsync();
+        Assert.That(keys, Has.Count.EqualTo(3));
+        Assert.That(keys[2], Is.Not.EqualTo(keys[0]));
+        Assert.That(dialog.Error.Value, Is.Null);
+        Assert.That(dialog.ResultSegments.Value, Has.Length.EqualTo(1));
+        Assert.That(dialog.ResultSegments.Value![0].End, Is.EqualTo(0.05), "Scene mix must use the clamped result.");
     }
 
     [AvaloniaTest]

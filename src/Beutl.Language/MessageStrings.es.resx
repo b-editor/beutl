@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:schema id="root">
     <xs:element name="root" ns1:IsDataSet="true">
@@ -442,5 +442,14 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   </data>
   <data name="FFmpegErrorStreamNotFound" xml:space="preserve">
     <value>No se encontró ningún flujo adecuado en la entrada.</value>
+  </data>
+  <data name="FileInUse" xml:space="preserve">
+    <value>Cierra los archivos en el editor antes de cambiar el nombre de este elemento o eliminarlo.</value>
+  </data>
+  <data name="AiRejectedTranscriptionResult" xml:space="preserve">
+    <value>No se pudo utilizar la transcripción. Reintentar conserva la misma solicitud pagada. Puedes descartar este resultado para iniciar una nueva solicitud; la siguiente transcripción puede generar otro cargo.</value>
+  </data>
+  <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
+    <value>Descartar resultado no utilizable</value>
   </data>
 </root>
