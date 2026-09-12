@@ -15,9 +15,9 @@
                 <ResourceInclude Source="/Styling/ButtonStyles.axaml" />
                 <ResourceInclude Source="/Styling/ComboBoxStyles.axaml" />
                 <ResourceInclude Source="/Styling/TextBlockStyles.axaml" />
-                <ResourceInclude Source="/Styling/ToolTabBar.axaml" />
                 <ResourceInclude Source="/Styling/ToggleSwitchStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToggleButtonStyles.axaml" />
+                <ResourceInclude Source="/Styling/ToolTabBar.axaml" />
                 <ResourceInclude Source="/Styling/SimpleBreadcrumbBar.axaml" />
 
                 <ResourceInclude Source="/Styling/ProgressRing.axaml" />
