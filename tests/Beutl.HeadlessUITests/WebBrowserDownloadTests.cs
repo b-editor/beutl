@@ -50,6 +50,47 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public async Task PageLinkReferrerPolicySurvivesConfirmationAndHistoryRetry()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://files.example/page"), profile);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        view.DownloadCookiesProvider = (_, _) => Task.FromResult<IReadOnlyList<Cookie>>([new("session", "value", "/", "files.example") { Secure = true }]);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        var window = new Window { Content = view };
+        try
+        {
+            window.Show();
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3","referrerPolicy":"no-referrer"}""" });
+            Dispatcher.UIThread.RunJobs();
+            view.FindControl<Button>("ConfirmPageDownloadButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(handler.Referrer, Is.Null);
+            Assert.That(handler.CookieHeader, Is.EqualTo("session=value"));
+            Assert.That(profile.Downloads.Single().ReferrerPolicy, Is.EqualTo(BrowserReferrerPolicy.NoReferrer));
+            completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
+            menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Beutl.Language.Strings.BrowserDownloads)
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            view.FindControl<ContentControl>("ToolPanelContent")!.GetVisualDescendants().OfType<Button>()
+                .Single(button => Equals(ToolTip.GetTip(button), Beutl.Language.Strings.BrowserRetry))
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(handler.Referrer, Is.Null);
+            Assert.That(handler.CookieHeader, Is.EqualTo("session=value"));
+        }
+        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
     public async Task DownloadedSvgIsSavedWithoutAttemptingTimelineImport()
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

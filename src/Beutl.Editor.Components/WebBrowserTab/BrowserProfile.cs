@@ -19,6 +19,9 @@ internal sealed record BrowserDownloadRecord(string Url, string FilePath, DateTi
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Referrer { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public BrowserReferrerPolicy ReferrerPolicy { get; init; }
 }
 
 internal sealed class BrowserProfile
@@ -109,12 +112,13 @@ internal sealed class BrowserProfile
         return true;
     }
 
-    internal bool AddDownload(Uri uri, string file, Uri? referrer = null)
+    internal bool AddDownload(Uri uri, string file, Uri? referrer = null, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin)
     {
         if (!RecordDownloads || !IsAllowedUrl(uri.AbsoluteUri)) return true;
         var item = new BrowserDownloadRecord(uri.AbsoluteUri, Path.GetFullPath(file), DateTimeOffset.UtcNow)
         {
-            Referrer = BrowserMediaDownload.NormalizeReferrer(referrer, uri)?.AbsoluteUri
+            Referrer = BrowserMediaDownload.NormalizeReferrer(referrer, uri)?.AbsoluteUri,
+            ReferrerPolicy = referrerPolicy
         };
         if (!Save(Snapshot() with { Downloads = Downloads.Prepend(item).Take(200).ToArray() })) return false;
         Downloads.Insert(0, item);

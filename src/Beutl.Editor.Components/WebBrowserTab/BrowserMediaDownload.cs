@@ -4,6 +4,8 @@ using System.Text;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
+internal enum BrowserReferrerPolicy { Origin, NoReferrer, SameOrigin }
+
 internal sealed class BrowserMediaDownload(HttpClient client)
 {
     // Redirects and cookies belong to each download, not to this shared transport.
@@ -52,10 +54,13 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         s_mediaTypes.Values.Contains(extension, StringComparer.OrdinalIgnoreCase)
         || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase);
 
-    internal static Uri? NormalizeReferrer(Uri? referrer, Uri destination)
+    internal static Uri? NormalizeReferrer(Uri? referrer, Uri destination, BrowserReferrerPolicy policy = BrowserReferrerPolicy.Origin)
     {
+        if (policy is not (BrowserReferrerPolicy.Origin or BrowserReferrerPolicy.SameOrigin)) return null;
         if (referrer == null || !IsHttpUri(referrer) || !IsHttpUri(destination)
             || (referrer.Scheme == Uri.UriSchemeHttps && destination.Scheme == Uri.UriSchemeHttp)) return null;
+        if (policy == BrowserReferrerPolicy.SameOrigin && (referrer.Scheme != destination.Scheme
+            || referrer.IdnHost != destination.IdnHost || referrer.Port != destination.Port)) return null;
 
         // Send only the initiating site's origin, never its path or query, including across CDN redirects.
         return new Uri(referrer.GetLeftPart(UriPartial.Authority) + "/");
@@ -63,14 +68,14 @@ internal sealed class BrowserMediaDownload(HttpClient client)
 
     internal async Task<string> DownloadAsync(Uri uri, string directory, string? suggestedName,
         IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken, Uri? referrer = null,
-        IReadOnlyList<Cookie>? cookies = null)
+        IReadOnlyList<Cookie>? cookies = null, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin)
     {
         if (!IsHttpUri(uri))
         {
             throw new InvalidOperationException(Strings.WebDownloadUnsupported);
         }
 
-        using HttpResponseMessage response = await SendAsync(uri, referrer, cookies ?? [], cancellationToken);
+        using HttpResponseMessage response = await SendAsync(uri, referrer, cookies ?? [], cancellationToken, referrerPolicy);
         response.EnsureSuccessStatusCode();
         // The handler decodes the outermost supported encoding. Never publish a representation
         // that still has an unsupported or additional compression layer.
@@ -161,7 +166,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     }
 
     private async Task<HttpResponseMessage> SendAsync(Uri uri, Uri? referrer, IReadOnlyList<Cookie> cookies,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, BrowserReferrerPolicy referrerPolicy)
     {
         // The native API omits SameSite/partition metadata. Do not import another site's
         // existing login session merely because the download redirects to that site.
@@ -169,7 +174,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         for (int redirects = 0; ; redirects++)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-            request.Headers.Referrer = NormalizeReferrer(referrer, uri);
+            request.Headers.Referrer = NormalizeReferrer(referrer, uri, referrerPolicy);
             if (uri.Scheme == Uri.UriSchemeHttps)
             {
                 string header = cookieContainer.GetCookieHeader(uri);

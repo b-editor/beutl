@@ -19,7 +19,7 @@ internal partial class WebBrowserTabView
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
 
-    private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId);
+    private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId, BrowserReferrerPolicy ReferrerPolicy);
 
     internal BrowserMediaDownload MediaDownloader { get; set; } = BrowserMediaDownload.Default;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
@@ -41,9 +41,21 @@ internal partial class WebBrowserTabView
                 if (!['http:', 'https:'].includes(url.protocol)) return;
                 if (!link.hasAttribute('download') && !/\.(mp4|webm|mov|mkv|avi|mpeg|mp3|m4a|wav|flac|ogg|opus|aac|jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(url.pathname)) return;
                 if (typeof window.invokeCSharpAction !== 'function') return;
+                let policy = link.referrerPolicy;
+                if (!policy) {
+                    const policies = ['no-referrer','no-referrer-when-downgrade','origin','origin-when-cross-origin',
+                        'same-origin','strict-origin','strict-origin-when-cross-origin','unsafe-url'];
+                    for (const meta of document.querySelectorAll('meta[name],meta[http-equiv]')) {
+                        if (meta.name.toLowerCase() !== 'referrer' && meta.httpEquiv.toLowerCase() !== 'referrer-policy') continue;
+                        const candidate = meta.content.trim().toLowerCase();
+                        if (policies.includes(candidate)) policy = candidate;
+                    }
+                }
+                const noReferrer = link.rel.toLowerCase().split(/\s+/).includes('noreferrer') || policy === 'no-referrer';
+                const referrerPolicy = noReferrer ? 'no-referrer' : policy === 'same-origin' ? 'same-origin' : 'origin';
                 event.preventDefault();
                 event.stopImmediatePropagation();
-                window.invokeCSharpAction(JSON.stringify({kind:'beutl-download',url:url.href,name:link.getAttribute('download')}));
+                window.invokeCSharpAction(JSON.stringify({kind:'beutl-download',url:url.href,name:link.getAttribute('download'),referrerPolicy}));
             }, true);
         })()
         """;
@@ -77,7 +89,17 @@ internal partial class WebBrowserTabView
             {
                 string? name = root.TryGetProperty("name", out var fileName) && fileName.ValueKind == JsonValueKind.String
                     ? fileName.GetString() : null;
-                QueuePageDownloadRequest(uri, name);
+                BrowserReferrerPolicy policy = BrowserReferrerPolicy.Origin;
+                if (root.TryGetProperty("referrerPolicy", out var policyNode))
+                {
+                    policy = policyNode.ValueKind == JsonValueKind.String ? policyNode.GetString() switch
+                    {
+                        "origin" => BrowserReferrerPolicy.Origin,
+                        "same-origin" => BrowserReferrerPolicy.SameOrigin,
+                        _ => BrowserReferrerPolicy.NoReferrer
+                    } : BrowserReferrerPolicy.NoReferrer;
+                }
+                QueuePageDownloadRequest(uri, name, policy);
             }
         }
         catch (JsonException)
@@ -86,7 +108,7 @@ internal partial class WebBrowserTabView
         }
     }
 
-    private void QueuePageDownloadRequest(Uri uri, string? suggestedName)
+    private void QueuePageDownloadRequest(Uri uri, string? suggestedName, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin)
     {
         if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
             || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
@@ -96,7 +118,7 @@ internal partial class WebBrowserTabView
         // BlankPage deliberately prevents the downloader's direct-navigation fallback from
         // using destination cookies when the surviving document's origin is unknown.
         Uri? referrer = _pageDownloadReferrerUncertain ? ViewModels.WebBrowserTabViewModel.BlankPage : owner?.CurrentUri;
-        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId);
+        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, referrerPolicy);
         _pendingPageDownloadRequest = request;
         Dispatcher.UIThread.Post(() =>
         {
@@ -169,7 +191,7 @@ internal partial class WebBrowserTabView
         if (_pageDownloadNavigationPending || !ConfirmPageDownloadButton.IsVisible || _pendingPageDownloadRequest is not { } request) return;
         ClearPageDownloadRequest();
         if (_disposed || request.DocumentId != _pageDownloadDocumentId) return;
-        await DownloadMediaAsync(request.Uri, request.SuggestedName, request.Referrer);
+        await DownloadMediaAsync(request.Uri, request.SuggestedName, request.Referrer, request.ReferrerPolicy);
     }
 
     private void OnDownloadMediaClick(object? sender, RoutedEventArgs e)
@@ -220,7 +242,8 @@ internal partial class WebBrowserTabView
         }
     }
 
-    internal async Task DownloadMediaAsync(Uri uri, string? suggestedName, Uri? referrer = null)
+    internal async Task DownloadMediaAsync(Uri uri, string? suggestedName, Uri? referrer = null,
+        BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin)
     {
         if (_disposed || _downloadCancellation != null || _viewModel is not { } vm) return;
         ClearPageDownloadRequest();
@@ -249,11 +272,11 @@ internal partial class WebBrowserTabView
             IReadOnlyList<Cookie> cookies = referrer != null && !BrowserMediaDownload.IsHttpUri(referrer)
                 ? [] : await DownloadCookiesProvider(initiatingWebView, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
-            string file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies);
+            string file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies, referrerPolicy);
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));
             ToolTip.SetTip(DownloadStatusText, file);
-            CheckProfileSave(vm.Profile.AddDownload(uri, file, referrer));
+            CheckProfileSave(vm.Profile.AddDownload(uri, file, referrer, referrerPolicy));
             if (options.AddToTimeline && vm.CanAddDownloadedFile(file))
             {
                 try { await vm.AddDownloadedMediaAsync(file, cancellation.Token); }

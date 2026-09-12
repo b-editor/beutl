@@ -10,6 +10,31 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class BrowserDownloadReferrerTests
 {
+    [TestCase((int)BrowserReferrerPolicy.NoReferrer)]
+    [TestCase((int)BrowserReferrerPolicy.SameOrigin)]
+    public async Task DownloadReferrerPolicyAppliesToEveryRedirectWithoutDiscardingSessionCookies(int policyValue)
+    {
+        var policy = (BrowserReferrerPolicy)policyValue;
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var handler = new PolicyHandler();
+        using var client = new HttpClient(handler);
+        var page = new Uri("https://site.example/page");
+        try
+        {
+            await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://site.example/start"), directory,
+                null, null, default, page, [new Cookie("session", "value", "/", "site.example") { Secure = true }], policy);
+            Assert.That(handler.Referrers, Is.EqualTo(new Uri?[]
+                { policy == BrowserReferrerPolicy.SameOrigin ? new Uri("https://site.example/") : null, null }));
+            Assert.That(handler.CookieHeaders, Is.EqualTo(new string?[] { "session=value", null }));
+            var profile = new BrowserProfile(Path.Combine(directory, "profile.json"));
+            profile.AddDownload(new Uri("https://site.example/start"), Path.Combine(directory, "media.mp3"), page, policy);
+            var reloaded = new BrowserProfile(Path.Combine(directory, "profile.json")).Downloads.Single();
+            Assert.That(reloaded.ReferrerPolicy, Is.EqualTo(policy));
+            Assert.That(reloaded.Referrer, Is.EqualTo("https://site.example/"));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
     [TestCase("https://site.example/page?secret=value#part", "https://site.example/audio.mp3", "https://site.example/")]
     [TestCase("https://site.example/page?secret=value", "https://cdn.example/audio.mp3", "https://site.example/")]
     [TestCase("https://site.example:8443/page", "https://cdn.example/audio.mp3", "https://site.example:8443/")]
@@ -71,6 +96,26 @@ public class BrowserDownloadReferrerTests
             TestContext.WriteLine($"Downloaded MP3: {bytes.Length} bytes.");
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    private sealed class PolicyHandler : HttpMessageHandler
+    {
+        internal List<Uri?> Referrers { get; } = [];
+        internal List<string?> CookieHeaders { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Referrers.Add(request.Headers.Referrer);
+            CookieHeaders.Add(request.Headers.TryGetValues("Cookie", out var cookies) ? string.Join("; ", cookies) : null);
+            if (request.RequestUri!.AbsolutePath == "/start")
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Found)
+                { RequestMessage = request, Headers = { Location = new Uri("https://cdn.example/media.mp3") } });
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                RequestMessage = request,
+                Content = new ByteArrayContent([1, 2, 3]) { Headers = { ContentType = new MediaTypeHeaderValue("audio/mpeg") } }
+            });
+        }
     }
 
     private sealed class ReferrerHandler : HttpMessageHandler
