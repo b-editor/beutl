@@ -103,9 +103,10 @@ public abstract partial class DisplacementMapTransform : EngineObject
         /// <see cref="DisplacementMapEffect"/> calls this once per application in place of its own lowering
         /// whenever <see cref="DisplacementMapEffect.Transform"/> is set and the map is not being shown. An
         /// out-of-tree transform records its stages through the public <see cref="FilterEffectContext"/>
-        /// surface, for example a <see cref="ShaderDefinition{TState}"/> that binds
-        /// <paramref name="displacementMap"/> as a resource; the binding helpers the built-in transforms
-        /// share are not part of the public contract.
+        /// surface, typically <see cref="FilterEffectContext.Shader(Shaders.ShaderDescription)"/> with a
+        /// <see cref="Shaders.ShaderDescription"/> whose <see cref="Shaders.ShaderBindingBuilder"/> callback
+        /// binds <paramref name="displacementMap"/> as a resource. The sampling helpers the built-in
+        /// transforms share are not part of the public contract.
         /// </remarks>
         public abstract void ApplyTo(
             Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
