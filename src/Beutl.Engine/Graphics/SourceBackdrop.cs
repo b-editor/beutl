@@ -40,8 +40,11 @@ public partial class SourceBackdrop : Drawable
             Size size = MeasureCore(availableSize, r);
 
             Matrix transform = GetTransformMatrix(availableSize, size, r);
+            // Same order as Drawable.Render: the opacity fades the captured image after the clear has run,
+            // so Clear keeps its meaning while the drawable's own Opacity applies like any other drawable's.
             using (context.PushBlendMode(r.BlendMode))
             using (context.PushTransform(transform))
+            using (context.PushOpacity(r.Opacity / 100f))
             using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
             {
                 context.DrawBackdrop(backdrop);

@@ -645,7 +645,7 @@ public sealed class DrawableGroupIsolationTests
     {
         var frame = new PixelSize(256, 144);
 
-        Drawable.Resource[] CreateScene(bool grouped, bool includeBackdrop = true)
+        Drawable.Resource[] CreateScene(bool grouped, bool includeBackdrop = true, float? backdropOpacity = null)
         {
             var gradient = new LinearGradientBrush();
             gradient.GradientStops.Add(new GradientStop(Colors.Crimson, 0));
@@ -663,17 +663,18 @@ public sealed class DrawableGroupIsolationTests
                 Clear = { CurrentValue = false },
                 FilterEffect = { CurrentValue = new Invert() },
             };
+            float effectOpacity = backdropOpacity ?? opacity;
             Drawable effect = backdrop;
             if (grouped)
             {
                 var group = new DrawableGroup();
                 group.Children.Add(backdrop);
-                group.Opacity.CurrentValue = opacity;
+                group.Opacity.CurrentValue = effectOpacity;
                 effect = group;
             }
             else
             {
-                backdrop.Opacity.CurrentValue = opacity;
+                backdrop.Opacity.CurrentValue = effectOpacity;
             }
 
             return
@@ -687,11 +688,13 @@ public sealed class DrawableGroupIsolationTests
         Drawable.Resource[] expectedResources = CreateScene(grouped: false);
         Drawable.Resource[] actualResources = CreateScene(grouped: true);
         Drawable.Resource[] omittedResources = CreateScene(grouped: false, includeBackdrop: false);
+        Drawable.Resource[] fullResources = CreateScene(grouped: false, backdropOpacity: 100);
         try
         {
             using Bitmap expected = RenderScene(frame, expectedResources);
             using Bitmap actual = RenderScene(frame, actualResources);
             using Bitmap omitted = RenderScene(frame, omittedResources);
+            using Bitmap full = RenderScene(frame, fullResources);
 
             if (opacity == 100)
             {
@@ -699,16 +702,19 @@ public sealed class DrawableGroupIsolationTests
             }
             else
             {
-                // SourceBackdrop overrides Render and does not apply its own Opacity.
-                // Build the control from the full effect and the untouched opaque scene.
-                var full = expected.GetPixelSpan<Half>();
+                // SourceBackdrop applies its own Opacity in its Render override (SourceBackdropOpacityTests), so
+                // the bare and the grouped form must both be the linear blend of the untouched opaque scene and
+                // the full-strength effect. The control is built from those two, not from either form under test.
+                var fullPixels = full.GetPixelSpan<Half>();
                 var background = omitted.GetPixelSpan<Half>();
-                var faded = actual.GetPixelSpan<Half>();
+                var grouped = actual.GetPixelSpan<Half>();
+                var bare = expected.GetPixelSpan<Half>();
                 float factor = opacity / 100f;
-                for (int i = 0; i < full.Length; i++)
+                for (int i = 0; i < fullPixels.Length; i++)
                 {
-                    float reference = (float)background[i] * (1 - factor) + (float)full[i] * factor;
-                    Assert.That((float)faded[i], Is.EqualTo(reference).Within(0.002f), $"component {i}");
+                    float reference = (float)background[i] * (1 - factor) + (float)fullPixels[i] * factor;
+                    Assert.That((float)grouped[i], Is.EqualTo(reference).Within(0.002f), $"grouped component {i}");
+                    Assert.That((float)bare[i], Is.EqualTo(reference).Within(0.002f), $"bare component {i}");
                 }
             }
             Assert.That(
@@ -723,6 +729,8 @@ public sealed class DrawableGroupIsolationTests
             foreach (Drawable.Resource resource in actualResources)
                 resource.Dispose();
             foreach (Drawable.Resource resource in omittedResources)
+                resource.Dispose();
+            foreach (Drawable.Resource resource in fullResources)
                 resource.Dispose();
         }
     }
