@@ -103,8 +103,12 @@ figures should be read as unverified rather than as a property of the pipeline:
   the measured quantity; an end-to-end frame-time delta was not resolved.
 - For content forced through admission, the warm replay path measures 1.00–1.025
   times direct rendering, but the admission frame itself measures 3.0–3.1 times.
-  A cache that cannot know how long content will persist therefore loses on
-  animated content, which is a different design from tuning the current one.
+  An admitted candidate that is invalidated before enough replays amortize that
+  admission cost therefore loses. Content that changes every frame never reaches
+  admission, because the warm-up resets on each reported change, so the exposure is
+  limited to candidates that hold still long enough to be admitted and then change;
+  an admission policy that could weigh that risk needs a persistence signal the
+  current one does not have, which is a different design from tuning it.
 
 `RenderCacheOptions.Default` therefore matches `Disabled`;
 `RenderCacheOptions.Enabled` is the deliberate opt-in used by cache-specific
