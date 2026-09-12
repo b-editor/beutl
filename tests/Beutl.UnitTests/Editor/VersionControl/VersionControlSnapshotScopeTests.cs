@@ -472,6 +472,130 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Snapshot_discovers_historical_temporary_paths_by_the_tracked_name_of_a_project_file_symbolic_link()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Unix symbolic-link semantics.");
+        }
+
+        (string projectFile, string sourceFile) = CreateProjectWithTemporarySidecar();
+        string nextSourceFile = Path.Combine(Root, "assets", "next.tmp");
+        await File.WriteAllTextAsync(sourceFile, "old required state\n");
+        await File.WriteAllTextAsync(nextSourceFile, "new required state\n");
+        await WriteProjectFileAsync(".gitignore", "*.tmp\n");
+        await RunGitAsync("add", "-A", "--", ".");
+        await RunGitAsync("add", "-f", "--", "assets/state.tmp");
+        await RunGitAsync("commit", "-m", "saved project baseline");
+        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string elementFile = Path.Combine(
+            Root,
+            "elements",
+            "11111111111111111111111111111111.belm");
+        string elementJson = await File.ReadAllTextAsync(elementFile);
+        await File.WriteAllTextAsync(
+            elementFile,
+            elementJson.Replace("state.tmp", "next.tmp", StringComparison.Ordinal));
+        // Git tracks the base entry as project.bep even while the working-tree file is a link
+        // to a sibling, so the historical graph must be looked up by that tracked name.
+        var runner = new ProjectFileLinkingRunner(
+            CreateRunner(TimeSpan.FromSeconds(30)),
+            baseTip,
+            projectFile,
+            linkTarget: Path.Combine(Root, "project-target.bep"),
+            restoreBefore: command => IsHistoricalGraphListing(command, baseTip));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner,
+            projectFile: projectFile);
+
+        var revision = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None)).Revision;
+        GitCommandResult treeFiles = await RunGitAsync(
+            "ls-tree",
+            "-r",
+            "--name-only",
+            revision.Sha);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.LinkCount, Is.EqualTo(1));
+            Assert.That(runner.RestoreCount, Is.EqualTo(1));
+            Assert.That(
+                runner.Commands.Count(static command => command.Contains("archive")),
+                Is.EqualTo(1));
+            Assert.That(treeFiles.Stdout, Does.Not.Contain("assets/state.tmp\n"));
+            Assert.That(treeFiles.Stdout, Does.Contain("assets/next.tmp\n"));
+            Assert.That(treeFiles.Stdout, Does.Not.Contain("project-target.bep"));
+        });
+    }
+
+    [Test]
+    public async Task Snapshot_does_not_consult_the_historical_graph_of_a_project_file_symbolic_link_that_escapes_the_project_root()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Unix symbolic-link semantics.");
+        }
+
+        (string projectFile, string sourceFile) = CreateProjectWithTemporarySidecar();
+        string nextSourceFile = Path.Combine(Root, "assets", "next.tmp");
+        await File.WriteAllTextAsync(sourceFile, "old required state\n");
+        await File.WriteAllTextAsync(nextSourceFile, "new required state\n");
+        await WriteProjectFileAsync(".gitignore", "*.tmp\n");
+        await RunGitAsync("add", "-A", "--", ".");
+        await RunGitAsync("add", "-f", "--", "assets/state.tmp");
+        await RunGitAsync("commit", "-m", "saved project baseline");
+        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string elementFile = Path.Combine(
+            Root,
+            "elements",
+            "11111111111111111111111111111111.belm");
+        string elementJson = await File.ReadAllTextAsync(elementFile);
+        await File.WriteAllTextAsync(
+            elementFile,
+            elementJson.Replace("state.tmp", "next.tmp", StringComparison.Ordinal));
+        // Lexically the link is project.bep inside the root, but its resolved target escapes the
+        // root, so canonical containment must stop the discovery before any historical query.
+        var runner = new ProjectFileLinkingRunner(
+            CreateRunner(TimeSpan.FromSeconds(30)),
+            baseTip,
+            projectFile,
+            linkTarget: Path.Combine(CreateTemporaryDirectory(), "project.bep"),
+            restoreBefore: static _ => true);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner,
+            projectFile: projectFile);
+
+        var revision = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None)).Revision;
+        GitCommandResult treeFiles = await RunGitAsync(
+            "ls-tree",
+            "-r",
+            "--name-only",
+            revision.Sha);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.LinkCount, Is.EqualTo(1));
+            Assert.That(runner.RestoreCount, Is.EqualTo(1));
+            Assert.That(runner.Commands, Has.None.Matches<IReadOnlyList<string>>(
+                static command => command.Contains("archive")));
+            Assert.That(treeFiles.Stdout, Does.Contain("assets/state.tmp\n"));
+            Assert.That(treeFiles.Stdout, Does.Contain("assets/next.tmp\n"));
+        });
+    }
+
+    [Test]
     public async Task Required_temporary_sidecar_is_not_reported_as_reserved_or_widened_by_scratch_changes()
     {
         (string projectFile, string sourceFile) = CreateProjectWithTemporarySidecar();
@@ -628,6 +752,48 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
             Assert.That(exception!.Message, Does.Contain("reserved state directory"));
             Assert.That((RunGitAsync("rev-parse", "HEAD").GetAwaiter().GetResult()).Stdout.Trim(),
                 Is.EqualTo(baseTip));
+        });
+    }
+
+    [Test]
+    public async Task Snapshot_validates_a_hook_tree_by_the_tracked_name_of_a_project_file_symbolic_link()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Unix symbolic-link semantics.");
+        }
+
+        (string projectFile, string sourceFile) = CreateProjectWithTemporarySidecar();
+        await File.WriteAllTextAsync(sourceFile, "required state\n");
+        await RunGitAsync("add", "-A", "--", ".");
+        await RunGitAsync("add", "-f", "--", "assets/state.tmp");
+        await RunGitAsync("commit", "-m", "baseline");
+        // The layout validation rejects an on-disk project-file link before staging, so the
+        // pre-commit hook is the first point where the working-tree project file can become a
+        // link to a sibling. The snapshot tree keeps tracking that entry as project.bep.
+        await WriteHookAsync(
+            "pre-commit",
+            "mv project.bep project-target.bep\n"
+            + "ln -s project-target.bep project.bep\n"
+            + "printf 'hooked\\n' > hook-added.txt\n"
+            + "git add -- hook-added.txt\n");
+        await File.WriteAllTextAsync(sourceFile, "snapshot state\n");
+        using var service = CreateService(projectFile);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        GitCommandResult projectEntry = await RunGitAsync("ls-tree", "HEAD", "--", "project.bep");
+        GitCommandResult treeFiles = await RunGitAsync("ls-tree", "-r", "--name-only", "HEAD");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(new FileInfo(projectFile).LinkTarget, Is.EqualTo("project-target.bep"));
+            Assert.That(projectEntry.Stdout, Does.StartWith("100644 blob "));
+            Assert.That(treeFiles.Stdout, Does.Contain("hook-added.txt\n"));
+            Assert.That(treeFiles.Stdout, Does.Not.Contain("project-target.bep"));
         });
     }
 
@@ -957,6 +1123,12 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         }
     }
 
+    private static bool IsHistoricalGraphListing(IReadOnlyList<string> command, string commit)
+        => command.Count > 0
+           && command[0] == "ls-tree"
+           && command.Contains("--long")
+           && command.Contains(commit);
+
     private sealed class RecordingGitRunner(IGitCliRunner inner) : IGitCliRunner
     {
         public List<IReadOnlyList<string>> Commands { get; } = [];
@@ -977,6 +1149,66 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+    // Swaps the project file for a symbolic link right after the snapshot index is seeded from
+    // the base commit, and swaps the regular file back before the first command that matches
+    // restoreBefore. The layout validation rejects an on-disk project-file link, so this is the
+    // only window in which the historical graph discovery can observe one.
+    private sealed class ProjectFileLinkingRunner(
+        IGitCliRunner inner,
+        string baseCommit,
+        string projectFile,
+        string linkTarget,
+        Func<IReadOnlyList<string>, bool> restoreBefore) : IGitCliRunner
+    {
+        public List<IReadOnlyList<string>> Commands { get; } = [];
+
+        public int LinkCount { get; private set; }
+
+        public int RestoreCount { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            Commands.Add([.. arguments]);
+            if (LinkCount == 1 && RestoreCount == 0 && restoreBefore(arguments))
+            {
+                File.Delete(projectFile);
+                File.Move(linkTarget, projectFile);
+                RestoreCount++;
+            }
+
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            if (LinkCount == 0 && arguments is ["read-tree", var commit] && commit == baseCommit)
+            {
+                File.Move(projectFile, linkTarget);
+                File.CreateSymbolicLink(
+                    projectFile,
+                    Path.GetRelativePath(Path.GetDirectoryName(projectFile)!, linkTarget));
+                LinkCount++;
+            }
+
+            return result;
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)

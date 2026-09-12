@@ -525,16 +525,57 @@ internal sealed class GitCliVersionControlService :
         return $":(top,literal){prefix}{projectRelativePath}";
     }
 
-    private static string GetRepositoryRelativeProjectFilePath(
+    // Git tracks a symbolic link as the link entry itself, never as the tree or blob it points to, so
+    // the tracked path of a project file is its own entry name inside its canonical parent: a link in
+    // the final component keeps the name Git stores, while an alias directory above it resolves to
+    // the real tree. Callers verify canonical containment before asking.
+    internal static string GetRepositoryRelativeProjectFilePath(
         RepositoryInfo repository,
         string projectFile)
     {
-        string projectRelativePath = NormalizeGitPath(Path.GetRelativePath(
-            RepositoryPathComparer.ResolveCanonicalPath(repository.ProjectRoot),
-            RepositoryPathComparer.ResolveCanonicalPath(projectFile)));
+        string canonicalProjectRoot = RepositoryPathComparer.ResolveCanonicalPath(repository.ProjectRoot);
+        string fullPath = Path.GetFullPath(projectFile);
+        string canonicalParent = RepositoryPathComparer.ResolveCanonicalPath(
+            Path.GetDirectoryName(fullPath) ?? fullPath);
+        // Containment is decided on canonical paths compared ordinally, like every other repository
+        // check; a relative path could compare the two parents by platform case rules instead. An
+        // entry whose parent sits outside the project root can only be tracked as its resolved target.
+        string trackedProjectFile = RepositoryPathComparer.IsContainedWithin(canonicalProjectRoot, canonicalParent)
+            ? ResolveTrackedProjectEntry(canonicalParent, Path.GetFileName(fullPath))
+            : RepositoryPathComparer.ResolveCanonicalPath(projectFile);
+        string projectRelativePath = NormalizeGitPath(
+            Path.GetRelativePath(canonicalProjectRoot, trackedProjectFile));
         return repository.Pathspec == "."
             ? projectRelativePath
             : repository.Pathspec + "/" + projectRelativePath;
+    }
+
+    // The canonical parent plus the entry's own on-disk spelling. The entry itself is deliberately
+    // not resolved, because following it would replace a tracked link with its target's name.
+    private static string ResolveTrackedProjectEntry(string canonicalParent, string name)
+    {
+        string candidate = Path.Combine(canonicalParent, name);
+        if (!Path.Exists(candidate))
+        {
+            // Only an entry that exists under this spelling is renormalized; on a case-sensitive
+            // volume a sole case-insensitive neighbour is a different file, not this one.
+            return candidate;
+        }
+
+        try
+        {
+            return VersionControlPathComparison.SelectCanonicalExistingEntry(
+                name,
+                candidate,
+                Directory.EnumerateFileSystemEntries(canonicalParent));
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or NotSupportedException)
+        {
+            // A parent that cannot be listed keeps the caller's spelling rather than failing the lookup.
+            return candidate;
+        }
     }
 
     private static bool AreSameProjectRelativePath(
