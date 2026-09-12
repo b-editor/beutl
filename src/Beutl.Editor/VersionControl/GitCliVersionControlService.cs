@@ -534,21 +534,17 @@ internal sealed class GitCliVersionControlService :
         string projectFile)
     {
         string canonicalProjectRoot = RepositoryPathComparer.ResolveCanonicalPath(repository.ProjectRoot);
-        string projectRelativePath = Path.GetRelativePath(
-            canonicalProjectRoot,
-            ResolveTrackedProjectFilePath(projectFile));
-        if (projectRelativePath == ".."
-            || projectRelativePath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
-            || Path.IsPathRooted(projectRelativePath))
-        {
-            // The entry's own parent sits outside the project root, so only the resolved target
-            // can be the tracked file.
-            projectRelativePath = Path.GetRelativePath(
-                canonicalProjectRoot,
-                RepositoryPathComparer.ResolveCanonicalPath(projectFile));
-        }
-
-        projectRelativePath = NormalizeGitPath(projectRelativePath);
+        string fullPath = Path.GetFullPath(projectFile);
+        string canonicalParent = RepositoryPathComparer.ResolveCanonicalPath(
+            Path.GetDirectoryName(fullPath) ?? fullPath);
+        // Containment is decided on canonical paths compared ordinally, like every other repository
+        // check; a relative path could compare the two parents by platform case rules instead. An
+        // entry whose parent sits outside the project root can only be tracked as its resolved target.
+        string trackedProjectFile = RepositoryPathComparer.IsContainedWithin(canonicalProjectRoot, canonicalParent)
+            ? ResolveTrackedProjectEntry(canonicalParent, Path.GetFileName(fullPath))
+            : RepositoryPathComparer.ResolveCanonicalPath(projectFile);
+        string projectRelativePath = NormalizeGitPath(
+            Path.GetRelativePath(canonicalProjectRoot, trackedProjectFile));
         return repository.Pathspec == "."
             ? projectRelativePath
             : repository.Pathspec + "/" + projectRelativePath;
@@ -556,12 +552,8 @@ internal sealed class GitCliVersionControlService :
 
     // The canonical parent plus the entry's own on-disk spelling. The entry itself is deliberately
     // not resolved, because following it would replace a tracked link with its target's name.
-    private static string ResolveTrackedProjectFilePath(string projectFile)
+    private static string ResolveTrackedProjectEntry(string canonicalParent, string name)
     {
-        string fullPath = Path.GetFullPath(projectFile);
-        string name = Path.GetFileName(fullPath);
-        string canonicalParent = RepositoryPathComparer.ResolveCanonicalPath(
-            Path.GetDirectoryName(fullPath) ?? fullPath);
         string candidate = Path.Combine(canonicalParent, name);
         if (!Path.Exists(candidate))
         {
