@@ -126,7 +126,8 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
     /// <remarks>
     /// When <paramref name="collection"/> is another <see cref="EffectTargets"/>, its targets are moved and
     /// it is left empty, so one list owns each target and disposing the source afterwards releases nothing.
-    /// Inserting a list into itself throws <see cref="InvalidOperationException"/>.
+    /// Any other sequence is enumerated completely before the list changes, and a target this list already
+    /// owns is refused with <see cref="InvalidOperationException"/>, as is inserting a list into itself.
     /// </remarks>
     public void InsertRange(int index, IEnumerable<EffectTarget> collection)
     {
@@ -141,7 +142,16 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
             return;
         }
 
-        _targets.InsertRange(index, collection);
+        // Materialize first so a deferred query over this list never observes the insertion, then refuse a
+        // target already held here: one element in two slots would be disposed by whichever slot goes first.
+        EffectTarget[] items = collection.ToArray();
+        foreach (EffectTarget item in items)
+        {
+            if (_targets.Contains(item))
+                throw new InvalidOperationException("The list already owns one of the targets being inserted.");
+        }
+
+        _targets.InsertRange(index, items);
     }
 
     /// <summary>Removes <paramref name="item"/> and disposes it.</summary>

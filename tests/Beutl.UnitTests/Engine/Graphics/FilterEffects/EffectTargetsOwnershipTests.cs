@@ -182,6 +182,26 @@ public sealed class EffectTargetsOwnershipTests
     }
 
     [Test]
+    public void InsertRange_RefusesATargetTheListAlreadyOwns()
+    {
+        EffectTarget owned = CreateTarget();
+        using var targets = new EffectTargets { owned };
+        using EffectTarget other = CreateTarget();
+
+        // A deferred query over the list itself is materialized before anything changes, and the target it
+        // yields is already owned, so the call is refused and the list stays as it was.
+        Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, targets.Where(_ => true)));
+        Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, new[] { other, owned }));
+        Assert.Multiple(() =>
+        {
+            Assert.That(targets, Has.Count.EqualTo(1));
+            Assert.That(targets[0], Is.SameAs(owned));
+            Assert.That(owned.IsEmpty, Is.False);
+            Assert.That(other.IsEmpty, Is.False, "a refused insertion must not take the other targets");
+        });
+    }
+
+    [Test]
     public void ForEach_ReplacingOverload_DisposesOnlyTheTargetsItReplaces()
     {
         EffectTarget kept = CreateTarget();
