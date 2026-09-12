@@ -102,13 +102,14 @@ figures should be read as unverified rather than as a property of the pipeline:
   sits inside the run's ±2.7 % noise floor, so the instrumented resolver overhead is
   the measured quantity; an end-to-end frame-time delta was not resolved.
 - For content forced through admission, the warm replay path measures 1.00–1.025
-  times direct rendering, but the admission frame itself measures 3.0–3.1 times.
-  An admitted candidate that is invalidated before enough replays amortize that
-  admission cost therefore loses. Content that changes every frame never reaches
-  admission, because the warm-up resets on each reported change, so the exposure is
-  limited to candidates that hold still long enough to be admitted and then change;
-  an admission policy that could weigh that risk needs a persistence signal the
-  current one does not have, which is a different design from tuning it.
+  times direct rendering, and the admission frame itself 3.0–3.1 times. A replay
+  that costs at least as much as rendering directly recovers none of that admission
+  overhead, so for the measured content admission is a loss however long the content
+  persists; only content whose replay is cheaper than direct rendering could amortize
+  the admission frame, and none of the measured content was. Content that changes
+  every frame never reaches admission at all, because the warm-up resets on each
+  reported change, so the exposure is limited to candidates that hold still long
+  enough to be admitted.
 
 `RenderCacheOptions.Default` therefore matches `Disabled`;
 `RenderCacheOptions.Enabled` is the deliberate opt-in used by cache-specific
