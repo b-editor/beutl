@@ -116,6 +116,11 @@ public class CustomFilterEffectContext
             _drawableBrushMaterializer,
             _renderTargetLeaseSession);
 
+    /// <summary>Visits every target in place.</summary>
+    /// <remarks>
+    /// The callback sees the live target and does not own it: it must neither dispose it nor keep it past the
+    /// call. <see cref="Targets"/> is unchanged afterwards.
+    /// </remarks>
     public void ForEach(Action<int, EffectTarget> action)
     {
         for (int i = 0; i < Targets.Count; i++)
@@ -125,6 +130,14 @@ public class CustomFilterEffectContext
         }
     }
 
+    /// <summary>Replaces each target with the one the callback returns.</summary>
+    /// <remarks>
+    /// The callback receives the live target. Returning that same instance keeps it; returning a different
+    /// instance transfers ownership of the result to <see cref="Targets"/> and disposes the original, so the
+    /// callback must not use the original afterwards and must not dispose the replacement itself. This is the
+    /// disposal a hand-written loop over the <see cref="EffectTargets"/> indexer would have to perform itself,
+    /// which is why this overload is preferable to such a loop.
+    /// </remarks>
     public void ForEach(Func<int, EffectTarget, EffectTarget> action)
     {
         for (int i = 0; i < Targets.Count; i++)
@@ -139,6 +152,22 @@ public class CustomFilterEffectContext
         }
     }
 
+    /// <summary>Replaces each target with zero or more targets the callback returns.</summary>
+    /// <remarks>
+    /// <para>
+    /// This overload's ownership contract differs from the single-target one. The callback receives an
+    /// <see cref="EffectTarget.Clone"/> of the target rather than the live instance, and the original is
+    /// disposed unconditionally once the callback returns, whatever the callback returned. A clone of a
+    /// pooled lease retains that lease and survives the original's disposal; a clone of a bare
+    /// <see cref="Rendering.RenderTarget"/> shares that instance, which the original's disposal releases.
+    /// </para>
+    /// <para>
+    /// Ownership of every target in the returned list transfers to <see cref="Targets"/>; the returned
+    /// <see cref="EffectTargets"/> container itself is not disposed. Changing a callback's return type from
+    /// <see cref="EffectTarget"/> to <see cref="EffectTargets"/> therefore changes both what it is handed and
+    /// what is destroyed.
+    /// </para>
+    /// </remarks>
     public void ForEach(Func<int, EffectTarget, EffectTargets> action)
     {
         for (int i = 0; i < Targets.Count; i++)
