@@ -525,16 +525,43 @@ internal sealed class GitCliVersionControlService :
         return $":(top,literal){prefix}{projectRelativePath}";
     }
 
+    // Callers verify canonical containment first. Git tracks a project-file symbolic link under
+    // its lexical name, so tree queries must use the lexical repository-relative path; the
+    // canonical path only covers a link that lives outside the project root and points into it.
     private static string GetRepositoryRelativeProjectFilePath(
         RepositoryInfo repository,
         string projectFile)
     {
-        string projectRelativePath = NormalizeGitPath(Path.GetRelativePath(
-            RepositoryPathComparer.ResolveCanonicalPath(repository.ProjectRoot),
-            RepositoryPathComparer.ResolveCanonicalPath(projectFile)));
+        string projectRelativePath = NormalizeGitPath(
+            TryGetLexicalProjectRelativePath(repository, projectFile)
+            ?? Path.GetRelativePath(
+                RepositoryPathComparer.ResolveCanonicalPath(repository.ProjectRoot),
+                RepositoryPathComparer.ResolveCanonicalPath(projectFile)));
         return repository.Pathspec == "."
             ? projectRelativePath
             : repository.Pathspec + "/" + projectRelativePath;
+    }
+
+    // Walks the lexical ancestors of the project file up to the first one that is the project
+    // root on disk, so a link above the root still yields the tracked name beneath it. Returns
+    // null when no lexical ancestor is the project root.
+    private static string? TryGetLexicalProjectRelativePath(
+        RepositoryInfo repository,
+        string projectFile)
+    {
+        string lexicalProjectFile = Path.GetFullPath(projectFile);
+        string? lexicalRoot = Path.GetDirectoryName(lexicalProjectFile);
+        while (lexicalRoot is not null)
+        {
+            if (RepositoryPathComparer.AreEquivalent(lexicalRoot, repository.ProjectRoot))
+            {
+                return Path.GetRelativePath(lexicalRoot, lexicalProjectFile);
+            }
+
+            lexicalRoot = Path.GetDirectoryName(lexicalRoot);
+        }
+
+        return null;
     }
 
     private static bool AreSameProjectRelativePath(
@@ -3208,26 +3235,16 @@ internal sealed class GitCliVersionControlService :
         string projectFile,
         string? canonicalRelativePath = null)
     {
-
-        string lexicalProjectFile = Path.GetFullPath(projectFile);
-        string? lexicalRoot = Path.GetDirectoryName(lexicalProjectFile);
-        while (lexicalRoot is not null)
+        string? lexicalRelativePath = TryGetLexicalProjectRelativePath(repository, projectFile);
+        if (lexicalRelativePath is not null)
         {
-            if (RepositoryPathComparer.AreEquivalent(lexicalRoot, repository.ProjectRoot))
-            {
-                string lexicalRelativePath = Path.GetRelativePath(
-                    lexicalRoot,
-                    lexicalProjectFile);
-                ValidateRecoveryProjectFile(lexicalRelativePath);
-                return NormalizeGitPath(lexicalRelativePath);
-            }
-
-            lexicalRoot = Path.GetDirectoryName(lexicalRoot);
+            ValidateRecoveryProjectFile(lexicalRelativePath);
+            return NormalizeGitPath(lexicalRelativePath);
         }
 
         canonicalRelativePath ??= Path.GetRelativePath(
             Path.GetFullPath(repository.ProjectRoot),
-            lexicalProjectFile);
+            Path.GetFullPath(projectFile));
         ValidateRecoveryProjectFile(canonicalRelativePath);
         return NormalizeGitPath(canonicalRelativePath);
     }
