@@ -133,23 +133,16 @@ public class CustomFilterEffectContext
 
     /// <summary>Replaces each target with the one the callback returns.</summary>
     /// <remarks>
-    /// The callback receives the live target. Returning that same instance keeps it; returning a different
-    /// instance transfers ownership of the result to <see cref="Targets"/> and disposes the original, so the
-    /// callback must not use the original afterwards and must not dispose the replacement itself. This is the
-    /// disposal a hand-written loop over the <see cref="EffectTargets"/> indexer would have to perform itself,
-    /// which is why this overload is preferable to such a loop.
+    /// The callback receives the live target and must not dispose it, whether it returns it unchanged or
+    /// returns a replacement. Returning that same instance keeps it; returning a different instance transfers
+    /// ownership of the result to <see cref="Targets"/>, whose indexer disposes the original, so the callback
+    /// must not use the original afterwards and must not dispose the replacement itself.
     /// </remarks>
     public void ForEach(Func<int, EffectTarget, EffectTarget> action)
     {
         for (int i = 0; i < Targets.Count; i++)
         {
-            EffectTarget target = Targets[i];
-            EffectTarget newTarget = action(i, target);
-            if (newTarget != target)
-            {
-                target.Dispose();
-                Targets[i] = newTarget;
-            }
+            Targets[i] = action(i, Targets[i]);
         }
     }
 
@@ -158,28 +151,43 @@ public class CustomFilterEffectContext
     /// <para>
     /// This overload's ownership contract differs from the single-target one. The callback receives an
     /// <see cref="EffectTarget.Clone"/> of the target rather than the live instance, and the original is
-    /// disposed unconditionally once the callback returns, whatever the callback returned. The clone holds
-    /// its own retained reference to the original's surface or pooled lease, so it stays valid after the
-    /// original is disposed, and that reference is the callback's to release: return the clone in the list
-    /// or dispose it. A clone that is neither returned nor disposed leaks its reference.
+    /// disposed once the callback returns, whatever the callback returned. The clone holds its own retained
+    /// reference to the original's surface or pooled lease, so it stays valid after the original is disposed,
+    /// and that reference is the callback's to release: return the clone in the list or dispose it. A clone
+    /// that is neither returned nor disposed leaks its reference. An empty target has nothing to clone, so
+    /// <see cref="EffectTarget.Clone"/> hands back the target itself; that instance is detached rather than
+    /// disposed here, so returning it in the list is safe too.
     /// </para>
     /// <para>
-    /// Ownership of every target in the returned list transfers to <see cref="Targets"/>; the returned
-    /// <see cref="EffectTargets"/> container itself is not disposed. Changing a callback's return type from
-    /// <see cref="EffectTarget"/> to <see cref="EffectTargets"/> therefore changes both what it is handed and
-    /// what is destroyed.
+    /// Every target in the returned list is moved into <see cref="Targets"/>, which then owns it, and the
+    /// returned <see cref="EffectTargets"/> container is left empty, so disposing that container afterwards
+    /// releases nothing. Changing a callback's return type from <see cref="EffectTarget"/> to
+    /// <see cref="EffectTargets"/> therefore changes both what it is handed and what is destroyed.
     /// </para>
     /// </remarks>
     public void ForEach(Func<int, EffectTarget, EffectTargets> action)
     {
         for (int i = 0; i < Targets.Count; i++)
         {
-            using EffectTarget target = Targets[i];
-            EffectTargets newTargets = action(i, target.Clone());
+            EffectTarget original = Targets[i];
+            EffectTarget clone = original.Clone();
+            EffectTargets newTargets = action(i, clone);
 
-            Targets.RemoveAt(i);
-            Targets.InsertRange(i, newTargets);
-            i += newTargets.Count - 1;
+            // The callback only ever saw the clone, so RemoveAt can dispose the original. An empty target
+            // clones as itself and may now sit in newTargets, so that one is detached instead.
+            if (ReferenceEquals(clone, original))
+                Targets.DetachAt(i);
+            else
+                Targets.RemoveAt(i);
+
+            int inserted = 0;
+            while (newTargets.Count > 0)
+            {
+                Targets.Insert(i + inserted, newTargets.DetachAt(0));
+                inserted++;
+            }
+
+            i += inserted - 1;
         }
     }
 
