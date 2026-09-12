@@ -66,7 +66,8 @@ internal partial class WebBrowserTabView
             ResetFindFeedback();
             return;
         }
-        FindCountText.Text = result == null ? string.Empty : string.Format(Strings.BrowserFindCount, result.Index, result.Count);
+        FindCountText.Text = result == null ? string.Empty : string.Format(Strings.BrowserFindCount,
+            result.Index, result.LimitReached ? $"{result.Count}+" : result.Count.ToString());
         FindStatusText.Text = result == null ? Strings.BrowserFindUnavailable : Strings.BrowserFindNoResults;
         FindStatusText.IsVisible = result == null || result.Count == 0;
         FindPreviousButton.IsEnabled = result?.Count > 0;

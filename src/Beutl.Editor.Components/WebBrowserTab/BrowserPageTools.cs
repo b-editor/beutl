@@ -4,7 +4,7 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 
 internal static class BrowserPageTools
 {
-    internal sealed record FindResult(int Index, int Count);
+    internal sealed record FindResult(int Index, int Count, bool LimitReached = false);
 
     internal static string FindScript(string query, int direction) =>
         "(" + FindFunction + ")(" + JsonSerializer.Serialize(query) + "," + Math.Clamp(direction, -1, 1) + ")";
@@ -82,9 +82,12 @@ internal static class BrowserPageTools
             const pattern = Array.from(query, c => specials.includes(c) ? String.fromCharCode(92) + c : c).join('');
             const regex = new RegExp(pattern, 'giu');
             const ranges = [];
+            const maxMatches = 1000;
+            let limitReached = false;
             let nodeIndex = 0;
             let match;
             while ((match = regex.exec(text)) !== null) {
+                if (ranges.length === maxMatches) { limitReached = true; break; }
                 while (nodeIndex < nodes.length && nodes[nodeIndex].end <= match.index) nodeIndex++;
                 const start = nodes[nodeIndex];
                 let endIndex = nodeIndex;
@@ -113,7 +116,7 @@ internal static class BrowserPageTools
             }
             if (active) { const rect = active.getBoundingClientRect(); window.scrollBy(0,rect.top-window.innerHeight/2); }
             window.__beutlFind = {query,index,active};
-            return JSON.stringify({Index:active ? index+1 : 0,Count:ranges.length});
+            return JSON.stringify({Index:active ? index+1 : 0,Count:ranges.length,LimitReached:limitReached});
         }
         """;
 }

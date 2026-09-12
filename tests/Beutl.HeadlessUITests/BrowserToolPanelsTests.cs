@@ -104,6 +104,19 @@ public class BrowserToolPanelsTests
     }
 
     [AvaloniaTest]
+    public async Task FindFeedbackIndicatesWhenTheMatchLimitIsReached()
+    {
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
+        view.FindControl<Grid>("FindPanel")!.IsVisible = true;
+        view.FindControl<TextBox>("FindTextBox")!.Text = "a";
+        view.PageScriptRunner = _ => Task.FromResult<string?>("{\"Index\":1,\"Count\":1000,\"LimitReached\":true}");
+        await view.FindInPageAsync(0);
+        Assert.That(view.FindControl<TextBlock>("FindCountText")!.Text,
+            Is.EqualTo(string.Format(Strings.BrowserFindCount, 1, "1000+")));
+        Assert.That(view.FindControl<Button>("FindNextButton")!.IsEnabled, Is.True);
+    }
+
+    [AvaloniaTest]
     public async Task FindFeedbackIgnoresResultsFromAnOlderRequest()
     {
         using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
