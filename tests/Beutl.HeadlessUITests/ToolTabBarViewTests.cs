@@ -103,9 +103,11 @@ public class ToolTabBarViewTests
             ToolTabBar bar = view.FindControl<ToolTabBar>("ToolBar")!;
             barHeight ??= bar.Bounds.Height;
             Assert.That(bar.Bounds.Height, Is.EqualTo(barHeight.Value), name);
+            double rightmostButtonEdge = 0;
             foreach (Button button in bar.GetLogicalDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible))
             {
                 Point position = button.TranslatePoint(default, bar)!.Value;
+                rightmostButtonEdge = Math.Max(rightmostButtonEdge, position.X + button.Bounds.Width);
                 Assert.Multiple(() =>
                 {
                     Assert.That(button.Bounds.Width, Is.GreaterThan(0), name);
@@ -115,6 +117,8 @@ public class ToolTabBarViewTests
                     Assert.That(position.Y + button.Bounds.Height, Is.LessThanOrEqualTo(bar.Bounds.Height), name);
                 });
             }
+            Assert.That(bar.Bounds.Width - rightmostButtonEdge, Is.EqualTo(bar.Padding.Right),
+                $"{name}: actions should align to the shared right padding");
 
             if (Environment.GetEnvironmentVariable("BEUTL_TOOL_TAB_BAR_CAPTURE") is { Length: > 0 } directory)
             {

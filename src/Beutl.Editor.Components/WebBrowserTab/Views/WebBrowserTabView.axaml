@@ -177,31 +177,27 @@
                 <Button Grid.Column="0"
                         Click="OnBackClick"
                         IsEnabled="{Binding CanGoBack.Value}"
-                        Padding="6"
-                        Theme="{StaticResource TransparentButton}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Back}">
                     <icons:FluentIcon FontSize="16" Icon="ArrowLeft" />
                 </Button>
                 <Button Grid.Column="1"
                         Click="OnForwardClick"
                         IsEnabled="{Binding CanGoForward.Value}"
-                        Padding="6"
-                        Theme="{StaticResource TransparentButton}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Forward}">
                     <icons:FluentIcon FontSize="16" Icon="ArrowRight" />
                 </Button>
                 <Panel Grid.Column="2">
                     <Button Click="OnRefreshClick"
                             IsVisible="{Binding !IsLoading.Value}"
-                            Padding="6"
-                            Theme="{StaticResource TransparentButton}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Refresh}">
                         <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
                     </Button>
                     <Button Click="OnStopClick"
                             IsVisible="{Binding IsLoading.Value}"
-                            Padding="6"
-                            Theme="{StaticResource TransparentButton}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Stop}">
                         <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                     </Button>
@@ -216,8 +212,7 @@
                          PlaceholderText="{x:Static lang:Strings.WebAddress}" />
                 <Button x:Name="BrowserMenuButton"
                         Grid.Column="4"
-                        Padding="6"
-                        Theme="{StaticResource TransparentButton}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Menu}">
                     <Button.Flyout>
                         <ui:FAMenuFlyout>
@@ -671,15 +666,15 @@
                   Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                   IsVisible="False"
                   RowDefinitions="Auto,*">
-                <controls:ToolTabBar x:Name="ToolPanelHeader" Classes="header">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <controls:ToolTabBar x:Name="ToolPanelHeader">
+                    <Grid ColumnDefinitions="*,Auto">
                         <TextBlock x:Name="ToolPanelTitle"
                                    Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
                         <Button x:Name="CloseBrowserPanelButton"
                                 Grid.Column="1"
                                 AutomationProperties.Name="{x:Static lang:Strings.Close}"
-                                Classes="browserIcon"
                                 Click="OnCloseBrowserPanelClick"
+                                Theme="{StaticResource ToolTabBarIconButtonTheme}"
                                 ToolTip.Tip="{x:Static lang:Strings.Close}">
                             <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                         </Button>

@@ -34,7 +34,6 @@
         <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Grid.Column="0"
-                           Margin="8,0"
                            Text="{x:Static lang:Strings.SavedDockLayouts}"
                            Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
 

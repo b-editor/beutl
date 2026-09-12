@@ -81,12 +81,11 @@
         <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <TextBlock Grid.Column="0"
-                           Margin="8,0,0,0"
                            Text="{x:Static lang:Strings.Proxies}"
                            Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
 
                 <TextBlock Grid.Column="1"
-                           Margin="8,0"
+                           Margin="0,0,8,0"
                            HorizontalAlignment="Right"
                            VerticalAlignment="Center"
                            Text="{Binding ClipSummary.Value}"

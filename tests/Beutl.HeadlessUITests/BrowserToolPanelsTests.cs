@@ -53,9 +53,21 @@ public class BrowserToolPanelsTests
             OpenMenu(view, Strings.BrowserDownloads);
             Dispatcher.UIThread.RunJobs();
             AssertFits(view);
-            Assert.That(view.FindControl<ToolTabBar>("ToolPanelHeader")!.Bounds.Height,
-                Is.EqualTo(view.FindControl<ToolTabBar>("AddressBar")!.Bounds.Height),
-                "the panel header should match the address bar height");
+            var header = view.FindControl<ToolTabBar>("ToolPanelHeader")!;
+            var addressBar = view.FindControl<ToolTabBar>("AddressBar")!;
+            var close = view.FindControl<Button>("CloseBrowserPanelButton")!;
+            var menu = view.FindControl<Button>("BrowserMenuButton")!;
+            double closeRight = close.TranslatePoint(default, header)!.Value.X + close.Bounds.Width;
+            double menuRight = menu.TranslatePoint(default, addressBar)!.Value.X + menu.Bounds.Width;
+            Assert.Multiple(() =>
+            {
+                Assert.That(header.Bounds.Height, Is.EqualTo(addressBar.Bounds.Height),
+                    "the panel header should match the address bar height");
+                Assert.That(header.Bounds.Width - closeRight, Is.EqualTo(addressBar.Bounds.Width - menuRight),
+                    "the panel close button should have the same right inset as the address bar menu");
+                Assert.That(close.Bounds.Size, Is.EqualTo(menu.Bounds.Size),
+                    "the two bars should use the same icon button size");
+            });
             Capture(window, $"history-{width}-{light}");
             profile.ClearHistory();
             Dispatcher.UIThread.RunJobs();

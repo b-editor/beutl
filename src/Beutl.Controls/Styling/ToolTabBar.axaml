@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="using:Beutl.Controls">
     <Thickness x:Key="ToolTabBarPadding">4</Thickness>
-    <Thickness x:Key="ToolTabBarHeaderPadding">12,4</Thickness>
+    <Thickness x:Key="ToolTabBarTitleMargin">8,0</Thickness>
     <Thickness x:Key="ToolTabBarBorderThickness">0,0,0,1</Thickness>
     <!--  Keep single-row bars aligned with a standard text input.  -->
     <x:Double x:Key="ToolTabBarMinHeight">42</x:Double>
@@ -29,10 +29,6 @@
                                   VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
             </ControlTemplate>
         </Setter>
-
-        <Style Selector="^.header">
-            <Setter Property="Padding" Value="{DynamicResource ToolTabBarHeaderPadding}" />
-        </Style>
     </ControlTheme>
 
     <ControlTheme x:Key="ToolTabBarIconButtonTheme"
@@ -42,6 +38,7 @@
     </ControlTheme>
 
     <ControlTheme x:Key="ToolTabBarTitleTextBlockTheme" TargetType="TextBlock">
+        <Setter Property="Margin" Value="{DynamicResource ToolTabBarTitleMargin}" />
         <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="VerticalAlignment" Value="Center" />
