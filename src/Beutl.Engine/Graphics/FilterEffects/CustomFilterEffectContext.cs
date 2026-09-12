@@ -161,8 +161,10 @@ public class CustomFilterEffectContext
     /// <para>
     /// Every target in the returned list is moved into <see cref="Targets"/>, which then owns it, and the
     /// returned <see cref="EffectTargets"/> container is left empty, so disposing that container afterwards
-    /// releases nothing. Changing a callback's return type from <see cref="EffectTarget"/> to
-    /// <see cref="EffectTargets"/> therefore changes both what it is handed and what is destroyed.
+    /// releases nothing. The callback must return a list of its own: returning <see cref="Targets"/> itself
+    /// throws <see cref="InvalidOperationException"/> before anything is detached. Changing a callback's
+    /// return type from <see cref="EffectTarget"/> to <see cref="EffectTargets"/> therefore changes both what
+    /// it is handed and what is destroyed.
     /// </para>
     /// </remarks>
     public void ForEach(Func<int, EffectTarget, EffectTargets> action)
@@ -172,6 +174,15 @@ public class CustomFilterEffectContext
             EffectTarget original = Targets[i];
             EffectTarget clone = original.Clone();
             EffectTargets newTargets = action(i, clone);
+            if (ReferenceEquals(newTargets, Targets))
+            {
+                // Moving a list into itself would detach and re-insert the same elements; refuse before
+                // touching the list, releasing the clone the callback was handed unless it stored it.
+                if (!ReferenceEquals(clone, original) && !Targets.Contains(clone))
+                    clone.Dispose();
+                throw new InvalidOperationException(
+                    "The callback must return a list of its own, not the context's Targets.");
+            }
 
             // The callback only ever saw the clone, so RemoveAt can dispose the original. An empty target
             // clones as itself and may now sit in newTargets, so that one is detached instead.
