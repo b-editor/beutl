@@ -204,7 +204,7 @@ internal partial class WebBrowserTabView
     {
         if (_disposed || _viewModel is not { } vm || cancellation.IsCancellationRequested) return null;
         var content = new BrowserDownloadOptionsView(uri, vm.ProjectDownloadDirectory,
-            BeutlEnvironment.GetMaterialsDirectoryPath(), vm.CanAddDownloadedMedia);
+            BeutlEnvironment.GetMaterialsDirectoryPath(), vm.CanAddDownloadedFile(Uri.UnescapeDataString(uri.AbsolutePath)));
         var completion = new TaskCompletionSource<BrowserDownloadOptions?>(TaskCreationOptions.RunContinuationsAsynchronously);
         content.Confirmed += () => completion.TrySetResult(new BrowserDownloadOptions(content.SelectedDirectory, content.AddToTimeline));
         content.Canceled += () => completion.TrySetResult(null);
@@ -254,7 +254,7 @@ internal partial class WebBrowserTabView
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));
             ToolTip.SetTip(DownloadStatusText, file);
             CheckProfileSave(vm.Profile.AddDownload(uri, file, referrer));
-            if (options.AddToTimeline)
+            if (options.AddToTimeline && vm.CanAddDownloadedFile(file))
             {
                 try { await vm.AddDownloadedMediaAsync(file, cancellation.Token); }
                 catch (Exception ex)

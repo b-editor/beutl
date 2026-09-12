@@ -136,7 +136,7 @@ internal partial class WebBrowserTabView
     private void RefreshDownloadHistory()
     {
         if (_historyItems == null || _viewModel is not { } vm) return;
-        _historyItems.ItemsSource = vm.Profile.Downloads.Select(record => new BrowserDownloadHistoryItem(record, vm.CanAddDownloadedMedia)).ToArray();
+        _historyItems.ItemsSource = vm.Profile.Downloads.Select(record => new BrowserDownloadHistoryItem(record, vm.CanAddDownloadedFile(record.FilePath))).ToArray();
         bool empty = vm.Profile.Downloads.Count == 0;
         _historyEmpty!.IsVisible = empty;
         _historyItems.IsVisible = !empty;

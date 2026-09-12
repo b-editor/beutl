@@ -13,6 +13,7 @@ using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
@@ -22,6 +23,55 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class WebBrowserDownloadTests
 {
+    private readonly DownloadTestDecoder _decoder = new();
+
+    [SetUp]
+    public void RegisterDownloadTestDecoder() => DecoderRegistry.Register(_decoder);
+
+    [TearDown]
+    public void UnregisterDownloadTestDecoder() => DecoderRegistry.Unregister(_decoder);
+
+    [AvaloniaTest]
+    [TestCase("image.svg", false)]
+    [TestCase("image.png", true)]
+    [TestCase("video.mp4", true)]
+    [TestCase("download", false)]
+    public async Task DownloadOptionsOnlyEnableImportForSupportedFileTypes(string fileName, bool canImport)
+    {
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene
+        { Uri = new Uri(Path.Combine(Path.GetTempPath(), "download-options.scene")) }));
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
+        Task<WebBrowserTabView.BrowserDownloadOptions?> pending = view.ChooseDownloadOptionsAsync(new Uri("https://files.example/" + fileName), default);
+        var options = (BrowserDownloadOptionsView)view.FindControl<ContentControl>("ToolPanelContent")!.Content!;
+        Assert.That(options.CanImport, Is.EqualTo(canImport));
+        Assert.That(options.FindControl<CheckBox>("AddToTimelineCheckBox")!.IsChecked, Is.EqualTo(canImport));
+        view.CloseBrowserPanel();
+        await pending;
+    }
+
+    [AvaloniaTest]
+    public async Task DownloadedSvgIsSavedWithoutAttemptingTimelineImport()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var context = new DownloadContext(new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) });
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(context, WebBrowserTabViewModel.BlankPage, profile);
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
+        using var client = new HttpClient(new SvgHandler());
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, true));
+        try
+        {
+            await view.DownloadMediaAsync(new Uri("https://files.example/movie.mp4"), null);
+            var record = profile.Downloads.Single();
+            Assert.That(Path.GetExtension(record.FilePath), Is.EqualTo(".svg"));
+            Assert.That(File.Exists(record.FilePath), Is.True);
+            Assert.That(context.Imported, Is.Empty);
+            Assert.That(vm.CanAddDownloadedFile(record.FilePath), Is.False);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
     [AvaloniaTest]
     public async Task DownloadOptions_ReplacementAndCancellationDoNotDismissAnotherPanel()
     {
@@ -744,6 +794,25 @@ public class WebBrowserDownloadTests
             var content = new ByteArrayContent([1, 2, 3]);
             content.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });
+        }
+    }
+
+    private sealed class DownloadTestDecoder : IDecoderInfo
+    {
+        public string Name => "Browser download tests";
+        public IEnumerable<string> VideoExtensions() => [".mp4"];
+        public IEnumerable<string> AudioExtensions() => [".mp3"];
+        public MediaReader? Open(string file, MediaOptions options) => null;
+    }
+
+    private sealed class SvgHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var content = new StringContent("<svg xmlns='http://www.w3.org/2000/svg'/>");
+            content.Headers.ContentType = new MediaTypeHeaderValue("image/svg+xml");
+            content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment") { FileName = "image.svg" };
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = request, Content = content });
         }
     }
 

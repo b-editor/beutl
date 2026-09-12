@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Reactive.Bindings;
 
@@ -78,6 +79,11 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal bool CanAddDownloadedMedia => !_disposed && _editorContext.Object is Scene { Uri.IsFile: true }
         && _editorContext.GetService(typeof(IElementAdder)) is IElementAdder;
+
+    internal bool CanAddDownloadedFile(string fileName) => CanAddDownloadedMedia
+        && (Graphics.Image.SupportedExtensions.Contains(Path.GetExtension(fileName), StringComparer.OrdinalIgnoreCase)
+            || DecoderRegistry.EnumerateDecoder().SelectMany(decoder => decoder.VideoExtensions().Concat(decoder.AudioExtensions()))
+                .Select(DecoderFileExtensions.Normalize).Contains(Path.GetExtension(fileName), StringComparer.OrdinalIgnoreCase));
 
     internal async Task AddDownloadedMediaAsync(string fileName, CancellationToken cancellationToken)
     {
