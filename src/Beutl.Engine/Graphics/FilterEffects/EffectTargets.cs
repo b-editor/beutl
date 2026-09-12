@@ -155,6 +155,11 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
 
         if (collection is EffectTargets source)
         {
+            // A target held by both lists would end up in two slots here, so the move is vetted like any
+            // other insertion before anything changes hands.
+            foreach (EffectTarget item in source._targets)
+                ThrowIfOwned(item);
+
             _targets.InsertRange(index, source._targets);
             source._targets.Clear();
             return;

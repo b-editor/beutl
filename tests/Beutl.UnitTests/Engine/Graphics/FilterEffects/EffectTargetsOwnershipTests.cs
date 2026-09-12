@@ -221,6 +221,29 @@ public sealed class EffectTargetsOwnershipTests
     }
 
     [Test]
+    public void InsertRange_RefusesMovingATargetTheDestinationAlreadyHolds()
+    {
+        EffectTarget shared = CreateTarget();
+        EffectTarget other = CreateTarget();
+        using var destination = new EffectTargets { shared };
+        using var source = new EffectTargets { other, shared };
+
+        // Two lists that were handed the same instance is already a contract violation; the move must not
+        // turn it into two slots of one list, and it must not move anything before refusing.
+        Assert.Throws<InvalidOperationException>(() => destination.InsertRange(0, source));
+        Assert.Multiple(() =>
+        {
+            Assert.That(destination, Has.Count.EqualTo(1));
+            Assert.That(source, Has.Count.EqualTo(2));
+            Assert.That(shared.IsEmpty, Is.False);
+            Assert.That(other.IsEmpty, Is.False);
+        });
+
+        // Detach the shared instance from one list so the two disposals below do not overlap.
+        source.DetachAt(1);
+    }
+
+    [Test]
     public void InsertRange_RefusesASequenceThatRepeatsATarget()
     {
         using var targets = new EffectTargets();
