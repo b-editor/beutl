@@ -104,10 +104,13 @@ public class BrowserToolPanelsTests
     }
 
     [AvaloniaTest]
-    [TestCase("navigation")]
-    [TestCase("zoom")]
-    [TestCase("current")]
-    public async Task ZoomFailuresOnlyAffectThePageAndZoomThatRequestedThem(string supersededBy)
+    [TestCase("navigation", true)]
+    [TestCase("zoom", true)]
+    [TestCase("same zoom", true)]
+    [TestCase("same zoom", false)]
+    [TestCase("current", true)]
+    [TestCase("current", false)]
+    public async Task ZoomFailuresOnlyAffectThePageAndZoomThatRequestedThem(string supersededBy, bool throws)
     {
         using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, new Uri("https://original.example/"));
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
@@ -122,12 +125,15 @@ public class BrowserToolPanelsTests
             { Request = new Uri("https://next.example/"), IsSuccess = true });
         else if (supersededBy == "zoom")
             await view.SetPageZoomAsync(120);
+        else if (supersededBy == "same zoom")
+            await view.SetPageZoomAsync(110);
 
         view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
         { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
         Dispatcher.UIThread.RunJobs();
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
-        pending.SetException(new InvalidOperationException("The previous script context was destroyed."));
+        if (throws) pending.SetException(new InvalidOperationException("The previous script context was destroyed."));
+        else pending.SetResult("false");
         await zoom;
         bool current = supersededBy == "current";
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.EqualTo(!current));

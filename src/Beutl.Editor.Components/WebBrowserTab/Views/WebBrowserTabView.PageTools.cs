@@ -7,6 +7,7 @@ namespace Beutl.Editor.Components.WebBrowserTab.Views;
 internal partial class WebBrowserTabView
 {
     private int _zoomPercent = 100;
+    private int _zoomRevision;
     private int _pageRevision;
     private int _findRevision;
     private CancellationTokenSource? _findRequest;
@@ -101,10 +102,11 @@ internal partial class WebBrowserTabView
         percent = Math.Clamp(percent, 50, 200);
         _zoomPercent = percent;
         int revision = _pageRevision;
+        int request = ++_zoomRevision;
         try
         {
             string? result = NormalizePageTitle(await RunPageScriptAsync(BrowserPageTools.ZoomScript(percent)));
-            if (!_disposed && revision == _pageRevision && _zoomPercent == percent)
+            if (!_disposed && revision == _pageRevision && request == _zoomRevision && _zoomPercent == percent)
             {
                 if (result == "true") ZoomResetMenuItem.Text = $"{Strings.BrowserZoomReset} ({percent}%)";
                 else ShowToolStatus(Strings.BrowserPageToolsUnavailable);
@@ -112,7 +114,7 @@ internal partial class WebBrowserTabView
         }
         catch
         {
-            if (!_disposed && revision == _pageRevision && _zoomPercent == percent)
+            if (!_disposed && revision == _pageRevision && request == _zoomRevision && _zoomPercent == percent)
                 ShowToolStatus(Strings.BrowserPageToolsUnavailable);
         }
     }
