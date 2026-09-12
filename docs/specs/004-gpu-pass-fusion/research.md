@@ -94,9 +94,11 @@ noise floor; recorded in full in issue #2284) found instead:
   is bypassed as `DeviceGridDependentOutput`, and re-running the remaining admission
   gates for each refused candidate found none that would have failed later. Whether
   other workloads admit anything has not been measured.
-- Enabling it nonetheless costs about 1 % of frame time for the boundary sweep and
-  the extra fixed-point pass (`RenderCacheResolver.Resolve` went from 21.5 ms to
-  72.2 ms over 61 requests) while producing zero hits.
+- Enabling it nonetheless adds work for zero hits: the boundary sweep and the extra
+  fixed-point pass took `RenderCacheResolver.Resolve` from 21.5 ms to 72.2 ms over
+  61 requests, about 0.83 ms per frame. That is roughly 1 % of a 1080p frame, which
+  sits inside the run's ±2.7 % noise floor, so the instrumented resolver overhead is
+  the measured quantity; an end-to-end frame-time delta was not resolved.
 - For content forced through admission, the warm replay path measures 1.00–1.025
   times direct rendering, but the admission frame itself measures 3.0–3.1 times.
   A cache that cannot know how long content will persist therefore loses on
