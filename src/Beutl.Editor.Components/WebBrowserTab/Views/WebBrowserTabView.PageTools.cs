@@ -110,7 +110,11 @@ internal partial class WebBrowserTabView
                 else ShowToolStatus(Strings.BrowserPageToolsUnavailable);
             }
         }
-        catch { if (!_disposed) ShowToolStatus(Strings.BrowserPageToolsUnavailable); }
+        catch
+        {
+            if (!_disposed && revision == _pageRevision && _zoomPercent == percent)
+                ShowToolStatus(Strings.BrowserPageToolsUnavailable);
+        }
     }
 
     private async void OnBrowserKeyDown(object? sender, KeyEventArgs e)

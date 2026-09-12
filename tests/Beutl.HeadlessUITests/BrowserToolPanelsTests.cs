@@ -104,6 +104,38 @@ public class BrowserToolPanelsTests
     }
 
     [AvaloniaTest]
+    [TestCase("navigation")]
+    [TestCase("zoom")]
+    [TestCase("current")]
+    public async Task ZoomFailuresOnlyAffectThePageAndZoomThatRequestedThem(string supersededBy)
+    {
+        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, new Uri("https://original.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            getPageTitle: _ => Task.FromResult<string?>("Page"))
+        { DataContext = vm };
+        var pending = new TaskCompletionSource<string?>();
+        view.PageScriptRunner = _ => pending.Task;
+        Task zoom = view.SetPageZoomAsync(110);
+        view.PageScriptRunner = _ => Task.FromResult<string?>("true");
+        if (supersededBy == "navigation")
+            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs
+            { Request = new Uri("https://next.example/"), IsSuccess = true });
+        else if (supersededBy == "zoom")
+            await view.SetPageZoomAsync(120);
+
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        pending.SetException(new InvalidOperationException("The previous script context was destroyed."));
+        await zoom;
+        bool current = supersededBy == "current";
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.EqualTo(!current));
+        Assert.That(view.FindControl<TextBlock>("DownloadStatusText")!.Text,
+            Is.EqualTo(current ? Strings.BrowserPageToolsUnavailable : Strings.BrowserPageDownloadRequest));
+    }
+
+    [AvaloniaTest]
     public async Task FindFeedbackIndicatesWhenTheMatchLimitIsReached()
     {
         using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
