@@ -338,6 +338,91 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AnotherMediaNavigationReplacesThePreviousDownloadOffer(bool firstOfferVisible)
+    {
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://original.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        Uri? requested = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            requested = uri;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+        var first = new Uri("https://files.example/first.mp4");
+        var second = new Uri("https://files.example/second.mp4");
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = new Uri("https://redirect.example/download") });
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = first });
+        if (firstOfferVisible) Dispatcher.UIThread.RunJobs();
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = second });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = first, IsSuccess = false });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = second, IsSuccess = false });
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(confirm.IsVisible, Is.True);
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(second.AbsoluteUri));
+        Assert.That(requested, Is.Null);
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Assert.That(requested, Is.EqualTo(second));
+    }
+
+    [AvaloniaTest]
+    [TestCase("pending")]
+    [TestCase("dismissed")]
+    [TestCase("finished")]
+    public async Task CanceledMediaCompletionPreservesTheDisplayedPage(string offerState)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var page = new Uri("https://original.example/page");
+        var media = new Uri("https://files.example/movie.mp4");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page, profile);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        vm.CompleteNavigation(page, true, false, false);
+        vm.SetPageTitle(page, "Original page");
+        using var client = new HttpClient(new MediaHandler());
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        try
+        {
+            view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = media });
+            Dispatcher.UIThread.RunJobs();
+            if (offerState == "dismissed")
+                view.FindControl<Button>("DismissDownloadStatusButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            else if (offerState == "finished")
+            {
+                view.FindControl<Button>("ConfirmPageDownloadButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
+            Assert.That(vm.CurrentUri, Is.EqualTo(page));
+            Assert.That(vm.Address.Value, Is.EqualTo(page.AbsoluteUri));
+            Assert.That(vm.Header.Value, Is.EqualTo("Original page"));
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(vm.ErrorMessage.Value, Is.Null);
+            var saved = new JsonObject();
+            vm.WriteToJson(saved);
+            Assert.That(saved["source"]!.GetValue<string>(), Is.EqualTo(page.AbsoluteUri));
+
+            var next = new Uri("https://next.example/page");
+            view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+            Assert.That(vm.IsLoading.Value, Is.True);
+            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+            Assert.That(vm.CurrentUri, Is.EqualTo(next));
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(vm.ErrorMessage.Value, Is.Not.Empty);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
     public void RedirectedMediaDoesNotReenableDismissedPageRequests()
     {
         using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://original.example/"));

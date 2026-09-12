@@ -233,8 +233,10 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             // A redirect can turn an in-flight page navigation into a download. Its document
             // origin is no longer confirmed, and cancellation must release the request gate.
             if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
+            else InvalidatePageDownloadRequests();
+            _mediaNavigationIntercepted = true;
             _viewModel?.StopNavigation();
-            QueuePageDownloadRequest(mediaUri, null, fromNavigation: true);
+            QueuePageDownloadRequest(mediaUri, null);
             return;
         }
 
@@ -252,10 +254,12 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
+        // The canceled media never replaced the document. Its failure may arrive even after
+        // the offer is dismissed or downloaded, so track it independently of the confirmation UI.
+        if (!e.IsSuccess && _mediaNavigationIntercepted) return;
+
         if (e.IsSuccess) ResetPageDownloadRequests();
-        // Canceling an intercepted media navigation can report failure after its offer is queued.
-        // A subsequent navigation start still invalidates that offer in the usual way.
-        else if (_pendingPageDownloadRequest is not { FromNavigation: true }) SettleAbortedPageNavigation();
+        else SettleAbortedPageNavigation();
         _pageRevision++;
         _findRequest?.Cancel();
         Uri uri = e.Request ?? _webView.Source;
@@ -376,9 +380,14 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private bool StartNativePageNavigation(Func<bool> navigate)
     {
         bool wasPending = _pageDownloadNavigationPending;
+        bool wasIntercepted = _mediaNavigationIntercepted;
         InvalidatePageDownloadRequests(navigationStarted: true);
         bool started = navigate();
-        if (!started) _pageDownloadNavigationPending = wasPending;
+        if (!started)
+        {
+            _pageDownloadNavigationPending = wasPending;
+            _mediaNavigationIntercepted = wasIntercepted;
+        }
         return started;
     }
 

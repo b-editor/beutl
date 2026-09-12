@@ -17,8 +17,9 @@ internal partial class WebBrowserTabView
     private bool _pageDownloadRequestsSuppressed;
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
+    private bool _mediaNavigationIntercepted;
 
-    private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId, bool FromNavigation);
+    private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId);
 
     internal BrowserMediaDownload MediaDownloader { get; set; } = BrowserMediaDownload.Default;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
@@ -85,7 +86,7 @@ internal partial class WebBrowserTabView
         }
     }
 
-    private void QueuePageDownloadRequest(Uri uri, string? suggestedName, bool fromNavigation = false)
+    private void QueuePageDownloadRequest(Uri uri, string? suggestedName)
     {
         if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
             || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
@@ -95,7 +96,7 @@ internal partial class WebBrowserTabView
         // BlankPage deliberately prevents the downloader's direct-navigation fallback from
         // using destination cookies when the surviving document's origin is unknown.
         Uri? referrer = _pageDownloadReferrerUncertain ? ViewModels.WebBrowserTabViewModel.BlankPage : owner?.CurrentUri;
-        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, fromNavigation);
+        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId);
         _pendingPageDownloadRequest = request;
         Dispatcher.UIThread.Post(() =>
         {
@@ -142,6 +143,7 @@ internal partial class WebBrowserTabView
         _pageDownloadRequestsSuppressed = false;
         _pageDownloadNavigationPending = false;
         _pageDownloadReferrerUncertain = false;
+        _mediaNavigationIntercepted = false;
     }
 
     private void SettleAbortedPageNavigation()
@@ -154,7 +156,11 @@ internal partial class WebBrowserTabView
     private void InvalidatePageDownloadRequests(bool navigationStarted = false)
     {
         _pageDownloadDocumentId++;
-        if (navigationStarted) _pageDownloadNavigationPending = true;
+        if (navigationStarted)
+        {
+            _pageDownloadNavigationPending = true;
+            _mediaNavigationIntercepted = false;
+        }
         ClearPageDownloadRequest();
     }
 
