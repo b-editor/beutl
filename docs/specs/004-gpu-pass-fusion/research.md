@@ -80,10 +80,26 @@ The node render cache remains available as an explicit experimental option, but 
 is disabled by default. Authoritative Apple M3/MoltenVK measurements found that
 admitted antialiased geometry changed GPU pixels at admission and replay: an
 ellipse rim differed by up to 0.48 in linear light, and an ordinary SrcOver group
-could lose its outermost antialiasing apron. The same warm-cache path was
-1.7–2.6 times slower than direct rendering for admitted content, including an
-observed 7.1 ms/frame regression at 1080p. Expensive blur content did not become
-eligible yet still paid 1.02–1.2 times the planning cost.
+could lose its outermost antialiasing apron.
+
+The performance figures originally recorded alongside that finding — a warm-cache
+path 1.7–2.6 times slower than direct rendering for admitted content, a 7.1 ms/frame
+regression at 1080p, and a 1.02–1.2 times planning cost for ineligible blur content —
+do not reproduce, and the evidence tree behind them was not carried into the
+repository, so they cannot be re-checked. A later measurement on the fused pipeline
+(Linux, Intel UHD 630, Vulkan, a 1920×1080 eleven-element animated scene, ±2.7 %
+noise floor; recorded in full in issue #2284) found instead:
+
+- On realistic scenes the cache admits nothing at all. Every candidate is bypassed
+  as `DeviceGridDependentOutput`, and re-running the remaining admission gates for
+  each refused candidate found none that would have failed later.
+- Enabling it nonetheless costs about 1 % of frame time for the boundary sweep and
+  the extra fixed-point pass (`RenderCacheResolver.Resolve` went from 21.5 ms to
+  72.2 ms over 61 requests) while producing zero hits.
+- For content forced through admission, the warm replay path measures 1.00–1.025
+  times direct rendering, but the admission frame itself measures 3.0–3.1 times.
+  A cache that cannot know how long content will persist therefore loses on
+  animated content, which is a different design from tuning the current one.
 
 `RenderCacheOptions.Default` therefore matches `Disabled`;
 `RenderCacheOptions.Enabled` is the deliberate opt-in used by cache-specific
