@@ -202,6 +202,54 @@ public sealed class EffectTargetsOwnershipTests
     }
 
     [Test]
+    public void Add_Insert_AndTheIndexer_RefuseATargetHeldInAnotherSlot()
+    {
+        EffectTarget first = CreateTarget();
+        EffectTarget second = CreateTarget();
+        using var targets = new EffectTargets { first, second };
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<InvalidOperationException>(() => targets.Add(first));
+            Assert.Throws<InvalidOperationException>(() => targets.Insert(0, second));
+            Assert.Throws<InvalidOperationException>(() => targets[0] = second);
+            Assert.That(targets, Has.Count.EqualTo(2));
+            Assert.That(targets[0], Is.SameAs(first));
+            Assert.That(first.IsEmpty, Is.False);
+            Assert.That(second.IsEmpty, Is.False);
+        });
+    }
+
+    [Test]
+    public void InsertRange_RefusesASequenceThatRepeatsATarget()
+    {
+        using var targets = new EffectTargets();
+        using EffectTarget repeated = CreateTarget();
+
+        Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, new[] { repeated, repeated }));
+        Assert.Multiple(() =>
+        {
+            Assert.That(targets, Is.Empty);
+            Assert.That(repeated.IsEmpty, Is.False);
+        });
+    }
+
+    [Test]
+    public void InsertRange_ValidatesTheIndexBeforeEnumerating()
+    {
+        using var targets = new EffectTargets();
+        bool enumerated = false;
+        IEnumerable<EffectTarget> Deferred()
+        {
+            enumerated = true;
+            yield return CreateTarget();
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => targets.InsertRange(1, Deferred()));
+        Assert.That(enumerated, Is.False, "an invalid index must be rejected before the sequence runs");
+    }
+
+    [Test]
     public void ForEach_ReplacingOverload_DisposesOnlyTheTargetsItReplaces()
     {
         EffectTarget kept = CreateTarget();

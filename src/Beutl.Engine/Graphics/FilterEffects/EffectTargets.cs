@@ -64,6 +64,7 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
             if (ReferenceEquals(previous, value))
                 return;
 
+            ThrowIfOwned(value);
             _targets[index] = value;
             previous.Dispose();
         }
@@ -88,7 +89,13 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
     /// </summary>
     public EffectTargets Clone() => new(this);
     /// <summary>Appends <paramref name="item"/> and takes ownership of it.</summary>
-    public void Add(EffectTarget item) => _targets.Add(item);
+    /// <exception cref="InvalidOperationException">The list already holds <paramref name="item"/>.</exception>
+    public void Add(EffectTarget item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ThrowIfOwned(item);
+        _targets.Add(item);
+    }
     /// <summary>Appends every target in <paramref name="collection"/> and takes ownership of them.</summary>
     /// <remarks>
     /// When <paramref name="collection"/> is another <see cref="EffectTargets"/>, its targets are moved and
@@ -121,17 +128,28 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
         => ((IEnumerable<EffectTarget>)_targets).GetEnumerator();
     public int IndexOf(EffectTarget item) => _targets.IndexOf(item);
     /// <summary>Inserts <paramref name="item"/> at <paramref name="index"/> and takes ownership of it.</summary>
-    public void Insert(int index, EffectTarget item) => _targets.Insert(index, item);
+    /// <exception cref="InvalidOperationException">The list already holds <paramref name="item"/>.</exception>
+    public void Insert(int index, EffectTarget item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(index, _targets.Count);
+        ThrowIfOwned(item);
+        _targets.Insert(index, item);
+    }
     /// <summary>Inserts every target in <paramref name="collection"/> at <paramref name="index"/> and takes ownership of them.</summary>
     /// <remarks>
     /// When <paramref name="collection"/> is another <see cref="EffectTargets"/>, its targets are moved and
     /// it is left empty, so one list owns each target and disposing the source afterwards releases nothing.
-    /// Any other sequence is enumerated completely before the list changes, and a target this list already
-    /// owns is refused with <see cref="InvalidOperationException"/>, as is inserting a list into itself.
+    /// Any other sequence is enumerated completely before the list changes, after <paramref name="index"/>
+    /// has been validated, and a target this list already owns or that the sequence yields twice is refused
+    /// with <see cref="InvalidOperationException"/>, as is inserting a list into itself.
     /// </remarks>
     public void InsertRange(int index, IEnumerable<EffectTarget> collection)
     {
         ArgumentNullException.ThrowIfNull(collection);
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(index, _targets.Count);
         if (ReferenceEquals(collection, this))
             throw new InvalidOperationException("A target list cannot be inserted into itself.");
 
@@ -143,15 +161,24 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
         }
 
         // Materialize first so a deferred query over this list never observes the insertion, then refuse a
-        // target already held here: one element in two slots would be disposed by whichever slot goes first.
+        // target already held here or repeated in the sequence: one element in two slots would be disposed
+        // by whichever slot goes first.
         EffectTarget[] items = collection.ToArray();
+        var owned = new HashSet<EffectTarget>(_targets, ReferenceEqualityComparer.Instance);
         foreach (EffectTarget item in items)
         {
-            if (_targets.Contains(item))
+            ArgumentNullException.ThrowIfNull(item, nameof(collection));
+            if (!owned.Add(item))
                 throw new InvalidOperationException("The list already owns one of the targets being inserted.");
         }
 
         _targets.InsertRange(index, items);
+    }
+
+    private void ThrowIfOwned(EffectTarget item)
+    {
+        if (_targets.Contains(item))
+            throw new InvalidOperationException("The list already owns this target.");
     }
 
     /// <summary>Removes <paramref name="item"/> and disposes it.</summary>
