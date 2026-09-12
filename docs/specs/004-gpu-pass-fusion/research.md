@@ -85,10 +85,12 @@ could lose its outermost antialiasing apron.
 The performance figures originally recorded alongside that finding — a warm-cache
 path 1.7–2.6 times slower than direct rendering for admitted content, a 7.1 ms/frame
 regression at 1080p, and a 1.02–1.2 times planning cost for ineligible blur content —
-do not reproduce, and the evidence tree behind them was not carried into the
-repository, so they cannot be re-checked. A later measurement on the fused pipeline
-(Linux, Intel UHD 630, Vulkan, a 1920×1080 eleven-element animated scene, ±2.7 %
-noise floor; recorded in full in issue #2284) found instead:
+cannot be re-checked: the evidence tree behind them was not carried into the
+repository, and they have not been rerun on the Apple M3/MoltenVK environment they
+came from. A later measurement on a different platform (Linux, Intel UHD 630,
+Vulkan, a 1920×1080 eleven-element animated scene, ±2.7 % noise floor; recorded in
+full in issue #2284) found different ratios on the fused pipeline, so the original
+figures should be read as unverified rather than as a property of the pipeline:
 
 - In that scene the cache admits nothing at all, animated or frozen. Every candidate
   is bypassed as `DeviceGridDependentOutput`, and re-running the remaining admission
