@@ -171,10 +171,8 @@
         </DataTemplate>
     </UserControl.Resources>
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
-        <Border Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
-                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                BorderThickness="0,0,0,1"
-                Padding="4">
+        <controls:ToolTabBar x:Name="AddressBar"
+                             Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}">
             <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="2">
                 <Button Grid.Column="0"
                         Click="OnBackClick"
@@ -247,7 +245,7 @@
                     <icons:FluentIcon FontSize="16" Icon="MoreHorizontal" />
                 </Button>
             </Grid>
-        </Border>
+        </controls:ToolTabBar>
 
         <Border Grid.Row="1"
                 Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
@@ -673,14 +671,10 @@
                   Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                   IsVisible="False"
                   RowDefinitions="Auto,*">
-                <Border Padding="12,4"
-                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                        BorderThickness="0,0,0,1">
+                <controls:ToolTabBar x:Name="ToolPanelHeader" Classes="header">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <TextBlock x:Name="ToolPanelTitle"
-                                   VerticalAlignment="Center"
-                                   FontWeight="SemiBold"
-                                   TextWrapping="Wrap" />
+                                   Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
                         <Button x:Name="CloseBrowserPanelButton"
                                 Grid.Column="1"
                                 AutomationProperties.Name="{x:Static lang:Strings.Close}"
@@ -690,7 +684,7 @@
                             <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                         </Button>
                     </Grid>
-                </Border>
+                </controls:ToolTabBar>
                 <ContentControl x:Name="ToolPanelContent"
                                 Grid.Row="1"
                                 HorizontalContentAlignment="Stretch"

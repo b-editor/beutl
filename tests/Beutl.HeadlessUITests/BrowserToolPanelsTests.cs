@@ -10,6 +10,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
+using Beutl.Controls;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
@@ -52,6 +53,9 @@ public class BrowserToolPanelsTests
             OpenMenu(view, Strings.BrowserDownloads);
             Dispatcher.UIThread.RunJobs();
             AssertFits(view);
+            Assert.That(view.FindControl<ToolTabBar>("ToolPanelHeader")!.Bounds.Height,
+                Is.EqualTo(view.FindControl<ToolTabBar>("AddressBar")!.Bounds.Height),
+                "the panel header should match the address bar height");
             Capture(window, $"history-{width}-{light}");
             profile.ClearHistory();
             Dispatcher.UIThread.RunJobs();
@@ -101,6 +105,42 @@ public class BrowserToolPanelsTests
             Capture(window, $"find-unavailable-{width}-{light}");
         }
         finally { window.Close(); Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(320)]
+    [TestCase(640)]
+    public void LongPanelTitlesWrapWithoutClippingOrHidingTheCloseButton(int width)
+    {
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
+        var window = new Window { Content = view, Width = width, Height = 360 };
+        bool closed = false;
+        try
+        {
+            string title = string.Join(" ", Enumerable.Repeat(Strings.WebDownloadMedia, 6));
+            view.ShowBrowserPanel(title, new TextBlock { Text = "Content" }, () => closed = true);
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            AssertFits(view);
+
+            var header = view.FindControl<ToolTabBar>("ToolPanelHeader")!;
+            var addressBar = view.FindControl<ToolTabBar>("AddressBar")!;
+            var titleText = view.FindControl<TextBlock>("ToolPanelTitle")!;
+            var close = view.FindControl<Button>("CloseBrowserPanelButton")!;
+            Point titlePosition = titleText.TranslatePoint(default, header)!.Value;
+            Assert.Multiple(() =>
+            {
+                Assert.That(header.Bounds.Height, Is.GreaterThan(addressBar.Bounds.Height));
+                Assert.That(titlePosition.Y, Is.GreaterThanOrEqualTo(0));
+                Assert.That(titlePosition.Y + titleText.Bounds.Height, Is.LessThanOrEqualTo(header.Bounds.Height));
+                Assert.That(close.IsEffectivelyVisible, Is.True);
+            });
+
+            close.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(closed, Is.True);
+            Assert.That(view.FindControl<Grid>("ToolPanel")!.IsVisible, Is.False);
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
