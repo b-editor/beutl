@@ -191,13 +191,9 @@ public class CustomFilterEffectContext
             else
                 Targets.RemoveAt(i);
 
-            int inserted = 0;
-            while (newTargets.Count > 0)
-            {
-                Targets.Insert(i + inserted, newTargets.DetachAt(0));
-                inserted++;
-            }
-
+            // InsertRange moves the targets out of the callback's list in one step and leaves it empty.
+            int inserted = newTargets.Count;
+            Targets.InsertRange(i, newTargets);
             i += inserted - 1;
         }
     }
