@@ -80,10 +80,36 @@ The node render cache remains available as an explicit experimental option, but 
 is disabled by default. Authoritative Apple M3/MoltenVK measurements found that
 admitted antialiased geometry changed GPU pixels at admission and replay: an
 ellipse rim differed by up to 0.48 in linear light, and an ordinary SrcOver group
-could lose its outermost antialiasing apron. The same warm-cache path was
-1.7–2.6 times slower than direct rendering for admitted content, including an
-observed 7.1 ms/frame regression at 1080p. Expensive blur content did not become
-eligible yet still paid 1.02–1.2 times the planning cost.
+could lose its outermost antialiasing apron.
+
+The performance figures originally recorded alongside that finding — a warm-cache
+path 1.7–2.6 times slower than direct rendering for admitted content, a 7.1 ms/frame
+regression at 1080p, and a 1.02–1.2 times planning cost for ineligible blur content —
+cannot be re-checked: the evidence tree behind them was not carried into the
+repository, and they have not been rerun on the Apple M3/MoltenVK environment they
+came from. A later measurement on a different platform (Linux, Intel UHD 630,
+Vulkan, a 1920×1080 eleven-element animated scene, ±2.7 % noise floor; recorded in
+full in issue #2284) found different ratios on the fused pipeline, so the original
+figures should be read as unverified rather than as a property of the pipeline:
+
+- In that scene the cache admits nothing at all, animated or frozen. Every candidate
+  is bypassed as `DeviceGridDependentOutput`, and re-running the remaining admission
+  gates for each refused candidate found none that would have failed later. Whether
+  other workloads admit anything has not been measured.
+- Enabling it nonetheless adds work for zero hits: the boundary sweep and the extra
+  fixed-point pass took `RenderCacheResolver.Resolve` from 21.5 ms to 72.2 ms over
+  61 requests, about 0.83 ms per frame. That is roughly 1 % of a 1080p frame, which
+  sits inside the run's ±2.7 % noise floor, so the instrumented resolver overhead is
+  the measured quantity; an end-to-end frame-time delta was not resolved.
+- For content forced through admission, the warm replay path measures 1.00–1.025
+  times direct rendering, and the admission frame itself 3.0–3.1 times. A replay
+  that costs at least as much as rendering directly recovers none of that admission
+  overhead, so for the measured content admission is a loss however long the content
+  persists; only content whose replay is cheaper than direct rendering could amortize
+  the admission frame, and none of the measured content was. Content that changes
+  every frame never reaches admission at all, because the warm-up resets on each
+  reported change, so the exposure is limited to candidates that hold still long
+  enough to be admitted.
 
 `RenderCacheOptions.Default` therefore matches `Disabled`;
 `RenderCacheOptions.Enabled` is the deliberate opt-in used by cache-specific
