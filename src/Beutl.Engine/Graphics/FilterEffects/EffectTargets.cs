@@ -2,14 +2,45 @@
 
 namespace Beutl.Graphics.Effects;
 
+/// <summary>
+/// The intermediate targets a custom effect reads and writes. The list owns every <see cref="EffectTarget"/>
+/// it holds, and every member that drops an element releases that element's render target or pooled lease.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Ownership follows the list, not the element. It transfers into the list through <see cref="Add"/>,
+/// <see cref="AddRange"/>, <see cref="Insert"/>, <see cref="InsertRange"/> and the indexer setter, and it
+/// leaves the list alive only through <see cref="DetachAt"/>. Every other member that drops an element disposes
+/// it: the indexer setter disposes the element it replaces unless it is the same instance, <see cref="Remove"/>
+/// and <see cref="RemoveAt"/> dispose the element they remove, and <see cref="Clear"/> and <see cref="Dispose"/>
+/// dispose them all.
+/// </para>
+/// <para>
+/// A hand-written <c>targets[i] = replacement;</c> is therefore safe, and an explicit <c>Dispose()</c> of the
+/// previous element around it is redundant but harmless, because <see cref="EffectTarget.Dispose"/> may be
+/// called more than once. Hold a target in one list at a time: adding the same instance twice makes the first
+/// removal dispose the other slot's element as well. The <c>CustomFilterEffectContext.ForEach</c> overloads
+/// build on these rules and are the convenient way to replace or expand targets in place.
+/// </para>
+/// </remarks>
 public sealed class EffectTargets : IList<EffectTarget>, IDisposable
 {
     private readonly List<EffectTarget> _targets = [];
 
+    /// <summary>Creates an empty list.</summary>
     public EffectTargets()
     {
     }
 
+    /// <summary>
+    /// Creates a list holding an <see cref="EffectTarget.Clone"/> of every element of <paramref name="obj"/>.
+    /// The clones belong to the new list; <paramref name="obj"/> keeps its own elements.
+    /// </summary>
+    /// <remarks>
+    /// An empty element has nothing to clone, so <see cref="EffectTarget.Clone"/> returns that element itself
+    /// and both lists hold the same instance. Disposing it through either list releases nothing and only resets
+    /// its bounds.
+    /// </remarks>
     public EffectTargets(EffectTargets obj)
     {
         foreach (EffectTarget item in obj)
@@ -18,12 +49,32 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
         }
     }
 
-    public EffectTarget this[int index] { get => ((IList<EffectTarget>)_targets)[index]; set => ((IList<EffectTarget>)_targets)[index] = value; }
+    /// <summary>Gets or sets the target at <paramref name="index"/>.</summary>
+    /// <remarks>
+    /// Setting takes ownership of the new value and disposes the element it replaces, unless that element is
+    /// the new value itself. Call <see cref="DetachAt"/> first to keep the previous element alive.
+    /// </remarks>
+    public EffectTarget this[int index]
+    {
+        get => _targets[index];
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            EffectTarget previous = _targets[index];
+            if (ReferenceEquals(previous, value))
+                return;
 
-    public int Count => ((ICollection<EffectTarget>)_targets).Count;
+            ThrowIfOwned(value);
+            _targets[index] = value;
+            previous.Dispose();
+        }
+    }
 
-    public bool IsReadOnly => ((ICollection<EffectTarget>)_targets).IsReadOnly;
+    public int Count => _targets.Count;
 
+    public bool IsReadOnly => false;
+
+    /// <summary>Unions the <see cref="EffectTarget.Bounds"/> of every element.</summary>
     public Rect CalculateBounds()
     {
         Rect bounds = default;
@@ -32,12 +83,39 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
         return bounds;
     }
 
+    /// <summary>
+    /// Creates a list holding an <see cref="EffectTarget.Clone"/> of every element. The clones belong to the
+    /// new list; this list keeps its own elements. See the copy constructor for empty elements.
+    /// </summary>
     public EffectTargets Clone() => new(this);
-    public void Add(EffectTarget item) => ((ICollection<EffectTarget>)_targets).Add(item);
-    public void AddRange(IEnumerable<EffectTarget> collection) => _targets.AddRange(collection);
-    public void Clear() => ((ICollection<EffectTarget>)_targets).Clear();
-    public bool Contains(EffectTarget item) => ((ICollection<EffectTarget>)_targets).Contains(item);
-    public void CopyTo(EffectTarget[] array, int arrayIndex) => ((ICollection<EffectTarget>)_targets).CopyTo(array, arrayIndex);
+    /// <summary>Appends <paramref name="item"/> and takes ownership of it.</summary>
+    /// <exception cref="InvalidOperationException">The list already holds <paramref name="item"/>.</exception>
+    public void Add(EffectTarget item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ThrowIfOwned(item);
+        _targets.Add(item);
+    }
+    /// <summary>Appends every target in <paramref name="collection"/> and takes ownership of them.</summary>
+    /// <remarks>
+    /// When <paramref name="collection"/> is another <see cref="EffectTargets"/>, its targets are moved and
+    /// it is left empty, so one list owns each target and disposing the source afterwards releases nothing.
+    /// </remarks>
+    public void AddRange(IEnumerable<EffectTarget> collection) => InsertRange(_targets.Count, collection);
+
+    /// <summary>Disposes every element, last to first, and empties the list.</summary>
+    public void Clear()
+    {
+        for (int i = _targets.Count - 1; i >= 0; i--)
+        {
+            EffectTarget target = _targets[i];
+            _targets.RemoveAt(i);
+            target.Dispose();
+        }
+    }
+
+    public bool Contains(EffectTarget item) => _targets.Contains(item);
+    public void CopyTo(EffectTarget[] array, int arrayIndex) => _targets.CopyTo(array, arrayIndex);
     /// <summary>Gets a struct enumerator, so a <see langword="foreach"/> over this list allocates nothing.</summary>
     /// <remarks>
     /// The interface form below is what the language would otherwise bind to, and it boxes the list's own
@@ -48,18 +126,102 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
 
     IEnumerator<EffectTarget> IEnumerable<EffectTarget>.GetEnumerator()
         => ((IEnumerable<EffectTarget>)_targets).GetEnumerator();
-    public int IndexOf(EffectTarget item) => ((IList<EffectTarget>)_targets).IndexOf(item);
-    public void Insert(int index, EffectTarget item) => _targets.Insert(index, item);
-    public void InsertRange(int index, IEnumerable<EffectTarget> collection) => _targets.InsertRange(index, collection);
-    public bool Remove(EffectTarget item) => ((ICollection<EffectTarget>)_targets).Remove(item);
-    public void RemoveAt(int index) => ((IList<EffectTarget>)_targets).RemoveAt(index);
-    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_targets).GetEnumerator();
-    public void Dispose()
+    public int IndexOf(EffectTarget item) => _targets.IndexOf(item);
+    /// <summary>Inserts <paramref name="item"/> at <paramref name="index"/> and takes ownership of it.</summary>
+    /// <exception cref="InvalidOperationException">The list already holds <paramref name="item"/>.</exception>
+    public void Insert(int index, EffectTarget item)
     {
-        for (int i = _targets.Count - 1; i >= 0; i--)
-        {
-            _targets[i].Dispose();
-            _targets.RemoveAt(i);
-        }
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(index, _targets.Count);
+        ThrowIfOwned(item);
+        _targets.Insert(index, item);
     }
+    /// <summary>Inserts every target in <paramref name="collection"/> at <paramref name="index"/> and takes ownership of them.</summary>
+    /// <remarks>
+    /// When <paramref name="collection"/> is another <see cref="EffectTargets"/>, its targets are moved and
+    /// it is left empty, so one list owns each target and disposing the source afterwards releases nothing.
+    /// Any other sequence is enumerated completely before the list changes, after <paramref name="index"/>
+    /// has been validated, and a target this list already owns or that the sequence yields twice is refused
+    /// with <see cref="InvalidOperationException"/>, as is inserting a list into itself.
+    /// </remarks>
+    public void InsertRange(int index, IEnumerable<EffectTarget> collection)
+    {
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(index, _targets.Count);
+        if (ReferenceEquals(collection, this))
+            throw new InvalidOperationException("A target list cannot be inserted into itself.");
+
+        if (collection is EffectTargets source)
+        {
+            // A target held by both lists would end up in two slots here, so the move is vetted like any
+            // other insertion before anything changes hands.
+            foreach (EffectTarget item in source._targets)
+                ThrowIfOwned(item);
+
+            _targets.InsertRange(index, source._targets);
+            source._targets.Clear();
+            return;
+        }
+
+        // Materialize first so a deferred query over this list never observes the insertion, then refuse a
+        // target already held here or repeated in the sequence: one element in two slots would be disposed
+        // by whichever slot goes first.
+        EffectTarget[] items = collection.ToArray();
+        var owned = new HashSet<EffectTarget>(_targets, ReferenceEqualityComparer.Instance);
+        foreach (EffectTarget item in items)
+        {
+            ArgumentNullException.ThrowIfNull(item, nameof(collection));
+            if (!owned.Add(item))
+                throw new InvalidOperationException("The list already owns one of the targets being inserted.");
+        }
+
+        _targets.InsertRange(index, items);
+    }
+
+    private void ThrowIfOwned(EffectTarget item)
+    {
+        if (_targets.Contains(item))
+            throw new InvalidOperationException("The list already owns this target.");
+    }
+
+    /// <summary>Removes <paramref name="item"/> and disposes it.</summary>
+    /// <returns>
+    /// <see langword="true"/> when the list held <paramref name="item"/>. A target the list does not hold is
+    /// left untouched.
+    /// </returns>
+    public bool Remove(EffectTarget item)
+    {
+        int index = _targets.IndexOf(item);
+        if (index < 0)
+            return false;
+
+        RemoveAt(index);
+        return true;
+    }
+
+    /// <summary>Removes the element at <paramref name="index"/> and disposes it.</summary>
+    /// <remarks>Use <see cref="DetachAt"/> to take the element out alive instead.</remarks>
+    public void RemoveAt(int index)
+    {
+        EffectTarget target = _targets[index];
+        _targets.RemoveAt(index);
+        target.Dispose();
+    }
+
+    /// <summary>Removes the element at <paramref name="index"/> without disposing it and returns it.</summary>
+    /// <remarks>
+    /// Ownership passes to the caller, who must dispose the returned target or hand it to a list that will.
+    /// </remarks>
+    public EffectTarget DetachAt(int index)
+    {
+        EffectTarget target = _targets[index];
+        _targets.RemoveAt(index);
+        return target;
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_targets).GetEnumerator();
+    /// <summary>Disposes every element, last to first, and empties the list.</summary>
+    public void Dispose() => Clear();
 }

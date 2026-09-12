@@ -803,15 +803,10 @@ internal static class FilterEffectStageFallbackExecutor
                 replacements.Add(replacement);
         }
 
-        foreach (EffectTarget target in targets)
-            target.Dispose();
+        // Clear disposes the originals; DetachAt moves each replacement across alive.
         targets.Clear();
         while (replacements.Count > 0)
-        {
-            EffectTarget replacement = replacements[0];
-            replacements.RemoveAt(0);
-            targets.Add(replacement);
-        }
+            targets.Add(replacements.DetachAt(0));
     }
 
     private static bool IsEmpty(Rect bounds)

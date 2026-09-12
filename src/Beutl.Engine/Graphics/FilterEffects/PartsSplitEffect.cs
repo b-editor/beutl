@@ -117,8 +117,9 @@ public partial class PartsSplitEffect : FilterEffect
 
                     target.Dispose();
                     context.Targets.RemoveAt(i);
+                    int inserted = newTargets.Count;
                     context.Targets.InsertRange(i, newTargets);
-                    i += newTargets.Count - 1;
+                    i += inserted - 1;
                 }
                 catch
                 {
