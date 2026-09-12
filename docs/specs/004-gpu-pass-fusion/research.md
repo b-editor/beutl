@@ -90,9 +90,10 @@ repository, so they cannot be re-checked. A later measurement on the fused pipel
 (Linux, Intel UHD 630, Vulkan, a 1920×1080 eleven-element animated scene, ±2.7 %
 noise floor; recorded in full in issue #2284) found instead:
 
-- On realistic scenes the cache admits nothing at all. Every candidate is bypassed
-  as `DeviceGridDependentOutput`, and re-running the remaining admission gates for
-  each refused candidate found none that would have failed later.
+- In that scene the cache admits nothing at all, animated or frozen. Every candidate
+  is bypassed as `DeviceGridDependentOutput`, and re-running the remaining admission
+  gates for each refused candidate found none that would have failed later. Whether
+  other workloads admit anything has not been measured.
 - Enabling it nonetheless costs about 1 % of frame time for the boundary sweep and
   the extra fixed-point pass (`RenderCacheResolver.Resolve` went from 21.5 ms to
   72.2 ms over 61 requests) while producing zero hits.
