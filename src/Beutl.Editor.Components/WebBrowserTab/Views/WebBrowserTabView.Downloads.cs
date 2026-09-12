@@ -18,7 +18,7 @@ internal partial class WebBrowserTabView
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
 
-    private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId);
+    private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId, bool FromNavigation);
 
     internal BrowserMediaDownload MediaDownloader { get; set; } = BrowserMediaDownload.Default;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
@@ -85,7 +85,7 @@ internal partial class WebBrowserTabView
         }
     }
 
-    private void QueuePageDownloadRequest(Uri uri, string? suggestedName)
+    private void QueuePageDownloadRequest(Uri uri, string? suggestedName, bool fromNavigation = false)
     {
         if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
             || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
@@ -95,7 +95,7 @@ internal partial class WebBrowserTabView
         // BlankPage deliberately prevents the downloader's direct-navigation fallback from
         // using destination cookies when the surviving document's origin is unknown.
         Uri? referrer = _pageDownloadReferrerUncertain ? ViewModels.WebBrowserTabViewModel.BlankPage : owner?.CurrentUri;
-        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId);
+        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, fromNavigation);
         _pendingPageDownloadRequest = request;
         Dispatcher.UIThread.Post(() =>
         {

@@ -230,7 +230,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
         {
             e.Cancel = true;
-            QueuePageDownloadRequest(mediaUri, null);
+            // A redirect can turn an in-flight page navigation into a download. Its document
+            // origin is no longer confirmed, and cancellation must release the request gate.
+            if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
+            _viewModel?.StopNavigation();
+            QueuePageDownloadRequest(mediaUri, null, fromNavigation: true);
             return;
         }
 
@@ -249,7 +253,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         if (e.IsSuccess) ResetPageDownloadRequests();
-        else SettleAbortedPageNavigation();
+        // Canceling an intercepted media navigation can report failure after its offer is queued.
+        // A subsequent navigation start still invalidates that offer in the usual way.
+        else if (_pendingPageDownloadRequest is not { FromNavigation: true }) SettleAbortedPageNavigation();
         _pageRevision++;
         _findRequest?.Cancel();
         Uri uri = e.Request ?? _webView.Source;

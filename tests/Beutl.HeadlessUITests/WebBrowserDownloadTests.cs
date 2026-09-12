@@ -289,6 +289,77 @@ public class WebBrowserDownloadTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
+    public async Task RedirectedMediaKeepsItsConfirmationAfterNavigationIsCanceled(bool showBeforeCompletion)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://original.example/"), profile);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        int optionsOpened = 0;
+        Uri? requested = null;
+        view.DownloadOptionsSelector = (uri, _) =>
+        {
+            requested = uri;
+            optionsOpened++;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        };
+        view.DownloadCookiesProvider = (_, _) => throw new AssertionException("The canceled navigation has no confirmed document origin.");
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        var intermediate = new Uri("https://redirect.example/download");
+        var media = new Uri("https://files.example/movie.mp4");
+        try
+        {
+            view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = intermediate });
+            var redirect = new WebViewNavigationStartingEventArgs { Request = media };
+            view.OnNavigationStarted(null, redirect);
+            Assert.That(redirect.Cancel, Is.True);
+            Assert.That(vm.IsLoading.Value, Is.False);
+            if (showBeforeCompletion) Dispatcher.UIThread.RunJobs();
+            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = intermediate, IsSuccess = false });
+            Dispatcher.UIThread.RunJobs();
+            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+            Assert.That(confirm.IsVisible, Is.True);
+            Assert.That(optionsOpened, Is.Zero);
+            Assert.That(vm.ErrorMessage.Value, Is.Null);
+            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(optionsOpened, Is.EqualTo(1));
+            Assert.That(requested, Is.EqualTo(media));
+            Assert.That(handler.Referrer, Is.Null);
+            Assert.That(handler.CookieHeader, Is.Null);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    public void RedirectedMediaDoesNotReenableDismissedPageRequests()
+    {
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://original.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
+        Dispatcher.UIThread.RunJobs();
+        view.FindControl<Button>("DismissDownloadStatusButton")!
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = new Uri("https://redirect.example/download") });
+        var redirect = new WebViewNavigationStartingEventArgs { Request = new Uri("https://files.example/movie.mp4") };
+        view.OnNavigationStarted(null, redirect);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(redirect.Cancel, Is.True);
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
     public async Task DownloadsAfterAbortedNavigationOmitUncertainPageMetadata(bool stopped)
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
