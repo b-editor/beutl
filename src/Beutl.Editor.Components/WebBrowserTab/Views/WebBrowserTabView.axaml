@@ -44,14 +44,14 @@
     </UserControl.Styles>
     <UserControl.Resources>
         <DataTemplate x:Key="DownloadHistoryItemTemplate" x:DataType="views:BrowserDownloadHistoryItem">
-            <Border Margin="0,0,0,12"
-                    Padding="14"
+            <Border Margin="0,0,0,8"
+                    Padding="10"
                     Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="12">
-                <StackPanel Spacing="12">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                         <Border Width="40"
                                 Height="40"
                                 Background="{DynamicResource SubtleFillColorSecondaryBrush}"
@@ -65,7 +65,7 @@
                         </Border>
                         <StackPanel Grid.Column="1"
                                     VerticalAlignment="Center"
-                                    Spacing="5">
+                                    Spacing="4">
                             <TextBlock FontSize="14"
                                        FontWeight="SemiBold"
                                        Text="{Binding FileName}"
@@ -141,8 +141,8 @@
             </Border>
         </DataTemplate>
         <DataTemplate x:Key="DownloadHistoryEmptyTemplate" x:DataType="viewModel:WebBrowserTabViewModel">
-            <Border MaxWidth="360" Padding="16,24">
-                <StackPanel Spacing="20">
+            <Border MaxWidth="360" Padding="12,16">
+                <StackPanel Spacing="16">
                     <Border Width="64"
                             Height="64"
                             HorizontalAlignment="Center"
@@ -154,7 +154,7 @@
                                           Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
                                           Icon="ArrowDownload" />
                     </Border>
-                    <StackPanel Spacing="10">
+                    <StackPanel Spacing="8">
                         <TextBlock FontSize="18"
                                    FontWeight="SemiBold"
                                    Text="{x:Static lang:Strings.BrowserHistoryEmpty}"
@@ -673,13 +673,12 @@
                   Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                   IsVisible="False"
                   RowDefinitions="Auto,*">
-                <Border Padding="16,12"
+                <Border Padding="12,4"
                         BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                         BorderThickness="0,0,0,1">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <TextBlock x:Name="ToolPanelTitle"
                                    VerticalAlignment="Center"
-                                   FontSize="18"
                                    FontWeight="SemiBold"
                                    TextWrapping="Wrap" />
                         <Button x:Name="CloseBrowserPanelButton"
