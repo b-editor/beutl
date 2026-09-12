@@ -119,7 +119,8 @@ public class CustomFilterEffectContext
     /// <summary>Visits every target in place.</summary>
     /// <remarks>
     /// The callback sees the live target and does not own it: it must neither dispose it nor keep it past the
-    /// call. <see cref="Targets"/> is unchanged afterwards.
+    /// call. It may mutate the target it is handed (for example <see cref="EffectTarget.Bounds"/>); what stays
+    /// unchanged is the membership and order of <see cref="Targets"/>.
     /// </remarks>
     public void ForEach(Action<int, EffectTarget> action)
     {
@@ -157,9 +158,10 @@ public class CustomFilterEffectContext
     /// <para>
     /// This overload's ownership contract differs from the single-target one. The callback receives an
     /// <see cref="EffectTarget.Clone"/> of the target rather than the live instance, and the original is
-    /// disposed unconditionally once the callback returns, whatever the callback returned. A clone of a
-    /// pooled lease retains that lease and survives the original's disposal; a clone of a bare
-    /// <see cref="Rendering.RenderTarget"/> shares that instance, which the original's disposal releases.
+    /// disposed unconditionally once the callback returns, whatever the callback returned. The clone holds
+    /// its own retained reference to the original's surface or pooled lease, so it stays valid after the
+    /// original is disposed, and that reference is the callback's to release: return the clone in the list
+    /// or dispose it. A clone that is neither returned nor disposed leaks its reference.
     /// </para>
     /// <para>
     /// Ownership of every target in the returned list transfers to <see cref="Targets"/>; the returned

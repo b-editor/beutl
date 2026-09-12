@@ -9,10 +9,11 @@ namespace Beutl.Graphics.Effects;
 /// <remarks>
 /// <para>
 /// Ownership follows the list, not the element. It transfers into the list through <see cref="Add"/>,
-/// <see cref="AddRange"/>, <see cref="Insert"/> and <see cref="InsertRange"/>, and it transfers back to the
-/// caller through every member that drops an element without disposing it: the indexer setter,
-/// <see cref="Clear"/>, <see cref="Remove"/> and <see cref="RemoveAt"/>. An element removed that way keeps its
-/// render target allocated until whoever now holds it disposes it.
+/// <see cref="AddRange"/>, <see cref="Insert"/> and <see cref="InsertRange"/>. The members that drop an
+/// element, the indexer setter, <see cref="Clear"/>, <see cref="Remove"/> and <see cref="RemoveAt"/>, neither
+/// dispose it nor hand it back: the element keeps its render target allocated, and only a caller that still
+/// holds its own reference can dispose it. Remove an element without such a reference and its render target
+/// is unreachable and leaks.
 /// </para>
 /// <para>
 /// A hand-written <c>targets[i] = replacement;</c> therefore leaks the previous element unless the caller
@@ -73,7 +74,10 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
     /// <summary>Appends every target in <paramref name="collection"/> and takes ownership of them.</summary>
     public void AddRange(IEnumerable<EffectTarget> collection) => _targets.AddRange(collection);
     /// <summary>Removes every element without disposing any of them.</summary>
-    /// <remarks>Ownership of the removed elements returns to the caller. Use <see cref="Dispose"/> to release them instead.</remarks>
+    /// <remarks>
+    /// The removed elements are not handed back, so the caller must already hold references to dispose them.
+    /// Use <see cref="Dispose"/> to release them instead.
+    /// </remarks>
     public void Clear() => ((ICollection<EffectTarget>)_targets).Clear();
     public bool Contains(EffectTarget item) => ((ICollection<EffectTarget>)_targets).Contains(item);
     public void CopyTo(EffectTarget[] array, int arrayIndex) => ((ICollection<EffectTarget>)_targets).CopyTo(array, arrayIndex);
@@ -93,10 +97,12 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
     /// <summary>Inserts every target in <paramref name="collection"/> at <paramref name="index"/> and takes ownership of them.</summary>
     public void InsertRange(int index, IEnumerable<EffectTarget> collection) => _targets.InsertRange(index, collection);
     /// <summary>Removes <paramref name="item"/> without disposing it.</summary>
-    /// <remarks>Ownership of <paramref name="item"/> returns to the caller, who must dispose it.</remarks>
+    /// <remarks>The caller holds <paramref name="item"/> and is responsible for disposing it.</remarks>
     public bool Remove(EffectTarget item) => ((ICollection<EffectTarget>)_targets).Remove(item);
     /// <summary>Removes the element at <paramref name="index"/> without disposing it.</summary>
-    /// <remarks>Ownership of the removed element returns to the caller, who must dispose it.</remarks>
+    /// <remarks>
+    /// The removed element is not handed back; read it with the indexer first and dispose it, or it leaks.
+    /// </remarks>
     public void RemoveAt(int index) => ((IList<EffectTarget>)_targets).RemoveAt(index);
     IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_targets).GetEnumerator();
     /// <summary>Disposes every element, last to first, and empties the list.</summary>
