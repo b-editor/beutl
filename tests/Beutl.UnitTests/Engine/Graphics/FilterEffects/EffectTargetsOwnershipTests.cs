@@ -129,6 +129,59 @@ public sealed class EffectTargetsOwnershipTests
     }
 
     [Test]
+    public void InsertRange_MovesTheTargetsOutOfAnotherList()
+    {
+        using var destination = new EffectTargets { CreateTarget() };
+        EffectTarget first = CreateTarget();
+        EffectTarget second = CreateTarget();
+        var source = new EffectTargets { first, second };
+
+        destination.InsertRange(0, source);
+        // The source no longer owns anything, so disposing it must not reach the moved targets.
+        source.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(destination, Has.Count.EqualTo(3));
+            Assert.That(destination[0], Is.SameAs(first));
+            Assert.That(destination[1], Is.SameAs(second));
+            Assert.That(first.IsEmpty, Is.False, "a moved target must stay alive");
+            Assert.That(second.IsEmpty, Is.False, "a moved target must stay alive");
+        });
+    }
+
+    [Test]
+    public void AddRange_MovesTheTargetsOutOfAnotherList()
+    {
+        using var destination = new EffectTargets();
+        EffectTarget moved = CreateTarget();
+        using var source = new EffectTargets { moved };
+
+        destination.AddRange(source);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(source, Is.Empty, "the source must be left empty");
+            Assert.That(destination[0], Is.SameAs(moved));
+            Assert.That(moved.IsEmpty, Is.False);
+        });
+    }
+
+    [Test]
+    public void InsertRange_RejectsTheListItself()
+    {
+        EffectTarget target = CreateTarget();
+        using var targets = new EffectTargets { target };
+
+        Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, targets));
+        Assert.Multiple(() =>
+        {
+            Assert.That(targets, Has.Count.EqualTo(1));
+            Assert.That(target.IsEmpty, Is.False);
+        });
+    }
+
+    [Test]
     public void ForEach_ReplacingOverload_DisposesOnlyTheTargetsItReplaces()
     {
         EffectTarget kept = CreateTarget();

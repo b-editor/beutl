@@ -90,7 +90,11 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
     /// <summary>Appends <paramref name="item"/> and takes ownership of it.</summary>
     public void Add(EffectTarget item) => _targets.Add(item);
     /// <summary>Appends every target in <paramref name="collection"/> and takes ownership of them.</summary>
-    public void AddRange(IEnumerable<EffectTarget> collection) => _targets.AddRange(collection);
+    /// <remarks>
+    /// When <paramref name="collection"/> is another <see cref="EffectTargets"/>, its targets are moved and
+    /// it is left empty, so one list owns each target and disposing the source afterwards releases nothing.
+    /// </remarks>
+    public void AddRange(IEnumerable<EffectTarget> collection) => InsertRange(_targets.Count, collection);
 
     /// <summary>Disposes every element, last to first, and empties the list.</summary>
     public void Clear()
@@ -119,7 +123,26 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
     /// <summary>Inserts <paramref name="item"/> at <paramref name="index"/> and takes ownership of it.</summary>
     public void Insert(int index, EffectTarget item) => _targets.Insert(index, item);
     /// <summary>Inserts every target in <paramref name="collection"/> at <paramref name="index"/> and takes ownership of them.</summary>
-    public void InsertRange(int index, IEnumerable<EffectTarget> collection) => _targets.InsertRange(index, collection);
+    /// <remarks>
+    /// When <paramref name="collection"/> is another <see cref="EffectTargets"/>, its targets are moved and
+    /// it is left empty, so one list owns each target and disposing the source afterwards releases nothing.
+    /// Inserting a list into itself throws <see cref="InvalidOperationException"/>.
+    /// </remarks>
+    public void InsertRange(int index, IEnumerable<EffectTarget> collection)
+    {
+        ArgumentNullException.ThrowIfNull(collection);
+        if (ReferenceEquals(collection, this))
+            throw new InvalidOperationException("A target list cannot be inserted into itself.");
+
+        if (collection is EffectTargets source)
+        {
+            _targets.InsertRange(index, source._targets);
+            source._targets.Clear();
+            return;
+        }
+
+        _targets.InsertRange(index, collection);
+    }
 
     /// <summary>Removes <paramref name="item"/> and disposes it.</summary>
     /// <returns>
