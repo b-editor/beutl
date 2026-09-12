@@ -130,6 +130,68 @@ public sealed class TrackedProjectFilePathTests
     }
 
     [Test]
+    public void LinkWhoseParentIsOutsideTheRoot_FallsBackToTheResolvedTarget()
+    {
+        RequireSymbolicLinks();
+        File.WriteAllText(Path.Combine(_root, "project.bep"), "{}");
+        string outside = Path.Combine(Path.GetTempPath(), "beutl-tracked-path-outside-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outside);
+        try
+        {
+            string link = Path.Combine(outside, "link.bep");
+            File.CreateSymbolicLink(link, Path.Combine(_root, "project.bep"));
+
+            // The entry itself lives outside the root, so Git can only be tracking its target.
+            string tracked = GitCliVersionControlService.GetRepositoryRelativeProjectFilePath(
+                new RepositoryInfo(_root, _root),
+                link);
+
+            Assert.That(tracked, Is.EqualTo("project.bep"));
+        }
+        finally
+        {
+            Directory.Delete(outside, recursive: true);
+        }
+    }
+
+    [Test]
+    public void UnlistableParent_KeepsTheCallerSpelling()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This case needs Unix directory permissions.");
+        }
+
+        string locked = Path.Combine(_root, "locked");
+        Directory.CreateDirectory(locked);
+        string projectFile = Path.Combine(locked, "project.bep");
+        File.WriteAllText(projectFile, "{}");
+        File.SetUnixFileMode(locked, UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+        try
+        {
+            try
+            {
+                _ = Directory.EnumerateFileSystemEntries(locked).Any();
+                Assert.Ignore("Directory listing was not denied; the test needs an unprivileged user.");
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            // A traverse-only parent cannot be listed for spelling, so the caller's name is kept.
+            string tracked = GitCliVersionControlService.GetRepositoryRelativeProjectFilePath(
+                new RepositoryInfo(_root, _root),
+                projectFile);
+
+            Assert.That(tracked, Is.EqualTo("locked/project.bep"));
+        }
+        finally
+        {
+            File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    [Test]
     public void NestedProjectRoot_KeepsThePathspecPrefix()
     {
         string projectRoot = Path.Combine(_root, "nested");

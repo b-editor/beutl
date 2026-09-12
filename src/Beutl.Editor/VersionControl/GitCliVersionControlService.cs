@@ -559,12 +559,9 @@ internal sealed class GitCliVersionControlService :
     private static string ResolveTrackedProjectFilePath(string projectFile)
     {
         string fullPath = Path.GetFullPath(projectFile);
-        string? parent = Path.GetDirectoryName(fullPath);
         string name = Path.GetFileName(fullPath);
-        if (parent is null || name.Length == 0)
-            return RepositoryPathComparer.ResolveCanonicalPath(fullPath);
-
-        string canonicalParent = RepositoryPathComparer.ResolveCanonicalPath(parent);
+        string canonicalParent = RepositoryPathComparer.ResolveCanonicalPath(
+            Path.GetDirectoryName(fullPath) ?? fullPath);
         string candidate = Path.Combine(canonicalParent, name);
         if (!Path.Exists(candidate))
         {
@@ -587,28 +584,6 @@ internal sealed class GitCliVersionControlService :
             // A parent that cannot be listed keeps the caller's spelling rather than failing the lookup.
             return candidate;
         }
-    }
-
-    // Walks the lexical ancestors of the project file up to the first one that is the project
-    // root on disk, so a link above the root still yields the tracked name beneath it. Returns
-    // null when no lexical ancestor is the project root.
-    private static string? TryGetLexicalProjectRelativePath(
-        RepositoryInfo repository,
-        string projectFile)
-    {
-        string lexicalProjectFile = Path.GetFullPath(projectFile);
-        string? lexicalRoot = Path.GetDirectoryName(lexicalProjectFile);
-        while (lexicalRoot is not null)
-        {
-            if (RepositoryPathComparer.AreEquivalent(lexicalRoot, repository.ProjectRoot))
-            {
-                return Path.GetRelativePath(lexicalRoot, lexicalProjectFile);
-            }
-
-            lexicalRoot = Path.GetDirectoryName(lexicalRoot);
-        }
-
-        return null;
     }
 
     private static bool AreSameProjectRelativePath(
@@ -3282,16 +3257,26 @@ internal sealed class GitCliVersionControlService :
         string projectFile,
         string? canonicalRelativePath = null)
     {
-        string? lexicalRelativePath = TryGetLexicalProjectRelativePath(repository, projectFile);
-        if (lexicalRelativePath is not null)
+
+        string lexicalProjectFile = Path.GetFullPath(projectFile);
+        string? lexicalRoot = Path.GetDirectoryName(lexicalProjectFile);
+        while (lexicalRoot is not null)
         {
-            ValidateRecoveryProjectFile(lexicalRelativePath);
-            return NormalizeGitPath(lexicalRelativePath);
+            if (RepositoryPathComparer.AreEquivalent(lexicalRoot, repository.ProjectRoot))
+            {
+                string lexicalRelativePath = Path.GetRelativePath(
+                    lexicalRoot,
+                    lexicalProjectFile);
+                ValidateRecoveryProjectFile(lexicalRelativePath);
+                return NormalizeGitPath(lexicalRelativePath);
+            }
+
+            lexicalRoot = Path.GetDirectoryName(lexicalRoot);
         }
 
         canonicalRelativePath ??= Path.GetRelativePath(
             Path.GetFullPath(repository.ProjectRoot),
-            Path.GetFullPath(projectFile));
+            lexicalProjectFile);
         ValidateRecoveryProjectFile(canonicalRelativePath);
         return NormalizeGitPath(canonicalRelativePath);
     }
