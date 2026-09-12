@@ -10,6 +10,26 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class BrowserMediaPreambleTests
 {
+    [TestCase("main")]
+    [TestCase("section")]
+    [TestCase("nav")]
+    [TestCase("article")]
+    [TestCase("aside")]
+    [TestCase("header")]
+    [TestCase("footer")]
+    [TestCase("h2")]
+    [TestCase("span")]
+    [TestCase("details")]
+    [TestCase("dialog")]
+    [TestCase("template")]
+    public void HtmlFragmentRootsAreRejectedAcrossReadBoundaries(string tag)
+    {
+        byte[] body = Encoding.UTF8.GetBytes("<!--" + new string('x', 9000) + "--><" + tag.ToUpperInvariant()
+            + " class='error'>Sign in</" + tag + ">");
+        foreach (string mediaType in new[] { "video/mp4", "application/octet-stream" })
+            AssertHtmlIsRejected(body, "utf-8", mediaType);
+    }
+
     [TestCase("utf8")]
     [TestCase("utf8-no-bom")]
     [TestCase("utf16le")]
