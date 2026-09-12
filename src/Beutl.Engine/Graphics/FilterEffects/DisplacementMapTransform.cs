@@ -90,7 +90,25 @@ public abstract partial class DisplacementMapTransform : EngineObject
 
     public partial class Resource
     {
-        internal abstract void ApplyTo(
+        /// <summary>
+        /// Lowers this transform into <paramref name="context"/> for the displacement map the owning
+        /// <see cref="DisplacementMapEffect"/> resolved.
+        /// </summary>
+        /// <param name="displacementMap">The brush whose pixels supply the displacement.</param>
+        /// <param name="spreadMethod">How the input is sampled outside its bounds.</param>
+        /// <param name="channel">The channel of <paramref name="displacementMap"/> that carries the displacement.</param>
+        /// <param name="signed">Whether the channel is centred on zero rather than starting from it.</param>
+        /// <param name="context">The effect context that receives the recorded stages.</param>
+        /// <remarks>
+        /// <see cref="DisplacementMapEffect"/> calls this once per application in place of its own lowering
+        /// whenever <see cref="DisplacementMapEffect.Transform"/> is set and the map is not being shown. An
+        /// out-of-tree transform records its stages through the public <see cref="FilterEffectContext"/>
+        /// surface, typically <see cref="FilterEffectContext.Shader(Shaders.ShaderDescription)"/> with a
+        /// <see cref="Shaders.ShaderDescription"/> whose <see cref="Shaders.ShaderBindingBuilder"/> callback
+        /// binds <paramref name="displacementMap"/> as a resource. The sampling helpers the built-in
+        /// transforms share are not part of the public contract.
+        /// </remarks>
+        public abstract void ApplyTo(
             Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context);
     }

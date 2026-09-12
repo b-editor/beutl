@@ -58,7 +58,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 
     public partial class Resource
     {
-        internal override void ApplyTo(
+        public override void ApplyTo(
             Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
