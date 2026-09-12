@@ -111,6 +111,25 @@ public sealed class TrackedProjectFilePathTests
     }
 
     [Test]
+    public void AbsentEntry_KeepsTheCallerSpelling()
+    {
+        // A case-sensitive volume can hold PROJECT.BEP while project.bep is what the index tracks; a
+        // caller asking for project.bep must not be redirected to the neighbour.
+        File.WriteAllText(Path.Combine(_root, "PROJECT.BEP"), "{}");
+        string requested = Path.Combine(_root, "project.bep");
+        if (File.Exists(requested))
+        {
+            Assert.Ignore("This case needs a case-sensitive volume.");
+        }
+
+        string tracked = GitCliVersionControlService.GetRepositoryRelativeProjectFilePath(
+            new RepositoryInfo(_root, _root),
+            requested);
+
+        Assert.That(tracked, Is.EqualTo("project.bep"));
+    }
+
+    [Test]
     public void NestedProjectRoot_KeepsThePathspecPrefix()
     {
         string projectRoot = Path.Combine(_root, "nested");

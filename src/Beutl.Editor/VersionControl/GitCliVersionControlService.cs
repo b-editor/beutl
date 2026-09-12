@@ -566,6 +566,13 @@ internal sealed class GitCliVersionControlService :
 
         string canonicalParent = RepositoryPathComparer.ResolveCanonicalPath(parent);
         string candidate = Path.Combine(canonicalParent, name);
+        if (!Path.Exists(candidate))
+        {
+            // Only an entry that exists under this spelling is renormalized; on a case-sensitive
+            // volume a sole case-insensitive neighbour is a different file, not this one.
+            return candidate;
+        }
+
         try
         {
             return VersionControlPathComparison.SelectCanonicalExistingEntry(
