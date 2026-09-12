@@ -160,6 +160,7 @@ public sealed class TrackedProjectFilePathTests
         if (OperatingSystem.IsWindows())
         {
             Assert.Ignore("This case needs Unix directory permissions.");
+            return;
         }
 
         string locked = Path.Combine(_root, "locked");
