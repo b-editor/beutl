@@ -101,6 +101,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                     : null));
         _aiPlanCoordinator = new AiPlanCoordinator(
             _beutlClients.GetResource<IAiEntitlementService>());
+        _editorService.BrowserSettingsHost = new BrowserSettingsHost(CreateSettingsDialog);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
         _aiJobCompletionNotifier = new AiJobCompletionNotifier(
             _beutlClients.GetResource<IAiJobMonitor>().Snapshot,

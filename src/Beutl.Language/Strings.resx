@@ -1176,6 +1176,51 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Website" xml:space="preserve">
     <value>Website</value>
   </data>
+  <data name="WebBrowser" xml:space="preserve">
+    <value>Web Browser</value>
+  </data>
+  <data name="WebAddress" xml:space="preserve">
+    <value>Search or enter URL</value>
+  </data>
+  <data name="Forward" xml:space="preserve">
+    <value>Forward</value>
+  </data>
+  <data name="Stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Menu" xml:space="preserve">
+    <value>Menu</value>
+  </data>
+  <data name="NewTab" xml:space="preserve">
+    <value>New Tab</value>
+  </data>
+  <data name="OpenInDefaultBrowser" xml:space="preserve">
+    <value>Open in Default Browser</value>
+  </data>
+  <data name="Print" xml:space="preserve">
+    <value>Print</value>
+  </data>
+  <data name="WebBrowserActionFailed" xml:space="preserve">
+    <value>The browser action could not be completed.</value>
+  </data>
+  <data name="InvalidWebAddress" xml:space="preserve">
+    <value>Enter a valid HTTP or HTTPS address.</value>
+  </data>
+  <data name="WebPageLoadFailed" xml:space="preserve">
+    <value>The web page could not be loaded.</value>
+  </data>
+  <data name="WebViewUnavailable" xml:space="preserve">
+    <value>No supported WebView runtime is available.</value>
+  </data>
+  <data name="WebViewWindowsRuntimeHint" xml:space="preserve">
+    <value>Install the Microsoft Edge WebView2 Runtime.</value>
+  </data>
+  <data name="WebViewLinuxRuntimeHint" xml:space="preserve">
+    <value>Install WebKitGTK 4.1 or WPE WebKit.</value>
+  </data>
+  <data name="OpenLinuxWebViewSetupGuide" xml:space="preserve">
+    <value>Open WebView Setup Guide</value>
+  </data>
   <data name="DisplayMode" xml:space="preserve">
     <value>Display mode</value>
   </data>
@@ -2587,5 +2632,186 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   </data>
   <data name="TimeAgoDaysFormat" xml:space="preserve">
     <value>{0} d ago</value>
+  </data>
+  <data name="WebDownloadMedia" xml:space="preserve">
+    <value>Download media</value>
+  </data>
+  <data name="WebDownloadProject" xml:space="preserve">
+    <value>Project directory</value>
+  </data>
+  <data name="WebDownloadMaterials" xml:space="preserve">
+    <value>Shared materials folder</value>
+  </data>
+  <data name="WebDownloadAddToTimeline" xml:space="preserve">
+    <value>Add to the timeline after download</value>
+  </data>
+  <data name="WebDownloadProjectUnavailable" xml:space="preserve">
+    <value>Save the project first to use its directory.</value>
+  </data>
+  <data name="WebDownloadUnsupported" xml:space="preserve">
+    <value>Only direct HTTP(S) image, audio, or video downloads are supported.</value>
+  </data>
+  <data name="WebDownloadHtmlResponse" xml:space="preserve">
+    <value>This URL returned a web page instead of media. Use the file's download link.</value>
+  </data>
+  <data name="WebDownloadIncomplete" xml:space="preserve">
+    <value>The download was empty or incomplete.</value>
+  </data>
+  <data name="WebDownloadComplete" xml:space="preserve">
+    <value>Saved: {0}</value>
+  </data>
+  <data name="WebDownloadFailed" xml:space="preserve">
+    <value>Download failed: {0}</value>
+  </data>
+  <data name="WebDownloadCanceled" xml:space="preserve">
+    <value>Download canceled.</value>
+  </data>
+  <data name="WebDownloadImportFailed" xml:space="preserve">
+    <value>Saved to {0}, but timeline import failed: {1}</value>
+  </data>
+  <data name="BrowserDownloads" xml:space="preserve">
+    <value>Download history</value>
+  </data>
+  <data name="BrowserBookmarks" xml:space="preserve">
+    <value>Bookmarks</value>
+  </data>
+  <data name="BrowserAddBookmark" xml:space="preserve">
+    <value>Add bookmark</value>
+  </data>
+  <data name="BrowserSettings" xml:space="preserve">
+    <value>Search and privacy</value>
+  </data>
+  <data name="BrowserRetry" xml:space="preserve">
+    <value>Download again</value>
+  </data>
+  <data name="BrowserFileMissing" xml:space="preserve">
+    <value>The saved file or folder no longer exists.</value>
+  </data>
+  <data name="BrowserStorageError" xml:space="preserve">
+    <value>Could not save browser data: {0}</value>
+  </data>
+  <data name="BrowserSearchEngine" xml:space="preserve">
+    <value>Search engine</value>
+  </data>
+  <data name="BrowserRemoteSuggestions" xml:space="preserve">
+    <value>Send typed search terms to retrieve suggestions</value>
+  </data>
+  <data name="BrowserRecordDownloads" xml:space="preserve">
+    <value>Keep download history</value>
+  </data>
+  <data name="BrowserClearHistory" xml:space="preserve">
+    <value>Clear local history</value>
+  </data>
+  <data name="BrowserHistoryDescription" xml:space="preserve">
+    <value>Clears address suggestions and download records in all tabs. Files and bookmarks are kept.</value>
+  </data>
+  <data name="BrowserHistoryCleared" xml:space="preserve">
+    <value>Local history cleared.</value>
+  </data>
+  <data name="BrowserClearCookies" xml:space="preserve">
+    <value>Delete browser cookies</value>
+  </data>
+  <data name="BrowserCookieWarning" xml:space="preserve">
+    <value>I understand that deleting cookies can sign me out of websites.</value>
+  </data>
+  <data name="BrowserCookiesCleared" xml:space="preserve">
+    <value>Cookie deletion requested. Cache and site storage are not cleared.</value>
+  </data>
+  <data name="BrowserCookiesUnsupported" xml:space="preserve">
+    <value>Cookie deletion is not available for this browser engine.</value>
+  </data>
+  <data name="BrowserFind" xml:space="preserve">
+    <value>Find in page</value>
+  </data>
+  <data name="BrowserFindNext" xml:space="preserve">
+    <value>Next match</value>
+  </data>
+  <data name="BrowserFindPrevious" xml:space="preserve">
+    <value>Previous match</value>
+  </data>
+  <data name="BrowserFindCount" xml:space="preserve">
+    <value>{0} of {1}</value>
+  </data>
+  <data name="BrowserPageToolsUnavailable" xml:space="preserve">
+    <value>Page tools are unavailable on this page.</value>
+  </data>
+  <data name="BrowserZoomIn" xml:space="preserve">
+    <value>Zoom in</value>
+  </data>
+  <data name="BrowserZoomOut" xml:space="preserve">
+    <value>Zoom out</value>
+  </data>
+  <data name="BrowserZoomReset" xml:space="preserve">
+    <value>Reset zoom</value>
+  </data>
+  <data name="BrowserCookieSessionRequired" xml:space="preserve">
+    <value>Open a browser tab to manage cookies. Some browser engines do not support cookie deletion.</value>
+  </data>
+  <data name="BrowserStartDescription" xml:space="preserve">
+    <value>Find references and media while you edit. Download media and add it to your timeline.</value>
+  </data>
+  <data name="BrowserStartSearch" xml:space="preserve">
+    <value>Start browsing</value>
+  </data>
+  <data name="BrowserBookmarksEmpty" xml:space="preserve">
+    <value>Your favorite pages, in one place</value>
+  </data>
+  <data name="BrowserBookmarksHint" xml:space="preserve">
+    <value>Add a bookmark to open reference pages and material sites quickly.</value>
+  </data>
+  <data name="BrowserSearchSection" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="BrowserSearchEngineDescription" xml:space="preserve">
+    <value>Used for address-bar searches and suggestions.</value>
+  </data>
+  <data name="BrowserSuggestionsTitle" xml:space="preserve">
+    <value>Search suggestions</value>
+  </data>
+  <data name="BrowserPrivacySection" xml:space="preserve">
+    <value>History and privacy</value>
+  </data>
+  <data name="BrowserRecordDownloadsDescription" xml:space="preserve">
+    <value>Keep completed downloads so you can reopen or import them later.</value>
+  </data>
+  <data name="BrowserCookiesDescription" xml:space="preserve">
+    <value>Delete cookies used for website sessions and preferences.</value>
+  </data>
+  <data name="BrowserHistoryIntro" xml:space="preserve">
+    <value>Your saved media, ready to use.</value>
+  </data>
+  <data name="BrowserHistoryEmpty" xml:space="preserve">
+    <value>No downloads yet</value>
+  </data>
+  <data name="BrowserHistoryEmptyHint" xml:space="preserve">
+    <value>Downloaded media appears here
+when history recording is enabled.</value>
+  </data>
+  <data name="BrowserAddToTimeline" xml:space="preserve">
+    <value>Add to timeline</value>
+  </data>
+  <data name="BrowserRemoveHistoryItem" xml:space="preserve">
+    <value>Remove from history</value>
+  </data>
+  <data name="BrowserDownloadDestination" xml:space="preserve">
+    <value>Save to</value>
+  </data>
+  <data name="BrowserDownloadAfter" xml:space="preserve">
+    <value>After download</value>
+  </data>
+  <data name="BrowserDownloadStart" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="BrowserFindNoResults" xml:space="preserve">
+    <value>No matches found.</value>
+  </data>
+  <data name="BrowserFindUnavailable" xml:space="preserve">
+    <value>Search is unavailable on this page.</value>
+  </data>
+  <data name="BrowserPageDownloadRequest" xml:space="preserve">
+    <value>Download requested by this page</value>
+  </data>
+  <data name="BrowserIgnorePageDownloads" xml:space="preserve">
+    <value>Ignore download requests until this page is reloaded</value>
   </data>
 </root>

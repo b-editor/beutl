@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
     <InternalsVisibleTo Include="Beutl.UnitTests" />
   </ItemGroup>
 
@@ -22,6 +23,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Controls.ItemsRepeater" />
+    <PackageReference Include="Avalonia.Controls.WebView" />
     <PackageReference Include="PanAndZoom" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />

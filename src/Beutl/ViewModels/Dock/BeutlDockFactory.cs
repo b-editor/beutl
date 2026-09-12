@@ -1,4 +1,6 @@
-﻿using Dock.Avalonia.Controls;
+﻿using Beutl.Editor.Components.WebBrowserTab;
+
+using Dock.Avalonia.Controls;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using Dock.Model.Core.Events;
@@ -330,5 +332,93 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     {
         _anchorCacheDirty = true;
         base.RemoveDockable(dockable, collapse);
+    }
+
+    public override void SplitToWindow(
+        IDock dock,
+        IDockable dockable,
+        double x,
+        double y,
+        double width,
+        double height,
+        DockWindowOptions? options)
+    {
+        using CompositeDisposable reparentingScopes = BeginToolContentReparenting(dockable);
+        base.SplitToWindow(dock, dockable, x, y, width, height, options);
+    }
+
+    public override void FloatAllDockables(IDockable dockable, DockWindowOptions? options)
+    {
+        IDockable reparentingRoot = dockable.Owner is IDock owner ? owner : dockable;
+        using CompositeDisposable reparentingScopes = BeginToolContentReparenting(reparentingRoot);
+        base.FloatAllDockables(dockable, options);
+    }
+
+    public override void MoveDockable(
+        IDock sourceDock,
+        IDock targetDock,
+        IDockable sourceDockable,
+        IDockable? targetDockable)
+    {
+        if (ReferenceEquals(sourceDock, targetDock))
+        {
+            base.MoveDockable(sourceDock, targetDock, sourceDockable, targetDockable);
+            return;
+        }
+
+        using CompositeDisposable reparentingScopes = BeginToolContentReparenting(sourceDockable);
+        base.MoveDockable(sourceDock, targetDock, sourceDockable, targetDockable);
+    }
+
+    public override void SwapDockable(
+        IDock sourceDock,
+        IDock targetDock,
+        IDockable sourceDockable,
+        IDockable targetDockable)
+    {
+        if (ReferenceEquals(sourceDock, targetDock))
+        {
+            base.SwapDockable(sourceDock, targetDock, sourceDockable, targetDockable);
+            return;
+        }
+
+        using CompositeDisposable reparentingScopes =
+            BeginToolContentReparenting(sourceDockable, targetDockable);
+        base.SwapDockable(sourceDock, targetDock, sourceDockable, targetDockable);
+    }
+
+    internal static CompositeDisposable BeginToolContentReparenting(params IDockable?[] dockables)
+    {
+        var result = new CompositeDisposable();
+        try
+        {
+            foreach (IDockable? dockable in dockables)
+            {
+                AddReparentingScopes(dockable, result);
+            }
+            return result;
+        }
+        catch
+        {
+            result.Dispose();
+            throw;
+        }
+    }
+
+    private static void AddReparentingScopes(IDockable? dockable, CompositeDisposable result)
+    {
+        if (dockable is BeutlToolDockable { ToolContent: IWebViewReparentingContent content }
+            && content.BeginReparenting() is { } reparentingScope)
+        {
+            result.Add(reparentingScope);
+        }
+
+        if (dockable is IDock { VisibleDockables: { } children })
+        {
+            foreach (IDockable child in children)
+            {
+                AddReparentingScopes(child, result);
+            }
+        }
     }
 }

@@ -1,0 +1,694 @@
+﻿using System.Text.Json;
+
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Platform;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+
+using Beutl.Editor.Components.WebBrowserTab;
+using Beutl.Editor.Components.WebBrowserTab.ViewModels;
+
+namespace Beutl.Editor.Components.WebBrowserTab.Views;
+
+internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewReparentingContent
+{
+    internal static readonly Uri LinuxWebViewSetupGuide = new(
+        "https://docs.avaloniaui.net/docs/app-development/embedding-web-content#linux");
+
+    private readonly Func<Uri, NativeWebView> _createWebView;
+    private readonly Func<(bool IsAvailable, string? Detail, bool ShowLinuxRuntimeHelp)> _getWebViewAvailability;
+    private readonly Func<Uri, Task<bool>>? _launchInDefaultBrowser;
+    private readonly Func<NativeWebView, Task<string?>> _getPageTitle;
+    private readonly Func<NativeWebView, bool> _canReparentWebView;
+    private readonly bool _navigationStartedIncludesSubframes;
+    private NativeWebView? _webView;
+    private WebBrowserTabViewModel? _viewModel;
+    private bool _disposed;
+
+    public WebBrowserTabView()
+        : this(static uri => new NativeWebView { Source = uri }, GetWebViewAvailability, faviconLoader: BrowserFaviconLoader.Default)
+    {
+    }
+
+    internal WebBrowserTabView(
+        Func<Uri, NativeWebView> createWebView,
+        Func<(bool IsAvailable, string? Detail, bool ShowLinuxRuntimeHelp)> getWebViewAvailability,
+        Func<Uri, Task<bool>>? launchInDefaultBrowser = null,
+        Func<NativeWebView, Task<string?>>? getPageTitle = null,
+        Func<NativeWebView, bool>? canReparentWebView = null,
+        bool? navigationStartedIncludesSubframes = null,
+        BrowserFaviconLoader? faviconLoader = null)
+    {
+        _createWebView = createWebView;
+        _getWebViewAvailability = getWebViewAvailability;
+        _launchInDefaultBrowser = launchInDefaultBrowser;
+        _getPageTitle = getPageTitle ?? (static webView => webView.InvokeScript("document.title"));
+        _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
+        _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? OperatingSystem.IsMacOS();
+        FaviconLoader = faviconLoader;
+        InitializeComponent();
+        AddressTextBox.SearchSuggestionsChanged += OnSearchSuggestionsChanged;
+        AddHandler(KeyDownEvent, OnBrowserKeyDown, RoutingStrategies.Tunnel);
+        Loaded += OnLoaded;
+    }
+
+    public BrowserFaviconLoader? FaviconLoader { get; }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+
+        if (_disposed) return;
+        var viewModel = DataContext as WebBrowserTabViewModel;
+        if (ReferenceEquals(_viewModel, viewModel))
+        {
+            return;
+        }
+
+        _downloadCancellation?.Cancel();
+        ResetPageDownloadRequests();
+        CloseBrowserPanel();
+        _pageRevision++;
+        _findRequest?.Cancel();
+        AddressTextBox.CancelSearchSuggestions();
+        if (_viewModel != null)
+        {
+            _viewModel.Disposing -= Dispose;
+            _viewModel.Profile.SettingsChanged -= OnProfileChanged;
+            _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
+            _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
+        }
+        _viewModel = viewModel;
+        if (viewModel == null)
+        {
+            AddressTextBox.SuggestionsEnabled = false;
+            AddressTextBox.SuggestionProvider = static (_, _) => Task.FromResult<IReadOnlyList<string>>([]);
+            DisposeWebView();
+            UpdateBlankPageState();
+            OnCancelBookmarkEditorClick(this, new RoutedEventArgs());
+            return;
+        }
+        viewModel.Disposing += Dispose;
+        viewModel.Profile.SettingsChanged += OnProfileChanged;
+        viewModel.Profile.Bookmarks.CollectionChanged += OnBookmarksChanged;
+        viewModel.Profile.Downloads.CollectionChanged += OnDownloadHistoryChanged;
+        UpdateBlankPageState();
+        OnCancelBookmarkEditorClick(this, new RoutedEventArgs());
+        OnProfileChanged();
+
+        if (_webView != null && _webView.Source != viewModel.CurrentUri)
+        {
+            InvalidatePageDownloadRequests(navigationStarted: true);
+            viewModel.BeginNavigation(viewModel.CurrentUri);
+            _webView.Source = viewModel.CurrentUri;
+        }
+
+        EnsureWebView();
+    }
+
+    private void OnLoaded(object? sender, RoutedEventArgs e)
+    {
+        EnsureWebView();
+    }
+
+    private void EnsureWebView()
+    {
+        if (_disposed || _viewModel == null || _webView != null)
+        {
+            return;
+        }
+
+        (bool isAvailable, string? detail, bool showLinuxRuntimeHelp) = _getWebViewAvailability();
+        if (!isAvailable)
+        {
+            _viewModel.SetWebViewUnavailable(detail, showLinuxRuntimeHelp);
+            return;
+        }
+
+        Uri initialUri = _viewModel.CurrentUri;
+        bool downloadInitialMedia = BrowserMediaDownload.IsMediaLink(initialUri);
+        if (downloadInitialMedia)
+            _viewModel.CompleteNavigation(WebBrowserTabViewModel.BlankPage, true, false, false);
+        if (initialUri != WebBrowserTabViewModel.BlankPage && !downloadInitialMedia)
+            _viewModel.BeginNavigation(initialUri);
+        NativeWebView webView = _createWebView(downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri);
+        if (OperatingSystem.IsMacOS())
+        {
+            webView.EnvironmentRequested += ConfigureMacOSWebViewEnvironment;
+        }
+        webView.AdapterCreated += OnAdapterCreated;
+        webView.NavigationStarted += OnNavigationStarted;
+        webView.NavigationCompleted += OnNavigationCompleted;
+        webView.NewWindowRequested += OnNewWindowRequested;
+        webView.WebMessageReceived += OnWebMessageReceived;
+        _webView = webView;
+        BrowserWebViewRegistry.Register(webView);
+        WebViewHost.Content = webView;
+        if (downloadInitialMedia)
+        {
+            WebBrowserTabViewModel initiatingViewModel = _viewModel;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (ReferenceEquals(_viewModel, initiatingViewModel)) _ = DownloadMediaAsync(initialUri, null);
+            });
+        }
+    }
+
+    internal static void ConfigureMacOSWebViewEnvironment(object? sender, WebViewEnvironmentRequestedEventArgs e)
+    {
+        if (e is AppleWKWebViewEnvironmentRequestedEventArgs apple)
+        {
+            // WKWebView omits Safari's product token, so Google serves its basic HTML UI.
+            // Append the compatibility token while retaining the system's OS and WebKit UA.
+            // EnvironmentRequested runs before the first navigation; AdapterCreated is too late.
+            apple.ApplicationNameForUserAgent = "Safari/605.1.15";
+        }
+    }
+
+    private void OnAdapterCreated(object? sender, WebViewAdapterEventArgs e)
+    {
+        if (_disposed || _webView == null)
+        {
+            return;
+        }
+
+        UpdateHistoryState();
+        ScheduleLinuxSizeRefresh(_webView);
+    }
+
+    private void ScheduleLinuxSizeRefresh(NativeWebView webView)
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        // The GTK adapter is created after the first layout pass. Toggling visibility on the next
+        // background tick makes NativeWebView forward its already-arranged bounds to the native
+        // X11 child instead of waiting for a window resize or dock reparent.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_disposed && ReferenceEquals(_webView, webView))
+            {
+                RefreshWebViewBounds(webView);
+            }
+        }, DispatcherPriority.Background);
+    }
+
+    internal static void RefreshWebViewBounds(NativeWebView webView)
+    {
+        bool wasVisible = webView.IsVisible;
+        webView.IsVisible = !wasVisible;
+        webView.IsVisible = wasVisible;
+    }
+
+    internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
+    {
+        if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
+            && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
+        {
+            e.Cancel = true;
+            if (!_navigationStartedIncludesSubframes) _viewModel?.BeginNavigation(unsupportedRequest);
+            return;
+        }
+
+        // The macOS WebView adapter forwards policy decisions for every target frame through this event,
+        // without exposing IsMainFrame. Only completed navigation identifies the top-level URL.
+        // App-initiated navigation and explicit download links are handled separately.
+        if (_navigationStartedIncludesSubframes)
+        {
+            // Any start may replace the document. Expire the offer without treating a frame
+            // navigation as a new page or re-enabling requests dismissed by the user.
+            InvalidatePageDownloadRequests();
+            return;
+        }
+
+        _pageRevision++;
+        _findRequest?.Cancel();
+        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
+        {
+            e.Cancel = true;
+            // A redirect can turn an in-flight page navigation into a download. Its document
+            // origin is no longer confirmed, and cancellation must release the request gate.
+            if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
+            else InvalidatePageDownloadRequests();
+            _mediaNavigationIntercepted = true;
+            _viewModel?.StopNavigation();
+            QueuePageDownloadRequest(mediaUri, null);
+            return;
+        }
+
+        if (e.Request is { } request)
+        {
+            InvalidatePageDownloadRequests(navigationStarted: true);
+            _viewModel?.BeginNavigation(request);
+        }
+    }
+
+    internal void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
+    {
+        if (_viewModel == null || _webView == null)
+        {
+            return;
+        }
+
+        // The canceled media never replaced the document. Its failure may arrive even after
+        // the offer is dismissed or downloaded, so track it independently of the confirmation UI.
+        if (!e.IsSuccess && _mediaNavigationIntercepted) return;
+
+        if (e.IsSuccess) ResetPageDownloadRequests();
+        else SettleAbortedPageNavigation();
+        _pageRevision++;
+        _findRequest?.Cancel();
+        Uri uri = e.Request ?? _webView.Source;
+        _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
+        UpdateBlankPageState();
+        if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage)
+        {
+            _ = UpdatePageTitleAsync(uri);
+            _ = InstallDownloadLinkHandlerAsync(_webView);
+            _ = SetPageZoomAsync(_zoomPercent);
+            if (FindPanel.IsVisible) _ = FindInPageAsync(0);
+        }
+    }
+
+    internal async Task UpdatePageTitleAsync(Uri uri)
+    {
+        NativeWebView? webView = _webView;
+        WebBrowserTabViewModel? viewModel = _viewModel;
+        int revision = _pageRevision;
+        if (webView == null || viewModel == null)
+        {
+            return;
+        }
+
+        string? result;
+        try
+        {
+            result = await _getPageTitle(webView);
+        }
+        catch
+        {
+            return;
+        }
+
+        string? title = NormalizePageTitle(result);
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!_disposed && revision == _pageRevision
+                    && ReferenceEquals(_webView, webView) && ReferenceEquals(_viewModel, viewModel))
+                {
+                    viewModel.SetPageTitle(uri, title);
+                }
+            });
+        }
+        catch
+        {
+            // The dispatcher can be shutting down while a tab is being closed.
+        }
+    }
+
+    internal static string? NormalizePageTitle(string? result)
+    {
+        if (string.IsNullOrWhiteSpace(result))
+        {
+            return null;
+        }
+
+        string title = result.Trim();
+        if (title.StartsWith('"') && title.EndsWith('"'))
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<string>(title)?.Trim();
+            }
+            catch (JsonException)
+            {
+                // Non-JSON WebKit titles can legitimately start and end with quotation marks.
+            }
+        }
+
+        return title;
+    }
+
+    internal void OnNewWindowRequested(object? sender, WebViewNewWindowRequestedEventArgs e)
+    {
+        if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
+            && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
+        {
+            e.Handled = true;
+            QueuePageDownloadRequest(mediaUri, null);
+            return;
+        }
+
+        if (e.Request is { } request && _viewModel?.TryOpenNewTab(request) == true)
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void OnBackClick(object? sender, RoutedEventArgs e)
+    {
+        CloseBrowserPanel();
+        if (_webView != null && StartNativePageNavigation(_webView.GoBack)) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
+        UpdateHistoryState();
+    }
+
+    private void OnForwardClick(object? sender, RoutedEventArgs e)
+    {
+        CloseBrowserPanel();
+        if (_webView != null && StartNativePageNavigation(_webView.GoForward)) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
+        UpdateHistoryState();
+    }
+
+    private void OnRefreshClick(object? sender, RoutedEventArgs e)
+    {
+        CloseBrowserPanel();
+        if (_webView != null && StartNativePageNavigation(_webView.Refresh)) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
+    }
+
+    private bool StartNativePageNavigation(Func<bool> navigate)
+    {
+        bool wasPending = _pageDownloadNavigationPending;
+        bool wasIntercepted = _mediaNavigationIntercepted;
+        InvalidatePageDownloadRequests(navigationStarted: true);
+        bool started = navigate();
+        if (!started)
+        {
+            _pageDownloadNavigationPending = wasPending;
+            _mediaNavigationIntercepted = wasIntercepted;
+        }
+        return started;
+    }
+
+    private void OnStopClick(object? sender, RoutedEventArgs e)
+    {
+        if (_webView?.Stop() == true) OnNavigationStopped();
+    }
+
+    internal void OnNavigationStopped()
+    {
+        _viewModel?.StopNavigation();
+        SettleAbortedPageNavigation();
+    }
+
+    private void OnNewTabClick(object? sender, RoutedEventArgs e)
+    {
+        _viewModel?.TryOpenNewTab(WebBrowserTabViewModel.BlankPage);
+    }
+
+    private async void OnOpenInDefaultBrowserClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not { HasWebAddress.Value: true } viewModel)
+        {
+            return;
+        }
+
+        if (!await TryLaunchInDefaultBrowser(viewModel.CurrentUri))
+        {
+            viewModel.ReportActionFailure();
+        }
+    }
+
+    private async void OnOpenLinuxRuntimeHelpClick(object? sender, RoutedEventArgs e)
+    {
+        if (!await TryLaunchInDefaultBrowser(LinuxWebViewSetupGuide))
+        {
+            _viewModel?.ReportActionFailure();
+        }
+    }
+
+    private async Task<bool> TryLaunchInDefaultBrowser(Uri uri)
+    {
+        try
+        {
+            if (_launchInDefaultBrowser != null)
+            {
+                return await _launchInDefaultBrowser(uri);
+            }
+
+            return TopLevel.GetTopLevel(this)?.Launcher is { } launcher
+                && await launcher.LaunchUriAsync(uri);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void OnPrintClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_webView == null)
+            {
+                _viewModel?.ReportActionFailure();
+                return;
+            }
+
+            _webView.ShowPrintUI();
+        }
+        catch
+        {
+            _viewModel?.ReportActionFailure();
+        }
+    }
+
+    private void OnAddressKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (SearchSuggestionsPopup.IsOpen)
+        {
+            int count = SearchSuggestionsList.ItemCount;
+            if (e.Key is Key.Down or Key.Up && count > 0)
+            {
+                int index = SearchSuggestionsList.SelectedIndex;
+                SearchSuggestionsList.SelectedIndex = e.Key == Key.Down
+                    ? (index + 1) % count
+                    : (index <= 0 ? count - 1 : index - 1);
+                SearchSuggestionsList.ScrollIntoView(SearchSuggestionsList.SelectedItem!);
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Enter && SearchSuggestionsList.SelectedItem is string query)
+            {
+                SearchForSuggestion(query);
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            AddressTextBox.CancelSearchSuggestions();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            AddressTextBox.CancelSearchSuggestions();
+            NavigateFromAddress();
+            e.Handled = true;
+        }
+    }
+
+    private void OnSearchSuggestionsChanged(IReadOnlyList<string> suggestions)
+    {
+        SearchSuggestionsList.ItemsSource = suggestions;
+        SearchSuggestionsList.SelectedIndex = -1;
+        SearchSuggestionsPopup.IsOpen = !_disposed && suggestions.Count > 0 && AddressTextBox.IsFocused
+            && TopLevel.GetTopLevel(this) != null;
+    }
+
+    private void OnSearchSuggestionsPopupClosed(object? sender, EventArgs e) => AddressTextBox.CancelSearchSuggestions();
+
+    private void OnSearchSuggestionPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton == MouseButton.Left && e.Source is Avalonia.Visual visual
+            && visual.GetSelfAndVisualAncestors().OfType<ListBoxItem>().FirstOrDefault()?.DataContext is string query)
+        {
+            SearchForSuggestion(query);
+            e.Handled = true;
+        }
+    }
+
+    private void SearchForSuggestion(string query)
+    {
+        AddressTextBox.CancelSearchSuggestions();
+        if (_viewModel != null)
+        {
+            _viewModel.Address.Value = WebSearchSuggestions.CreateSearchUri(query, _viewModel.Profile.Engine).AbsoluteUri;
+            NavigateFromAddress();
+        }
+    }
+
+    internal void NavigateFromAddress()
+    {
+        EnsureWebView();
+        if (_webView == null) return;
+        if (_viewModel?.TryCreateNavigationUri(out Uri uri) == true)
+        {
+            CloseBrowserPanel();
+            if (BrowserMediaDownload.IsMediaLink(uri))
+            {
+                // Downloading does not replace the page hosted by the WebView.
+                _viewModel.Address.Value = WebBrowserTabViewModel.FormatAddress(_viewModel.CurrentUri);
+                _ = DownloadMediaAsync(uri, null);
+                return;
+            }
+            InvalidatePageDownloadRequests(navigationStarted: true);
+            _viewModel.BeginNavigation(uri);
+            _webView.Navigate(uri);
+        }
+    }
+
+    private void UpdateHistoryState()
+    {
+        if (_viewModel == null || _webView == null)
+        {
+            return;
+        }
+
+        _viewModel.UpdateHistoryState(_webView.CanGoBack, _webView.CanGoForward);
+    }
+
+    IDisposable? IWebViewReparentingContent.BeginReparenting()
+    {
+        NativeWebView? webView = _webView;
+        if (_disposed
+            || webView == null
+            || !ReferenceEquals(WebViewHost.Content, webView)
+            || !_canReparentWebView(webView))
+        {
+            return null;
+        }
+
+        IDisposable reparentingScope = webView.BeginReparenting();
+        try
+        {
+            // Dock can present the destination window before the source presenter completes its
+            // deferred cleanup. Detach synchronously so the scope captures the current adapter.
+            WebViewHost.Content = null;
+        }
+        catch
+        {
+            reparentingScope.Dispose();
+            throw;
+        }
+
+        return Disposable.Create(() =>
+        {
+            try
+            {
+                if (!_disposed
+                    && ReferenceEquals(_webView, webView)
+                    && WebViewHost.Content == null)
+                {
+                    WebViewHost.Content = webView;
+                }
+            }
+            finally
+            {
+                reparentingScope.Dispose();
+            }
+        });
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        ResetPageDownloadRequests();
+        _pageRevision++;
+        _findRequest?.Cancel();
+        CloseBrowserPanel();
+        _downloadCancellation?.Cancel();
+        AddressTextBox.CancelSearchSuggestions();
+        Loaded -= OnLoaded;
+        if (_viewModel != null)
+        {
+            _viewModel.Disposing -= Dispose;
+            _viewModel.Profile.SettingsChanged -= OnProfileChanged;
+            _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
+            _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
+        }
+        _viewModel = null;
+        BookmarkItems.ItemsSource = null;
+        DisposeWebView();
+    }
+
+    private void DisposeWebView()
+    {
+        if (_webView == null)
+        {
+            return;
+        }
+
+        _webView.EnvironmentRequested -= ConfigureMacOSWebViewEnvironment;
+        _webView.AdapterCreated -= OnAdapterCreated;
+        _webView.NavigationStarted -= OnNavigationStarted;
+        _webView.NavigationCompleted -= OnNavigationCompleted;
+        _webView.NewWindowRequested -= OnNewWindowRequested;
+        _webView.WebMessageReceived -= OnWebMessageReceived;
+        BrowserWebViewRegistry.Unregister(_webView);
+        WebViewHost.Content = null;
+        _webView = null;
+    }
+
+    internal static (bool IsAvailable, string? Detail, bool ShowLinuxRuntimeHelp) GetWebViewAvailability()
+    {
+        WebViewAdapterType[] candidates = OperatingSystem.IsWindows()
+            ? [WebViewAdapterType.WebView2, WebViewAdapterType.WebView1]
+            : OperatingSystem.IsMacOS()
+                ? [WebViewAdapterType.WkWebView]
+                : OperatingSystem.IsLinux()
+                    ? [WebViewAdapterType.WpeWebKit, WebViewAdapterType.WebKitGtk]
+                    : [];
+
+        foreach (WebViewAdapterType candidate in candidates)
+        {
+            try
+            {
+                DetailedWebViewAdapterInfo info = WebViewAdapterInfo.GetAdapterInfo(candidate);
+                if (IsAdapterAvailable(info))
+                {
+                    return (true, null, false);
+                }
+            }
+            catch
+            {
+                // Probe every platform-supported adapter before reporting the runtime unavailable.
+            }
+        }
+
+        string? detail = OperatingSystem.IsWindows()
+            ? Strings.WebViewWindowsRuntimeHint
+            : OperatingSystem.IsLinux()
+                ? Strings.WebViewLinuxRuntimeHint
+                : null;
+        return (false, detail, OperatingSystem.IsLinux());
+    }
+
+    internal static bool IsAdapterAvailable(DetailedWebViewAdapterInfo info)
+    {
+        // WebKitGTK 11.4 reports NativeDialog here even though NativeWebView's Linux factory
+        // creates a GtkX11WebViewAdapter for the embedded control. The platform-specific candidate
+        // list above already matches the factory, so installation/support is the reliable gate.
+        return info.IsSupported && info.IsInstalled;
+    }
+}

@@ -1,0 +1,131 @@
+﻿using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+
+namespace Beutl.Editor.Components.WebBrowserTab.Views;
+
+internal partial class WebBrowserTabView
+{
+    private int _zoomPercent = 100;
+    private int _zoomRevision;
+    private int _pageRevision;
+    private int _findRevision;
+    private CancellationTokenSource? _findRequest;
+    internal Func<string, Task<string?>>? PageScriptRunner { get; set; }
+    internal Task<string?> RunPageScriptAsync(string script) => PageScriptRunner?.Invoke(script)
+        ?? _webView?.InvokeScript(script) ?? Task.FromResult<string?>(null);
+
+    private void OnFindPageClick(object? sender, RoutedEventArgs e)
+    {
+        CloseBrowserPanel();
+        FindPanel.IsVisible = true;
+        FindTextBox.Focus();
+        FindTextBox.SelectAll();
+        if (!string.IsNullOrEmpty(FindTextBox.Text)) _ = FindInPageAsync(0);
+        else ResetFindFeedback();
+    }
+
+    private async void OnFindTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (_disposed || !FindPanel.IsVisible) return;
+        ResetFindFeedback();
+        _findRequest?.Cancel();
+        using var request = new CancellationTokenSource();
+        _findRequest = request;
+        try
+        {
+            await Task.Delay(150, request.Token);
+            await FindInPageAsync(0);
+        }
+        catch (OperationCanceledException) { }
+        finally { if (ReferenceEquals(_findRequest, request)) _findRequest = null; }
+    }
+
+    private void ResetFindFeedback()
+    {
+        _findRevision++;
+        FindCountText.Text = string.Empty;
+        FindStatusText.IsVisible = false;
+        FindPreviousButton.IsEnabled = false;
+        FindNextButton.IsEnabled = false;
+    }
+
+    internal async Task FindInPageAsync(int direction)
+    {
+        int revision = _pageRevision;
+        int request = ++_findRevision;
+        string query = FindTextBox.Text ?? string.Empty;
+        BrowserPageTools.FindResult? result;
+        try
+        {
+            result = BrowserPageTools.ParseFindResult(await RunPageScriptAsync(BrowserPageTools.FindScript(query, direction)));
+        }
+        catch { result = null; }
+        if (_disposed || revision != _pageRevision || request != _findRevision || FindTextBox.Text != query || !FindPanel.IsVisible) return;
+        if (query.Length == 0)
+        {
+            ResetFindFeedback();
+            return;
+        }
+        FindCountText.Text = result == null ? string.Empty : string.Format(Strings.BrowserFindCount,
+            result.Index, result.LimitReached ? $"{result.Count}+" : result.Count.ToString());
+        FindStatusText.Text = result == null ? Strings.BrowserFindUnavailable : Strings.BrowserFindNoResults;
+        FindStatusText.IsVisible = result == null || result.Count == 0;
+        FindPreviousButton.IsEnabled = result?.Count > 0;
+        FindNextButton.IsEnabled = result?.Count > 0;
+    }
+
+    private async void OnFindNextClick(object? sender, RoutedEventArgs e) => await FindInPageAsync(1);
+    private async void OnFindPreviousClick(object? sender, RoutedEventArgs e) => await FindInPageAsync(-1);
+    private async void OnCloseFindClick(object? sender, RoutedEventArgs e) => await CloseFindAsync();
+    private async Task CloseFindAsync()
+    {
+        _findRequest?.Cancel();
+        FindPanel.IsVisible = false;
+        ResetFindFeedback();
+        try { await RunPageScriptAsync(BrowserPageTools.FindScript("", 0)); }
+        catch { }
+    }
+
+    private async void OnFindKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) { e.Handled = true; await FindInPageAsync(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? -1 : 1); }
+        else if (e.Key == Key.Escape) { e.Handled = true; await CloseFindAsync(); }
+    }
+
+    private async void OnZoomInClick(object? sender, RoutedEventArgs e) => await SetPageZoomAsync(_zoomPercent + 10);
+    private async void OnZoomOutClick(object? sender, RoutedEventArgs e) => await SetPageZoomAsync(_zoomPercent - 10);
+    private async void OnZoomResetClick(object? sender, RoutedEventArgs e) => await SetPageZoomAsync(100);
+
+    internal async Task SetPageZoomAsync(int percent)
+    {
+        percent = Math.Clamp(percent, 50, 200);
+        _zoomPercent = percent;
+        int revision = _pageRevision;
+        int request = ++_zoomRevision;
+        try
+        {
+            string? result = NormalizePageTitle(await RunPageScriptAsync(BrowserPageTools.ZoomScript(percent)));
+            if (!_disposed && revision == _pageRevision && request == _zoomRevision && _zoomPercent == percent)
+            {
+                if (result == "true") ZoomResetMenuItem.Text = $"{Strings.BrowserZoomReset} ({percent}%)";
+                else ShowToolStatus(Strings.BrowserPageToolsUnavailable);
+            }
+        }
+        catch
+        {
+            if (!_disposed && revision == _pageRevision && request == _zoomRevision && _zoomPercent == percent)
+                ShowToolStatus(Strings.BrowserPageToolsUnavailable);
+        }
+    }
+
+    private async void OnBrowserKeyDown(object? sender, KeyEventArgs e)
+    {
+        KeyModifiers modifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+        if (!e.KeyModifiers.HasFlag(modifier)) return;
+        if (e.Key == Key.F) { e.Handled = true; OnFindPageClick(this, e); }
+        else if (e.Key is Key.Add or Key.OemPlus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent + 10); }
+        else if (e.Key is Key.Subtract or Key.OemMinus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent - 10); }
+        else if (e.Key is Key.D0 or Key.NumPad0) { e.Handled = true; await SetPageZoomAsync(100); }
+    }
+}

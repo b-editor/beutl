@@ -11,6 +11,7 @@
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
     <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Controls.WebView" />
     <PackageReference Include="Avalonia.Headless.NUnit" />
     <PackageReference Include="Avalonia.Skia" />
     <PackageReference Include="Moq" />

@@ -95,6 +95,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, Beutl.Editor.
             : FilePathComparison.AreSameCanonicalPath(path, uri.LocalPath));
     }
 
+    internal Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost? BrowserSettingsHost { get; set; }
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ExtensionProvider _extensionProvider;
     private readonly Action<Project, Uri> _serializeProject;
