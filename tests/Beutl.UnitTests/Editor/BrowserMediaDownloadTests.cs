@@ -43,6 +43,28 @@ public class BrowserMediaDownloadTests
     }
 
     [Test]
+    public async Task Downloads_SkipDirectoryAndFileNameCollisions()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var client = new HttpClient(new MediaHandler());
+        try
+        {
+            string existingDirectory = Path.Combine(directory, "clip.mp4");
+            Directory.CreateDirectory(existingDirectory);
+            string existingFile = Path.Combine(directory, "clip (1).mp4");
+            await File.WriteAllTextAsync(existingFile, "existing media");
+            string downloaded = await new BrowserMediaDownload(client).DownloadAsync(
+                new Uri("https://example.com/clip.mp4"), directory, null, null, default);
+            Assert.That(Path.GetFileName(downloaded), Is.EqualTo("clip (2).mp4"));
+            Assert.That(File.ReadAllBytes(downloaded), Has.Length.EqualTo(200000));
+            Assert.That(Directory.Exists(existingDirectory), Is.True);
+            Assert.That(await File.ReadAllTextAsync(existingFile), Is.EqualTo("existing media"));
+            Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(2));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Test]
     public void Cancellation_RemovesPartialFile()
     {
         string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

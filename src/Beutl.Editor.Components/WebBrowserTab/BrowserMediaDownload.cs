@@ -145,7 +145,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
                     File.Move(temporaryPath, destination, overwrite: false);
                     return destination;
                 }
-                catch (IOException) when (File.Exists(destination))
+                catch (IOException) when (File.Exists(destination) || Directory.Exists(destination))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                 }
