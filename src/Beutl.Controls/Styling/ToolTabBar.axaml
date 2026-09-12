@@ -35,6 +35,12 @@
         </Style>
     </ControlTheme>
 
+    <ControlTheme x:Key="ToolTabBarIconButtonTheme"
+                  BasedOn="{StaticResource TransparentButton}"
+                  TargetType="Button">
+        <Setter Property="Padding" Value="6" />
+    </ControlTheme>
+
     <ControlTheme x:Key="ToolTabBarTitleTextBlockTheme" TargetType="TextBlock">
         <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
         <Setter Property="FontWeight" Value="SemiBold" />

@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.FileBrowserTab.Views.FileBrowserTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -118,17 +119,13 @@
 
     <Grid RowDefinitions="Auto,*">
         <!--  ツールバー  -->
-        <Border Grid.Row="0"
-                Padding="4"
-                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                BorderThickness="0,0,0,1">
+        <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <!--  上へボタン（ディレクトリブラウズ時のみ表示）  -->
                 <Button Grid.Column="0"
-                        Padding="6"
                         Click="OnOpenFolderClick"
                         IsVisible="{Binding !IsHomeView.Value}"
-                        Theme="{StaticResource TransparentButton}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.OpenFolder}">
                     <icons:FluentIcon FontSize="16" Icon="OpenFolder" />
                 </Button>
@@ -156,20 +153,19 @@
                 <!--  ホームヘッダー（ホームビュー時）  -->
                 <TextBlock Grid.Column="1"
                            Margin="8,0"
-                           VerticalAlignment="Center"
-                           FontWeight="DemiBold"
                            IsVisible="{Binding IsHomeView.Value}"
-                           Text="{x:Static lang:Strings.Home}" />
+                           Text="{x:Static lang:Strings.Home}"
+                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
 
                 <!--  表示モード切替とアクションボタン  -->
                 <StackPanel Grid.Column="2"
                             Orientation="Horizontal"
                             Spacing="2">
                     <!--  表示モード切替（ディレクトリブラウズ時のみ）  -->
-                    <Button Padding="6"
+                    <Button x:Name="ViewModeButton"
                             Click="OnCycleViewModeClick"
                             IsVisible="{Binding !IsHomeView.Value}"
-                            Theme="{StaticResource TransparentButton}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.ToDisplayName}}">
                         <Panel>
                             <icons:FluentIcon FontSize="16"
@@ -185,32 +181,30 @@
                     </Button>
 
                     <!--  新規フォルダ（ディレクトリブラウズ時のみ）  -->
-                    <Button Padding="6"
-                            Click="OnNewFolderClick"
+                    <Button Click="OnNewFolderClick"
                             IsVisible="{Binding !IsHomeView.Value}"
-                            Theme="{StaticResource TransparentButton}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.NewFolder}">
                         <icons:FluentIcon FontSize="16" Icon="FolderAdd" />
                     </Button>
 
                     <!--  更新  -->
-                    <Button Padding="6"
-                            Click="OnRefreshClick"
-                            Theme="{StaticResource TransparentButton}"
+                    <Button Click="OnRefreshClick"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Refresh}">
                         <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
                     </Button>
 
                     <!--  ホームボタン  -->
-                    <Button Padding="6"
+                    <Button x:Name="HomeButton"
                             Click="OnHomeClick"
-                            Theme="{StaticResource TransparentButton}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Home}">
                         <icons:FluentIcon FontSize="16" Icon="Home" />
                     </Button>
                 </StackPanel>
             </Grid>
-        </Border>
+        </controls:ToolTabBar>
 
         <!--  コンテンツ領域  -->
         <Panel Grid.Row="1">

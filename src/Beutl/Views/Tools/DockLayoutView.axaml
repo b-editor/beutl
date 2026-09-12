@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Tools.DockLayoutView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -30,35 +31,29 @@
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*">
-        <Border Grid.Row="0"
-                Padding="4"
-                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                BorderThickness="0,0,0,1">
+        <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Grid.Column="0"
                            Margin="8,0"
-                           VerticalAlignment="Center"
-                           FontWeight="DemiBold"
-                           Text="{x:Static lang:Strings.SavedDockLayouts}" />
+                           Text="{x:Static lang:Strings.SavedDockLayouts}"
+                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
 
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             Spacing="2">
-                    <Button Padding="6"
-                            Click="OnSaveClick"
-                            Theme="{StaticResource TransparentButton}"
+                    <Button Click="OnSaveClick"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.SaveCurrentDockLayout}">
                         <icons:FluentIcon FontSize="16" Icon="Add" />
                     </Button>
-                    <Button Padding="6"
-                            Click="OnResetClick"
-                            Theme="{StaticResource TransparentButton}"
+                    <Button Click="OnResetClick"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.ResetDockLayout}">
                         <icons:FluentIcon FontSize="16" Icon="ArrowReset" />
                     </Button>
                 </StackPanel>
             </Grid>
-        </Border>
+        </controls:ToolTabBar>
 
         <Panel Grid.Row="1">
             <ScrollViewer HorizontalContentAlignment="Stretch"

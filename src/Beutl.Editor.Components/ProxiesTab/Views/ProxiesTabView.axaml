@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.ProxiesTab.Views.ProxiesTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -77,31 +78,31 @@
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*">
-        <Border Grid.Row="0"
-                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                BorderThickness="0,0,0,1">
-            <Grid Height="32" ColumnDefinitions="Auto,*,Auto,Auto">
+        <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
+            <Grid ColumnDefinitions="Auto,*,Auto">
                 <TextBlock Grid.Column="0"
                            Margin="8,0,0,0"
-                           VerticalAlignment="Center"
-                           Text="{x:Static lang:Strings.Proxies}" />
+                           Text="{x:Static lang:Strings.Proxies}"
+                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
 
-                <TextBlock Grid.Column="2"
+                <TextBlock Grid.Column="1"
                            Margin="8,0"
+                           HorizontalAlignment="Right"
                            VerticalAlignment="Center"
                            Text="{Binding ClipSummary.Value}"
-                           TextTrimming="CharacterEllipsis" />
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding ClipSummary.Value}" />
 
-                <Button Grid.Column="3"
-                        Margin="0,0,4,0"
-                        Classes="iconButton"
+                <Button x:Name="RefreshButton"
+                        Grid.Column="2"
                         AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
                         Command="{Binding RefreshCommand}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Refresh}">
                     <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
                 </Button>
             </Grid>
-        </Border>
+        </controls:ToolTabBar>
 
         <Grid Grid.Row="1"
               Margin="10"
