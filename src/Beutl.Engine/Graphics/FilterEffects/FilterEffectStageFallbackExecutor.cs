@@ -803,7 +803,7 @@ internal static class FilterEffectStageFallbackExecutor
                 replacements.Add(replacement);
         }
 
-        // Clear disposes the originals; DetachAt moves each replacement across alive.
+        // Clear disposes the originals; the replacements move across alive.
         targets.Clear();
         while (replacements.Count > 0)
             targets.Add(replacements.DetachAt(0));

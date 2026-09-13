@@ -118,9 +118,8 @@ public class CustomFilterEffectContext
 
     /// <summary>Visits every target in place.</summary>
     /// <remarks>
-    /// The callback sees the live target and does not own it: it must neither dispose it nor keep it past the
-    /// call. It may mutate the target it is handed (for example <see cref="EffectTarget.Bounds"/>); what stays
-    /// unchanged is the membership and order of <see cref="Targets"/>.
+    /// The callback may mutate the target but must not dispose or keep it. The membership and order of
+    /// <see cref="Targets"/> are unchanged.
     /// </remarks>
     public void ForEach(Action<int, EffectTarget> action)
     {
@@ -133,10 +132,8 @@ public class CustomFilterEffectContext
 
     /// <summary>Replaces each target with the one the callback returns.</summary>
     /// <remarks>
-    /// The callback receives the live target and must not dispose it, whether it returns it unchanged or
-    /// returns a replacement. Returning that same instance keeps it; returning a different instance transfers
-    /// ownership of the result to <see cref="Targets"/>, whose indexer disposes the original, so the callback
-    /// must not use the original afterwards and must not dispose the replacement itself.
+    /// Returning the same instance keeps it; returning another disposes the original and hands the result to
+    /// <see cref="Targets"/>. The callback must dispose neither.
     /// </remarks>
     public void ForEach(Func<int, EffectTarget, EffectTarget> action)
     {
@@ -146,26 +143,12 @@ public class CustomFilterEffectContext
         }
     }
 
-    /// <summary>Replaces each target with zero or more targets the callback returns.</summary>
+    /// <summary>Replaces each target with the targets the callback returns.</summary>
     /// <remarks>
-    /// <para>
-    /// This overload's ownership contract differs from the single-target one. The callback receives an
-    /// <see cref="EffectTarget.Clone"/> of the target rather than the live instance, and the original is
-    /// disposed once the callback returns, whatever the callback returned. The clone holds its own retained
-    /// reference to the original's surface or pooled lease, so it stays valid after the original is disposed,
-    /// and that reference is the callback's to release: return the clone in the list or dispose it. A clone
-    /// that is neither returned nor disposed leaks its reference. An empty target has nothing to clone, so
-    /// <see cref="EffectTarget.Clone"/> hands back the target itself; that instance is detached rather than
-    /// disposed here, so returning it in the list is safe too.
-    /// </para>
-    /// <para>
-    /// Every target in the returned list is moved into <see cref="Targets"/>, which then owns it, and the
-    /// returned <see cref="EffectTargets"/> container is left empty, so disposing that container afterwards
-    /// releases nothing. The callback must return a list of its own: returning <see cref="Targets"/> itself
-    /// throws <see cref="InvalidOperationException"/> before anything is detached. Changing a callback's
-    /// return type from <see cref="EffectTarget"/> to <see cref="EffectTargets"/> therefore changes both what
-    /// it is handed and what is destroyed.
-    /// </para>
+    /// The callback receives a clone of the target, which it must return or dispose; the original is disposed
+    /// afterwards. (An empty target clones as itself and is detached instead.) The returned list must be the
+    /// callback's own, not <see cref="Targets"/>, and is emptied by the move, so disposing it later releases
+    /// nothing.
     /// </remarks>
     public void ForEach(Func<int, EffectTarget, EffectTargets> action)
     {
@@ -176,22 +159,18 @@ public class CustomFilterEffectContext
             EffectTargets newTargets = action(i, clone);
             if (ReferenceEquals(newTargets, Targets))
             {
-                // Moving a list into itself would detach and re-insert the same elements; refuse before
-                // touching the list, releasing the clone the callback was handed unless it stored it.
                 if (!ReferenceEquals(clone, original) && !Targets.Contains(clone))
                     clone.Dispose();
                 throw new InvalidOperationException(
                     "The callback must return a list of its own, not the context's Targets.");
             }
 
-            // The callback only ever saw the clone, so RemoveAt can dispose the original. An empty target
-            // clones as itself and may now sit in newTargets, so that one is detached instead.
+            // An empty target clones as itself and may now sit in newTargets, so it is detached, not disposed.
             if (ReferenceEquals(clone, original))
                 Targets.DetachAt(i);
             else
                 Targets.RemoveAt(i);
 
-            // InsertRange moves the targets out of the callback's list in one step and leaves it empty.
             int inserted = newTargets.Count;
             Targets.InsertRange(i, newTargets);
             i += inserted - 1;
