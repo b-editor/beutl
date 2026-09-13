@@ -124,6 +124,8 @@
         </ResourceDictionary>
     </Styles.Resources>
 
+    <StyleInclude Source="avares://Beutl.Controls/Styling/ToolTabNavigation.axaml" />
+
     <!--<Style Selector="PopupRoot">
         <Setter Property="TransparencyLevelHint" Value="AcrylicBlur" />
         <Setter Property="Background" Value="Transparent" />
