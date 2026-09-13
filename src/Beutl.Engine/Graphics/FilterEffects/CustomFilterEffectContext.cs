@@ -146,63 +146,28 @@ public class CustomFilterEffectContext
     /// <summary>Replaces each target with the targets the callback returns.</summary>
     /// <remarks>
     /// The callback receives a clone of the target, which it must return or dispose; the original is disposed
-    /// afterwards. (An empty target clones as itself and is detached instead.) The returned list must be the
-    /// callback's own, not <see cref="Targets"/>, must not hold a target the context still holds, and is
-    /// emptied by the move, so disposing it later releases nothing.
+    /// afterwards. The returned list must be the callback's own, not <see cref="Targets"/>, and is emptied by
+    /// the move, so disposing it later releases nothing.
     /// </remarks>
     public void ForEach(Func<int, EffectTarget, EffectTargets> action)
     {
         for (int i = 0; i < Targets.Count; i++)
         {
-            EffectTarget original = Targets[i];
-            EffectTarget clone = original.Clone();
+            EffectTarget clone = Targets[i].Clone();
             EffectTargets newTargets = action(i, clone);
-            if (ReferenceEquals(newTargets, Targets) || HoldsContextTarget(newTargets, original, clone))
+            if (ReferenceEquals(newTargets, Targets))
             {
-                // Refuse before touching the list. The refused list is never moved, so whatever it holds that
-                // the context does not, the clone included, is released here.
-                if (!ReferenceEquals(newTargets, Targets))
-                {
-                    foreach (EffectTarget item in newTargets)
-                    {
-                        if (!Targets.Contains(item))
-                            item.Dispose();
-                    }
-                }
-
-                if (!ReferenceEquals(clone, original) && !Targets.Contains(clone))
+                if (clone.Owner is null)
                     clone.Dispose();
                 throw new InvalidOperationException(
-                    "The callback must return a list of its own whose targets the context does not hold.");
+                    "The callback must return a list of its own, not the context's Targets.");
             }
 
-            // An empty target clones as itself and may now sit in newTargets, so it is detached, not disposed.
-            if (ReferenceEquals(clone, original))
-                Targets.DetachAt(i);
-            else
-                Targets.RemoveAt(i);
-
+            Targets.RemoveAt(i);
             int inserted = newTargets.Count;
             Targets.InsertRange(i, newTargets);
             i += inserted - 1;
         }
-    }
-
-    private bool HoldsContextTarget(EffectTargets returned, EffectTarget original, EffectTarget clone)
-    {
-        // Small lists scan; a large expansion builds a reference set so the guard stays linear.
-        HashSet<EffectTarget>? held = (long)returned.Count * Targets.Count > 64
-            ? new HashSet<EffectTarget>(Targets, ReferenceEqualityComparer.Instance)
-            : null;
-        foreach (EffectTarget item in returned)
-        {
-            // The original may come back only as the empty target that cloned as itself.
-            bool isAliasedOriginal = ReferenceEquals(item, original) && ReferenceEquals(clone, original);
-            if (!isAliasedOriginal && (held?.Contains(item) ?? Targets.Contains(item)))
-                return true;
-        }
-
-        return false;
     }
 
     /// <summary>

@@ -220,70 +220,48 @@ public sealed class EffectTargetsOwnershipTests
             Assert.That(accepted.IsEmpty, Is.False);
             Assert.That(yielded.IsEmpty, Is.False);
         });
+
+        // The rollback released them, so they can still be given to a list.
+        targets.Add(accepted);
+        targets.Add(yielded);
+        Assert.That(targets, Has.Count.EqualTo(3));
     }
 
     [Test]
-    public void InsertRange_ChecksOwnershipWithASetOnceTheListIsLarge()
+    public void Add_RefusesATargetAnotherListOwns_UntilItIsDetached()
     {
-        using var targets = new EffectTargets();
-        for (int i = 0; i < 12; i++)
-            targets.Add(CreateTarget());
-        EffectTarget owned = targets[5];
-        using var source = new EffectTargets { CreateTarget() };
-        using EffectTarget fresh = CreateTarget();
+        EffectTarget target = CreateTarget();
+        using var first = new EffectTargets { target };
+        using var second = new EffectTargets();
 
-        Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, new[] { fresh, owned }));
-        Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, new[] { fresh, fresh }));
-        targets.InsertRange(3, source);
+        Assert.Throws<InvalidOperationException>(() => second.Add(target));
+        first.DetachAt(0);
+        second.Add(target);
+
         Assert.Multiple(() =>
         {
-            Assert.That(targets, Has.Count.EqualTo(13), "only the moved target joins the list");
-            Assert.That(targets, Does.Not.Contain(fresh));
-            Assert.That(source, Is.Empty);
-            Assert.That(owned.IsEmpty, Is.False);
+            Assert.That(first, Is.Empty);
+            Assert.That(second[0], Is.SameAs(target));
+            Assert.That(target.IsEmpty, Is.False);
         });
     }
 
     [Test]
-    public void Add_Insert_AndTheIndexer_RefuseATargetHeldInAnotherSlot()
+    public void InsertRange_RefusesAViewOverAnotherOwningList()
     {
-        EffectTarget first = CreateTarget();
-        EffectTarget second = CreateTarget();
-        using var targets = new EffectTargets { first, second };
+        EffectTarget kept = CreateTarget();
+        using var destination = new EffectTargets { kept };
+        using var source = new EffectTargets { CreateTarget(), CreateTarget() };
 
+        // A query over an owning list copies references without emptying it, so both lists would own the
+        // same targets; the destination refuses them and stays as it was.
+        Assert.Throws<InvalidOperationException>(() => destination.InsertRange(0, source.Where(_ => true)));
         Assert.Multiple(() =>
         {
-            Assert.Throws<InvalidOperationException>(() => targets.Add(first));
-            Assert.Throws<InvalidOperationException>(() => targets.Insert(0, second));
-            Assert.Throws<InvalidOperationException>(() => targets[0] = second);
-            Assert.That(targets, Has.Count.EqualTo(2));
-            Assert.That(targets[0], Is.SameAs(first));
-            Assert.That(first.IsEmpty, Is.False);
-            Assert.That(second.IsEmpty, Is.False);
-        });
-    }
-
-    [Test]
-    public void InsertRange_RefusesMovingATargetTheDestinationAlreadyHolds()
-    {
-        EffectTarget shared = CreateTarget();
-        EffectTarget other = CreateTarget();
-        using var destination = new EffectTargets { shared };
-        using var source = new EffectTargets { other, shared };
-
-        // Two lists that were handed the same instance is already a contract violation; the move must not
-        // turn it into two slots of one list, and it must not move anything before refusing.
-        Assert.Throws<InvalidOperationException>(() => destination.InsertRange(0, source));
-        Assert.Multiple(() =>
-        {
-            Assert.That(destination, Has.Count.EqualTo(1));
+            Assert.That(destination, Is.EqualTo(new[] { kept }));
             Assert.That(source, Has.Count.EqualTo(2));
-            Assert.That(shared.IsEmpty, Is.False);
-            Assert.That(other.IsEmpty, Is.False);
+            Assert.That(source.All(static t => !t.IsEmpty), Is.True);
         });
-
-        // Detach the shared instance from one list so the two disposals below do not overlap.
-        source.DetachAt(1);
     }
 
     [Test]
@@ -393,24 +371,25 @@ public sealed class EffectTargetsOwnershipTests
     }
 
     [Test]
-    public void ForEach_ExpandingOverload_RejectsAListHoldingAnotherContextTarget()
+    public void ForEach_ExpandingOverload_CannotBeHandedAContextTargetThroughAnotherList()
     {
         EffectTarget first = CreateTarget();
         EffectTarget second = CreateTarget();
         using var targets = new EffectTargets { first, second };
-        EffectTarget? handedClone = null;
-        (int count, bool alive, bool cloneReleased)? observed = null;
+        (int count, bool alive)? observed = null;
 
         RunCustomEffect(targets, execution =>
         {
-            // Returning a target another slot still holds must be refused before the original is removed,
-            // and the refused list's own targets, the kept clone included, must be released.
+            // A context target cannot even be put into the callback's own list, so the refusal happens before
+            // the original is removed and the context is left as it was.
             Assert.Throws<InvalidOperationException>(() => execution.ForEach((_, clone) =>
             {
-                handedClone = clone;
-                return new EffectTargets { clone, second };
+                using (clone)
+                {
+                    return new EffectTargets { second };
+                }
             }));
-            observed = (execution.Targets.Count, !first.IsEmpty && !second.IsEmpty, handedClone!.IsEmpty);
+            observed = (execution.Targets.Count, !first.IsEmpty && !second.IsEmpty);
         });
 
         Assert.That(observed, Is.Not.Null, "the custom effect must run");
@@ -418,7 +397,6 @@ public sealed class EffectTargetsOwnershipTests
         {
             Assert.That(observed!.Value.count, Is.EqualTo(2), "the list must be left as it was");
             Assert.That(observed.Value.alive, Is.True, "no context target may be disposed by the refused call");
-            Assert.That(observed.Value.cloneReleased, Is.True, "the clone kept in the refused list must be released");
         });
     }
 
