@@ -116,6 +116,11 @@ public class CustomFilterEffectContext
             _drawableBrushMaterializer,
             _renderTargetLeaseSession);
 
+    /// <summary>Visits every target in place.</summary>
+    /// <remarks>
+    /// The callback may mutate the target but must not dispose or keep it. The membership and order of
+    /// <see cref="Targets"/> are unchanged.
+    /// </remarks>
     public void ForEach(Action<int, EffectTarget> action)
     {
         for (int i = 0; i < Targets.Count; i++)
@@ -125,30 +130,43 @@ public class CustomFilterEffectContext
         }
     }
 
+    /// <summary>Replaces each target with the one the callback returns.</summary>
+    /// <remarks>
+    /// Returning the same instance keeps it; returning another disposes the original and hands the result to
+    /// <see cref="Targets"/>. The callback must dispose neither.
+    /// </remarks>
     public void ForEach(Func<int, EffectTarget, EffectTarget> action)
     {
         for (int i = 0; i < Targets.Count; i++)
         {
-            EffectTarget target = Targets[i];
-            EffectTarget newTarget = action(i, target);
-            if (newTarget != target)
-            {
-                target.Dispose();
-                Targets[i] = newTarget;
-            }
+            Targets[i] = action(i, Targets[i]);
         }
     }
 
+    /// <summary>Replaces each target with the targets the callback returns.</summary>
+    /// <remarks>
+    /// The callback receives a clone of the target, which it must return or dispose; the original is disposed
+    /// afterwards. The returned list must be the callback's own, not <see cref="Targets"/>, and is emptied by
+    /// the move, so disposing it later releases nothing.
+    /// </remarks>
     public void ForEach(Func<int, EffectTarget, EffectTargets> action)
     {
         for (int i = 0; i < Targets.Count; i++)
         {
-            using EffectTarget target = Targets[i];
-            EffectTargets newTargets = action(i, target.Clone());
+            EffectTarget clone = Targets[i].Clone();
+            EffectTargets newTargets = action(i, clone);
+            if (ReferenceEquals(newTargets, Targets))
+            {
+                if (clone.Owner is null)
+                    clone.Dispose();
+                throw new InvalidOperationException(
+                    "The callback must return a list of its own, not the context's Targets.");
+            }
 
             Targets.RemoveAt(i);
+            int inserted = newTargets.Count;
             Targets.InsertRange(i, newTargets);
-            i += newTargets.Count - 1;
+            i += inserted - 1;
         }
     }
 

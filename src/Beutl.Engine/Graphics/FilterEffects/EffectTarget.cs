@@ -136,6 +136,9 @@ public sealed class EffectTarget : IDisposable
 
     public bool IsEmpty => _target == null;
 
+    /// <summary>The <see cref="EffectTargets"/> that currently owns this target, if any.</summary>
+    internal EffectTargets? Owner { get; set; }
+
     public EffectTarget Clone()
     {
         if (_target is EffectTargetRenderTargetLease renderTargetLease)
@@ -148,7 +151,7 @@ public sealed class EffectTarget : IDisposable
         }
         else
         {
-            return this;
+            return new EffectTarget { OriginalBounds = OriginalBounds, Bounds = Bounds };
         }
     }
 
