@@ -190,11 +190,15 @@ public class CustomFilterEffectContext
 
     private bool HoldsContextTarget(EffectTargets returned, EffectTarget original, EffectTarget clone)
     {
+        // Small lists scan; a large expansion builds a reference set so the guard stays linear.
+        HashSet<EffectTarget>? held = (long)returned.Count * Targets.Count > 64
+            ? new HashSet<EffectTarget>(Targets, ReferenceEqualityComparer.Instance)
+            : null;
         foreach (EffectTarget item in returned)
         {
             // The original may come back only as the empty target that cloned as itself.
             bool isAliasedOriginal = ReferenceEquals(item, original) && ReferenceEquals(clone, original);
-            if (!isAliasedOriginal && Targets.Contains(item))
+            if (!isAliasedOriginal && (held?.Contains(item) ?? Targets.Contains(item)))
                 return true;
         }
 
