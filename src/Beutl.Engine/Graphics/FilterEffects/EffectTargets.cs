@@ -119,7 +119,8 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
     /// <summary>Inserts the targets in <paramref name="collection"/> at <paramref name="index"/> and takes ownership of them.</summary>
     /// <remarks>
     /// Another <see cref="EffectTargets"/> is moved and left empty, so disposing it afterwards releases nothing.
-    /// Any other sequence is materialized before the list changes.
+    /// Any other sequence is staged before the list changes; if it fails part-way, the targets it already
+    /// yielded stay in the list.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     /// <paramref name="collection"/> is this list, repeats a target, or contains one the list already holds.
@@ -132,28 +133,46 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
         if (ReferenceEquals(collection, this))
             throw new InvalidOperationException("A target list cannot be inserted into itself.");
 
+        // A set keeps the ownership check linear once the list is large; small lists scan.
+        HashSet<EffectTarget>? owned = _targets.Count > LinearScanLimit
+            ? new HashSet<EffectTarget>(_targets, ReferenceEqualityComparer.Instance)
+            : null;
+
         if (collection is EffectTargets source)
         {
             foreach (EffectTarget item in source._targets)
-                ThrowIfOwned(item);
+            {
+                if (owned?.Contains(item) ?? _targets.Contains(item))
+                    throw new InvalidOperationException("The list already owns one of the targets being inserted.");
+            }
 
             _targets.InsertRange(index, source._targets);
             source._targets.Clear();
             return;
         }
 
-        // Materialize first so a query over this list never sees the insertion.
-        EffectTarget[] items = collection.ToArray();
-        var owned = new HashSet<EffectTarget>(_targets, ReferenceEqualityComparer.Instance);
-        foreach (EffectTarget item in items)
+        var staged = new List<EffectTarget>();
+        try
         {
-            ArgumentNullException.ThrowIfNull(item, nameof(collection));
-            if (!owned.Add(item))
-                throw new InvalidOperationException("The list already owns one of the targets being inserted.");
-        }
+            foreach (EffectTarget item in collection)
+            {
+                ArgumentNullException.ThrowIfNull(item, nameof(collection));
+                bool taken = owned is not null
+                    ? !owned.Add(item)
+                    : _targets.Contains(item) || staged.Contains(item);
+                if (taken)
+                    throw new InvalidOperationException("The list already owns one of the targets being inserted.");
 
-        _targets.InsertRange(index, items);
+                staged.Add(item);
+            }
+        }
+        finally
+        {
+            _targets.InsertRange(index, staged);
+        }
     }
+
+    private const int LinearScanLimit = 8;
 
     private void ThrowIfOwned(EffectTarget item)
     {

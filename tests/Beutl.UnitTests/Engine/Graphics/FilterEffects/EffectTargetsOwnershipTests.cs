@@ -186,18 +186,63 @@ public sealed class EffectTargetsOwnershipTests
     {
         EffectTarget owned = CreateTarget();
         using var targets = new EffectTargets { owned };
-        using EffectTarget other = CreateTarget();
 
-        // A deferred query over the list itself is materialized before anything changes, and the target it
-        // yields is already owned, so the call is refused and the list stays as it was.
+        // A deferred query over the list itself yields an owned target first, so nothing is inserted.
         Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, targets.Where(_ => true)));
-        Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, new[] { other, owned }));
         Assert.Multiple(() =>
         {
             Assert.That(targets, Has.Count.EqualTo(1));
             Assert.That(targets[0], Is.SameAs(owned));
             Assert.That(owned.IsEmpty, Is.False);
-            Assert.That(other.IsEmpty, Is.False, "a refused insertion must not take the other targets");
+        });
+    }
+
+    [Test]
+    public void InsertRange_KeepsWhatASequenceYieldedBeforeItFailed()
+    {
+        EffectTarget owned = CreateTarget();
+        EffectTarget accepted = CreateTarget();
+        EffectTarget yielded = CreateTarget();
+        using var targets = new EffectTargets { owned };
+        IEnumerable<EffectTarget> Failing()
+        {
+            yield return yielded;
+            throw new IOException("sequence failed");
+        }
+
+        // Whether the sequence is refused or throws on its own, the targets accepted before that are owned
+        // by the list rather than lost.
+        Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, new[] { accepted, owned }));
+        Assert.Throws<IOException>(() => targets.InsertRange(0, Failing()));
+        Assert.Multiple(() =>
+        {
+            Assert.That(targets, Is.EqualTo(new[] { yielded, accepted, owned }));
+            Assert.That(accepted.IsEmpty, Is.False);
+            Assert.That(yielded.IsEmpty, Is.False);
+        });
+    }
+
+    [Test]
+    public void InsertRange_ChecksOwnershipWithASetOnceTheListIsLarge()
+    {
+        using var targets = new EffectTargets();
+        for (int i = 0; i < 12; i++)
+            targets.Add(CreateTarget());
+        EffectTarget owned = targets[5];
+        using var source = new EffectTargets { CreateTarget() };
+        EffectTarget fresh = CreateTarget();
+
+        // The first call keeps `fresh` before refusing `owned`; the second is refused at once because `fresh`
+        // is owned by then; the move adds one more.
+        Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, new[] { fresh, owned }));
+        Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, new[] { fresh, fresh }));
+        targets.InsertRange(3, source);
+        Assert.Multiple(() =>
+        {
+            Assert.That(targets, Has.Count.EqualTo(14));
+            Assert.That(targets[0], Is.SameAs(fresh));
+            Assert.That(source, Is.Empty);
+            Assert.That(owned.IsEmpty, Is.False);
         });
     }
 
@@ -247,12 +292,12 @@ public sealed class EffectTargetsOwnershipTests
     public void InsertRange_RefusesASequenceThatRepeatsATarget()
     {
         using var targets = new EffectTargets();
-        using EffectTarget repeated = CreateTarget();
+        EffectTarget repeated = CreateTarget();
 
         Assert.Throws<InvalidOperationException>(() => targets.InsertRange(0, new[] { repeated, repeated }));
         Assert.Multiple(() =>
         {
-            Assert.That(targets, Is.Empty);
+            Assert.That(targets, Is.EqualTo(new[] { repeated }), "the first occurrence is kept, the repeat refused");
             Assert.That(repeated.IsEmpty, Is.False);
         });
     }
