@@ -159,8 +159,18 @@ public class CustomFilterEffectContext
             EffectTargets newTargets = action(i, clone);
             if (ReferenceEquals(newTargets, Targets) || HoldsContextTarget(newTargets, original, clone))
             {
-                // Refuse before touching the list; the clone is released unless the callback kept it.
-                if (!ReferenceEquals(clone, original) && !Targets.Contains(clone) && !newTargets.Contains(clone))
+                // Refuse before touching the list. The refused list is never moved, so whatever it holds that
+                // the context does not, the clone included, is released here.
+                if (!ReferenceEquals(newTargets, Targets))
+                {
+                    foreach (EffectTarget item in newTargets)
+                    {
+                        if (!Targets.Contains(item))
+                            item.Dispose();
+                    }
+                }
+
+                if (!ReferenceEquals(clone, original) && !Targets.Contains(clone))
                     clone.Dispose();
                 throw new InvalidOperationException(
                     "The callback must return a list of its own whose targets the context does not hold.");

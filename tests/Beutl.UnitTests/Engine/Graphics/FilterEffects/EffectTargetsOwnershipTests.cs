@@ -398,24 +398,27 @@ public sealed class EffectTargetsOwnershipTests
         EffectTarget first = CreateTarget();
         EffectTarget second = CreateTarget();
         using var targets = new EffectTargets { first, second };
-        (int count, bool alive)? observed = null;
+        EffectTarget? handedClone = null;
+        (int count, bool alive, bool cloneReleased)? observed = null;
 
         RunCustomEffect(targets, execution =>
         {
-            // Returning a target another slot still holds must be refused before the original is removed.
+            // Returning a target another slot still holds must be refused before the original is removed,
+            // and the refused list's own targets, the kept clone included, must be released.
             Assert.Throws<InvalidOperationException>(() => execution.ForEach((_, clone) =>
             {
-                clone.Dispose();
-                return new EffectTargets { second };
+                handedClone = clone;
+                return new EffectTargets { clone, second };
             }));
-            observed = (execution.Targets.Count, !first.IsEmpty && !second.IsEmpty);
+            observed = (execution.Targets.Count, !first.IsEmpty && !second.IsEmpty, handedClone!.IsEmpty);
         });
 
         Assert.That(observed, Is.Not.Null, "the custom effect must run");
         Assert.Multiple(() =>
         {
             Assert.That(observed!.Value.count, Is.EqualTo(2), "the list must be left as it was");
-            Assert.That(observed.Value.alive, Is.True, "no target may be disposed by the refused call");
+            Assert.That(observed.Value.alive, Is.True, "no context target may be disposed by the refused call");
+            Assert.That(observed.Value.cloneReleased, Is.True, "the clone kept in the refused list must be released");
         });
     }
 
