@@ -147,8 +147,8 @@ public class CustomFilterEffectContext
     /// <remarks>
     /// The callback receives a clone of the target, which it must return or dispose; the original is disposed
     /// afterwards. (An empty target clones as itself and is detached instead.) The returned list must be the
-    /// callback's own, not <see cref="Targets"/>, and is emptied by the move, so disposing it later releases
-    /// nothing.
+    /// callback's own, not <see cref="Targets"/>, must not hold a target the context still holds, and is
+    /// emptied by the move, so disposing it later releases nothing.
     /// </remarks>
     public void ForEach(Func<int, EffectTarget, EffectTargets> action)
     {
@@ -157,12 +157,13 @@ public class CustomFilterEffectContext
             EffectTarget original = Targets[i];
             EffectTarget clone = original.Clone();
             EffectTargets newTargets = action(i, clone);
-            if (ReferenceEquals(newTargets, Targets))
+            if (ReferenceEquals(newTargets, Targets) || HoldsContextTarget(newTargets, original, clone))
             {
-                if (!ReferenceEquals(clone, original) && !Targets.Contains(clone))
+                // Refuse before touching the list; the clone is released unless the callback kept it.
+                if (!ReferenceEquals(clone, original) && !Targets.Contains(clone) && !newTargets.Contains(clone))
                     clone.Dispose();
                 throw new InvalidOperationException(
-                    "The callback must return a list of its own, not the context's Targets.");
+                    "The callback must return a list of its own whose targets the context does not hold.");
             }
 
             // An empty target clones as itself and may now sit in newTargets, so it is detached, not disposed.
@@ -175,6 +176,19 @@ public class CustomFilterEffectContext
             Targets.InsertRange(i, newTargets);
             i += inserted - 1;
         }
+    }
+
+    private bool HoldsContextTarget(EffectTargets returned, EffectTarget original, EffectTarget clone)
+    {
+        foreach (EffectTarget item in returned)
+        {
+            // The original may come back only as the empty target that cloned as itself.
+            bool isAliasedOriginal = ReferenceEquals(item, original) && ReferenceEquals(clone, original);
+            if (!isAliasedOriginal && Targets.Contains(item))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>

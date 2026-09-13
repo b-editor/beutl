@@ -394,6 +394,33 @@ public sealed class EffectTargetsOwnershipTests
         });
     }
 
+    [Test]
+    public void ForEach_ExpandingOverload_RejectsAListHoldingAnotherContextTarget()
+    {
+        EffectTarget first = CreateTarget();
+        EffectTarget second = CreateTarget();
+        using var targets = new EffectTargets { first, second };
+        (int count, bool alive)? observed = null;
+
+        RunCustomEffect(targets, execution =>
+        {
+            // Returning a target another slot still holds must be refused before the original is removed.
+            Assert.Throws<InvalidOperationException>(() => execution.ForEach((_, clone) =>
+            {
+                clone.Dispose();
+                return new EffectTargets { second };
+            }));
+            observed = (execution.Targets.Count, !first.IsEmpty && !second.IsEmpty);
+        });
+
+        Assert.That(observed, Is.Not.Null, "the custom effect must run");
+        Assert.Multiple(() =>
+        {
+            Assert.That(observed!.Value.count, Is.EqualTo(2), "the list must be left as it was");
+            Assert.That(observed.Value.alive, Is.True, "no target may be disposed by the refused call");
+        });
+    }
+
     private static void RunCustomEffect(EffectTargets targets, Action<CustomFilterEffectContext> effect)
     {
         using var builder = new SKImageFilterBuilder();
