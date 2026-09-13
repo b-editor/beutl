@@ -2,6 +2,7 @@
              x:Class="Beutl.Editor.Components.VersionControlTab.Views.VersionControlTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -86,209 +87,252 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="1"
-                Margin="20"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                IsVisible="{Binding HasBlockingGuidance.Value}">
-            <StackPanel HorizontalAlignment="Center" Spacing="12">
-                <TextBlock MaxWidth="360"
-                           Text="{Binding StatusMessage.Value}"
-                           TextAlignment="Center"
-                           TextWrapping="Wrap" />
-                <HyperlinkButton x:Name="DownloadGitButton"
-                                 HorizontalAlignment="Center"
-                                 Command="{Binding DownloadGitCommand}"
-                                 Content="{x:Static lang:Strings.VersionControl_DownloadGit}"
-                                 IsVisible="{Binding IsUnavailable.Value}" />
-            </StackPanel>
-        </Border>
-
-        <Grid Grid.Row="1"
-              IsVisible="{Binding !HasBlockingGuidance.Value}"
-              RowDefinitions="Auto,Auto,*">
-            <Border Grid.Row="0"
-                    Padding="10,8"
-                    BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                    BorderThickness="0,0,0,1"
-                    IsVisible="{Binding IsTracked.Value}">
-                <Grid RowDefinitions="Auto,Auto">
-                    <TextBlock Classes="secondary"
-                               Text="{Binding DirtySummary.Value}" />
-                    <TextBlock Grid.Row="1"
-                               Margin="0,4,0,0"
-                               Classes="secondary"
-                               IsVisible="{Binding IsNestedRepository.Value}"
-                               Text="{Binding RepositoryScopeText.Value}"
+        <ScrollViewer Grid.Row="1"
+                      HorizontalScrollBarVisibility="Disabled"
+                      IsVisible="{Binding HasPendingRepositoryAdoption.Value}">
+            <Border x:Name="RepositoryAdoptionPanel"
+                    Margin="24"
+                    Padding="8,24"
+                    VerticalAlignment="Center">
+                <StackPanel MaxWidth="360" Spacing="16">
+                    <icons:FluentIcon HorizontalAlignment="Center"
+                                      FontSize="30"
+                                      Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                      Icon="BranchFork" />
+                    <TextBlock x:Name="RepositoryAdoptionMessage"
+                               FontWeight="Normal"
+                               Text="{x:Static lang:Strings.VersionControl_AdoptExistingRepository}"
                                TextWrapping="Wrap" />
-                </Grid>
+                    <SelectableTextBlock x:Name="RepositoryAdoptionPath"
+                                         FontSize="12"
+                                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                         Text="{Binding PendingRepositoryAdoption.Value.Repository.RepoRoot}"
+                                         TextAlignment="Center"
+                                         TextWrapping="Wrap" />
+                    <WrapPanel HorizontalAlignment="Center"
+                               ItemsAlignment="Center"
+                               ItemSpacing="8"
+                               LineSpacing="8">
+                        <Button x:Name="CancelRepositoryAdoptionButton"
+                                Command="{Binding CancelRepositoryAdoptionCommand}"
+                                Content="{x:Static lang:Strings.Cancel}" />
+                        <Button x:Name="AcceptRepositoryAdoptionButton"
+                                Classes="accent"
+                                Command="{Binding AcceptRepositoryAdoptionCommand}"
+                                Content="{x:Static lang:Strings.VersionControl_AdoptRepositoryAction}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+
+        <Panel Grid.Row="1" IsVisible="{Binding !HasPendingRepositoryAdoption.Value}">
+            <Border Margin="20"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding HasBlockingGuidance.Value}">
+
+                <StackPanel HorizontalAlignment="Center" Spacing="12">
+                    <TextBlock MaxWidth="360"
+                               Text="{Binding StatusMessage.Value}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
+                    <HyperlinkButton x:Name="DownloadGitButton"
+                                     HorizontalAlignment="Center"
+                                     Command="{Binding DownloadGitCommand}"
+                                     Content="{x:Static lang:Strings.VersionControl_DownloadGit}"
+                                     IsVisible="{Binding IsUnavailable.Value}" />
+                </StackPanel>
             </Border>
 
-            <StackPanel Grid.Row="1">
-                <Border Margin="8"
-                        Padding="10"
-                        Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-                        CornerRadius="4"
-                        IsVisible="{Binding HasRecoverableLock.Value}">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <TextBlock VerticalAlignment="Center"
-                                   Text="{Binding StaleLockGuidance.Value}"
-                                   TextWrapping="Wrap" />
-                        <Button Grid.Column="1"
-                                Command="{Binding RemoveStaleLockCommand}"
-                                Content="{x:Static lang:Strings.VersionControl_RemoveStaleLock}" />
-                    </Grid>
-                </Border>
-            </StackPanel>
+            <Grid IsVisible="{Binding !HasBlockingGuidance.Value}"
+                  RowDefinitions="Auto,Auto,*">
 
-            <Grid Grid.Row="2">
-                <ScrollViewer HorizontalContentAlignment="Stretch"
-                              Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-                              HorizontalScrollBarVisibility="Disabled"
-                              IsVisible="{Binding !IsTracked.Value}">
-                    <Border x:Name="UntrackedProjectPanel"
-                            Margin="24"
-                            Padding="8,24"
-                            VerticalAlignment="Center"
-                            IsVisible="{Binding !IsTracked.Value}">
-                        <StackPanel MaxWidth="320"
-                                    HorizontalAlignment="Center"
-                                    Spacing="24">
-                            <Border Width="64"
-                                    Height="64"
-                                    HorizontalAlignment="Center"
-                                    Background="{DynamicResource SubtleFillColorSecondaryBrush}"
-                                    CornerRadius="20">
-                                <icons:FluentIcon HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center"
-                                                  FontSize="30"
-                                                  Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                                  Icon="BranchFork" />
-                            </Border>
-                            <StackPanel Spacing="10">
-                                <TextBlock FontSize="20"
-                                           FontWeight="SemiBold"
-                                           Text="{x:Static lang:Strings.VersionControl}"
-                                           TextAlignment="Center"
-                                           TextWrapping="Wrap" />
+                <controls:ToolTabBar x:Name="StatusBar"
+                                     Grid.Row="0"
+                                     IsVisible="{Binding IsTracked.Value}">
+                    <Grid RowDefinitions="Auto,Auto">
+                        <TextBlock x:Name="DirtySummaryText"
+                                   Text="{Binding DirtySummary.Value}"
+                                   Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+                        <Border Grid.Row="1"
+                                Margin="0,4,0,0"
+                                IsVisible="{Binding IsNestedRepository.Value}">
+                            <TextBlock x:Name="RepositoryScopeText"
+                                       Margin="{DynamicResource ToolTabBarTitleMargin}"
+                                       Classes="secondary"
+                                       FontWeight="Normal"
+                                       Text="{Binding RepositoryScopeText.Value}"
+                                       TextWrapping="Wrap" />
+                        </Border>
+                    </Grid>
+                </controls:ToolTabBar>
+
+                <StackPanel Grid.Row="1">
+                    <Border Margin="8"
+                            Padding="10"
+                            Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                            CornerRadius="4"
+                            IsVisible="{Binding HasRecoverableLock.Value}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="{Binding StaleLockGuidance.Value}"
+                                       TextWrapping="Wrap" />
+                            <Button Grid.Column="1"
+                                    Command="{Binding RemoveStaleLockCommand}"
+                                    Content="{x:Static lang:Strings.VersionControl_RemoveStaleLock}" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <Grid Grid.Row="2">
+                    <ScrollViewer HorizontalContentAlignment="Stretch"
+                                  Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  IsVisible="{Binding !IsTracked.Value}">
+                        <Border x:Name="UntrackedProjectPanel"
+                                Margin="24"
+                                Padding="8,24"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding !IsTracked.Value}">
+                            <StackPanel MaxWidth="320"
+                                        HorizontalAlignment="Center"
+                                        Spacing="24">
+                                <Border Width="64"
+                                        Height="64"
+                                        HorizontalAlignment="Center"
+                                        Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="20">
+                                    <icons:FluentIcon HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"
+                                                      FontSize="30"
+                                                      Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                                      Icon="BranchFork" />
+                                </Border>
+                                <StackPanel Spacing="10">
+                                    <TextBlock FontSize="20"
+                                               FontWeight="SemiBold"
+                                               Text="{x:Static lang:Strings.VersionControl}"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock FontSize="13"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               LineHeight="22"
+                                               Text="{x:Static lang:Strings.VersionControl_UntrackedExplanation}"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button x:Name="EnableVersionControlButton"
+                                        HorizontalAlignment="Center"
+                                        Command="{Binding EnableVersionControlCommand}"
+                                        IsVisible="{Binding CanEnableVersionControl.Value}">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                        <icons:FluentIcon VerticalAlignment="Center"
+                                                          FontSize="16"
+                                                          Icon="Add"
+                                                          IsVisible="{Binding !IsEnablingVersionControl.Value}" />
+                                        <ui:FAProgressRing x:Name="EnableVersionControlProgress"
+                                                         Width="16"
+                                                         Height="16"
+                                                         IsIndeterminate="True"
+                                                         IsVisible="{Binding IsEnablingVersionControl.Value}" />
+                                        <TextBlock x:Name="EnableVersionControlLabel"
+                                                   Grid.Column="1"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding EnableActionLabel.Value}"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap" />
+                                    </Grid>
+                                </Button>
                                 <TextBlock FontSize="13"
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                            LineHeight="22"
-                                           Text="{x:Static lang:Strings.VersionControl_UntrackedExplanation}"
+                                           IsVisible="{Binding IsEnablingVersionControl.Value}"
+                                           Text="{x:Static lang:Strings.VersionControl_EnablingHint}"
                                            TextAlignment="Center"
                                            TextWrapping="Wrap" />
                             </StackPanel>
-                            <Button x:Name="EnableVersionControlButton"
-                                    HorizontalAlignment="Center"
-                                    Command="{Binding EnableVersionControlCommand}"
-                                    IsVisible="{Binding CanEnableVersionControl.Value}">
-                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                                    <icons:FluentIcon VerticalAlignment="Center"
-                                                      FontSize="16"
-                                                      Icon="Add"
-                                                      IsVisible="{Binding !IsEnablingVersionControl.Value}" />
-                                    <ui:FAProgressRing x:Name="EnableVersionControlProgress"
-                                                     Width="16"
-                                                     Height="16"
-                                                     IsIndeterminate="True"
-                                                     IsVisible="{Binding IsEnablingVersionControl.Value}" />
-                                    <TextBlock x:Name="EnableVersionControlLabel"
-                                               Grid.Column="1"
-                                               VerticalAlignment="Center"
-                                               Text="{Binding EnableActionLabel.Value}"
-                                               TextAlignment="Center"
-                                               TextWrapping="Wrap" />
-                                </Grid>
-                            </Button>
-                            <TextBlock FontSize="13"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       LineHeight="22"
-                                       IsVisible="{Binding IsEnablingVersionControl.Value}"
-                                       Text="{x:Static lang:Strings.VersionControl_EnablingHint}"
-                                       TextAlignment="Center"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-                </ScrollViewer>
+                        </Border>
+                    </ScrollViewer>
 
-                <Grid IsVisible="{Binding IsTracked.Value}"
-                      RowDefinitions="Auto,*">
-                    <Grid x:Name="CommitComposer"
-                          Margin="8,8,8,0"
-                          RowDefinitions="Auto,Auto,Auto"
-                          RowSpacing="6">
-                        <TextBox x:Name="CommitMessageTextBox"
-                                 AcceptsReturn="True"
-                                 MaxLines="6"
-                                 MinLines="3"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                 Text="{Binding CommitMessage.Value}"
-                                 TextWrapping="Wrap"
-                                 PlaceholderText="{x:Static lang:Strings.VersionControl_CommitMessage}" />
-                        <SplitButton x:Name="PrimaryActionSplitButton"
-                                     Grid.Row="1"
-                                     HorizontalAlignment="Stretch"
-                                     HorizontalContentAlignment="Center"
-                                     Classes.primaryDisabled="{Binding !IsPrimaryActionEnabled.Value}"
-                                     Command="{Binding InvokePrimaryActionCommand}"
-                                     Content="{Binding PrimaryAction.Value.Label}">
-                            <SplitButton.Flyout>
-                                <MenuFlyout Placement="Pointer">
-                                    <MenuItem x:Name="CommitMenuItem"
-                                              Command="{Binding CommitCommand}"
-                                              Header="{x:Static lang:Strings.VersionControl_CommitNow}" />
-                                    <MenuItem x:Name="PushMenuItem"
-                                              Command="{Binding PushCommand}"
-                                              Header="{x:Static lang:Strings.VersionControl_Push}" />
-                                    <MenuItem x:Name="PullMenuItem"
-                                              Command="{Binding PullCommand}"
-                                              Header="{x:Static lang:Strings.VersionControl_Pull}" />
-                                    <MenuItem x:Name="SetRemoteMenuItem"
-                                              Command="{Binding SetRemoteCommand}"
-                                              Header="{x:Static lang:Strings.VersionControl_SetRemote}" />
-                                    <MenuItem x:Name="CancelRemoteOperationMenuItem"
-                                              Command="{Binding CancelRemoteOperationCommand}"
-                                              Header="{x:Static lang:Strings.Cancel}"
-                                              IsVisible="{Binding IsRemoteOperationRunning.Value}" />
-                                </MenuFlyout>
-                            </SplitButton.Flyout>
-                        </SplitButton>
-                        <TextBlock Grid.Row="2"
-                                   Classes="secondary"
-                                   IsVisible="{Binding IsRemoteOperationRunning.Value}"
-                                   Text="{Binding RemoteProgress.Value}"
-                                   TextTrimming="CharacterEllipsis" />
-                    </Grid>
+                    <Grid IsVisible="{Binding IsTracked.Value}"
+                          RowDefinitions="Auto,*">
+                        <Grid x:Name="CommitComposer"
+                              Margin="8,8,8,0"
+                              RowDefinitions="Auto,Auto,Auto"
+                              RowSpacing="6">
+                            <TextBox x:Name="CommitMessageTextBox"
+                                     AcceptsReturn="True"
+                                     MaxLines="6"
+                                     MinLines="3"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     Text="{Binding CommitMessage.Value}"
+                                     TextWrapping="Wrap"
+                                     PlaceholderText="{x:Static lang:Strings.VersionControl_CommitMessage}" />
+                            <SplitButton x:Name="PrimaryActionSplitButton"
+                                         Grid.Row="1"
+                                         HorizontalAlignment="Stretch"
+                                         HorizontalContentAlignment="Center"
+                                         Classes.primaryDisabled="{Binding !IsPrimaryActionEnabled.Value}"
+                                         Command="{Binding InvokePrimaryActionCommand}"
+                                         Content="{Binding PrimaryAction.Value.Label}">
+                                <SplitButton.Flyout>
+                                    <MenuFlyout Placement="Pointer">
+                                        <MenuItem x:Name="CommitMenuItem"
+                                                  Command="{Binding CommitCommand}"
+                                                  Header="{x:Static lang:Strings.VersionControl_CommitNow}" />
+                                        <MenuItem x:Name="PushMenuItem"
+                                                  Command="{Binding PushCommand}"
+                                                  Header="{x:Static lang:Strings.VersionControl_Push}" />
+                                        <MenuItem x:Name="PullMenuItem"
+                                                  Command="{Binding PullCommand}"
+                                                  Header="{x:Static lang:Strings.VersionControl_Pull}" />
+                                        <MenuItem x:Name="SetRemoteMenuItem"
+                                                  Command="{Binding SetRemoteCommand}"
+                                                  Header="{x:Static lang:Strings.VersionControl_SetRemote}" />
+                                        <MenuItem x:Name="CancelRemoteOperationMenuItem"
+                                                  Command="{Binding CancelRemoteOperationCommand}"
+                                                  Header="{x:Static lang:Strings.Cancel}"
+                                                  IsVisible="{Binding IsRemoteOperationRunning.Value}" />
+                                    </MenuFlyout>
+                                </SplitButton.Flyout>
+                            </SplitButton>
+                            <TextBlock Grid.Row="2"
+                                       Classes="secondary"
+                                       IsVisible="{Binding IsRemoteOperationRunning.Value}"
+                                       Text="{Binding RemoteProgress.Value}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Grid>
 
-                    <Grid x:Name="WideLayoutRoot"
-                          Grid.Row="1"
-                          ColumnDefinitions="2*,5,3*"
-                          IsVisible="{Binding !#Root.IsNarrowLayout}">
-                        <views:VersionControlHistoryView x:Name="WideHistoryView"
-                                                         Grid.Column="0" />
-                        <GridSplitter Grid.Column="1"
-                                      Background="{DynamicResource DividerStrokeColorDefaultBrush}"
-                                      ResizeDirection="Columns" />
-                        <views:VersionControlChangesView x:Name="WideChangesView"
-                                                         Grid.Column="2" />
-                    </Grid>
+                        <Grid x:Name="WideLayoutRoot"
+                              Grid.Row="1"
+                              ColumnDefinitions="2*,5,3*"
+                              IsVisible="{Binding !#Root.IsNarrowLayout}">
+                            <views:VersionControlHistoryView x:Name="WideHistoryView"
+                                                             Grid.Column="0" />
+                            <GridSplitter Grid.Column="1"
+                                          Background="{DynamicResource DividerStrokeColorDefaultBrush}"
+                                          ResizeDirection="Columns" />
+                            <views:VersionControlChangesView x:Name="WideChangesView"
+                                                             Grid.Column="2" />
+                        </Grid>
 
-                    <Grid x:Name="NarrowLayoutRoot"
-                          Grid.Row="1"
-                          IsVisible="{Binding #Root.IsNarrowLayout}">
-                        <views:VersionControlHistoryView x:Name="NarrowHistoryRoot"
-                                                         DrillDownOnSelection="True"
-                                                         IsVisible="{Binding !ShowingDetail.Value}" />
-                        <Grid x:Name="NarrowDetailRoot"
-                              IsVisible="{Binding ShowingDetail.Value}"
-                              RowDefinitions="Auto,*">
-                            <views:VersionControlDetailHeaderView x:Name="NarrowDetailHeader" />
-                            <views:VersionControlChangesView x:Name="NarrowChangesView"
-                                                             Grid.Row="1" />
+                        <Grid x:Name="NarrowLayoutRoot"
+                              Grid.Row="1"
+                              IsVisible="{Binding #Root.IsNarrowLayout}">
+                            <views:VersionControlHistoryView x:Name="NarrowHistoryRoot"
+                                                             DrillDownOnSelection="True"
+                                                             IsVisible="{Binding !ShowingDetail.Value}" />
+                            <Grid x:Name="NarrowDetailRoot"
+                                  IsVisible="{Binding ShowingDetail.Value}"
+                                  RowDefinitions="Auto,*">
+                                <views:VersionControlDetailHeaderView x:Name="NarrowDetailHeader" />
+                                <views:VersionControlChangesView x:Name="NarrowChangesView"
+                                                                 Grid.Row="1" />
+                            </Grid>
                         </Grid>
                     </Grid>
                 </Grid>
             </Grid>
-        </Grid>
+        </Panel>
     </Grid>
 </UserControl>

@@ -10556,6 +10556,63 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    [TestCase("accept")]
+    [TestCase("decline")]
+    [TestCase("close")]
+    public async Task Inline_repository_adoption_waits_for_a_decision_and_does_not_block_project_close(string response)
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+        try
+        {
+            config.AutoCommitOnClose = false;
+            Project target = await CreateProjectForFakeVersionControlAsync($"inline-adoption-{response}");
+            string projectFile = target.Uri!.LocalPath;
+            string projectRoot = Path.GetDirectoryName(projectFile)!;
+            await TestShell.Project.CloseProjectAsync();
+            var projectService = new ProjectService();
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip("refs/heads/main", "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, repository, tip) { HasVersionTrackingOptIn = false };
+            var tracked = new PullCycleTestBackend(repository, repository, tip);
+            coordinator = new VersionControlCoordinator(projectService,
+                new EditorService(new ExtensionProvider()), config, installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : tracked);
+
+            await projectService.OpenProject(projectFile);
+            await WaitUntilAsync(() => coordinator.PendingRepositoryAdoption is not null);
+            RepositoryAdoptionRequest request = coordinator.PendingRepositoryAdoption!;
+            Assert.That(request.Repository, Is.EqualTo(repository));
+            Assert.That(tracked.EnsureHygieneCalls, Is.Zero);
+            Assert.That(coordinator.IsTracked.Value, Is.False);
+
+            if (response == "close")
+            {
+                await projectService.CloseProjectAsync().WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.That(projectService.CurrentProject.Value, Is.Null);
+            }
+            else
+            {
+                request.Respond(response == "accept");
+            }
+            await WaitUntilAsync(() => coordinator.PendingRepositoryAdoption is null);
+            if (response == "accept")
+                await WaitUntilAsync(() => coordinator.IsTracked.Value);
+            Assert.That(tracked.EnsureHygieneCalls, Is.EqualTo(response == "accept" ? 1 : 0));
+            Assert.That(coordinator.IsTracked.Value, Is.EqualTo(response == "accept"));
+            Assert.That(request.Respond(true), Is.False);
+        }
+        finally
+        {
+            if (coordinator is not null) await coordinator.DisposeAsync();
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Root_repository_carrying_beutl_hygiene_is_tracked_without_asking()
     {
         await TestReset.ResetShellAsync();
