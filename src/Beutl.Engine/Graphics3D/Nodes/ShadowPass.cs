@@ -109,6 +109,9 @@ void main() {
     /// <summary>
     /// Resizes the shadow map to a custom size.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The size exceeds what the device can attach. The current shadow map is kept.
+    /// </exception>
     public void ResizeShadowMap(int size)
     {
         CreateShadowMap(size, size);
@@ -116,6 +119,11 @@ void main() {
 
     private void CreateShadowMap(int width, int height)
     {
+        // The extent this pass allocates is the shadow map size, not the width and height Initialize was
+        // handed, so the device limit is asked here. Refuse before disposing, so a refused resize keeps
+        // the map it had.
+        DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
+
         DisposeShadowMap();
 
         // Create shadow depth texture

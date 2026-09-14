@@ -39,10 +39,16 @@ internal sealed class CompositeContext : IGraphicsContext
 
     public int MaxAttachmentDimension => Vulkan.MaxAttachmentDimension;
 
+    public int MaxCubeFaceDimension => Vulkan.MaxCubeFaceDimension;
+
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
         if (Metal != null && !format.IsDepthFormat())
         {
+            // The Metal texture is built first and MoltenVK aborts the process on an over-limit extent, so
+            // the refusal cannot be left to the Vulkan path this shares its limits with.
+            DeviceExtentLimits.ThrowIfCannotAttach(this, width, height);
+
             var texture = new MetalVulkanTexture2D(Metal, Vulkan, width, height, format);
             VulkanContext.RecordTextureAllocation(format);
             return texture;

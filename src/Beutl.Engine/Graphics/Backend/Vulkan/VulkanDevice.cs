@@ -41,10 +41,17 @@ internal sealed unsafe class VulkanDevice : IDisposable
         MaxAttachmentDimension = (int)Math.Min(
             properties.Limits.MaxImageDimension2D,
             Math.Min(properties.Limits.MaxFramebufferWidth, properties.Limits.MaxFramebufferHeight));
+
+        // A cube image is bounded by its own limit, not by the 2D one: a pass that renders into a cube
+        // through per-face 2D attachments has to fit both, and the two may differ.
+        MaxCubeFaceDimension = (int)properties.Limits.MaxImageDimensionCube;
     }
 
     /// <summary>Gets the largest square this device can both sample and attach.</summary>
     public int MaxAttachmentDimension { get; }
+
+    /// <summary>Gets the largest cube face this device can create and sample.</summary>
+    public int MaxCubeFaceDimension { get; }
 
     public Vk Vk => _vk;
 

@@ -393,6 +393,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public int MaxAttachmentDimension => _vulkanDevice.MaxAttachmentDimension;
 
+    public int MaxCubeFaceDimension => _vulkanDevice.MaxCubeFaceDimension;
+
     internal static IDisposable ObserveTextureAllocations(Action<TextureFormat> observer)
     {
         ArgumentNullException.ThrowIfNull(observer);
@@ -420,6 +422,10 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
+        // Every 2D texture is created attachable, and the driver does not refuse an extent it cannot
+        // attach: SwiftShader answers success past its framebuffer limit, MoltenVK aborts the process.
+        DeviceExtentLimits.ThrowIfCannotAttach(this, width, height);
+
         ImageUsageFlags usage;
         if (format.IsDepthFormat())
         {
@@ -438,6 +444,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITextureCube CreateTextureCube(int size, TextureFormat format)
     {
+        DeviceExtentLimits.ThrowIfCannotMakeCubeFace(this, size);
+
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
             : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
@@ -446,6 +454,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format)
     {
+        DeviceExtentLimits.ThrowIfCannotAttach(this, width, height);
+
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
             : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
@@ -454,6 +464,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITextureCubeArray CreateTextureCubeArray(int size, uint arraySize, TextureFormat format)
     {
+        DeviceExtentLimits.ThrowIfCannotMakeCubeFace(this, size);
+
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
             : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;

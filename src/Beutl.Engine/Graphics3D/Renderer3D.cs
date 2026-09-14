@@ -53,8 +53,19 @@ internal sealed class Renderer3D : IRenderer3D
     /// </summary>
     public float SurfaceDensity { get; set; } = 1f;
 
+    /// <summary>
+    /// Allocates the passes and the output texture for an extent.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The extent exceeds what the device can attach. Raised before any allocation, so nothing is left to
+    /// clean up; <see cref="Scene3DRenderNode"/> drops the preview value or fails the delivery on it.
+    /// </exception>
     public void Initialize(int width, int height)
     {
+        // The output texture below is allocated outside any RenderNode3D, so the device limit has to be
+        // asked here rather than left to the passes.
+        DeviceExtentLimits.ThrowIfCannotAttach(_context, width, height);
+
         // Commit Width/Height only after all allocations succeed, so a failure is retryable.
         ShadowManager? shadowManager = null;
         GeometryPass? geometryPass = null;
@@ -107,10 +118,19 @@ internal sealed class Renderer3D : IRenderer3D
         Height = height;
     }
 
+    /// <summary>
+    /// Reallocates the passes and the output texture for a new extent.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The extent exceeds what the device can attach. The current extent and its resources are left as
+    /// they were.
+    /// </exception>
     public void Resize(int width, int height)
     {
         if (Width == width && Height == height)
             return;
+
+        DeviceExtentLimits.ThrowIfCannotAttach(_context, width, height);
 
         // Allocate into locals first; old fields stay intact on failure.
         GeometryPass? geometryPass = null;

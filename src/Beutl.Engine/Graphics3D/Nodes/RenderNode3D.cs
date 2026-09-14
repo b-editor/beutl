@@ -23,17 +23,36 @@ public abstract class RenderNode3D : IDisposable
 
     public int Height { get; protected set; }
 
+    /// <summary>
+    /// Allocates this node's resources for an extent.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The extent exceeds what <see cref="Context"/> can attach. The refusal is raised before any
+    /// allocation, because the driver would not raise it: it either builds an attachment past its own limit
+    /// or aborts the process.
+    /// </exception>
     public virtual void Initialize(int width, int height)
     {
+        DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
+
         Width = width;
         Height = height;
         OnInitialize(width, height);
     }
 
+    /// <summary>
+    /// Reallocates this node's resources for a new extent.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The extent exceeds what <see cref="Context"/> can attach. The current extent and its resources are
+    /// left as they were.
+    /// </exception>
     public virtual void Resize(int width, int height)
     {
         if (Width == width && Height == height)
             return;
+
+        DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
 
         Width = width;
         Height = height;

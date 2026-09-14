@@ -28,6 +28,17 @@ public interface IGraphicsContext : IDisposable
     int MaxAttachmentDimension { get; }
 
     /// <summary>
+    /// Gets the largest cube face this device can create and sample, in pixels.
+    /// </summary>
+    /// <remarks>
+    /// A cube image answers to its own limit rather than to <see cref="MaxAttachmentDimension"/>, and a
+    /// device may set the two differently. A pass that renders a cube through per-face 2D attachments has to
+    /// fit both. Every allocation a context makes is refused before the driver sees an extent past the
+    /// limit for its kind, because the drivers do not refuse it themselves.
+    /// </remarks>
+    int MaxCubeFaceDimension { get; }
+
+    /// <summary>
     /// Creates a 2D texture.
     /// </summary>
     /// <param name="width">The width of the texture.</param>
