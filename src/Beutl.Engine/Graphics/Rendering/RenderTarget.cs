@@ -10,6 +10,7 @@ internal enum RenderTargetSamplingIntentKind : byte
     CpuReadback,
     BackendInterop,
     SameContextTextureSampling,
+    AsyncCpuReadback,
 }
 
 public class RenderTarget : IDisposable
@@ -390,6 +391,115 @@ public class RenderTarget : IDisposable
 
         PrepareForSampling(RenderTargetSamplingIntent.CpuReadback);
         ReadPixelsInto(destination);
+    }
+
+    /// <summary>
+    /// Reads the current surface back without making the calling thread wait for the GPU.
+    /// </summary>
+    /// <returns>
+    /// A task that completes with the pixels <see cref="Snapshot()"/> would have returned when this was called, in the
+    /// same RgbaF16/Premul/LinearSrgb format.
+    /// </returns>
+    /// <remarks>
+    /// The read is queued behind the rendering submitted so far, so drawing into this target afterwards does not change
+    /// what it returns. A GPU context reports a finished read only when it is polled, so until the read completes the
+    /// dispatcher that owns this target polls it between its other work. Where Skia cannot transfer asynchronously, as
+    /// for a surface rastered on the CPU, the task has already completed when this returns.
+    /// </remarks>
+    public Task<Bitmap> SnapshotAsync()
+    {
+        VerifyAccess();
+        PrepareForSampling(RenderTargetSamplingIntent.AsyncCpuReadback);
+
+        var readback = new SurfaceReadback(CreateSnapshotBitmap());
+        SKSurface surface = _surface.Value!;
+        surface.RequestReadPixels(readback.Info, new SKRectI(0, 0, Width, Height), readback.Complete);
+        if (readback.Completion.IsCompleted)
+            return readback.Completion;
+
+        if (surface.Context is GRContext context)
+        {
+            // The read joined the work recorded for this surface; submitting starts the GPU on it.
+            context.Submit(synchronous: false);
+            readback.PollUntilComplete(context, _dispatcher ?? RenderThread.Dispatcher);
+        }
+        else
+        {
+            // Without a direct context to poll, a synchronous flush runs the finished callback instead.
+            surface.Flush(true, true);
+            if (!readback.Completion.IsCompleted)
+                readback.Fail(new InvalidOperationException("The render target surface read did not complete."));
+        }
+
+        return readback.Completion;
+    }
+
+    // A pending SnapshotAsync read, completed by the finished callback the GPU context runs when it is polled.
+    private sealed class SurfaceReadback(Bitmap destination)
+    {
+        private readonly TaskCompletionSource<Bitmap> _completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<Bitmap> Completion => _completion.Task;
+
+        public SKImageInfo Info => destination.SKBitmap.Info;
+
+        // Skia calls this once, on the thread that polled the context, and the result is valid only during the call.
+        public void Complete(SKImageReadPixelsResult? result)
+        {
+            if (result is null)
+            {
+                Fail(new InvalidOperationException(
+                    "Failed to read the render target surface into the destination bitmap."));
+                return;
+            }
+
+            try
+            {
+                result.CopyPlaneTo(0, destination.GetPixelSpan());
+            }
+            catch (Exception ex)
+            {
+                Fail(ex);
+                return;
+            }
+
+            _completion.TrySetResult(destination);
+        }
+
+        public void Fail(Exception exception)
+        {
+            if (_completion.TrySetException(exception))
+                destination.Dispose();
+        }
+
+        public void PollUntilComplete(GRContext context, Dispatcher dispatcher)
+        {
+            dispatcher.Dispatch(
+                async () =>
+                {
+                    try
+                    {
+                        while (!_completion.Task.IsCompleted)
+                        {
+                            // The dispatcher's synchronization context resumes this loop on the owning thread.
+                            await Task.Delay(1);
+                            if (context.Handle == IntPtr.Zero)
+                            {
+                                Fail(new ObjectDisposedException(nameof(GRContext)));
+                                return;
+                            }
+
+                            context.CheckAsyncWorkCompletion();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Fail(ex);
+                    }
+                },
+                DispatchPriority.Low);
+        }
     }
 
     private void ReadPixelsInto(Bitmap destination)

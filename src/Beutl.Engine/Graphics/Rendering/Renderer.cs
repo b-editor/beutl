@@ -702,6 +702,15 @@ public class Renderer : IRenderer
     }
 
     /// <summary>
+    /// Reads the current surface back without waiting for the GPU. See <see cref="RenderTarget.SnapshotAsync()"/>.
+    /// </summary>
+    public Task<Bitmap> SnapshotAsync()
+    {
+        _dispatcher.VerifyAccess();
+        return _surface.SnapshotAsync();
+    }
+
+    /// <summary>
     /// Allocates a bitmap in the format <see cref="Snapshot()"/> produces, suitable as a reusable
     /// destination for <see cref="SnapshotInto(Bitmap)"/>. See <see cref="RenderTarget.CreateSnapshotBitmap()"/>.
     /// </summary>

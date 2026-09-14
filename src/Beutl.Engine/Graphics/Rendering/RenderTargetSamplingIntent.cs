@@ -23,10 +23,17 @@ internal readonly struct RenderTargetSamplingIntent
     public static RenderTargetSamplingIntent SameContextTextureSampling(GRRecordingContext? consumerContext)
         => new(RenderTargetSamplingIntentKind.SameContextTextureSampling, consumerContext);
 
+    // Skia queues the read behind the submitted work and reports it once finished, so nothing waits here.
+    public static RenderTargetSamplingIntent AsyncCpuReadback { get; }
+        = new(RenderTargetSamplingIntentKind.AsyncCpuReadback);
+
     internal bool RequiresBackendInterop => _kind == RenderTargetSamplingIntentKind.BackendInterop;
 
     internal bool CanSubmitWithoutCompletion(GRRecordingContext? producerContext)
     {
+        if (_kind == RenderTargetSamplingIntentKind.AsyncCpuReadback)
+            return true;
+
         if (_kind != RenderTargetSamplingIntentKind.SameContextTextureSampling)
             return false;
 
