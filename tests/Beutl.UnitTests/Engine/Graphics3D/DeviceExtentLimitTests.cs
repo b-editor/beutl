@@ -279,22 +279,49 @@ public class DeviceExtentLimitTests
 
     [TestCase(-1, 1)]
     [TestCase(1, -1)]
-    public void ANegativeExtent_IsRefusedAsACallerError_NotMeasuredAgainstTheBudget(int width, int height)
+    [TestCase(0, 1)]
+    [TestCase(1, 0)]
+    public void ANonPositiveExtent_IsRefusedAsACallerError_BeforeAnyNodeIsAsked(int width, int height)
     {
         // The backend casts a dimension to uint, so a negative one would reach the driver as an enormous
-        // extent and slip under an upper-bound-only check.
+        // extent and slip under an upper-bound-only check; a zero one is an image the driver may not build.
+        // Refused at the node's entry, so a fixed-size node that ignores the extent cannot commit it either.
         Mock<IGraphicsContext> device = MockDevice();
-        using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
+        using var allocating = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
+        using var fixedSize = new ShadowPass(device.Object, Mock.Of<IShaderCompiler>());
+        using var renderer = new Renderer3D(device.Object);
 
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => pass.Initialize(width, height));
+            Assert.Throws<ArgumentOutOfRangeException>(() => allocating.Initialize(width, height));
+            Assert.Throws<ArgumentOutOfRangeException>(() => allocating.Resize(width, height));
+            Assert.Throws<ArgumentOutOfRangeException>(() => fixedSize.Initialize(width, height));
+            Assert.Throws<ArgumentOutOfRangeException>(() => fixedSize.Resize(width, height));
+            Assert.Throws<ArgumentOutOfRangeException>(() => renderer.Initialize(width, height));
+            Assert.Throws<ArgumentOutOfRangeException>(() => renderer.Resize(width, height));
+            Assert.That((fixedSize.Width, fixedSize.Height), Is.EqualTo((0, 0)),
+                "a fixed-size node must not commit an extent it was refused");
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => DeviceExtentLimits.ThrowIfCannotMakeCubeFace(device.Object, -1));
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => DeviceExtentLimits.ThrowIfCannotAttachCubeFaces(device.Object, -1));
+                () => DeviceExtentLimits.ThrowIfCannotAttachCubeFaces(device.Object, 0));
             AssertNeverAllocated(device);
         });
+    }
+
+    [Test]
+    public void AResizeToZero_CannotBeMistakenForAReleasedExtent()
+    {
+        // BeginReplacingResources reports (0, 0) while a pass replaces its resources; a request for
+        // (0, 0) must be refused rather than matched against that state and skipped.
+        Mock<IGraphicsContext> device = LooseDevice();
+        using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
+        pass.Initialize(16, 16);
+        device.Setup(c => c.CreateTexture2D(32, 32, TextureFormat.Depth32Float))
+            .Throws(new InvalidOperationException("the device declined"));
+        Assert.Throws<InvalidOperationException>(() => pass.Resize(32, 32));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => pass.Resize(0, 0));
     }
 
     [Test]

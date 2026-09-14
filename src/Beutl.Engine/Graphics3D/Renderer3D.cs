@@ -131,10 +131,12 @@ internal sealed class Renderer3D : IRenderer3D
     /// </exception>
     public void Resize(int width, int height)
     {
+        // Before the no-op check, so a zero or negative extent is refused rather than matched against the
+        // "not yet initialized" state.
+        DeviceExtentLimits.ThrowIfCannotAttach(_context, width, height);
+
         if (Width == width && Height == height)
             return;
-
-        DeviceExtentLimits.ThrowIfCannotAttach(_context, width, height);
 
         // Allocate into locals first; old fields stay intact on failure.
         GeometryPass? geometryPass = null;

@@ -32,8 +32,16 @@ public abstract class RenderNode3D : IDisposable
     /// fixed-size allocation ignores the extent and is bounded by the context instead. The extent is
     /// committed only once the node has allocated, so a refused or failed allocation is retryable.
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A dimension is zero or negative. Refused here, before the node is asked, because a node with a
+    /// fixed-size allocation ignores the extent and would otherwise commit the invalid value; a positive
+    /// extent is also what keeps (0, 0) meaning "none".
+    /// </exception>
     public virtual void Initialize(int width, int height)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+
         OnInitialize(width, height);
         Width = width;
         Height = height;
@@ -49,8 +57,12 @@ public abstract class RenderNode3D : IDisposable
     /// <see cref="BeginReplacingResources"/> first, so a replacement that fails part-way leaves no extent
     /// behind for the next request to be mistaken for.
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is zero or negative.</exception>
     public virtual void Resize(int width, int height)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+
         if (Width == width && Height == height)
             return;
 
@@ -66,7 +78,8 @@ public abstract class RenderNode3D : IDisposable
     /// Call it after any refusal that leaves the old resources intact and before the first dispose. Until
     /// <see cref="Initialize"/> or <see cref="Resize"/> commits the new extent the node reports none, so a
     /// replacement that throws after disposing is not skipped as a no-op when the old size is asked for
-    /// again, which would leave disposed resources in use.
+    /// again, which would leave disposed resources in use. (0, 0) cannot collide with a held extent,
+    /// since <see cref="Initialize"/> and <see cref="Resize"/> accept only positive ones.
     /// </remarks>
     protected void BeginReplacingResources()
     {
