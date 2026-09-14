@@ -124,6 +124,8 @@
         </ResourceDictionary>
     </Styles.Resources>
 
+    <StyleInclude Source="/Styling/OptionsDisplayGroup.axaml" />
+
     <StyleInclude Source="avares://Beutl.Controls/Styling/ToolTabNavigation.axaml" />
 
     <!--<Style Selector="PopupRoot">

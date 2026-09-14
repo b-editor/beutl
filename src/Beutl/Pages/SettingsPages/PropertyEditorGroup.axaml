@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Pages.SettingsPages.PropertyEditorGroup"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -10,23 +11,25 @@
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <TextBlock Margin="0,16,0,0"
+                   IsVisible="{Binding GroupName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                    Text="{Binding GroupName}"
                    Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-        <ItemsControl x:Name="properties"
-                      Grid.Row="1"
-                      ItemsSource="{Binding Properties}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <StackPanel Spacing="4" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
+        <Border Grid.Row="1" Classes="options-group">
+            <ItemsControl x:Name="properties"
+                          ItemsSource="{Binding Properties}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ctrls:OptionsGroupPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
 
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
     </Grid>
 </UserControl>

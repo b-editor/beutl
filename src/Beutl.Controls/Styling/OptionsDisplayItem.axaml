@@ -55,16 +55,16 @@
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{TemplateBinding CornerRadius}">
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                        <local:OptionsDisplayItemGrid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
                             <Viewbox Name="IconHost"
-                                     Grid.RowSpan="2"
                                      Width="24"
                                      Height="24"
                                      Margin="8,4,12,4">
                                 <ContentPresenter Content="{TemplateBinding Icon}" />
                             </Viewbox>
 
-                            <StackPanel Grid.Column="1"
+                            <StackPanel Name="TextHost"
+                                        Grid.Column="1"
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Center">
 
@@ -85,7 +85,8 @@
                                                   TextWrapping="Wrap" />
                             </StackPanel>
 
-                            <ContentPresenter Grid.Column="2"
+                            <ContentPresenter Name="ActionHost"
+                                              Grid.Column="2"
                                               Margin="8,4"
                                               HorizontalAlignment="Right"
                                               VerticalAlignment="Stretch"
@@ -101,8 +102,14 @@
                                                   Margin="4,4"
                                                   FontSize="20" />
                             </Border>
-                        </Grid>
+                        </local:OptionsDisplayItemGrid>
                     </Border>
+
+                    <Border Name="ExpandedSeparator"
+                            Height="1"
+                            Margin="12,0"
+                            Background="{DynamicResource DividerStrokeColorDefaultBrush}"
+                            IsHitTestVisible="False" />
 
                     <ContentPresenter Name="ExpandedContentPresenter"
                                       Grid.Row="2"
@@ -129,6 +136,9 @@
             <Setter Property="IsVisible" Value="False" />
             <Setter Property="Padding" Value="{TemplateBinding Padding}" />
             <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        </Style>
+        <Style Selector="^ /template/ Border#ExpandedSeparator">
+            <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^ /template/ Border#LayoutRoot">
             <Setter Property="Transitions">
@@ -187,6 +197,20 @@
             <Setter Property="IsVisible" Value="False" />
         </Style>
 
+
+        <Style Selector="^:grouped">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Style Selector="^ /template/ ContentPresenter#ExpandedContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="CornerRadius" Value="0" />
+            </Style>
+        </Style>
+        <Style Selector="^:grouped:expands:expanded /template/ Border#ExpandedSeparator">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
 
         <!--  Vertical Style  -->
         <Style Selector="^.Vertical">

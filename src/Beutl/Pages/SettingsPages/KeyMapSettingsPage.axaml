@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Pages.SettingsPages.KeyMapSettingsPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="clr-namespace:Beutl.Language;assembly=Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -20,41 +21,43 @@
             <ItemsControl ItemsSource="{Binding Group}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <StackPanel Spacing="4" />
+                        <StackPanel Spacing="16" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:KeyMapSettingsGroup">
-                        <OptionsDisplayItem Expands="True" Header="{Binding Extension.DisplayName}">
-                            <OptionsDisplayItem.Styles>
-                                <Style Selector="OptionsDisplayItem /template/ ContentPresenter#ExpandedContentPresenter">
-                                    <Setter Property="Padding" Value="0,12,0,0" />
-                                    <Setter Property="Background" Value="Transparent" />
-                                </Style>
-                            </OptionsDisplayItem.Styles>
-                            <OptionsDisplayItem.Content>
-                                <ItemsControl ItemsSource="{Binding Items}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <StackPanel Spacing="4" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="viewModels:KeyMapSettingsItem">
-                                            <OptionsDisplayItem Description="{Binding Command.Definition.Description}" Header="{Binding DisplayName}">
-                                                <OptionsDisplayItem.ActionButton>
-                                                    <Button Click="OnItemClicked"
-                                                            KeyDown="OnButtonKeyDown"
-                                                            Theme="{StaticResource TransparentButton}">
-                                                        <TextBlock Text="{Binding KeyGesture.Value}" />
-                                                    </Button>
-                                                </OptionsDisplayItem.ActionButton>
-                                            </OptionsDisplayItem>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </OptionsDisplayItem.Content>
-                        </OptionsDisplayItem>
+                        <Border Classes="options-group">
+                            <OptionsDisplayItem Expands="True" Header="{Binding Extension.DisplayName}">
+                                <OptionsDisplayItem.Styles>
+                                    <Style Selector="OptionsDisplayItem /template/ ContentPresenter#ExpandedContentPresenter">
+                                        <Setter Property="Padding" Value="0,12,0,0" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                    </Style>
+                                </OptionsDisplayItem.Styles>
+                                <OptionsDisplayItem.Content>
+                                    <ItemsControl ItemsSource="{Binding Items}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <ctrls:OptionsGroupPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="viewModels:KeyMapSettingsItem">
+                                                <OptionsDisplayItem Description="{Binding Command.Definition.Description}" Header="{Binding DisplayName}">
+                                                    <OptionsDisplayItem.ActionButton>
+                                                        <Button Click="OnItemClicked"
+                                                                KeyDown="OnButtonKeyDown"
+                                                                Theme="{StaticResource TransparentButton}">
+                                                            <TextBlock Text="{Binding KeyGesture.Value}" />
+                                                        </Button>
+                                                    </OptionsDisplayItem.ActionButton>
+                                                </OptionsDisplayItem>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </OptionsDisplayItem.Content>
+                            </OptionsDisplayItem>
+                        </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>

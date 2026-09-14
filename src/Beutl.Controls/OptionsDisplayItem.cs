@@ -52,7 +52,7 @@ public class OptionsDisplayItem : TemplatedControl
 
     public OptionsDisplayItem()
     {
-        PseudoClasses.Set(":clickable", Clickable);
+        UpdateClickability();
     }
 
     public object Header
@@ -142,12 +142,17 @@ public class OptionsDisplayItem : TemplatedControl
 
         if (change is AvaloniaPropertyChangedEventArgs<bool> boolChanges)
         {
-            if (change.Property == NavigatesProperty)
+            if (change.Property == OptionsGroupPanel.IsGroupedProperty)
+            {
+                PseudoClasses.Set(":grouped", boolChanges.NewValue.GetValueOrDefault<bool>());
+            }
+            else if (change.Property == NavigatesProperty)
             {
                 if (Expands)
                     throw new InvalidOperationException("Control cannot both Navigate and Expand");
 
                 PseudoClasses.Set(":navigates", boolChanges.NewValue.GetValueOrDefault<bool>());
+                UpdateClickability();
             }
             else if (change.Property == ExpandsProperty)
             {
@@ -155,6 +160,7 @@ public class OptionsDisplayItem : TemplatedControl
                     throw new InvalidOperationException("Control cannot both Navigate and Expand");
 
                 PseudoClasses.Set(":expands", boolChanges.NewValue.GetValueOrDefault<bool>());
+                UpdateClickability();
             }
             else if (change.Property == IsExpandedProperty)
             {
@@ -164,7 +170,7 @@ public class OptionsDisplayItem : TemplatedControl
             }
             else if (change.Property == ClickableProperty)
             {
-                PseudoClasses.Set(":clickable", boolChanges.NewValue.GetValueOrDefault<bool>());
+                UpdateClickability();
             }
         }
         else if (change.Property == IconProperty)
@@ -213,9 +219,22 @@ public class OptionsDisplayItem : TemplatedControl
         }
     }
 
+    private bool IsHeaderClickable => Clickable && (Expands || Navigates);
+
+    private void UpdateClickability()
+    {
+        bool clickable = IsHeaderClickable;
+        PseudoClasses.Set(":clickable", clickable);
+        if (!clickable)
+        {
+            _isPressed = false;
+            PseudoClasses.Set(":pressed", false);
+        }
+    }
+
     private void OnLayoutRootPointerPressed(object sender, PointerPressedEventArgs e)
     {
-        if (Clickable
+        if (IsHeaderClickable
             && e.GetCurrentPoint(this).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed)
         {
             _isPressed = true;
