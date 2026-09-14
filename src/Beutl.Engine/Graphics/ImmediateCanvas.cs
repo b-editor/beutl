@@ -476,7 +476,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
-        Canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
+        Canvas.DrawSurface(surface, point.X, point.Y, GetPointBlitSampling(), _sharedFillPaint);
 
         if (!CanConsumeWithoutFlush(surface))
         {
@@ -496,13 +496,30 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
-        Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, _sharedFillPaint);
+        Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, GetPointBlitSampling(), _sharedFillPaint);
 
         if (!CanConsumeWithoutFlush(renderTarget))
         {
             renderTarget.Value.Flush(true, true);
             RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
         }
+    }
+
+    // A point blit copies pixels only while the transform keeps the device axes at unit scale, flipped or not.
+    // Under any other scale or a rotation, nearest sampling drops and duplicates source pixels, so the blit
+    // resamples like a scaled draw; a fractional offset still lands on the pixel grid, as it always has.
+    private SKSamplingOptions GetPointBlitSampling()
+    {
+        Matrix transform = _currentTransform;
+        return MathF.Abs(transform.M11) == 1f
+               && MathF.Abs(transform.M22) == 1f
+               && transform.M12 == 0
+               && transform.M21 == 0
+               && transform.M13 == 0
+               && transform.M23 == 0
+               && transform.M33 == 1
+            ? new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None)
+            : s_compositeSampling;
     }
 
     public void DrawRenderTargetScaled(RenderTarget renderTarget, Rect dest)
