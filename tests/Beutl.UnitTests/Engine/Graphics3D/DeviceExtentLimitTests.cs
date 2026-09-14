@@ -321,6 +321,32 @@ public class DeviceExtentLimitTests
     }
 
     [Test]
+    public void AFramebuffer_IsMeasuredAgainstEachAxisLimit_NotTheSquareBudget()
+    {
+        // A device may allow a wider framebuffer than a tall one; the square budget would refuse the wide
+        // one it can build.
+        const int wide = 16384;
+        const int tall = 8192;
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => DeviceExtentLimits.ThrowIfCannotBuildFramebuffer(wide, tall, wide, tall), Throws.Nothing);
+            Assert.That(() => DeviceExtentLimits.ThrowIfCannotBuildFramebuffer(wide, tall, tall + 1, 1), Throws.Nothing,
+                "wider than the height limit is still within the width limit");
+            Assert.That(
+                () => DeviceExtentLimits.ThrowIfCannotBuildFramebuffer(wide, tall, 1, tall + 1),
+                Throws.InvalidOperationException.With.Message.Contains(tall.ToString()));
+            Assert.That(
+                () => DeviceExtentLimits.ThrowIfCannotBuildFramebuffer(wide, tall, wide + 1, 1),
+                Throws.InvalidOperationException.With.Message.Contains(wide.ToString()));
+            Assert.That(() => DeviceExtentLimits.ThrowIfCannotBuildFramebuffer(0, 0, 100_000, 100_000), Throws.Nothing,
+                "a device that did not answer leaves the extent to the allocator");
+            Assert.That(
+                () => DeviceExtentLimits.ThrowIfCannotBuildFramebuffer(wide, tall, -1, 1),
+                Throws.InstanceOf<ArgumentOutOfRangeException>());
+        });
+    }
+
+    [Test]
     public void TheCubeFaceBudget_IsTheSmallerOfTheTwoLimits_AndFallsBackWhenOneIsMissing()
     {
         Assert.Multiple(() =>

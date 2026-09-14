@@ -39,6 +39,8 @@ internal sealed unsafe class VulkanDevice : IDisposable
         // framebuffer one. These are not the same number: a device can sample an image wider than it can
         // attach, and attaching is what a render target is for.
         MaxImageDimension2D = (int)properties.Limits.MaxImageDimension2D;
+        MaxFramebufferWidth = (int)properties.Limits.MaxFramebufferWidth;
+        MaxFramebufferHeight = (int)properties.Limits.MaxFramebufferHeight;
         MaxAttachmentDimension = (int)Math.Min(
             properties.Limits.MaxImageDimension2D,
             Math.Min(properties.Limits.MaxFramebufferWidth, properties.Limits.MaxFramebufferHeight));
@@ -54,6 +56,16 @@ internal sealed unsafe class VulkanDevice : IDisposable
     /// bounded by this rather than by <see cref="MaxAttachmentDimension"/>.
     /// </remarks>
     public int MaxImageDimension2D { get; }
+
+    /// <summary>Gets the widest framebuffer this device can build.</summary>
+    /// <remarks>
+    /// The two framebuffer limits may differ, so a framebuffer is measured axis by axis against them;
+    /// <see cref="MaxAttachmentDimension"/> is the square budget a caller that owns a density fits into.
+    /// </remarks>
+    public int MaxFramebufferWidth { get; }
+
+    /// <summary>Gets the tallest framebuffer this device can build.</summary>
+    public int MaxFramebufferHeight { get; }
 
     /// <summary>Gets the largest square this device can both sample and attach.</summary>
     public int MaxAttachmentDimension { get; }

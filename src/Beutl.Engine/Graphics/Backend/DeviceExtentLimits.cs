@@ -55,6 +55,36 @@ internal static class DeviceExtentLimits
             + "a 2D image.");
     }
 
+    /// <summary>Refuses a framebuffer extent past what a device can build, axis by axis.</summary>
+    /// <param name="maxFramebufferWidth">The device's framebuffer width limit, or zero or less when unknown.</param>
+    /// <param name="maxFramebufferHeight">The device's framebuffer height limit, or zero or less when unknown.</param>
+    /// <remarks>
+    /// The two framebuffer limits may differ, so a framebuffer is measured against each rather than
+    /// against the square <see cref="IGraphicsContext.MaxAttachmentDimension"/>, which would refuse a
+    /// framebuffer the device can build whenever one axis is allowed more than the other.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is negative.</exception>
+    /// <exception cref="InvalidOperationException">An axis exceeds its framebuffer limit.</exception>
+    public static void ThrowIfCannotBuildFramebuffer(
+        int maxFramebufferWidth, int maxFramebufferHeight, int width, int height)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(width);
+        ArgumentOutOfRangeException.ThrowIfNegative(height);
+        if (maxFramebufferWidth > 0 && width > maxFramebufferWidth)
+        {
+            throw new InvalidOperationException(
+                $"A {width}x{height} pixel attachment is wider than the {maxFramebufferWidth} pixels this "
+                + "device can build a framebuffer of.");
+        }
+
+        if (maxFramebufferHeight > 0 && height > maxFramebufferHeight)
+        {
+            throw new InvalidOperationException(
+                $"A {width}x{height} pixel attachment is taller than the {maxFramebufferHeight} pixels this "
+                + "device can build a framebuffer of.");
+        }
+    }
+
     /// <summary>Refuses a 2D extent past what <paramref name="context"/> can attach.</summary>
     /// <exception cref="ArgumentOutOfRangeException">A dimension is negative.</exception>
     /// <exception cref="InvalidOperationException">The extent exceeds the device's attachment limit.</exception>

@@ -396,6 +396,12 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
     /// <inheritdoc cref="VulkanDevice.MaxImageDimension2D"/>
     internal int MaxImageDimension2D => _vulkanDevice.MaxImageDimension2D;
 
+    /// <inheritdoc cref="VulkanDevice.MaxFramebufferWidth"/>
+    internal int MaxFramebufferWidth => _vulkanDevice.MaxFramebufferWidth;
+
+    /// <inheritdoc cref="VulkanDevice.MaxFramebufferHeight"/>
+    internal int MaxFramebufferHeight => _vulkanDevice.MaxFramebufferHeight;
+
     public int MaxCubeFaceDimension => _vulkanDevice.MaxCubeFaceDimension;
 
     internal static IDisposable ObserveTextureAllocations(Action<TextureFormat> observer)
@@ -551,12 +557,16 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         var vulkanRenderPass = RequireOwned<VulkanRenderPass3D>(renderPass, nameof(renderPass));
 
         // A texture is bounded by the image limit when it is made, because it may only ever be sampled.
-        // Attaching it is what the framebuffer limit governs, and the driver does not enforce that either:
-        // SwiftShader builds a framebuffer past its own limit and answers success.
+        // Attaching it is what the framebuffer limits govern, and the driver does not enforce those either:
+        // SwiftShader builds a framebuffer past its own limit and answers success. The two framebuffer
+        // limits may differ, so each axis is measured against its own rather than against the square
+        // budget the render-target paths fit their density into.
         foreach (ITexture2D texture in colorTextures)
-            DeviceExtentLimits.ThrowIfCannotAttach(this, texture.Width, texture.Height);
+            DeviceExtentLimits.ThrowIfCannotBuildFramebuffer(
+                MaxFramebufferWidth, MaxFramebufferHeight, texture.Width, texture.Height);
         if (depthTexture is not null)
-            DeviceExtentLimits.ThrowIfCannotAttach(this, depthTexture.Width, depthTexture.Height);
+            DeviceExtentLimits.ThrowIfCannotBuildFramebuffer(
+                MaxFramebufferWidth, MaxFramebufferHeight, depthTexture.Width, depthTexture.Height);
 
         List<VulkanTexture2D> vulkanColorTextures = colorTextures
             .Select(texture => RequireOwned<VulkanTexture2D>(texture, nameof(colorTextures)))
