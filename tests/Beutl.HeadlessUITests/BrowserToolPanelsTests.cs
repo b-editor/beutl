@@ -4,7 +4,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -18,6 +20,7 @@ using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.ProjectSystem;
+using Beutl.Testing.Headless;
 
 using FluentAvalonia.UI.Controls;
 using Moq;
@@ -27,6 +30,64 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class BrowserToolPanelsTests
 {
+    [AvaloniaTest]
+    [TestCase(320, false)]
+    [TestCase(640, false)]
+    [TestCase(320, true)]
+    [TestCase(640, true)]
+    public void Address_input_matches_buttons_and_keeps_focus_and_text_entry(int width, bool light)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var uri = new Uri("https://example.com/long/path?q=value");
+        using var vm = new WebBrowserTabViewModel(CreateContext(root), uri, new BrowserProfile(Path.Combine(root, "profile.json")));
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
+        view.DataContext = vm;
+        vm.CompleteNavigation(uri, true, false, false);
+        var window = new Window { Content = view, Width = width, Height = 400, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            WebBrowserAddressBox address = view.FindControl<WebBrowserAddressBox>("AddressTextBox")!;
+            Button menu = view.FindControl<Button>("BrowserMenuButton")!;
+            address.SuggestionsEnabled = false;
+            menu.Focus();
+            HeadlessTestHelpers.Render();
+            Border border = address.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_BorderElement");
+            Assert.That(address.Theme, Is.SameAs(view.FindResource("LayerHeaderNameTextBoxTheme")));
+            Assert.That(border.BorderThickness, Is.EqualTo(default(Thickness)));
+            Assert.That(((ISolidColorBrush)border.Background!).Color.A, Is.Zero);
+            CheckHeight();
+            Capture(window, $"address-idle-{width}-{light}");
+
+            window.MouseMove(address.TranslatePoint(new Point(address.Bounds.Width / 2, address.Bounds.Height / 2), window)!.Value);
+            HeadlessTestHelpers.Render();
+            CheckHeight();
+            Capture(window, $"address-hover-{width}-{light}");
+
+            address.Focus(NavigationMethod.Tab);
+            HeadlessTestHelpers.Render();
+            CheckHeight();
+            Assert.That(address.SelectedText, Is.EqualTo(uri.AbsoluteUri));
+            Assert.That(address.BorderThickness, Is.EqualTo(default(Thickness)));
+            Capture(window, $"address-focused-{width}-{light}");
+            window.KeyTextInput("検索テスト");
+            Assert.That(address.Address, Is.EqualTo("検索テスト"));
+            menu.Focus();
+            HeadlessTestHelpers.Render();
+            Assert.That(address.Text, Is.EqualTo("検索テスト"));
+            CheckHeight();
+
+            void CheckHeight()
+            {
+                Assert.That(address.Bounds.Height, Is.EqualTo(menu.Bounds.Height));
+                Assert.That(address.TranslatePoint(default, view)!.Value.Y,
+                    Is.EqualTo(menu.TranslatePoint(default, view)!.Value.Y));
+            }
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTest]
     [TestCase(320, false)]
     [TestCase(640, false)]

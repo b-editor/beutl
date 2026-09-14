@@ -22,26 +22,37 @@
           ColumnDefinitions="Auto,*"
           RowDefinitions="Auto,*">
 
-        <views:TimelineScale x:Name="scale"
-                             Grid.Column="1"
-                             Height="32"
-                             HorizontalAlignment="Stretch"
-                             VerticalAlignment="Top"
-                             EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                             EndingBarMargin="{Binding EndingBarMargin.Value}"
-                             Scale="{Binding Options.Value.Scale}"
-                             ScaleBrush="{DynamicResource TextControlForeground}"
-                             SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
-                             SeekBarMargin="{Binding SeekBarMargin.Value}"
-                             StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                             StartingBarMargin="{Binding StartingBarMargin.Value}"
-                             Offset="{Binding #scroll.Offset, Mode=OneWay}" />
+        <Border Grid.ColumnSpan="2"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="{DynamicResource ToolTabBarBorderThickness}"
+                IsHitTestVisible="False" />
 
+        <Border x:Name="RulerBar"
+                Grid.Column="1"
+                Height="{DynamicResource ToolTabBarMinHeight}"
+                Background="Transparent">
+            <views:TimelineScale x:Name="scale"
+                                 Height="32"
+                                 HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Bottom"
+                                 EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                                 EndingBarMargin="{Binding EndingBarMargin.Value}"
+                                 Scale="{Binding Options.Value.Scale}"
+                                 ScaleBrush="{DynamicResource TextControlForeground}"
+                                 SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
+                                 SeekBarMargin="{Binding SeekBarMargin.Value}"
+                                 StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                                 StartingBarMargin="{Binding StartingBarMargin.Value}"
+                                 Offset="{Binding #scroll.Offset, Mode=OneWay}" />
+        </Border>
+
+        <!--  Match the plot viewport for both overlay and inset scrollbar themes.  -->
         <local:GraphEditorScale x:Name="verticalScale"
                                 Grid.Row="1"
                                 Width="20"
+                                Height="{Binding #scroll.Viewport.Height}"
                                 HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"
+                                VerticalAlignment="Top"
                                 Baseline="{Binding Baseline.Value}"
                                 Scale="{Binding ScaleY.Value}"
                                 Offset="{Binding #scroll.Offset, Mode=OneWay}" />

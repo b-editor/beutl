@@ -70,7 +70,7 @@ public class VersionControlToolBarTests
             Assert.Multiple(() =>
             {
                 Assert.That(status.IsEffectivelyVisible, Is.True);
-                Assert.That(status.Bounds.Height, Is.EqualTo(42));
+                Assert.That(status.Bounds.Height, Is.EqualTo(38));
                 Assert.That(summary.Text, Is.EqualTo(model.DirtySummary.Value));
                 Assert.That(summary.FontWeight, Is.EqualTo(FontWeight.Normal));
                 Assert.That(scope.IsEffectivelyVisible, Is.False);

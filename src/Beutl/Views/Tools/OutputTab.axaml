@@ -19,8 +19,10 @@
             <controls:ToolTabBar x:Name="ToolBar">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="2">
                     <DropDownButton x:Name="ProfilesButton"
+                                    Margin="8,0,0,0"
                                     HorizontalAlignment="Stretch"
                                     FontWeight="Normal"
+                                    Theme="{StaticResource LiteDropDownButtonStyle}"
                                     Click="OnProfilesButtonClick">
                         <TextBlock Text="{Binding SelectedItem.Value.Context.Name.Value}"
                                    TextTrimming="CharacterEllipsis"

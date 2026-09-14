@@ -204,10 +204,14 @@
                 </Panel>
                 <views:WebBrowserAddressBox x:Name="AddressTextBox"
                          Grid.Column="3"
+                         Height="{Binding #BrowserMenuButton.Bounds.Height}"
+                         MinHeight="0"
                          controls:TextBoxAttachment.EnterDownBehavior="None"
                          KeyDown="OnAddressKeyDown"
                          Address="{Binding Address.Value, Mode=TwoWay}"
                          Suggestions="{Binding AddressSuggestions}"
+                         Theme="{StaticResource LayerHeaderNameTextBoxTheme}"
+                         VerticalAlignment="Center"
                          VerticalContentAlignment="Center"
                          PlaceholderText="{x:Static lang:Strings.WebAddress}" />
                 <Button x:Name="BrowserMenuButton"

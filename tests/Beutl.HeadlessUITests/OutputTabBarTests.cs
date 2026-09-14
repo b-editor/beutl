@@ -4,10 +4,12 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Controls;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -53,6 +55,9 @@ public class OutputTabBarTests
             DropDownButton profiles = view.FindControl<DropDownButton>("ProfilesButton")!;
             Button add = view.FindControl<Button>("AddProfileButton")!;
             Button more = view.FindControl<Button>("MoreButton")!;
+            Border profileBorder = profiles.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "RootBorder");
+            Assert.That(profileBorder.BorderThickness, Is.EqualTo(default(Thickness)));
+            Assert.That(((ISolidColorBrush)profileBorder.Background!).Color.A, Is.Zero);
             Assert.Multiple(() =>
             {
                 Assert.That(bar.GetLogicalDescendants().OfType<ProgressBar>(), Is.Empty);
@@ -94,15 +99,35 @@ public class OutputTabBarTests
             Click(more);
             Assert.That(more.Flyout!.IsOpen, Is.True);
             more.Flyout.Hide();
+
+            Point profileCenter = profiles.TranslatePoint(new Point(profiles.Bounds.Width / 2, profiles.Bounds.Height / 2), window)!.Value;
+            window.MouseMove(profileCenter);
+            HeadlessTestHelpers.Render();
+            Assert.That(((ISolidColorBrush)profileBorder.Background!).Color.A, Is.Zero);
+            Click(profiles);
+            var picker = (OutputPickerFlyout)typeof(OutputTab)
+                .GetField("_activeFlyout", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .GetValue(view)!;
+            Assert.That(picker.IsOpen, Is.True);
+            var presenter = (OutputPickerFlyoutPresenter)picker.Popup.Child!;
+            Click(presenter.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "ProfilesTabButton"));
+            Assert.That(picker.ViewModel.ShowPresets.Value, Is.False);
+            var profileList = presenter.GetVisualDescendants().OfType<ListBox>().Single(list => list.Name == "PART_ProfileListBox");
+            profileList.SelectedItem = presenter.ProfileItems!.Single(item => ReferenceEquals(item.UserData, model.Items[0]));
+            HeadlessTestHelpers.Settle();
+            Click(presenter.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "AcceptButton"));
+            Assert.That(picker.IsOpen, Is.False);
+            Assert.That(model.SelectedItem.Value, Is.SameAs(model.Items[0]));
         }
         finally { window.Close(); }
 
         void Click(Button button)
         {
-            Point center = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
-            window.MouseDown(center, MouseButton.Left);
-            window.MouseUp(center, MouseButton.Left);
-            HeadlessTestHelpers.Settle();
+            TopLevel topLevel = TopLevel.GetTopLevel(button)!;
+            Point center = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), topLevel)!.Value;
+            topLevel.MouseDown(center, MouseButton.Left);
+            topLevel.MouseUp(center, MouseButton.Left);
+            HeadlessTestHelpers.Render();
         }
     }
 }

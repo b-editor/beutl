@@ -62,7 +62,7 @@ public class NavigationToolTabBarTests
             var libraryItems = libraryStrip.Items.Cast<TabStripItem>().ToArray();
             CheckItems(libraryItems);
             Capture("library");
-            Assert.That(libraryView.FindControl<ToolTabBar>("ToolBar")!.Bounds.Height, Is.EqualTo(42));
+            Assert.That(libraryView.FindControl<ToolTabBar>("ToolBar")!.Bounds.Height, Is.EqualTo(38));
 
             Click(libraryItems[0]);
             Assert.That(libraryView.FindControl<Carousel>("carousel")!.SelectedIndex, Is.Zero);
