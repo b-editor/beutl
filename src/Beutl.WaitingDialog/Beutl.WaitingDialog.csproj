@@ -12,6 +12,7 @@
     <PackageReference Include="DynamicData" />
     <PackageReference Include="HarfBuzzSharp" />
     <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
     <PackageReference Include="System.CommandLine" />
 
     <PackageReference Include="Avalonia" />
