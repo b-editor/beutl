@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
@@ -41,7 +41,9 @@ public class PathEditorToolGroupTests
         var view = new PathEditorTabView { DataContext = model };
         var window = new Window
         {
-            Content = view, Width = width, Height = height,
+            Content = view,
+            Width = width,
+            Height = height,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try

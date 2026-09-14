@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -49,7 +49,9 @@ public class ProxiesTabLayoutTests
             Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
         var window = new Window
         {
-            Content = view, Width = width, Height = 600,
+            Content = view,
+            Width = width,
+            Height = 600,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try

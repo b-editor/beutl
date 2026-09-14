@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
@@ -81,7 +81,9 @@ public class SettingsGroupTests
         using var model = TestShell.MainViewModel.CreateSettingsDialog();
         var dialog = new SettingsDialog
         {
-            DataContext = model, Width = width, Height = 760,
+            DataContext = model,
+            Width = width,
+            Height = 760,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try

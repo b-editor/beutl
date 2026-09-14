@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -38,7 +38,9 @@ public class SceneSettingsLayoutTests
         var view = new SceneSettingsTabView { DataContext = model };
         var window = new Window
         {
-            Content = view, Width = width, Height = height,
+            Content = view,
+            Width = width,
+            Height = height,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try
@@ -131,7 +133,9 @@ public class SceneSettingsLayoutTests
         var view = new SceneSettingsTabView();
         var window = new Window
         {
-            Content = view, Width = 220, Height = 160,
+            Content = view,
+            Width = 220,
+            Height = 160,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try

@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -53,7 +53,9 @@ public class GraphEditorRulerBarTests
         var view = new GraphEditorTabView { DataContext = model };
         var window = new Window
         {
-            Content = view, Width = width, Height = 420,
+            Content = view,
+            Width = width,
+            Height = 420,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         GraphEditorViewModel? graph = null;

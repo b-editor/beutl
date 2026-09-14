@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
@@ -92,7 +92,9 @@ public class OptionsDisplayItemLayoutTests
         };
         var window = new Window
         {
-            Content = row, Width = 640, Height = 220,
+            Content = row,
+            Width = 640,
+            Height = 220,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         row.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
@@ -150,7 +152,9 @@ public class OptionsDisplayItemLayoutTests
         using var model = TestShell.MainViewModel.CreateSettingsDialog();
         var dialog = new SettingsDialog
         {
-            DataContext = model, Width = 800, Height = 700,
+            DataContext = model,
+            Width = 800,
+            Height = 700,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try
@@ -210,8 +214,11 @@ public class OptionsDisplayItemLayoutTests
         var expandedContent = new TextBox { Text = "Expanded setting" };
         var row = new OptionsDisplayItem
         {
-            Header = "A long setting heading", Description = "Description of the setting",
-            ActionButton = new TextBox { MinWidth = 250 }, Expands = true, Content = expandedContent,
+            Header = "A long setting heading",
+            Description = "Description of the setting",
+            ActionButton = new TextBox { MinWidth = 250 },
+            Expands = true,
+            Content = expandedContent,
             ContentTransition = null
         };
         Control content = grouped
@@ -272,7 +279,9 @@ public class OptionsDisplayItemLayoutTests
         if (grouped) container.Classes.Add("options-group");
         var window = new Window
         {
-            Content = container, Width = 640, Height = 220,
+            Content = container,
+            Width = 640,
+            Height = 220,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try

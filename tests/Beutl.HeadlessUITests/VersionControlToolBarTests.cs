@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -18,9 +18,9 @@ using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Reactive.Bindings;
 using FluentIcons.Avalonia.Fluent;
 using FluentIcons.Common;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
@@ -256,7 +256,8 @@ public class VersionControlToolBarTests
         using var cancellation = new CancellationTokenSource();
         var window = new Window
         {
-            Width = width, Height = 640,
+            Width = width,
+            Height = 640,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try

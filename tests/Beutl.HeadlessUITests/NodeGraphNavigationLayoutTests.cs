@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
 using Avalonia.Headless;
@@ -48,7 +48,9 @@ public class NodeGraphNavigationLayoutTests
         var view = new NodeGraphTabView { DataContext = model };
         var window = new Window
         {
-            Content = view, Width = width, Height = 420,
+            Content = view,
+            Width = width,
+            Height = 420,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try

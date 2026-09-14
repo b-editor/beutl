@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -63,7 +63,9 @@ public class VersionControlCompositionLayoutTests
         var view = new VersionControlTabView { DataContext = model };
         var window = new Window
         {
-            Content = view, Width = width, Height = 640,
+            Content = view,
+            Width = width,
+            Height = 640,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try
