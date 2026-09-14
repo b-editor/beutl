@@ -180,6 +180,45 @@ public class RenderTargetSnapshotAsyncTests
         Assert.That(ReadRed(snapshot, 8, 8), Is.EqualTo(1f).Within(1e-3f));
     }
 
+    [Test]
+    public async Task SnapshotAsync_OnAGpuTargetNoDispatcherOwns_HasCompletedWhenItReturns()
+    {
+        Beutl.Graphics.Backend.IGraphicsContext graphics = VulkanTestEnvironment.EnsureAvailable();
+        SKSurface surface = VulkanTestEnvironment.InvokeOnRenderThread(() =>
+            SKSurface.Create(
+                graphics.SkiaContext,
+                false,
+                new SKImageInfo(8, 8, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()))
+            ?? throw new InvalidOperationException("Could not create a GPU surface."));
+        // Built on a thread pool thread, as a caller-supplied surface can be, so no dispatcher owns the target and
+        // nothing says which thread its context belongs to.
+        RenderTarget target = await Task.Run(() => (RenderTarget)new DispatcherlessRenderTarget(surface, 8, 8));
+
+        (bool completedOnReturn, Task<Bitmap> pending) = VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            target.Value.Canvas.Clear(SKColors.White);
+            Task<Bitmap> pending = target.SnapshotAsync();
+            return (pending.IsCompleted, pending);
+        });
+
+        try
+        {
+            using Bitmap snapshot = await pending;
+            Assert.Multiple(() =>
+            {
+                Assert.That(completedOnReturn, Is.True, "Only the calling thread is known to own the context, so the read must not wait for a poll elsewhere.");
+                Assert.That(ReadRed(snapshot, 4, 4), Is.EqualTo(1f).Within(1e-3f));
+            });
+        }
+        finally
+        {
+            VulkanTestEnvironment.InvokeOnRenderThread(target.Dispose);
+        }
+    }
+
+    private sealed class DispatcherlessRenderTarget(SKSurface surface, int width, int height)
+        : RenderTarget(surface, width, height);
+
     private static RenderTarget CreateGpuTarget(int width, int height)
     {
         return RenderTarget.Create(width, height)

@@ -405,7 +405,8 @@ public class RenderTarget : IDisposable
     /// what it returns. A GPU context reports a finished read only when it is polled, so until the read completes the
     /// dispatcher that owns this target polls it between its other work; if that dispatcher shuts down first, the task
     /// fails with <see cref="OperationCanceledException"/>. Where Skia cannot transfer asynchronously, as for a surface
-    /// rastered on the CPU, the task has already completed when this returns.
+    /// rastered on the CPU, or no dispatcher owns this target to poll on, the task has already completed when this
+    /// returns.
     /// </remarks>
     public Task<Bitmap> SnapshotAsync()
     {
@@ -420,18 +421,19 @@ public class RenderTarget : IDisposable
             if (readback.Completion.IsCompleted)
                 return readback.Completion;
 
-            if (surface.Context is GRContext context)
+            if (surface.Context is GRContext context && _dispatcher is { } dispatcher)
             {
                 // The read joined the work recorded for this surface; submitting starts the GPU on it.
                 context.Submit(synchronous: false);
                 readback.PollUntilComplete(
-                    _dispatcher ?? RenderThread.Dispatcher,
+                    dispatcher,
                     context.CheckAsyncWorkCompletion,
                     () => context.Handle == IntPtr.Zero);
             }
             else
             {
-                // Without a direct context to poll, a synchronous flush runs the finished callback instead.
+                // Without a direct context, or a dispatcher that owns this target to poll one on, a synchronous flush
+                // on the calling thread runs the finished callback instead. The render thread need not own the context.
                 surface.Flush(true, true);
                 if (!readback.Completion.IsCompleted)
                     readback.Fail(new InvalidOperationException("The render target surface read did not complete."));
