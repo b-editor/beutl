@@ -16,10 +16,13 @@
              x:DataType="vm:VersionControlTabViewModel"
              mc:Ignorable="d">
     <UserControl.Styles>
+        <Style Selector="Grid#CommitComposer.narrow">
+            <Setter Property="Grid.ColumnSpan" Value="3" />
+        </Style>
         <Style Selector="TextBlock.sectionHeader">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
         </Style>
         <Style Selector="TextBlock.secondary">
             <Setter Property="FontSize" Value="11" />
@@ -31,23 +34,11 @@
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
             <Setter Property="CornerRadius" Value="8" />
         </Style>
-        <Style Selector="Border.kindBadge.manual">
-            <Setter Property="Background" Value="{DynamicResource AccentFillColorSecondaryBrush}" />
-        </Style>
-        <Style Selector="Border.kindBadge.close">
-            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-        </Style>
-        <Style Selector="Border.kindBadge.init">
-            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-        </Style>
         <Style Selector="Border.kindBadge.restore">
             <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
         </Style>
         <Style Selector="Border.kindBadge.safety">
             <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
-        </Style>
-        <Style Selector="Border.kindBadge.save">
-            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
         </Style>
         <Style Selector="TextBlock.diffLine">
             <Setter Property="FontFamily" Value="Consolas, Menlo, monospace" />
@@ -210,7 +201,7 @@
                                 </Border>
                                 <StackPanel Spacing="10">
                                     <TextBlock FontSize="20"
-                                               FontWeight="SemiBold"
+                                               FontWeight="Normal"
                                                Text="{x:Static lang:Strings.VersionControl}"
                                                TextAlignment="Center"
                                                TextWrapping="Wrap" />
@@ -254,16 +245,20 @@
                         </Border>
                     </ScrollViewer>
 
-                    <Grid IsVisible="{Binding IsTracked.Value}"
+                    <Grid x:Name="TrackedLayoutRoot"
+                          IsVisible="{Binding IsTracked.Value}"
+                          ColumnDefinitions="2*,5,3*"
                           RowDefinitions="Auto,*">
                         <Grid x:Name="CommitComposer"
+                              Classes.narrow="{Binding #Root.IsNarrowLayout}"
                               Margin="8,8,8,0"
                               RowDefinitions="Auto,Auto,Auto"
                               RowSpacing="6">
                             <TextBox x:Name="CommitMessageTextBox"
                                      AcceptsReturn="True"
-                                     MaxLines="6"
-                                     MinLines="3"
+                                     MaxHeight="96"
+                                     MaxLines="4"
+                                     MinLines="1"
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                                      Text="{Binding CommitMessage.Value}"
                                      TextWrapping="Wrap"
@@ -303,21 +298,26 @@
                                        TextTrimming="CharacterEllipsis" />
                         </Grid>
 
+                        <GridSplitter Grid.Column="1"
+                                      Grid.RowSpan="2"
+                                      Background="{DynamicResource DividerStrokeColorDefaultBrush}"
+                                      IsVisible="{Binding !#Root.IsNarrowLayout}"
+                                      ResizeDirection="Columns" />
+                        <views:VersionControlChangesView x:Name="WideChangesView"
+                                                         Grid.Column="2"
+                                                         Grid.RowSpan="2"
+                                                         IsVisible="{Binding !#Root.IsNarrowLayout}" />
+
                         <Grid x:Name="WideLayoutRoot"
                               Grid.Row="1"
-                              ColumnDefinitions="2*,5,3*"
                               IsVisible="{Binding !#Root.IsNarrowLayout}">
                             <views:VersionControlHistoryView x:Name="WideHistoryView"
                                                              Grid.Column="0" />
-                            <GridSplitter Grid.Column="1"
-                                          Background="{DynamicResource DividerStrokeColorDefaultBrush}"
-                                          ResizeDirection="Columns" />
-                            <views:VersionControlChangesView x:Name="WideChangesView"
-                                                             Grid.Column="2" />
                         </Grid>
 
                         <Grid x:Name="NarrowLayoutRoot"
                               Grid.Row="1"
+                              Grid.ColumnSpan="3"
                               IsVisible="{Binding #Root.IsNarrowLayout}">
                             <views:VersionControlHistoryView x:Name="NarrowHistoryRoot"
                                                              DrillDownOnSelection="True"

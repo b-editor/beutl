@@ -446,8 +446,8 @@ public class VersionControlTabViewTests
                     Is.EqualTo(Strings.VersionControl_PublishBranch));
                 Assert.That(primaryAction.IsEnabled, Is.True);
                 Assert.That(commitMessageTextBox.AcceptsReturn, Is.True);
-                Assert.That(commitMessageTextBox.MinLines, Is.EqualTo(3));
-                Assert.That(commitMessageTextBox.MaxLines, Is.EqualTo(6));
+                Assert.That(commitMessageTextBox.MinLines, Is.EqualTo(1));
+                Assert.That(commitMessageTextBox.MaxLines, Is.EqualTo(4));
                 Assert.That(commitMessageTextBox.TextWrapping, Is.EqualTo(TextWrapping.Wrap));
                 Assert.That(commitComposer.Parent, Is.TypeOf<Grid>());
                 Assert.That(primaryActionFlyout.Placement.ToString(), Is.EqualTo("Pointer"));
