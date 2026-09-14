@@ -161,7 +161,7 @@ public class AnimatedImageReader : MediaReader
             if (_lastFrame is not null &&
                 _lastFrame.Index == i)
             {
-                canvas.DrawBitmap(_lastFrame.Bitmap, 0, 0);
+                canvas.DrawBitmap(_lastFrame.Bitmap, 0, 0, SKSamplingOptions.Default);
                 continue;
             }
 
@@ -171,7 +171,7 @@ public class AnimatedImageReader : MediaReader
             if (result != SKCodecResult.Success)
                 throw new Exception($"Failed to decode frame {i}: {result}");
 
-            canvas.DrawBitmap(tmp, 0, 0);
+            canvas.DrawBitmap(tmp, 0, 0, SKSamplingOptions.Default);
         }
 
         return frameBitmap;

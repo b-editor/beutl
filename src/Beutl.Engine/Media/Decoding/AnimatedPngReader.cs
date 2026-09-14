@@ -214,6 +214,7 @@ public class AnimatedPngReader : MediaReader
                 canvas.DrawBitmap(
                     _lastFrame.Bitmap,
                     SKRect.Create(fcTL.XOffset, fcTL.YOffset, fcTL.Width, fcTL.Height),
+                    SKSamplingOptions.Default,
                     paint);
                 continue;
             }
@@ -223,6 +224,7 @@ public class AnimatedPngReader : MediaReader
             canvas.DrawBitmap(
                 tmp,
                 SKRect.Create(fcTL.XOffset, fcTL.YOffset, fcTL.Width, fcTL.Height),
+                SKSamplingOptions.Default,
                 paint);
         }
 

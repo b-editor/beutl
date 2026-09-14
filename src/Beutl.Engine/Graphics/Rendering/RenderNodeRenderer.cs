@@ -241,7 +241,7 @@ public sealed class RenderNodeRenderer : IDisposable
             using (SKImage priorTarget = destination._renderTarget.Value.Snapshot())
             using (var copyPaint = new SKPaint { BlendMode = SKBlendMode.Src })
             {
-                executionCanvas.Canvas.DrawImage(priorTarget, 0, 0, copyPaint);
+                executionCanvas.Canvas.DrawImage(priorTarget, 0, 0, SKSamplingOptions.Default, copyPaint);
             }
 
             destinationClip = PushExpandedDestinationClip(executionCanvas, destinationDeviceClip);
@@ -310,7 +310,7 @@ public sealed class RenderNodeRenderer : IDisposable
         using (destination.PushDeviceSpace())
         using (var commitPaint = new SKPaint { BlendMode = SKBlendMode.Src })
         {
-            destination.Canvas.DrawImage(completedTarget, 0, 0, commitPaint);
+            destination.Canvas.DrawImage(completedTarget, 0, 0, SKSamplingOptions.Default, commitPaint);
         }
     }
 
