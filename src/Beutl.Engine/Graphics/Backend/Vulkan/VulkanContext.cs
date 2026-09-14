@@ -72,14 +72,24 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         if (!physicalDevice.IsMoltenVK)
         {
-            InitializeSkiaVulkanContext();
+            InitializeSkiaVulkanContext(physicalDevice);
         }
 
         s_logger.LogDebug("Vulkan context created successfully");
     }
 
-    private void InitializeSkiaVulkanContext()
+    private void InitializeSkiaVulkanContext(VulkanPhysicalDeviceInfo physicalDevice)
     {
+        // Ganesh requires Vulkan 1.1 and aborts the process, rather than returning null, on an older device.
+        if (physicalDevice.ApiVersionInt < Vk.Version11)
+        {
+            s_logger.LogWarning(
+                "Skipping the SkiaSharp Vulkan backend: {DeviceName} supports Vulkan {ApiVersion}, and Skia requires 1.1",
+                physicalDevice.Name,
+                physicalDevice.ApiVersion);
+            return;
+        }
+
         try
         {
             _skiaBackendContext = new GRVkBackendContext
@@ -89,6 +99,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
                 VkDevice = _vulkanDevice.Device.Handle,
                 VkQueue = _vulkanDevice.GraphicsQueue.Handle,
                 GraphicsQueueIndex = _vulkanDevice.GraphicsQueueFamilyIndex,
+                // Left at 0, Skia assumes the loader's version, which can exceed what the instance was created for.
+                MaxAPIVersion = VulkanInstance.InstanceApiVersion,
                 GetProcedureAddress = GetVulkanProcAddress
             };
 
