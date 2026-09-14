@@ -22,6 +22,9 @@ internal sealed class TextShaper : IDisposable
 
     public TextShaper(SKTypeface typeface)
     {
+        // ToHarfBuzzBlob hands the stream to the blob, whose release callback disposes it once disposing _font frees
+        // the blob. Disposing it here instead could free data the blob still points at, because a memory-backed stream
+        // lends the blob its own memory.
         using (Blob blob = typeface.OpenStream(out int index).ToHarfBuzzBlob())
         using (var face = new Face(blob, index) { Index = index, UnitsPerEm = typeface.UnitsPerEm })
         {
