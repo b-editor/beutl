@@ -25,7 +25,7 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
     public new partial class Resource
     {
         private readonly CornerPathEffectCache _cornerEffect = new();
-        private SKPath? _path;
+        private SKPathBuilder? _builder;
         private SKPaint? _paint;
 
         protected internal override void Render(in WaveformRenderContext context)
@@ -53,8 +53,8 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
             VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
             _paint.PathEffect = _cornerEffect.GetOrCreate(cornerRadius);
 
-            _path ??= new SKPath();
-            _path.Reset();
+            _builder ??= new SKPathBuilder();
+            _builder.Reset();
 
             // 上側 (max or abs) を左→右
             for (int i = 0; i < barCount; i++)
@@ -71,8 +71,8 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
                 }
                 float x = (float)bounds.X + i * slotWidth + slotWidth * 0.5f;
                 float y = centerY - v * halfHeight;
-                if (i == 0) _path.MoveTo(x, y);
-                else _path.LineTo(x, y);
+                if (i == 0) _builder.MoveTo(x, y);
+                else _builder.LineTo(x, y);
             }
             // 下側 (min or -abs) を右→左
             for (int i = barCount - 1; i >= 0; i--)
@@ -89,22 +89,23 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
                 }
                 float x = (float)bounds.X + i * slotWidth + slotWidth * 0.5f;
                 float y = centerY - v * halfHeight;
-                _path.LineTo(x, y);
+                _builder.LineTo(x, y);
             }
-            _path.Close();
+            _builder.Close();
 
-            canvas.Canvas.DrawPath(_path, _paint);
+            using SKPath path = _builder.Detach();
+            canvas.Canvas.DrawPath(path, _paint);
         }
 
         partial void PostDispose(bool disposing)
         {
             if (disposing)
             {
-                _path?.Dispose();
+                _builder?.Dispose();
                 _paint?.Dispose();
                 _cornerEffect.Dispose();
             }
-            _path = null;
+            _builder = null;
             _paint = null;
         }
     }

@@ -41,6 +41,15 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public VulkanContext(VulkanInstance vulkanInstance, VulkanPhysicalDeviceInfo physicalDevice)
     {
+        // Ganesh requires Vulkan 1.1 and aborts the process, rather than returning null, on an older device. Refusing
+        // the device before anything is created on it lets GraphicsContextFactory fall back to CPU rendering instead
+        // of sharing a context whose SkiaContext throws.
+        if (!physicalDevice.IsMoltenVK && physicalDevice.ApiVersionInt < Vk.Version11)
+        {
+            throw new NotSupportedException(
+                $"{physicalDevice.Name} supports Vulkan {physicalDevice.ApiVersion}, and Skia requires 1.1.");
+        }
+
         _vulkanInstance = vulkanInstance;
         _vulkanDevice = new VulkanDevice(vulkanInstance.Vk, vulkanInstance.Instance, physicalDevice.Device);
         _vulkanCommandPool = new VulkanCommandPool(_vulkanDevice);
@@ -89,6 +98,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
                 VkDevice = _vulkanDevice.Device.Handle,
                 VkQueue = _vulkanDevice.GraphicsQueue.Handle,
                 GraphicsQueueIndex = _vulkanDevice.GraphicsQueueFamilyIndex,
+                // Left at 0, Skia assumes the loader's version, which can exceed what the instance was created for.
+                MaxAPIVersion = VulkanInstance.InstanceApiVersion,
                 GetProcedureAddress = GetVulkanProcAddress
             };
 

@@ -1855,7 +1855,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
                                     // canvas is a CPU raster SKCanvas, so DrawBitmap blends the scratch
                                     // pixels synchronously — safe to overwrite onionScratch next sample.
-                                    canvas.DrawBitmap(onionScratch.SKBitmap, 0, 0, paint);
+                                    canvas.DrawBitmap(onionScratch.SKBitmap, 0, 0, SKSamplingOptions.Default, paint);
                                 }
 
                                 // Restore renderer entries to the playhead BEFORE drawing

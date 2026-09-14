@@ -587,7 +587,7 @@ public sealed class ColorFilterShaderParityTests
                 {
                     using SKImage image = SKImage.FromPixelCopy(info, (IntPtr)buffer, info.RowBytes);
                     target.Value.Canvas.Clear();
-                    target.Value.Canvas.DrawImage(image, 0, 0);
+                    target.Value.Canvas.DrawImage(image, 0, 0, SKSamplingOptions.Default);
                     target.Value.Canvas.Flush();
                 }
             }

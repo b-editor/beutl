@@ -894,9 +894,10 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         if (pen != null && pen.Thickness != 0)
         {
-            using (var path = new SKPath())
+            using (var builder = new SKPathBuilder())
             {
-                path.AddOval(rect.ToSKRect());
+                builder.AddOval(rect.ToSKRect());
+                using SKPath path = builder.Detach();
                 DrawSKPath(path, true, fill, pen);
             }
         }
@@ -912,9 +913,10 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         if (pen != null && pen.Thickness != 0)
         {
-            using (var path = new SKPath())
+            using (var builder = new SKPathBuilder())
             {
-                path.AddRect(rect.ToSKRect());
+                builder.AddRect(rect.ToSKRect());
+                using SKPath path = builder.Detach();
                 DrawSKPath(path, true, fill, pen);
             }
         }

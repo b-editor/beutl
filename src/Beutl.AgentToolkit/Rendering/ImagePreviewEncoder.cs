@@ -32,7 +32,7 @@ internal static class ImagePreviewEncoder
         int height = Math.Max(1, (int)Math.Round(bitmap.Height * scale));
         using var surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul));
         surface.Canvas.Clear(SKColors.Transparent);
-        surface.Canvas.DrawBitmap(bitmap, new SKRect(0, 0, width, height));
+        surface.Canvas.DrawBitmap(bitmap, new SKRect(0, 0, width, height), SKSamplingOptions.Default);
         return EncodeSurfaceToPng(surface);
     }
 

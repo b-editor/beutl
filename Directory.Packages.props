@@ -27,8 +27,7 @@
     <PackageVersion Include="Silk.NET.Shaderc" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Shaderc.Native" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Assimp" Version="2.23.0" />
-    <!-- Use the Avalonia 12 release compatible with the engine's SkiaSharp 3.x. -->
-    <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.10" />
+    <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.17" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.2" />
     <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="12.0.7" />
     <PackageVersion Include="Xaml.Behaviors.Interactivity" Version="12.0.7" />
@@ -45,8 +44,8 @@
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.333" />
     <PackageVersion Include="Moq" Version="4.20.72" />
     <PackageVersion Include="NAudio.Wasapi" Version="3.1.0" />
-    <PackageVersion Include="HarfBuzzSharp" Version="8.3.1.5" />
-    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.5" />
+    <PackageVersion Include="HarfBuzzSharp" Version="14.2.1.200" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="14.2.1.200" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.9.0" />
@@ -82,9 +81,10 @@
     <PackageVersion Include="Serilog.Sinks.Async" Version="2.1.0" />
     <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
-    <PackageVersion Include="SkiaSharp" Version="3.119.4" />
-    <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.119.4" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
+    <!-- Newer than Avalonia.Skia 12.1.2 was built against (3.119.4); every SkiaSharp/HarfBuzzSharp member it uses still resolves. -->
+    <PackageVersion Include="SkiaSharp" Version="4.152.0" />
+    <PackageVersion Include="SkiaSharp.HarfBuzz" Version="4.152.0" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.152.0" />
     <PackageVersion Include="System.CommandLine" Version="2.0.12" />
     <PackageVersion Include="System.Interactive" Version="7.0.1" />
     <PackageVersion Include="System.Management" Version="10.0.12" />

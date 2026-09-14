@@ -192,6 +192,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
         // HDR alike) are sRGB-encoded.
         return colorType is BitmapColorType.RgbaF16 or BitmapColorType.RgbaF16Clamped
             or BitmapColorType.RgbaF32 or BitmapColorType.AlphaF16 or BitmapColorType.RgF16
+            or BitmapColorType.RgbF16F16F16x or BitmapColorType.RF16
             ? BitmapColorSpace.LinearSrgb
             : BitmapColorSpace.Srgb;
     }

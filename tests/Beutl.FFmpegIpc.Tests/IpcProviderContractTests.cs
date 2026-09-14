@@ -471,6 +471,45 @@ public class IpcProviderContractTests
         }
     }
 
+    // Float frames are Beutl's linear render-target output whatever their channel layout, while integer frames, HDR
+    // ones included, are sRGB-encoded, so the color space has to follow the explicit color type.
+    [TestCase(BitmapColorType.RgbaF16, 8, true)]
+    [TestCase(BitmapColorType.RgF16, 4, true)]
+    [TestCase(BitmapColorType.RgbF16F16F16x, 8, true)]
+    [TestCase(BitmapColorType.RF16, 2, true)]
+    [TestCase(BitmapColorType.R16Unorm, 2, false)]
+    [TestCase(BitmapColorType.Bgra10101010XR, 8, false)]
+    public async Task RenderFrame_WhenWorkerReportsExplicitColorType_ReadsFloatFramesAsLinear(
+        BitmapColorType colorType, int bytesPerPixel, bool linear)
+    {
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(
+            server, width: 1, height: 1, dataLength: bytesPerPixel, ct: hostCts.Token,
+            bytesPerPixel: bytesPerPixel, colorType: (int)colorType);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
+
+        try
+        {
+            using Bitmap bitmap = await provider.RenderFrame(0);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(bitmap.ColorType, Is.EqualTo(colorType));
+                Assert.That(bitmap.ColorSpace,
+                    Is.EqualTo(linear ? BitmapColorSpace.LinearSrgb : BitmapColorSpace.Srgb));
+            });
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
     // The bytes-per-pixel used for the DataLength/Capacity guards must come from the color type, not
     // the payload: an under-reported BytesPerPixel (4) with a wider ColorType (8-byte Rgba16161616)
     // and a matching-lie DataLength must be rejected, not allocate/read a wider bitmap.

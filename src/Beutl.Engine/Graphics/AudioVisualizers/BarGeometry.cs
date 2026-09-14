@@ -46,14 +46,14 @@ internal static class BarGeometry
                centerY + radius * MathF.Sin(angleRad));
 
     /// <summary>
-    /// Appends one bar with rounded corners to <paramref name="path"/>.
+    /// Appends one bar with rounded corners to <paramref name="builder"/>.
     /// </summary>
     /// <remarks>
     /// Every radius is clamped to half the bar's shorter side, so a bar smaller than its corners still
     /// closes instead of folding through itself.
     /// </remarks>
     public static void AddRoundedBar(
-        SKPath path, float x, float y, float width, float height, in CornerRadius cornerRadius)
+        SKPathBuilder builder, float x, float y, float width, float height, in CornerRadius cornerRadius)
     {
         float maxRadius = MathF.Min(width, height) * 0.5f;
         float tl = MathF.Min(cornerRadius.TopLeft, maxRadius);
@@ -71,6 +71,6 @@ internal static class BarGeometry
         };
         using var roundRect = new SKRoundRect();
         roundRect.SetRectRadii(rect, radii);
-        path.AddRoundRect(roundRect);
+        builder.AddRoundRect(roundRect);
     }
 }

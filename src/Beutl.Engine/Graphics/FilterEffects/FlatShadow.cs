@@ -57,21 +57,21 @@ public partial class FlatShadow : FilterEffect
         {
             using var contours = ContourTracer.FindContours(src);
 
-            var skpath = new SKPath();
+            using var builder = new SKPathBuilder();
             foreach (var contour in contours)
             {
                 for (int j = 0; j < contour.Count; j++)
                 {
                     if (j == 0)
-                        skpath.MoveTo(contour[j].X, contour[j].Y);
+                        builder.MoveTo(contour[j].X, contour[j].Y);
                     else
-                        skpath.LineTo(contour[j].X, contour[j].Y);
+                        builder.LineTo(contour[j].X, contour[j].Y);
                 }
 
-                skpath.Close();
+                builder.Close();
             }
 
-            return skpath;
+            return builder.Detach();
         }
 
         Brush.Resource? brush = data.Brush;

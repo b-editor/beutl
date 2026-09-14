@@ -25,7 +25,7 @@ public sealed partial class BarSpectrumShape : SpectrumShape
     public new partial class Resource
     {
         private SKPaint? _paint;
-        private SKPath? _path;
+        private SKPathBuilder? _builder;
 
         protected internal override void Render(in SpectrumRenderContext context)
         {
@@ -61,8 +61,8 @@ public sealed partial class BarSpectrumShape : SpectrumShape
             _paint ??= new SKPaint();
             VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
 
-            _path ??= new SKPath();
-            _path.Reset();
+            _builder ??= new SKPathBuilder();
+            _builder.Reset();
 
             for (int i = 0; i < barCount; i++)
             {
@@ -70,10 +70,11 @@ public sealed partial class BarSpectrumShape : SpectrumShape
                 float barHeight = MathF.Max(1f, magnitude * height);
                 float x = (float)bounds.X + i * slotWidth + offsetX;
                 float y = (float)bounds.Y + height - barHeight;
-                BarGeometry.AddRoundedBar(_path, x, y, barWidth, barHeight, cr);
+                BarGeometry.AddRoundedBar(_builder, x, y, barWidth, barHeight, cr);
             }
 
-            canvas.Canvas.DrawPath(_path, _paint);
+            using SKPath path = _builder.Detach();
+            canvas.Canvas.DrawPath(path, _paint);
         }
 
         partial void PostDispose(bool disposing)
@@ -81,10 +82,10 @@ public sealed partial class BarSpectrumShape : SpectrumShape
             if (disposing)
             {
                 _paint?.Dispose();
-                _path?.Dispose();
+                _builder?.Dispose();
             }
             _paint = null;
-            _path = null;
+            _builder = null;
         }
     }
 }

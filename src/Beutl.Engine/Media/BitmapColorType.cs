@@ -28,6 +28,10 @@ public enum BitmapColorType
     Rgba16161616,
     Srgba8888,
     R8Unorm,
+    Bgra10101010XR,
+    RgbF16F16F16x,
+    R16Unorm,
+    RF16,
 }
 
 internal static class BitmapColorTypeExtensions
@@ -57,6 +61,10 @@ internal static class BitmapColorTypeExtensions
         BitmapColorType.Rgba16161616 => SKColorType.Rgba16161616,
         BitmapColorType.Srgba8888 => SKColorType.Srgba8888,
         BitmapColorType.R8Unorm => SKColorType.R8Unorm,
+        BitmapColorType.Bgra10101010XR => SKColorType.Bgra10101010XR,
+        BitmapColorType.RgbF16F16F16x => SKColorType.RgbF16F16F16x,
+        BitmapColorType.R16Unorm => SKColorType.R16Unorm,
+        BitmapColorType.RF16 => SKColorType.RF16,
         _ => SKColorType.Unknown,
     };
 
@@ -85,6 +93,10 @@ internal static class BitmapColorTypeExtensions
         SKColorType.Rgba16161616 => BitmapColorType.Rgba16161616,
         SKColorType.Srgba8888 => BitmapColorType.Srgba8888,
         SKColorType.R8Unorm => BitmapColorType.R8Unorm,
+        SKColorType.Bgra10101010XR => BitmapColorType.Bgra10101010XR,
+        SKColorType.RgbF16F16F16x => BitmapColorType.RgbF16F16F16x,
+        SKColorType.R16Unorm => BitmapColorType.R16Unorm,
+        SKColorType.RF16 => BitmapColorType.RF16,
         _ => BitmapColorType.Unknown,
     };
 }

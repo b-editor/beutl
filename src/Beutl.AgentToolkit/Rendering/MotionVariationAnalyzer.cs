@@ -361,6 +361,10 @@ public sealed class MotionVariationAnalyzer(StillRenderer stillRenderer)
             BitmapColorType.Rgba16161616 => Math.Min(6, bytesPerPixel),
             BitmapColorType.Srgba8888 => Math.Min(3, bytesPerPixel),
             BitmapColorType.R8Unorm => Math.Min(1, bytesPerPixel),
+            BitmapColorType.Bgra10101010XR => Math.Min(6, bytesPerPixel),
+            BitmapColorType.RgbF16F16F16x => Math.Min(6, bytesPerPixel),
+            BitmapColorType.R16Unorm => bytesPerPixel,
+            BitmapColorType.RF16 => bytesPerPixel,
             _ => Math.Min(3, bytesPerPixel)
         };
     }
