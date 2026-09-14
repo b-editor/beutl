@@ -764,6 +764,12 @@
   <data name="Separately" xml:space="preserve">
     <value>Separately</value>
   </data>
+  <data name="PathEditor_ShowStroke" xml:space="preserve">
+    <value>Show outline</value>
+  </data>
+  <data name="PathEditor_ShowFill" xml:space="preserve">
+    <value>Show fill</value>
+  </data>
   <data name="Figure" xml:space="preserve">
     <value>Figure</value>
   </data>

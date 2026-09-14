@@ -759,6 +759,12 @@
   <data name="Separately" xml:space="preserve">
     <value>別々</value>
   </data>
+  <data name="PathEditor_ShowStroke" xml:space="preserve">
+    <value>輪郭線を表示</value>
+  </data>
+  <data name="PathEditor_ShowFill" xml:space="preserve">
+    <value>塗りを表示</value>
+  </data>
   <data name="Figure" xml:space="preserve">
     <value>図形</value>
   </data>
