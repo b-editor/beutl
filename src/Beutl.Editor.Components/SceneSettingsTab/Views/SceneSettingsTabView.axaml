@@ -11,32 +11,36 @@
              x:CompileBindings="True"
              x:DataType="viewModel:SceneSettingsTabViewModel"
              mc:Ignorable="d">
-    <StackPanel Spacing="4">
-        <local:Int2Editor x:Name="sizeEditor"
-                          Margin="4,8,4,0"
-                          FirstHeader="{x:Static lang:Strings.Width}"
-                          Header="{x:Static lang:Strings.Size}"
-                          SecondHeader="{x:Static lang:Strings.Height}" />
+    <ScrollViewer x:Name="SettingsScrollViewer"
+                  BringIntoViewOnFocusChange="True"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="4">
+            <local:Int2Editor x:Name="sizeEditor"
+                              Margin="4,8,4,0"
+                              FirstHeader="{x:Static lang:Strings.Width}"
+                              Header="{x:Static lang:Strings.Size}"
+                              SecondHeader="{x:Static lang:Strings.Height}" />
 
-        <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.StartTime}" />
-        <TextBox Margin="8,0" Text="{Binding StartInput.Value, Mode=TwoWay}" />
+            <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.StartTime}" />
+            <TextBox x:Name="StartInputTextBox" Margin="8,0" Text="{Binding StartInput.Value, Mode=TwoWay}" />
 
-        <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.DurationTime}" />
-        <TextBox Margin="8,0" Text="{Binding DurationInput.Value, Mode=TwoWay}" />
+            <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.DurationTime}" />
+            <TextBox x:Name="DurationInputTextBox" Margin="8,0" Text="{Binding DurationInput.Value, Mode=TwoWay}" />
 
-        <local:IntEditor x:Name="countEditor"
-                         Margin="4,8,4,0"
-                         EditorStyle="Compact"
-                         Header="{x:Static lang:Strings.Number_of_Layers}" />
+            <local:IntEditor x:Name="countEditor"
+                             Margin="4,8,4,0"
+                             EditorStyle="Compact"
+                             Header="{x:Static lang:Strings.Number_of_Layers}" />
 
-        <StackPanel Margin="8"
-                    Orientation="Horizontal"
-                    Spacing="4">
-            <Button Classes="accent"
-                    Command="{Binding Apply}"
-                    Content="{x:Static lang:Strings.Apply}" />
-
-            <Button Command="{Binding Revert}" Content="{x:Static lang:Strings.DiscardChanges}" />
+            <WrapPanel x:Name="ActionButtons" Margin="8" ItemSpacing="4" LineSpacing="4">
+                <Button x:Name="ApplyButton" Classes="accent" Command="{Binding Apply}">
+                    <TextBlock Text="{x:Static lang:Strings.Apply}" TextAlignment="Center" TextWrapping="Wrap" />
+                </Button>
+                <Button x:Name="RevertButton" Command="{Binding Revert}">
+                    <TextBlock Text="{x:Static lang:Strings.DiscardChanges}" TextAlignment="Center" TextWrapping="Wrap" />
+                </Button>
+            </WrapPanel>
         </StackPanel>
-    </StackPanel>
+    </ScrollViewer>
 </UserControl>
