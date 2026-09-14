@@ -348,6 +348,39 @@ public class RenderTargetSnapshotAsyncTests
         });
     }
 
+    [Test]
+    public void SurfaceReadback_KeepsPollingWhileTheDispatcherIsNeverIdle()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        var stop = new CancellationTokenSource();
+        try
+        {
+            // Medium work that queues itself again before it returns, the way renders can stay queued during playback,
+            // so the dispatcher's queue never empties.
+            void Busy()
+            {
+                if (!stop.IsCancellationRequested)
+                    dispatcher.Dispatch(Busy, DispatchPriority.Medium);
+            }
+
+            dispatcher.Dispatch(Busy, DispatchPriority.Medium);
+            var readback = new RenderTarget.SurfaceReadback(CreateReadbackBitmap());
+            var polled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            readback.PollUntilComplete(dispatcher, () => polled.TrySetResult(), () => false);
+
+            Assert.That(
+                polled.Task.Wait(TimeSpan.FromSeconds(5)),
+                Is.True,
+                "A poll has to get its turn behind work that never lets the queue empty.");
+        }
+        finally
+        {
+            stop.Cancel();
+            dispatcher.Shutdown();
+        }
+    }
+
     private static Bitmap CreateReadbackBitmap()
         => new(4, 4, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
 

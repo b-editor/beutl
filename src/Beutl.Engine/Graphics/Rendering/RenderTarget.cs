@@ -510,7 +510,7 @@ public class RenderTarget : IDisposable
             _completion.TrySetException(exception);
         }
 
-        // Polls checkAsyncWorkCompletion on the dispatcher, at low priority, until the read completes. A dispatcher
+        // Polls checkAsyncWorkCompletion on the dispatcher, at medium priority, until the read completes. A dispatcher
         // stops running queued work once it shuts down, so the shutdown fails the read instead of stranding it. Like
         // DispatcherCleanup, that waits for ShutdownFinished: the failure then runs on the dispatcher's thread after its
         // loop has exited, never alongside a poll that is completing the read.
@@ -533,9 +533,11 @@ public class RenderTarget : IDisposable
 
             void SchedulePoll()
             {
-                // Scheduled afresh for every poll: a loop that awaited a delay would resume through the dispatcher's
-                // synchronization context, which posts at high priority.
-                dispatcher.Schedule(TimeSpan.FromMilliseconds(1), Poll, DispatchPriority.Low);
+                // Scheduled afresh for every poll, at the priority Dispatch and Invoke default to. The dispatcher always
+                // takes the highest priority it holds, so a low-priority poll would never run while medium work stayed
+                // queued, and a loop that awaited a delay would resume through its synchronization context at high
+                // priority, ahead of that work.
+                dispatcher.Schedule(TimeSpan.FromMilliseconds(1), Poll, DispatchPriority.Medium);
             }
 
             void Poll()
