@@ -52,6 +52,7 @@ public sealed class TransparentPass : GraphicsNode3D
         // This pass allocates the extent it is handed, so the device limit is asked here, before anything
         // is disposed: a refused resize keeps the resources it had.
         DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
+        BeginReplacingResources();
 
         // Dispose old resources
         Framebuffer?.Dispose();

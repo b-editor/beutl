@@ -103,6 +103,11 @@ public interface IGraphicsContext : IDisposable
     /// <param name="renderPass">The render pass to use with this framebuffer.</param>
     /// <param name="colorTextures">The color attachment textures.</param>
     /// <param name="depthTexture">The depth attachment texture, or <see langword="null"/> for a color-only framebuffer.</param>
+    /// <exception cref="InvalidOperationException">
+    /// An attachment is larger than <see cref="MaxAttachmentDimension"/>. A texture is bounded by the
+    /// device's image limit when it is created, since it may only ever be sampled; attaching it is what
+    /// the framebuffer limit governs, and the driver does not refuse that itself.
+    /// </exception>
     IFramebuffer3D CreateFramebuffer3D(
         IRenderPass3D renderPass,
         IReadOnlyList<ITexture2D> colorTextures,

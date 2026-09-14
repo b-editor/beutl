@@ -45,6 +45,9 @@ public abstract class RenderNode3D : IDisposable
     /// <remarks>
     /// The extent is committed only once the node has reallocated, so a refused resize keeps the extent
     /// its resources still describe and a later request for a different size is not mistaken for a no-op.
+    /// A node that has to dispose those resources before it can replace them calls
+    /// <see cref="BeginReplacingResources"/> first, so a replacement that fails part-way leaves no extent
+    /// behind for the next request to be mistaken for.
     /// </remarks>
     public virtual void Resize(int width, int height)
     {
@@ -54,6 +57,21 @@ public abstract class RenderNode3D : IDisposable
         OnResize(width, height);
         Width = width;
         Height = height;
+    }
+
+    /// <summary>
+    /// Forgets the extent this node holds resources for, ahead of disposing them to make room for new ones.
+    /// </summary>
+    /// <remarks>
+    /// Call it after any refusal that leaves the old resources intact and before the first dispose. Until
+    /// <see cref="Initialize"/> or <see cref="Resize"/> commits the new extent the node reports none, so a
+    /// replacement that throws after disposing is not skipped as a no-op when the old size is asked for
+    /// again, which would leave disposed resources in use.
+    /// </remarks>
+    protected void BeginReplacingResources()
+    {
+        Width = 0;
+        Height = 0;
     }
 
     protected abstract void OnInitialize(int width, int height);

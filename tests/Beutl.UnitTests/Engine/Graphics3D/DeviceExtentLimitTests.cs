@@ -156,6 +156,25 @@ public class DeviceExtentLimitTests
     }
 
     [Test]
+    public void PassResize_ThatFailsAfterDisposing_DoesNotLeaveTheOldExtentToBeMistakenForANoOp()
+    {
+        // Past the guard, a pass disposes what it had before it allocates. If the allocation then fails,
+        // the old size must not be reported as still held, or a request to return to it would be skipped
+        // and disposed resources left in use.
+        Mock<IGraphicsContext> device = LooseDevice();
+        using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
+        pass.Initialize(16, 16);
+        device.Setup(c => c.CreateTexture2D(32, 32, TextureFormat.Depth32Float))
+            .Throws(new InvalidOperationException("the device declined"));
+
+        Assert.Throws<InvalidOperationException>(() => pass.Resize(32, 32));
+        pass.Resize(16, 16);
+
+        device.Verify(c => c.CreateTexture2D(16, 16, TextureFormat.RGBA8Unorm), Times.Exactly(2),
+            "returning to the old size after a failed replacement must reallocate it");
+    }
+
+    [Test]
     public void AFixedSizeShadowPass_IsNotRefusedForAViewportItDoesNotAllocate()
     {
         // ShadowPass and PointShadowPass ignore the extent Initialize is handed and allocate their own

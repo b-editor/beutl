@@ -56,6 +56,29 @@ public sealed class DeviceExtentLimitTests
         });
     }
 
+    [Test]
+    public void AttachingATextureWiderThanAFramebuffer_IsRefusedBeforeTheDriver()
+    {
+        // The image limit lets such a texture be made; the framebuffer limit is what attaching answers
+        // to, and SwiftShader would build the framebuffer past it and answer success.
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        int attachment = context.MaxAttachmentDimension;
+        Assume.That(ImageLimitOf(context), Is.GreaterThan(attachment),
+            "this device attaches everything it can sample, so the two limits cannot be told apart");
+
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using IRenderPass3D pass = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
+            using ITexture2D color = context.CreateTexture2D(attachment + 1, 1, TextureFormat.RGBA8Unorm);
+
+            InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
+                () => context.CreateFramebuffer3D(pass, [color], null)?.Dispose());
+
+            Assert.That(refusal!.Message, Does.Contain(attachment.ToString()));
+            context.WaitIdle();
+        });
+    }
+
     private static int ImageLimitOf(IGraphicsContext context) => context switch
     {
         Beutl.Graphics.Backend.Vulkan.VulkanContext vulkan => vulkan.MaxImageDimension2D,

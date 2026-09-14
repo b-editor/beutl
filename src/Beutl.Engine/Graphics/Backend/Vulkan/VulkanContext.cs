@@ -549,6 +549,15 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         ITexture2D? depthTexture)
     {
         var vulkanRenderPass = RequireOwned<VulkanRenderPass3D>(renderPass, nameof(renderPass));
+
+        // A texture is bounded by the image limit when it is made, because it may only ever be sampled.
+        // Attaching it is what the framebuffer limit governs, and the driver does not enforce that either:
+        // SwiftShader builds a framebuffer past its own limit and answers success.
+        foreach (ITexture2D texture in colorTextures)
+            DeviceExtentLimits.ThrowIfCannotAttach(this, texture.Width, texture.Height);
+        if (depthTexture is not null)
+            DeviceExtentLimits.ThrowIfCannotAttach(this, depthTexture.Width, depthTexture.Height);
+
         List<VulkanTexture2D> vulkanColorTextures = colorTextures
             .Select(texture => RequireOwned<VulkanTexture2D>(texture, nameof(colorTextures)))
             .ToList();
