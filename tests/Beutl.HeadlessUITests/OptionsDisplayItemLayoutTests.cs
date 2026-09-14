@@ -20,6 +20,62 @@ namespace Beutl.HeadlessUITests;
 public class OptionsDisplayItemLayoutTests
 {
     [AvaloniaTest]
+    [TestCase(180, false)]
+    [TestCase(180, true)]
+    [TestCase(220, false)]
+    [TestCase(220, true)]
+    [TestCase(249, false)]
+    [TestCase(249, true)]
+    public void Stacked_inputs_fit_below_their_minimum_width_and_restore_the_binding(int width, bool light)
+    {
+        using var minimum = new System.Reactive.Subjects.BehaviorSubject<double>(250);
+        var input = new TextBox { Text = "A setting being edited" };
+        using var binding = input.Bind(Control.MinWidthProperty, minimum);
+        var row = new OptionsDisplayItem
+        {
+            Header = "Automatically scroll the timeline during playback",
+            Description = "Choose how the timeline follows the playback position.",
+            ActionButton = input,
+            Icon = new FASymbolIcon { Symbol = FASymbol.Settings },
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
+        };
+        var window = new Window
+        {
+            Content = row,
+            Width = 640,
+            Height = 500,
+            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+        };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            input.Focus();
+            input.CaretIndex = 7;
+            window.Width = width;
+            HeadlessTestHelpers.Render(3);
+            AssertContained(input, row);
+            Assert.That(input.Bounds.Width, Is.LessThan(width));
+            Assert.That(input.IsFocused, Is.True);
+            Assert.That(input.CaretIndex, Is.EqualTo(7));
+            minimum.OnNext(280);
+            window.Width = 640;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(input.MinWidth, Is.EqualTo(280));
+            AssertContained(input, row);
+            window.Width = width;
+            HeadlessTestHelpers.Render(3);
+            var replacement = new TextBox { MinWidth = 250 };
+            row.ActionButton = replacement;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(input.MinWidth, Is.EqualTo(280));
+            AssertContained(replacement, row);
+        }
+        finally { window.Close(); }
+        Assert.That(input.Text, Is.EqualTo("A setting being edited"));
+    }
+
+    [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(false, true)]
     [TestCase(true, false)]
