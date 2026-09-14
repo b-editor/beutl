@@ -403,8 +403,9 @@ public class RenderTarget : IDisposable
     /// <remarks>
     /// The read is queued behind the rendering submitted so far, so drawing into this target afterwards does not change
     /// what it returns. A GPU context reports a finished read only when it is polled, so until the read completes the
-    /// dispatcher that owns this target polls it between its other work. Where Skia cannot transfer asynchronously, as
-    /// for a surface rastered on the CPU, the task has already completed when this returns.
+    /// dispatcher that owns this target polls it between its other work; if that dispatcher shuts down first, the task
+    /// fails with <see cref="OperationCanceledException"/>. Where Skia cannot transfer asynchronously, as for a surface
+    /// rastered on the CPU, the task has already completed when this returns.
     /// </remarks>
     public Task<Bitmap> SnapshotAsync()
     {
@@ -412,30 +413,42 @@ public class RenderTarget : IDisposable
         PrepareForSampling(RenderTargetSamplingIntent.AsyncCpuReadback);
 
         var readback = new SurfaceReadback(CreateSnapshotBitmap());
-        SKSurface surface = _surface.Value!;
-        surface.RequestReadPixels(readback.Info, new SKRectI(0, 0, Width, Height), readback.Complete);
-        if (readback.Completion.IsCompleted)
-            return readback.Completion;
+        try
+        {
+            SKSurface surface = _surface.Value!;
+            surface.RequestReadPixels(readback.Info, new SKRectI(0, 0, Width, Height), readback.Complete);
+            if (readback.Completion.IsCompleted)
+                return readback.Completion;
 
-        if (surface.Context is GRContext context)
-        {
-            // The read joined the work recorded for this surface; submitting starts the GPU on it.
-            context.Submit(synchronous: false);
-            readback.PollUntilComplete(context, _dispatcher ?? RenderThread.Dispatcher);
+            if (surface.Context is GRContext context)
+            {
+                // The read joined the work recorded for this surface; submitting starts the GPU on it.
+                context.Submit(synchronous: false);
+                readback.PollUntilComplete(
+                    _dispatcher ?? RenderThread.Dispatcher,
+                    context.CheckAsyncWorkCompletion,
+                    () => context.Handle == IntPtr.Zero);
+            }
+            else
+            {
+                // Without a direct context to poll, a synchronous flush runs the finished callback instead.
+                surface.Flush(true, true);
+                if (!readback.Completion.IsCompleted)
+                    readback.Fail(new InvalidOperationException("The render target surface read did not complete."));
+            }
         }
-        else
+        catch (Exception ex)
         {
-            // Without a direct context to poll, a synchronous flush runs the finished callback instead.
-            surface.Flush(true, true);
-            if (!readback.Completion.IsCompleted)
-                readback.Fail(new InvalidOperationException("The render target surface read did not complete."));
+            // Until the task hands the destination out, nothing else disposes it.
+            readback.Fail(ex);
+            throw;
         }
 
         return readback.Completion;
     }
 
     // A pending SnapshotAsync read, completed by the finished callback the GPU context runs when it is polled.
-    private sealed class SurfaceReadback(Bitmap destination)
+    internal sealed class SurfaceReadback(Bitmap destination)
     {
         private readonly TaskCompletionSource<Bitmap> _completion =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -473,32 +486,58 @@ public class RenderTarget : IDisposable
                 destination.Dispose();
         }
 
-        public void PollUntilComplete(GRContext context, Dispatcher dispatcher)
+        // Polls checkAsyncWorkCompletion on the dispatcher, at low priority, until the read completes. A dispatcher
+        // stops running queued work once it shuts down, so the shutdown fails the read instead of stranding it. Like
+        // DispatcherCleanup, that waits for ShutdownFinished: the failure then runs on the dispatcher's thread after its
+        // loop has exited, never alongside a poll that is completing the read.
+        public void PollUntilComplete(Dispatcher dispatcher, Action checkAsyncWorkCompletion, Func<bool> isContextAbandoned)
         {
-            dispatcher.Dispatch(
-                async () =>
-                {
-                    try
-                    {
-                        while (!_completion.Task.IsCompleted)
-                        {
-                            // The dispatcher's synchronization context resumes this loop on the owning thread.
-                            await Task.Delay(1);
-                            if (context.Handle == IntPtr.Zero)
-                            {
-                                Fail(new ObjectDisposedException(nameof(GRContext)));
-                                return;
-                            }
+            EventHandler onShutdownFinished = (_, _) => Fail(new OperationCanceledException(
+                "The dispatcher that owns the render target shut down before the read completed."));
+            dispatcher.ShutdownFinished += onShutdownFinished;
+            _ = _completion.Task.ContinueWith(
+                _ => dispatcher.ShutdownFinished -= onShutdownFinished,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
 
-                            context.CheckAsyncWorkCompletion();
-                        }
-                    }
-                    catch (Exception ex)
+            SchedulePoll();
+
+            // A shutdown that finished before the subscription raised its event with nothing to fail.
+            if (dispatcher.HasShutdownFinished)
+                onShutdownFinished(dispatcher, EventArgs.Empty);
+
+            void SchedulePoll()
+            {
+                // Scheduled afresh for every poll: a loop that awaited a delay would resume through the dispatcher's
+                // synchronization context, which posts at high priority.
+                dispatcher.Schedule(TimeSpan.FromMilliseconds(1), Poll, DispatchPriority.Low);
+            }
+
+            void Poll()
+            {
+                if (_completion.Task.IsCompleted)
+                    return;
+
+                try
+                {
+                    if (isContextAbandoned())
                     {
-                        Fail(ex);
+                        Fail(new ObjectDisposedException(nameof(GRContext)));
+                        return;
                     }
-                },
-                DispatchPriority.Low);
+
+                    checkAsyncWorkCompletion();
+                }
+                catch (Exception ex)
+                {
+                    Fail(ex);
+                    return;
+                }
+
+                if (!_completion.Task.IsCompleted)
+                    SchedulePoll();
+            }
         }
     }
 
@@ -650,7 +689,9 @@ public class RenderTarget : IDisposable
         // A context-wide flush is a superset of this surface's, so reclaiming deferred targets here
         // replaces the surface flush instead of adding a second submit - but only when it flushed this
         // surface's own context. A target from a caller-supplied factory can live on another one.
-        if (GpuResourceReclaimQueue.FlushAndDrain(_surface.Value!.Context))
+        // Reclaiming waits for that flush to finish, so an asynchronous readback leaves the queue to the
+        // next flush that synchronizes.
+        if (!intent.IsAsyncCpuReadback && GpuResourceReclaimQueue.FlushAndDrain(_surface.Value!.Context))
         {
             waitForCompletion = true;
         }

@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Threading;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using SkiaSharp;
 
@@ -104,6 +105,67 @@ public class RenderTargetSnapshotAsyncTests
     }
 
     [Test]
+    public async Task SnapshotAsync_LeavesDeferredResourcesForAFlushThatSynchronizes()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        var flushes = new List<ImmediateCanvasFlushKind>();
+        var deferred = new DisposalProbe();
+        (RenderTarget target, Task<Bitmap> pending, bool accepted, bool disposedByRequest) =
+            VulkanTestEnvironment.InvokeOnRenderThread(() =>
+            {
+                GpuResourceReclaimQueue.FlushAndDrain();
+                RenderTarget target = CreateGpuTarget(8, 8);
+                target.Value.Canvas.Clear(SKColors.CornflowerBlue);
+                bool accepted = GpuResourceReclaimQueue.TryDefer(deferred, 0);
+                Task<Bitmap> pending;
+                using (ImmediateCanvas.ObserveFlushes(flushes.Add))
+                {
+                    pending = target.SnapshotAsync();
+                }
+
+                return (target, pending, accepted, deferred.IsDisposed);
+            });
+
+        try
+        {
+            using Bitmap snapshot = await pending;
+            Assert.Multiple(() =>
+            {
+                Assert.That(accepted, Is.True);
+                Assert.That(disposedByRequest, Is.False, "Reclaiming the queue would have waited for the GPU.");
+                Assert.That(flushes, Is.EqualTo(new[] { ImmediateCanvasFlushKind.PrepareForSamplingSubmit }));
+            });
+        }
+        finally
+        {
+            VulkanTestEnvironment.InvokeOnRenderThread(() =>
+            {
+                GpuResourceReclaimQueue.FlushAndDrain();
+                target.Dispose();
+            });
+        }
+    }
+
+    [Test]
+    public async Task SurfaceReadback_FailsWhenItsDispatcherShutsDownBeforeTheReadCompletes()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        var destination = new Bitmap(4, 4, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        var readback = new RenderTarget.SurfaceReadback(destination);
+        var polled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // The context never reports the read finished, so only the shutdown can end it.
+        readback.PollUntilComplete(dispatcher, () => polled.TrySetResult(), () => false);
+        await polled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        dispatcher.Shutdown();
+
+        Assert.That(
+            async () => await readback.Completion.WaitAsync(TimeSpan.FromSeconds(5)),
+            Throws.InstanceOf<OperationCanceledException>());
+        Assert.That(destination.IsDisposed, Is.True);
+    }
+
+    [Test]
     public void SnapshotAsync_OnACpuSurface_HasCompletedWhenItReturns()
     {
         // Off the render thread, RenderTarget.Create rasters on the CPU, where Skia reads synchronously.
@@ -128,5 +190,12 @@ public class RenderTargetSnapshotAsyncTests
     {
         ReadOnlySpan<ushort> channels = bitmap.GetPixelSpan<ushort>();
         return (float)BitConverter.UInt16BitsToHalf(channels[((y * bitmap.Width) + x) * 4]);
+    }
+
+    private sealed class DisposalProbe : IDisposable
+    {
+        public bool IsDisposed { get; private set; }
+
+        public void Dispose() => IsDisposed = true;
     }
 }

@@ -29,9 +29,11 @@ internal readonly struct RenderTargetSamplingIntent
 
     internal bool RequiresBackendInterop => _kind == RenderTargetSamplingIntentKind.BackendInterop;
 
+    internal bool IsAsyncCpuReadback => _kind == RenderTargetSamplingIntentKind.AsyncCpuReadback;
+
     internal bool CanSubmitWithoutCompletion(GRRecordingContext? producerContext)
     {
-        if (_kind == RenderTargetSamplingIntentKind.AsyncCpuReadback)
+        if (IsAsyncCpuReadback)
             return true;
 
         if (_kind != RenderTargetSamplingIntentKind.SameContextTextureSampling)
