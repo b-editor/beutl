@@ -13,6 +13,7 @@ public static class TypefaceProvider
         Assembly asm = typeof(TypefaceProvider).Assembly;
         string[] array =
         [
+            "BeutlTestVariable.ttf",
             "NotoSansJP-Black.otf",
             "NotoSansJP-Bold.otf",
             "NotoSansJP-Light.otf",
