@@ -497,9 +497,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
     }
 
     [TestCase("late.scene", "nested/project/*.scene")]
-    [TestCase("resources/late.mp4", "nested/project/resources/")]
     [TestCase("late.SCENE", "nested/project/*.SCENE")]
-    [TestCase("Resources/late.MP4", "nested/project/Resources/")]
     public async Task Snapshot_rejects_required_data_ignored_after_nested_activation(
         string relativeProjectPath,
         string ignoreRule)
@@ -540,6 +538,59 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             Assert.That(exception!.Message, Does.Contain("ignore rules"));
             Assert.That(staged.Stdout, Is.Empty);
             Assert.That(File.Exists(requiredPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Snapshot_rejects_a_referenced_file_ignored_after_nested_activation()
+    {
+        string projectRoot = CreateProjectDirectory();
+        string projectFile = Path.Combine(projectRoot, "project.bep");
+        CoreSerializer.StoreToUri(new Project(), new Uri(projectFile));
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "baseline project");
+        var repository = new RepositoryInfo(Root, projectRoot);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunner(),
+            projectFile: projectFile);
+        await service.InitializeAsync(
+            new InitOptions(repository, UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "nested/project/resources/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore late project data");
+        string sidecarFile = Path.Combine(projectRoot, "resources", "late.custom-sidecar");
+        Directory.CreateDirectory(Path.GetDirectoryName(sidecarFile)!);
+        var item = new GitCliVersionControlServiceTests.SnapshotTestProjectItem
+        {
+            Uri = new Uri(sidecarFile),
+        };
+        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
+        var project = new Project();
+        project.Items.Add(item);
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        GitCommandResult staged = await RunGitAsync(
+            "diff",
+            "--cached",
+            "--name-only",
+            "--",
+            repository.Pathspec);
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("resources/late.custom-sidecar"));
+            Assert.That(staged.Stdout, Is.Empty);
+            Assert.That(File.Exists(sidecarFile), Is.True);
         });
     }
 
@@ -758,7 +809,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                     ":(top,glob)nested/project\\[1\\]/**/*.[bB][eE][pP]",
                     ":(top,glob)nested/project\\[1\\]/**/*.[sS][cC][eE][nN][eE]",
                     ":(top,glob)nested/project\\[1\\]/**/*.[bB][eE][lL][mM]",
-                    ":(top,glob)nested/project\\[1\\]/**/[rR][eE][sS][oO][uU][rR][cC][eE][sS]/**",
                     ":(top,glob)nested/project\\[1\\]/.gitignore",
                     ":(top,glob)nested/project\\[1\\]/.gitattributes",
                     ":(top,exclude,glob)nested/project\\[1\\]/**/.[bB][eE][uU][tT][lL]/**",

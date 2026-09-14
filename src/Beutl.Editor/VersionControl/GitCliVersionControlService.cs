@@ -153,18 +153,28 @@ internal sealed class GitCliVersionControlService :
 
     private sealed class HeadOwnershipLease : IDisposable
     {
+        // The reftable backend keeps HEAD in its tables and leaves this placeholder in the HEAD file,
+        // so only Git can say which branch such a worktree has checked out. HEAD.lock does not stop
+        // that backend from moving HEAD either, so there the check before each ref update is the guard.
+        private const string ReftableHeadPlaceholder = "ref: refs/heads/.invalid\n";
         private readonly Action<Exception>? _releaseFailureSink;
+        private readonly RepositoryInfo _repository;
+        private readonly IGitCliRunner _runner;
         private readonly string _headPath;
         private readonly string _expectedRefName;
         private FileStream? _stream;
 
         private HeadOwnershipLease(
+            RepositoryInfo repository,
+            IGitCliRunner runner,
             string headPath,
             string expectedRefName,
             string lockPath,
             FileStream stream,
             Action<Exception>? releaseFailureSink)
         {
+            _repository = repository;
+            _runner = runner;
             _headPath = headPath;
             _expectedRefName = expectedRefName;
             LockPath = lockPath;
@@ -174,10 +184,13 @@ internal sealed class GitCliVersionControlService :
 
         public string LockPath { get; }
 
-        public static HeadOwnershipLease Acquire(
+        public static async Task<HeadOwnershipLease> AcquireAsync(
+            RepositoryInfo repository,
+            IGitCliRunner runner,
             string headPath,
             string expectedRefName,
-            Action<Exception>? releaseFailureSink)
+            Action<Exception>? releaseFailureSink,
+            CancellationToken cancellationToken)
         {
             string lockPath = headPath + ".lock";
             FileStream stream;
@@ -199,6 +212,8 @@ internal sealed class GitCliVersionControlService :
             }
 
             var lease = new HeadOwnershipLease(
+                repository,
+                runner,
                 headPath,
                 expectedRefName,
                 lockPath,
@@ -206,7 +221,7 @@ internal sealed class GitCliVersionControlService :
                 releaseFailureSink);
             try
             {
-                lease.VerifyStillOwned();
+                await lease.VerifyStillOwnedAsync(cancellationToken).ConfigureAwait(false);
                 return lease;
             }
             catch
@@ -216,16 +231,39 @@ internal sealed class GitCliVersionControlService :
             }
         }
 
-        public void VerifyStillOwned()
+        public async Task VerifyStillOwnedAsync(CancellationToken cancellationToken)
         {
             if (_stream is null)
             {
                 throw new ObjectDisposedException(nameof(HeadOwnershipLease));
             }
 
-            string expected = $"ref: {_expectedRefName}\n";
             string actual = File.ReadAllText(_headPath, new UTF8Encoding(false));
-            if (!string.Equals(actual, expected, StringComparison.Ordinal))
+            if (string.Equals(actual, $"ref: {_expectedRefName}\n", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (!string.Equals(actual, ReftableHeadPlaceholder, StringComparison.Ordinal))
+            {
+                throw new ProjectCheckpointStateChangedException();
+            }
+
+            GitCommandResult symbolicRef;
+            try
+            {
+                symbolicRef = await _runner.RunAsync(
+                    _repository,
+                    ["symbolic-ref", "--quiet", "HEAD"],
+                    GitCommandOptions.Local,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (GitOperationException ex) when (ex.ExitCode == 1)
+            {
+                throw new ProjectCheckpointStateChangedException();
+            }
+
+            if (!string.Equals(symbolicRef.Stdout.Trim(), _expectedRefName, StringComparison.Ordinal))
             {
                 throw new ProjectCheckpointStateChangedException();
             }
@@ -376,7 +414,6 @@ internal sealed class GitCliVersionControlService :
         "**/*.[bB][eE][pP]",
         "**/*.[sS][cC][eE][nN][eE]",
         "**/*.[bB][eE][lL][mM]",
-        "**/[rR][eE][sS][oO][uU][rR][cC][eE][sS]/**",
         ".gitignore",
         ".gitattributes",
     ];
@@ -1326,6 +1363,17 @@ internal sealed class GitCliVersionControlService :
         ArgumentNullException.ThrowIfNull(repository);
         return RunSerializedAsync(
             () => HasVersionTrackingOptInCoreAsync(repository, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<bool> HasCheckedOutCommitAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(repository);
+        return RunSerializedAsync(
+            () => HasCheckedOutCommitCoreAsync(repository, cancellationToken),
             cancellationToken);
     }
 
@@ -4069,12 +4117,16 @@ internal sealed class GitCliVersionControlService :
                 "HEAD",
                 cancellationToken)
             .ConfigureAwait(false);
-        HeadOwnershipLease lease = HeadOwnershipLease.Acquire(
-            headPath,
-            branchRef,
-            ex => LogWarningBestEffort(
-                ex,
-                "Failed to release the protected Git HEAD lock after a snapshot operation."));
+        HeadOwnershipLease lease = await HeadOwnershipLease.AcquireAsync(
+                repository,
+                runner,
+                headPath,
+                branchRef,
+                ex => LogWarningBestEffort(
+                    ex,
+                    "Failed to release the protected Git HEAD lock after a snapshot operation."),
+                cancellationToken)
+            .ConfigureAwait(false);
         try
         {
             string? currentBranchTip = await TryResolveCommitAsync(
@@ -4887,11 +4939,11 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private bool ReleaseSnapshotHeadLeaseForPostCommit(HeadOwnershipLease headLease)
+    private async Task<bool> ReleaseSnapshotHeadLeaseForPostCommitAsync(HeadOwnershipLease headLease)
     {
         try
         {
-            headLease.VerifyStillOwned();
+            await headLease.VerifyStillOwnedAsync(CancellationToken.None).ConfigureAwait(false);
             return true;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -5262,7 +5314,7 @@ internal sealed class GitCliVersionControlService :
                     CancellationToken.None)
                 .ConfigureAwait(false);
 
-            headLease.VerifyStillOwned();
+            await headLease.VerifyStillOwnedAsync(cancellationToken).ConfigureAwait(false);
             await EnsureNoExternalRepositoryOperationAsync(
                     repository,
                     runner,
@@ -5286,7 +5338,7 @@ internal sealed class GitCliVersionControlService :
                 .ConfigureAwait(false);
             try
             {
-                headLease.VerifyStillOwned();
+                await headLease.VerifyStillOwnedAsync(CancellationToken.None).ConfigureAwait(false);
                 await PublishSnapshotCommitAsync(
                         refUpdateRepository,
                         runner,
@@ -5730,12 +5782,16 @@ internal sealed class GitCliVersionControlService :
         bool mutationStarted = false;
         try
         {
-            using HeadOwnershipLease lease = HeadOwnershipLease.Acquire(
-                headPath,
-                currentHead.RefName,
-                ex => LogWarningBestEffort(
-                    ex,
-                    "Failed to release the protected Git HEAD lock."));
+            using HeadOwnershipLease lease = await HeadOwnershipLease.AcquireAsync(
+                    repository,
+                    runner,
+                    headPath,
+                    currentHead.RefName,
+                    ex => LogWarningBestEffort(
+                        ex,
+                        "Failed to release the protected Git HEAD lock."),
+                    CancellationToken.None)
+                .ConfigureAwait(false);
             CheckedOutBranchTip actualHead = await GetCheckedOutBranchTipCoreAsync(
                     repository,
                     runner,
@@ -5898,6 +5954,7 @@ internal sealed class GitCliVersionControlService :
                             .ConfigureAwait(false));
                 }
 
+                await lease.VerifyStillOwnedAsync(CancellationToken.None).ConfigureAwait(false);
                 await EnsureNoExternalRepositoryOperationAsync(
                         repository,
                         runner,
@@ -6972,12 +7029,16 @@ internal sealed class GitCliVersionControlService :
                     "HEAD",
                     cancellationToken)
                 .ConfigureAwait(false);
-            using HeadOwnershipLease headLease = HeadOwnershipLease.Acquire(
-                headPath,
-                expectedHead.RefName,
-                ex => LogWarningBestEffort(
-                    ex,
-                    "Failed to release the protected Git HEAD lock while untracking reserved project paths."));
+            using HeadOwnershipLease headLease = await HeadOwnershipLease.AcquireAsync(
+                    repository,
+                    runner,
+                    headPath,
+                    expectedHead.RefName,
+                    ex => LogWarningBestEffort(
+                        ex,
+                        "Failed to release the protected Git HEAD lock while untracking reserved project paths."),
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             temporaryIndex = Path.Combine(
                 Path.GetTempPath(),
@@ -9384,7 +9445,7 @@ internal sealed class GitCliVersionControlService :
                         "beutl: initialize version control",
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (ReleaseSnapshotHeadLeaseForPostCommit(headLease))
+                if (await ReleaseSnapshotHeadLeaseForPostCommitAsync(headLease).ConfigureAwait(false))
                 {
                     await RunPostCommitHookBestEffortAsync(
                             repository,
@@ -9793,7 +9854,7 @@ internal sealed class GitCliVersionControlService :
                     $"beutl: {kind.ToString().ToLowerInvariant()} snapshot",
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (ReleaseSnapshotHeadLeaseForPostCommit(headLease))
+            if (await ReleaseSnapshotHeadLeaseForPostCommitAsync(headLease).ConfigureAwait(false))
             {
                 await RunPostCommitHookBestEffortAsync(
                         repository,
@@ -10730,8 +10791,11 @@ internal sealed class GitCliVersionControlService :
         }
 
         string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
+        // A placeholder per media type still shows whether media added later would go through LFS.
         string[] mediaPaths = GetRequiredProjectRelativePaths(repository.ProjectRoot)
             .Where(path => s_mediaExtensions.Contains(Path.GetExtension(path)))
+            .Concat(s_mediaExtensions.Select(static extension => $"resources/beutl-required-media{extension}"))
+            .Distinct(StringComparer.Ordinal)
             .Select(path => prefix + path)
             .ToArray();
         HashSet<string> coveredPaths = await GetEffectiveLfsPathsAsync(
@@ -10944,6 +11008,29 @@ internal sealed class GitCliVersionControlService :
         }
         catch (GitOperationException)
         {
+            return false;
+        }
+    }
+
+    private async Task<bool> HasCheckedOutCommitCoreAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            // --quiet reports a revision that does not resolve, such as an unborn branch, as exit
+            // code 1 without output. Any other failure still surfaces to the caller.
             return false;
         }
     }
@@ -11779,12 +11866,14 @@ internal sealed class GitCliVersionControlService :
             paths.Add(repository.Pathspec + "/");
         }
 
+        // Git keeps committing a tracked file whatever the ignore rules say, so only an untracked
+        // path can be dropped, the same check a snapshot runs.
         return await FindIgnoredPathAsync(
                 repository,
                 runner,
                 paths,
                 environmentOverrides: null,
-                includeTrackedFiles: true,
+                includeTrackedFiles: false,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -12091,18 +12180,13 @@ internal sealed class GitCliVersionControlService :
     private IReadOnlyList<string> GetRequiredProjectRelativePaths(string projectRoot)
     {
         IReadOnlySet<string> serializedPaths = GetSerializedProjectRelativePaths(projectRoot);
+        // Beutl writes the hygiene files itself. Anything else is required only when the project has
+        // it, so a rule ignoring media or project files the project does not have blocks nothing.
         var paths = new HashSet<string>(StringComparer.Ordinal)
         {
             ".gitignore",
             ".gitattributes",
-            "beutl-required-project.bep",
-            "beutl-required-project.scene",
-            "beutl-required-project.belm",
         };
-        foreach (string extension in s_mediaExtensions)
-        {
-            paths.Add($"resources/beutl-required-media{extension}");
-        }
 
         if (Directory.Exists(projectRoot))
         {
@@ -12207,33 +12291,29 @@ internal sealed class GitCliVersionControlService :
         string projectRoot,
         IReadOnlySet<string> serializedPaths)
     {
-        var pending = new Stack<(string Directory, bool IsResourceDirectory)>();
-        pending.Push((
-            projectRoot,
-            IsResourceDirectory: false));
+        var pending = new Stack<string>();
+        pending.Push(projectRoot);
         // Ordinal, not the platform rule: this dedupes directories the walk actually reached, and
         // a case-sensitive volume can hold both Assets/ and assets/ as distinct trees. Folding them
         // together would skip one subtree's symlink and nested-repository validation entirely.
         var visitedDirectories = new HashSet<string>(StringComparer.Ordinal);
         var options = new EnumerationOptions { AttributesToSkip = 0 };
-        while (pending.TryPop(out var item))
+        while (pending.TryPop(out string? directory))
         {
-            string canonicalDirectory = RepositoryPathComparer.ResolveCanonicalPath(item.Directory);
+            string canonicalDirectory = RepositoryPathComparer.ResolveCanonicalPath(directory);
             if (!visitedDirectories.Add(canonicalDirectory))
             {
                 continue;
             }
 
-            foreach (string file in Directory.EnumerateFiles(item.Directory, "*", options))
+            foreach (string file in Directory.EnumerateFiles(directory, "*", options))
             {
                 string extension = Path.GetExtension(file);
                 string relativeFile = NormalizeGitPath(Path.GetRelativePath(projectRoot, file));
-                bool isSerializedPath = serializedPaths.Contains(relativeFile);
-                if (isSerializedPath
-                    || !string.Equals(extension, ".tmp", StringComparison.OrdinalIgnoreCase)
-                    && (item.IsResourceDirectory
-                        || s_projectFileExtensions.Contains(extension)
-                        || s_mediaExtensions.Contains(extension)))
+                // Neither location nor media type makes a file required: an unreferenced file is not
+                // project state, so an ignore rule cannot drop anything the project needs.
+                if (serializedPaths.Contains(relativeFile)
+                    || s_projectFileExtensions.Contains(extension))
                 {
                     var fileInfo = new FileInfo(file);
                     fileInfo.Refresh();
@@ -12248,7 +12328,7 @@ internal sealed class GitCliVersionControlService :
                 }
             }
 
-            foreach (string child in Directory.EnumerateDirectories(item.Directory, "*", options))
+            foreach (string child in Directory.EnumerateDirectories(directory, "*", options))
             {
                 string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(child));
                 if (!string.Equals(
@@ -12289,10 +12369,7 @@ internal sealed class GitCliVersionControlService :
                             $"The nested Git repository '{relativeDirectory}' cannot be snapshotted safely.");
                     }
 
-                    pending.Push((
-                        child,
-                        item.IsResourceDirectory
-                        || string.Equals(name, "resources", StringComparison.OrdinalIgnoreCase)));
+                    pending.Push(child);
                 }
             }
         }

@@ -71,6 +71,15 @@ internal interface IProjectVersionControlBackend :
         RepositoryInfo repository,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Reports whether HEAD resolves to a commit. Hygiene requires a checked-out commit, so a
+    /// repository whose branch has none yet cannot resume tracking; it can only be initialized,
+    /// which accepts the unborn branch and records the first version.
+    /// </summary>
+    Task<bool> HasCheckedOutCommitAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken);
+
     Task<CommitResult> CommitAllAsync(
         string message,
         SnapshotKind kind,

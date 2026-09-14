@@ -2366,6 +2366,12 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_RecoveryFailed" xml:space="preserve">
     <value>操作に失敗し、元のプロジェクト状態も復元できませんでした。操作エラー: {0} 復旧エラー: {1}</value>
   </data>
+  <data name="VersionControl_OpenedWithoutVersionControlFormat" xml:space="preserve">
+    <value>Git がこのプロジェクトのフォルダーを確認できなかったため、バージョン管理なしで開きました。{0}</value>
+  </data>
+  <data name="VersionControl_OpenAbortedFormat" xml:space="preserve">
+    <value>中断した pull の復旧が必要かどうかを確認できなかったため、プロジェクトを開きませんでした。{0}</value>
+  </data>
   <data name="VersionControl_PullTransitionUncertain" xml:space="preserve">
     <value>保護されたリポジトリ遷移の所有権が失われたか、復旧を検証できませんでした。バージョン管理の「プロジェクトを復旧」を使用するか、「最近使ったプロジェクト」から再度開くと読み込み前に復旧できます。作業ツリーを安全に変更できない場合、Beutl はチェックポイントを永続的な Git 参照に保持します。</value>
   </data>

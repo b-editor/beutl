@@ -10430,6 +10430,137 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Opening_a_project_Git_cannot_inspect_opens_it_without_version_control()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+
+        try
+        {
+            config.AutoCommitOnClose = false;
+            Project target = await CreateProjectForFakeVersionControlAsync(
+                "version-control-discovery-refused");
+            string projectFile = target.Uri!.LocalPath;
+            string projectRoot = Path.GetDirectoryName(projectFile)!;
+            await TestShell.Project.CloseProjectAsync();
+            var projectService = new ProjectService();
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, repository, tip)
+            {
+                DiscoverRepositoryOverride = _ => throw new GitOperationException(
+                    128,
+                    "fatal: detected dubious ownership in repository at '/shared/project'"),
+            };
+            var tracked = new PullCycleTestBackend(repository, repository, tip);
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            NotificationService.Handler = notifications;
+
+            await projectService.OpenProject(projectFile);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(projectService.CurrentProject.Value, Is.Not.Null);
+                Assert.That(coordinator.IsTracked.Value, Is.False);
+                Assert.That(
+                    notifications.All.Any(static item =>
+                        item.Type == NotificationType.Warning
+                        && item.Message.Contains("dubious ownership", StringComparison.Ordinal)),
+                    Is.True);
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousNotificationHandler;
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Opening_a_project_whose_pending_recovery_cannot_be_checked_says_why_it_did_not_open()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+
+        try
+        {
+            config.AutoCommitOnClose = false;
+            Project target = await CreateProjectForFakeVersionControlAsync(
+                "version-control-recovery-lookup-failure");
+            string projectFile = target.Uri!.LocalPath;
+            string projectRoot = Path.GetDirectoryName(projectFile)!;
+            await TestShell.Project.CloseProjectAsync();
+            var projectService = new ProjectService();
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, repository, tip);
+            var inspector = new PullCycleTestBackend(repository, repository, tip)
+            {
+                PendingPullLookupFailure = new GitOperationException(
+                    128,
+                    "fatal: simulated recovery lookup failure"),
+            };
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : inspector);
+            NotificationService.Handler = notifications;
+
+            await projectService.OpenProject(projectFile);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(projectService.CurrentProject.Value, Is.Null);
+                Assert.That(
+                    notifications.All.Any(static item =>
+                        item.Type == NotificationType.Error
+                        && item.Message.Contains(
+                            "simulated recovery lookup failure",
+                            StringComparison.Ordinal)),
+                    Is.True);
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousNotificationHandler;
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Opening_a_project_in_an_unmanaged_root_repository_asks_before_tracking()
     {
         await TestReset.ResetShellAsync();
@@ -10480,6 +10611,138 @@ public class VersionControlRestoreTests
                 Assert.That(coordinator.CurrentService, Is.Not.SameAs(tracked));
                 Assert.That(tracked.EnsureHygieneCalls, Is.Zero);
                 Assert.That(tracked.CommitAllCalls, Is.Zero);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Opening_a_project_in_a_root_repository_without_commits_leaves_it_for_initialization()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            config.AutoCommitOnClose = false;
+            Project target = await CreateProjectForFakeVersionControlAsync(
+                "version-control-unborn-root-repository");
+            string projectFile = target.Uri!.LocalPath;
+            string projectRoot = Path.GetDirectoryName(projectFile)!;
+            await TestShell.Project.CloseProjectAsync();
+            var projectService = new ProjectService();
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, repository, tip)
+            {
+                HasVersionTrackingOptIn = false,
+                HasCheckedOutCommit = false,
+            };
+            var tracked = new PullCycleTestBackend(repository, repository, tip);
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            int adoptionPrompts = 0;
+            coordinator.ConfirmAdoptExistingRepositoryAsync = (_, _) =>
+            {
+                Interlocked.Increment(ref adoptionPrompts);
+                return Task.FromResult(true);
+            };
+
+            await projectService.OpenProject(projectFile);
+            await WaitUntilAsync(() => adoptionPrompts > 0 || discovery.HasCheckedOutCommitCalls > 0);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(discovery.HasCheckedOutCommitCalls, Is.EqualTo(1));
+                Assert.That(adoptionPrompts, Is.Zero);
+                Assert.That(coordinator.IsTracked.Value, Is.False);
+                Assert.That(coordinator.CurrentService, Is.Not.SameAs(tracked));
+                Assert.That(tracked.EnsureHygieneCalls, Is.Zero);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Opening_a_project_in_an_enclosing_repository_without_commits_does_not_ask_to_share_it()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            config.AutoCommitOnClose = false;
+            Project target = await CreateProjectForFakeVersionControlAsync(
+                "version-control-unborn-enclosing-repository");
+            string projectFile = target.Uri!.LocalPath;
+            string projectRoot = Path.GetDirectoryName(projectFile)!;
+            string repositoryRoot = Path.GetDirectoryName(projectRoot)!;
+            await TestShell.Project.CloseProjectAsync();
+            var projectService = new ProjectService();
+            var repository = new RepositoryInfo(repositoryRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, repository, tip)
+            {
+                HasVersionTrackingOptIn = false,
+                HasCheckedOutCommit = false,
+            };
+            var tracked = new PullCycleTestBackend(repository, repository, tip);
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            int confirmations = 0;
+            coordinator.ConfirmUseEnclosingRepositoryAsync = (_, _) =>
+            {
+                Interlocked.Increment(ref confirmations);
+                return Task.FromResult(true);
+            };
+
+            await projectService.OpenProject(projectFile);
+            await WaitUntilAsync(() => projectService.CurrentProject.Value is not null
+                                       && discovery.HasCheckedOutCommitCalls > 0);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                // Activation leaves a branch with no commit for initialization, so agreeing to
+                // share the enclosing repository would lead nowhere.
+                Assert.That(confirmations, Is.Zero);
+                Assert.That(coordinator.IsTracked.Value, Is.False);
+                Assert.That(tracked.EnsureHygieneCalls, Is.Zero);
             });
         }
         finally
@@ -11052,6 +11315,7 @@ public class VersionControlRestoreTests
         private int _disposeCalls;
         private int _commitAllCalls;
         private int _ensureHygieneCalls;
+        private int _hasCheckedOutCommitCalls;
         private int _retirementCalls;
         private Task<CommitResult?>? _retirementTask;
         private ProjectCheckpoint? _checkpoint;
@@ -11090,6 +11354,8 @@ public class VersionControlRestoreTests
 
         public Task? PendingPullLookupRelease { get; set; }
 
+        public Exception? PendingPullLookupFailure { get; init; }
+
         public PendingPullRecoveryOutcome PendingRecoveryOutcome { get; init; } =
             PendingPullRecoveryOutcome.RestoredOriginal;
 
@@ -11127,6 +11393,8 @@ public class VersionControlRestoreTests
         public Func<CancellationToken, Task>? EnsureHygieneOverride { get; init; }
 
         public bool HasVersionTrackingOptIn { get; init; } = true;
+
+        public bool HasCheckedOutCommit { get; init; } = true;
 
         public Func<CancellationToken, Task<GitAvailability>>? AvailabilityOverride { get; init; }
 
@@ -11181,6 +11449,8 @@ public class VersionControlRestoreTests
         public int CommitAllCalls => Volatile.Read(ref _commitAllCalls);
 
         public int EnsureHygieneCalls => Volatile.Read(ref _ensureHygieneCalls);
+
+        public int HasCheckedOutCommitCalls => Volatile.Read(ref _hasCheckedOutCommitCalls);
 
         public IReadOnlyList<SnapshotKind> CommitKinds
         {
@@ -11304,6 +11574,14 @@ public class VersionControlRestoreTests
             return Task.FromResult(HasVersionTrackingOptIn);
         }
 
+        public Task<bool> HasCheckedOutCommitAsync(
+            RepositoryInfo repository,
+            CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _hasCheckedOutCommitCalls);
+            return Task.FromResult(HasCheckedOutCommit);
+        }
+
         public async Task EnsureRepositoryHygieneAsync(CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref _ensureHygieneCalls);
@@ -11415,6 +11693,11 @@ public class VersionControlRestoreTests
             CancellationToken cancellationToken)
         {
             PendingPullLookupStarted?.TrySetResult();
+            if (PendingPullLookupFailure is not null)
+            {
+                throw PendingPullLookupFailure;
+            }
+
             if (PendingPullLookupRelease is not null)
             {
                 await PendingPullLookupRelease.WaitAsync(cancellationToken);

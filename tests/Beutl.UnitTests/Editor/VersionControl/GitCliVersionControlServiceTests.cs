@@ -1030,9 +1030,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string fileName)
     {
         await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), $"/{fileName}\n");
-        await RunGitAsync("add", "--force", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore future hygiene path");
+        // The rule lives outside the work tree, so the hygiene file it matches is still untracked.
+        string excludePath = Path.Combine(Root, ".git", "info", "exclude");
+        Directory.CreateDirectory(Path.GetDirectoryName(excludePath)!);
+        await File.AppendAllTextAsync(excludePath, $"/{fileName}\n");
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
             repository: null,
@@ -1053,54 +1054,143 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task InitializeAsync_rejects_ignored_resource_media_in_top_level_repository()
+    public async Task InitializeAsync_allows_ignoring_a_media_type_the_project_does_not_use()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.mp4\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore rendered video");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunner());
+
+        await service.InitializeAsync(
+            new InitOptions(Repository, UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        Assert.That(service.Repository, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task InitializeAsync_allows_ignored_unreferenced_media_in_top_level_repository()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        Directory.CreateDirectory(Path.Combine(Root, "renders"));
+        await File.WriteAllTextAsync(Path.Combine(Root, "renders", "output.mp4"), "rendered\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/renders/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore renders");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunner());
+
+        await service.InitializeAsync(
+            new InitOptions(Repository, UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        GitCommandResult tree = await RunGitAsync("ls-tree", "-r", "--name-only", "HEAD");
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Repository, Is.Not.Null);
+            Assert.That(tree.Stdout, Does.Not.Contain("renders/output.mp4"));
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_allows_a_tracked_project_file_that_an_ignore_rule_matches()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        Directory.CreateDirectory(Path.Combine(Root, "scenes"));
+        await File.WriteAllTextAsync(Path.Combine(Root, "scenes", "main.scene"), "{}\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/scenes/\n");
+        // Git keeps tracking a file that was added despite a rule matching it.
+        await RunGitAsync("add", "--force", "--", ".gitignore", "scenes/main.scene");
+        await RunGitAsync("commit", "-m", "track a scene beneath an ignored folder");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunner());
+
+        await service.InitializeAsync(
+            new InitOptions(Repository, UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        GitCommandResult tree = await RunGitAsync("ls-tree", "-r", "--name-only", "HEAD");
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Repository, Is.Not.Null);
+            Assert.That(tree.Stdout, Does.Contain("scenes/main.scene"));
+        });
+    }
+
+    [TestCase(".DS_Store", ".DS_Store")]
+    [TestCase("grade.cube", "*.cube")]
+    public async Task InitializeAsync_allows_globally_ignored_unreferenced_resources_in_a_new_repository(
+        string fileName,
+        string globalIgnoreRule)
+    {
+        string projectRoot = CreateTemporaryDirectory();
+        var projectRepository = new RepositoryInfo(projectRoot, projectRoot);
+        Directory.CreateDirectory(Path.Combine(projectRoot, "resources"));
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "resources", fileName), "unreferenced\n");
+        string globalConfigPath = await CreateGlobalExcludesConfigAsync(globalIgnoreRule);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunnerWithGlobalConfig(globalConfigPath));
+
+        await service.InitializeAsync(
+            new InitOptions(projectRepository, UseLfsWhenAvailable: false)
+            {
+                Identity = new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
+            },
+            CancellationToken.None);
+
+        GitCommandResult tree = await CreateRunnerWithGlobalConfig(globalConfigPath).RunAsync(
+            projectRepository,
+            ["ls-tree", "-r", "--name-only", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Repository, Is.Not.Null);
+            Assert.That(tree.Stdout, Does.Not.Contain(fileName));
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_allows_ignored_unreferenced_resources_in_top_level_repository()
     {
         await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
         Directory.CreateDirectory(Path.Combine(Root, "resources"));
         await File.WriteAllTextAsync(Path.Combine(Root, "resources", "clip.mp4"), "media\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/resources/\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "resources", ".DS_Store"), "metadata\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), ".DS_Store\n");
         await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore media");
+        await RunGitAsync("commit", "-m", "ignore Finder metadata");
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
             repository: null,
             watcher: null,
             _ => CreateRunner());
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.InitializeAsync(
-                new InitOptions(Repository, UseLfsWhenAvailable: false),
-                CancellationToken.None));
+        await service.InitializeAsync(
+            new InitOptions(Repository, UseLfsWhenAvailable: false),
+            CancellationToken.None);
 
+        GitCommandResult tree = await RunGitAsync("ls-tree", "-r", "--name-only", "HEAD");
         Assert.Multiple(() =>
         {
-            Assert.That(exception!.Message, Does.Contain("ignore rules"));
-            Assert.That(service.Repository, Is.Null);
-            Assert.That(File.Exists(Path.Combine(Root, ".gitattributes")), Is.False);
+            Assert.That(service.Repository, Is.Not.Null);
+            Assert.That(tree.Stdout, Does.Contain("resources/clip.mp4"));
+            Assert.That(tree.Stdout, Does.Not.Contain(".DS_Store"));
         });
-    }
-
-    [Test]
-    public async Task InitializeAsync_rejects_ignored_media_outside_resources_directory()
-    {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        Directory.CreateDirectory(Path.Combine(Root, "assets"));
-        await File.WriteAllTextAsync(Path.Combine(Root, "assets", "clip.mp4"), "media\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/assets/\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore project media");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => CreateRunner());
-
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.InitializeAsync(
-                new InitOptions(Repository, UseLfsWhenAvailable: false),
-                CancellationToken.None));
-
-        Assert.That(exception!.Message, Does.Contain("ignore rules"));
     }
 
     [Test]
@@ -1592,16 +1682,57 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task HasCheckedOutCommitAsync_is_false_until_the_branch_has_a_commit()
+    {
+        using var service = CreateService();
+
+        bool beforeCommit = await service.HasCheckedOutCommitAsync(Repository, CancellationToken.None);
+        await CommitFileAsync("project.bep", "{}\n", "first commit");
+        bool afterCommit = await service.HasCheckedOutCommitAsync(Repository, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(beforeCommit, Is.False);
+            Assert.That(afterCommit, Is.True);
+        });
+    }
+
+    [Test]
+    public void HasCheckedOutCommitAsync_surfaces_failures_other_than_a_missing_commit()
+    {
+        string directory = CreateTemporaryDirectory();
+        using var service = CreateService();
+
+        Assert.CatchAsync<GitOperationException>(
+            async () => await service.HasCheckedOutCommitAsync(
+                new RepositoryInfo(directory, directory),
+                CancellationToken.None));
+    }
+
+    [Test]
     public async Task EnsureRepositoryHygieneAsync_rejects_ignored_required_data_before_mutation()
     {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        Directory.CreateDirectory(Path.Combine(Root, "resources"));
-        await File.WriteAllTextAsync(Path.Combine(Root, "resources", "clip.mp4"), "media\n");
+        string projectFile = Path.Combine(Root, "project.bep");
+        string sidecarFile = Path.Combine(Root, "resources", "item.custom-sidecar");
+        Directory.CreateDirectory(Path.GetDirectoryName(sidecarFile)!);
+        var item = new SnapshotTestProjectItem
+        {
+            Uri = new Uri(sidecarFile),
+        };
+        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
+        var project = new Project();
+        project.Items.Add(item);
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
         string ignorePath = Path.Combine(Root, ".gitignore");
         await File.WriteAllTextAsync(ignorePath, "/resources/\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore media");
-        using var service = CreateService();
+        await RunGitAsync("add", "--", "project.bep", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore a referenced resource");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            projectFile: projectFile);
 
         InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
@@ -1609,6 +1740,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(exception!.Message, Does.Contain("ignore rules"));
+            Assert.That(exception.Message, Does.Contain("resources/item.custom-sidecar"));
             Assert.That(File.ReadAllText(ignorePath), Is.EqualTo("/resources/\n"));
             Assert.That(File.Exists(Path.Combine(Root, ".gitattributes")), Is.False);
         });
@@ -2409,6 +2541,63 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken.None);
 
         Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
+    }
+
+    [TestCase(".DS_Store", ".DS_Store")]
+    [TestCase("grade.cube", "*.cube")]
+    public async Task CommitAllAsync_allows_ignored_unreferenced_resources(
+        string fileName,
+        string ignoreRule)
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), $"{ignoreRule}\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore unreferenced resources");
+        string resourceDirectory = Path.Combine(Root, "resources");
+        Directory.CreateDirectory(resourceDirectory);
+        await File.WriteAllTextAsync(Path.Combine(resourceDirectory, fileName), "unreferenced\n");
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
+    }
+
+    [Test]
+    public async Task CommitAllAsync_rejects_an_ignored_referenced_file_beneath_resources()
+    {
+        string projectFile = Path.Combine(Root, "project.bep");
+        string sidecarFile = Path.Combine(Root, "resources", "item.custom-sidecar");
+        Directory.CreateDirectory(Path.GetDirectoryName(sidecarFile)!);
+        var item = new SnapshotTestProjectItem
+        {
+            Uri = new Uri(sidecarFile),
+        };
+        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
+        var project = new Project();
+        project.Items.Add(item);
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitignore"),
+            "*.custom-sidecar\n");
+        await RunGitAsync("add", "--", "project.bep", ".gitignore");
+        await RunGitAsync("commit", "-m", "resource project item");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            isWorktreeMutationAllowed: static () => true,
+            projectFile: projectFile);
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.That(exception!.Message, Does.Contain("resources/item.custom-sidecar"));
     }
 
     [Test]
@@ -4297,22 +4486,35 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task CommitAllAsync_rejects_a_required_media_file_symbolic_link()
+    public async Task CommitAllAsync_rejects_a_referenced_file_symbolic_link()
     {
         if (OperatingSystem.IsWindows())
         {
             Assert.Ignore("This regression requires Unix symbolic-link semantics.");
         }
 
-        await CommitFileAsync("project.bep", "{}\n", "initial");
-        string externalRoot = CreateTemporaryDirectory();
-        string externalMedia = Path.Combine(externalRoot, "external.mp4");
-        await File.WriteAllTextAsync(externalMedia, "external media\n");
-        string mediaDirectory = Path.Combine(Root, "resources");
-        Directory.CreateDirectory(mediaDirectory);
-        string linkedMedia = Path.Combine(mediaDirectory, "linked.mp4");
-        CreateFileSymbolicLinkOrIgnore(linkedMedia, externalMedia);
-        using var service = CreateService();
+        string projectFile = Path.Combine(Root, "project.bep");
+        string linkedFile = Path.Combine(Root, "resources", "linked.custom-sidecar");
+        Directory.CreateDirectory(Path.GetDirectoryName(linkedFile)!);
+        var item = new SnapshotTestProjectItem
+        {
+            Uri = new Uri(linkedFile),
+        };
+        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
+        var project = new Project();
+        project.Items.Add(item);
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        await RunGitAsync("add", "--", "project.bep");
+        await RunGitAsync("commit", "-m", "initial");
+        string externalFile = Path.Combine(CreateTemporaryDirectory(), "external.custom-sidecar");
+        File.Move(linkedFile, externalFile);
+        CreateFileSymbolicLinkOrIgnore(linkedFile, externalFile);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            projectFile: projectFile);
 
         InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
@@ -4322,7 +4524,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         Assert.That(
             exception!.Message,
-            Does.Contain("file symbolic link 'resources/linked.mp4'"));
+            Does.Contain("file symbolic link 'resources/linked.custom-sidecar'"));
     }
 
     [Test]
@@ -7259,6 +7461,56 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllBytesAsync(Path.Combine(directory, oid), contents);
     }
 
+    [Test]
+    public async Task CommitAllAsync_snapshots_a_reftable_repository()
+    {
+        string repositoryRoot = CreateTemporaryDirectory();
+        var reftableRepository = new RepositoryInfo(repositoryRoot, repositoryRoot);
+        GitCliRunner runner = CreateRunner();
+        try
+        {
+            await runner.RunAsync(
+                reftableRepository,
+                ["init", "-b", "main", "--ref-format=reftable"],
+                GitCommandOptions.Local,
+                CancellationToken.None);
+        }
+        catch (GitOperationException)
+        {
+            Assert.Ignore("This Git does not support the reftable ref format.");
+        }
+
+        await runner.RunAsync(reftableRepository, ["config", "user.name", "Beutl Test"], GitCommandOptions.Local, CancellationToken.None);
+        await runner.RunAsync(reftableRepository, ["config", "user.email", "beutl-test@example.invalid"], GitCommandOptions.Local, CancellationToken.None);
+        await runner.RunAsync(reftableRepository, ["config", "commit.gpgsign", "false"], GitCommandOptions.Local, CancellationToken.None);
+        string projectFile = Path.Combine(repositoryRoot, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        await runner.RunAsync(reftableRepository, ["add", "--", "project.bep"], GitCommandOptions.Local, CancellationToken.None);
+        await runner.RunAsync(reftableRepository, ["commit", "-m", "baseline"], GitCommandOptions.Local, CancellationToken.None);
+        await File.WriteAllTextAsync(projectFile, "{\"edited\":true}\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            reftableRepository,
+            watcher: null,
+            _ => CreateRunner());
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        GitCommandResult committed = await runner.RunAsync(
+            reftableRepository,
+            ["show", "HEAD:project.bep"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(committed.Stdout, Is.EqualTo("{\"edited\":true}\n"));
+        });
+    }
+
     private GitCliVersionControlService CreateService(RepositoryWatcher? watcher = null)
     {
         return new GitCliVersionControlService(
@@ -7266,6 +7518,29 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Repository,
             watcher,
             _ => CreateRunner());
+    }
+
+    private GitCliRunner CreateRunnerWithGlobalConfig(string globalConfigPath)
+    {
+        return new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            new Dictionary<string, string?>(IsolatedGitEnvironment)
+            {
+                ["GIT_CONFIG_GLOBAL"] = globalConfigPath,
+            });
+    }
+
+    private async Task<string> CreateGlobalExcludesConfigAsync(string ignoreRule)
+    {
+        string directory = CreateTemporaryDirectory();
+        string excludesPath = Path.Combine(directory, "ignore");
+        string configPath = Path.Combine(directory, "config");
+        await File.WriteAllTextAsync(excludesPath, $"{ignoreRule}\n");
+        await File.WriteAllTextAsync(
+            configPath,
+            $"[core]\n\texcludesFile = {excludesPath.Replace('\\', '/')}\n");
+        return configPath;
     }
 
     private async Task WriteHookAsync(string name, string body)

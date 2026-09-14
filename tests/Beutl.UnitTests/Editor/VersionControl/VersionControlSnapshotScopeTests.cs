@@ -1027,6 +1027,50 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task Snapshot_reads_file_references_of_an_object_whose_extension_is_missing()
+    {
+        string projectFile = Path.Combine(Root, "project.bep");
+        string sceneFile = Path.Combine(Root, "main.scene");
+        string elementFile = Path.Combine(Root, "elements", "22222222222222222222222222222222.belm");
+        string mediaFile = Path.Combine(Root, "assets", "clip.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(elementFile)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(mediaFile)!);
+        await File.WriteAllTextAsync(mediaFile, "image\n");
+
+        var project = new Project { Uri = new Uri(projectFile) };
+        var scene = new Scene(640, 480, "main") { Uri = new Uri(sceneFile) };
+        var element = new Element { Uri = new Uri(elementFile) };
+        element.Objects.Add(new Beutl.Engine.FallbackEngineObject
+        {
+            Json = new System.Text.Json.Nodes.JsonObject
+            {
+                ["$type"] = "[Missing.Extension]Missing.Extension:CustomDrawable",
+                ["FontFamily"] = "Noto Sans JP.Bold",
+                ["Source"] = new Uri(mediaFile).AbsoluteUri,
+            },
+        });
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        CoreSerializer.StoreToUri(scene, new Uri(sceneFile));
+        CoreSerializer.StoreToUri(element, new Uri(elementFile));
+        Assert.That(await File.ReadAllTextAsync(elementFile), Does.Contain("Missing.Extension"));
+
+        IReadOnlySet<string> referenced = SerializedProjectGraph.GetRelativePaths(projectFile, Root);
+        using var service = CreateService(projectFile);
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(referenced, Does.Contain("assets/clip.png"));
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+        });
+    }
+
     private GitCliVersionControlService CreateService(string? projectFile = null)
     {
         return new GitCliVersionControlService(

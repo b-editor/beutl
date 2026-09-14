@@ -27,9 +27,9 @@ internal sealed class SceneRecovery(Scene scene)
     private IEnumerable<SceneMarker> Markers => _scene.Markers;
 
     private const int MaxRecoveredIdCollisionAttempts = 1024;
-    private const string RecoveredDescendantIdsKey = "RecoveredDescendantIds";
-    private const string RecoveredDescendantIdentitiesKey = "RecoveredDescendantIdentities";
-    private const string RecoveredElementIdsKey = "RecoveredElementIds";
+    internal const string RecoveredDescendantIdsKey = "RecoveredDescendantIds";
+    internal const string RecoveredDescendantIdentitiesKey = "RecoveredDescendantIdentities";
+    internal const string RecoveredElementIdsKey = "RecoveredElementIds";
     private static readonly Guid s_recoveredElementNamespace = new("dfad2f76-1d04-5593-ae3b-f371fb1f42ee");
     private static readonly Regex s_idPattern = new(
         "\"Id\"\\s*:\\s*\"(?<id>[0-9a-fA-F-]{36})\"",

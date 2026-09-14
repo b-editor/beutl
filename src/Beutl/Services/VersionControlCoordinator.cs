@@ -619,11 +619,13 @@ internal sealed class VersionControlCoordinator :
 
         if (closeBarrier is not null)
         {
-            await NotifyClosingCoreAsync(cancellationToken).ConfigureAwait(false);
+            await NotifyClosingCoreAsync(closeContext.CloseIntent, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private async Task NotifyClosingCoreAsync(CancellationToken closeCancellation)
+    private async Task NotifyClosingCoreAsync(
+        ProjectService.ProjectCloseIntent closeIntent,
+        CancellationToken closeCancellation)
     {
         bool closeSnapshotRequested = false;
         ActivationContext? activation;
@@ -669,7 +671,10 @@ internal sealed class VersionControlCoordinator :
                 }
 
                 service = ownedService;
-                finalSnapshotRequested = _config.AutoCommitOnClose;
+                // A discard close saves nothing, so it must not commit what autosave or another
+                // tool already wrote either.
+                finalSnapshotRequested = _config.AutoCommitOnClose
+                                         && closeIntent == ProjectService.ProjectCloseIntent.SaveChanges;
             }
 
             bool snapshotRequiresReservation =
@@ -3838,6 +3843,12 @@ internal sealed class VersionControlCoordinator :
                 ex,
                 "Failed to inspect pending pull recovery before opening {ProjectFile}.",
                 attempt.ProjectFile);
+            PublishNotification(() =>
+                NotificationService.ShowError(
+                    Strings.VersionControl_ErrorTitle,
+                    string.Format(
+                        Strings.VersionControl_OpenAbortedFormat,
+                        GetErrorText(ex))));
             return new AbortProjectOpenPreparation();
         }
     }
@@ -3972,8 +3983,39 @@ internal sealed class VersionControlCoordinator :
                     projectFile);
                 return null;
             }
+            catch (Exception ex)
+                when (ex is not OperationCanceledException and not OutOfMemoryException
+                      && requiredRecoveryId is null
+                      && cleanupCandidate is null)
+            {
+                // Git refused the folder itself (for example dubious ownership on a shared or
+                // removable volume), so no pull recovery can run there either. Open the project
+                // without version control and say why instead of refusing the project.
+                _logger.LogWarning(
+                    ex,
+                    "Opening {ProjectFile} without version control because repository discovery failed.",
+                    projectFile);
+                PublishNotification(() =>
+                    NotificationService.ShowWarning(
+                        Strings.VersionControl,
+                        string.Format(
+                            Strings.VersionControl_OpenedWithoutVersionControlFormat,
+                            GetErrorText(ex))));
+                return null;
+            }
 
             if (repository is null)
+            {
+                return null;
+            }
+
+            // Activation leaves a branch with no commit yet for initialization, so asking to share
+            // the enclosing repository now would lead nowhere.
+            if (repository.IsNestedInForeignRepo
+                && requiredRecoveryId is null
+                && cleanupCandidate is null
+                && !await discoveryService.HasCheckedOutCommitAsync(repository, cancellationToken)
+                    .ConfigureAwait(false))
             {
                 return null;
             }
@@ -5041,6 +5083,16 @@ internal sealed class VersionControlCoordinator :
                 activation.ProjectRoot,
                 activation.CancellationToken);
             if (repository is null)
+            {
+                return;
+            }
+
+            // Hygiene needs a checked-out commit, so a branch with none yet, such as a bare
+            // `git init`, can neither resume nor adopt tracking. Leaving the project untracked
+            // offers initialization instead, which accepts the unborn branch.
+            if (!await activation.Service.HasCheckedOutCommitAsync(
+                    repository,
+                    activation.CancellationToken))
             {
                 return;
             }
