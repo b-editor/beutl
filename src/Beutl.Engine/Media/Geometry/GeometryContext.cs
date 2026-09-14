@@ -41,10 +41,11 @@ public sealed class GeometryContext : IGeometryContext, IDisposable
         get => (PathFillType)(_path?.FillType ?? _builder.FillType);
         set
         {
-            if (_path != null)
+            // A path NativeObject handed out keeps its fill type, so the edit resumes the builder from a copy.
+            if (_path != null && !_pathHandedOut)
                 _path.FillType = (SKPathFillType)value;
             else
-                _builder.FillType = (SKPathFillType)value;
+                Builder.FillType = (SKPathFillType)value;
         }
     }
 
@@ -137,8 +138,19 @@ public sealed class GeometryContext : IGeometryContext, IDisposable
 
     public void Transform(Matrix matrix)
     {
-        // SKPathBuilder cannot transform, so the geometry is transformed as a path.
-        _path ??= _builder.Detach();
+        // SKPathBuilder cannot transform, so the geometry is transformed as a path, and a path NativeObject handed
+        // out is copied first so it keeps its geometry.
+        if (_path == null)
+        {
+            _path = _builder.Detach();
+        }
+        else if (_pathHandedOut)
+        {
+            var copy = new SKPath(_path);
+            ReleasePath();
+            _path = copy;
+        }
+
         _path.Transform(matrix.ToSKMatrix());
     }
 

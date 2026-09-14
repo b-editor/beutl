@@ -149,6 +149,45 @@ public sealed class GeometryContextTests
         });
     }
 
+    [Test]
+    public void SettingFillTypeAfterReadingNativeObject_LeavesThePathAlreadyReturned()
+    {
+        using var context = new GeometryContext();
+        context.MoveTo(new Point(0, 0));
+        context.LineTo(new Point(10, 0));
+        SKPath first = context.NativeObject;
+
+        context.FillType = PathFillType.EvenOdd;
+        SKPath second = context.NativeObject;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.FillType, Is.EqualTo(SKPathFillType.Winding));
+            Assert.That(second, Is.Not.SameAs(first));
+            Assert.That(second.FillType, Is.EqualTo(SKPathFillType.EvenOdd));
+            Assert.That(second.PointCount, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void TransformAfterReadingNativeObject_LeavesThePathAlreadyReturned()
+    {
+        using var context = new GeometryContext();
+        context.MoveTo(new Point(0, 0));
+        context.LineTo(new Point(10, 0));
+        SKPath first = context.NativeObject;
+
+        context.Transform(Matrix.CreateTranslation(5, 7));
+        SKPath second = context.NativeObject;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.LastPoint, Is.EqualTo(new SKPoint(10, 0)));
+            Assert.That(second, Is.Not.SameAs(first));
+            Assert.That(second.LastPoint, Is.EqualTo(new SKPoint(15, 7)));
+        });
+    }
+
     private static void AssertParity(Action<IGeometryContext, Probe> edit)
     {
         using var baseline = new MutablePathContext();
