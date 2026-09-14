@@ -325,24 +325,31 @@ public class DeviceExtentLimitTests
     }
 
     [Test]
-    public void TheImageLimit_BoundsAGenericTexture_WithoutTheAttachmentLimit()
+    public void AnAttachableImage_IsBoundedByTheImageLimitAndEachFramebufferAxis()
     {
-        // A context applies the image limit to every texture it creates: a sampled-only texture may be
-        // wider than a framebuffer, so the attachment limit is for the paths that know they will attach.
-        const int imageLimit = 16384;
+        // Every texture a context creates carries attachment usage, so Vulkan holds it to the framebuffer
+        // limits at creation even when it is only ever sampled.
+        const int image = 16384;
+        const int wide = 16384;
+        const int tall = 8192;
         Assert.Multiple(() =>
         {
-            Assert.That(() => DeviceExtentLimits.ThrowIfCannotMakeImage(imageLimit, imageLimit, 1), Throws.Nothing);
+            Assert.That(() => DeviceExtentLimits.ThrowIfCannotMakeAttachableImage(image, wide, tall, wide, tall), Throws.Nothing);
             Assert.That(
-                () => DeviceExtentLimits.ThrowIfCannotMakeImage(imageLimit, imageLimit + 1, 1),
-                Throws.InvalidOperationException.With.Message.Contains(imageLimit.ToString()));
+                () => DeviceExtentLimits.ThrowIfCannotMakeAttachableImage(image, wide, tall, 1, tall + 1),
+                Throws.InvalidOperationException.With.Message.Contains(tall.ToString()),
+                "a sampled-only texture is still held to the framebuffer limit it was created attachable under");
             Assert.That(
-                () => DeviceExtentLimits.ThrowIfCannotMakeImage(imageLimit, 1, imageLimit + 1),
-                Throws.InvalidOperationException);
-            Assert.That(() => DeviceExtentLimits.ThrowIfCannotMakeImage(0, 100_000, 1), Throws.Nothing,
+                () => DeviceExtentLimits.ThrowIfCannotMakeAttachableImage(image, wide, tall, tall + 1, 1),
+                Throws.Nothing,
+                "wider than the height limit is within the width limit");
+            Assert.That(
+                () => DeviceExtentLimits.ThrowIfCannotMakeAttachableImage(image, 0, 0, image + 1, 1),
+                Throws.InvalidOperationException.With.Message.Contains(image.ToString()));
+            Assert.That(() => DeviceExtentLimits.ThrowIfCannotMakeAttachableImage(0, 0, 0, 100_000, 1), Throws.Nothing,
                 "a device that did not answer leaves the extent to the allocator");
             Assert.That(
-                () => DeviceExtentLimits.ThrowIfCannotMakeImage(imageLimit, -1, 1),
+                () => DeviceExtentLimits.ThrowIfCannotMakeAttachableImage(image, wide, tall, -1, 1),
                 Throws.InstanceOf<ArgumentOutOfRangeException>());
         });
     }

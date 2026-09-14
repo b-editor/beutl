@@ -104,9 +104,9 @@ public interface IGraphicsContext : IDisposable
     /// <param name="colorTextures">The color attachment textures.</param>
     /// <param name="depthTexture">The depth attachment texture, or <see langword="null"/> for a color-only framebuffer.</param>
     /// <exception cref="InvalidOperationException">
-    /// An attachment is larger than <see cref="MaxAttachmentDimension"/>. A texture is bounded by the
-    /// device's image limit when it is created, since it may only ever be sampled; attaching it is what
-    /// the framebuffer limit governs, and the driver does not refuse that itself.
+    /// An attachment is larger than the device's framebuffer limits. Every texture is already held to them
+    /// when it is created, so this only fires for a texture that was not created by this context's rules;
+    /// the driver does not refuse it itself.
     /// </exception>
     IFramebuffer3D CreateFramebuffer3D(
         IRenderPass3D renderPass,

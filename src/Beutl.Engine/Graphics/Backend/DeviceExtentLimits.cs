@@ -34,25 +34,32 @@ internal static class DeviceExtentLimits
         return Math.Min(cube, attachment);
     }
 
-    /// <summary>Refuses a 2D extent past what a device can make of a 2D image, attached or not.</summary>
-    /// <param name="maxImageDimension">The device's 2D image limit, or zero or less when it did not answer.</param>
+    /// <summary>Refuses an extent past what a device can make of an image created with attachment usage.</summary>
+    /// <param name="maxImageDimension">The device's image limit for the kind, or zero or less when unknown.</param>
+    /// <param name="maxFramebufferWidth">The device's framebuffer width limit, or zero or less when unknown.</param>
+    /// <param name="maxFramebufferHeight">The device's framebuffer height limit, or zero or less when unknown.</param>
     /// <remarks>
-    /// This is the bound a context applies to every 2D texture it creates. A texture that is only ever
-    /// sampled - a material map, say - may legitimately be wider than a framebuffer, so the stricter
-    /// <see cref="ThrowIfCannotAttach"/> is asked by the paths that know they will attach.
+    /// Every texture a context creates carries a colour or depth attachment usage bit, and Vulkan bounds
+    /// such an image by the framebuffer limits at creation (VUID-VkImageCreateInfo-usage-00964), whether
+    /// or not it is ever attached. So a material map that is only sampled is still held to them here; a
+    /// texture that may be wider than a framebuffer would need to be created without attachment usage.
+    /// The framebuffer limits may differ per axis, so each is measured against its own.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">A dimension is negative.</exception>
-    /// <exception cref="InvalidOperationException">The extent exceeds the device's 2D image limit.</exception>
-    public static void ThrowIfCannotMakeImage(int maxImageDimension, int width, int height)
+    /// <exception cref="InvalidOperationException">The extent exceeds the image limit or a framebuffer limit.</exception>
+    public static void ThrowIfCannotMakeAttachableImage(
+        int maxImageDimension, int maxFramebufferWidth, int maxFramebufferHeight, int width, int height)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(width);
         ArgumentOutOfRangeException.ThrowIfNegative(height);
-        if (maxImageDimension <= 0 || (width <= maxImageDimension && height <= maxImageDimension))
-            return;
+        if (maxImageDimension > 0 && (width > maxImageDimension || height > maxImageDimension))
+        {
+            throw new InvalidOperationException(
+                $"A {width}x{height} pixel texture exceeds the {maxImageDimension} pixels this device can make "
+                + "of an image.");
+        }
 
-        throw new InvalidOperationException(
-            $"A {width}x{height} pixel texture exceeds the {maxImageDimension} pixels this device can make of "
-            + "a 2D image.");
+        ThrowIfCannotBuildFramebuffer(maxFramebufferWidth, maxFramebufferHeight, width, height);
     }
 
     /// <summary>Refuses a framebuffer extent past what a device can build, axis by axis.</summary>

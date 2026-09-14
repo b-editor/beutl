@@ -50,7 +50,7 @@ internal sealed class CompositeContext : IGraphicsContext
         {
             // The Metal texture is built first and MoltenVK aborts the process on an over-limit extent, so
             // the refusal cannot be left to the Vulkan path this shares its limits with.
-            DeviceExtentLimits.ThrowIfCannotMakeImage(MaxImageDimension2D, width, height);
+            Vulkan.ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
 
             var texture = new MetalVulkanTexture2D(Metal, Vulkan, width, height, format);
             VulkanContext.RecordTextureAllocation(format);

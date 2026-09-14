@@ -402,6 +402,14 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
     /// <inheritdoc cref="VulkanDevice.MaxFramebufferHeight"/>
     internal int MaxFramebufferHeight => _vulkanDevice.MaxFramebufferHeight;
 
+    /// <summary>
+    /// Refuses an extent this device cannot make of an image created with attachment usage, which every
+    /// texture here is; see <see cref="DeviceExtentLimits.ThrowIfCannotMakeAttachableImage"/>.
+    /// </summary>
+    internal void ThrowIfCannotMakeAttachableImage(int maxImageDimension, int width, int height)
+        => DeviceExtentLimits.ThrowIfCannotMakeAttachableImage(
+            maxImageDimension, MaxFramebufferWidth, MaxFramebufferHeight, width, height);
+
     public int MaxCubeFaceDimension => _vulkanDevice.MaxCubeFaceDimension;
 
     internal static IDisposable ObserveTextureAllocations(Action<TextureFormat> observer)
@@ -431,11 +439,10 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
-        // The driver does not refuse an extent it cannot make: MoltenVK aborts the process on one. The
-        // bound here is the image limit, not the attachment one - a material map is only ever sampled and
-        // may legitimately be wider than a framebuffer - so the attachment limit is asked on the
-        // render-target paths, which know that they will attach.
-        DeviceExtentLimits.ThrowIfCannotMakeImage(MaxImageDimension2D, width, height);
+        // The driver does not refuse an extent it cannot make: SwiftShader answers success past its
+        // framebuffer limit, MoltenVK aborts the process. The usage below carries an attachment bit, which
+        // makes the framebuffer limits apply at creation whether the texture is ever attached or not.
+        ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
 
         ImageUsageFlags usage;
         if (format.IsDepthFormat())
@@ -455,7 +462,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITextureCube CreateTextureCube(int size, TextureFormat format)
     {
-        DeviceExtentLimits.ThrowIfCannotMakeCubeFace(this, size);
+        ThrowIfCannotMakeAttachableImage(MaxCubeFaceDimension, size, size);
 
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
@@ -465,7 +472,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format)
     {
-        DeviceExtentLimits.ThrowIfCannotMakeImage(MaxImageDimension2D, width, height);
+        ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
 
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
@@ -475,7 +482,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITextureCubeArray CreateTextureCubeArray(int size, uint arraySize, TextureFormat format)
     {
-        DeviceExtentLimits.ThrowIfCannotMakeCubeFace(this, size);
+        ThrowIfCannotMakeAttachableImage(MaxCubeFaceDimension, size, size);
 
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit

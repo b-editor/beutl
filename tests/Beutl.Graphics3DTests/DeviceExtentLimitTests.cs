@@ -21,12 +21,15 @@ public sealed class DeviceExtentLimitTests
     }
 
     [Test]
-    public void ATexture2DPastTheImageLimit_IsRefusedBeforeTheDriver()
+    public void ATexture2DPastWhatCanBeAttached_IsRefusedBeforeTheDriver()
     {
+        // Every texture is created with attachment usage, which Vulkan bounds by the framebuffer limits at
+        // creation (VUID-VkImageCreateInfo-usage-00964). SwiftShader would otherwise build it and answer
+        // success; MoltenVK would abort the process.
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            int limit = ImageLimitOf(context);
+            int limit = context.MaxAttachmentDimension;
             Assume.That(limit, Is.GreaterThan(0));
 
             InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
@@ -35,56 +38,6 @@ public sealed class DeviceExtentLimitTests
             Assert.That(refusal!.Message, Does.Contain(limit.ToString()));
         });
     }
-
-    [Test]
-    public void ASampledTextureBetweenTheAttachmentAndImageLimits_IsStillMade()
-    {
-        // A material map is only ever sampled, and a device may sample an image wider than it can attach
-        // (SwiftShader: 16384 against 8192), so the context must not apply the attachment limit to it.
-        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
-        int attachment = context.MaxAttachmentDimension;
-        // Outside the render-thread invoke: an inconclusive result raised inside it is reported as a failure.
-        Assume.That(ImageLimitOf(context), Is.GreaterThan(attachment),
-            "this device attaches everything it can sample, so the two limits cannot be told apart");
-
-        GpuTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using ITexture2D texture = context.CreateTexture2D(attachment + 1, 1, TextureFormat.RGBA8Unorm);
-
-            Assert.That(texture, Is.Not.Null);
-            context.WaitIdle();
-        });
-    }
-
-    [Test]
-    public void AttachingATextureWiderThanAFramebuffer_IsRefusedBeforeTheDriver()
-    {
-        // The image limit lets such a texture be made; the framebuffer limit is what attaching answers
-        // to, and SwiftShader would build the framebuffer past it and answer success.
-        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
-        int attachment = context.MaxAttachmentDimension;
-        Assume.That(ImageLimitOf(context), Is.GreaterThan(attachment),
-            "this device attaches everything it can sample, so the two limits cannot be told apart");
-
-        GpuTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using IRenderPass3D pass = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
-            using ITexture2D color = context.CreateTexture2D(attachment + 1, 1, TextureFormat.RGBA8Unorm);
-
-            InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
-                () => context.CreateFramebuffer3D(pass, [color], null)?.Dispose());
-
-            Assert.That(refusal!.Message, Does.Contain(attachment.ToString()));
-            context.WaitIdle();
-        });
-    }
-
-    private static int ImageLimitOf(IGraphicsContext context) => context switch
-    {
-        Beutl.Graphics.Backend.Vulkan.VulkanContext vulkan => vulkan.MaxImageDimension2D,
-        Beutl.Graphics.Backend.Composite.CompositeContext composite => composite.MaxImageDimension2D,
-        _ => throw new InvalidOperationException($"Unexpected context type {context.GetType()}"),
-    };
 
     [Test]
     public void ACubePastTheCubeLimit_IsRefusedBeforeTheDriver()
