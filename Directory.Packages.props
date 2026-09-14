@@ -15,7 +15,7 @@
     <PackageVersion Include="Avalonia.Headless.NUnit" Version="12.1.2" />
     <PackageVersion Include="Avalonia.Skia" Version="12.1.2" />
     <!-- Keep the System.Reactive scheduler used by ReactiveProperty (12.1 uses ReactiveUI.Primitives). -->
-    <PackageVersion Include="ReactiveUI.Avalonia" Version="12.0.3" />
+    <PackageVersion Include="ReactiveUI.Avalonia" Version="12.1.2" />
     <PackageVersion Include="Silk.NET.MoltenVK.Native" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.OpenAL" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1" />
