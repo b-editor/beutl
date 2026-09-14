@@ -194,7 +194,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     {
         using SKFont font = this.ToSKFont();
 
-        using var shaper = new SKShaper(font.Typeface);
+        using var shaper = new TextShaper(font.Typeface);
         using var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
@@ -333,7 +333,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
         using SKFont font = ToSKFont(density);
 
-        using var shaper = new SKShaper(font.Typeface);
+        using var shaper = new TextShaper(font.Typeface);
         using var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
