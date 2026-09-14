@@ -462,12 +462,22 @@ public class RenderTarget : IDisposable
 
         public SKImageInfo Info => destination.SKBitmap.Info;
 
+        // Whichever of Complete and Fail claims the read first alone touches the bitmap. A dispatcher can raise
+        // ShutdownFinished on its own thread while the thread that subscribed fails the read after finding the shutdown
+        // already over, so the claim has to be atomic rather than a check of the task.
+        private int _settled;
+
+        private bool IsSettled => Volatile.Read(ref _settled) != 0;
+
         // Skia calls this once, on the thread that polled the context, and the result is valid only during the call.
         public void Complete(SKImageReadPixelsResult? result)
         {
+            if (!TrySettle())
+                return;
+
             if (result is null)
             {
-                Fail(new InvalidOperationException(
+                FailSettled(new InvalidOperationException(
                     "Failed to read the render target surface into the destination bitmap."));
                 return;
             }
@@ -478,7 +488,7 @@ public class RenderTarget : IDisposable
             }
             catch (Exception ex)
             {
-                Fail(ex);
+                FailSettled(ex);
                 return;
             }
 
@@ -487,9 +497,14 @@ public class RenderTarget : IDisposable
 
         public void Fail(Exception exception)
         {
-            if (_completion.Task.IsCompleted)
-                return;
+            if (TrySettle())
+                FailSettled(exception);
+        }
 
+        private bool TrySettle() => Interlocked.Exchange(ref _settled, 1) == 0;
+
+        private void FailSettled(Exception exception)
+        {
             // Disposed before the task faults, so nothing that resumes on the failure can find the bitmap alive.
             destination.Dispose();
             _completion.TrySetException(exception);
@@ -525,7 +540,7 @@ public class RenderTarget : IDisposable
 
             void Poll()
             {
-                if (_completion.Task.IsCompleted)
+                if (IsSettled)
                     return;
 
                 try
@@ -544,7 +559,7 @@ public class RenderTarget : IDisposable
                     return;
                 }
 
-                if (!_completion.Task.IsCompleted)
+                if (!IsSettled)
                     SchedulePoll();
             }
         }
