@@ -30,6 +30,10 @@ public class BitmapColorTypeExtensionsTests
         (BitmapColorType.Rgba16161616, SKColorType.Rgba16161616),
         (BitmapColorType.Srgba8888, SKColorType.Srgba8888),
         (BitmapColorType.R8Unorm, SKColorType.R8Unorm),
+        (BitmapColorType.Bgra10101010XR, SKColorType.Bgra10101010XR),
+        (BitmapColorType.RgbF16F16F16x, SKColorType.RgbF16F16F16x),
+        (BitmapColorType.R16Unorm, SKColorType.R16Unorm),
+        (BitmapColorType.RF16, SKColorType.RF16),
     ];
 
     [TestCaseSource(nameof(s_pairs))]
