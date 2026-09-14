@@ -10,6 +10,7 @@ internal enum RenderTargetSamplingIntentKind : byte
     CpuReadback,
     BackendInterop,
     SameContextTextureSampling,
+    AsyncCpuReadback,
 }
 
 public class RenderTarget : IDisposable
@@ -392,6 +393,180 @@ public class RenderTarget : IDisposable
         ReadPixelsInto(destination);
     }
 
+    /// <summary>
+    /// Reads the current surface back without making the calling thread wait for the GPU.
+    /// </summary>
+    /// <returns>
+    /// A task that completes with the pixels <see cref="Snapshot()"/> would have returned when this was called, in the
+    /// same RgbaF16/Premul/LinearSrgb format.
+    /// </returns>
+    /// <remarks>
+    /// The read is queued behind the rendering submitted so far, so drawing into this target afterwards does not change
+    /// what it returns. A GPU context reports a finished read only when it is polled, so until the read completes the
+    /// dispatcher that owns this target polls it between its other work; if that dispatcher shuts down first, the task
+    /// fails with <see cref="OperationCanceledException"/>. Where Skia cannot transfer asynchronously, as for a surface
+    /// rastered on the CPU, or no dispatcher owns this target to poll on, the task has already completed when this
+    /// returns. Nothing checks the thread a target no dispatcher owns is used on, so as with <see cref="Snapshot()"/>
+    /// the caller has to be on the thread that owns its context.
+    /// </remarks>
+    public Task<Bitmap> SnapshotAsync()
+    {
+        VerifyAccess();
+        PrepareForSampling(RenderTargetSamplingIntent.AsyncCpuReadback);
+
+        var readback = new SurfaceReadback(CreateSnapshotBitmap());
+        try
+        {
+            SKSurface surface = _surface.Value!;
+            surface.RequestReadPixels(readback.Info, new SKRectI(0, 0, Width, Height), readback.Complete);
+            if (readback.Completion.IsCompleted)
+                return readback.Completion;
+
+            if (surface.Context is GRContext context && _dispatcher is { } dispatcher)
+            {
+                // The read joined the work recorded for this surface; submitting starts the GPU on it.
+                context.Submit(synchronous: false);
+                readback.PollUntilComplete(
+                    dispatcher,
+                    context.CheckAsyncWorkCompletion,
+                    () => context.Handle == IntPtr.Zero);
+            }
+            else
+            {
+                // Without a direct context, or a dispatcher that owns this target to poll one on, a synchronous flush
+                // on the calling thread runs the finished callback instead. That thread has already flushed this
+                // surface and requested the read above, so it is the one known to own the context; the render thread
+                // need not be.
+                surface.Flush(true, true);
+                if (!readback.Completion.IsCompleted)
+                    readback.Fail(new InvalidOperationException("The render target surface read did not complete."));
+            }
+        }
+        catch (Exception ex)
+        {
+            // Until the task hands the destination out, nothing else disposes it.
+            readback.Fail(ex);
+            throw;
+        }
+
+        return readback.Completion;
+    }
+
+    // A pending SnapshotAsync read, completed by the finished callback the GPU context runs when it is polled.
+    internal sealed class SurfaceReadback(Bitmap destination)
+    {
+        private readonly TaskCompletionSource<Bitmap> _completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<Bitmap> Completion => _completion.Task;
+
+        public SKImageInfo Info => destination.SKBitmap.Info;
+
+        // Whichever of Complete and Fail claims the read first alone touches the bitmap. A dispatcher can raise
+        // ShutdownFinished on its own thread while the thread that subscribed fails the read after finding the shutdown
+        // already over, so the claim has to be atomic rather than a check of the task.
+        private int _settled;
+
+        private bool IsSettled => Volatile.Read(ref _settled) != 0;
+
+        // Skia calls this once, on the thread that polled the context, and the result is valid only during the call.
+        public void Complete(SKImageReadPixelsResult? result)
+        {
+            if (!TrySettle())
+                return;
+
+            if (result is null)
+            {
+                FailSettled(new InvalidOperationException(
+                    "Failed to read the render target surface into the destination bitmap."));
+                return;
+            }
+
+            try
+            {
+                result.CopyPlaneTo(0, destination.GetPixelSpan());
+            }
+            catch (Exception ex)
+            {
+                FailSettled(ex);
+                return;
+            }
+
+            _completion.TrySetResult(destination);
+        }
+
+        public void Fail(Exception exception)
+        {
+            if (TrySettle())
+                FailSettled(exception);
+        }
+
+        private bool TrySettle() => Interlocked.Exchange(ref _settled, 1) == 0;
+
+        private void FailSettled(Exception exception)
+        {
+            // Disposed before the task faults, so nothing that resumes on the failure can find the bitmap alive.
+            destination.Dispose();
+            _completion.TrySetException(exception);
+        }
+
+        // Polls checkAsyncWorkCompletion on the dispatcher, at medium priority, until the read completes. A dispatcher
+        // stops running queued work once it shuts down, so the shutdown fails the read instead of stranding it. Like
+        // DispatcherCleanup, that waits for ShutdownFinished: the failure then runs on the dispatcher's thread after its
+        // loop has exited, never alongside a poll that is completing the read.
+        public void PollUntilComplete(Dispatcher dispatcher, Action checkAsyncWorkCompletion, Func<bool> isContextAbandoned)
+        {
+            EventHandler onShutdownFinished = (_, _) => Fail(new OperationCanceledException(
+                "The dispatcher that owns the render target shut down before the read completed."));
+            dispatcher.ShutdownFinished += onShutdownFinished;
+            _ = _completion.Task.ContinueWith(
+                _ => dispatcher.ShutdownFinished -= onShutdownFinished,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            SchedulePoll();
+
+            // A shutdown that finished before the subscription raised its event with nothing to fail.
+            if (dispatcher.HasShutdownFinished)
+                onShutdownFinished(dispatcher, EventArgs.Empty);
+
+            void SchedulePoll()
+            {
+                // Scheduled afresh for every poll, at the priority Dispatch and Invoke default to. The dispatcher always
+                // takes the highest priority it holds, so a low-priority poll would never run while medium work stayed
+                // queued, and a loop that awaited a delay would resume through its synchronization context at high
+                // priority, ahead of that work.
+                dispatcher.Schedule(TimeSpan.FromMilliseconds(1), Poll, DispatchPriority.Medium);
+            }
+
+            void Poll()
+            {
+                if (IsSettled)
+                    return;
+
+                try
+                {
+                    if (isContextAbandoned())
+                    {
+                        Fail(new ObjectDisposedException(nameof(GRContext)));
+                        return;
+                    }
+
+                    checkAsyncWorkCompletion();
+                }
+                catch (Exception ex)
+                {
+                    Fail(ex);
+                    return;
+                }
+
+                if (!IsSettled)
+                    SchedulePoll();
+            }
+        }
+    }
+
     private void ReadPixelsInto(Bitmap destination)
     {
         SKImageInfo readInfo = destination.SKBitmap.Info;
@@ -540,7 +715,9 @@ public class RenderTarget : IDisposable
         // A context-wide flush is a superset of this surface's, so reclaiming deferred targets here
         // replaces the surface flush instead of adding a second submit - but only when it flushed this
         // surface's own context. A target from a caller-supplied factory can live on another one.
-        if (GpuResourceReclaimQueue.FlushAndDrain(_surface.Value!.Context))
+        // Reclaiming waits for that flush to finish, so an asynchronous readback leaves the queue to the
+        // next flush that synchronizes.
+        if (!intent.IsAsyncCpuReadback && GpuResourceReclaimQueue.FlushAndDrain(_surface.Value!.Context))
         {
             waitForCompletion = true;
         }
