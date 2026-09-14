@@ -193,11 +193,16 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         string projectRoot = CreateProjectDirectory();
         string externalRoot = CreateTemporaryDirectory();
         string externalProjectFile = Path.Combine(externalRoot, "project.bep");
-        await File.WriteAllTextAsync(externalProjectFile, "{}\n");
+        CoreSerializer.StoreToUri(new Project(), new Uri(externalProjectFile));
         string projectFile = Path.Combine(projectRoot, "project.bep");
         CreateFileSymbolicLinkOrIgnore(projectFile, externalProjectFile);
         var selectedRepository = new RepositoryInfo(Root, projectRoot);
-        using GitCliVersionControlService service = CreateUnassociatedService();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunner(),
+            projectFile: projectFile);
 
         InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
@@ -324,10 +329,10 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         bool useGitFile)
     {
         string projectRoot = CreateProjectDirectory();
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
         string nestedRoot = Path.Combine(projectRoot, "embedded");
-        Directory.CreateDirectory(nestedRoot);
-        await File.WriteAllTextAsync(Path.Combine(nestedRoot, "nested.scene"), "{}\n");
+        string projectFile = StoreProjectReferencingSidecar(
+            projectRoot,
+            Path.Combine(nestedRoot, "item.custom-sidecar"));
         if (useGitFile)
         {
             await File.WriteAllTextAsync(
@@ -340,7 +345,12 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         }
 
         var selectedRepository = new RepositoryInfo(Root, projectRoot);
-        using GitCliVersionControlService service = CreateUnassociatedService();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunner(),
+            projectFile: projectFile);
 
         InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
@@ -381,21 +391,43 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Initialize_allows_an_ignored_nested_repository()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "nested/project/tools/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore project tools");
+        Directory.CreateDirectory(Path.Combine(projectRoot, "tools", "lut-library", ".git"));
+        var selectedRepository = new RepositoryInfo(Root, projectRoot);
+        using GitCliVersionControlService service = CreateUnassociatedService();
+
+        await service.InitializeAsync(
+            new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        // Git never stages an ignored repository, so it cannot end up as a gitlink.
+        Assert.That(service.Repository, Is.Not.Null);
+    }
+
+    [Test]
     public async Task Snapshot_rejects_required_content_beneath_a_nested_git_repository()
     {
         string projectRoot = CreateProjectDirectory();
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "baseline\n");
+        string nestedRoot = Path.Combine(projectRoot, "embedded");
+        string projectFile = StoreProjectReferencingSidecar(
+            projectRoot,
+            Path.Combine(nestedRoot, "item.custom-sidecar"));
         await RunGitAsync("add", "--", "nested/project/project.bep");
         await RunGitAsync("commit", "-m", "baseline project");
-        string nestedRoot = Path.Combine(projectRoot, "embedded");
         Directory.CreateDirectory(Path.Combine(nestedRoot, ".git"));
-        await File.WriteAllTextAsync(Path.Combine(nestedRoot, "nested.scene"), "{}\n");
         var repository = new RepositoryInfo(Root, projectRoot);
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
             repository,
             watcher: null,
-            _ => CreateRunner());
+            _ => CreateRunner(),
+            projectFile: projectFile);
 
         InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
@@ -407,15 +439,28 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Snapshot_rejects_a_nested_repository_with_only_optional_content()
+    public async Task Snapshot_rejects_an_unignored_nested_repository_as_a_gitlink()
     {
         string projectRoot = CreateProjectDirectory();
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "baseline\n");
         await RunGitAsync("add", "--", "nested/project/project.bep");
         await RunGitAsync("commit", "-m", "baseline project");
         string nestedRoot = Path.Combine(projectRoot, "embedded");
-        Directory.CreateDirectory(Path.Combine(nestedRoot, ".git"));
+        Directory.CreateDirectory(nestedRoot);
+        var nestedRepository = new RepositoryInfo(nestedRoot, nestedRoot);
+        GitCliRunner runner = CreateRunner();
+        await runner.RunAsync(nestedRepository, ["init"], GitCommandOptions.Local, CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(nestedRoot, "notes.txt"), "optional\n");
+        await runner.RunAsync(
+            nestedRepository,
+            ["add", "--", "notes.txt"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await runner.RunAsync(
+            nestedRepository,
+            ["-c", "user.name=Nested", "-c", "user.email=nested@example.invalid", "commit", "-m", "nested"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
             new RepositoryInfo(Root, projectRoot),
@@ -428,7 +473,12 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                 SnapshotKind.Save,
                 CancellationToken.None));
 
-        Assert.That(exception!.Message, Does.Contain("nested Git repository 'embedded'"));
+        Assert.Multiple(() =>
+        {
+            // Git stages it as a gitlink, and a restore could not bring its content back.
+            Assert.That(exception!.Message, Does.Contain("nested Git repository"));
+            Assert.That(exception.Message, Does.Contain("embedded"));
+        });
     }
 
     [TestCase(".gitignore")]
@@ -493,51 +543,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             Assert.That(service.Repository.Pathspec, Is.EqualTo(selectedRepository.Pathspec));
             Assert.That(File.Exists(stateFile), Is.True);
             Assert.That(committed.Stdout, Does.Not.Contain(".beutl"));
-        });
-    }
-
-    [TestCase("late.scene", "nested/project/*.scene")]
-    [TestCase("late.SCENE", "nested/project/*.SCENE")]
-    public async Task Snapshot_rejects_required_data_ignored_after_nested_activation(
-        string relativeProjectPath,
-        string ignoreRule)
-    {
-        string projectRoot = CreateProjectDirectory();
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
-        await RunGitAsync("add", "-A");
-        await RunGitAsync("commit", "-m", "baseline project");
-        var repository = new RepositoryInfo(Root, projectRoot);
-        using GitCliVersionControlService service = CreateUnassociatedService();
-        await service.InitializeAsync(
-            new InitOptions(repository, UseLfsWhenAvailable: false),
-            CancellationToken.None);
-
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), $"{ignoreRule}\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore late project data");
-        string requiredPath = Path.Combine(
-            projectRoot,
-            relativeProjectPath.Replace('/', Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(Path.GetDirectoryName(requiredPath)!);
-        await File.WriteAllTextAsync(requiredPath, "required data\n");
-
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        GitCommandResult staged = await RunGitAsync(
-            "diff",
-            "--cached",
-            "--name-only",
-            "--",
-            repository.Pathspec);
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("ignore rules"));
-            Assert.That(staged.Stdout, Is.Empty);
-            Assert.That(File.Exists(requiredPath), Is.True);
         });
     }
 
@@ -618,7 +623,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             ["init", "-b", "main"],
             GitCommandOptions.Local,
             CancellationToken.None);
-        string requiredPath = Path.Combine(projectRoot, "late.scene");
+        string requiredPath = Path.Combine(projectRoot, ".gitattributes");
         await File.WriteAllTextAsync(requiredPath, "ignored required data\n");
 
         InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
@@ -651,11 +656,11 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
         await RunGitAsync("add", "--", "nested/project[1]/project.bep");
         await RunGitAsync("commit", "-m", "baseline project");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.scene\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), ".gitattributes\n");
         await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore scenes");
+        await RunGitAsync("commit", "-m", "ignore attribute files");
         await File.WriteAllTextAsync(
-            Path.Combine(lookalikeRoot, "outside.scene"),
+            Path.Combine(lookalikeRoot, ".gitattributes"),
             "ignored outside project\n");
         var repository = new RepositoryInfo(Root, projectRoot);
         using var service = new GitCliVersionControlService(
@@ -669,7 +674,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             SnapshotKind.Save,
             CancellationToken.None);
 
-        string requiredPath = Path.Combine(projectRoot, "late.scene");
+        string requiredPath = Path.Combine(projectRoot, ".gitattributes");
         await File.WriteAllTextAsync(requiredPath, "ignored required data\n");
         InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
@@ -806,19 +811,49 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                     "--exclude-standard",
                     "-z",
                     "--",
-                    ":(top,glob)nested/project\\[1\\]/**/*.[bB][eE][pP]",
-                    ":(top,glob)nested/project\\[1\\]/**/*.[sS][cC][eE][nN][eE]",
-                    ":(top,glob)nested/project\\[1\\]/**/*.[bB][eE][lL][mM]",
                     ":(top,glob)nested/project\\[1\\]/.gitignore",
                     ":(top,glob)nested/project\\[1\\]/.gitattributes",
-                    ":(top,exclude,glob)nested/project\\[1\\]/**/.[bB][eE][uU][tT][lL]/**",
-                    ":(top,exclude,glob)nested/project\\[1\\]/**/*.[tT][mM][pP]",
                 }));
             Assert.That(query.Options.ExecutionKind, Is.EqualTo(GitCommandExecutionKind.Local));
             Assert.That(query.Options.StandardInput, Is.Null);
             Assert.That(query.Options.UseLiteralPathspecs, Is.False);
             Assert.That(query.Options.MaxStdoutBytes, Is.InRange(1, 256 * 1024));
         });
+    }
+
+    [Test]
+    public async Task Snapshot_allows_a_repository_cloned_into_an_ignored_folder_of_a_bracketed_project()
+    {
+        // Git prunes its ignored-file walk only up to a pathspec's first glob character, so the
+        // escaped brackets in this project name let it reach the cloned repository.
+        string projectRoot = Path.Combine(Root, "nested", "project[1]");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, ".gitignore"), "/tools/\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "baseline project");
+        string toolRepository = Path.Combine(projectRoot, "tools", "lut-library");
+        Directory.CreateDirectory(toolRepository);
+        await CreateRunner().RunAsync(
+            new RepositoryInfo(toolRepository, toolRepository),
+            ["init"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(toolRepository, "grade.cube"), "LUT\n");
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{\"edited\":true}\n");
+        var runner = CreateRunner();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            new RepositoryInfo(Root, projectRoot),
+            watcher: null,
+            _ => runner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.That(result, Is.TypeOf<CommitResult.Committed>());
     }
 
     [Test]
@@ -1504,6 +1539,43 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             Assert.That(indexAfter, Is.EqualTo(indexBefore));
             Assert.That(staged.Stdout, Does.Contain(repositoryRelativeReservedPath));
         });
+    }
+
+    [Test]
+    public async Task Reserved_paths_ignore_a_Beutl_state_folder_above_the_project()
+    {
+        string projectRoot = Path.Combine(Root, "home", ".beutl", "projects", "trailer");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "project kept beneath a .beutl folder");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            new RepositoryInfo(Root, projectRoot),
+            watcher: null,
+            _ => CreateRunner());
+
+        IReadOnlyList<string> reserved = await service.GetTrackedReservedPathsAsync(
+            CancellationToken.None);
+
+        // Only Beutl's own state inside the project is reserved. Counting the folder above it would
+        // offer to stop tracking the whole project.
+        Assert.That(reserved, Is.Empty);
+    }
+
+    private static string StoreProjectReferencingSidecar(string projectRoot, string sidecarFile)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(sidecarFile)!);
+        var item = new GitCliVersionControlServiceTests.SnapshotTestProjectItem
+        {
+            Uri = new Uri(sidecarFile),
+        };
+        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
+        var project = new Project();
+        project.Items.Add(item);
+        string projectFile = Path.Combine(projectRoot, "project.bep");
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        return projectFile;
     }
 
     private string CreateProjectDirectory()

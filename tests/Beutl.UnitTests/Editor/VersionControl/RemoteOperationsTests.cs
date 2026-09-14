@@ -303,6 +303,38 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Pull_preflight_reports_unrelated_repository_changes_before_the_project_closes()
+    {
+        string projectRoot = Path.Combine(Root, "project");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "base\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "initial");
+        string originRoot = await CreateBareRemoteAsync();
+        using var service = CreateService(new RepositoryInfo(Root, projectRoot));
+        await service.SetRemoteAsync(originRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        RepositoryInfo peer = await CloneRemoteAsync(originRoot);
+        await CommitInRepositoryAsync(peer, "project/project.bep", "from peer\n", "peer update");
+        await File.WriteAllTextAsync(Path.Combine(Root, "notes.txt"), "scratch outside the project\n");
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+
+        PullPreflightResult preflight = await service.PreflightPullAsync(
+            expected,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            // The pull itself refuses this state only after the coordinator has closed the project,
+            // so the preflight has to report it while the project is still open.
+            Assert.That(preflight.Result, Is.TypeOf<RemoteOpResult.RepositoryDirty>());
+            Assert.That(preflight.RequiresTransition, Is.False);
+        });
+    }
+
+    [Test]
     public async Task Status_uses_origin_counts_when_branch_tracks_another_remote()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
@@ -2676,8 +2708,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
             "beutl: checkpoint",
             CancellationToken.None);
-        // Created after the checkpoint: snapshotting refuses a symbolic link with a project-file
-        // extension outright, and this covers the persistence guard, not that refusal.
+        // Created after the checkpoint, so only the persistence guard sees the link.
         CreateFileSymbolicLinkOrIgnore(linkedProject, externalProject);
 
         Assert.ThrowsAsync<ArgumentException>(async () =>
@@ -2695,8 +2726,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string externalRoot = CreateTemporaryDirectory();
         using var service = CreateService();
         PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
-        // Created after the checkpoint: snapshotting refuses a symbolic link with a project-file
-        // extension outright, and this covers enumeration, not that refusal.
+        // Created after the checkpoint, so only enumeration sees the link.
         CreateDirectorySymbolicLinkOrIgnore(
             Path.Combine(Root, "escape"),
             externalRoot);
@@ -2726,8 +2756,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(externalRoot, "project.bep"), "external\n");
         using var service = CreateService();
         PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
-        // Created after the checkpoint: snapshotting refuses a symbolic link with a project-file
-        // extension outright, and this covers enumeration, not that refusal.
+        // Created after the checkpoint, so only enumeration sees the link.
         CreateDirectorySymbolicLinkOrIgnore(
             Path.Combine(Root, "alias"),
             Path.Combine(externalRoot, "sub"));
@@ -2824,11 +2853,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Directory.CreateDirectory(targetDirectory);
         string targetProjectFile = Path.Combine(targetDirectory, "project-data");
         string repositoryProjectAlias = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(targetProjectFile, "base\n");
+        Beutl.Serialization.CoreSerializer.StoreToUri(new Project(), new Uri(targetProjectFile));
         CreateFileSymbolicLinkOrIgnore(repositoryProjectAlias, "target/project-data");
         await RunGitAsync("add", "-A");
         await RunGitAsync("commit", "-m", "initial");
-        using GitCliVersionControlService service = CreateService();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            projectFile: repositoryProjectAlias);
 
         InvalidOperationException? refusal = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CreateProjectCheckpointAsync(

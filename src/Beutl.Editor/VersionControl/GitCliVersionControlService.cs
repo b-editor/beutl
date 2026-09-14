@@ -405,15 +405,10 @@ internal sealed class GitCliVersionControlService :
         return s_mediaExtensions.Contains(Path.GetExtension(path));
     }
 
-    private static readonly HashSet<string> s_projectFileExtensions = new(
-        [".bep", ".scene", ".belm"],
-        StringComparer.OrdinalIgnoreCase);
-
+    // Beutl writes these itself, so they are checked by name. Every other file the project needs is in
+    // its reference graph and checked there, which leaves out files the project no longer uses.
     private static readonly string[] s_ignoredRequiredProjectPathspecSuffixes =
     [
-        "**/*.[bB][eE][pP]",
-        "**/*.[sS][cC][eE][nN][eE]",
-        "**/*.[bB][eE][lL][mM]",
         ".gitignore",
         ".gitattributes",
     ];
@@ -1098,6 +1093,9 @@ internal sealed class GitCliVersionControlService :
     private readonly Func<string, IGitCliRunner> _runnerFactory;
     private readonly Func<bool> _isWorktreeMutationAllowed;
     private readonly string? _projectFile;
+    // The LFS setting the last hygiene run applied, which tells a change made while the project is
+    // open apart from a machine where LFS was never on.
+    private bool? _lastLfsRequested;
     private readonly Dictionary<string, IReadOnlySet<string>> _historicalRequiredTemporaryPaths =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
@@ -1343,14 +1341,17 @@ internal sealed class GitCliVersionControlService :
                         runner,
                         cancellationToken)
                     .ConfigureAwait(false);
-                bool useLfs = _installationLocator.Config.UseLfsWhenAvailable
-                              && availability.LfsInstalled;
+                bool lfsRequested = _installationLocator.Config.UseLfsWhenAvailable;
                 await EnsureRepositoryHygieneCoreAsync(
                         repository,
                         runner,
-                        useLfs,
+                        lfsRequested && availability.LfsInstalled,
+                        // Every machine using this repository shares the block. Only turning the
+                        // setting off while the project is open is a decision about it.
+                        removeManagedLfs: !lfsRequested && _lastLfsRequested == true,
                         cancellationToken)
                     .ConfigureAwait(false);
+                _lastLfsRequested = lfsRequested;
             },
             cancellationToken);
     }
@@ -4174,8 +4175,31 @@ internal sealed class GitCliVersionControlService :
             .ConfigureAwait(false);
         if (entries.StdoutTruncated)
         {
-            throw new InvalidOperationException(
-                "Git could not safely inspect the complete project tree for nested repositories.");
+            // Each entry of the full listing carries an object name and a path, so a large project,
+            // such as one holding a rendered frame sequence, overflows it long before a nested
+            // repository matters. Modes alone stay small enough to scan the whole tree.
+            GitCommandResult modes = await runner.RunAsync(
+                    repository,
+                    ["ls-tree", "-r", "-z", "--format=%(objectmode)", tree, "--", repository.Pathspec],
+                    GitCommandOptions.Local with
+                    {
+                        MaxStdoutBytes = MaxSnapshotTreeInspectionBytes,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (modes.StdoutTruncated)
+            {
+                throw new InvalidOperationException(
+                    "Git could not safely inspect the complete project tree for nested repositories.");
+            }
+
+            if (GitCliRunner.SplitNullSeparated(modes.Stdout).Contains("160000", StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    "The project tree contains a nested Git repository that cannot be snapshotted safely.");
+            }
+
+            return;
         }
 
         string? gitlink = GitCliRunner.SplitNullSeparated(entries.Stdout)
@@ -5525,6 +5549,27 @@ internal sealed class GitCliVersionControlService :
             repository,
             ["status", "--porcelain=v1", "--untracked-files=all", "-z"],
             GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        return result.Stdout.Length == 0;
+    }
+
+    private static async Task<bool> IsOutsideProjectCleanAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            [
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+                "-z",
+                "--",
+                ":/",
+                $":(top,exclude,literal){repository.Pathspec}",
+            ],
+            new GitCommandOptions(GitCommandExecutionKind.Local) { UseLiteralPathspecs = false },
             cancellationToken).ConfigureAwait(false);
         return result.Stdout.Length == 0;
     }
@@ -6906,14 +6951,22 @@ internal sealed class GitCliVersionControlService :
             cancellationToken);
     }
 
-    private static bool IsReservedProjectPath(string repositoryRelativePath)
+    private static bool IsReservedProjectPath(RepositoryInfo repository, string repositoryRelativePath)
     {
         if (repositoryRelativePath.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
-        foreach (string segment in repositoryRelativePath.Split('/'))
+        // Only the part inside the project decides. A .beutl folder above the project in an enclosing
+        // repository is not Beutl state.
+        string projectRelativePath = repository.Pathspec != "."
+                                     && repositoryRelativePath.StartsWith(
+                                         repository.Pathspec + "/",
+                                         StringComparison.Ordinal)
+            ? repositoryRelativePath[(repository.Pathspec.Length + 1)..]
+            : repositoryRelativePath;
+        foreach (string segment in projectRelativePath.Split('/'))
         {
             if (string.Equals(segment, ".beutl", StringComparison.OrdinalIgnoreCase))
             {
@@ -6936,7 +6989,7 @@ internal sealed class GitCliVersionControlService :
             cancellationToken).ConfigureAwait(false);
         return listed.Stdout
             .Split('\0', StringSplitOptions.RemoveEmptyEntries)
-            .Where(IsReservedProjectPath)
+            .Where(path => IsReservedProjectPath(repository, path))
             .Where(path => !IsRequiredTemporaryRepositoryPath(repository, path))
             .ToArray();
     }
@@ -8682,6 +8735,19 @@ internal sealed class GitCliVersionControlService :
                 cancellationToken)
             .ConfigureAwait(false);
 
+        if (relation == PullRelation.LocalBehind
+            && repository.Pathspec != "."
+            && !await IsOutsideProjectCleanAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            // The pull refuses unrelated changes elsewhere in the repository, but only after the
+            // project has been closed for it. Report them while the project is still open.
+            return new PullPreflightResult(
+                new RemoteOpResult.RepositoryDirty(),
+                RequiresTransition: false,
+                UpstreamCommit: null);
+        }
+
         return relation switch
         {
             PullRelation.LocalBehind => new PullPreflightResult(
@@ -9343,6 +9409,7 @@ internal sealed class GitCliVersionControlService :
         string ignorePath = Path.Combine(repository.ProjectRoot, ".gitignore");
         string attributesPath = Path.Combine(repository.ProjectRoot, ".gitattributes");
         bool useLfs = options.UseLfsWhenAvailable && availability.LfsInstalled;
+        bool removeManagedLfs = false;
         if (useLfs)
         {
             useLfs = await TryInstallLfsLocallyAsync(
@@ -9350,6 +9417,7 @@ internal sealed class GitCliVersionControlService :
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
+            removeManagedLfs = !useLfs;
         }
 
         await EnsureLinesAsync(
@@ -9360,8 +9428,10 @@ internal sealed class GitCliVersionControlService :
         await EnsureAttributesAsync(
                 attributesPath,
                 useLfs,
+                removeManagedLfs,
                 cancellationToken)
             .ConfigureAwait(false);
+        _lastLfsRequested = options.UseLfsWhenAvailable;
 
         WorkspaceStatus status = await GetStatusCoreAsync(
                 repository,
@@ -9521,6 +9591,7 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo repository,
         IGitCliRunner runner,
         bool useLfs,
+        bool removeManagedLfs,
         CancellationToken cancellationToken)
     {
         EnsureHygienePathsAreSafe(repository);
@@ -9535,6 +9606,9 @@ internal sealed class GitCliVersionControlService :
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
+            // Git LFS is installed but could not be enabled here, so its filters would commit
+            // pointers that no hook pushes.
+            removeManagedLfs |= !useLfs;
         }
 
         await EnsureLinesAsync(
@@ -9544,6 +9618,7 @@ internal sealed class GitCliVersionControlService :
         await EnsureAttributesAsync(
             attributesPath,
             useLfs,
+            removeManagedLfs,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -10943,13 +11018,17 @@ internal sealed class GitCliVersionControlService :
     private async Task EnsureAttributesAsync(
         string path,
         bool useLfs,
+        bool removeManagedLfs,
         CancellationToken cancellationToken)
     {
         await UpdateHygieneFileAsync(
             path,
             lines =>
             {
-                int? managedBlockIndex = RemoveManagedLfsBlocks(lines);
+                // A machine that does not use LFS leaves a block another machine wrote alone.
+                int? managedBlockIndex = useLfs || removeManagedLfs
+                    ? RemoveManagedLfsBlocks(lines)
+                    : null;
                 foreach (string requiredLine in s_textAttributeLines)
                 {
                     if (!lines.Contains(requiredLine, StringComparer.Ordinal))
@@ -11675,7 +11754,9 @@ internal sealed class GitCliVersionControlService :
                              }))
             await using (var writer = new StreamWriter(
                              stream,
-                             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+                             snapshot.IsLegacyEncoded
+                                 ? Encoding.Latin1
+                                 : new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
             {
                 await writer.WriteAsync(contents.AsMemory(), cancellationToken)
                     .ConfigureAwait(false);
@@ -11728,21 +11809,25 @@ internal sealed class GitCliVersionControlService :
                 ? s_utf8Bom.Length
                 : 0;
             string contents;
+            bool isLegacyEncoded = false;
             try
             {
                 contents = s_strictUtf8.GetString(bytes.AsSpan(offset));
             }
-            catch (DecoderFallbackException ex)
+            catch (DecoderFallbackException)
             {
-                throw new InvalidDataException(
-                    $"Repository hygiene requires '{path}' to use UTF-8 encoding.",
-                    ex);
+                // Git reads these files as bytes, so a comment in a legacy encoding is valid. Latin-1
+                // maps each byte to one character and keeps those bytes intact around Beutl's lines.
+                contents = Encoding.Latin1.GetString(bytes);
+                isLegacyEncoded = true;
             }
 
             if (contents.Contains('\0'))
             {
+                // Git matches these files line by line on raw bytes, which a UTF-16 file defeats, and
+                // appending Beutl's ASCII lines would corrupt it further.
                 throw new InvalidDataException(
-                    $"Repository hygiene requires '{path}' to use UTF-8 encoding.");
+                    $"Repository hygiene cannot edit '{path}' because it contains NUL bytes.");
             }
 
             FileAttributes attributes = File.GetAttributes(path);
@@ -11757,7 +11842,8 @@ internal sealed class GitCliVersionControlService :
                 Exists: true,
                 contents,
                 attributes,
-                unixMode);
+                unixMode,
+                isLegacyEncoded);
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
@@ -11815,7 +11901,8 @@ internal sealed class GitCliVersionControlService :
         bool Exists,
         string? Contents,
         FileAttributes? Attributes,
-        UnixFileMode? UnixMode);
+        UnixFileMode? UnixMode,
+        bool IsLegacyEncoded = false);
 
     private static void EnsureHygienePathsAreSafe(RepositoryInfo repository)
     {
@@ -11857,7 +11944,8 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
-        var paths = GetRequiredProjectRelativePaths(repository.ProjectRoot)
+        var nestedRepositories = new List<string>();
+        var paths = GetRequiredProjectRelativePaths(repository.ProjectRoot, nestedRepositories)
             .Where(static path => !path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
             .Select(path => prefix + path)
             .ToList();
@@ -11865,6 +11953,15 @@ internal sealed class GitCliVersionControlService :
         {
             paths.Add(repository.Pathspec + "/");
         }
+
+        await ThrowIfNestedRepositoryWouldBeStagedAsync(
+                repository,
+                runner,
+                prefix,
+                nestedRepositories,
+                environmentOverrides: null,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         // Git keeps committing a tracked file whatever the ignore rules say, so only an untracked
         // path can be dropped, the same check a snapshot runs.
@@ -11907,7 +12004,11 @@ internal sealed class GitCliVersionControlService :
                 "Git could not safely determine whether required project files are ignored.");
         }
 
-        string? ignoredPath = GitCliRunner.SplitNullSeparated(result.Stdout).FirstOrDefault();
+        // Git can still list a nested repository inside an ignored folder, for example when a glob
+        // character in the project path stops it from pruning the walk. That entry is a directory
+        // Git never stages, not one of the files queried here.
+        string? ignoredPath = GitCliRunner.SplitNullSeparated(result.Stdout)
+            .FirstOrDefault(static path => !path.EndsWith('/'));
         if (ignoredPath is not null)
         {
             return ignoredPath;
@@ -12065,17 +12166,13 @@ internal sealed class GitCliVersionControlService :
         string prefix = repository.Pathspec == "."
             ? string.Empty
             : EscapeGitGlobPath(repository.Pathspec) + "/";
-        var result = new List<string>(
-            s_ignoredRequiredProjectPathspecSuffixes.Length
-            + s_ignoredOptionalProjectPathspecSuffixes.Length);
+        // Only the project-root files, with no exclude pathspecs: a pathspec that starts with a
+        // wildcard keeps Git from pruning its walk, so it would open every ignored folder and fail
+        // closed on one this account cannot read.
+        var result = new List<string>(s_ignoredRequiredProjectPathspecSuffixes.Length);
         foreach (string suffix in s_ignoredRequiredProjectPathspecSuffixes)
         {
             result.Add($":(top,glob){prefix}{suffix}");
-        }
-
-        foreach (string suffix in s_ignoredOptionalProjectPathspecSuffixes)
-        {
-            result.Add($":(top,exclude,glob){prefix}{suffix}");
         }
 
         return result;
@@ -12124,10 +12221,22 @@ internal sealed class GitCliVersionControlService :
                 ["GIT_DIR"] = Path.Combine(probeRoot, ".git"),
                 ["GIT_WORK_TREE"] = repository.ProjectRoot,
             };
+            var nestedRepositories = new List<string>();
+            IReadOnlyList<string> requiredPaths = GetRequiredProjectRelativePaths(
+                repository.ProjectRoot,
+                nestedRepositories);
+            await ThrowIfNestedRepositoryWouldBeStagedAsync(
+                    probeRepository,
+                    runner,
+                    prefix: string.Empty,
+                    nestedRepositories,
+                    environmentOverrides,
+                    cancellationToken)
+                .ConfigureAwait(false);
             return await FindIgnoredPathAsync(
                     probeRepository,
                     runner,
-                    GetRequiredProjectRelativePaths(repository.ProjectRoot)
+                    requiredPaths
                         .Where(static path => !path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)),
                     environmentOverrides,
                     includeTrackedFiles: true,
@@ -12137,6 +12246,50 @@ internal sealed class GitCliVersionControlService :
         finally
         {
             TryDeleteIgnoreProbeDirectory(probeRoot);
+        }
+    }
+
+    private static async Task ThrowIfNestedRepositoryWouldBeStagedAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string prefix,
+        IReadOnlyList<string> nestedRepositories,
+        IReadOnlyDictionary<string, string?>? environmentOverrides,
+        CancellationToken cancellationToken)
+    {
+        if (nestedRepositories.Count == 0)
+        {
+            return;
+        }
+
+        HashSet<string> ignored;
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                ["check-ignore", "--stdin", "-z"],
+                new GitCommandOptions(
+                    GitCommandExecutionKind.Local,
+                    EnvironmentOverrides: environmentOverrides,
+                    StandardInput: string.Concat(nestedRepositories.Select(path => $"{prefix}{path}/\0")),
+                    UseLiteralPathspecs: false),
+                cancellationToken).ConfigureAwait(false);
+            ignored = GitCliRunner.SplitNullSeparated(result.Stdout)
+                .Select(static path => path.TrimEnd('/'))
+                .ToHashSet(StringComparer.Ordinal);
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            ignored = [];
+        }
+
+        // An unignored repository would become a gitlink in the first snapshot, so refuse it before
+        // anything is written rather than after.
+        string? staged = nestedRepositories.FirstOrDefault(path => !ignored.Contains(prefix + path));
+        if (staged is not null)
+        {
+            throw new InvalidOperationException(
+                $"The nested Git repository '{staged}' cannot be snapshotted safely.");
         }
     }
 
@@ -12177,11 +12330,13 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private IReadOnlyList<string> GetRequiredProjectRelativePaths(string projectRoot)
+    private IReadOnlyList<string> GetRequiredProjectRelativePaths(
+        string projectRoot,
+        ICollection<string>? unreferencedNestedRepositories = null)
     {
         IReadOnlySet<string> serializedPaths = GetSerializedProjectRelativePaths(projectRoot);
-        // Beutl writes the hygiene files itself. Anything else is required only when the project has
-        // it, so a rule ignoring media or project files the project does not have blocks nothing.
+        // Beutl writes the hygiene files itself. Anything else is required only when the project
+        // references it, so a rule ignoring files the project does not use blocks nothing.
         var paths = new HashSet<string>(StringComparer.Ordinal)
         {
             ".gitignore",
@@ -12190,7 +12345,10 @@ internal sealed class GitCliVersionControlService :
 
         if (Directory.Exists(projectRoot))
         {
-            foreach (string path in EnumerateRequiredProjectFiles(projectRoot, serializedPaths))
+            foreach (string path in EnumerateRequiredProjectFiles(
+                         projectRoot,
+                         serializedPaths,
+                         unreferencedNestedRepositories))
             {
                 paths.Add(NormalizeGitPath(Path.GetRelativePath(projectRoot, path)));
             }
@@ -12289,7 +12447,8 @@ internal sealed class GitCliVersionControlService :
 
     private static IEnumerable<string> EnumerateRequiredProjectFiles(
         string projectRoot,
-        IReadOnlySet<string> serializedPaths)
+        IReadOnlySet<string> serializedPaths,
+        ICollection<string>? unreferencedNestedRepositories = null)
     {
         var pending = new Stack<string>();
         pending.Push(projectRoot);
@@ -12306,14 +12465,31 @@ internal sealed class GitCliVersionControlService :
                 continue;
             }
 
-            foreach (string file in Directory.EnumerateFiles(directory, "*", options))
+            string relativeDirectoryPath = NormalizeGitPath(Path.GetRelativePath(projectRoot, directory));
+            string[] files;
+            string[] children;
+            try
             {
-                string extension = Path.GetExtension(file);
+                files = Directory.GetFiles(directory, "*", options);
+                children = Directory.GetDirectories(directory, "*", options);
+            }
+            catch (UnauthorizedAccessException)
+                when (relativeDirectoryPath != "."
+                      && !serializedPaths.Any(path =>
+                          IsSameOrDescendantGitPath(path, relativeDirectoryPath)))
+            {
+                // Git warns about a folder it cannot read and snapshots everything else. Nothing the
+                // project references is inside this one, so there is nothing to protect.
+                continue;
+            }
+
+            foreach (string file in files)
+            {
                 string relativeFile = NormalizeGitPath(Path.GetRelativePath(projectRoot, file));
-                // Neither location nor media type makes a file required: an unreferenced file is not
-                // project state, so an ignore rule cannot drop anything the project needs.
-                if (serializedPaths.Contains(relativeFile)
-                    || s_projectFileExtensions.Contains(extension))
+                // Only a reference makes a file required. An unreferenced file is not project state,
+                // whatever its folder or type, so neither an ignore rule nor a link can lose anything
+                // the project needs.
+                if (serializedPaths.Contains(relativeFile))
                 {
                     var fileInfo = new FileInfo(file);
                     fileInfo.Refresh();
@@ -12328,7 +12504,7 @@ internal sealed class GitCliVersionControlService :
                 }
             }
 
-            foreach (string child in Directory.EnumerateDirectories(directory, "*", options))
+            foreach (string child in children)
             {
                 string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(child));
                 if (!string.Equals(
@@ -12365,8 +12541,18 @@ internal sealed class GitCliVersionControlService :
                     if (Directory.Exists(Path.Combine(child, ".git"))
                         || File.Exists(Path.Combine(child, ".git")))
                     {
-                        throw new InvalidOperationException(
-                            $"The nested Git repository '{relativeDirectory}' cannot be snapshotted safely.");
+                        if (serializedPaths.Any(path =>
+                                IsSameOrDescendantGitPath(path, relativeDirectory)))
+                        {
+                            throw new InvalidOperationException(
+                                $"The nested Git repository '{relativeDirectory}' cannot be snapshotted safely.");
+                        }
+
+                        // Git leaves an ignored repository out of a snapshot and records an unignored
+                        // one as a gitlink, which the snapshot tree check refuses. A caller that must
+                        // refuse before changing anything asks Git which of these it would stage.
+                        unreferencedNestedRepositories?.Add(relativeDirectory);
+                        continue;
                     }
 
                     pending.Push(child);

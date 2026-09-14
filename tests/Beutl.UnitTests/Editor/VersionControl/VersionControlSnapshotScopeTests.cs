@@ -1071,6 +1071,50 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public void Serialized_graph_skips_path_like_text_that_resolves_to_no_file()
+    {
+        // An extension's own converter can store a font face name like this. It names no file, so
+        // there is nothing an ignore rule or a layout check could protect.
+        var item = new OpaqueFontProjectItem { Font = new OpaqueFontName("Noto Sans JP.Bold") };
+
+        Assert.DoesNotThrow(() => VersionControlSerializationGraph.DiscoverSerializationGraph(item));
+    }
+
+    public sealed class OpaqueFontProjectItem : ProjectItem
+    {
+        public OpaqueFontName? Font { get; init; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Font), Font);
+        }
+    }
+
+    // A class, not a record: the graph refuses a record's compiler-generated EqualityContract accessor.
+    [System.Text.Json.Serialization.JsonConverter(typeof(OpaqueFontNameConverter))]
+    public sealed class OpaqueFontName(string value)
+    {
+        public string Value { get; } = value;
+    }
+
+    public sealed class OpaqueFontNameConverter
+        : System.Text.Json.Serialization.JsonConverter<OpaqueFontName>
+    {
+        public override OpaqueFontName Read(
+            ref System.Text.Json.Utf8JsonReader reader,
+            Type typeToConvert,
+            System.Text.Json.JsonSerializerOptions options)
+            => new(reader.GetString()!);
+
+        public override void Write(
+            System.Text.Json.Utf8JsonWriter writer,
+            OpaqueFontName value,
+            System.Text.Json.JsonSerializerOptions options)
+            => writer.WriteStringValue(value.Value);
+    }
+
     private GitCliVersionControlService CreateService(string? projectFile = null)
     {
         return new GitCliVersionControlService(

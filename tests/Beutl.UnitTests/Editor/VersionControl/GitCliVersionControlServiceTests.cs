@@ -995,13 +995,15 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task InitializeAsync_rejects_ignored_data_in_a_new_repository_before_mutation()
     {
         string projectRoot = CreateTemporaryDirectory();
+        string projectFile = Path.Combine(projectRoot, "project.bep");
         await File.WriteAllTextAsync(Path.Combine(projectRoot, ".gitignore"), "*.bep\n");
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        CoreSerializer.StoreToUri(new Project(), new Uri(projectFile));
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
             repository: null,
             watcher: null,
-            _ => CreateRunner());
+            _ => CreateRunner(),
+            projectFile: projectFile);
 
         InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
@@ -1267,29 +1269,36 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
-    [Test]
-    public async Task EnsureRepositoryHygieneAsync_removes_only_the_Beutl_managed_lfs_block()
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    public async Task EnsureRepositoryHygieneAsync_keeps_a_shared_managed_lfs_block_when_this_machine_does_not_use_lfs(
+        bool lfsInstalled,
+        bool useLfsWhenAvailable)
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
         const string managedRule =
             "resources/**/*.mp4 filter=lfs diff=lfs merge=lfs -text";
         const string customRule =
             "assets/**/*.psd filter=lfs diff=lfs merge=lfs -text";
-        await File.WriteAllTextAsync(
-            Path.Combine(Root, ".gitattributes"),
-            $"custom text\n# BEGIN BEUTL MANAGED LFS\n{managedRule}\n"
-            + $"# END BEUTL MANAGED LFS\n{customRule}\n");
-        using var service = CreateService();
+        string original = $"custom text\n# BEGIN BEUTL MANAGED LFS\n{managedRule}\n"
+                          + $"# END BEUTL MANAGED LFS\n{customRule}\n";
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitattributes"), original);
+        var config = new VersionControlConfig { UseLfsWhenAvailable = useLfsWhenAvailable };
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled, config),
+            Repository,
+            watcher: null,
+            _ => CreateRunner());
 
         await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
 
         string contents = await File.ReadAllTextAsync(Path.Combine(Root, ".gitattributes"));
         Assert.Multiple(() =>
         {
-            Assert.That(contents, Does.Not.Contain("# BEGIN BEUTL MANAGED LFS"));
-            Assert.That(contents, Does.Not.Contain(managedRule));
-            Assert.That(contents, Does.Contain(customRule));
-            Assert.That(contents, Does.Contain("custom text"));
+            // A machine that uses LFS wrote the block for everyone. Dropping it here would make each
+            // machine's next save undo the other's commit.
+            Assert.That(contents, Does.StartWith(original));
+            Assert.That(contents, Does.Contain("*.[bB][eE][pP] text eol=lf"));
         });
     }
 
@@ -1297,6 +1306,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task EnsureRepositoryHygieneAsync_disabling_Lfs_removes_rules_managed_while_enabled()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitattributes"), "custom text\n");
         var config = new VersionControlConfig { UseLfsWhenAvailable = true };
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true, config),
@@ -1318,6 +1328,30 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(contents, Does.Not.Contain("# BEGIN BEUTL MANAGED LFS"));
             Assert.That(contents, Does.Not.Contain("filter=lfs"));
             Assert.That(contents, Does.Contain("*.[bB][eE][pP] text eol=lf"));
+            Assert.That(contents, Does.Contain("custom text"));
+        });
+    }
+
+    [TestCase(".gitignore", "**/.beutl/")]
+    [TestCase(".gitattributes", "*.[bB][eE][pP] text eol=lf")]
+    public async Task EnsureRepositoryHygieneAsync_keeps_a_hygiene_file_that_is_not_UTF8(
+        string fileName,
+        string beutlLine)
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        // "# 素材" in Shift_JIS. Git reads these files as bytes, so a legacy-encoded comment is harmless.
+        byte[] legacyComment = [(byte)'#', (byte)' ', 0x91, 0x66, 0x8D, 0xDE, (byte)'\n'];
+        string path = Path.Combine(Root, fileName);
+        await File.WriteAllBytesAsync(path, legacyComment);
+        using var service = CreateService();
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+
+        byte[] written = await File.ReadAllBytesAsync(path);
+        Assert.Multiple(() =>
+        {
+            Assert.That(written.AsSpan().StartsWith(legacyComment), Is.True);
+            Assert.That(System.Text.Encoding.Latin1.GetString(written), Does.Contain(beutlLine));
         });
     }
 
@@ -1388,12 +1422,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
     [TestCase(".gitignore")]
     [TestCase(".gitattributes")]
-    public async Task EnsureRepositoryHygieneAsync_rejects_non_UTF8_without_rewriting(
+    public async Task EnsureRepositoryHygieneAsync_rejects_a_hygiene_file_with_NUL_bytes_without_rewriting(
         string fileName)
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
         string hygienePath = Path.Combine(Root, fileName);
-        byte[] originalBytes = [0x23, 0x20, 0x80, 0x0a];
+        // "#" and a line break in UTF-16LE. Appending ASCII lines would corrupt a file Git cannot match.
+        byte[] originalBytes = [0x23, 0x00, 0x0a, 0x00];
         await File.WriteAllBytesAsync(hygienePath, originalBytes);
         using var service = CreateService();
 
@@ -1402,7 +1437,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         Assert.Multiple(() =>
         {
-            Assert.That(exception!.Message, Does.Contain("UTF-8"));
+            Assert.That(exception!.Message, Does.Contain("NUL"));
             Assert.That(File.ReadAllBytes(hygienePath), Is.EqualTo(originalBytes));
         });
     }
@@ -2774,29 +2809,43 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             return;
         }
 
-        await CommitFileAsync("project.bep", "{}\n", "baseline");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/opaque/\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore unrelated directory");
+        string projectFile = Path.Combine(Root, "project.bep");
         string opaqueDirectory = Path.Combine(Root, "opaque");
+        string requiredPath = Path.Combine(opaqueDirectory, "item.custom-sidecar");
         Directory.CreateDirectory(opaqueDirectory);
-        string requiredPath = Path.Combine(opaqueDirectory, "hidden.scene");
-        await File.WriteAllTextAsync(requiredPath, "ignored required data\n");
-        File.SetUnixFileMode(opaqueDirectory, UnixFileMode.None);
+        var item = new SnapshotTestProjectItem
+        {
+            Uri = new Uri(requiredPath),
+        };
+        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
+        var project = new Project();
+        project.Items.Add(item);
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/opaque/\n");
+        await RunGitAsync("add", "--", "project.bep", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore a referenced directory");
+        // Searchable but not listable: the project still loads the file it references, yet nothing
+        // can enumerate the folder that holds it.
+        File.SetUnixFileMode(opaqueDirectory, UnixFileMode.UserExecute);
         InvalidOperationException? exception;
         try
         {
             try
             {
                 _ = Directory.EnumerateFileSystemEntries(opaqueDirectory).FirstOrDefault();
-                Assert.Ignore("The current user can still enumerate a mode-000 directory.");
+                Assert.Ignore("The current user can still enumerate an unreadable directory.");
                 return;
             }
             catch (UnauthorizedAccessException)
             {
             }
 
-            using var service = CreateService();
+            using var service = new GitCliVersionControlService(
+                CreateInstalledLocator(),
+                Repository,
+                watcher: null,
+                _ => CreateRunner(),
+                projectFile: projectFile);
 
             exception = Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await service.CommitAllAsync(
@@ -2813,9 +2862,57 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         Assert.Multiple(() =>
         {
-            Assert.That(exception!.Message, Does.Contain("safely"));
+            Assert.That(exception!.Message, Does.Contain("opaque/item.custom-sidecar"));
             Assert.That(File.Exists(requiredPath), Is.True);
         });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_allows_an_unreadable_ignored_folder_the_project_does_not_reference()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix directory permissions are not available on Windows.");
+            return;
+        }
+
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/opaque/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore unrelated directory");
+        string opaqueDirectory = Path.Combine(Root, "opaque");
+        Directory.CreateDirectory(opaqueDirectory);
+        string unreferencedScene = Path.Combine(opaqueDirectory, "hidden.scene");
+        await File.WriteAllTextAsync(unreferencedScene, "ignored unreferenced data\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{\"edited\":true}\n");
+        File.SetUnixFileMode(opaqueDirectory, UnixFileMode.None);
+        CommitResult? result = null;
+        try
+        {
+            try
+            {
+                _ = Directory.EnumerateFileSystemEntries(opaqueDirectory).FirstOrDefault();
+                Assert.Ignore("The current user can still enumerate a mode-000 directory.");
+                return;
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            using var service = CreateService();
+            result = await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None);
+        }
+        finally
+        {
+            File.SetUnixFileMode(
+                opaqueDirectory,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        Assert.That(result, Is.TypeOf<CommitResult.Committed>());
     }
 
     [Test]
@@ -7459,6 +7556,160 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string directory = Path.Combine(objectRoot, oid[..2], oid[2..4]);
         Directory.CreateDirectory(directory);
         await File.WriteAllBytesAsync(Path.Combine(directory, oid), contents);
+    }
+
+    [Test]
+    public async Task CommitAllAsync_allows_an_ignored_scene_the_project_does_not_reference()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/archive/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore archived drafts");
+        Directory.CreateDirectory(Path.Combine(Root, "archive"));
+        await File.WriteAllTextAsync(Path.Combine(Root, "archive", "old.scene"), "{}\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{\"edited\":true}\n");
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+    }
+
+    [Test]
+    public async Task CommitAllAsync_allows_a_repository_cloned_into_an_ignored_folder()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/tools/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore tools");
+        string toolRepository = Path.Combine(Root, "tools", "lut-library");
+        Directory.CreateDirectory(toolRepository);
+        await CreateRunner().RunAsync(
+            new RepositoryInfo(toolRepository, toolRepository),
+            ["init"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(toolRepository, "grade.cube"), "LUT\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{\"edited\":true}\n");
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+    }
+
+    [Test]
+    public async Task CommitAllAsync_allows_an_unreadable_folder_without_project_content()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Unix directory permissions.");
+            return;
+        }
+
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        string cache = Path.Combine(Root, "render-cache");
+        Directory.CreateDirectory(cache);
+        await File.WriteAllTextAsync(Path.Combine(cache, "frame.bin"), "cache\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{\"edited\":true}\n");
+        using var service = CreateService();
+        File.SetUnixFileMode(cache, UnixFileMode.None);
+        try
+        {
+            try
+            {
+                _ = Directory.GetFiles(cache);
+                Assert.Ignore("This account reads directories regardless of their permissions.");
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            // Like a render cache another account left behind, the folder holds nothing the project
+            // references, so Git only warns about it and snapshots everything else.
+            CommitResult result = await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None);
+
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+        }
+        finally
+        {
+            File.SetUnixFileMode(
+                cache,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    [Test]
+    public async Task CommitAllAsync_allows_a_scene_symbolic_link_the_project_does_not_reference()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Unix symbolic-link semantics.");
+        }
+
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        string sharedScene = Path.Combine(CreateTemporaryDirectory(), "shared.scene");
+        await File.WriteAllTextAsync(sharedScene, "{}\n");
+        Directory.CreateDirectory(Path.Combine(Root, "templates"));
+        CreateFileSymbolicLinkOrIgnore(Path.Combine(Root, "templates", "shared.scene"), sharedScene);
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{\"edited\":true}\n");
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+    }
+
+    [Test]
+    public async Task CommitAllAsync_snapshots_a_tree_whose_full_listing_exceeds_the_inspection_limit()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Long relative paths exceed the default Windows path limit.");
+        }
+
+        // Long names push the tree listing past 4 MiB with a few thousand files, standing in for the
+        // tens of thousands of frames a rendered image sequence adds.
+        string frames = Path.Combine(
+            Root,
+            new string('a', 200),
+            new string('b', 200),
+            new string('c', 200));
+        Directory.CreateDirectory(frames);
+        string namePrefix = new('d', 90);
+        for (int index = 0; index < 6000; index++)
+        {
+            await File.WriteAllTextAsync(Path.Combine(frames, $"{namePrefix}{index:D5}.txt"), "frame\n");
+        }
+
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "rendered frames");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{\"edited\":true}\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(TimeSpan.FromSeconds(60)));
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.That(result, Is.TypeOf<CommitResult.Committed>());
     }
 
     [Test]

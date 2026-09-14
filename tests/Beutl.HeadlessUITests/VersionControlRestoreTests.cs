@@ -3675,9 +3675,11 @@ public class VersionControlRestoreTests
         {
             Project project = await CreateProjectForFakeVersionControlAsync(
                 "version-control-opening-warning-disposal");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            // An element file in the scene's folder is one the project loads.
+            string sceneDirectory = Path.GetDirectoryName(
+                project.Items.OfType<Scene>().First().Uri!.LocalPath)!;
             await File.WriteAllTextAsync(
-                Path.Combine(projectRoot, "blocked-warning.scene"),
+                Path.Combine(sceneDirectory, "blocked-warning.belm"),
                 "<<<<<<< ours\n{}\n=======\n{}\n>>>>>>> theirs\n");
             var tip = new CheckedOutBranchTip(
                 "refs/heads/main",

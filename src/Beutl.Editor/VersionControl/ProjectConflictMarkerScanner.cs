@@ -34,10 +34,19 @@ internal static class ProjectConflictMarkerScanner
         // An extension can persist a sidecar under an extension this walk does not know, so the
         // files the project itself references are scanned as well: restoration follows those URIs
         // and would otherwise fail JSON parsing with no conflict guidance shown.
-        IReadOnlySet<string> referenced = projectRoot is null
-            ? new HashSet<string>(StringComparer.Ordinal)
+        IReadOnlySet<string>? referenced = projectRoot is null
+            ? null
             : SerializedProjectGraph.TryGetRelativePaths(projectFile, projectRoot);
-        return FindFirstAsync(projectFile, referenced, cancellationToken);
+        // A project that loads has every file it uses in its graph, so a stale file it no longer
+        // references cannot affect opening it. Only a graph that a conflicted file keeps from loading
+        // needs the walk over every project file.
+        return FindFirstAsync(
+            projectFile,
+            referenced ?? new HashSet<string>(StringComparer.Ordinal),
+            cancellationToken,
+            DefaultMaxBytesPerFile,
+            DefaultMaxBytesPerInvocation,
+            walkProjectFiles: referenced is null);
     }
 
     internal static async Task<string?> FindFirstAsync(
@@ -59,7 +68,8 @@ internal static class ProjectConflictMarkerScanner
         IReadOnlySet<string> referencedRelativePaths,
         CancellationToken cancellationToken,
         long maxBytesPerFile,
-        long maxBytesPerInvocation)
+        long maxBytesPerInvocation,
+        bool walkProjectFiles = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
         ArgumentNullException.ThrowIfNull(referencedRelativePaths);
@@ -141,7 +151,11 @@ internal static class ProjectConflictMarkerScanner
         }
 
         var pendingDirectories = new Stack<string>();
-        pendingDirectories.Push(projectRoot);
+        if (walkProjectFiles)
+        {
+            pendingDirectories.Push(projectRoot);
+        }
+
         while (pendingDirectories.TryPop(out string? directory))
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -7,6 +7,10 @@ public class ProjectConflictMarkerScannerTests
 {
     private const string LfConflict = "<<<<<<< ours\n{\"value\":1}\n=======\n{\"value\":2}\n>>>>>>> theirs\n";
 
+    // The detection tests scan through the whole-project walk, which this overload always runs.
+    private static readonly IReadOnlySet<string> s_noReferencedPaths =
+        new HashSet<string>(StringComparer.Ordinal);
+
     private string _root = null!;
     private string _outsideRoot = null!;
 
@@ -49,6 +53,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.EqualTo(conflictFile));
@@ -263,6 +268,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.Null);
@@ -286,6 +292,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -326,6 +333,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -354,6 +362,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -385,6 +394,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.Null);
@@ -409,6 +419,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.Null);
@@ -433,6 +444,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -455,6 +467,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.EqualTo(conflictFile));
@@ -476,6 +489,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.EqualTo(conflictFile));
@@ -496,6 +510,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.Null);
@@ -513,6 +528,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.Null);
@@ -541,6 +557,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.Null);
@@ -563,6 +580,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.Null);
@@ -594,6 +612,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.Null);
@@ -620,6 +639,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.EqualTo(conflictFile));
@@ -638,6 +658,7 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.Null);
@@ -653,8 +674,44 @@ public class ProjectConflictMarkerScannerTests
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
+            s_noReferencedPaths,
             CancellationToken.None);
 
         Assert.That(result, Is.Null);
+    }
+
+    [Test]
+    public async Task FindFirstAsync_skips_unreferenced_project_files_when_the_project_loads()
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        string staleScene = Path.Combine(_root, "archive", "old.scene");
+        Directory.CreateDirectory(Path.GetDirectoryName(staleScene)!);
+        Beutl.Serialization.CoreSerializer.StoreToUri(new Beutl.Project(), new Uri(projectFile));
+        await File.WriteAllTextAsync(staleScene, LfConflict);
+
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            CancellationToken.None);
+
+        // Every file a project that loads uses is in its graph, so a stale draft it no longer
+        // references cannot affect opening it.
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
+    public async Task FindFirstAsync_walks_the_project_when_its_graph_cannot_load()
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        string conflictedScene = Path.Combine(_root, "scenes", "main.scene");
+        Directory.CreateDirectory(Path.GetDirectoryName(conflictedScene)!);
+        await File.WriteAllTextAsync(projectFile, "not a project\n");
+        await File.WriteAllTextAsync(conflictedScene, LfConflict);
+
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            CancellationToken.None);
+
+        // A conflicted file keeps the whole graph from loading, so the walk is what still finds it.
+        Assert.That(result, Is.EqualTo(conflictedScene));
     }
 }

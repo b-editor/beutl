@@ -1399,6 +1399,8 @@ internal static class VersionControlSerializationGraph
             Uri? baseUri,
             bool allowExtensionlessRelative)
         {
+            // Text that resolves to no path, such as a font face name, names nothing an ignore rule or
+            // a layout check could protect, so it is skipped instead of failing the whole project.
             if (TryResolveOpaqueFileUri(
                     value,
                     baseUri,
@@ -1407,11 +1409,6 @@ internal static class VersionControlSerializationGraph
                     out Uri? uri))
             {
                 _unaddressableFileSources.Add(uri);
-            }
-            else if (!IsAbsoluteNonFileUri(value) && LooksLikeFilePath(value))
-            {
-                throw new InvalidDataException(
-                    $"Cannot resolve opaque serialized file path '{value}'.");
             }
         }
 
@@ -1507,14 +1504,6 @@ internal static class VersionControlSerializationGraph
 
             uri = CanonicalizeFileUri(resolved);
             return true;
-        }
-
-        private static bool IsAbsoluteNonFileUri(string? value)
-        {
-            return !string.IsNullOrWhiteSpace(value)
-                   && !LooksLikeWindowsPath(value)
-                   && Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
-                   && !uri.IsFile;
         }
 
         private static Uri CanonicalizeFileUri(Uri uri)
