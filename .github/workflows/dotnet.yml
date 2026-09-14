@@ -151,7 +151,7 @@ jobs:
 
       # KnownVulkanSkiaLayoutInterop is excluded: Skia and the backend track the same image's layout
       # independently and drift apart, which validation reports as InvalidImageLayout. Closing it needs a
-      # way to read back or command the layout Skia holds, which SkiaSharp 3.119 does not expose. Those
+      # way to read back or command the layout Skia holds, which SkiaSharp 4.152 does not expose. Those
       # tests still run in the step above; see TestCategories.KnownVulkanSkiaLayoutInterop and issue #2263,
       # on whose close both TestCategory!= clauses below come out.
       # No category filter on the unit project: a category has to be remembered, and a GPU test that
