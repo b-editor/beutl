@@ -131,11 +131,19 @@ internal sealed partial class RenderRequestExecutor
 
         private void ExecuteTargetScope(
             RenderFragmentReference fragment,
-            ImmediateCanvas destination)
+            ImmediateCanvas destination,
+            EffectiveScale callerScale)
         {
             TargetScopeDescription description =
                 ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
             RenderFragmentReference input = fragment.Inputs.Single();
+            // Only a scope whose transform lives in the input's own coordinates carries the caller's demand
+            // back through its scale contract; an ambient-target scope already has that scale in the
+            // destination matrix. This mirrors the demand resolver's replay-input step.
+            EffectiveScale inputCallerScale =
+                description.TransformSpace == RenderScopeTransformSpace.InputLogical
+                    ? ResolveScopeInputCallerScale(description.Scale, callerScale)
+                    : callerScale;
             RenderExecutionSessionToken token = CreateExecutionSessionToken();
             token.RunAndComplete(
                 () =>
@@ -158,7 +166,7 @@ internal sealed partial class RenderRequestExecutor
                         _options.Purpose,
                         callbackCanvas,
                         description.Resources,
-                        canvas => Replay(input, canvas));
+                        canvas => Replay(input, canvas, inputCallerScale));
                     description.Execute(session);
                     session.ValidateCompletion();
                 });
@@ -211,7 +219,7 @@ internal sealed partial class RenderRequestExecutor
                 canvas.Clear();
                 using (canvas.PushTransform(output.RasterAlignmentTransform))
                 {
-                    ExecuteTargetScope(fragment, canvas);
+                    ExecuteTargetScope(fragment, canvas, requestedScale ?? scale);
                 }
 
                 succeeded = true;
@@ -226,11 +234,15 @@ internal sealed partial class RenderRequestExecutor
 
         private void ExecuteRawTargetScope(
             RenderFragmentReference fragment,
-            ImmediateCanvas destination)
+            ImmediateCanvas destination,
+            EffectiveScale callerScale)
         {
             RawTargetScopeDescription description =
                 ((RawTargetScopeRenderFragmentPayload)fragment.Payload!).Description;
             RenderFragmentReference input = fragment.Inputs.Single();
+            // A raw scope's declared scale contract is the only statement of how its replayed input is
+            // consumed, so its backward map applies unconditionally, as it does in the demand resolver.
+            EffectiveScale inputCallerScale = ResolveScopeInputCallerScale(description.Scale, callerScale);
             using ImmediateCanvas view = destination.CreateExecutionView();
             RenderExecutionSessionToken token = CreateExecutionSessionToken();
             token.RunAndComplete(
@@ -248,7 +260,7 @@ internal sealed partial class RenderRequestExecutor
                                 _options.Purpose,
                                 description.Resources,
                                 replayCanvas => replayCanvas.ReplayTargetScopeInput(
-                                    nested => Replay(input, nested)));
+                                    nested => Replay(input, nested, inputCallerScale)));
                             description.Execute(session);
                             session.ValidateCompletion();
                         });
@@ -498,7 +510,8 @@ internal sealed partial class RenderRequestExecutor
 
         private void ReplayTargetLayerScope(
             RenderFragmentReference fragment,
-            ImmediateCanvas destination)
+            ImmediateCanvas destination,
+            EffectiveScale callerScale)
         {
             Rect domain = ResolveTargetLayerScopeDomain(fragment, destination);
             if (domain.Width == 0 || domain.Height == 0)
@@ -523,7 +536,7 @@ internal sealed partial class RenderRequestExecutor
                     try
                     {
                         foreach (RenderFragmentReference input in fragment.Inputs)
-                            Replay(input, canvas);
+                            Replay(input, canvas, callerScale);
                     }
                     finally
                     {

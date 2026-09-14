@@ -19,7 +19,8 @@ internal sealed partial class RenderRequestExecutor
 
         private bool TryReplayEngineSourceDirect(
             RenderFragmentReference fragment,
-            ImmediateCanvas destination)
+            ImmediateCanvas destination,
+            EffectiveScale callerScale)
         {
             OpaqueRenderDescription description =
                 ((OpaqueRenderFragmentPayload)fragment.Payload!).Description;
@@ -50,7 +51,7 @@ internal sealed partial class RenderRequestExecutor
 
             var inputs = new List<MaterializedRenderValue>();
             EffectiveScale outputSupply = fragment.EffectiveScale.IsUnbounded
-                ? EffectiveScale.At(destination.Density)
+                ? callerScale
                 : fragment.EffectiveScale;
             try
             {
@@ -109,7 +110,8 @@ internal sealed partial class RenderRequestExecutor
         private bool TryExecuteCompiledShaderRunDirect(
             RenderFragmentReference fragment,
             CompiledShaderRun run,
-            ImmediateCanvas destination)
+            ImmediateCanvas destination,
+            EffectiveScale callerScale)
         {
             // The Vulkan-native path consumes and produces pooled RGBA16F textures. Keep it behind the ordinary
             // materialization boundary instead of recording GPU work directly into a Skia replay destination.
@@ -142,7 +144,7 @@ internal sealed partial class RenderRequestExecutor
 
             EffectiveScale inputRequestScale = !output.EffectiveScale.IsUnbounded
                 ? output.EffectiveScale
-                : EffectiveScale.At(destination.Density);
+                : callerScale;
             IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
                 inputFragment,
                 destination,
@@ -181,7 +183,8 @@ internal sealed partial class RenderRequestExecutor
 
         private bool TryReplayBuiltInSkiaFilterChainDirect(
             RenderFragmentReference fragment,
-            ImmediateCanvas destination)
+            ImmediateCanvas destination,
+            EffectiveScale callerScale)
         {
             var chain = new List<(
                 RenderFragmentReference Fragment,
@@ -219,7 +222,7 @@ internal sealed partial class RenderRequestExecutor
                     input,
                     destination,
                     input.EffectiveScale.IsUnbounded
-                        ? EffectiveScale.At(destination.Density)
+                        ? callerScale
                         : null);
                 if (materializedInput.Count > 1)
                     return false;
@@ -278,7 +281,7 @@ internal sealed partial class RenderRequestExecutor
             {
                 if (materializedInput is null)
                 {
-                    Replay(input, destination);
+                    Replay(input, destination, callerScale);
                     return;
                 }
 
@@ -324,13 +327,14 @@ internal sealed partial class RenderRequestExecutor
 
         private void DrawMaterializedFragment(
             RenderFragmentReference fragment,
-            ImmediateCanvas destination)
+            ImmediateCanvas destination,
+            EffectiveScale callerScale)
         {
             IReadOnlyList<MaterializedRenderValue> values = Materialize(
                 fragment,
                 destination,
                 fragment.EffectiveScale.IsUnbounded
-                    ? EffectiveScale.At(destination.Density)
+                    ? callerScale
                     : null);
             if (fragment.ContributesValuesToTarget)
                 DrawValues(values, destination);

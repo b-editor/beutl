@@ -13,22 +13,25 @@ internal sealed partial class RenderRequestExecutor
     {
         private IReadOnlyList<MaterializedRenderValue> ExecuteGeometry(
             RenderFragmentReference fragment,
-            ImmediateCanvas currentTarget)
+            ImmediateCanvas currentTarget,
+            EffectiveScale? requestedScale)
             => ExecuteOnDeviceGrid(
                 currentTarget,
-                () => ExecuteGeometryCore(fragment, currentTarget));
+                () => ExecuteGeometryCore(fragment, currentTarget, requestedScale));
 
         private IReadOnlyList<MaterializedRenderValue> ExecuteGeometryCore(
             RenderFragmentReference fragment,
-            ImmediateCanvas currentTarget)
+            ImmediateCanvas currentTarget,
+            EffectiveScale? requestedScale)
         {
             if (fragment.Inputs.Length != 1)
                 throw new InvalidOperationException("A Geometry fragment requires exactly one input stream.");
 
             GeometryDescription description = ((GeometryRenderFragmentPayload)fragment.Payload!).Description;
-            EffectiveScale requestScale = fragment.EffectiveScale.IsUnbounded
-                ? EffectiveScale.At(currentTarget.Density)
-                : fragment.EffectiveScale;
+            EffectiveScale requestScale = requestedScale
+                ?? (!fragment.EffectiveScale.IsUnbounded
+                    ? fragment.EffectiveScale
+                    : EffectiveScale.At(currentTarget.Density));
             IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
                 fragment.Inputs[0],
                 currentTarget,
