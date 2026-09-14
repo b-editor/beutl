@@ -37,6 +37,40 @@ public class DeviceExtentLimitTests
     }
 
     [Test]
+    public void Renderer3DInitialize_OnADeviceThatCannotAttachTheShadowMaps_IsRefusedOnTheInitializePath()
+    {
+        // The shadow maps are a fixed size and used to be allocated lazily by Render, outside the
+        // try/catch Scene3DRenderNode keeps around Initialize. The refusal has to land where it is handled.
+        const int belowTheShadowMap = ShadowPass.DefaultShadowMapSize - 1;
+        Mock<IGraphicsContext> device = LooseDevice(attachment: belowTheShadowMap, cube: CubeBudget);
+        using var renderer = new Renderer3D(device.Object);
+
+        InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
+            () => renderer.Initialize(64, 64));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(refusal!.Message, Does.Contain(belowTheShadowMap.ToString()));
+            Assert.That((renderer.Width, renderer.Height), Is.EqualTo((0, 0)),
+                "a refused initialization must stay retryable");
+        });
+    }
+
+    [Test]
+    public void Renderer3DInitialize_AllocatesTheShadowMapsBeforeReturning()
+    {
+        // Positive control for the eager allocation: with room for the shadow maps, Initialize builds them.
+        Mock<IGraphicsContext> device = LooseDevice();
+        using var renderer = new Renderer3D(device.Object);
+
+        renderer.Initialize(64, 64);
+
+        device.Verify(
+            c => c.CreateTextureCube(PointShadowPass.DefaultCubeFaceSize, It.IsAny<TextureFormat>()),
+            Times.AtLeastOnce);
+    }
+
+    [Test]
     public void Renderer3DResize_PastWhatTheDeviceCanAttach_IsRefusedBeforeTheAllocator()
     {
         Mock<IGraphicsContext> device = MockDevice();
@@ -47,54 +81,103 @@ public class DeviceExtentLimitTests
         AssertNeverAllocated(device);
     }
 
-    [Test]
-    public void RenderNode3DInitialize_PastWhatTheDeviceCanAttach_IsRefusedBeforeTheNodeAllocates()
+    private static IEnumerable<TestCaseData> ExtentAllocatingPasses()
+    {
+        // Every pass that allocates the extent it is handed. GizmoPass borrows its colour and depth
+        // textures, and the shadow passes allocate a fixed size, so they are bounded by the context alone.
+        yield return new TestCaseData(new Func<IGraphicsContext, RenderNode3D>(
+            c => new GeometryPass(c, Mock.Of<IShaderCompiler>()))).SetName("{m}(GeometryPass)");
+        yield return new TestCaseData(new Func<IGraphicsContext, RenderNode3D>(
+            c => new LightingPass(c, Mock.Of<IShaderCompiler>(), Mock.Of<ITexture2D>()))).SetName("{m}(LightingPass)");
+        yield return new TestCaseData(new Func<IGraphicsContext, RenderNode3D>(
+            c => new TransparentPass(c, Mock.Of<IShaderCompiler>(), Mock.Of<ITexture2D>()))).SetName("{m}(TransparentPass)");
+        yield return new TestCaseData(new Func<IGraphicsContext, RenderNode3D>(
+            c => new FlipPass(c, Mock.Of<IShaderCompiler>()))).SetName("{m}(FlipPass)");
+    }
+
+    [TestCaseSource(nameof(ExtentAllocatingPasses))]
+    public void PassInitialize_PastWhatTheDeviceCanAttach_IsRefusedBeforeTheAllocator(
+        Func<IGraphicsContext, RenderNode3D> create)
     {
         Mock<IGraphicsContext> device = MockDevice();
-        using var node = new ProbeNode(device.Object);
+        using RenderNode3D pass = create(device.Object);
 
         InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
-            () => node.Initialize(AttachmentBudget + 1, 1));
+            () => pass.Initialize(AttachmentBudget + 1, 1));
 
         Assert.Multiple(() =>
         {
-            Assert.That(refusal!.Message, Does.Contain(AttachmentBudget.ToString()));
-            Assert.That(node.InitializeCalls, Is.Zero, "the node's own allocation must never run");
-            Assert.That((node.Width, node.Height), Is.EqualTo((0, 0)));
+            Assert.That(refusal!.Message, Does.Contain(AttachmentBudget.ToString()),
+                "the refusal must report the limit it could not fit");
+            Assert.That((pass.Width, pass.Height), Is.EqualTo((0, 0)),
+                "a refused initialization must not commit an extent");
+            AssertNeverAllocated(device);
         });
     }
 
     [Test]
-    public void RenderNode3DInitialize_WithinWhatTheDeviceCanAttach_ReachesTheNode()
+    public void PassInitialize_WithinWhatTheDeviceCanAttach_ReachesTheAllocator()
     {
         // Positive control: the guard has to let the largest extent the device can attach through, or it
         // is refusing everything rather than measuring anything.
-        Mock<IGraphicsContext> device = MockDevice();
-        using var node = new ProbeNode(device.Object);
+        Mock<IGraphicsContext> device = LooseDevice();
+        using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
 
-        node.Initialize(AttachmentBudget, AttachmentBudget);
+        pass.Initialize(AttachmentBudget, AttachmentBudget);
 
         Assert.Multiple(() =>
         {
-            Assert.That(node.InitializeCalls, Is.EqualTo(1));
-            Assert.That((node.Width, node.Height), Is.EqualTo((AttachmentBudget, AttachmentBudget)));
+            device.Verify(
+                c => c.CreateTexture2D(AttachmentBudget, AttachmentBudget, It.IsAny<TextureFormat>()),
+                Times.AtLeastOnce);
+            Assert.That((pass.Width, pass.Height), Is.EqualTo((AttachmentBudget, AttachmentBudget)));
         });
     }
 
     [Test]
-    public void RenderNode3DResize_PastWhatTheDeviceCanAttach_KeepsTheCurrentExtent()
+    public void PassResize_PastWhatTheDeviceCanAttach_KeepsTheCurrentExtentAndResources()
     {
-        Mock<IGraphicsContext> device = MockDevice();
-        using var node = new ProbeNode(device.Object);
-        node.Initialize(16, 16);
+        Mock<IGraphicsContext> device = LooseDevice();
+        using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
+        pass.Initialize(16, 16);
+        ITexture2D? before = pass.OutputTexture;
 
-        Assert.Throws<InvalidOperationException>(() => node.Resize(1, AttachmentBudget + 1));
+        Assert.Throws<InvalidOperationException>(() => pass.Resize(1, AttachmentBudget + 1));
 
         Assert.Multiple(() =>
         {
-            Assert.That(node.ResizeCalls, Is.Zero, "a refused resize must not reallocate");
-            Assert.That((node.Width, node.Height), Is.EqualTo((16, 16)),
-                "a refused resize must leave the extent the node still holds resources for");
+            Assert.That((pass.Width, pass.Height), Is.EqualTo((16, 16)),
+                "a refused resize must leave the extent the pass still holds resources for");
+            Assert.That(pass.OutputTexture, Is.SameAs(before), "a refused resize must not dispose or reallocate");
+            device.Verify(
+                c => c.CreateTexture2D(1, AttachmentBudget + 1, It.IsAny<TextureFormat>()),
+                Times.Never);
+        });
+    }
+
+    [Test]
+    public void AFixedSizeShadowPass_IsNotRefusedForAViewportItDoesNotAllocate()
+    {
+        // ShadowPass and PointShadowPass ignore the extent Initialize is handed and allocate their own
+        // fixed map, so a viewport past the attachment limit is not theirs to refuse; only the map is.
+        Mock<IGraphicsContext> device = LooseDevice();
+        using var shadow = new ShadowPass(device.Object, Mock.Of<IShaderCompiler>());
+        using var pointShadow = new PointShadowPass(device.Object, Mock.Of<IShaderCompiler>());
+
+        shadow.Initialize(AttachmentBudget + 1, AttachmentBudget + 1);
+        pointShadow.Initialize(AttachmentBudget + 1, AttachmentBudget + 1);
+
+        Assert.Multiple(() =>
+        {
+            device.Verify(
+                c => c.CreateTexture2D(ShadowPass.DefaultShadowMapSize, ShadowPass.DefaultShadowMapSize, It.IsAny<TextureFormat>()),
+                Times.AtLeastOnce);
+            device.Verify(
+                c => c.CreateTextureCube(PointShadowPass.DefaultCubeFaceSize, It.IsAny<TextureFormat>()),
+                Times.Once);
+            device.Verify(
+                c => c.CreateTexture2D(AttachmentBudget + 1, AttachmentBudget + 1, It.IsAny<TextureFormat>()),
+                Times.Never);
         });
     }
 
@@ -103,12 +186,12 @@ public class DeviceExtentLimitTests
     {
         // Mirrors the 2D path: a limit of zero means the device did not answer, and a guess would refuse
         // an allocation the device might well make.
-        Mock<IGraphicsContext> device = MockDevice(attachment: 0);
-        using var node = new ProbeNode(device.Object);
+        Mock<IGraphicsContext> device = LooseDevice(attachment: 0);
+        using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
 
-        node.Initialize(100_000, 1);
+        pass.Initialize(100_000, 1);
 
-        Assert.That(node.InitializeCalls, Is.EqualTo(1));
+        device.Verify(c => c.CreateTexture2D(100_000, 1, It.IsAny<TextureFormat>()), Times.AtLeastOnce);
     }
 
     [Test]
@@ -151,9 +234,7 @@ public class DeviceExtentLimitTests
     public void PointShadowResize_WithinBothLimits_ReachesTheAllocator()
     {
         // Positive control for the cube guard: a face that fits both limits must be allocated as asked.
-        var device = new Mock<IGraphicsContext>(MockBehavior.Loose) { DefaultValue = DefaultValue.Mock };
-        device.SetupGet(c => c.MaxAttachmentDimension).Returns(AttachmentBudget);
-        device.SetupGet(c => c.MaxCubeFaceDimension).Returns(CubeBudget);
+        Mock<IGraphicsContext> device = LooseDevice();
         using var pass = new PointShadowPass(device.Object, Mock.Of<IShaderCompiler>());
 
         pass.ResizeShadowMap(CubeBudget);
@@ -173,6 +254,26 @@ public class DeviceExtentLimitTests
         Assert.Multiple(() =>
         {
             Assert.That(refusal!.Message, Does.Contain(AttachmentBudget.ToString()));
+            AssertNeverAllocated(device);
+        });
+    }
+
+    [TestCase(-1, 1)]
+    [TestCase(1, -1)]
+    public void ANegativeExtent_IsRefusedAsACallerError_NotMeasuredAgainstTheBudget(int width, int height)
+    {
+        // The backend casts a dimension to uint, so a negative one would reach the driver as an enormous
+        // extent and slip under an upper-bound-only check.
+        Mock<IGraphicsContext> device = MockDevice();
+        using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => pass.Initialize(width, height));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => DeviceExtentLimits.ThrowIfCannotMakeCubeFace(device.Object, -1));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => DeviceExtentLimits.ThrowIfCannotAttachCubeFaces(device.Object, -1));
             AssertNeverAllocated(device);
         });
     }
@@ -207,6 +308,37 @@ public class DeviceExtentLimitTests
         return device;
     }
 
+    /// <summary>A device that answers every allocation with a mock, for the controls that must reach it.</summary>
+    private static Mock<IGraphicsContext> LooseDevice(int attachment = AttachmentBudget, int cube = CubeBudget)
+    {
+        var device = new Mock<IGraphicsContext>(MockBehavior.Loose) { DefaultValue = DefaultValue.Mock };
+        device.SetupGet(c => c.MaxAttachmentDimension).Returns(attachment);
+        device.SetupGet(c => c.MaxCubeFaceDimension).Returns(cube);
+        // Moq cannot proxy IBuffer.Upload<T>(ReadOnlySpan<T>), so a buffer has to be a real stub.
+        device.Setup(c => c.CreateBuffer(It.IsAny<ulong>(), It.IsAny<BufferUsage>(), It.IsAny<MemoryProperty>()))
+            .Returns((ulong size, BufferUsage _, MemoryProperty _) => new StubBuffer(size));
+        return device;
+    }
+
+    private sealed class StubBuffer(ulong size) : IBuffer
+    {
+        public ulong Size => size;
+
+        public void Upload<T>(ReadOnlySpan<T> data) where T : unmanaged
+        {
+        }
+
+        public IntPtr Map() => IntPtr.Zero;
+
+        public void Unmap()
+        {
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
     private static void AssertNeverAllocated(Mock<IGraphicsContext> device)
     {
         device.Verify(
@@ -217,20 +349,5 @@ public class DeviceExtentLimitTests
             c => c.CreateTextureCube(It.IsAny<int>(), It.IsAny<TextureFormat>()),
             Times.Never,
             "a cube the device cannot make must never reach the allocator");
-    }
-
-    private sealed class ProbeNode(IGraphicsContext context) : RenderNode3D(context)
-    {
-        public int InitializeCalls { get; private set; }
-
-        public int ResizeCalls { get; private set; }
-
-        protected override void OnInitialize(int width, int height) => InitializeCalls++;
-
-        protected override void OnResize(int width, int height) => ResizeCalls++;
-
-        protected override void OnDispose()
-        {
-        }
     }
 }

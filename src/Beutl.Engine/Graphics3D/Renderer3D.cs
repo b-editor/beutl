@@ -76,7 +76,11 @@ internal sealed class Renderer3D : IRenderer3D
         ITexture2D? outputTexture = null;
         try
         {
+            // The shadow maps are a fixed size the device may not be able to attach. Allocating them here
+            // rather than lazily on the first Render keeps that refusal on this path, which the caller
+            // already handles, instead of raising it mid-frame with a half-built manager left behind.
             shadowManager = new ShadowManager(_context, _shaderCompiler);
+            shadowManager.Initialize();
 
             geometryPass = new GeometryPass(_context, _shaderCompiler);
             geometryPass.Initialize(width, height);

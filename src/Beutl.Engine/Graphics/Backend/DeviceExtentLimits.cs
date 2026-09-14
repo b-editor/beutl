@@ -35,10 +35,15 @@ internal static class DeviceExtentLimits
     }
 
     /// <summary>Refuses a 2D extent past what <paramref name="context"/> can attach.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is negative.</exception>
     /// <exception cref="InvalidOperationException">The extent exceeds the device's attachment limit.</exception>
     public static void ThrowIfCannotAttach(IGraphicsContext context, int width, int height)
     {
         ArgumentNullException.ThrowIfNull(context);
+        // The backend casts a dimension to uint on the way to the driver, so a negative one would arrive
+        // as an enormous extent and step past the budget below; it is a caller error, not a device limit.
+        ArgumentOutOfRangeException.ThrowIfNegative(width);
+        ArgumentOutOfRangeException.ThrowIfNegative(height);
         int budget = context.MaxAttachmentDimension;
         if (budget <= 0 || (width <= budget && height <= budget))
             return;
@@ -48,10 +53,12 @@ internal static class DeviceExtentLimits
     }
 
     /// <summary>Refuses a cube face past what <paramref name="context"/> can build as a cube image.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The face size is negative.</exception>
     /// <exception cref="InvalidOperationException">The face exceeds the device's cube image limit.</exception>
     public static void ThrowIfCannotMakeCubeFace(IGraphicsContext context, int faceSize)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentOutOfRangeException.ThrowIfNegative(faceSize);
         int budget = context.MaxCubeFaceDimension;
         if (budget <= 0 || faceSize <= budget)
             return;
@@ -63,9 +70,11 @@ internal static class DeviceExtentLimits
     /// <summary>
     /// Refuses a cube face that cannot be both built as a cube image and rendered through a 2D attachment.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The face size is negative.</exception>
     /// <exception cref="InvalidOperationException">The face exceeds either device limit.</exception>
     public static void ThrowIfCannotAttachCubeFaces(IGraphicsContext context, int faceSize)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(faceSize);
         int budget = ResolveCubeFaceAttachmentBudget(context);
         if (budget <= 0 || faceSize <= budget)
             return;

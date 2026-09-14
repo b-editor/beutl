@@ -69,6 +69,10 @@ public sealed class GeometryPass : GraphicsNode3D
 
     private void CreateGBuffer(int width, int height)
     {
+        // This pass allocates the extent it is handed, so the device limit is asked here, before anything
+        // is disposed: a refused resize keeps the resources it had.
+        DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
+
         DisposeGBuffer();
 
         // Create G-Buffer textures
