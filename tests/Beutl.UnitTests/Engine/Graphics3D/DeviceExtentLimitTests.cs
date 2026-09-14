@@ -279,6 +279,29 @@ public class DeviceExtentLimitTests
     }
 
     [Test]
+    public void TheImageLimit_BoundsAGenericTexture_WithoutTheAttachmentLimit()
+    {
+        // A context applies the image limit to every texture it creates: a sampled-only texture may be
+        // wider than a framebuffer, so the attachment limit is for the paths that know they will attach.
+        const int imageLimit = 16384;
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => DeviceExtentLimits.ThrowIfCannotMakeImage(imageLimit, imageLimit, 1), Throws.Nothing);
+            Assert.That(
+                () => DeviceExtentLimits.ThrowIfCannotMakeImage(imageLimit, imageLimit + 1, 1),
+                Throws.InvalidOperationException.With.Message.Contains(imageLimit.ToString()));
+            Assert.That(
+                () => DeviceExtentLimits.ThrowIfCannotMakeImage(imageLimit, 1, imageLimit + 1),
+                Throws.InvalidOperationException);
+            Assert.That(() => DeviceExtentLimits.ThrowIfCannotMakeImage(0, 100_000, 1), Throws.Nothing,
+                "a device that did not answer leaves the extent to the allocator");
+            Assert.That(
+                () => DeviceExtentLimits.ThrowIfCannotMakeImage(imageLimit, -1, 1),
+                Throws.InstanceOf<ArgumentOutOfRangeException>());
+        });
+    }
+
+    [Test]
     public void TheCubeFaceBudget_IsTheSmallerOfTheTwoLimits_AndFallsBackWhenOneIsMissing()
     {
         Assert.Multiple(() =>

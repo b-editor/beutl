@@ -34,6 +34,27 @@ internal static class DeviceExtentLimits
         return Math.Min(cube, attachment);
     }
 
+    /// <summary>Refuses a 2D extent past what a device can make of a 2D image, attached or not.</summary>
+    /// <param name="maxImageDimension">The device's 2D image limit, or zero or less when it did not answer.</param>
+    /// <remarks>
+    /// This is the bound a context applies to every 2D texture it creates. A texture that is only ever
+    /// sampled - a material map, say - may legitimately be wider than a framebuffer, so the stricter
+    /// <see cref="ThrowIfCannotAttach"/> is asked by the paths that know they will attach.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is negative.</exception>
+    /// <exception cref="InvalidOperationException">The extent exceeds the device's 2D image limit.</exception>
+    public static void ThrowIfCannotMakeImage(int maxImageDimension, int width, int height)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(width);
+        ArgumentOutOfRangeException.ThrowIfNegative(height);
+        if (maxImageDimension <= 0 || (width <= maxImageDimension && height <= maxImageDimension))
+            return;
+
+        throw new InvalidOperationException(
+            $"A {width}x{height} pixel texture exceeds the {maxImageDimension} pixels this device can make of "
+            + "a 2D image.");
+    }
+
     /// <summary>Refuses a 2D extent past what <paramref name="context"/> can attach.</summary>
     /// <exception cref="ArgumentOutOfRangeException">A dimension is negative.</exception>
     /// <exception cref="InvalidOperationException">The extent exceeds the device's attachment limit.</exception>

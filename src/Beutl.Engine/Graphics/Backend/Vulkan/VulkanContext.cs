@@ -393,6 +393,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public int MaxAttachmentDimension => _vulkanDevice.MaxAttachmentDimension;
 
+    /// <inheritdoc cref="VulkanDevice.MaxImageDimension2D"/>
+    internal int MaxImageDimension2D => _vulkanDevice.MaxImageDimension2D;
+
     public int MaxCubeFaceDimension => _vulkanDevice.MaxCubeFaceDimension;
 
     internal static IDisposable ObserveTextureAllocations(Action<TextureFormat> observer)
@@ -422,9 +425,11 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
-        // Every 2D texture is created attachable, and the driver does not refuse an extent it cannot
-        // attach: SwiftShader answers success past its framebuffer limit, MoltenVK aborts the process.
-        DeviceExtentLimits.ThrowIfCannotAttach(this, width, height);
+        // The driver does not refuse an extent it cannot make: MoltenVK aborts the process on one. The
+        // bound here is the image limit, not the attachment one - a material map is only ever sampled and
+        // may legitimately be wider than a framebuffer - so the attachment limit is asked on the
+        // render-target paths, which know that they will attach.
+        DeviceExtentLimits.ThrowIfCannotMakeImage(MaxImageDimension2D, width, height);
 
         ImageUsageFlags usage;
         if (format.IsDepthFormat())
@@ -454,7 +459,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format)
     {
-        DeviceExtentLimits.ThrowIfCannotAttach(this, width, height);
+        DeviceExtentLimits.ThrowIfCannotMakeImage(MaxImageDimension2D, width, height);
 
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit

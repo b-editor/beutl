@@ -38,6 +38,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
         // An intermediate is sampled and drawn into, so it has to satisfy both the image limit and the
         // framebuffer one. These are not the same number: a device can sample an image wider than it can
         // attach, and attaching is what a render target is for.
+        MaxImageDimension2D = (int)properties.Limits.MaxImageDimension2D;
         MaxAttachmentDimension = (int)Math.Min(
             properties.Limits.MaxImageDimension2D,
             Math.Min(properties.Limits.MaxFramebufferWidth, properties.Limits.MaxFramebufferHeight));
@@ -46,6 +47,13 @@ internal sealed unsafe class VulkanDevice : IDisposable
         // through per-face 2D attachments has to fit both, and the two may differ.
         MaxCubeFaceDimension = (int)properties.Limits.MaxImageDimensionCube;
     }
+
+    /// <summary>Gets the largest 2D image this device can create and sample, attached or not.</summary>
+    /// <remarks>
+    /// A device may sample an image wider than it can attach, so a texture that is only ever sampled is
+    /// bounded by this rather than by <see cref="MaxAttachmentDimension"/>.
+    /// </remarks>
+    public int MaxImageDimension2D { get; }
 
     /// <summary>Gets the largest square this device can both sample and attach.</summary>
     public int MaxAttachmentDimension { get; }
