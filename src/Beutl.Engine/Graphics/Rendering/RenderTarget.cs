@@ -406,7 +406,8 @@ public class RenderTarget : IDisposable
     /// dispatcher that owns this target polls it between its other work; if that dispatcher shuts down first, the task
     /// fails with <see cref="OperationCanceledException"/>. Where Skia cannot transfer asynchronously, as for a surface
     /// rastered on the CPU, or no dispatcher owns this target to poll on, the task has already completed when this
-    /// returns.
+    /// returns. Nothing checks the thread a target no dispatcher owns is used on, so as with <see cref="Snapshot()"/>
+    /// the caller has to be on the thread that owns its context.
     /// </remarks>
     public Task<Bitmap> SnapshotAsync()
     {
@@ -433,7 +434,9 @@ public class RenderTarget : IDisposable
             else
             {
                 // Without a direct context, or a dispatcher that owns this target to poll one on, a synchronous flush
-                // on the calling thread runs the finished callback instead. The render thread need not own the context.
+                // on the calling thread runs the finished callback instead. That thread has already flushed this
+                // surface and requested the read above, so it is the one known to own the context; the render thread
+                // need not be.
                 surface.Flush(true, true);
                 if (!readback.Completion.IsCompleted)
                     readback.Fail(new InvalidOperationException("The render target surface read did not complete."));
@@ -484,8 +487,12 @@ public class RenderTarget : IDisposable
 
         public void Fail(Exception exception)
         {
-            if (_completion.TrySetException(exception))
-                destination.Dispose();
+            if (_completion.Task.IsCompleted)
+                return;
+
+            // Disposed before the task faults, so nothing that resumes on the failure can find the bitmap alive.
+            destination.Dispose();
+            _completion.TrySetException(exception);
         }
 
         // Polls checkAsyncWorkCompletion on the dispatcher, at low priority, until the read completes. A dispatcher

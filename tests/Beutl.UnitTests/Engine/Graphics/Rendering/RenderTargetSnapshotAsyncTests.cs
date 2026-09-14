@@ -1,5 +1,9 @@
-﻿using Beutl.Graphics;
+﻿using System.Collections.Immutable;
+using Beutl.Composition;
+using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Threading;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -155,9 +159,15 @@ public class RenderTargetSnapshotAsyncTests
         var polled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         // The context never reports the read finished, so only the shutdown can end it.
-        readback.PollUntilComplete(dispatcher, () => polled.TrySetResult(), () => false);
-        await polled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        dispatcher.Shutdown();
+        try
+        {
+            readback.PollUntilComplete(dispatcher, () => polled.TrySetResult(), () => false);
+            await polled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            dispatcher.Shutdown();
+        }
 
         Assert.That(
             async () => await readback.Completion.WaitAsync(TimeSpan.FromSeconds(5)),
@@ -215,6 +225,131 @@ public class RenderTargetSnapshotAsyncTests
             VulkanTestEnvironment.InvokeOnRenderThread(target.Dispose);
         }
     }
+
+    [Test]
+    public async Task RendererSnapshotAsync_ReadsTheSamePixelsAsSnapshot()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        (Renderer renderer, Bitmap expected, Task<Bitmap> pending) = VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var renderer = new Renderer(64, 48, RenderIntent.Preview);
+            var shape = new RectShape
+            {
+                Width = { CurrentValue = 32 },
+                Height = { CurrentValue = 24 },
+                Fill = { CurrentValue = Brushes.White },
+            };
+            var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
+            renderer.Render(new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(resource),
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new PixelSize(64, 48),
+                null));
+
+            return (renderer, renderer.Snapshot(), renderer.SnapshotAsync());
+        });
+
+        try
+        {
+            using Bitmap actual = await pending;
+            Assert.Multiple(() =>
+            {
+                // Without something drawn, any blank bitmap would match the blank snapshot.
+                Assert.That(expected.GetPixelSpan().ToArray(), Has.Some.Not.Zero);
+                Assert.That(actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()), Is.True);
+            });
+        }
+        finally
+        {
+            expected.Dispose();
+            VulkanTestEnvironment.InvokeOnRenderThread(renderer.Dispose);
+        }
+    }
+
+    [Test]
+    public void SurfaceReadback_CompletedWithoutAResult_FailsAndDisposesItsBitmap()
+    {
+        Bitmap destination = CreateReadbackBitmap();
+        var readback = new RenderTarget.SurfaceReadback(destination);
+
+        readback.Complete(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(readback.Completion.Exception?.InnerException, Is.InstanceOf<InvalidOperationException>());
+            Assert.That(destination.IsDisposed, Is.True);
+        });
+    }
+
+    [Test]
+    public void SurfaceReadback_FailsWhenTheContextIsAbandonedWhilePolling()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        try
+        {
+            Bitmap destination = CreateReadbackBitmap();
+            var readback = new RenderTarget.SurfaceReadback(destination);
+
+            readback.PollUntilComplete(dispatcher, () => { }, () => true);
+
+            Assert.That(
+                async () => await readback.Completion.WaitAsync(TimeSpan.FromSeconds(5)),
+                Throws.InstanceOf<ObjectDisposedException>());
+            Assert.That(destination.IsDisposed, Is.True);
+        }
+        finally
+        {
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public void SurfaceReadback_FailsWithWhatPollingThrows()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        try
+        {
+            Bitmap destination = CreateReadbackBitmap();
+            var readback = new RenderTarget.SurfaceReadback(destination);
+
+            readback.PollUntilComplete(
+                dispatcher,
+                () => throw new InvalidOperationException("The context could not be polled."),
+                () => false);
+
+            Assert.That(
+                async () => await readback.Completion.WaitAsync(TimeSpan.FromSeconds(5)),
+                Throws.InstanceOf<InvalidOperationException>().With.Message.EqualTo("The context could not be polled."));
+            Assert.That(destination.IsDisposed, Is.True);
+        }
+        finally
+        {
+            dispatcher.Shutdown();
+        }
+    }
+
+    [Test]
+    public async Task SurfaceReadback_OnADispatcherThatHasAlreadyShutDown_FailsAtOnce()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        dispatcher.ShutdownFinished += (_, _) => finished.TrySetResult();
+        dispatcher.Shutdown();
+        await finished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Bitmap destination = CreateReadbackBitmap();
+        var readback = new RenderTarget.SurfaceReadback(destination);
+
+        readback.PollUntilComplete(dispatcher, () => { }, () => false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(readback.Completion.Exception?.InnerException, Is.InstanceOf<OperationCanceledException>());
+            Assert.That(destination.IsDisposed, Is.True);
+        });
+    }
+
+    private static Bitmap CreateReadbackBitmap()
+        => new(4, 4, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
 
     private sealed class DispatcherlessRenderTarget(SKSurface surface, int width, int height)
         : RenderTarget(surface, width, height);
