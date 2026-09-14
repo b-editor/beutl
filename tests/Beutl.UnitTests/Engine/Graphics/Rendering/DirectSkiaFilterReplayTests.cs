@@ -878,7 +878,10 @@ public sealed class DirectSkiaFilterReplayTests
         using (canvas.PushTransform(Matrix.CreateTranslation(-rasterBounds.X, -rasterBounds.Y)))
         using (canvas.PushBlendMode(BlendMode.SrcOver))
         using (canvas.PushTransform(Matrix.Identity))
-        using (canvas.PushPaint(paint))
+        // Bound the filter layer to the source, which is the input a filter effect is given. An unbounded layer
+        // leaves that input's size to Skia: m119 shrank it to the drawn content, m152 sizes it to the clip, and
+        // Skia blurs the larger input one 8-bit step differently at a few pixels.
+        using (canvas.PushPaint(paint, s_sourceBounds))
         {
             canvas.DrawEllipse(s_sourceBounds, Brushes.Resource.White, null);
         }
