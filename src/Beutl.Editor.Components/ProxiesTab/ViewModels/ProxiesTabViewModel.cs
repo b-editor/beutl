@@ -17,6 +17,7 @@ using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -269,11 +270,19 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Proxies);
 
+    internal Action<Notification> Notify { get; set; } = NotificationService.Show;
+
+    private void ReportActionStatus(string message, NotificationType type)
+    {
+        StatusMessage.Value = message;
+        Notify(new Notification(Strings.Proxies, message, type));
+    }
+
     public async Task GenerateAsync(ProxyClipViewModel clip)
     {
         if (_queue == null)
         {
-            StatusMessage.Value = Strings.ProxyQueueUnavailable;
+            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
             return;
         }
 
@@ -326,9 +335,10 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         if (failed <= 0)
             return;
 
-        StatusMessage.Value = failed == 1
+        string message = failed == 1
             ? Strings.ProxyDeleteFailedSingular
             : string.Format(CultureInfo.CurrentCulture, Strings.ProxyDeleteFailedPluralFormat, failed);
+        ReportActionStatus(message, NotificationType.Error);
     }
 
     // A queued/running generation would Register the proxy again on success and silently undo the
@@ -425,7 +435,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         if (_queue == null)
         {
-            StatusMessage.Value = Strings.ProxyQueueUnavailable;
+            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
             return;
         }
 
@@ -435,7 +445,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             // An all-light project would otherwise no-op silently on an explicit action; tell the
             // user nothing met the heaviness floor and point them at per-clip generate.
             if (Clips.Count > 0)
-                StatusMessage.Value = Strings.ProxyBulkNoEligibleClips;
+                ReportActionStatus(Strings.ProxyBulkNoEligibleClips, NotificationType.Information);
 
             return;
         }
@@ -485,7 +495,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         if (_queue == null)
         {
-            StatusMessage.Value = Strings.ProxyQueueUnavailable;
+            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
             return;
         }
 
@@ -501,7 +511,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         if (_queue == null)
         {
-            StatusMessage.Value = Strings.ProxyQueueUnavailable;
+            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
             return;
         }
 
@@ -1290,12 +1300,12 @@ public sealed class ProxyClipViewModel : IDisposable
     internal void UpdateEntry(ProxyEntry? entry)
     {
         EntrySource = entry?.Source;
-        FailureReason.Value = entry?.FailureReason;
         ProxyState state = entry == null
             ? ProxyState.None
             : entry.Source == Source
                 ? entry.State
                 : ProxyState.Stale;
+        FailureReason.Value = state == ProxyState.Failed ? entry?.FailureReason : null;
         State.Value = ProxiesTabViewModel.GetProxyStateText(state);
         IsReady.Value = state == ProxyState.Ready;
         IsStale.Value = state == ProxyState.Stale;
