@@ -1474,6 +1474,24 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProxyStoreCap" xml:space="preserve">
     <value>上限</value>
   </data>
+  <data name="ProxyClipCountSingular" xml:space="preserve">
+    <value>1 クリップ</value>
+  </data>
+  <data name="ProxyClipCountPlural" xml:space="preserve">
+    <value>{0} クリップ</value>
+  </data>
+  <data name="ProxyMoreActions" xml:space="preserve">
+    <value>その他の操作</value>
+  </data>
+  <data name="ProxyDetails" xml:space="preserve">
+    <value>詳細</value>
+  </data>
+  <data name="ProxyEmptyTitle" xml:space="preserve">
+    <value>プロキシ対象の動画がありません</value>
+  </data>
+  <data name="ProxyEmptyDescription" xml:space="preserve">
+    <value>プロジェクトに動画を追加すると、ここで軽量なプレビュー用ファイルを作成できます。</value>
+  </data>
   <data name="ProxyClips" xml:space="preserve">
     <value>クリップ</value>
   </data>

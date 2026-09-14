@@ -1480,6 +1480,24 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ProxyStoreCap" xml:space="preserve">
     <value>Cap</value>
   </data>
+  <data name="ProxyClipCountSingular" xml:space="preserve">
+    <value>1 clip</value>
+  </data>
+  <data name="ProxyClipCountPlural" xml:space="preserve">
+    <value>{0} clips</value>
+  </data>
+  <data name="ProxyMoreActions" xml:space="preserve">
+    <value>More actions</value>
+  </data>
+  <data name="ProxyDetails" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="ProxyEmptyTitle" xml:space="preserve">
+    <value>No videos to create proxies for</value>
+  </data>
+  <data name="ProxyEmptyDescription" xml:space="preserve">
+    <value>Add video to the project to create lighter files for preview playback here.</value>
+  </data>
   <data name="ProxyClips" xml:space="preserve">
     <value>Clips</value>
   </data>

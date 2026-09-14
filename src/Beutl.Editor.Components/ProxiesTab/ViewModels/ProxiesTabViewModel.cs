@@ -69,6 +69,12 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         ClipSummary = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
+        ClipCountText = new ReactiveProperty<string>()
+            .DisposeWith(_disposables);
+        HasClips = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        HasSelection = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
         SelectionSummary = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
         JobSummary = new ReactiveProperty<string>()
@@ -213,6 +219,12 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     public ObservableCollection<ProxyClipViewModel> Clips { get; } = [];
 
     public ReactiveProperty<string> ClipSummary { get; }
+
+    public ReactiveProperty<string> ClipCountText { get; }
+
+    public ReactivePropertySlim<bool> HasClips { get; }
+
+    public ReactivePropertySlim<bool> HasSelection { get; }
 
     public ReactiveProperty<string> SelectionSummary { get; }
 
@@ -909,6 +921,12 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         int missing = Clips.Count(static c => c.IsMissing.Value);
         int selected = Clips.Count(static c => c.IsSelected.Value);
 
+        HasClips.Value = Clips.Count > 0;
+        HasSelection.Value = selected > 0;
+        ClipCountText.Value = Clips.Count == 1
+            ? Strings.ProxyClipCountSingular
+            : string.Format(CultureInfo.CurrentCulture, Strings.ProxyClipCountPlural, Clips.Count);
+
         string stateSummary = string.Format(
             CultureInfo.CurrentCulture,
             Strings.ProxyClipSummaryFormat,
@@ -1126,6 +1144,8 @@ public sealed class ProxyClipViewModel : IDisposable
             .DisposeWith(_disposables);
         LastUsedText = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
+        FailureReason = new ReactiveProperty<string?>()
+            .DisposeWith(_disposables);
         IsReady = new ReactiveProperty<bool>()
             .DisposeWith(_disposables);
         IsStale = new ReactiveProperty<bool>()
@@ -1237,6 +1257,8 @@ public sealed class ProxyClipViewModel : IDisposable
 
     public ReactiveProperty<string> LastUsedText { get; }
 
+    public ReactiveProperty<string?> FailureReason { get; }
+
     public ReactiveProperty<bool> IsReady { get; }
 
     public ReactiveProperty<bool> IsStale { get; }
@@ -1268,6 +1290,7 @@ public sealed class ProxyClipViewModel : IDisposable
     internal void UpdateEntry(ProxyEntry? entry)
     {
         EntrySource = entry?.Source;
+        FailureReason.Value = entry?.FailureReason;
         ProxyState state = entry == null
             ? ProxyState.None
             : entry.Source == Source
