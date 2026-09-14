@@ -28,6 +28,89 @@ namespace Beutl.HeadlessUITests;
 public class VersionControlToolBarTests
 {
     [AvaloniaTest]
+    public async Task Adoption_without_an_eligible_editor_is_declined()
+    {
+        await TestReset.ResetShellAsync();
+        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "adoption-without-editor");
+        var repository = new RepositoryInfo(root, root);
+        bool accepted = await TestShell.VersionControl.ConfirmAdoptExistingRepositoryAsync(repository, CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.That(accepted, Is.False);
+        Assert.That(TestShell.VersionControl.PendingRepositoryAdoption, Is.Null);
+    }
+
+    [AvaloniaTest]
+    public async Task Adoption_is_declined_if_the_tool_tab_cannot_open()
+    {
+        await TestReset.ResetShellAsync();
+        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"adoption-blocked-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "adoption-blocked", root))!;
+            TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            if (editor.FindToolTab<VersionControlTabViewModel>() is { } previous)
+                editor.CloseToolTab(previous);
+            using var selected = new ReactivePropertySlim<bool>();
+            using var header = new ReactivePropertySlim<string>("Unavailable version control tool");
+            var blocker = new Moq.Mock<Beutl.Extensibility.IToolContext>();
+            blocker.SetupGet(x => x.Extension).Returns(VersionControlTabExtension.Instance);
+            blocker.SetupGet(x => x.Header).Returns(header);
+            blocker.SetupGet(x => x.IsSelected).Returns(selected);
+            Assert.That(editor.OpenToolTab(blocker.Object), Is.True);
+            bool accepted = await TestShell.VersionControl.ConfirmAdoptExistingRepositoryAsync(
+                new RepositoryInfo(root, root), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(3));
+            Assert.That(accepted, Is.False);
+            Assert.That(TestShell.VersionControl.PendingRepositoryAdoption, Is.Null);
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Adoption_moves_to_the_selected_scene_and_closing_its_tab_declines(bool close)
+    {
+        await TestReset.ResetShellAsync();
+        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"adoption-move-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        using var cancellation = new CancellationTokenSource();
+        try
+        {
+            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "adoption-move", root))!;
+            Scene firstScene = project.Items.OfType<Scene>().Single();
+            var secondScene = new Scene(640, 480, "Second") { Uri = new Uri(Path.Combine(root, "second.scene")) };
+            project.Items.Add(secondScene);
+            TestShell.Editor.ActivateTabItem(firstScene);
+            var firstEditor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            Task<bool> confirmation = TestShell.VersionControl.ConfirmAdoptExistingRepositoryAsync(new RepositoryInfo(root, root), cancellation.Token);
+            await WaitUntilAsync(() => firstEditor.FindToolTab<VersionControlTabViewModel>()?.HasPendingRepositoryAdoption.Value == true);
+            VersionControlTabViewModel firstTab = firstEditor.FindToolTab<VersionControlTabViewModel>()!;
+            RepositoryAdoptionRequest request = firstTab.PendingRepositoryAdoption.Value!;
+            TestShell.Editor.ActivateTabItem(secondScene);
+            var secondEditor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            await WaitUntilAsync(() => secondEditor.FindToolTab<VersionControlTabViewModel>()?.HasPendingRepositoryAdoption.Value == true);
+            VersionControlTabViewModel secondTab = secondEditor.FindToolTab<VersionControlTabViewModel>()!;
+            Assert.That(secondTab.PendingRepositoryAdoption.Value, Is.SameAs(request));
+            firstEditor.CloseToolTab(firstTab);
+            Assert.That(confirmation.IsCompleted, Is.False);
+            if (close)
+                secondEditor.CloseToolTab(secondTab);
+            else
+                secondTab.AcceptRepositoryAdoptionCommand.Execute();
+            Assert.That(await confirmation.WaitAsync(TimeSpan.FromSeconds(3)), Is.EqualTo(!close));
+            Assert.That(TestShell.VersionControl.PendingRepositoryAdoption, Is.Null);
+            Assert.That(request.Respond(true), Is.False);
+        }
+        finally
+        {
+            cancellation.Cancel();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(320, false)]
     [TestCase(640, false)]
     [TestCase(320, true)]

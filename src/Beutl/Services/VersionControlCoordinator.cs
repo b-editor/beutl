@@ -3736,7 +3736,7 @@ internal sealed class VersionControlCoordinator :
         CancellationToken token = cancellation.Token;
         var request = new RepositoryAdoptionRequest(repository);
         using CancellationTokenRegistration registration = token.Register(() => request.Cancel(token));
-        bool tabShown = false;
+        VersionControlTabViewModel? presentedTab = null;
         using IDisposable selection = _editorService.SelectedTabItem.Subscribe(
             _ => _dispatcher.Post(ShowConfirmationTab));
         try
@@ -3758,11 +3758,13 @@ internal sealed class VersionControlCoordinator :
                 previous?.Respond(false);
                 RepositoryAdoptionChanged?.Invoke(this, EventArgs.Empty);
                 ShowConfirmationTab();
-            });
+            }, DispatcherPriority.Normal, token);
             return await request.Completion;
         }
         finally
         {
+            if (presentedTab is not null)
+                presentedTab.Disposed -= OnPresentedTabDisposed;
             request.Respond(false);
             await _dispatcher.InvokeAsync(() =>
             {
@@ -3777,22 +3779,42 @@ internal sealed class VersionControlCoordinator :
 
         void ShowConfirmationTab()
         {
-            if (tabShown || request.Completion.IsCompleted || token.IsCancellationRequested
-                || !ReferenceEquals(PendingRepositoryAdoption, request)
-                || _editorService.SelectedTabItem.Value is not { } selected
+            if (request.Completion.IsCompleted || token.IsCancellationRequested
+                || !ReferenceEquals(PendingRepositoryAdoption, request))
+            {
+                return;
+            }
+
+            if (_editorService.SelectedTabItem.Value is not { } selected
                 || !_editorService.TabItems.Contains(selected)
                 || selected.Context.Value is not EditViewModel editor
                 || _projectService.CurrentProject.Value is not { } project
                 || !project.Items.Contains(editor.Scene))
             {
+                request.Respond(false);
                 return;
             }
 
             VersionControlTabViewModel? existing = editor.FindToolTab<VersionControlTabViewModel>();
+            if (existing is not null && ReferenceEquals(existing, presentedTab))
+                return;
+
             var tab = existing ?? new VersionControlTabViewModel(VersionControlTabExtension.Instance, editor);
-            tabShown = editor.OpenToolTab(tab);
-            if (!tabShown && existing is null) tab.Dispose();
+            if (!editor.OpenToolTab(tab))
+            {
+                request.Respond(false);
+                if (existing is null)
+                    tab.Dispose();
+                return;
+            }
+
+            if (presentedTab is not null)
+                presentedTab.Disposed -= OnPresentedTabDisposed;
+            presentedTab = tab;
+            presentedTab.Disposed += OnPresentedTabDisposed;
         }
+
+        void OnPresentedTabDisposed(object? sender, EventArgs e) => request.Respond(false);
     }
 
     private Task<bool> ShowEnclosingRepositoryConfirmationAsync(

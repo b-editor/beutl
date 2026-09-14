@@ -833,6 +833,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
     {
     }
 
+    internal event EventHandler? Disposed;
+
     public void Dispose()
     {
         if (_disposed)
@@ -841,6 +843,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
         }
 
         _disposed = true;
+        Disposed?.Invoke(this, EventArgs.Empty);
         Interlocked.Increment(ref _statusRefreshRevision);
         Interlocked.Increment(ref _pendingRecoveryQueryRevision);
         if (_repositoryAdoptionSource is not null)

@@ -10565,6 +10565,7 @@ public class VersionControlRestoreTests
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
         VersionControlCoordinator? coordinator = null;
+        var editors = new EditorService(TestShell.MainViewModel.ExtensionProvider);
         try
         {
             config.AutoCommitOnClose = false;
@@ -10577,11 +10578,18 @@ public class VersionControlRestoreTests
             var tip = new CheckedOutBranchTip("refs/heads/main", "1111111111111111111111111111111111111111");
             var discovery = new PullCycleTestBackend(null, repository, tip) { HasVersionTrackingOptIn = false };
             var tracked = new PullCycleTestBackend(repository, repository, tip);
-            coordinator = new VersionControlCoordinator(projectService,
-                new EditorService(new ExtensionProvider()), config, installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
-
             await projectService.OpenProject(projectFile);
+            editors.ActivateTabItem(projectService.CurrentProject.Value!.Items.OfType<Scene>().Single());
+            var editor = (EditViewModel)editors.SelectedTabItem.Value!.Context.Value;
+            if (editor.FindToolTab<Beutl.Editor.Components.VersionControlTab.ViewModels.VersionControlTabViewModel>() is { } previousTab)
+                editor.CloseToolTab(previousTab);
+            coordinator = new VersionControlCoordinator(projectService,
+                editors, config, installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            using var service = new ReactivePropertySlim<IProjectVersionControlService?>();
+            var tab = new Beutl.Editor.Components.VersionControlTab.ViewModels.VersionControlTabViewModel(
+                Beutl.Services.PrimitiveImpls.VersionControlTabExtension.Instance, editor, service, coordinator, action => action());
+            Assert.That(editor.OpenToolTab(tab), Is.True);
             await WaitUntilAsync(() => coordinator.PendingRepositoryAdoption is not null);
             RepositoryAdoptionRequest request = coordinator.PendingRepositoryAdoption!;
             Assert.That(request.Repository, Is.EqualTo(repository));
@@ -10607,6 +10615,8 @@ public class VersionControlRestoreTests
         finally
         {
             if (coordinator is not null) await coordinator.DisposeAsync();
+            foreach (EditorTabItem item in editors.TabItems.ToArray())
+                await editors.CloseTabItem(item);
             await TestReset.ResetShellAsync();
             config.AutoCommitOnClose = oldAutoCommitOnClose;
         }
