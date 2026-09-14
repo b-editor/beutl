@@ -66,6 +66,44 @@ public sealed class FilterEffectCropTests
 
     [TestCase(GradientSpreadMethod.Decal)]
     [TestCase(GradientSpreadMethod.Repeat)]
+    public void EmptyCrop_StaysEmptyThroughFiltersThatGrowBounds(GradientSpreadMethod spreadMethod)
+    {
+        using var context = new FilterEffectContext(s_sourceBounds);
+
+        context.Crop(new Rect(30, 26, 0, 8), spreadMethod);
+        context.Blur(new Size(4, 4));
+        context.DropShadow(new Point(6, 6), new Size(2, 2), Colors.Black);
+        context.Dilate(3, 3);
+
+        Assert.That(context.Bounds.IsEmpty, Is.True);
+    }
+
+    [Test]
+    public void DecalCropMissingTheOutput_StaysEmptyThroughADropShadow()
+    {
+        using var context = new FilterEffectContext(s_sourceBounds);
+
+        context.Crop(new Rect(100, 100, 10, 10));
+        context.DropShadowOnly(new Point(4, 4), new Size(3, 3), Colors.Black);
+
+        Assert.That(context.Bounds.IsEmpty, Is.True);
+    }
+
+    [TestCase(GradientSpreadMethod.Decal)]
+    [TestCase(GradientSpreadMethod.Repeat)]
+    public void EmptyCropFollowedByABlur_RendersNothing(GradientSpreadMethod spreadMethod)
+    {
+        using FilterEffectRenderNode node = CreateCropFilter(new Rect(30, 26, 0, 8), spreadMethod, new Size(4, 4));
+        node.AddChild(CreateSource());
+        using RenderNodeRenderer renderer = CreateRenderer(node);
+
+        using RenderNodeRasterization result = renderer.Rasterize();
+
+        Assert.That(result.IsEmpty, Is.True);
+    }
+
+    [TestCase(GradientSpreadMethod.Decal)]
+    [TestCase(GradientSpreadMethod.Repeat)]
     public void EmptyCrop_BuildsAFilterThatDrawsNothing(GradientSpreadMethod spreadMethod)
     {
         using var context = new FilterEffectContext(s_sourceBounds);
@@ -192,8 +230,9 @@ public sealed class FilterEffectCropTests
         Assert.That(observed, Is.EqualTo(new[] { crop }));
     }
 
-    private static FilterEffectRenderNode CreateCropFilter(Rect crop, GradientSpreadMethod spreadMethod)
-        => new(new CropEffect(crop, spreadMethod).ToResource(CompositionContext.Default));
+    private static FilterEffectRenderNode CreateCropFilter(
+        Rect crop, GradientSpreadMethod spreadMethod, Size blur = default)
+        => new(new CropEffect(crop, spreadMethod, blur).ToResource(CompositionContext.Default));
 
     private static EllipseRenderNode CreateSource()
         => new(s_sourceBounds, Brushes.Resource.White, null);
@@ -254,11 +293,14 @@ public sealed class FilterEffectCropTests
             size.Height);
 
     [SuppressResourceClassGeneration]
-    private sealed partial class CropEffect(Rect crop, GradientSpreadMethod spreadMethod) : FilterEffect
+    // Crops, then blurs when blur is not zero.
+    private sealed partial class CropEffect(Rect crop, GradientSpreadMethod spreadMethod, Size blur) : FilterEffect
     {
         public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
         {
             context.Crop(crop, spreadMethod);
+            if (blur.Width > 0 || blur.Height > 0)
+                context.Blur(blur);
         }
 
         public override Resource ToResource(CompositionContext context)

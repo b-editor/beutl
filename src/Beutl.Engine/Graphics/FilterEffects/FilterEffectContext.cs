@@ -292,7 +292,11 @@ public sealed class FilterEffectContext : IDisposable
         AppendDescription(new FEItem_Skia<T>(
             data,
             (value, input, _) => factory(value, input),
-            transformBounds)
+            // A built-in Skia filter only transforms its input, so bounds an earlier filter left empty, such as a crop
+            // to an empty rectangle, give it nothing to grow. Inflating them would spread them around their origin and
+            // have the renderer allocate and composite a blank target. The mapping lives on the item because the
+            // render graph resolves it again from the item and requires the same answer.
+            (value, bounds) => bounds.IsEmpty ? bounds : transformBounds(value, bounds))
         {
             DirectFactory = factory,
             TransformSamplingBounds = transformSamplingBounds,
