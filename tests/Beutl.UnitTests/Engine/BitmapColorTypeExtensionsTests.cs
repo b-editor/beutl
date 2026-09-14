@@ -43,6 +43,36 @@ public class BitmapColorTypeExtensionsTests
         Assert.That(BitmapColorTypeExtensions.FromSKColorType(pair.sk), Is.EqualTo(pair.beutl));
     }
 
+    // The round trip only pins the mapping; each format SkiaSharp 4 added also has to allocate, take a draw and
+    // convert back out through Bitmap.Convert.
+    [TestCase(BitmapColorType.Bgra10101010XR, 8)]
+    [TestCase(BitmapColorType.RgbF16F16F16x, 8)]
+    [TestCase(BitmapColorType.R16Unorm, 2)]
+    [TestCase(BitmapColorType.RF16, 2)]
+    public void SkiaSharp4ColorType_DrawsAndConvertsBackOnTheCpu(BitmapColorType colorType, int bytesPerPixel)
+    {
+        using var bitmap = new Bitmap(4, 4, colorType, BitmapAlphaType.Premul);
+        using (var canvas = new SKCanvas(bitmap.SKBitmap))
+        using (var paint = new SKPaint { Color = SKColors.Red })
+        {
+            canvas.Clear(SKColors.Black);
+            canvas.DrawRect(SKRect.Create(0, 0, 2, 4), paint);
+        }
+
+        byte[] drawn = bitmap.GetPixelSpan()[..bytesPerPixel].ToArray();
+        byte[] cleared = bitmap.GetPixelSpan().Slice(3 * bytesPerPixel, bytesPerPixel).ToArray();
+        using Bitmap converted = bitmap.Convert(BitmapColorType.Rgba8888);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bitmap.ColorType, Is.EqualTo(colorType));
+            Assert.That(bitmap.BytesPerPixel, Is.EqualTo(bytesPerPixel));
+            Assert.That(drawn, Is.Not.EqualTo(cleared), "The red rect did not reach the pixels.");
+            Assert.That(converted.SKBitmap.GetPixel(0, 0).Red, Is.EqualTo(255).Within(1));
+            Assert.That(converted.SKBitmap.GetPixel(3, 0).Red, Is.EqualTo(0).Within(1));
+        });
+    }
+
     [Test]
     public void Unknown_To_Sk_ReturnsUnknown()
     {
