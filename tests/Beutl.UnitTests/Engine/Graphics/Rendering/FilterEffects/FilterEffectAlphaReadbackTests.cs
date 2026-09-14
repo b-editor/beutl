@@ -236,21 +236,21 @@ public sealed class FilterEffectAlphaReadbackTests
     private static SKPath CreateContourPath(Bitmap source)
     {
         using Contours contours = ContourTracer.FindContours(source);
-        var path = new SKPath();
+        using var builder = new SKPathBuilder();
         for (int contourIndex = 0; contourIndex < contours.Count; contourIndex++)
         {
             ReadOnlySpan<PixelPoint> contour = contours[contourIndex];
             for (int i = 0; i < contour.Length; i++)
             {
                 if (i == 0)
-                    path.MoveTo(contour[i].X, contour[i].Y);
+                    builder.MoveTo(contour[i].X, contour[i].Y);
                 else
-                    path.LineTo(contour[i].X, contour[i].Y);
+                    builder.LineTo(contour[i].X, contour[i].Y);
             }
-            path.Close();
+            builder.Close();
         }
 
-        return path;
+        return builder.Detach();
     }
 
     private static List<SKPath> CreateSplitPaths(Bitmap source)
@@ -263,16 +263,16 @@ public sealed class FilterEffectAlphaReadbackTests
             for (int i = 0; i < contours.Count; i++)
             {
                 ReadOnlySpan<PixelPoint> contour = contours[i];
-                var path = new SKPath();
+                using var builder = new SKPathBuilder();
                 for (int j = 0; j < contour.Length; j++)
                 {
                     if (j == 0)
-                        path.MoveTo(contour[j].X, contour[j].Y);
+                        builder.MoveTo(contour[j].X, contour[j].Y);
                     else
-                        path.LineTo(contour[j].X, contour[j].Y);
+                        builder.LineTo(contour[j].X, contour[j].Y);
                 }
-                path.Close();
-                paths.Add((path, parentIndices[i], i));
+                builder.Close();
+                paths.Add((builder.Detach(), parentIndices[i], i));
             }
 
             for (int i = 0; i < paths.Count; i++)

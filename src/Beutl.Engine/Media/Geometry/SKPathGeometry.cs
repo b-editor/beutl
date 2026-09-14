@@ -34,7 +34,7 @@ internal sealed partial class SKPathGeometry : Geometry
 
             if (context is GeometryContext typed)
             {
-                typed.NativeObject.AddPath(_path);
+                typed.AddPath(_path);
             }
             else
             {

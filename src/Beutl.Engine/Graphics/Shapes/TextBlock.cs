@@ -74,7 +74,7 @@ public partial class TextBlock : Drawable
 
     internal static SKPath ToSKPath(TextElements elements)
     {
-        var skpath = new SKPath();
+        using var builder = new SKPathBuilder();
 
         float prevBottom = 0;
         foreach (Span<FormattedText> line in elements.Lines)
@@ -91,7 +91,7 @@ public partial class TextBlock : Drawable
                     point += new Point(prevRight + item.Spacing / 2, 0);
                     Rect elementBounds = item.Bounds;
 
-                    item.AddToSKPath(skpath, point);
+                    item.AddToSKPath(builder, point);
 
                     prevRight = elementBounds.Width + item.Spacing;
                 }
@@ -100,7 +100,7 @@ public partial class TextBlock : Drawable
             prevBottom += lineBounds.Height;
         }
 
-        return skpath;
+        return builder.Detach();
     }
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)

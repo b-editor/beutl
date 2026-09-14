@@ -265,11 +265,13 @@ public class FormattedTextRasterBoundsTests
     public void AddToSKPath_RemainsStableWhenRunStorageIsConsumedBeforeBuild()
     {
         using FormattedText text = CreateText("Outline", 48f);
-        using var first = new SKPath();
-        using var second = new SKPath();
+        using var firstBuilder = new SKPathBuilder();
+        using var secondBuilder = new SKPathBuilder();
 
-        text.AddToSKPath(first, new Point(10, 20));
-        text.AddToSKPath(second, new Point(10, 20));
+        text.AddToSKPath(firstBuilder, new Point(10, 20));
+        text.AddToSKPath(secondBuilder, new Point(10, 20));
+        using SKPath first = firstBuilder.Detach();
+        using SKPath second = secondBuilder.Detach();
 
         Assert.Multiple(() =>
         {

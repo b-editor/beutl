@@ -58,13 +58,19 @@ public class PenHelperTests
         Assert.That(result, Is.EqualTo(rect));
     }
 
+    private static SKPath CreateRectPath(SKRect rect)
+    {
+        using var builder = new SKPathBuilder();
+        builder.AddRect(rect);
+        return builder.Detach();
+    }
+
     // --- CreateOffsetPath tests ---
 
     [Test]
     public void CreateOffsetPath_WithZeroOffset_ReturnsNull()
     {
-        using var fillPath = new SKPath();
-        fillPath.AddRect(SKRect.Create(0, 0, 100, 100));
+        using SKPath fillPath = CreateRectPath(SKRect.Create(0, 0, 100, 100));
 
         var pen = new Pen { Offset = { CurrentValue = 0 } };
         var penResource = pen.ToResource(CompositionContext.Default);
@@ -78,8 +84,7 @@ public class PenHelperTests
     [Test]
     public void CreateOffsetPath_WithPositiveOffset_ReturnsInflatedPath()
     {
-        using var fillPath = new SKPath();
-        fillPath.AddRect(SKRect.Create(0, 0, 100, 100));
+        using SKPath fillPath = CreateRectPath(SKRect.Create(0, 0, 100, 100));
 
         var pen = new Pen { Offset = { CurrentValue = 10 } };
         var penResource = pen.ToResource(CompositionContext.Default);
@@ -98,8 +103,7 @@ public class PenHelperTests
     public void CreateOffsetPath_WithNegativeOffset_ReturnsShrunkPath()
     {
         // Use a large rectangle so there is room to deflate
-        using var fillPath = new SKPath();
-        fillPath.AddRect(SKRect.Create(0, 0, 200, 200));
+        using SKPath fillPath = CreateRectPath(SKRect.Create(0, 0, 200, 200));
 
         var pen = new Pen { Offset = { CurrentValue = -10 } };
         var penResource = pen.ToResource(CompositionContext.Default);
@@ -119,8 +123,7 @@ public class PenHelperTests
     [Test]
     public void CreateStrokePath_WithPositiveOffset_ProducesLargerStroke()
     {
-        using var fillPath = new SKPath();
-        fillPath.AddRect(SKRect.Create(0, 0, 100, 100));
+        using SKPath fillPath = CreateRectPath(SKRect.Create(0, 0, 100, 100));
         var bounds = new Rect(0, 0, 100, 100);
 
         var penNoOffset = new Pen { Thickness = { CurrentValue = 4 }, Offset = { CurrentValue = 0 } };
@@ -139,8 +142,7 @@ public class PenHelperTests
     public void CreateStrokePath_WithNegativeOffset_ProducesSmallerStroke()
     {
         // Use a larger rectangle so stroke remains visible after deflation
-        using var fillPath = new SKPath();
-        fillPath.AddRect(SKRect.Create(0, 0, 200, 200));
+        using SKPath fillPath = CreateRectPath(SKRect.Create(0, 0, 200, 200));
         var bounds = new Rect(0, 0, 200, 200);
 
         var penNoOffset = new Pen { Thickness = { CurrentValue = 4 }, Offset = { CurrentValue = 0 } };

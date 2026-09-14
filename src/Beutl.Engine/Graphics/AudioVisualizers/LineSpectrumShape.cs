@@ -25,7 +25,7 @@ public sealed partial class LineSpectrumShape : SpectrumShape
     public new partial class Resource
     {
         private readonly CornerPathEffectCache _cornerEffect = new();
-        private SKPath? _path;
+        private SKPathBuilder? _builder;
         private SKPaint? _paint;
 
         protected internal override void Render(in SpectrumRenderContext context)
@@ -49,30 +49,31 @@ public sealed partial class LineSpectrumShape : SpectrumShape
             VisualizerPaint.ConfigureStroke(_paint, canvas, bounds, fill, thickness);
             _paint.PathEffect = _cornerEffect.GetOrCreate(cornerRadius);
 
-            _path ??= new SKPath();
-            _path.Reset();
+            _builder ??= new SKPathBuilder();
+            _builder.Reset();
 
             for (int i = 0; i < barCount; i++)
             {
                 float magnitude = normalizedBars[i];
                 float x = (float)bounds.X + i * slotWidth + slotWidth * 0.5f;
                 float y = (float)bounds.Y + height - MathF.Max(1f, magnitude * height);
-                if (i == 0) _path.MoveTo(x, y);
-                else _path.LineTo(x, y);
+                if (i == 0) _builder.MoveTo(x, y);
+                else _builder.LineTo(x, y);
             }
 
-            canvas.Canvas.DrawPath(_path, _paint);
+            using SKPath path = _builder.Detach();
+            canvas.Canvas.DrawPath(path, _paint);
         }
 
         partial void PostDispose(bool disposing)
         {
             if (disposing)
             {
-                _path?.Dispose();
+                _builder?.Dispose();
                 _paint?.Dispose();
                 _cornerEffect.Dispose();
             }
-            _path = null;
+            _builder = null;
             _paint = null;
         }
     }
