@@ -1109,6 +1109,9 @@ public sealed class RenderToolsStoryboardTests
             string storyboardJob = started.Value!.JobId!;
             tools.CancelRenderJob(storyboardJob);
             RenderJobSnapshot cancelled = await PollUntilTerminalAsync(tools, storyboardJob);
+            // A job publishes its terminal state before it releases the output operation, so the release
+            // can still be under way when polling first sees the cancellation.
+            await outputOperations.Lease!.Released.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
             {
@@ -1630,15 +1633,19 @@ public sealed class RenderToolsStoryboardTests
 
     private sealed class CountingLease(Action? onDispose = null) : IDisposable
     {
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _disposeCount;
 
         public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        public Task Released => _released.Task;
 
         public void Dispose()
         {
             if (Interlocked.Increment(ref _disposeCount) == 1)
             {
                 onDispose?.Invoke();
+                _released.TrySetResult();
             }
         }
     }
