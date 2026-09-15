@@ -53,8 +53,19 @@ internal sealed class Renderer3D : IRenderer3D
     /// </summary>
     public float SurfaceDensity { get; set; } = 1f;
 
+    /// <summary>
+    /// Allocates the passes and the output texture for an extent.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The extent exceeds what the device can attach. Raised before any allocation, so nothing is left to
+    /// clean up; <see cref="Scene3DRenderNode"/> drops the preview value or fails the delivery on it.
+    /// </exception>
     public void Initialize(int width, int height)
     {
+        // The output texture below is allocated outside any RenderNode3D, so the device limit has to be
+        // asked here rather than left to the passes.
+        DeviceExtentLimits.ThrowIfCannotAttach(_context, width, height);
+
         // Commit Width/Height only after all allocations succeed, so a failure is retryable.
         ShadowManager? shadowManager = null;
         GeometryPass? geometryPass = null;
@@ -65,7 +76,11 @@ internal sealed class Renderer3D : IRenderer3D
         ITexture2D? outputTexture = null;
         try
         {
+            // The shadow maps are a fixed size the device may not be able to attach. Allocating them here
+            // rather than lazily on the first Render keeps that refusal on this path, which the caller
+            // already handles, instead of raising it mid-frame with a half-built manager left behind.
             shadowManager = new ShadowManager(_context, _shaderCompiler);
+            shadowManager.Initialize();
 
             geometryPass = new GeometryPass(_context, _shaderCompiler);
             geometryPass.Initialize(width, height);
@@ -107,8 +122,19 @@ internal sealed class Renderer3D : IRenderer3D
         Height = height;
     }
 
+    /// <summary>
+    /// Reallocates the passes and the output texture for a new extent.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The extent exceeds what the device can attach. The current extent and its resources are left as
+    /// they were.
+    /// </exception>
     public void Resize(int width, int height)
     {
+        // Before the no-op check, so a zero or negative extent is refused rather than matched against the
+        // "not yet initialized" state.
+        DeviceExtentLimits.ThrowIfCannotAttach(_context, width, height);
+
         if (Width == width && Height == height)
             return;
 

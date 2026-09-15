@@ -28,6 +28,17 @@ public interface IGraphicsContext : IDisposable
     int MaxAttachmentDimension { get; }
 
     /// <summary>
+    /// Gets the largest cube face this device can create and sample, in pixels.
+    /// </summary>
+    /// <remarks>
+    /// A cube image answers to its own limit rather than to <see cref="MaxAttachmentDimension"/>, and a
+    /// device may set the two differently. A pass that renders a cube through per-face 2D attachments has to
+    /// fit both. Every allocation a context makes is refused before the driver sees an extent past the
+    /// limit for its kind, because the drivers do not refuse it themselves.
+    /// </remarks>
+    int MaxCubeFaceDimension { get; }
+
+    /// <summary>
     /// Creates a 2D texture.
     /// </summary>
     /// <param name="width">The width of the texture.</param>
@@ -92,6 +103,11 @@ public interface IGraphicsContext : IDisposable
     /// <param name="renderPass">The render pass to use with this framebuffer.</param>
     /// <param name="colorTextures">The color attachment textures.</param>
     /// <param name="depthTexture">The depth attachment texture, or <see langword="null"/> for a color-only framebuffer.</param>
+    /// <exception cref="InvalidOperationException">
+    /// An attachment is larger than the device's framebuffer limits. Every texture is already held to them
+    /// when it is created, so this only fires for a texture that was not created by this context's rules;
+    /// the driver does not refuse it itself.
+    /// </exception>
     IFramebuffer3D CreateFramebuffer3D(
         IRenderPass3D renderPass,
         IReadOnlyList<ITexture2D> colorTextures,

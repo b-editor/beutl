@@ -393,6 +393,25 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public int MaxAttachmentDimension => _vulkanDevice.MaxAttachmentDimension;
 
+    /// <inheritdoc cref="VulkanDevice.MaxImageDimension2D"/>
+    internal int MaxImageDimension2D => _vulkanDevice.MaxImageDimension2D;
+
+    /// <inheritdoc cref="VulkanDevice.MaxFramebufferWidth"/>
+    internal int MaxFramebufferWidth => _vulkanDevice.MaxFramebufferWidth;
+
+    /// <inheritdoc cref="VulkanDevice.MaxFramebufferHeight"/>
+    internal int MaxFramebufferHeight => _vulkanDevice.MaxFramebufferHeight;
+
+    /// <summary>
+    /// Refuses an extent this device cannot make of an image created with attachment usage, which every
+    /// texture here is; see <see cref="DeviceExtentLimits.ThrowIfCannotMakeAttachableImage"/>.
+    /// </summary>
+    internal void ThrowIfCannotMakeAttachableImage(int maxImageDimension, int width, int height)
+        => DeviceExtentLimits.ThrowIfCannotMakeAttachableImage(
+            maxImageDimension, MaxFramebufferWidth, MaxFramebufferHeight, width, height);
+
+    public int MaxCubeFaceDimension => _vulkanDevice.MaxCubeFaceDimension;
+
     internal static IDisposable ObserveTextureAllocations(Action<TextureFormat> observer)
     {
         ArgumentNullException.ThrowIfNull(observer);
@@ -420,6 +439,11 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
+        // The driver does not refuse an extent it cannot make: SwiftShader answers success past its
+        // framebuffer limit, MoltenVK aborts the process. The usage below carries an attachment bit, which
+        // makes the framebuffer limits apply at creation whether the texture is ever attached or not.
+        ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
+
         ImageUsageFlags usage;
         if (format.IsDepthFormat())
         {
@@ -438,6 +462,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITextureCube CreateTextureCube(int size, TextureFormat format)
     {
+        ThrowIfCannotMakeAttachableImage(MaxCubeFaceDimension, size, size);
+
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
             : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
@@ -446,6 +472,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format)
     {
+        ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
+
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
             : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
@@ -454,6 +482,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public ITextureCubeArray CreateTextureCubeArray(int size, uint arraySize, TextureFormat format)
     {
+        ThrowIfCannotMakeAttachableImage(MaxCubeFaceDimension, size, size);
+
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
             : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
@@ -532,6 +562,19 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         ITexture2D? depthTexture)
     {
         var vulkanRenderPass = RequireOwned<VulkanRenderPass3D>(renderPass, nameof(renderPass));
+
+        // A texture is bounded by the image limit when it is made, because it may only ever be sampled.
+        // Attaching it is what the framebuffer limits govern, and the driver does not enforce those either:
+        // SwiftShader builds a framebuffer past its own limit and answers success. The two framebuffer
+        // limits may differ, so each axis is measured against its own rather than against the square
+        // budget the render-target paths fit their density into.
+        foreach (ITexture2D texture in colorTextures)
+            DeviceExtentLimits.ThrowIfCannotBuildFramebuffer(
+                MaxFramebufferWidth, MaxFramebufferHeight, texture.Width, texture.Height);
+        if (depthTexture is not null)
+            DeviceExtentLimits.ThrowIfCannotBuildFramebuffer(
+                MaxFramebufferWidth, MaxFramebufferHeight, depthTexture.Width, depthTexture.Height);
+
         List<VulkanTexture2D> vulkanColorTextures = colorTextures
             .Select(texture => RequireOwned<VulkanTexture2D>(texture, nameof(colorTextures)))
             .ToList();
