@@ -66,7 +66,7 @@ public class DockTabCloseButtonTests
     }
 
     [AvaloniaTest]
-    public async Task Close_button_appears_on_hover_without_changing_the_tab_width_and_fades_the_title()
+    public async Task Close_button_appears_on_selected_hover_without_changing_the_tab_width_and_fades_the_title()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("dock-tab-close-hover");
@@ -93,6 +93,27 @@ public class DockTabCloseButtonTests
                 Assert.That(close.Opacity, Is.EqualTo(0));
                 Assert.That(close.IsHitTestVisible, Is.False);
                 Assert.That(title.OpacityMask, Is.Null);
+            });
+
+            IDockable second = leftDock.VisibleDockables[1];
+            ToolTabStripItem secondTab = TabFor(view, second);
+            Button secondClose = CloseButtonOf(secondTab);
+
+            window.MouseMove(Center(secondTab, window));
+            HeadlessTestHelpers.Settle();
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(second.CanClose, Is.True);
+                Assert.That(tab.IsSelected, Is.True);
+                Assert.That(leftDock.ActiveDockable, Is.SameAs(first));
+                Assert.That(secondTab.IsSelected, Is.False);
+                Assert.That(secondTab.IsPointerOver, Is.True);
+                Assert.That(secondClose.IsVisible, Is.True);
+                Assert.That(secondClose.Opacity, Is.EqualTo(0));
+                Assert.That(secondClose.IsHitTestVisible, Is.False);
+                Assert.That(TitleOf(secondTab).OpacityMask, Is.Null);
             });
 
             window.MouseMove(Center(tab, window));
