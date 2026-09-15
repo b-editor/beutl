@@ -11,7 +11,9 @@
              x:DataType="vm:EditViewModel"
              IsEnabled="{Binding IsEnabled.Value, Mode=OneWay}"
              mc:Ignorable="d">
+    <!--  Match half of the 4px splitter gutter at the window's left and right edges.  -->
     <dock:DockControl Name="DockControl"
+                      Margin="2,0"
                       Factory="{Binding DockHost.Factory}"
                       Layout="{Binding DockHost.Layout.Value}" />
 </UserControl>
