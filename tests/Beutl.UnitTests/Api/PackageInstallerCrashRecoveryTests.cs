@@ -182,8 +182,13 @@ public class PackageInstallerCrashRecoveryTests
             Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, "item.txt"), content);
         }
-        return new LocalPackage { Name = PackageName, Version = version, InstalledPath = installed,
-            Tags = [PackageKinds.MaterialTag, PackageKinds.TemplateTag] };
+        return new LocalPackage
+        {
+            Name = PackageName,
+            Version = version,
+            InstalledPath = installed,
+            Tags = [PackageKinds.MaterialTag, PackageKinds.TemplateTag]
+        };
     }
 
     private static string CreateHome()
@@ -216,7 +221,9 @@ public class PackageInstallerCrashRecoveryTests
         File.Delete(checkpoint);
         var start = new ProcessStartInfo("dotnet")
         {
-            RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
         };
         start.ArgumentList.Add("vstest");
         start.ArgumentList.Add(typeof(PackageInstallerCrashRecoveryTests).Assembly.Location);
