@@ -23,6 +23,7 @@ internal readonly record struct RenderNodeRecordingKey(
     RenderCacheRules CacheRules,
     FusionMode FusionMode,
     bool HasSeparateTargetBinding,
+    bool Supports3DRendering,
     bool TransactionCacheEnabled)
 {
     public static RenderNodeRecordingKey Create(
@@ -39,5 +40,6 @@ internal readonly record struct RenderNodeRecordingKey(
             options.CachePolicy.Rules,
             options.FusionMode,
             options.TargetBinding is not null,
+            options.Supports3DRendering,
             transactionCacheEnabled);
 }

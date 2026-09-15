@@ -44,6 +44,8 @@ public class Scene3DRenderNodeScaleTests
             OutputScale = 2,
             MaxWorkingScale = 0.5f,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            // Stated so the scale this pins does not depend on whether this process could build a backend.
+            Supports3DRendering = true,
         });
 
         RenderNodeMeasurement measurement = renderer.Measure();

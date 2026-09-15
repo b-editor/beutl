@@ -108,6 +108,28 @@ public class GraphicsContextFactory
         return new VulkanContext(s_vulkanInstance!, physicalDevice);
     }
 
+    /// <summary>
+    /// Predicts whether the shared context can render 3D, from any thread.
+    /// </summary>
+    /// <remarks>
+    /// This is the answer a recording may read. <see cref="GetOrCreateShared"/> is render-thread-only and a
+    /// recording must not build the context, so before the first allocation builds one the answer is
+    /// <see langword="true"/>: nothing has been established yet, and refusing 3D content on a prediction
+    /// would drop it from the very request whose allocation goes on to build the backend. The answer turns
+    /// <see langword="false"/> only once the process has settled that there is no 3D backend - building the
+    /// shared context failed, or the one installed cannot render 3D - and stays so for the life of that
+    /// state, which is what lets a request snapshot it once and have every reader agree.
+    /// </remarks>
+    /// <returns>
+    /// <see langword="false"/> when the shared context is known not to support 3D rendering; otherwise
+    /// <see langword="true"/>.
+    /// </returns>
+    internal static bool Predict3DRenderingSupport()
+    {
+        IGraphicsContext? installed = SharedContext;
+        return installed is not null ? installed.Supports3DRendering : !s_failedToInitialize;
+    }
+
     public static IGraphicsContext? GetOrCreateShared()
     {
         if (s_failedToInitialize)
