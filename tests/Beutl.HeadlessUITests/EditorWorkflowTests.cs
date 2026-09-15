@@ -1,12 +1,16 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Runtime.Versioning;
+using Avalonia.Headless.NUnit;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
+using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using SkiaSharp;
 
 namespace Beutl.HeadlessUITests;
 
@@ -117,6 +121,71 @@ public class EditorWorkflowTests
             editor.Scene.Uri = savedUri;
             UnsavedSceneStorage.Cleanup(editor.Scene.Id);
         }
+    }
+
+    [AvaloniaTest]
+    [UnsupportedOSPlatform("windows")]
+    public async Task Save_succeeds_for_a_source_beneath_a_traverse_only_ancestor()
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("Unix directory permissions are required.");
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("save-traverse-only");
+        string locked = Path.Combine(NewWorkspace("save-traverse-only-media"), "locked");
+        string imagePath = Path.Combine(locked, "media", "frame.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(imagePath)!);
+        File.WriteAllBytes(imagePath, TinyPng());
+        UnixFileMode originalMode = File.GetUnixFileMode(locked);
+        try
+        {
+            File.SetUnixFileMode(locked, UnixFileMode.UserExecute);
+            try
+            {
+                Directory.GetFileSystemEntries(locked);
+                Assert.Ignore("Directory listing permissions are not enforced here.");
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // The ancestor can be traversed but not listed, which is the shape under test.
+            }
+
+            var source = new ImageSource();
+            source.ReadFrom(new Uri(imagePath));
+            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+            await adder.AddAsync([new ElementDescription(
+                Start: TimeSpan.Zero,
+                Length: TimeSpan.FromSeconds(2),
+                Layer: 0,
+                Source: new ElementSource.EngineObject(() =>
+                {
+                    var drawable = new SourceImage();
+                    drawable.Source.CurrentValue = source;
+                    return drawable;
+                }))],
+                CancellationToken.None);
+            HeadlessTestHelpers.Settle();
+            Element element = editor.Scene.Children[^1];
+
+            Assert.That(await editor.Commands!.OnSave(), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.Exists(editor.Scene.Uri!.LocalPath), Is.True);
+                Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
+                // External media is referenced in place; only owned temporary resources relocate.
+                Assert.That(source.Uri.LocalPath, Is.EqualTo(imagePath));
+            });
+        }
+        finally
+        {
+            File.SetUnixFileMode(locked, originalMode);
+        }
+    }
+
+    private static byte[] TinyPng()
+    {
+        using var bitmap = new SKBitmap(2, 2, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using SKImage image = SKImage.FromBitmap(bitmap);
+        using SKData encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+        return encoded.ToArray();
     }
 
     [AvaloniaTest]
