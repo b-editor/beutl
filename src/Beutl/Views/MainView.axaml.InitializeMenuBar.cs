@@ -70,7 +70,9 @@ public partial class MainView
         {
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime)
             {
-                applicationLifetime.Shutdown();
+                // A forced Shutdown() raises Exit before the asynchronous project close
+                // can finish; the request form lets MainViewModel drain it first.
+                applicationLifetime.TryShutdown();
             }
         }).AddTo(_disposables);
 
