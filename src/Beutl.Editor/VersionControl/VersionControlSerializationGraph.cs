@@ -1102,7 +1102,8 @@ internal static class VersionControlSerializationGraph
                 if (IsAlwaysJsonIgnored(property)
                     || property.GetMethod is null
                     || property.GetIndexParameters().Length != 0
-                    || !MayContainExternalResource(property.PropertyType))
+                    || !MayContainExternalResource(property.PropertyType)
+                    || IsSynthesizedRecordEqualityContract(property))
                 {
                     continue;
                 }
@@ -1115,6 +1116,17 @@ internal static class VersionControlSerializationGraph
                         + $"'{type.FullName}.{property.Name}' without invoking its getter.");
                 }
             }
+        }
+
+        private static bool IsSynthesizedRecordEqualityContract(PropertyInfo property)
+        {
+            // Records synthesize EqualityContract as `typeof(TRecord)`: it has no backing field,
+            // yet it cannot reach a resource. Match only that compiler-generated getter; treating
+            // the abstract System.Type as resource-free would also trust hand-written Type members.
+            return property.Name == "EqualityContract"
+                   && property.PropertyType == typeof(Type)
+                   && property.GetMethod is { } getter
+                   && getter.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false);
         }
 
         private static IEnumerable<PropertyInfo> GetOpaqueResourceProperties(Type type)
