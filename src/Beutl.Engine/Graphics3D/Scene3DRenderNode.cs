@@ -52,6 +52,13 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (Scene is not { } sceneSnapshot)
             return;
 
+        // The whole value lives on the 3D backend, so without one there is nothing to describe: a published
+        // description would answer hit tests over a scene that is never drawn and, walking topmost-first,
+        // swallow the clicks meant for the 2D content beneath it. This reads request state, not the
+        // process - the request settled the answer before any node recorded, and it keys the recording.
+        if (!context.Supports3DRendering)
+            return;
+
         Scene3D.Resource scene = sceneSnapshot.Resource;
         Camera3D.Resource? camera = scene.Camera;
         float width = scene.RenderWidth;

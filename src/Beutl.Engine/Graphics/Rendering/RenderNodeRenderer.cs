@@ -1,4 +1,5 @@
 ﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
@@ -749,7 +750,9 @@ public sealed class RenderNodeRenderer : IDisposable
             outputScale,
             maxWorkingScale,
             renderRequest.CacheOptions,
-            renderRequest.FusionMode));
+            renderRequest.FusionMode,
+            supports3DRendering: renderRequest.Supports3DRendering
+                                 ?? GraphicsContextFactory.Predict3DRenderingSupport()));
 
     private RenderNodeRenderRequest ResolveRequest(RenderNodeRenderRequest? request)
         => request is null

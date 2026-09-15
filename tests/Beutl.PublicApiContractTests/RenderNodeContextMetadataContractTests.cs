@@ -34,6 +34,27 @@ public sealed class RenderNodeContextMetadataContractTests
         });
     }
 
+    // A plugin node whose value exists only on the 3D backend needs to know, while it records, whether the
+    // request can produce it - and it must not ask the process itself. The context carries that answer as
+    // request state, so like the rest of the request it answers while the node records and not after.
+    [Test]
+    public void RecordingContext_ReportsBackendCapabilityOnlyWhileTheNodeRecords()
+    {
+        using var probe = new BackendCapabilityProbeNode();
+
+        Measure(probe);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(probe.Supports3DRendering, Is.Not.Null, "the node must read the capability while recording");
+            Assert.That(probe.RetainedContext, Is.Not.Null);
+            Assert.That(
+                () => _ = probe.RetainedContext!.Supports3DRendering,
+                Throws.TypeOf<InvalidOperationException>(),
+                "a context kept past its transaction must not keep answering for a request that has ended");
+        });
+    }
+
     private static void Measure(RenderNode node)
     {
         using var renderer = new RenderNodeRenderer(
@@ -69,6 +90,20 @@ public sealed class RenderNodeContextMetadataContractTests
             HasSymbolicTargetWrite = context.HasSymbolicInputTargetWrite();
             HasFiniteIsolationDomain = context.TryCalculateFiniteIsolationDomain(out Rect domain);
             IsolationDomain = domain;
+            context.PassThrough();
+        }
+    }
+
+    private sealed class BackendCapabilityProbeNode : RenderNode
+    {
+        public bool? Supports3DRendering { get; private set; }
+
+        public RenderNodeContext? RetainedContext { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            Supports3DRendering = context.Supports3DRendering;
+            RetainedContext = context;
             context.PassThrough();
         }
     }

@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Backend;
+using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -37,6 +38,37 @@ public class GraphicsContextFactoryTests
             Environment.SetEnvironmentVariable(
                 GraphicsContextFactory.VulkanValidationEnvironmentVariable,
                 previous);
+        }
+    }
+
+    // The prediction is what a recording reads, so it must be settled by the installed state alone: true
+    // until the process has established that no 3D backend exists, false from then on.
+    [TestCase(false, null, true, TestName = "Predict3DRenderingSupport_BeforeAnyContext_IsTrue")]
+    [TestCase(true, null, false, TestName = "Predict3DRenderingSupport_AfterInitializationFailed_IsFalse")]
+    [TestCase(false, true, true, TestName = "Predict3DRenderingSupport_UnderA3DCapableContext_IsTrue")]
+    [TestCase(false, false, false, TestName = "Predict3DRenderingSupport_UnderAContextWithout3D_IsFalse")]
+    public void Predict3DRenderingSupport_FollowsTheInstalledState(
+        bool failedToInitialize,
+        bool? installedSupports3D,
+        bool expected)
+    {
+        IGraphicsContext? installed = null;
+        if (installedSupports3D is { } supports3D)
+        {
+            var context = new Mock<IGraphicsContext>();
+            context.SetupGet(static c => c.Supports3DRendering).Returns(supports3D);
+            installed = context.Object;
+        }
+
+        InstalledGraphics previous = GraphicsContextFactory.ExchangeInstalledGraphics(
+            new InstalledGraphics(installed, null, null, failedToInitialize));
+        try
+        {
+            Assert.That(GraphicsContextFactory.Predict3DRenderingSupport(), Is.EqualTo(expected));
+        }
+        finally
+        {
+            GraphicsContextFactory.ExchangeInstalledGraphics(previous);
         }
     }
 

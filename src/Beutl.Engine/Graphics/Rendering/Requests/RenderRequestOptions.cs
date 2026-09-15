@@ -14,7 +14,8 @@ internal sealed class RenderRequestOptions
         RenderCacheOptions? cachePolicy = null,
         FusionMode fusionMode = FusionMode.Enabled,
         RenderRequestOwner? owner = null,
-        NestedRenderTargetBinding? targetBinding = null)
+        NestedRenderTargetBinding? targetBinding = null,
+        bool supports3DRendering = true)
     {
         if (!Enum.IsDefined(intent))
         {
@@ -46,6 +47,7 @@ internal sealed class RenderRequestOptions
         Owner = owner ?? new RenderRequestOwner();
         OwnsOwner = owner is null;
         TargetBinding = targetBinding;
+        Supports3DRendering = supports3DRendering;
         PlanIdentity = new RenderRequestPlanIdentity(
             Purpose,
             FusionMode,
@@ -74,6 +76,16 @@ internal sealed class RenderRequestOptions
     public NestedRenderTargetBinding? TargetBinding { get; }
 
     public RenderRequestPlanIdentity PlanIdentity { get; }
+
+    /// <summary>Whether this request may expect a 3D-capable backend at execution.</summary>
+    /// <remarks>
+    /// Settled once when the request is created and read by every recording it drives, so a recording that
+    /// branches on it depends on request state rather than on process state: the value is part of
+    /// <see cref="RenderNodeRecordingKey"/>, and a nested request inherits its parent's answer. The entry
+    /// renderer takes it from <see cref="Backend.GraphicsContextFactory.Predict3DRenderingSupport"/>; a request
+    /// built directly defaults to <see langword="true"/>, which is the prediction before any backend exists.
+    /// </remarks>
+    public bool Supports3DRendering { get; }
 
     internal bool OwnsOwner { get; }
 
@@ -130,7 +142,8 @@ internal sealed class RenderRequestOptions
             CachePolicy,
             FusionMode,
             Owner,
-            targetBinding);
+            targetBinding,
+            Supports3DRendering);
         nested.NestedPolicyParent = this;
         return nested;
     }

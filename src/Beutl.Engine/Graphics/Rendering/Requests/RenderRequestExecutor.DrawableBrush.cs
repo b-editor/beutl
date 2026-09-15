@@ -91,7 +91,8 @@ internal sealed partial class RenderRequestExecutor
                             outputScale: scale,
                             maxWorkingScale: _options.MaxWorkingScale,
                             cachePolicy: RenderCacheOptions.Disabled,
-                            fusionMode: _options.FusionMode));
+                            fusionMode: _options.FusionMode,
+                            supports3DRendering: _options.Supports3DRendering));
                     var recorder = new RenderRequestRecorder(request);
                     RecordedRenderGraph graph = recorder.Record(root);
                     CompiledRenderRequest result = new RenderRequestCompiler(

@@ -145,6 +145,7 @@ public sealed class RenderNodeRecordingCacheTests
     [TestCase("maxWorkingScale")]
     [TestCase("cachePolicy")]
     [TestCase("fusionMode")]
+    [TestCase("supports3DRendering")]
     public void AChangedRequestValue_ForcesARecord(string requestValue)
     {
         using var node = new CountingSourceNode(s_bounds);
@@ -170,6 +171,7 @@ public sealed class RenderNodeRecordingCacheTests
             "maxWorkingScale" => setup with { MaxWorkingScale = 4f },
             "cachePolicy" => setup with { CachePolicy = RenderCacheOptions.Enabled },
             "fusionMode" => setup with { FusionMode = FusionMode.Disabled },
+            "supports3DRendering" => setup with { Supports3DRendering = false },
             _ => throw new ArgumentOutOfRangeException(nameof(requestValue), requestValue, null),
         };
 
@@ -363,6 +365,8 @@ public sealed class RenderNodeRecordingCacheTests
 
         public FusionMode FusionMode { get; init; } = FusionMode.Enabled;
 
+        public bool Supports3DRendering { get; init; } = true;
+
         public RenderRequestOptions CreateOptions(RenderRequestOwner owner)
             => new(
                 Intent,
@@ -373,7 +377,8 @@ public sealed class RenderNodeRecordingCacheTests
                 MaxWorkingScale,
                 CachePolicy,
                 FusionMode,
-                owner);
+                owner,
+                supports3DRendering: Supports3DRendering);
     }
 
     internal static OpaqueRenderDescription CreateSource(Rect bounds)

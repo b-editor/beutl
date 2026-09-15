@@ -51,6 +51,7 @@ public sealed class RenderNodeContext
     private readonly Rect? _targetDomain;
     private readonly float _outputScale;
     private readonly float _maxWorkingScale;
+    private readonly bool _supports3DRendering;
 
     internal RenderNodeContext(NodeRecordingTransaction transaction)
     {
@@ -61,6 +62,7 @@ public sealed class RenderNodeContext
         _targetDomain = transaction.Request.Options.TargetDomain;
         _outputScale = transaction.Request.Options.OutputScale;
         _maxWorkingScale = transaction.Request.Options.MaxWorkingScale;
+        _supports3DRendering = transaction.Request.Options.Supports3DRendering;
     }
 
     /// <summary>Gets the non-null ordered fragment inputs borrowed by the current node transaction.</summary>
@@ -109,6 +111,19 @@ public sealed class RenderNodeContext
     public float MaxWorkingScale
     {
         get { VerifyActive(); return _maxWorkingScale; }
+    }
+
+    /// <summary>Gets whether the current request may expect a 3D-capable backend at execution.</summary>
+    /// <remarks>
+    /// A node whose output exists only on a 3D backend records nothing when this is <see langword="false"/>,
+    /// so that its bounds, hit test, and cardinality describe what the request can actually produce. The
+    /// value is request state settled before any node records - never a live probe of the process - and it
+    /// turns <see langword="false"/> only once the process has established that no 3D backend exists; before
+    /// a backend is built it is <see langword="true"/>, because the first allocation builds one.
+    /// </remarks>
+    public bool Supports3DRendering
+    {
+        get { VerifyActive(); return _supports3DRendering; }
     }
 
     /// <summary>Tries to calculate the union of all current input bounds from concrete recording metadata.</summary>

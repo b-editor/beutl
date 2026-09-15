@@ -884,8 +884,9 @@ public sealed class DeviceBufferBudgetTests
     /// </summary>
     /// <remarks>
     /// The allocation is what the pool refuses on a real device, so the request the emitter makes is what the
-    /// clip decision has to be read from. The strict device answers only its limit, so a recording that
-    /// reached it any other way fails here rather than silently.
+    /// clip decision has to be read from. The strict device answers only its limit and whether it renders 3D -
+    /// the one question the renderer puts to it, once per request before anything records - so a recording
+    /// that reached it any other way fails here rather than silently.
     /// </remarks>
     private static int WidestParticleAllocation(IGraphicsContext? device, float unionWidth)
     {
@@ -947,6 +948,8 @@ public sealed class DeviceBufferBudgetTests
     {
         var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
         context.SetupGet(c => c.MaxAttachmentDimension).Returns(maxAttachmentDimension);
+        // Every production backend renders 3D; the renderer reads this when it settles each request.
+        context.SetupGet(c => c.Supports3DRendering).Returns(true);
         return context;
     }
 

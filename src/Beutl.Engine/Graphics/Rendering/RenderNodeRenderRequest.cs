@@ -57,4 +57,13 @@ public sealed record RenderNodeRenderRequest
     internal bool ManageCacheLifecycle { get; init; } = true;
 
     internal FusionMode FusionMode { get; init; } = FusionMode.Enabled;
+
+    /// <summary>Gets whether the request may expect a 3D-capable backend, or <see langword="null"/> to predict it.</summary>
+    /// <remarks>
+    /// <see langword="null"/> takes the answer from
+    /// <see cref="Backend.GraphicsContextFactory.Predict3DRenderingSupport"/> when each request is created,
+    /// which is what every production request does. A stated value stands in for that prediction, so a test
+    /// can record the backend-less shape without disturbing the process-wide graphics state.
+    /// </remarks>
+    internal bool? Supports3DRendering { get; init; }
 }
