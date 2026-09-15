@@ -8,7 +8,7 @@ namespace Beutl.UnitTests.Api;
 
 [TestFixture]
 [NonParallelizable]
-public class PackageInstallerDataTests
+public partial class PackageInstallerDataTests
 {
     [Test]
     public void FailedCommitRecord_PreservesPublishedPayloadAndRecoversRegistration()
@@ -61,12 +61,11 @@ public class PackageInstallerDataTests
     }
 
     [Test]
-    public void HeldPublicationLock_PreventsRecoveryAndNewWrites()
+    public void HeldPublicationLock_PreventsNewWrites()
     {
         const string name = "Beutl.Package.DataTest.PublicationLock";
         LocalPackage package = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/item.txt", "new"));
         using var held = new FileStream(Path.Combine(Helper.AppRoot, ".data-install.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        Assert.Throws<IOException>(() => PackageInstaller.RecoverDataPackageInstalls(_repository));
         Assert.Throws<IOException>(() => _installer.InstallDataPackage(package));
         Assert.That(Directory.Exists(MaterialsDirectoryOf(name)), Is.False);
     }

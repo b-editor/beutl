@@ -15,7 +15,7 @@ Payload files and owner markers are also flushed before publication.
 
 | Last durable state | Startup action |
 | --- | --- |
-| `Prepared` | Persist rollback intent; restore both original payloads. |
+| `Prepared` | Persist rollback intent; restore both original payloads when their recorded owners can be verified. |
 | `RollingBack` | Resume restoring originals; each rename can be retried. |
 | `Published` | Both payload operations finished. Verify deployment ownership, finish requested package registration, and mark committed. |
 | `Committed` | Keep the new payloads; remove staging and backups. |
@@ -31,7 +31,15 @@ Both executable entry points run recovery before constructing their font manager
 application, or payload watchers. The installer constructor also recovers for
 other hosts. Publication, recovery, and uninstall share a file lock, preventing
 another application process from recovering an active publication. An unresolved
-journal blocks another publication or uninstall of that package.
+journal blocks another publication or uninstall of that package. Startup recovery
+waits for a live publisher to release its lock and retries only sharing violations;
+other lock errors still fail immediately. Recovery callers can cancel this wait.
+Ordinary publication and uninstall retain their existing busy-error behavior.
+
+Recovery defers repository notifications until the committed state is durable and
+both publication locks have been released. An observer can therefore wait for
+additional installer work without holding recovery's locks. Failed terminal-record
+writes retain the journal without notifying observers of an incomplete recovery.
 
 Recovery validates the complete rollback before moving either payload. It rejects
 unexpected destinations, linked transaction paths, and replacement directories
@@ -40,13 +48,28 @@ directories and logs their paths. Do not blindly delete these directories: a
 `backup-*` directory may contain the only surviving old payload. Successful
 cleanup removes the terminal journal last.
 
+A journal with a markerless legacy original does not provide enough evidence to
+identify that original after a restart. Such a rollback retains the journal and
+all payloads for diagnosis, including during caught-failure rollback. A backup's
+missing marker is never accepted merely because the recorded owner is also null.
+Fully published upgrades can still complete after verifying their new owner
+markers.
+
 `PackageInstallerCrashRecoveryTests` launches separate testhost processes and
 kills them after each backup/publication rename, journal transition, registration,
 and rollback rename. The parent restarts recovery, checks both payloads and
 registration, and repeats recovery to verify idempotence. Cases also cover first
 installation, tag removal, invalid journals, and unowned destination collisions.
 `PackageInstallerDataTests` covers caught registration failures, final journal
-write failure, and a held publication lock.
+write failure, lock contention and cancellation, damaged staged copies, reentrant
+observers, symbolic links, and ambiguous legacy backups. The subprocess suite also
+verifies recovery waiting on a lock held by another process.
+
+The PR #2405 claim that `File.GetAttributes` follows dangling Unix links was not
+confirmed. .NET 10's [`FileStatus.Unix.cs`](https://github.com/dotnet/runtime/blob/60629d14374c56f1cb51819049ad1fa529307f8d/src/libraries/System.Private.CoreLib/src/System/IO/FileStatus.Unix.cs)
+uses `lstat`, retains a broken-link state, and reports `ReparsePoint` for it.
+Regression tests exercise both live and dangling lock/staging links against the
+existing rejection check and verify that external targets remain untouched.
 
 This protocol targets process termination. These tests do not establish power-loss
 durability of directory entries on every filesystem, nor make live watcher

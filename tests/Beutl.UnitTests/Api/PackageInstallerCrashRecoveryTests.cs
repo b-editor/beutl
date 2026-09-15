@@ -15,6 +15,28 @@ public class PackageInstallerCrashRecoveryTests
     private const string WorkerActionVariable = "BEUTL_TEST_DATA_INSTALL_ACTION";
     private const string WorkerStepVariable = "BEUTL_TEST_DATA_INSTALL_STEP";
 
+    [Test]
+    public async Task RecoveryWaitsForAnotherProcessHoldingThePublicationLock()
+    {
+        string home = CreateHome();
+        using var held = new FileStream(Path.Combine(home, ".data-install.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        Task worker = RunWorker(home, "recover");
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            string waiting = Path.Combine(home, "waiting-for-lock.txt");
+            while (!File.Exists(waiting) && !worker.IsCompleted) await Task.Delay(25, timeout.Token);
+            if (worker.IsCompleted) await worker;
+            Assert.That(File.Exists(waiting), Is.True, "The child must reach lock contention before the parent releases the lock.");
+        }
+        finally
+        {
+            held.Dispose();
+            try { await worker; }
+            finally { Directory.Delete(home, true); }
+        }
+    }
+
     [TestCase("prepared", false)]
     [TestCase("backup-materials", false)]
     [TestCase("publish-materials", false)]
@@ -144,6 +166,7 @@ public class PackageInstallerCrashRecoveryTests
         string? stop = Environment.GetEnvironmentVariable(WorkerStepVariable);
         void AfterStep(string step)
         {
+            if (step == "waiting-for-lock") File.WriteAllText(Path.Combine(home!, "waiting-for-lock.txt"), "waiting");
             if (step != stop) return;
             File.WriteAllText(Path.Combine(home!, "stopped-at.txt"), step);
             Process.GetCurrentProcess().Kill();

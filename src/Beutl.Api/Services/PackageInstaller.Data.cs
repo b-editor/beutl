@@ -135,6 +135,8 @@ public partial class PackageInstaller
                     }
                     token.ThrowIfCancellationRequested();
                     var journal = CreateDataInstallJournal(name, version, deploymentId, active, register is not null);
+                    foreach (PayloadChange change in active)
+                        if (change.Enabled) RequirePublishedPayload(change.Staged, journal);
                     WriteDataInstallJournal(staging, journal);
                     _preserveBackup = true;
                     try
@@ -142,13 +144,14 @@ public partial class PackageInstaller
                         owner.AfterDataInstallStep?.Invoke("prepared");
                         foreach (PayloadChange change in active)
                         {
+                            if (change.Enabled) RequirePublishedPayload(change.Staged, journal);
                             Directory.CreateDirectory(Path.GetDirectoryName(change.Destination)!);
                             if (Directory.Exists(change.Destination))
                             {
                                 Directory.Move(change.Destination, change.Backup);
                                 owner.AfterDataInstallStep?.Invoke("backup-" + change.Kind);
                             }
-                            if (Directory.Exists(change.Staged))
+                            if (change.Enabled)
                             {
                                 Directory.Move(change.Staged, change.Destination);
                                 owner.AfterDataInstallStep?.Invoke("publish-" + change.Kind);

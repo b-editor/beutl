@@ -21,23 +21,51 @@ public partial class PackageInstaller
         string MaterialsDestination, string TemplatesDestination, bool RegisterPackage,
         DataInstallPhase Phase, DataInstallPayload[] Payloads);
 
-    private static FileStream AcquireDataInstallLock()
+    private static FileStream AcquireDataInstallLock(bool waitForContention = false,
+        CancellationToken cancellationToken = default, Action? onContention = null)
     {
         string home = BeutlEnvironment.GetHomeDirectoryPath();
         Directory.CreateDirectory(home);
         string path = Path.Combine(home, ".data-install.lock");
-        RejectDataInstallLink(path);
-        return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        bool reportedContention = false;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            RejectDataInstallLink(path);
+            try
+            {
+                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException ex) when (waitForContention && IsDataInstallLockContention(ex))
+            {
+                if (!reportedContention)
+                {
+                    s_recoveryLogger.LogInformation("Waiting for another process to finish publishing package data.");
+                    onContention?.Invoke();
+                    reportedContention = true;
+                }
+                // A crashed publisher releases the OS lock. Retry only sharing violations;
+                // permission errors, invalid paths, and rejected links must still fail.
+                cancellationToken.WaitHandle.WaitOne(50);
+            }
+        }
     }
+
+    private static bool IsDataInstallLockContention(IOException exception)
+        // .NET reports ERROR_SHARING_VIOLATION on Windows and raw EWOULDBLOCK on Unix.
+        => exception.HResult == (OperatingSystem.IsWindows() ? unchecked((int)0x80070020)
+            : OperatingSystem.IsMacOS() || OperatingSystem.IsFreeBSD() ? 35 : 11);
 
     // Run before fonts, templates, extension registration, or directory watchers read
     // payloads. The same gate protects publication in another application process.
     internal static void RecoverDataPackageInstalls(InstalledPackageRepository? repository = null,
-        Action<string>? afterStep = null)
+        Action<string>? afterStep = null, CancellationToken cancellationToken = default)
     {
+        List<Action> notifications = [];
         lock (s_dataPackageGate)
         {
-            using FileStream installLock = AcquireDataInstallLock();
+            using FileStream installLock = AcquireDataInstallLock(waitForContention: true, cancellationToken,
+                () => afterStep?.Invoke("waiting-for-lock"));
             foreach (string staging in Directory.GetDirectories(BeutlEnvironment.GetHomeDirectoryPath(), ".data-install-*"))
             {
                 try
@@ -56,12 +84,14 @@ public partial class PackageInstaller
                             else if (Path.Exists(payload.Destination))
                                 throw new IOException($"Retired payload '{payload.Destination}' was replaced by another writer.");
                         }
+                        Action? notify = null;
                         if (journal.RegisterPackage)
                         {
                             repository ??= new InstalledPackageRepository();
-                            repository.UpgradePackages(new PackageIdentity(journal.Name, NuGetVersion.Parse(journal.Version)));
+                            notify = repository.UpgradePackagesAndDeferNotifications(new PackageIdentity(journal.Name, NuGetVersion.Parse(journal.Version)));
                         }
                         WriteDataInstallJournal(staging, journal with { Phase = DataInstallPhase.Committed });
+                        if (notify is not null) notifications.Add(notify);
                         afterStep?.Invoke("committed");
                     }
 
@@ -77,6 +107,9 @@ public partial class PackageInstaller
                 }
             }
         }
+        // Repository observers can synchronously wait for more installer work. Publish
+        // only durable terminal states, after releasing both publication locks.
+        foreach (Action notify in notifications) notify();
     }
 
     private static DataInstallJournal CreateDataInstallJournal(string name, string version, string deploymentId,
@@ -146,6 +179,7 @@ public partial class PackageInstaller
 
     private static void RequirePublishedPayload(string path, DataInstallJournal journal)
     {
+        RejectDataInstallLink(path);
         RejectDataInstallLink(Path.Combine(path, PayloadOwnerFileName));
         if (!Directory.Exists(path) || ReadPayloadOwner(path) != new PayloadOwner(journal.Name, journal.Version, journal.DeploymentId))
             throw new IOException($"Cannot identify the published payload at '{path}'.");
@@ -159,7 +193,10 @@ public partial class PackageInstaller
         {
             string staged = Path.Combine(staging, payload.Kind);
             string backup = Path.Combine(staging, "backup-" + payload.Kind);
-            if (Path.Exists(staged)) RequirePublishedPayload(staged, journal);
+            // A damaged staged copy is not an original and need not be trusted to
+            // restore the backup. Only validate a published directory we must move.
+            if (payload.HadOriginal && payload.OriginalOwner is null)
+                throw new IOException($"The legacy original for '{payload.Destination}' has no recorded owner; keeping it for diagnosis.");
             if (Path.Exists(backup))
             {
                 RejectDataInstallLink(Path.Combine(backup, PayloadOwnerFileName));
