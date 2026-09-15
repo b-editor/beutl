@@ -5357,15 +5357,14 @@ internal sealed class GitCliVersionControlService :
         string commit,
         string reflogMessage)
     {
-        // Through HEAD, a lost update-ref response cannot be judged by HEAD: it may already name
-        // another branch, possibly one that holds this commit. Nor is a branch at the commit proof by
-        // itself, because the commit id is content-addressed and a retry within the same second
-        // recreates it. The evidence is a branch that reached the commit during this update, so the
-        // branches already at it are read first.
-        IReadOnlySet<string>? branchesAtCommitBefore
-            = !string.Equals(publicationRef, branchRef, StringComparison.Ordinal)
-                ? await GetBranchesAtCommitAsync(publicationRepository, runner, commit).ConfigureAwait(false)
-                : null;
+        // Through HEAD, a lost update-ref response cannot be judged by where HEAD or a branch points
+        // afterwards: HEAD may have been switched or detached, and a retry or another Git process can
+        // bring a branch to the content-addressed commit. Git records an update through HEAD in HEAD's
+        // reflog whether HEAD named a branch or was detached, so a marker unique to this attempt in the
+        // reflog message identifies the update.
+        string? publicationMarker = string.Equals(publicationRef, branchRef, StringComparison.Ordinal)
+            ? null
+            : $"publication {Guid.NewGuid():N}";
         try
         {
             await runner.RunAsync(
@@ -5374,7 +5373,7 @@ internal sealed class GitCliVersionControlService :
                         "update-ref",
                         "--create-reflog",
                         "-m",
-                        reflogMessage,
+                        publicationMarker is null ? reflogMessage : $"{reflogMessage} ({publicationMarker})",
                         publicationRef,
                         commit,
                         expectedOldCommit ?? string.Empty,
@@ -5395,19 +5394,14 @@ internal sealed class GitCliVersionControlService :
                         runner,
                         publicationRef)
                     .ConfigureAwait(false);
-                if (branchesAtCommitBefore is not null)
-                {
-                    IReadOnlySet<string> branchesAtCommitAfter = await GetBranchesAtCommitAsync(
+                published = publicationMarker is null
+                    ? string.Equals(observedCommit, commit, StringComparison.OrdinalIgnoreCase)
+                    : await HeadReflogRecordsPublicationAsync(
                             publicationRepository,
                             runner,
+                            publicationMarker,
                             commit)
                         .ConfigureAwait(false);
-                    published = branchesAtCommitAfter.Except(branchesAtCommitBefore).Any();
-                }
-                else
-                {
-                    published = string.Equals(observedCommit, commit, StringComparison.OrdinalIgnoreCase);
-                }
             }
             catch (Exception observationException)
             {
@@ -5440,26 +5434,46 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private static async Task<IReadOnlySet<string>> GetBranchesAtCommitAsync(
+    // --create-reflog makes Git write HEAD's reflog for this update even with core.logAllRefUpdates
+    // off, so a HEAD without a reflog was not updated. Checking first also keeps git log away from an
+    // unborn HEAD, which it cannot walk.
+    private static async Task<bool> HeadReflogRecordsPublicationAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
+        string publicationMarker,
         string commit)
     {
-        GitCommandResult branches = await runner.RunAsync(
+        try
+        {
+            await runner.RunAsync(
+                    repository,
+                    ["reflog", "exists", "HEAD"],
+                    GitCommandOptions.Local,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return false;
+        }
+
+        GitCommandResult entries = await runner.RunAsync(
                 repository,
                 [
-                    "for-each-ref",
-                    "--points-at",
-                    commit,
-                    "--format=%(refname)",
-                    "refs/heads/",
+                    "log",
+                    "--walk-reflogs",
+                    "--max-count=1",
+                    "--format=%H",
+                    "--fixed-strings",
+                    $"--grep-reflog={publicationMarker}",
+                    "HEAD",
                 ],
                 GitCommandOptions.Local,
                 CancellationToken.None)
             .ConfigureAwait(false);
-        return branches.Stdout
+        return entries.Stdout
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToHashSet(StringComparer.Ordinal);
+            .Any(entry => string.Equals(entry, commit, StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task PublishSnapshotAndReconcileIndexAsync(
