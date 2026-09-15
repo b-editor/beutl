@@ -185,6 +185,10 @@ internal sealed class GitCliVersionControlService :
 
         public string LockPath { get; }
 
+        // Set once the HEAD file has shown the reftable placeholder. HEAD.lock then guards nothing, so a
+        // branch update has to let Git verify the checked-out branch inside its own transaction.
+        public bool HeadStoredInReftable { get; private set; }
+
         public static async Task<HeadOwnershipLease> AcquireAsync(
             RepositoryInfo repository,
             IGitCliRunner runner,
@@ -250,6 +254,7 @@ internal sealed class GitCliVersionControlService :
                 throw new ProjectCheckpointStateChangedException();
             }
 
+            HeadStoredInReftable = true;
             GitCommandResult symbolicRef;
             try
             {
@@ -5341,24 +5346,35 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
+    // publicationRef is the captured branch when the update runs from a temporary worktree, or HEAD
+    // when it runs in the project worktree; branchRef only names the captured branch in diagnostics.
     private async Task PublishSnapshotCommitAsync(
-        RepositoryInfo repository,
+        RepositoryInfo publicationRepository,
         IGitCliRunner runner,
+        string publicationRef,
         string branchRef,
         string? expectedOldCommit,
         string commit,
         string reflogMessage)
     {
+        // Through HEAD, a lost update-ref response cannot be judged by where HEAD or a branch points
+        // afterwards: HEAD may have been switched or detached, and a retry or another Git process can
+        // bring a branch to the content-addressed commit. Git records an update through HEAD in HEAD's
+        // reflog whether HEAD named a branch or was detached, so a marker unique to this attempt in the
+        // reflog message identifies the update.
+        string? publicationMarker = string.Equals(publicationRef, branchRef, StringComparison.Ordinal)
+            ? null
+            : $"publication {Guid.NewGuid():N}";
         try
         {
             await runner.RunAsync(
-                    repository,
+                    publicationRepository,
                     [
                         "update-ref",
                         "--create-reflog",
                         "-m",
-                        reflogMessage,
-                        branchRef,
+                        publicationMarker is null ? reflogMessage : $"{reflogMessage} ({publicationMarker})",
+                        publicationRef,
                         commit,
                         expectedOldCommit ?? string.Empty,
                     ],
@@ -5370,13 +5386,23 @@ internal sealed class GitCliVersionControlService :
         catch (Exception publicationException)
         {
             string? observedCommit;
+            bool published;
             try
             {
                 observedCommit = await TryResolveCommitWithRetryAsync(
-                        repository,
+                        publicationRepository,
                         runner,
-                        branchRef)
+                        publicationRef)
                     .ConfigureAwait(false);
+                published = publicationMarker is null
+                    ? string.Equals(observedCommit, commit, StringComparison.OrdinalIgnoreCase)
+                    : await ReflogRecordsPublicationAsync(
+                            publicationRepository,
+                            runner,
+                            publicationMarker,
+                            commit,
+                            searchHead: observedCommit is not null)
+                        .ConfigureAwait(false);
             }
             catch (Exception observationException)
             {
@@ -5386,7 +5412,7 @@ internal sealed class GitCliVersionControlService :
                     observationException);
             }
 
-            if (string.Equals(observedCommit, commit, StringComparison.OrdinalIgnoreCase))
+            if (published)
             {
                 LogWarningBestEffort(
                     publicationException,
@@ -5409,6 +5435,38 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
+    // Git records an update through HEAD in HEAD's reflog and, when HEAD named a branch, in that
+    // branch's reflog too; --create-reflog writes both even with core.logAllRefUpdates off. git log
+    // cannot walk the reflog of an unborn HEAD, so HEAD is searched only while it names a commit, and
+    // the branch reflogs still hold the entry after HEAD is switched to an unborn branch.
+    private static async Task<bool> ReflogRecordsPublicationAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string publicationMarker,
+        string commit,
+        bool searchHead)
+    {
+        string[] headRevision = searchHead ? ["HEAD"] : [];
+        GitCommandResult entries = await runner.RunAsync(
+                repository,
+                [
+                    "log",
+                    "--walk-reflogs",
+                    "--max-count=1",
+                    "--format=%H",
+                    "--fixed-strings",
+                    $"--grep-reflog={publicationMarker}",
+                    "--branches",
+                    .. headRevision,
+                ],
+                GitCommandOptions.Local,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        return entries.Stdout
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(entry => string.Equals(entry, commit, StringComparison.OrdinalIgnoreCase));
+    }
+
     private async Task PublishSnapshotAndReconcileIndexAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
@@ -5420,28 +5478,44 @@ internal sealed class GitCliVersionControlService :
         string reflogMessage,
         CancellationToken cancellationToken)
     {
-        string refUpdateWorktreePath = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-git-ref-update-{Guid.NewGuid():N}");
-        var refUpdateRepository = new RepositoryInfo(
-            refUpdateWorktreePath,
-            refUpdateWorktreePath);
+        // With the files backend the lease holds HEAD.lock, which also keeps Git from updating the
+        // branch checked out in this worktree, so the update runs from a detached temporary worktree
+        // where HEAD is not involved and the lock is what keeps HEAD on the captured branch. With the
+        // reftable backend HEAD.lock guards nothing, and Git cannot verify a symbolic HEAD in the same
+        // transaction that updates its target. The update therefore goes through HEAD, as git commit
+        // does: under Git's own lock the branch HEAD names at that moment must still be at the
+        // expected tip, and only that branch moves. A HEAD switched to another branch at the same tip
+        // in that window receives the commit on that branch, and a HEAD detached at the tip receives
+        // it directly; the post-commit hook then sees the ownership change.
+        bool publishThroughHead = headLease.HeadStoredInReftable;
+        string? refUpdateWorktreePath = publishThroughHead
+            ? null
+            : Path.Combine(
+                Path.GetTempPath(),
+                $"beutl-git-ref-update-{Guid.NewGuid():N}");
+        RepositoryInfo publicationRepository = refUpdateWorktreePath is null
+            ? repository
+            : new RepositoryInfo(refUpdateWorktreePath, refUpdateWorktreePath);
+        string publicationRef = publishThroughHead ? "HEAD" : branchRef;
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            await runner.RunAsync(
-                    repository,
-                    [
-                        "worktree",
-                        "add",
-                        "--detach",
-                        "--no-checkout",
-                        refUpdateWorktreePath,
-                        commit,
-                    ],
-                    GitCommandOptions.Local,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
+            if (refUpdateWorktreePath is not null)
+            {
+                await runner.RunAsync(
+                        repository,
+                        [
+                            "worktree",
+                            "add",
+                            "--detach",
+                            "--no-checkout",
+                            refUpdateWorktreePath,
+                            commit,
+                        ],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
 
             await headLease.VerifyStillOwnedAsync(cancellationToken).ConfigureAwait(false);
             await EnsureNoExternalRepositoryOperationAsync(
@@ -5469,8 +5543,9 @@ internal sealed class GitCliVersionControlService :
             {
                 await headLease.VerifyStillOwnedAsync(CancellationToken.None).ConfigureAwait(false);
                 await PublishSnapshotCommitAsync(
-                        refUpdateRepository,
+                        publicationRepository,
                         runner,
+                        publicationRef,
                         branchRef,
                         expectedOldCommit,
                         commit,
@@ -5504,11 +5579,14 @@ internal sealed class GitCliVersionControlService :
         }
         finally
         {
-            await RemoveRefUpdateWorktreeBestEffortAsync(
-                    repository,
-                    runner,
-                    refUpdateWorktreePath)
-                .ConfigureAwait(false);
+            if (refUpdateWorktreePath is not null)
+            {
+                await RemoveRefUpdateWorktreeBestEffortAsync(
+                        repository,
+                        runner,
+                        refUpdateWorktreePath)
+                    .ConfigureAwait(false);
+            }
         }
     }
 
