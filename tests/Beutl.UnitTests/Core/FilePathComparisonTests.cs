@@ -637,6 +637,83 @@ public class FilePathComparisonTests
         }
     }
 
+    // Unix and local Windows volumes refuse a listing with UnauthorizedAccessException. Windows
+    // reports a share that refuses enumeration as ERROR_NETWORK_ACCESS_DENIED, a plain IOException.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Root_containment_treats_a_refused_listing_as_denied(bool refusedByShare)
+    {
+        string temporaryRoot = CreateTemporaryDirectory();
+        string share = Path.Combine(temporaryRoot, "Share");
+        string clip = Path.Combine(share, "Media", "clip.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(clip)!);
+        File.WriteAllText(clip, "content");
+        try
+        {
+            string canonicalShare = FilePathComparison.ResolveCanonicalPath(share);
+            Exception refusal = refusedByShare
+                ? new IOException("Network access is denied.", unchecked((int)0x80070041))
+                : new UnauthorizedAccessException("Access to the path is denied.");
+            FilePathComparison.ResolutionContext context =
+                CreateContextFailingToList(canonicalShare, refusal);
+            string enclosingRoot = context.ResolveCanonicalPath(temporaryRoot);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    context.IsSameOrDescendantOfCanonicalRoot(enclosingRoot, clip, out string identity),
+                    Is.True);
+                Assert.That(identity, Is.EqualTo(Path.Combine(canonicalShare, "Media", "clip.bin")));
+                IOException? strict = Assert.Throws<IOException>(
+                    () => context.ResolveCanonicalPath(clip));
+                Assert.That(strict?.InnerException, Is.SameAs(refusal));
+            });
+        }
+        finally
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    // ERROR_SHARING_VIOLATION, ERROR_UNEXP_NET_ERR and COR_E_IO are failures, not refusals to list.
+    [TestCase(unchecked((int)0x80070020))]
+    [TestCase(unchecked((int)0x8007003B))]
+    [TestCase(unchecked((int)0x80131620))]
+    public void Root_containment_does_not_hide_a_listing_failure_that_is_not_a_refusal(int hResult)
+    {
+        string temporaryRoot = CreateTemporaryDirectory();
+        string share = Path.Combine(temporaryRoot, "Share");
+        string clip = Path.Combine(share, "Media", "clip.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(clip)!);
+        File.WriteAllText(clip, "content");
+        try
+        {
+            var failure = new IOException("The listing failed.", hResult);
+            FilePathComparison.ResolutionContext context = CreateContextFailingToList(
+                FilePathComparison.ResolveCanonicalPath(share),
+                failure);
+            string enclosingRoot = context.ResolveCanonicalPath(temporaryRoot);
+
+            IOException? thrown = Assert.Throws<IOException>(
+                () => context.IsSameOrDescendantOfCanonicalRoot(enclosingRoot, clip, out _));
+            Assert.That(thrown?.InnerException, Is.SameAs(failure));
+        }
+        finally
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    private static FilePathComparison.ResolutionContext CreateContextFailingToList(
+        string failingDirectory,
+        Exception failure)
+    {
+        return new FilePathComparison.ResolutionContext(directory =>
+            string.Equals(directory, failingDirectory, StringComparison.Ordinal)
+                ? throw failure
+                : Directory.GetFileSystemEntries(directory));
+    }
+
     // Grants traverse (execute) permission only, so entries can be reached by name but the
     // directory cannot be listed. Ignores the test where the permission is not enforced,
     // such as on Windows or when running as root.
