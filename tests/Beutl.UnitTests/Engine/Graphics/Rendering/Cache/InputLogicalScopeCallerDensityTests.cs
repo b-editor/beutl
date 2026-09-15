@@ -186,7 +186,9 @@ public sealed class InputLogicalScopeCallerDensityTests
     {
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle input = context.RecordNode(producer, []).Single();
+            // RecordSubtree, not RecordNode: a container producer such as FilterEffectRenderNode takes its
+            // input from its own children, which only a subtree recording visits.
+            RenderFragmentHandle input = context.RecordSubtree(producer).Single();
             RenderBoundsContract bounds = RenderBoundsContract.Create(
                 scale,
                 static (factor, bounds) => bounds.TransformToAABB(Matrix.CreateScale(factor, factor)),
