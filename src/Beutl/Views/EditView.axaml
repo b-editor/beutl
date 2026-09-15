@@ -9,7 +9,6 @@
              d:DesignWidth="1280"
              x:CompileBindings="True"
              x:DataType="vm:EditViewModel"
-             Background="{DynamicResource DockSurfaceWorkbenchBrush}"
              IsEnabled="{Binding IsEnabled.Value, Mode=OneWay}"
              mc:Ignorable="d">
     <!--  Match half of the 4px splitter gutter at the window's left and right edges.  -->
