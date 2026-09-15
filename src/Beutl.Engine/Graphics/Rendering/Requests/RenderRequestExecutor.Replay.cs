@@ -202,6 +202,16 @@ internal sealed partial class RenderRequestExecutor
             if (chain.Count == 0)
                 return false;
 
+            // The demand resolver hands each segment's input the segment's own demand, and a segment with a
+            // concrete scale of its own restarts that chain there, so the scale the base input is asked for
+            // is the outer caller's only until the first concrete link.
+            EffectiveScale inputCallerScale = callerScale;
+            foreach ((RenderFragmentReference segment, _) in chain)
+            {
+                if (!segment.EffectiveScale.IsUnbounded)
+                    inputCallerScale = segment.EffectiveScale;
+            }
+
             // Every link fuses into the one save layer, so only the fragment the walk stopped at can
             // reach it as a buffer, and a buffer survives the copy only where the destination transform
             // lands it on whole device pixels. An unbounded input is re-rasterized inside the layer.
@@ -225,7 +235,7 @@ internal sealed partial class RenderRequestExecutor
                     input,
                     destination,
                     input.EffectiveScale.IsUnbounded
-                        ? callerScale
+                        ? inputCallerScale
                         : null);
                 if (materializedInput.Count > 1)
                     return false;
@@ -284,7 +294,7 @@ internal sealed partial class RenderRequestExecutor
             {
                 if (materializedInput is null)
                 {
-                    Replay(input, destination, callerScale);
+                    Replay(input, destination, inputCallerScale);
                     return;
                 }
 

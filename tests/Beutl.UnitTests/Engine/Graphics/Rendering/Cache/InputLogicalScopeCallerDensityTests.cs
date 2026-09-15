@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -80,6 +81,32 @@ public sealed class InputLogicalScopeCallerDensityTests
     {
         using var producer = new ProbeSourceNode();
         using var root = new ScalingScopeNode(producer, scale, raw: true);
+        using var renderer = CreateRenderer(root, RenderCacheOptions.Disabled);
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(GetPixels(rasterization), Has.Some.Not.Zero);
+            Assert.That(producer.ExecuteCount, Is.EqualTo(1));
+        });
+    }
+
+    /// <summary>
+    /// A built-in Skia filter segment carries a concrete working scale, and the demand resolver restarts the
+    /// input demand there, so a direct filter chain under an enlarging scope asks its unbounded base for the
+    /// segment's scale rather than the outer caller's.
+    /// </summary>
+    [TestCase(0.5f)]
+    [TestCase(2f)]
+    public void AuthoredInputLogicalScope_OverADirectFilterChain_ReplaysAnUnboundedBase(float scale)
+    {
+        using var producer = new ProbeSourceNode();
+        var blur = new Blur { Sigma = { CurrentValue = new Size(3, 3) } };
+        using var filter = new FilterEffectRenderNode(blur.ToResource(CompositionContext.Default));
+        filter.AddChild(producer);
+        using var root = new ScalingScopeNode(filter, scale);
         using var renderer = CreateRenderer(root, RenderCacheOptions.Disabled);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
