@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.ColorScopesTab.Views.ColorScopesTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -13,132 +14,129 @@
              x:DataType="viewModels:ColorScopesTabViewModel"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">
-        <Grid Height="32" ColumnDefinitions="Auto,Auto,Auto,Auto">
-            <ComboBox Grid.Column="0"
-                      Margin="8,0,0,0"
-                      HorizontalAlignment="Stretch"
-                      VerticalAlignment="Center"
-                      SelectedIndex="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}}"
-                      Theme="{StaticResource LiteComboBoxStyle}">
-                <ComboBoxItem Content="{x:Static lang:Strings.Waveform}" />
-                <ComboBoxItem Content="{x:Static lang:Strings.Histogram}" />
-                <ComboBoxItem Content="{x:Static lang:Strings.Vectorscope}" />
-                <ComboBoxItem Content="{x:Static lang:Strings.FalseColor}" />
-                <ComboBoxItem Content="{x:Static lang:Strings.Zebra}" />
-            </ComboBox>
-
-            <Grid Grid.Column="1"
-                  VerticalAlignment="Center"
-                  IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}">
-                <ComboBox Margin="8,0,0,0"
+        <controls:ToolTabBar x:Name="ToolBar">
+            <WrapPanel Margin="8,0,0,0" ItemSpacing="8" LineSpacing="4">
+                <ComboBox x:Name="ScopeTypeComboBox"
                           HorizontalAlignment="Stretch"
-                          SelectedIndex="{Binding WaveformMode.Value, Converter={x:Static scopes:WaveformModeConverter.Instance}}"
+                          VerticalAlignment="Center"
+                          SelectedIndex="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}}"
                           Theme="{StaticResource LiteComboBoxStyle}">
-                    <ComboBoxItem Content="{x:Static lang:Strings.Luma}" />
-                    <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
-                    <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.Waveform}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.Histogram}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.Vectorscope}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.FalseColor}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.Zebra}" />
                 </ComboBox>
-            </Grid>
 
-            <Grid Grid.Column="1"
-                  VerticalAlignment="Center"
-                  IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Histogram}">
-                <ComboBox Margin="8,0,0,0"
-                          HorizontalAlignment="Stretch"
-                          SelectedIndex="{Binding HistogramMode.Value, Converter={x:Static scopes:HistogramModeConverter.Instance}}"
-                          Theme="{StaticResource LiteComboBoxStyle}">
-                    <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
-                    <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
-                </ComboBox>
-            </Grid>
+                <Grid VerticalAlignment="Center"
+                      IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}">
+                    <ComboBox x:Name="WaveformModeComboBox"
+                              HorizontalAlignment="Stretch"
+                              SelectedIndex="{Binding WaveformMode.Value, Converter={x:Static scopes:WaveformModeConverter.Instance}}"
+                              Theme="{StaticResource LiteComboBoxStyle}">
+                        <ComboBoxItem Content="{x:Static lang:Strings.Luma}" />
+                        <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
+                        <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
+                    </ComboBox>
+                </Grid>
 
-            <Button Grid.Column="2"
-                    Margin="8,0,0,0"
-                    VerticalAlignment="Center"
-                    IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Zebra}"
-                    Theme="{StaticResource TransparentButton}"
-                    ToolTip.Tip="{x:Static lang:Strings.Settings}">
-                <icons:FluentIcon Icon="Settings" />
-                <Button.Flyout>
-                    <Flyout Placement="Bottom">
-                        <Flyout.FlyoutPresenterTheme>
-                            <ControlTheme BasedOn="{StaticResource {x:Type FlyoutPresenter}}"
-                                          TargetType="FlyoutPresenter">
-                                <Setter Property="Padding" Value="0" />
-                            </ControlTheme>
-                        </Flyout.FlyoutPresenterTheme>
+                <Grid VerticalAlignment="Center"
+                      IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Histogram}">
+                    <ComboBox x:Name="HistogramModeComboBox"
+                              HorizontalAlignment="Stretch"
+                              SelectedIndex="{Binding HistogramMode.Value, Converter={x:Static scopes:HistogramModeConverter.Instance}}"
+                              Theme="{StaticResource LiteComboBoxStyle}">
+                        <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
+                        <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
+                    </ComboBox>
+                </Grid>
 
-                        <StackPanel Width="288">
-                            <StackPanel.Styles>
-                                <Style Selector="TextBlock.section">
-                                    <Setter Property="Theme" Value="{StaticResource BodyStrongTextBlockStyle}" />
-                                    <Setter Property="FontSize" Value="13" />
-                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-                                    <Setter Property="Margin" Value="0,0,0,4" />
-                                </Style>
-                                <Style Selector="TextBlock.field">
-                                    <Setter Property="VerticalAlignment" Value="Center" />
-                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-                                </Style>
-                            </StackPanel.Styles>
+                <Button x:Name="ZebraSettingsButton"
+                        VerticalAlignment="Center"
+                        IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Zebra}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                        ToolTip.Tip="{x:Static lang:Strings.Settings}">
+                    <icons:FluentIcon FontSize="16" Icon="Settings" />
+                    <Button.Flyout>
+                        <Flyout Placement="Bottom">
+                            <Flyout.FlyoutPresenterTheme>
+                                <ControlTheme BasedOn="{StaticResource {x:Type FlyoutPresenter}}"
+                                              TargetType="FlyoutPresenter">
+                                    <Setter Property="Padding" Value="0" />
+                                </ControlTheme>
+                            </Flyout.FlyoutPresenterTheme>
 
-                            <!--  Header  -->
-                            <Border Padding="16,12,16,12">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <icons:FluentIcon VerticalAlignment="Center"
-                                                      FontSize="16"
-                                                      Icon="Settings" />
-                                    <TextBlock VerticalAlignment="Center"
-                                               Text="{x:Static lang:Strings.Zebra}"
-                                               Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                            <StackPanel Width="288">
+                                <StackPanel.Styles>
+                                    <Style Selector="TextBlock.section">
+                                        <Setter Property="Theme" Value="{StaticResource BodyStrongTextBlockStyle}" />
+                                        <Setter Property="FontSize" Value="13" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <Setter Property="Margin" Value="0,0,0,4" />
+                                    </Style>
+                                    <Style Selector="TextBlock.field">
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    </Style>
+                                </StackPanel.Styles>
+
+                                <!--  Header  -->
+                                <Border Padding="16,12,16,12">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <icons:FluentIcon VerticalAlignment="Center"
+                                                          FontSize="16"
+                                                          Icon="Settings" />
+                                        <TextBlock VerticalAlignment="Center"
+                                                   Text="{x:Static lang:Strings.Zebra}"
+                                                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                                    </StackPanel>
+                                </Border>
+                                <Separator Height="1" Margin="0" />
+
+                                <StackPanel Margin="16,12,16,12" Spacing="10">
+                                    <TextBlock Classes="section" Text="{x:Static lang:Strings.Threshold}" />
+
+                                    <Grid ColumnDefinitions="92,*"
+                                          ColumnSpacing="12"
+                                          RowDefinitions="Auto,Auto"
+                                          RowSpacing="8">
+                                        <TextBlock Classes="field" Text="{x:Static lang:Strings.ZebraHighThreshold}" />
+                                        <NumericUpDown Grid.Column="1"
+                                                       HorizontalAlignment="Stretch"
+                                                       FormatString="F2"
+                                                       Increment="0.01"
+                                                       Maximum="1"
+                                                       Minimum="0"
+                                                       Value="{Binding ZebraHighThreshold.Value, Mode=TwoWay}" />
+
+                                        <TextBlock Grid.Row="1"
+                                                   Classes="field"
+                                                   Text="{x:Static lang:Strings.ZebraLowThreshold}" />
+                                        <NumericUpDown Grid.Row="1"
+                                                       Grid.Column="1"
+                                                       HorizontalAlignment="Stretch"
+                                                       FormatString="F2"
+                                                       Increment="0.01"
+                                                       Maximum="1"
+                                                       Minimum="0"
+                                                       Value="{Binding ZebraLowThreshold.Value, Mode=TwoWay}" />
+                                    </Grid>
                                 </StackPanel>
-                            </Border>
-                            <Separator Height="1" Margin="0" />
-
-                            <StackPanel Margin="16,12,16,12" Spacing="10">
-                                <TextBlock Classes="section" Text="{x:Static lang:Strings.Threshold}" />
-
-                                <Grid ColumnDefinitions="92,*"
-                                      ColumnSpacing="12"
-                                      RowDefinitions="Auto,Auto"
-                                      RowSpacing="8">
-                                    <TextBlock Classes="field" Text="{x:Static lang:Strings.ZebraHighThreshold}" />
-                                    <NumericUpDown Grid.Column="1"
-                                                   HorizontalAlignment="Stretch"
-                                                   FormatString="F2"
-                                                   Increment="0.01"
-                                                   Maximum="1"
-                                                   Minimum="0"
-                                                   Value="{Binding ZebraHighThreshold.Value, Mode=TwoWay}" />
-
-                                    <TextBlock Grid.Row="1"
-                                               Classes="field"
-                                               Text="{x:Static lang:Strings.ZebraLowThreshold}" />
-                                    <NumericUpDown Grid.Row="1"
-                                                   Grid.Column="1"
-                                                   HorizontalAlignment="Stretch"
-                                                   FormatString="F2"
-                                                   Increment="0.01"
-                                                   Maximum="1"
-                                                   Minimum="0"
-                                                   Value="{Binding ZebraLowThreshold.Value, Mode=TwoWay}" />
-                                </Grid>
                             </StackPanel>
-                        </StackPanel>
-                    </Flyout>
-                </Button.Flyout>
-            </Button>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
 
-            <ComboBox Grid.Column="3"
-                      Margin="8,0,0,0"
-                      HorizontalAlignment="Stretch"
-                      VerticalAlignment="Center"
-                      SelectedIndex="{Binding ColorSpace.Value, Converter={x:Static scopes:ScopeColorSpaceConverter.Instance}}"
-                      Theme="{StaticResource LiteComboBoxStyle}">
-                <ComboBoxItem Content="{x:Static lang:Strings.Gamma}" />
-                <ComboBoxItem Content="{x:Static lang:Strings.Linear}" />
-            </ComboBox>
-        </Grid>
+                <ComboBox x:Name="ColorSpaceComboBox"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Center"
+                          SelectedIndex="{Binding ColorSpace.Value, Converter={x:Static scopes:ScopeColorSpaceConverter.Instance}}"
+                          Theme="{StaticResource LiteComboBoxStyle}">
+                    <ComboBoxItem Content="{x:Static lang:Strings.Gamma}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.Linear}" />
+                </ComboBox>
+            </WrapPanel>
+        </controls:ToolTabBar>
 
         <Panel Grid.Row="1">
             <scopes:WaveformControl x:Name="WaveformControl"

@@ -1,0 +1,124 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="using:Beutl.Controls">
+    <Thickness x:Key="ToolTabBarPadding">4,2</Thickness>
+    <Thickness x:Key="ToolTabBarTitleMargin">8,0</Thickness>
+    <Thickness x:Key="ToolTabBarIconButtonPadding">6</Thickness>
+    <Thickness x:Key="ToolTabBarBorderThickness">0,0,0,1</Thickness>
+    <!--  Keep standard controls with compact vertical spacing.  -->
+    <x:Double x:Key="ToolTabBarMinHeight">38</x:Double>
+
+    <ControlTheme x:Key="{x:Type local:ToolTabBar}" TargetType="local:ToolTabBar">
+        <Setter Property="MinHeight" Value="{DynamicResource ToolTabBarMinHeight}" />
+        <Setter Property="Padding" Value="{DynamicResource ToolTabBarPadding}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource ToolTabBarBorderThickness}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Name="PART_ContentPresenter"
+                                  Background="{TemplateBinding Background}"
+                                  BackgroundSizing="{TemplateBinding BackgroundSizing}"
+                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                  Padding="{TemplateBinding Padding}"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="ToolTabBarIconButtonTheme"
+                  BasedOn="{StaticResource TransparentButton}"
+                  TargetType="Button">
+        <Setter Property="Padding" Value="{DynamicResource ToolTabBarIconButtonPadding}" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="ToolTabVisibilityToggleButtonTheme"
+                  BasedOn="{StaticResource VisibilityToggleButtonStyle}"
+                  TargetType="ToggleButton">
+        <Setter Property="Padding" Value="{DynamicResource ToolTabBarIconButtonPadding}" />
+        <Setter Property="FontSize" Value="16" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="ToolTabBarTitleTextBlockTheme" TargetType="TextBlock">
+        <Setter Property="Margin" Value="{DynamicResource ToolTabBarTitleMargin}" />
+        <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="ToolTabExpanderHeaderTheme"
+                  BasedOn="{StaticResource ExpanderToggleButtonDownTheme}"
+                  TargetType="ToggleButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource ToolTabBarBorderThickness}" />
+        <Setter Property="Padding" Value="{DynamicResource ToolTabBarPadding}" />
+        <Setter Property="CornerRadius" Value="0" />
+        <!--  Reuse FluentAvalonia's chevron state styles with the tool bar layout.  -->
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border MinHeight="{TemplateBinding MinHeight}"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        Padding="{TemplateBinding Padding}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <ContentPresenter Name="ContentPresenter"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Foreground="{TemplateBinding Foreground}" />
+                        <Border Name="ExpandCollapseChevronBorder"
+                                Grid.Column="1"
+                                Width="{DynamicResource ExpanderChevronButtonSize}"
+                                Height="{DynamicResource ExpanderChevronButtonSize}"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource ExpanderChevronBackground}"
+                                BorderBrush="{DynamicResource ExpanderChevronBorderBrush}"
+                                BorderThickness="{DynamicResource ExpanderChevronBorderThickness}"
+                                CornerRadius="{DynamicResource ControlCornerRadius}">
+                            <TextBlock Name="ExpandCollapseChevron"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                       FontSize="15"
+                                       Foreground="{DynamicResource ExpanderChevronForeground}"
+                                       RenderTransform="none">
+                                <TextBlock.Transitions>
+                                    <Transitions>
+                                        <TransformOperationsTransition Duration="0:0:0.167" Property="RenderTransform" />
+                                    </Transitions>
+                                </TextBlock.Transitions>
+                            </TextBlock>
+                        </Border>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="ToolTabExpanderTheme"
+                  BasedOn="{StaticResource {x:Type Expander}}"
+                  TargetType="Expander">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="MinHeight" Value="{DynamicResource ToolTabBarMinHeight}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="0" />
+
+        <Style Selector="^:down">
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="^:down /template/ ToggleButton#ExpanderHeader">
+            <Setter Property="Theme" Value="{StaticResource ToolTabExpanderHeaderTheme}" />
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

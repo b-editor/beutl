@@ -17,6 +17,7 @@
                 <ResourceInclude Source="/Styling/TextBlockStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToggleSwitchStyles.axaml" />
                 <ResourceInclude Source="/Styling/ToggleButtonStyles.axaml" />
+                <ResourceInclude Source="/Styling/ToolTabBar.axaml" />
                 <ResourceInclude Source="/Styling/SimpleBreadcrumbBar.axaml" />
 
                 <ResourceInclude Source="/Styling/ProgressRing.axaml" />
@@ -122,6 +123,10 @@
             </ControlTheme>
         </ResourceDictionary>
     </Styles.Resources>
+
+    <StyleInclude Source="/Styling/OptionsDisplayGroup.axaml" />
+
+    <StyleInclude Source="avares://Beutl.Controls/Styling/ToolTabNavigation.axaml" />
 
     <!--<Style Selector="PopupRoot">
         <Setter Property="TransparencyLevelHint" Value="AcrylicBlur" />

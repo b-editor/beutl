@@ -130,6 +130,30 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
             }
         }
 
-        Properties.AddRange(tempItems);
+        // Put consecutive settings without a named group in a shared frame too,
+        // keeping their order relative to the named groups.
+        List<IPropertyEditorContext?> ungrouped = [];
+        foreach (IPropertyEditorContext? item in tempItems)
+        {
+            if (item is PropertyEditorGroupContext)
+            {
+                FlushUngrouped();
+                Properties.Add(item);
+            }
+            else
+            {
+                ungrouped.Add(item);
+            }
+        }
+        FlushUngrouped();
+
+        void FlushUngrouped()
+        {
+            if (ungrouped.Count == 0)
+                return;
+
+            Properties.Add(new PropertyEditorGroupContext(ungrouped.ToArray(), string.Empty, Properties.Count == 0));
+            ungrouped.Clear();
+        }
     }
 }

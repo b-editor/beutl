@@ -12,31 +12,13 @@
              x:DataType="viewModel:EngineObjectPropertyViewModel"
              DragDrop.AllowDrop="True"
              mc:Ignorable="d">
-    <Expander MinHeight="44"
-              Padding="0"
+    <Expander Theme="{StaticResource ToolTabExpanderTheme}"
               IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay, FallbackValue=True}">
-        <Expander.Resources>
-            <SolidColorBrush x:Key="ExpanderContentBackground" Color="Transparent" />
-            <SolidColorBrush x:Key="ExpanderHeaderBackground" Color="Transparent" />
-            <Thickness x:Key="ExpanderHeaderPadding">8,0,0,0</Thickness>
-            <Thickness x:Key="ExpanderContentDownBorderThickness">0,0,0,0</Thickness>
-            <x:Double x:Key="ExpanderChevronButtonSize">24</x:Double>
-            <SolidColorBrush x:Key="ExpanderHeaderBorderBrush" Color="{DynamicResource DividerStrokeColorDefault}" />
-            <SolidColorBrush x:Key="ExpanderHeaderBorderPointerOverBrush" Color="{DynamicResource DividerStrokeColorDefault}" />
-            <SolidColorBrush x:Key="ExpanderBorderPressedBrush" Color="{DynamicResource DividerStrokeColorDefault}" />
-            <SolidColorBrush x:Key="ExpanderHeaderDisabledBorderBrush" Color="{DynamicResource DividerStrokeColorDefault}" />
-        </Expander.Resources>
-        <Expander.Styles>
-            <Style Selector="Expander /template/ ToggleButton#ExpanderHeader">
-                <Setter Property="CornerRadius" Value="0" />
-                <Setter Property="BorderThickness" Value="0,0,0,1" />
-            </Style>
-        </Expander.Styles>
         <Expander.Header>
-            <StackPanel x:Name="headerPanel"
-                        Background="Transparent"
-                        Orientation="Horizontal">
-                <StackPanel.ContextMenu>
+            <Grid x:Name="headerPanel"
+                  Background="Transparent"
+                  ColumnDefinitions="Auto,Auto,*">
+                <Grid.ContextMenu>
                     <ContextMenu>
                         <MenuItem Click="Remove_Click" Header="{x:Static lang:Strings.Remove}">
                             <MenuItem.Icon>
@@ -49,8 +31,11 @@
                             </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>
-                </StackPanel.ContextMenu>
+                </Grid.ContextMenu>
                 <Border x:Name="dragBorder"
+                        Padding="{DynamicResource ToolTabBarIconButtonPadding}"
+                        VerticalAlignment="Center"
+                        Background="Transparent"
                         CornerRadius="{DynamicResource ControlCornerRadius}"
                         Cursor="SizeNorthSouth">
                     <Border.Styles>
@@ -63,10 +48,15 @@
                                       Icon="ReOrderDotsVertical" />
                 </Border>
 
-                <ToggleButton IsChecked="{Binding IsEnabled.Value}" Theme="{StaticResource VisibilityToggleButtonStyle}" />
+                <ToggleButton x:Name="VisibilityButton"
+                              Grid.Column="1"
+                              IsChecked="{Binding IsEnabled.Value}"
+                              Theme="{StaticResource ToolTabVisibilityToggleButtonTheme}" />
 
-                <TextBlock x:Name="headerText" VerticalAlignment="Center" />
-            </StackPanel>
+                <TextBlock x:Name="headerText"
+                           Grid.Column="2"
+                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+            </Grid>
         </Expander.Header>
 
         <Panel x:Name="panel">

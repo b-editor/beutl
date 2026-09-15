@@ -1,0 +1,17 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:Beutl.Controls">
+    <!-- Inherit grouping through item containers and property editor templates. -->
+    <Style Selector="Border.options-group">
+        <Setter Property="local:OptionsGroupPanel.IsGrouped" Value="True" />
+        <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+
+    <Style Selector="local|OptionsGroupPanel">
+        <Setter Property="SeparatorBrush" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
+    </Style>
+</Styles>

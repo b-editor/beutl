@@ -4,12 +4,15 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
+using Beutl.Controls;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
@@ -17,6 +20,7 @@ using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.ProjectSystem;
+using Beutl.Testing.Headless;
 
 using FluentAvalonia.UI.Controls;
 using Moq;
@@ -26,6 +30,64 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class BrowserToolPanelsTests
 {
+    [AvaloniaTest]
+    [TestCase(320, false)]
+    [TestCase(640, false)]
+    [TestCase(320, true)]
+    [TestCase(640, true)]
+    public void Address_input_matches_buttons_and_keeps_focus_and_text_entry(int width, bool light)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var uri = new Uri("https://example.com/long/path?q=value");
+        using var vm = new WebBrowserTabViewModel(CreateContext(root), uri, new BrowserProfile(Path.Combine(root, "profile.json")));
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
+        view.DataContext = vm;
+        vm.CompleteNavigation(uri, true, false, false);
+        var window = new Window { Content = view, Width = width, Height = 400, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            WebBrowserAddressBox address = view.FindControl<WebBrowserAddressBox>("AddressTextBox")!;
+            Button menu = view.FindControl<Button>("BrowserMenuButton")!;
+            address.SuggestionsEnabled = false;
+            menu.Focus();
+            HeadlessTestHelpers.Render();
+            Border border = address.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_BorderElement");
+            Assert.That(address.Theme, Is.SameAs(view.FindResource("LayerHeaderNameTextBoxTheme")));
+            Assert.That(border.BorderThickness, Is.EqualTo(default(Thickness)));
+            Assert.That(((ISolidColorBrush)border.Background!).Color.A, Is.Zero);
+            CheckHeight();
+            Capture(window, $"address-idle-{width}-{light}");
+
+            window.MouseMove(address.TranslatePoint(new Point(address.Bounds.Width / 2, address.Bounds.Height / 2), window)!.Value);
+            HeadlessTestHelpers.Render();
+            CheckHeight();
+            Capture(window, $"address-hover-{width}-{light}");
+
+            address.Focus(NavigationMethod.Tab);
+            HeadlessTestHelpers.Render();
+            CheckHeight();
+            Assert.That(address.SelectedText, Is.EqualTo(uri.AbsoluteUri));
+            Assert.That(address.BorderThickness, Is.EqualTo(default(Thickness)));
+            Capture(window, $"address-focused-{width}-{light}");
+            window.KeyTextInput("検索テスト");
+            Assert.That(address.Address, Is.EqualTo("検索テスト"));
+            menu.Focus();
+            HeadlessTestHelpers.Render();
+            Assert.That(address.Text, Is.EqualTo("検索テスト"));
+            CheckHeight();
+
+            void CheckHeight()
+            {
+                Assert.That(address.Bounds.Height, Is.EqualTo(menu.Bounds.Height));
+                Assert.That(address.TranslatePoint(default, view)!.Value.Y,
+                    Is.EqualTo(menu.TranslatePoint(default, view)!.Value.Y));
+            }
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTest]
     [TestCase(320, false)]
     [TestCase(640, false)]
@@ -52,6 +114,21 @@ public class BrowserToolPanelsTests
             OpenMenu(view, Strings.BrowserDownloads);
             Dispatcher.UIThread.RunJobs();
             AssertFits(view);
+            var header = view.FindControl<ToolTabBar>("ToolPanelHeader")!;
+            var addressBar = view.FindControl<ToolTabBar>("AddressBar")!;
+            var close = view.FindControl<Button>("CloseBrowserPanelButton")!;
+            var menu = view.FindControl<Button>("BrowserMenuButton")!;
+            double closeRight = close.TranslatePoint(default, header)!.Value.X + close.Bounds.Width;
+            double menuRight = menu.TranslatePoint(default, addressBar)!.Value.X + menu.Bounds.Width;
+            Assert.Multiple(() =>
+            {
+                Assert.That(header.Bounds.Height, Is.EqualTo(addressBar.Bounds.Height),
+                    "the panel header should match the address bar height");
+                Assert.That(header.Bounds.Width - closeRight, Is.EqualTo(addressBar.Bounds.Width - menuRight),
+                    "the panel close button should have the same right inset as the address bar menu");
+                Assert.That(close.Bounds.Size, Is.EqualTo(menu.Bounds.Size),
+                    "the two bars should use the same icon button size");
+            });
             Capture(window, $"history-{width}-{light}");
             profile.ClearHistory();
             Dispatcher.UIThread.RunJobs();
@@ -101,6 +178,42 @@ public class BrowserToolPanelsTests
             Capture(window, $"find-unavailable-{width}-{light}");
         }
         finally { window.Close(); Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(320)]
+    [TestCase(640)]
+    public void LongPanelTitlesWrapWithoutClippingOrHidingTheCloseButton(int width)
+    {
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
+        var window = new Window { Content = view, Width = width, Height = 360 };
+        bool closed = false;
+        try
+        {
+            string title = string.Join(" ", Enumerable.Repeat(Strings.WebDownloadMedia, 6));
+            view.ShowBrowserPanel(title, new TextBlock { Text = "Content" }, () => closed = true);
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            AssertFits(view);
+
+            var header = view.FindControl<ToolTabBar>("ToolPanelHeader")!;
+            var addressBar = view.FindControl<ToolTabBar>("AddressBar")!;
+            var titleText = view.FindControl<TextBlock>("ToolPanelTitle")!;
+            var close = view.FindControl<Button>("CloseBrowserPanelButton")!;
+            Point titlePosition = titleText.TranslatePoint(default, header)!.Value;
+            Assert.Multiple(() =>
+            {
+                Assert.That(header.Bounds.Height, Is.GreaterThan(addressBar.Bounds.Height));
+                Assert.That(titlePosition.Y, Is.GreaterThanOrEqualTo(0));
+                Assert.That(titlePosition.Y + titleText.Bounds.Height, Is.LessThanOrEqualTo(header.Bounds.Height));
+                Assert.That(close.IsEffectivelyVisible, Is.True);
+            });
+
+            close.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(closed, Is.True);
+            Assert.That(view.FindControl<Grid>("ToolPanel")!.IsVisible, Is.False);
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]

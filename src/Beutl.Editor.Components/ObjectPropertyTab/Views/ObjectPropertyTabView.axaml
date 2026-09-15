@@ -1,26 +1,29 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:lang="using:Beutl.Language"
              xmlns:viewModel="using:Beutl.Editor.Components.ObjectPropertyTab.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="Beutl.Editor.Components.ObjectPropertyTab.Views.ObjectPropertyTabView"
              x:DataType="viewModel:ObjectPropertyTabViewModel">
     <ScrollViewer>
         <StackPanel>
-            <StackPanel Orientation="Horizontal">
-                <Button Command="{Binding Back}"
+            <controls:ToolTabBar x:Name="ToolBar">
+                <Button x:Name="BackButton"
+                        HorizontalAlignment="Left"
+                        AutomationProperties.Name="{x:Static lang:Strings.Back}"
+                        Command="{Binding Back}"
                         IsEnabled="{Binding CanBack.Value}"
-                        Padding="8"
-                        BorderThickness="0"
-                        Background="Transparent">
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                        ToolTip.Tip="{x:Static lang:Strings.Back}">
                     <icons:FluentIcon Icon="ArrowLeft" FontSize="16" />
                 </Button>
-            </StackPanel>
+            </controls:ToolTabBar>
 
-            <ItemsControl DataContext="{Binding ChildContext.Value}" ItemsSource="{Binding Properties}">
+            <ItemsControl x:Name="PropertyList" DataContext="{Binding ChildContext.Value}" ItemsSource="{Binding Properties}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />

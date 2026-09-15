@@ -25,44 +25,53 @@
                       Grid.RowSpan="2"
                       Grid.Column="1" />
 
-        <ecv:TimelineScale x:Name="Scale"
-                           Grid.Column="2"
-                           Height="32"
-                           HorizontalAlignment="Stretch"
-                           VerticalAlignment="Top"
-                           BufferBrush="{DynamicResource TextFillColorSecondaryBrush}"
-                           BufferEnd="{Binding BufferStatus.End.Value}"
-                           BufferStart="{Binding BufferStatus.Start.Value}"
-                           CacheBlockBrush="{DynamicResource SystemFillColorSuccessBrush}"
-                           CacheBlocks="{Binding BufferStatus.CacheBlocks.Value}"
-                           ContextRequested="Scale_ContextRequested"
-                           EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                           EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
-                           HoveredCacheBlock="{Binding HoveredCacheBlock.Value}"
-                           LockedCacheBlockBrush="{DynamicResource AccentFillColorTertiaryBrush}"
-                           MarkerLabelBackground="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"
-                           MarkerLabelForeground="{DynamicResource TextFillColorPrimaryBrush}"
-                           Markers="{Binding Markers}"
-                           PointerExited="TimelinePanel_PointerExited"
-                           PointerMoved="TimelinePanel_PointerMoved"
-                           PointerPressed="TimelinePanel_PointerPressed"
-                           PointerReleased="TimelinePanel_PointerReleased"
-                           Scale="{Binding Options.Value.Scale}"
-                           ScaleBrush="{DynamicResource TextControlForeground}"
-                           SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
-                           SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
-                           StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                           StartingBarMargin="{CompiledBinding StartingBarMargin.Value}"
-                           Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
-            <ecv:TimelineScale.ContextFlyout>
-                <ui:FAMenuFlyout>
-                    <ui:FAMenuFlyoutItem Command="{Binding DeleteAllFrameCache}" Text="{x:Static lang:Strings.DeleteAll}" />
-                    <ui:FAMenuFlyoutItem Command="{Binding DeleteFrameCache}" Text="{x:Static lang:Strings.Delete}" />
-                    <ui:FAMenuFlyoutItem Command="{Binding LockFrameCache}" Text="{x:Static lang:Strings.Lock}" />
-                    <ui:FAMenuFlyoutItem Command="{Binding UnlockFrameCache}" Text="{x:Static lang:Strings.Unlock}" />
-                </ui:FAMenuFlyout>
-            </ecv:TimelineScale.ContextFlyout>
-        </ecv:TimelineScale>
+        <Border Grid.ColumnSpan="3"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="{DynamicResource ToolTabBarBorderThickness}"
+                IsHitTestVisible="False" />
+
+        <Border x:Name="RulerBar"
+                Grid.Column="2"
+                Height="{DynamicResource ToolTabBarMinHeight}"
+                Background="Transparent"
+                PointerExited="TimelinePanel_PointerExited"
+                PointerMoved="TimelinePanel_PointerMoved"
+                PointerPressed="TimelinePanel_PointerPressed"
+                PointerReleased="TimelinePanel_PointerReleased">
+            <ecv:TimelineScale x:Name="Scale"
+                               Height="32"
+                               HorizontalAlignment="Stretch"
+                               VerticalAlignment="Bottom"
+                               BufferBrush="{DynamicResource TextFillColorSecondaryBrush}"
+                               BufferEnd="{Binding BufferStatus.End.Value}"
+                               BufferStart="{Binding BufferStatus.Start.Value}"
+                               CacheBlockBrush="{DynamicResource SystemFillColorSuccessBrush}"
+                               CacheBlocks="{Binding BufferStatus.CacheBlocks.Value}"
+                               ContextRequested="Scale_ContextRequested"
+                               EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                               EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                               HoveredCacheBlock="{Binding HoveredCacheBlock.Value}"
+                               LockedCacheBlockBrush="{DynamicResource AccentFillColorTertiaryBrush}"
+                               MarkerLabelBackground="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"
+                               MarkerLabelForeground="{DynamicResource TextFillColorPrimaryBrush}"
+                               Markers="{Binding Markers}"
+                               Scale="{Binding Options.Value.Scale}"
+                               ScaleBrush="{DynamicResource TextControlForeground}"
+                               SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
+                               SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
+                               StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                               StartingBarMargin="{CompiledBinding StartingBarMargin.Value}"
+                               Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
+                <ecv:TimelineScale.ContextFlyout>
+                    <ui:FAMenuFlyout>
+                        <ui:FAMenuFlyoutItem Command="{Binding DeleteAllFrameCache}" Text="{x:Static lang:Strings.DeleteAll}" />
+                        <ui:FAMenuFlyoutItem Command="{Binding DeleteFrameCache}" Text="{x:Static lang:Strings.Delete}" />
+                        <ui:FAMenuFlyoutItem Command="{Binding LockFrameCache}" Text="{x:Static lang:Strings.Lock}" />
+                        <ui:FAMenuFlyoutItem Command="{Binding UnlockFrameCache}" Text="{x:Static lang:Strings.Unlock}" />
+                    </ui:FAMenuFlyout>
+                </ecv:TimelineScale.ContextFlyout>
+            </ecv:TimelineScale>
+        </Border>
 
         <ui:FATeachingTip x:Name="CacheTip"
                         Title="{x:Static lang:Strings.FrameCache}"

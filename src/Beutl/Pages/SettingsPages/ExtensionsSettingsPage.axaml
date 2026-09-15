@@ -25,42 +25,52 @@
                         VerticalAlignment="Stretch"
                         Orientation="Vertical"
                         Spacing="4">
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.Editor_Extension_Priority}"
-                                          Navigates="True"
-                                          NavigationCommand="{Binding NavigateToEditorPriority}">
-                    <ctrls:OptionsDisplayItem.Icon>
-                        <icons:FluentIcon Icon="TabDesktop" />
-                    </ctrls:OptionsDisplayItem.Icon>
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.Editor_Extension_Priority}"
+                                                  Navigates="True"
+                                                  NavigationCommand="{Binding NavigateToEditorPriority}">
+                            <ctrls:OptionsDisplayItem.Icon>
+                                <icons:FluentIcon Icon="TabDesktop" />
+                            </ctrls:OptionsDisplayItem.Icon>
 
-                </ctrls:OptionsDisplayItem>
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.DecoderPriority}"
-                                          Navigates="True"
-                                          NavigationCommand="{Binding NavigateToDecoderPriority}" />
+                        </ctrls:OptionsDisplayItem>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.DecoderPriority}"
+                                                  Navigates="True"
+                                                  NavigationCommand="{Binding NavigateToDecoderPriority}" />
 
-                <ctrls:OptionsDisplayItem Expands="True" Header="{x:Static lang:SettingsStrings.ExtensionsSettings}">
-                    <ctrls:OptionsDisplayItem.Styles>
-                        <Style Selector="ctrls|OptionsDisplayItem /template/ ContentPresenter#ExpandedContentPresenter">
-                            <Setter Property="Background" Value="Transparent" />
-                        </Style>
-                    </ctrls:OptionsDisplayItem.Styles>
-                    <ctrls:OptionsDisplayItem.Icon>
-                        <icons:FluentIcon Icon="Settings" />
-                    </ctrls:OptionsDisplayItem.Icon>
+                        <ctrls:OptionsDisplayItem Expands="True" Header="{x:Static lang:SettingsStrings.ExtensionsSettings}">
+                            <ctrls:OptionsDisplayItem.Styles>
+                                <Style Selector="ctrls|OptionsDisplayItem /template/ ContentPresenter#ExpandedContentPresenter">
+                                    <Setter Property="Background" Value="Transparent" />
+                                </Style>
+                            </ctrls:OptionsDisplayItem.Styles>
+                            <ctrls:OptionsDisplayItem.Icon>
+                                <icons:FluentIcon Icon="Settings" />
+                            </ctrls:OptionsDisplayItem.Icon>
 
-                    <ctrls:OptionsDisplayItem.Content>
-                        <ItemsControl Margin="-12,0,-12,-12" ItemsSource="{Binding Extensions}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <ctrls:OptionsDisplayItem Background="Transparent"
-                                                              Header="{Binding DisplayName}"
-                                                              Navigates="True"
-                                                              NavigationCommand="{Binding #root.DataContext.NavigateToExtensionSettings}"
-                                                              NavigationCommandParameter="{Binding}" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ctrls:OptionsDisplayItem.Content>
-                </ctrls:OptionsDisplayItem>
+                            <ctrls:OptionsDisplayItem.Content>
+                                <ItemsControl Margin="-12,0,-12,-12" ItemsSource="{Binding Extensions}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <ctrls:OptionsGroupPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ctrls:OptionsDisplayItem Background="Transparent"
+                                                                      Header="{Binding DisplayName}"
+                                                                      Navigates="True"
+                                                                      NavigationCommand="{Binding #root.DataContext.NavigateToExtensionSettings}"
+                                                                      NavigationCommandParameter="{Binding}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ctrls:OptionsDisplayItem.Content>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+
             </StackPanel>
         </ScrollViewer>
     </Grid>

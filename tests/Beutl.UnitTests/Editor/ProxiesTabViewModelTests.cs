@@ -13,6 +13,7 @@ using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Editor;
@@ -20,6 +21,54 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public sealed class ProxiesTabViewModelTests
 {
+    [Test]
+    public void Refresh_ShowsFailureReasonOnlyForTheCurrentFailedFingerprint()
+    {
+        string root = CreateRoot();
+        string path = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint current = ProxyFingerprint.FromFile(path);
+        DateTime now = DateTime.UtcNow;
+        var entry = new ProxyEntry(current with { FileSizeBytes = 2048 }, ProxyPreset.Quarter,
+            ProxyState.Failed, "hash/quarter.mp4", 0, new PixelSize(1920, 1080), new PixelSize(480, 270),
+            now, now, "Previous transcode failed");
+        RegisterProxyEntry(store, entry);
+        using var model = new ProxiesTabViewModel(CreateContext(root, store, path));
+        ProxyClipViewModel clip = model.Clips.Single();
+        Assert.That(clip.IsStale.Value, Is.True);
+        Assert.That(clip.FailureReason.Value, Is.Null);
+        clip.UpdateEntry(entry with { Source = current });
+        Assert.That(clip.IsFailed.Value, Is.True);
+        Assert.That(clip.FailureReason.Value, Is.EqualTo(entry.FailureReason));
+        clip.UpdateEntry(entry with { Source = current, State = ProxyState.Ready });
+        Assert.That(clip.FailureReason.Value, Is.Null);
+        clip.UpdateEntry(null);
+        Assert.That(clip.FailureReason.Value, Is.Null);
+    }
+
+    [TestCase("clip")]
+    [TestCase("all")]
+    [TestCase("selected")]
+    [TestCase("regenerate")]
+    public async Task Generation_without_a_queue_notifies_the_user(string action)
+    {
+        string root = CreateRoot();
+        string path = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var notifications = new List<Notification>();
+        using var model = new ProxiesTabViewModel(CreateContext(root, store, path)) { Notify = notifications.Add };
+        switch (action)
+        {
+            case "clip": await model.GenerateAsync(model.Clips.Single()); break;
+            case "all": await model.GenerateAllCommand.ExecuteAsync(); break;
+            case "selected": await model.GenerateSelectedCommand.ExecuteAsync(); break;
+            case "regenerate": await model.RegenerateSelectedCommand.ExecuteAsync(); break;
+        }
+        Assert.That(notifications, Has.Count.EqualTo(1));
+        Assert.That(notifications[0].Message, Is.EqualTo(Strings.ProxyQueueUnavailable));
+        Assert.That(notifications[0].Type, Is.EqualTo(NotificationType.Warning));
+    }
+
     [Test]
     public void Refresh_BuildsReadySummaryAndClipDisplay()
     {
@@ -901,12 +950,15 @@ public sealed class ProxiesTabViewModelTests
             now,
             null));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, new UndeletableStore(store), sourcePath));
+        var notifications = new List<Notification>();
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, new UndeletableStore(store), sourcePath)) { Notify = notifications.Add };
         ProxyClipViewModel clip = viewModel.Clips.Single();
 
         viewModel.Delete(clip);
 
         Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.ProxyDeleteFailedSingular));
+        Assert.That(notifications.Single().Message, Is.EqualTo(Strings.ProxyDeleteFailedSingular));
+        Assert.That(notifications.Single().Type, Is.EqualTo(NotificationType.Error));
     }
 
     // The real store's Delete removes the index entry but only best-effort-deletes the file; a surviving
@@ -1363,7 +1415,8 @@ public sealed class ProxiesTabViewModelTests
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         var queue = new TestProxyJobQueue();
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, firstPath, secondPath));
+        var notifications = new List<Notification>();
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, firstPath, secondPath)) { Notify = notifications.Add };
 
         await viewModel.GenerateAllCommand.ExecuteAsync();
 
@@ -1372,6 +1425,8 @@ public sealed class ProxiesTabViewModelTests
             Assert.That(viewModel.Clips, Has.Count.EqualTo(2));
             Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.ProxyBulkNoEligibleClips));
             Assert.That(queue.Pending(), Is.Empty);
+            Assert.That(notifications.Single().Message, Is.EqualTo(Strings.ProxyBulkNoEligibleClips));
+            Assert.That(notifications.Single().Type, Is.EqualTo(NotificationType.Information));
         });
     }
 

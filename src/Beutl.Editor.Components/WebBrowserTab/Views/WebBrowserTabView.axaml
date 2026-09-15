@@ -44,14 +44,14 @@
     </UserControl.Styles>
     <UserControl.Resources>
         <DataTemplate x:Key="DownloadHistoryItemTemplate" x:DataType="views:BrowserDownloadHistoryItem">
-            <Border Margin="0,0,0,12"
-                    Padding="14"
+            <Border Margin="0,0,0,8"
+                    Padding="10"
                     Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="12">
-                <StackPanel Spacing="12">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                         <Border Width="40"
                                 Height="40"
                                 Background="{DynamicResource SubtleFillColorSecondaryBrush}"
@@ -65,7 +65,7 @@
                         </Border>
                         <StackPanel Grid.Column="1"
                                     VerticalAlignment="Center"
-                                    Spacing="5">
+                                    Spacing="4">
                             <TextBlock FontSize="14"
                                        FontWeight="SemiBold"
                                        Text="{Binding FileName}"
@@ -141,8 +141,8 @@
             </Border>
         </DataTemplate>
         <DataTemplate x:Key="DownloadHistoryEmptyTemplate" x:DataType="viewModel:WebBrowserTabViewModel">
-            <Border MaxWidth="360" Padding="16,24">
-                <StackPanel Spacing="20">
+            <Border MaxWidth="360" Padding="12,16">
+                <StackPanel Spacing="16">
                     <Border Width="64"
                             Height="64"
                             HorizontalAlignment="Center"
@@ -154,7 +154,7 @@
                                           Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
                                           Icon="ArrowDownload" />
                     </Border>
-                    <StackPanel Spacing="10">
+                    <StackPanel Spacing="8">
                         <TextBlock FontSize="18"
                                    FontWeight="SemiBold"
                                    Text="{x:Static lang:Strings.BrowserHistoryEmpty}"
@@ -171,55 +171,52 @@
         </DataTemplate>
     </UserControl.Resources>
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
-        <Border Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
-                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                BorderThickness="0,0,0,1"
-                Padding="4">
+        <controls:ToolTabBar x:Name="AddressBar"
+                             Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}">
             <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="2">
                 <Button Grid.Column="0"
                         Click="OnBackClick"
                         IsEnabled="{Binding CanGoBack.Value}"
-                        Padding="6"
-                        Theme="{StaticResource TransparentButton}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Back}">
                     <icons:FluentIcon FontSize="16" Icon="ArrowLeft" />
                 </Button>
                 <Button Grid.Column="1"
                         Click="OnForwardClick"
                         IsEnabled="{Binding CanGoForward.Value}"
-                        Padding="6"
-                        Theme="{StaticResource TransparentButton}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Forward}">
                     <icons:FluentIcon FontSize="16" Icon="ArrowRight" />
                 </Button>
                 <Panel Grid.Column="2">
                     <Button Click="OnRefreshClick"
                             IsVisible="{Binding !IsLoading.Value}"
-                            Padding="6"
-                            Theme="{StaticResource TransparentButton}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Refresh}">
                         <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
                     </Button>
                     <Button Click="OnStopClick"
                             IsVisible="{Binding IsLoading.Value}"
-                            Padding="6"
-                            Theme="{StaticResource TransparentButton}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Stop}">
                         <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                     </Button>
                 </Panel>
                 <views:WebBrowserAddressBox x:Name="AddressTextBox"
                          Grid.Column="3"
+                         Height="{Binding #BrowserMenuButton.Bounds.Height}"
+                         MinHeight="0"
                          controls:TextBoxAttachment.EnterDownBehavior="None"
                          KeyDown="OnAddressKeyDown"
                          Address="{Binding Address.Value, Mode=TwoWay}"
                          Suggestions="{Binding AddressSuggestions}"
+                         Theme="{StaticResource LayerHeaderNameTextBoxTheme}"
+                         VerticalAlignment="Center"
                          VerticalContentAlignment="Center"
                          PlaceholderText="{x:Static lang:Strings.WebAddress}" />
                 <Button x:Name="BrowserMenuButton"
                         Grid.Column="4"
-                        Padding="6"
-                        Theme="{StaticResource TransparentButton}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Menu}">
                     <Button.Flyout>
                         <ui:FAMenuFlyout>
@@ -247,7 +244,7 @@
                     <icons:FluentIcon FontSize="16" Icon="MoreHorizontal" />
                 </Button>
             </Grid>
-        </Border>
+        </controls:ToolTabBar>
 
         <Border Grid.Row="1"
                 Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
@@ -509,10 +506,8 @@
                                             Orientation="Horizontal"
                                             Spacing="8">
                                     <Button x:Name="StartBrowsingButton"
-                                            Padding="14,9"
                                             AutomationProperties.Name="{x:Static lang:Strings.BrowserStartSearch}"
-                                            Click="OnStartSearchClick"
-                                            CornerRadius="8">
+                                            Click="OnStartSearchClick">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <icons:FluentIcon VerticalAlignment="Center"
                                                               FontSize="16"
@@ -521,16 +516,13 @@
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="AddBookmarkButton"
-                                            Width="36"
-                                            Height="36"
-                                            Padding="9"
+                                            Padding="6"
                                             VerticalAlignment="Center"
                                             AutomationProperties.Name="{x:Static lang:Strings.BrowserAddBookmark}"
                                             Click="OnShowBookmarkEditorClick"
-                                            CornerRadius="8"
                                             Theme="{StaticResource TransparentButton}"
                                             ToolTip.Tip="{x:Static lang:Strings.BrowserAddBookmark}">
-                                        <icons:FluentIcon FontSize="18" Icon="Add" />
+                                        <icons:FluentIcon FontSize="16" Icon="Add" />
                                     </Button>
                                 </StackPanel>
                             </StackPanel>
@@ -678,25 +670,20 @@
                   Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                   IsVisible="False"
                   RowDefinitions="Auto,*">
-                <Border Padding="16,12"
-                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                        BorderThickness="0,0,0,1">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <controls:ToolTabBar x:Name="ToolPanelHeader">
+                    <Grid ColumnDefinitions="*,Auto">
                         <TextBlock x:Name="ToolPanelTitle"
-                                   VerticalAlignment="Center"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   TextWrapping="Wrap" />
+                                   Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
                         <Button x:Name="CloseBrowserPanelButton"
                                 Grid.Column="1"
                                 AutomationProperties.Name="{x:Static lang:Strings.Close}"
-                                Classes="browserIcon"
                                 Click="OnCloseBrowserPanelClick"
+                                Theme="{StaticResource ToolTabBarIconButtonTheme}"
                                 ToolTip.Tip="{x:Static lang:Strings.Close}">
                             <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                         </Button>
                     </Grid>
-                </Border>
+                </controls:ToolTabBar>
                 <ContentControl x:Name="ToolPanelContent"
                                 Grid.Row="1"
                                 HorizontalContentAlignment="Stretch"

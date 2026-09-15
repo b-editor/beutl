@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.ProxiesTab.Views.ProxiesTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -13,50 +14,37 @@
              x:DataType="vm:ProxiesTabViewModel"
              mc:Ignorable="d">
     <UserControl.Styles>
-        <Style Selector="TextBlock.sectionHeader">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        <Style Selector="Button#GenerateButton">
+            <Setter Property="Command" Value="{Binding GenerateAllCommand}" />
+            <Setter Property="Content" Value="{x:Static lang:Strings.ProxyGenerateAll}" />
         </Style>
-        <Style Selector="TextBlock.metricLabel">
-            <Setter Property="FontSize" Value="11" />
+        <Style Selector="Button#GenerateButton.hasSelection">
+            <Setter Property="Command" Value="{Binding GenerateSelectedCommand}" />
+            <Setter Property="Content" Value="{x:Static lang:Strings.ProxyGenerateSelected}" />
+        </Style>
+        <Style Selector="TextBlock.secondary">
+            <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
         <Style Selector="TextBlock.metricValue">
-            <Setter Property="FontSize" Value="16" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-        </Style>
-        <Style Selector="TextBlock.subtle">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
         <Style Selector="Border.proxyItem">
-            <Setter Property="Padding" Value="10" />
-            <Setter Property="Margin" Value="0,0,0,8" />
-            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="Background" Value="Transparent" />
         </Style>
-        <Style Selector="Border.proxyItem.ready">
-            <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+        <Style Selector="Border.proxyItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
         </Style>
-        <Style Selector="Border.proxyItem.stale">
-            <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
-        </Style>
-        <Style Selector="Border.proxyItem.failed">
-            <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
-        </Style>
-        <Style Selector="Border.proxyItem.queued">
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        <Style Selector="Border.proxyItem.selected">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
         </Style>
         <Style Selector="Border.statePill">
-            <Setter Property="MinWidth" Value="56" />
-            <Setter Property="Padding" Value="7,2" />
+            <Setter Property="MaxWidth" Value="110" />
+            <Setter Property="Padding" Value="8,3" />
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="Border.statePill.ready">
@@ -68,256 +56,184 @@
         <Style Selector="Border.statePill.failed">
             <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
         </Style>
-        <Style Selector="Button.iconButton">
-            <Setter Property="Width" Value="30" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Theme" Value="{StaticResource TransparentButton}" />
-        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*">
-        <Border Grid.Row="0"
-                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                BorderThickness="0,0,0,1">
-            <Grid Height="32" ColumnDefinitions="Auto,*,Auto,Auto">
-                <TextBlock Grid.Column="0"
-                           Margin="8,0,0,0"
+        <controls:ToolTabBar x:Name="ToolBar">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Text="{x:Static lang:Strings.Proxies}"
+                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+                <TextBlock Grid.Column="1"
+                           Margin="0,0,8,0"
+                           HorizontalAlignment="Right"
                            VerticalAlignment="Center"
-                           Text="{x:Static lang:Strings.Proxies}" />
-
-                <TextBlock Grid.Column="2"
-                           Margin="8,0"
-                           VerticalAlignment="Center"
-                           Text="{Binding ClipSummary.Value}"
-                           TextTrimming="CharacterEllipsis" />
-
-                <Button Grid.Column="3"
-                        Margin="0,0,4,0"
-                        Classes="iconButton"
+                           Text="{Binding ClipCountText.Value}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding ClipSummary.Value}" />
+                <Button x:Name="RefreshButton"
+                        Grid.Column="2"
                         AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
                         Command="{Binding RefreshCommand}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Refresh}">
                     <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
                 </Button>
             </Grid>
-        </Border>
+        </controls:ToolTabBar>
 
-        <Grid Grid.Row="1"
-              Margin="10"
-              RowDefinitions="Auto,Auto,Auto,*"
-              RowSpacing="10">
-            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-                <Border Padding="10,8" Classes="CardStyle">
-                    <StackPanel Spacing="2">
-                        <TextBlock Classes="metricLabel" Text="{x:Static lang:Strings.Project}" />
-                        <TextBlock Classes="metricValue" Text="{Binding ProjectUsageText.Value}" />
-                    </StackPanel>
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !HasClips.Value}">
+            <Border x:Name="EmptyState" Margin="24" VerticalAlignment="Center">
+                <StackPanel MaxWidth="320" Spacing="12">
+                    <Border Width="56" Height="56" HorizontalAlignment="Center"
+                            Background="{DynamicResource SubtleFillColorSecondaryBrush}" CornerRadius="16">
+                        <icons:SymbolIcon FontSize="24" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" Symbol="Play" />
+                    </Border>
+                    <TextBlock FontSize="16" Text="{x:Static lang:Strings.ProxyEmptyTitle}"
+                               TextAlignment="Center" TextWrapping="Wrap" />
+                    <TextBlock Classes="secondary" Text="{x:Static lang:Strings.ProxyEmptyDescription}"
+                               TextAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+
+        <ScrollViewer x:Name="ContentScrollViewer" Grid.Row="1"
+                      HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasClips.Value}">
+            <StackPanel Margin="8" Spacing="12">
+                <Border x:Name="StorageSummary" Classes="options-group" Padding="12">
+                    <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="4">
+                        <TextBlock Classes="secondary" Text="{x:Static lang:Strings.Project}" TextWrapping="Wrap" />
+                        <TextBlock Grid.Column="1" Classes="secondary" Text="{x:Static lang:Strings.ProxyStoreUsage}" TextWrapping="Wrap" />
+                        <TextBlock Grid.Column="2" Classes="secondary" Text="{x:Static lang:Strings.ProxyStoreCap}" TextWrapping="Wrap" />
+                        <TextBlock Grid.Row="1" Classes="metricValue" Text="{Binding ProjectUsageText.Value}" ToolTip.Tip="{Binding ProjectUsageText.Value}" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Classes="metricValue" Text="{Binding StoreUsageText.Value}" ToolTip.Tip="{Binding StoreUsageText.Value}" />
+                        <TextBlock Grid.Row="1" Grid.Column="2" Classes="metricValue" Text="{Binding StoreCapText.Value}" ToolTip.Tip="{Binding StoreCapText.Value}" />
+                    </Grid>
                 </Border>
-                <Border Grid.Column="1"
-                        Padding="10,8"
-                        Classes="CardStyle">
-                    <StackPanel Spacing="2">
-                        <TextBlock Classes="metricLabel" Text="{x:Static lang:Strings.ProxyStoreUsage}" />
-                        <TextBlock Classes="metricValue" Text="{Binding StoreUsageText.Value}" />
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="2"
-                        Padding="10,8"
-                        Classes="CardStyle">
-                    <StackPanel Spacing="2">
-                        <TextBlock Classes="metricLabel" Text="{x:Static lang:Strings.ProxyStoreCap}" />
-                        <TextBlock Classes="metricValue" Text="{Binding StoreCapText.Value}" />
-                    </StackPanel>
-                </Border>
-            </Grid>
 
-            <Grid Grid.Row="1"
-                  ColumnDefinitions="*,Auto,Auto,Auto,Auto"
-                  ColumnSpacing="6">
-                <Button HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        Classes="accent"
-                        Command="{Binding GenerateSelectedCommand}"
-                        ToolTip.Tip="{x:Static lang:Strings.ProxyGenerateSelected}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <icons:SymbolIcon FontSize="16" Symbol="Play" VerticalAlignment="Center" />
-                        <TextBlock Text="{x:Static lang:Strings.ProxyGenerate}" />
-                    </StackPanel>
-                </Button>
-                <Button Grid.Column="1"
-                        Classes="iconButton"
-                        AutomationProperties.Name="{x:Static lang:Strings.ProxyGenerateAll}"
-                        Command="{Binding GenerateAllCommand}"
-                        ToolTip.Tip="{x:Static lang:Strings.ProxyGenerateAll}">
-                    <icons:SymbolIcon FontSize="16" Symbol="Add" />
-                </Button>
-                <Button Grid.Column="2"
-                        Classes="iconButton"
-                        AutomationProperties.Name="{x:Static lang:Strings.ProxyRegenerateSelected}"
-                        Command="{Binding RegenerateSelectedCommand}"
-                        ToolTip.Tip="{x:Static lang:Strings.ProxyRegenerateSelected}">
-                    <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
-                </Button>
-                <Button Grid.Column="3"
-                        Classes="iconButton"
-                        AutomationProperties.Name="{x:Static lang:Strings.ProxyDeleteSelected}"
-                        Command="{Binding DeleteSelectedCommand}"
-                        ToolTip.Tip="{x:Static lang:Strings.ProxyDeleteSelected}">
-                    <icons:SymbolIcon FontSize="16" Symbol="Delete" />
-                </Button>
-                <Button Grid.Column="4"
-                        Classes="iconButton"
-                        AutomationProperties.Name="{x:Static lang:Strings.ProxyDeleteProjectProxies}"
-                        Command="{Binding DeleteAllForProjectCommand}"
-                        ToolTip.Tip="{x:Static lang:Strings.ProxyDeleteProjectProxies}">
-                    <icons:SymbolIcon FontSize="16" Symbol="Dismiss" />
-                </Button>
-            </Grid>
-
-            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <TextBlock Classes="subtle"
-                           Text="{Binding StatusMessage.Value}"
-                           TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="1"
-                           Classes="subtle"
-                           Text="{Binding JobSummary.Value}"
-                           TextTrimming="CharacterEllipsis" />
-            </Grid>
-
-            <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="6">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Classes="sectionHeader" Text="{x:Static lang:Strings.ProxyClips}" />
-                    <TextBlock Grid.Column="1"
-                               Classes="subtle"
-                               Text="{Binding SelectionSummary.Value}" />
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                    <Button x:Name="GenerateButton" Classes="accent"
+                            Classes.hasSelection="{Binding HasSelection.Value}"
+                            HorizontalAlignment="Left" />
+                    <Button x:Name="MoreActionsButton" Grid.Column="2"
+                            AutomationProperties.Name="{x:Static lang:Strings.ProxyMoreActions}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                            ToolTip.Tip="{x:Static lang:Strings.ProxyMoreActions}">
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuItem Header="{x:Static lang:Strings.ProxyGenerateAll}" Command="{Binding GenerateAllCommand}" />
+                                <Separator />
+                                <MenuItem Header="{x:Static lang:Strings.ProxyRegenerateSelected}"
+                                          Command="{Binding RegenerateSelectedCommand}" IsEnabled="{Binding HasSelection.Value}" />
+                                <MenuItem Header="{x:Static lang:Strings.ProxyDeleteSelected}"
+                                          Command="{Binding DeleteSelectedCommand}" IsEnabled="{Binding HasSelection.Value}" />
+                                <Separator />
+                                <MenuItem Header="{x:Static lang:Strings.ProxyDeleteProjectProxies}" Command="{Binding DeleteAllForProjectCommand}" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                        <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
+                    </Button>
                 </Grid>
 
-                <ScrollViewer Grid.Row="1">
-                    <ItemsControl ItemsSource="{Binding Clips}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBlock Text="{x:Static lang:Strings.ProxyClips}" />
+                    <TextBlock Grid.Column="1" Classes="secondary" Text="{Binding SelectionSummary.Value}" />
+                </Grid>
+
+                <Border Classes="options-group">
+                    <ItemsControl x:Name="ClipList" ItemsSource="{Binding Clips}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <controls:OptionsGroupPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:ProxyClipViewModel">
-                                <Border Classes="proxyItem"
-                                        Classes.failed="{Binding IsFailed.Value}"
-                                        Classes.queued="{Binding HasJob.Value}"
-                                        Classes.ready="{Binding IsReady.Value}"
-                                        Classes.stale="{Binding IsStale.Value}"
-                                        Tapped="OnProxyItemTapped">
-                                    <Grid ColumnDefinitions="Auto,*"
-                                          RowDefinitions="Auto,Auto,Auto"
-                                          ColumnSpacing="8"
-                                          RowSpacing="6">
-                                        <CheckBox Grid.RowSpan="4"
-                                                  Margin="0,-3,0,0"
-                                                  VerticalAlignment="Top"
+                                <Border Classes="proxyItem" Classes.selected="{Binding IsSelected.Value}" Tapped="OnProxyItemTapped">
+                                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+                                        <CheckBox x:Name="SelectClipCheckBox" Grid.RowSpan="2" VerticalAlignment="Top"
+                                                  AutomationProperties.Name="{Binding FileName}"
                                                   IsChecked="{Binding IsSelected.Value}" />
-
-                                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                                            <TextBlock FontWeight="SemiBold"
-                                                       Text="{Binding FileName}"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       ToolTip.Tip="{Binding Path}" />
-                                            <ComboBox Grid.Column="1"
-                                                      MinWidth="88"
-                                                      VerticalAlignment="Center"
-                                                      AutomationProperties.Name="{x:Static lang:Strings.ProxyQuality}"
-                                                      SelectedIndex="{Binding Preset.Value, Converter={x:Static views:ProxyPresetIndexConverter.Instance}, Mode=TwoWay}"
-                                                      Theme="{StaticResource LiteComboBoxStyle}"
-                                                      ToolTip.Tip="{x:Static lang:Strings.ProxyQuality}">
-                                                <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetHalf}" />
-                                                <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetQuarter}" />
-                                                <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetEighth}" />
-                                            </ComboBox>
-                                            <Border Grid.Column="2"
-                                                    Classes="statePill"
+                                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <TextBlock x:Name="FileNameText" VerticalAlignment="Center"
+                                                       Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                                            <Border Grid.Column="1" Classes="statePill"
                                                     Classes.failed="{Binding IsFailed.Value}"
                                                     Classes.ready="{Binding IsReady.Value}"
                                                     Classes.stale="{Binding IsStale.Value}">
-                                                <TextBlock HorizontalAlignment="Center"
-                                                           FontSize="11"
-                                                           FontWeight="SemiBold"
-                                                           Text="{Binding State.Value}" />
+                                                <TextBlock FontSize="12" Text="{Binding State.Value}" TextWrapping="Wrap" />
                                             </Border>
                                         </Grid>
 
-                                        <TextBlock Grid.Row="1"
-                                                   Grid.Column="1"
-                                                   Classes="subtle"
-                                                   Text="{Binding Path}"
-                                                   ToolTip.Tip="{Binding Path}" />
-
-                                        <Grid Grid.Row="2" Grid.Column="1" RowDefinitions="Auto,Auto">
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                <StackPanel MinWidth="0" Spacing="2">
-                                                    <TextBlock Classes="subtle" Text="{Binding ProxyInfoText.Value}" />
-                                                    <TextBlock Classes="subtle" Text="{Binding SourceInfoText}" />
-                                                    <TextBlock Classes="subtle" Text="{Binding LastUsedText.Value}" />
-                                                </StackPanel>
-
-                                                <StackPanel Grid.Column="1"
-                                                            VerticalAlignment="Bottom"
-                                                            Orientation="Horizontal"
-                                                            Spacing="2">
-                                                    <Button Classes="iconButton"
-                                                            AutomationProperties.Name="{x:Static lang:Strings.ProxyGenerate}"
-                                                            Command="{Binding GenerateCommand}"
-                                                            ToolTip.Tip="{x:Static lang:Strings.ProxyGenerate}">
-                                                        <icons:SymbolIcon FontSize="16" Symbol="Play" />
-                                                    </Button>
-                                                    <Button Classes="iconButton"
-                                                            AutomationProperties.Name="{x:Static lang:Strings.ProxyRegenerate}"
-                                                            Command="{Binding RegenerateCommand}"
-                                                            ToolTip.Tip="{x:Static lang:Strings.ProxyRegenerate}">
-                                                        <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
-                                                    </Button>
-                                                    <Button Classes="iconButton"
-                                                            AutomationProperties.Name="{x:Static lang:Strings.Delete}"
-                                                            Command="{Binding DeleteCommand}"
-                                                            ToolTip.Tip="{x:Static lang:Strings.Delete}">
-                                                        <icons:SymbolIcon FontSize="16" Symbol="Delete" />
-                                                    </Button>
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <Grid Grid.Row="1"
-                                                  Margin="0,6,0,0"
-                                                  ColumnDefinitions="*,64,Auto"
-                                                  RowDefinitions="Auto,Auto"
-                                                  ColumnSpacing="8"
-                                                  RowSpacing="4"
-                                                  IsVisible="{Binding HasJob.Value}">
-                                                <TextBlock Grid.ColumnSpan="2"
-                                                           VerticalAlignment="Bottom"
-                                                           Classes="subtle"
-                                                           Text="{Binding JobStatus.Value}"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <ProgressBar Grid.Row="1"
-                                                             Height="6"
-                                                             Maximum="1"
-                                                             VerticalAlignment="Bottom"
-                                                             Value="{Binding JobProgressValue.Value}" />
-                                                <TextBlock Grid.Row="1"
-                                                           Grid.Column="1"
-                                                           Classes="subtle"
-                                                           Text="{Binding JobProgressText.Value}" />
-                                                <Button Grid.Column="2"
-                                                        Grid.RowSpan="2"
-                                                        VerticalAlignment="Bottom"
-                                                        Classes="iconButton"
-                                                        AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
+                                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
+                                            <Grid x:Name="ClipActions" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+                                                <ComboBox x:Name="QualityComboBox" MinWidth="88" HorizontalAlignment="Left"
+                                                          AutomationProperties.Name="{x:Static lang:Strings.ProxyQuality}"
+                                                          SelectedIndex="{Binding Preset.Value, Converter={x:Static views:ProxyPresetIndexConverter.Instance}, Mode=TwoWay}"
+                                                          Theme="{StaticResource LiteComboBoxStyle}" ToolTip.Tip="{x:Static lang:Strings.ProxyQuality}">
+                                                    <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetHalf}" />
+                                                    <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetQuarter}" />
+                                                    <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetEighth}" />
+                                                </ComboBox>
+                                                <Button x:Name="GenerateClipButton" Grid.Column="1"
+                                                        Command="{Binding GenerateCommand}" Content="{x:Static lang:Strings.ProxyGenerate}"
+                                                        IsVisible="{Binding !HasJob.Value}" />
+                                                <Button x:Name="CancelJobButton" Grid.Column="1"
                                                         Command="{Binding CancelJobCommand}"
-                                                        ToolTip.Tip="{x:Static lang:Strings.Cancel}">
+                                                        AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
+                                                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                                        ToolTip.Tip="{x:Static lang:Strings.Cancel}"
+                                                        IsVisible="{Binding HasJob.Value}">
                                                     <icons:SymbolIcon FontSize="16" Symbol="Dismiss" />
                                                 </Button>
+                                                <Button x:Name="ClipMoreButton" Grid.Column="2"
+                                                        AutomationProperties.Name="{x:Static lang:Strings.ProxyMoreActions}"
+                                                        Theme="{StaticResource ToolTabBarIconButtonTheme}" ToolTip.Tip="{x:Static lang:Strings.ProxyMoreActions}">
+                                                    <Button.Flyout>
+                                                        <MenuFlyout>
+                                                            <MenuItem Header="{x:Static lang:Strings.ProxyRegenerate}" Command="{Binding RegenerateCommand}" />
+                                                            <MenuItem Header="{x:Static lang:Strings.Delete}" Command="{Binding DeleteCommand}" />
+                                                        </MenuFlyout>
+                                                    </Button.Flyout>
+                                                    <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
+                                                </Button>
                                             </Grid>
-                                        </Grid>
+
+                                            <TextBlock Classes="secondary" Text="{Binding ProxyInfoText.Value}"
+                                                       TextWrapping="Wrap" IsVisible="{Binding !IsMissing.Value}" />
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                                                       Text="{Binding FailureReason.Value}" TextWrapping="Wrap"
+                                                       IsVisible="{Binding FailureReason.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <StackPanel x:Name="JobProgressPanel" Spacing="4" IsVisible="{Binding HasJob.Value}">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                    <TextBlock Classes="secondary" Text="{Binding JobStatus.Value}" TextWrapping="Wrap" />
+                                                    <TextBlock Grid.Column="1" Classes="secondary" Text="{Binding JobProgressText.Value}" />
+                                                </Grid>
+                                                <ProgressBar Height="4" Maximum="1" Value="{Binding JobProgressValue.Value}" />
+                                            </StackPanel>
+
+                                            <ToggleButton x:Name="DetailsToggle" Padding="0,2" HorizontalAlignment="Left"
+                                                          FontSize="12" IsChecked="False" Theme="{StaticResource TransparentButton}"
+                                                          AutomationProperties.Name="{x:Static lang:Strings.ProxyDetails}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <icons:FluentIcon FontSize="12" Icon="ChevronRight" IsVisible="{Binding !#DetailsToggle.IsChecked}" />
+                                                    <icons:FluentIcon FontSize="12" Icon="ChevronDown" IsVisible="{Binding #DetailsToggle.IsChecked}" />
+                                                    <TextBlock Text="{x:Static lang:Strings.ProxyDetails}" />
+                                                </StackPanel>
+                                            </ToggleButton>
+                                            <StackPanel x:Name="DetailsPanel" Spacing="4" IsVisible="{Binding #DetailsToggle.IsChecked}">
+                                                <SelectableTextBlock Background="Transparent" FontSize="12" Text="{Binding Path}" TextWrapping="Wrap" />
+                                                <TextBlock Classes="secondary" Text="{Binding SourceInfoText}" TextWrapping="Wrap" />
+                                                <TextBlock Classes="secondary" Text="{Binding LastUsedText.Value}" TextWrapping="Wrap"
+                                                           IsVisible="{Binding LastUsedText.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            </StackPanel>
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
-            </Grid>
-        </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>

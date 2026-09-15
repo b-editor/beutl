@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="Beutl.Views.Tools.AiWorkspaceView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:dialogs="using:Beutl.ViewModels.Dialogs"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -30,40 +31,34 @@
         </DataTemplate>
     </UserControl.DataTemplates>
     <Grid RowDefinitions="Auto,*">
-        <TabStrip x:Name="SectionStrip"
-                  Padding="4,2,4,0"
-                  ItemsSource="{CompiledBinding Sections}"
-                  SelectedItem="{CompiledBinding SelectedSection.Value}"
-                  Theme="{StaticResource LiteNavTabStrip}">
-            <!--  A narrow dock would push the last pages off the edge of a single
-                  row, and a page you cannot reach is a page you have lost.  -->
-            <TabStrip.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <WrapPanel />
-                </ItemsPanelTemplate>
-            </TabStrip.ItemsPanel>
-            <TabStrip.Styles>
-                <Style x:DataType="viewModels:AiWorkspaceSectionViewModel" Selector="TabStripItem">
-                    <Setter Property="Padding" Value="10,5,10,3" />
-                    <Setter Property="AutomationProperties.Name" Value="{Binding DisplayName}" />
-                    <Setter Property="ToolTip.Tip" Value="{Binding DisplayName}" />
-
-                    <!--  Five names never fit a docked panel, so only the page you
-                          are on spells itself out; the rest stay as icons.  -->
-                    <Style Selector="^ > StackPanel > TextBlock">
-                        <Setter Property="IsVisible" Value="{Binding $parent[TabStripItem].IsSelected}" />
+        <controls:ToolTabBar x:Name="ToolBar">
+            <TabStrip x:Name="SectionStrip"
+                      Classes="toolTabNavigation"
+                      ItemsSource="{CompiledBinding Sections}"
+                      SelectedItem="{CompiledBinding SelectedSection.Value}">
+                <!--  A narrow dock would push the last pages off the edge of a single
+                      row, and a page you cannot reach is a page you have lost.  -->
+                <TabStrip.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </TabStrip.ItemsPanel>
+                <TabStrip.Styles>
+                    <Style x:DataType="viewModels:AiWorkspaceSectionViewModel" Selector="TabStripItem">
+                        <Setter Property="AutomationProperties.Name" Value="{Binding DisplayName}" />
+                        <Setter Property="ToolTip.Tip" Value="{Binding DisplayName}" />
                     </Style>
-                </Style>
-            </TabStrip.Styles>
-            <TabStrip.ItemTemplate>
-                <DataTemplate x:DataType="viewModels:AiWorkspaceSectionViewModel">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <icons:FluentIcon FontSize="20" Icon="{CompiledBinding Icon}" />
-                        <TextBlock VerticalAlignment="Center" Text="{CompiledBinding DisplayName}" />
-                    </StackPanel>
-                </DataTemplate>
-            </TabStrip.ItemTemplate>
-        </TabStrip>
+                </TabStrip.Styles>
+                <TabStrip.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:AiWorkspaceSectionViewModel">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <icons:FluentIcon Icon="{CompiledBinding Icon}" />
+                            <TextBlock Grid.Column="1" Text="{CompiledBinding DisplayName}" />
+                        </Grid>
+                    </DataTemplate>
+                </TabStrip.ItemTemplate>
+            </TabStrip>
+        </controls:ToolTabBar>
 
         <ContentControl Grid.Row="1" Content="{CompiledBinding ActiveContent.Value}" />
     </Grid>

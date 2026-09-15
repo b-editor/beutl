@@ -764,6 +764,12 @@
   <data name="Separately" xml:space="preserve">
     <value>Separately</value>
   </data>
+  <data name="PathEditor_ShowStroke" xml:space="preserve">
+    <value>Show outline</value>
+  </data>
+  <data name="PathEditor_ShowFill" xml:space="preserve">
+    <value>Show fill</value>
+  </data>
   <data name="Figure" xml:space="preserve">
     <value>Figure</value>
   </data>
@@ -1473,6 +1479,24 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="ProxyStoreCap" xml:space="preserve">
     <value>Cap</value>
+  </data>
+  <data name="ProxyClipCountSingular" xml:space="preserve">
+    <value>1 clip</value>
+  </data>
+  <data name="ProxyClipCountPlural" xml:space="preserve">
+    <value>{0} clips</value>
+  </data>
+  <data name="ProxyMoreActions" xml:space="preserve">
+    <value>More actions</value>
+  </data>
+  <data name="ProxyDetails" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="ProxyEmptyTitle" xml:space="preserve">
+    <value>No videos to create proxies for</value>
+  </data>
+  <data name="ProxyEmptyDescription" xml:space="preserve">
+    <value>Add video to the project to create lighter files for preview playback here.</value>
   </data>
   <data name="ProxyClips" xml:space="preserve">
     <value>Clips</value>
@@ -2524,6 +2548,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   </data>
   <data name="VersionControl_AdoptExistingRepository" xml:space="preserve">
     <value>This project directory is already a Git repository that Beutl does not manage. Track this project with it? Beutl will add its own ignore and attribute rules and record a version when you save or close.</value>
+  </data>
+  <data name="VersionControl_AdoptRepositoryAction" xml:space="preserve">
+    <value>Manage in this repository</value>
   </data>
   <data name="VersionControl_UseEnclosingRepository" xml:space="preserve">
     <value>Use Enclosing Repository</value>
