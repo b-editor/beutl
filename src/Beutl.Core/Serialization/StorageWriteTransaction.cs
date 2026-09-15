@@ -33,6 +33,11 @@ internal sealed class StorageWriteTransaction : IDisposable
     private readonly object _sync = new();
     // File entries and compensations, in the order they were recorded.
     private readonly List<object> _journal = [];
+    // Keyed by spelling. An alias of a journaled file, such as another case on a case-insensitive volume or a path
+    // through a link, is journaled again, and newest-first replay still ends on the bytes the file held before the
+    // transaction. A case-insensitive key would instead merge distinct files on a case-sensitive volume and leave
+    // the second one unrestored. Gates are restored after every other entry, so journal a gate before any other
+    // write that can reach the same file.
     private readonly Dictionary<string, FileEntry> _files = new(StringComparer.Ordinal);
     private State _state;
 

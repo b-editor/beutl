@@ -67,6 +67,42 @@ public class StorageWriteTransactionTests
     }
 
     [Test]
+    public void Rollback_RestoresTheOriginalBytesOfAFileJournaledThroughTwoSpellings()
+    {
+        // A link stands in for another case on a case-insensitive volume: two spellings, one file.
+        string realDirectory = Directory.CreateDirectory(PathOf("real")).FullName;
+        string aliasDirectory = PathOf("alias");
+        try
+        {
+            Directory.CreateSymbolicLink(aliasDirectory, realDirectory);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
+        }
+
+        string existing = CreateFile(Path.Combine("real", "existing.belm"), "before");
+        string existingAlias = Path.Combine(aliasDirectory, "existing.belm");
+        string created = Path.Combine(realDirectory, "created.belm");
+        string createdAlias = Path.Combine(aliasDirectory, "created.belm");
+
+        using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
+        {
+            Replace(existing, "first");
+            Replace(existingAlias, "second");
+            Replace(created, "new", overwrite: false);
+            Replace(createdAlias, "newer");
+            Assert.That(transaction.Rollback(), Is.True);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(existing), Is.EqualTo("before"));
+            Assert.That(File.Exists(created), Is.False);
+        });
+    }
+
+    [Test]
     public void Rollback_RestoresTheCompatibilityGateAfterEveryOtherFile()
     {
         string gate = CreateFile("project.bep", "gate-before");
