@@ -102,10 +102,6 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         _aiPlanCoordinator = new AiPlanCoordinator(
             _beutlClients.GetResource<IAiEntitlementService>());
         _editorService.BrowserSettingsHost = new BrowserSettingsHost(CreateSettingsDialog);
-        // Host-owned so a file-browser tab attached to a plugin-provided editor context, which cannot
-        // serve the internal admission itself, still cannot write while Git replaces the worktree.
-        Beutl.Editor.VersionControl.HostProjectFileWriteAdmission.Current =
-            new ProjectFileWriteAdmission(_editorService);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
         _aiJobCompletionNotifier = new AiJobCompletionNotifier(
             _beutlClients.GetResource<IAiJobMonitor>().Snapshot,

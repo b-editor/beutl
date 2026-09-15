@@ -40,6 +40,13 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     internal string? ProjectDirectory => _projectDirectory;
 
+    /// <summary>
+    /// Shows a confirmation dialog and returns its result. A test replaces it to decide the dialog's
+    /// outcome, and to act between the dialog opening and the user confirming it.
+    /// </summary>
+    internal Func<FAContentDialog, Task<FAContentDialogResult>> ConfirmAsync { get; set; } =
+        static dialog => dialog.ShowAsync();
+
     public FileBrowserTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
@@ -340,7 +347,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             DefaultButton = FAContentDialogButton.Close
         };
 
-        var result = await dialog.ShowAsync();
+        FAContentDialogResult result = await ConfirmAsync(dialog);
         if (result == FAContentDialogResult.Primary)
         {
             if (!CanMutateItem(item)) return;
@@ -388,7 +395,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             DefaultButton = FAContentDialogButton.Close
         };
 
-        var result = await dialog.ShowAsync();
+        FAContentDialogResult result = await ConfirmAsync(dialog);
         if (result == FAContentDialogResult.Primary)
         {
             if (!TryBeginProjectFileWrite(Strings.Delete, out IProjectFileWriteLease? fileWrite))
@@ -697,8 +704,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
     /// <remarks>
     /// Taken right before the write, after any confirmation dialog, so a confirmation that closes
     /// during a branch switch, pull, or restore cannot land its write on the tree Git is replacing.
-    /// The admission is the host's, not the editor context's: an out-of-tree editor context cannot
-    /// serve it, and finding none installed is a wiring fault to refuse on, not permission.
+    /// The admission comes from the host that owns the editor context, not from the context itself: an
+    /// out-of-tree editor context cannot serve it, and a context no host owns is refused, not admitted.
     /// </remarks>
     private bool TryBeginProjectFileWrite(
         string operation,
@@ -708,11 +715,11 @@ public sealed class FileBrowserTabViewModel : IToolContext
         if (_disposed)
             return false;
 
-        IProjectFileWriteAdmission? admission = HostProjectFileWriteAdmission.Current;
+        IProjectFileWriteAdmission? admission = HostProjectFileWriteAdmission.Resolve(_editorContext);
         if (admission is null)
         {
             _logger.LogError(
-                "No project file write admission is installed; refusing {Operation}.",
+                "No host owns this editor context, so no write admission governs it; refusing {Operation}.",
                 operation);
             NotificationService.ShowError(operation, MessageStrings.OperationFailed);
             return false;

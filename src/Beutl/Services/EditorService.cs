@@ -71,7 +71,10 @@ public sealed class EditorTabItem : IAsyncDisposable
     }
 }
 
-public sealed class EditorService : IOutputOperationLeaseProvider, Beutl.Editor.Services.IEditorFileUsage
+public sealed class EditorService
+    : IOutputOperationLeaseProvider,
+        Beutl.Editor.Services.IEditorFileUsage,
+        IProjectFileWriteAdmissionHost
 {
     public bool IsFileInUse(string path, bool isDirectory)
     {
@@ -107,6 +110,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, Beutl.Editor.
         _editorSuspensions
         = new(ReferenceEqualityComparer.Instance);
     private readonly SemaphoreSlim _projectFileWriteGate = new(1, 1);
+    private readonly IProjectFileWriteAdmission _projectFileWriteAdmission;
     private TaskCompletionSource? _worktreeMutationCompletion;
     private int _activeOutputOperations;
     private int _activeProjectFileWrites;
@@ -131,6 +135,22 @@ public sealed class EditorService : IOutputOperationLeaseProvider, Beutl.Editor.
         _tabItems = new() { ResetBehavior = ResetBehavior.Remove };
         ProjectVersionControlService = _projectVersionControlService
             .ToReadOnlyReactivePropertySlim();
+        _projectFileWriteAdmission = new ProjectFileWriteAdmission(this);
+        HostProjectFileWriteAdmission.RegisterHost(this);
+    }
+
+    // Answers only for contexts in this service's own tab list, read at the moment of the write, so a
+    // second EditorService in the process never gates a tab that belongs to this one, and a context
+    // whose tab has closed is no longer admitted.
+    IProjectFileWriteAdmission? IProjectFileWriteAdmissionHost.TryGetAdmission(IEditorContext context)
+    {
+        foreach (EditorTabItem item in _tabItems)
+        {
+            if (ReferenceEquals(item.Context.Value, context))
+                return _projectFileWriteAdmission;
+        }
+
+        return null;
     }
 
     public ICoreList<EditorTabItem> TabItems => _tabItems;
