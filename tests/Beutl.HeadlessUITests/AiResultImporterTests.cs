@@ -646,6 +646,88 @@ public sealed class AiResultImporterTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task FirstSaveFailureRemovesTheRelocatedResourceAndSidecar(bool failSceneWrite)
+    {
+        await TestReset.ResetShellAsync();
+        // Each case needs its own workspace: the retry below leaves a saved sidecar and resource behind.
+        EditViewModel editor = await OpenEditor(
+            failSceneWrite ? "ai-unsaved-save-scene-failure" : "ai-unsaved-save-sidecar-failure");
+        Scene scene = editor.Scene;
+        Uri sceneUri = scene.Uri!;
+        string sceneFile = Path.GetFullPath(sceneUri.LocalPath);
+        string sceneDirectory = Path.GetDirectoryName(sceneFile)!;
+        string resourceDirectory = Path.Combine(sceneDirectory, "resources", "ai");
+        byte[] sceneBefore = File.ReadAllBytes(sceneFile);
+        scene.Uri = null;
+        string ownedDirectory = AiResultImporter.GetUnsavedSceneDirectory(scene.Id);
+        using var bitmap = new Bitmap(2, 2);
+        var importer = new AiResultImporter(
+            scene,
+            editor.GetRequiredService<IElementAdder>());
+
+        try
+        {
+            ElementAddResult result = await importer.ImportImageAsync(
+                bitmap,
+                new AiResultImportOptions(
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(2),
+                    0,
+                    "Unsaved AI image"));
+            Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
+            Element element = result.Elements.Single();
+            Uri originalSidecar = element.Uri!;
+            var source = element.Objects
+                .OfType<Beutl.Graphics.SourceImage>()
+                .Single()
+                .Source.CurrentValue!;
+            Uri originalResource = source.Uri;
+            scene.Uri = sceneUri;
+            bool resourceCopiedBeforeFailure = false;
+
+            // Fails either the relocated sidecar, written right after the resource copy, or the scene,
+            // written after every sidecar.
+            using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+                   {
+                       bool failing = failSceneWrite
+                           ? path == sceneFile
+                           : Path.GetDirectoryName(path) == sceneDirectory
+                             && Path.GetExtension(path) == ".belm";
+                       if (step == StorageWriteStep.Replace && failing)
+                       {
+                           resourceCopiedBeforeFailure = Directory.GetFiles(resourceDirectory).Length > 0;
+                           throw new IOException("Injected save failure.");
+                       }
+                   }))
+            {
+                Assert.CatchAsync<Exception>(async () => await editor.Commands!.OnSave());
+            }
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(resourceCopiedBeforeFailure, Is.True);
+                Assert.That(element.Uri, Is.EqualTo(originalSidecar));
+                Assert.That(source.Uri, Is.EqualTo(originalResource));
+                Assert.That(File.Exists(originalSidecar.LocalPath), Is.True);
+                Assert.That(File.Exists(originalResource.LocalPath), Is.True);
+                Assert.That(Directory.GetFiles(sceneDirectory, "*.belm"), Is.Empty);
+                Assert.That(Directory.GetFiles(resourceDirectory), Is.Empty);
+                Assert.That(File.ReadAllBytes(sceneFile), Is.EqualTo(sceneBefore));
+            }
+
+            Assert.That(await editor.Commands!.OnSave(), Is.True);
+            Assert.That(Directory.GetFiles(sceneDirectory, "*.belm"), Has.Length.EqualTo(1));
+        }
+        finally
+        {
+            if (Directory.Exists(ownedDirectory))
+                Directory.Delete(ownedDirectory, recursive: true);
+        }
+    }
+
     private sealed class CapturingElementAdder(int producedElementCount) : IElementAdder
     {
         public IElementSourceHandlerRegistry SourceHandlers { get; } = new ElementSourceHandlerRegistry();

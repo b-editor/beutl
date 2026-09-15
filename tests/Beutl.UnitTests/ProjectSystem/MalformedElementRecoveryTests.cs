@@ -3017,6 +3017,39 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void StoreToUri_RolledBackReinstatedRestoreKeepsTheRecordReinstated()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
+        File.WriteAllBytes(elementPath, corruptBytes);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        SuppressedStorageSource suppression = recovered.SuppressedStorageSource!;
+        // Undoing an in-process repair leaves the repaired sidecar on disk and reinstates the record.
+        byte[] repairedBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":[]}"u8.ToArray();
+        File.WriteAllBytes(elementPath, repairedBytes);
+        suppression.WasReinstated = true;
+
+        using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
+        {
+            CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
+            Assert.That(suppression.WasReinstated, Is.False);
+            Assert.That(transaction.Rollback(), Is.True);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(repairedBytes));
+            Assert.That(suppression.WasReinstated, Is.True);
+        });
+
+        // A record left cleared would read the repaired bytes as an external repair and keep them.
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
+    }
+
+    [Test]
     public void Serialize_DoesNotMutateLongLivedRecoveryMaps()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();

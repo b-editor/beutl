@@ -1205,20 +1205,27 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
                 ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
             UnsavedSceneStorage.SaveRelocation relocation =
                 UnsavedSceneStorage.PrepareSave(scene, sceneUri);
-            try
+            // A failure at any step restores the project, scene, element and resource files this
+            // save replaced, instead of leaving the files written before it on disk.
+            using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
             {
-                CoreSerializer.PersistProjectMigrationMetadata([scene]);
+                try
+                {
+                    CoreSerializer.PersistProjectMigrationMetadata([scene]);
 
-                relocation.Apply();
-                Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
-                // The scene is the commit record for every child/resource URI. Persist it only
-                // after every referenced file is durable at its new location.
-                CoreSerializer.StoreToUri(scene, sceneUri, CoreSerializationMode.Write);
-            }
-            catch
-            {
-                relocation.Rollback();
-                throw;
+                    relocation.Apply();
+                    Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
+                    // The scene is the commit record for every child/resource URI. Persist it only
+                    // after every referenced file is durable at its new location.
+                    CoreSerializer.StoreToUri(scene, sceneUri, CoreSerializationMode.Write);
+                    transaction.Commit();
+                }
+                catch
+                {
+                    relocation.Rollback();
+                    transaction.Rollback();
+                    throw;
+                }
             }
 
             relocation.Commit();

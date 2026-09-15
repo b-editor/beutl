@@ -63,8 +63,16 @@ internal static class UnsavedSceneStorage
             _resources = CreateResourceRehomes(scene, sceneUri, paths, ownedRoot);
         }
 
+        // The save's storage write transaction owns every copy and sidecar written here, and
+        // removes them if the save fails.
         public void Apply()
         {
+            if (StorageWriteTransaction.Current is null)
+            {
+                throw new InvalidOperationException(
+                    "Relocating unsaved scene storage requires an active storage write transaction.");
+            }
+
             foreach (ResourceRehome rehome in _resources)
             {
                 CopyFileAtomically(rehome.Original.LocalPath, rehome.Destination.LocalPath);
@@ -80,6 +88,8 @@ internal static class UnsavedSceneStorage
             }
         }
 
+        // Points sources and elements back at their original files. Call it before rolling the
+        // transaction back, so nothing still references a copy that is about to be removed.
         public void Rollback()
         {
             foreach (ResourceRehome rehome in _resources)
@@ -95,12 +105,10 @@ internal static class UnsavedSceneStorage
                         s_logger.LogWarning(ex, "Failed to restore an AI resource URI after save failed.");
                     }
                 }
-                TryDelete(rehome.Destination.LocalPath);
             }
             foreach (ElementRehome rehome in _elements)
             {
                 rehome.Element.Uri = rehome.Original;
-                TryDelete(rehome.Destination.LocalPath);
             }
         }
 
@@ -240,7 +248,7 @@ internal static class UnsavedSceneStorage
             try
             {
                 File.Copy(source, temporary, overwrite: false);
-                File.Move(temporary, destination, overwrite: false);
+                StorageWriteTransaction.MoveIntoPlace(temporary, destination, overwrite: false);
             }
             catch
             {
