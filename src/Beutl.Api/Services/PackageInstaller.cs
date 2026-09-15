@@ -62,6 +62,8 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         _installedPackageRepository = installedPackageRepository;
         _apiApplication = apiApplication;
 
+        RecoverDataPackageInstalls(installedPackageRepository);
+
         const string ConfigFileName = "nuget.config";
         string configPath = Path.Combine(Helper.AppRoot, ConfigFileName);
         if (File.Exists(configPath))

@@ -11,6 +11,67 @@ namespace Beutl.UnitTests.Api;
 public class PackageInstallerDataTests
 {
     [Test]
+    public void FailedCommitRecord_PreservesPublishedPayloadAndRecoversRegistration()
+    {
+        const string name = "Beutl.Package.DataTest.CommitRecord";
+        LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag, PackageKinds.TemplateTag], "1.0.0",
+            [("materials/item.txt", "old"), ("templates/item.txt", "old")]);
+        LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag, PackageKinds.TemplateTag], "2.0.0",
+            [("materials/item.txt", "new"), ("templates/item.txt", "new")]);
+        _installer.InstallDataPackage(old);
+        _repository.UpgradePackages(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
+        string? staging = null;
+        _installer.AfterDataInstallStep = step =>
+        {
+            if (step != "registered") return;
+            staging = Directory.GetDirectories(Helper.AppRoot, ".data-install-*").Single();
+            Track(staging);
+            Directory.CreateDirectory(Path.Combine(staging, "install.json.tmp"));
+        };
+        using (var deployment = _installer.PrepareDataPackage(current, CancellationToken.None))
+            Assert.DoesNotThrow(() => deployment.Commit(() => _repository.UpgradePackages(new PackageIdentity(name, NuGetVersion.Parse("2.0.0")))));
+        _installer.AfterDataInstallStep = null;
+        Assert.That(staging, Is.Not.Null);
+        Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "item.txt")), Is.EqualTo("new"));
+        Assert.That(_repository.ExistsPackage(name, "2.0.0"), Is.True);
+        Assert.Throws<IOException>(() => _installer.InstallDataPackage(current), "Pending recovery must prevent another publication.");
+        Assert.Throws<IOException>(() => _installer.UninstallDataPackage(name));
+
+        Directory.Delete(Path.Combine(staging!, "install.json.tmp"));
+        PackageInstaller.RecoverDataPackageInstalls(_repository);
+        Assert.That(Directory.Exists(staging), Is.False);
+        Assert.That(File.ReadAllText(Path.Combine(TemplatesDirectoryOf(name), "item.txt")), Is.EqualTo("new"));
+        Assert.That(_repository.ExistsPackage(name, "2.0.0"), Is.True);
+    }
+
+    [Test]
+    public void RegistrationFailure_RestoresBothPayloadsAndCleansJournal()
+    {
+        const string name = "Beutl.Package.DataTest.RegistrationRollback";
+        LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag, PackageKinds.TemplateTag], "1.0.0",
+            [("materials/item.txt", "old"), ("templates/item.txt", "old")]);
+        LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag, PackageKinds.TemplateTag], "2.0.0",
+            [("materials/item.txt", "new"), ("templates/item.txt", "new")]);
+        _installer.InstallDataPackage(old);
+        using (var deployment = _installer.PrepareDataPackage(current, CancellationToken.None))
+            Assert.Throws<IOException>(() => deployment.Commit(() => throw new IOException("Registration failed.")));
+        Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "item.txt")), Is.EqualTo("old"));
+        Assert.That(File.ReadAllText(Path.Combine(TemplatesDirectoryOf(name), "item.txt")), Is.EqualTo("old"));
+        Assert.That(Directory.GetDirectories(Helper.AppRoot, ".data-install-*"), Is.Empty);
+    }
+
+    [Test]
+    public void HeldPublicationLock_PreventsRecoveryAndNewWrites()
+    {
+        const string name = "Beutl.Package.DataTest.PublicationLock";
+        LocalPackage package = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/item.txt", "new"));
+        using var held = new FileStream(Path.Combine(Helper.AppRoot, ".data-install.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        Assert.Throws<IOException>(() => PackageInstaller.RecoverDataPackageInstalls(_repository));
+        Assert.Throws<IOException>(() => _installer.InstallDataPackage(package));
+        Assert.That(Directory.Exists(MaterialsDirectoryOf(name)), Is.False);
+    }
+
+    [Test]
     public void CancellationAfterStaging_LeavesPublishedDataAndRegistrationUnchanged()
     {
         const string name = "Beutl.Package.DataTest.CancelStaged";

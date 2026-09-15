@@ -42,7 +42,8 @@ public partial class PackageInstaller
         if (requireData && !material && !template)
             throw new ArgumentException($"'{package.Name}' is an extension package and has no data payload.", nameof(package));
 
-        string staging = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), $".data-install-{Guid.NewGuid():N}");
+        string deploymentId = Guid.NewGuid().ToString("N");
+        string staging = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), $".data-install-{deploymentId}");
         Directory.CreateDirectory(staging);
         var changes = new List<PayloadChange>();
         try
@@ -50,7 +51,7 @@ public partial class PackageInstaller
             Stage(MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath(), material);
             Stage(TemplatesContentDirectory, BeutlEnvironment.GetTemplatesDirectoryPath(), template);
             token.ThrowIfCancellationRequested();
-            return new DataPackageDeployment(this, name, staging, changes, token);
+            return new DataPackageDeployment(this, name, package.Version, deploymentId, staging, changes, token);
         }
         catch
         {
@@ -83,13 +84,14 @@ public partial class PackageInstaller
                 throw new IOException($"Package payload '{source}' is not a directory.");
             CopyDirectory(source, staged, token);
             token.ThrowIfCancellationRequested();
-            File.WriteAllText(Path.Combine(staged, PayloadOwnerFileName), JsonSerializer.Serialize(new PayloadOwner(name, package.Version)));
+            WriteDurableJson(Path.Combine(staged, PayloadOwnerFileName), new PayloadOwner(name, package.Version, deploymentId));
             changes.Add(change);
         }
     }
 
     internal sealed class DataPackageDeployment(
-        PackageInstaller owner, string name, string staging, List<PayloadChange> changes, CancellationToken token) : IDisposable
+        PackageInstaller owner, string name, string version, string deploymentId, string staging,
+        List<PayloadChange> changes, CancellationToken token) : IDisposable
     {
         private bool _attempted;
         private bool _preserveBackup;
@@ -97,11 +99,16 @@ public partial class PackageInstaller
 
         // Cancellation is accepted until this short publication step starts. Once
         // it starts, callers finish repository registration without cancellation.
-        public void Commit() => Commit(static () => { });
+        public void Commit() => CommitCore(null);
 
         public void Commit(Action register)
         {
             ArgumentNullException.ThrowIfNull(register);
+            CommitCore(register);
+        }
+
+        private void CommitCore(Action? register)
+        {
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_attempted) throw new InvalidOperationException("This deployment was already attempted.");
             _attempted = true;
@@ -109,6 +116,8 @@ public partial class PackageInstaller
             {
                 lock (s_dataPackageGate)
                 {
+                    using FileStream installLock = AcquireDataInstallLock();
+                    EnsureNoPendingDataInstall(name, staging);
                     token.ThrowIfCancellationRequested();
                     var active = new List<PayloadChange>();
                     foreach (PayloadChange change in changes)
@@ -118,50 +127,67 @@ public partial class PackageInstaller
                             throw new IOException($"Cannot determine ownership of the legacy package directory '{change.Destination}' without its installed metadata.");
                         bool owned = ownership == PayloadOwnership.Owned;
                         if (!change.Enabled && !owned) continue;
+                        if (File.Exists(change.Destination))
+                            throw new IOException($"The payload destination '{change.Destination}' is a file.");
                         if (Directory.Exists(change.Destination) && !owned)
                             throw new IOException($"The package cannot replace the unowned directory '{change.Destination}'.");
                         active.Add(change);
                     }
                     token.ThrowIfCancellationRequested();
+                    var journal = CreateDataInstallJournal(name, version, deploymentId, active, register is not null);
+                    WriteDataInstallJournal(staging, journal);
+                    _preserveBackup = true;
                     try
                     {
+                        owner.AfterDataInstallStep?.Invoke("prepared");
                         foreach (PayloadChange change in active)
                         {
                             Directory.CreateDirectory(Path.GetDirectoryName(change.Destination)!);
                             if (Directory.Exists(change.Destination))
                             {
                                 Directory.Move(change.Destination, change.Backup);
-                                change.BackedUp = true;
+                                owner.AfterDataInstallStep?.Invoke("backup-" + change.Kind);
                             }
                             if (Directory.Exists(change.Staged))
                             {
                                 Directory.Move(change.Staged, change.Destination);
-                                change.Published = true;
+                                owner.AfterDataInstallStep?.Invoke("publish-" + change.Kind);
                             }
                         }
                         // Registration is part of the same transaction. Its failure restores
                         // replacements and removals while the previous backups still exist.
-                        register();
+                        journal = journal with { Phase = DataInstallPhase.Published };
+                        WriteDataInstallJournal(staging, journal);
+                        owner.AfterDataInstallStep?.Invoke("published");
+                        register?.Invoke();
                     }
                     catch (Exception failure)
                     {
-                        List<Exception> failures = [failure];
-                        foreach (PayloadChange change in active.AsEnumerable().Reverse())
+                        try
                         {
-                            try
-                            {
-                                if (change.Published) Directory.Move(change.Destination, change.Staged);
-                                if (change.BackedUp) Directory.Move(change.Backup, change.Destination);
-                            }
-                            catch (Exception rollback)
-                            {
-                                _preserveBackup = true;
-                                failures.Add(rollback);
-                            }
+                            journal = journal with { Phase = DataInstallPhase.RollingBack };
+                            WriteDataInstallJournal(staging, journal);
+                            RollBackDataInstall(staging, journal, owner.AfterDataInstallStep);
+                            _preserveBackup = false;
                         }
-                        if (_preserveBackup)
-                            throw new AggregateException($"Package rollback failed; backups remain at '{staging}'.", failures);
+                        catch (Exception rollback)
+                        {
+                            throw new AggregateException($"Package rollback failed; backups remain at '{staging}'.", failure, rollback);
+                        }
                         throw;
+                    }
+                    // Registration has succeeded. If recording the final state fails, keep
+                    // Published so startup can finish registration again, never undo its payload.
+                    owner.AfterDataInstallStep?.Invoke("registered");
+                    try
+                    {
+                        WriteDataInstallJournal(staging, journal with { Phase = DataInstallPhase.Committed });
+                        owner.AfterDataInstallStep?.Invoke("committed");
+                        _preserveBackup = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        owner._logger.LogWarning(ex, "Package {PackageName} was published; completion will be retried from {Staging}.", name, staging);
                     }
                 }
             });
@@ -171,7 +197,15 @@ public partial class PackageInstaller
         {
             if (_disposed) return;
             _disposed = true;
-            if (!_preserveBackup) owner.DeleteIfExists(staging);
+            if (!_preserveBackup)
+            {
+                if (!File.Exists(Path.Combine(staging, DataInstallJournalFileName))) owner.DeleteIfExists(staging);
+                else
+                {
+                    try { DeleteRecoveredDataInstall(staging); }
+                    catch (Exception ex) { owner._logger.LogWarning(ex, "Keeping completed package staging at {Staging} for cleanup.", staging); }
+                }
+            }
         }
     }
 
@@ -182,8 +216,6 @@ public partial class PackageInstaller
         public string Destination { get; } = destination;
         public string Staged { get; } = staged;
         public string Backup { get; } = backup;
-        public bool BackedUp { get; set; }
-        public bool Published { get; set; }
     }
 
     /// <summary>
@@ -201,7 +233,9 @@ public partial class PackageInstaller
         {
             lock (s_dataPackageGate)
             {
+                using FileStream installLock = AcquireDataInstallLock();
                 string name = ValidatePackageName(packageName);
+                EnsureNoPendingDataInstall(name, null);
                 string templatesPath = Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name);
                 string materialsPath = Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name);
                 bool templates = RemoveOwnedPayload(name, TemplatesContentDirectory, templatesPath);
@@ -232,7 +266,7 @@ public partial class PackageInstaller
         Unknown,
     }
 
-    private sealed record PayloadOwner(string Name, string Version);
+    private sealed record PayloadOwner(string Name, string Version, string? DeploymentId = null);
 
     private static PayloadOwner? ReadPayloadOwner(string directory)
         => ReadPayloadOwner(directory, out _);
@@ -344,6 +378,7 @@ public partial class PackageInstaller
             using var input = File.OpenRead(file);
             using var output = File.Create(target);
             input.CopyToAsync(output, token).GetAwaiter().GetResult();
+            output.Flush(flushToDisk: true);
         }
     }
 }

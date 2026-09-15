@@ -1,6 +1,8 @@
 ﻿using System.Runtime;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Media;
+using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
@@ -32,6 +34,7 @@ internal static class Program
 
         UnhandledExceptionHandler.Initialize();
 
+        PackageInstaller.RecoverDataPackageInstalls();
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
 
@@ -39,6 +42,9 @@ internal static class Program
         UnhandledExceptionHandler.Exit();
     }
 
+    // Keep FontManager's beforefieldinit initialization inside the builder call,
+    // after Main has recovered package fonts.
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public static AppBuilder BuildAvaloniaApp()
     {
         return AppBuilder.Configure<App>()
