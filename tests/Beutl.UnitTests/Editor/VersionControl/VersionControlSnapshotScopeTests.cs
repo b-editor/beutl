@@ -1,4 +1,6 @@
-﻿using Beutl.Editor;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
+using Beutl.Editor;
 using Beutl.Editor.VersionControl;
 using Beutl.Graphics;
 using Beutl.Media.Source;
@@ -907,6 +909,33 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
     }
 
     [Test]
+    public void Serialized_graph_accepts_a_record_value_with_its_own_Json_converter()
+    {
+        // No dot, so the opaque-string file-path heuristic does not interfere with the record check.
+        var item = new OpaqueFontProjectItem { Font = new OpaqueFontName("NotoSansJP") };
+
+        Assert.DoesNotThrow(() =>
+            VersionControlSerializationGraph.DiscoverSerializationGraph(item));
+    }
+
+    [Test]
+    public void Serialized_graph_rejects_a_hand_written_EqualityContract_marked_as_compiler_generated()
+    {
+        // Anyone can apply [CompilerGenerated], so it must not exempt a getter that the graph
+        // cannot inspect without invoking it.
+        var item = new HandWrittenEqualityContractProjectItem
+        {
+            Value = new HandWrittenEqualityContractValue(),
+        };
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() =>
+            VersionControlSerializationGraph.DiscoverSerializationGraph(item));
+        Assert.That(
+            exception!.Message,
+            Does.Contain("external-resource accessor").And.Contain(".EqualityContract'"));
+    }
+
+    [Test]
     public async Task One_element_property_edit_commits_only_that_element_file()
     {
         const string changedElement = "elements/11111111111111111111111111111111.belm";
@@ -1218,5 +1247,72 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
             RepositoryInfo repository,
             RepositoryLockInfo lockInfo)
             => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    public sealed class OpaqueFontProjectItem : ProjectItem
+    {
+        public OpaqueFontName? Font { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Font), Font);
+        }
+    }
+
+    [JsonConverter(typeof(Converter))]
+    public sealed record OpaqueFontName(string Value)
+    {
+        public sealed class Converter : JsonConverter<OpaqueFontName>
+        {
+            public override OpaqueFontName Read(
+                ref Utf8JsonReader reader,
+                Type typeToConvert,
+                JsonSerializerOptions options)
+                => new(reader.GetString()!);
+
+            public override void Write(
+                Utf8JsonWriter writer,
+                OpaqueFontName value,
+                JsonSerializerOptions options)
+                => writer.WriteStringValue(value.Value);
+        }
+    }
+
+    public sealed class HandWrittenEqualityContractProjectItem : ProjectItem
+    {
+        public HandWrittenEqualityContractValue? Value { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Value), Value);
+        }
+    }
+
+    [JsonConverter(typeof(Converter))]
+    public sealed class HandWrittenEqualityContractValue
+    {
+        // A hand-written getter that only claims to be the record-synthesized one.
+        private Type EqualityContract
+        {
+            [System.Runtime.CompilerServices.CompilerGenerated]
+            get => GetType();
+        }
+
+        public sealed class Converter : JsonConverter<HandWrittenEqualityContractValue>
+        {
+            public override HandWrittenEqualityContractValue Read(
+                ref Utf8JsonReader reader,
+                Type typeToConvert,
+                JsonSerializerOptions options)
+                => new();
+
+            public override void Write(
+                Utf8JsonWriter writer,
+                HandWrittenEqualityContractValue value,
+                JsonSerializerOptions options)
+                => writer.WriteStringValue("HandWritten");
+        }
     }
 }
