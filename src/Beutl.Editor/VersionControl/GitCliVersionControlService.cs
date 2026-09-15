@@ -5357,6 +5357,15 @@ internal sealed class GitCliVersionControlService :
         string commit,
         string reflogMessage)
     {
+        // Through HEAD, a lost update-ref response cannot be judged by HEAD: it may already name
+        // another branch, possibly one that holds this commit. Nor is a branch at the commit proof by
+        // itself, because the commit id is content-addressed and a retry within the same second
+        // recreates it. The evidence is a branch that reached the commit during this update, so the
+        // branches already at it are read first.
+        IReadOnlySet<string>? branchesAtCommitBefore
+            = !string.Equals(publicationRef, branchRef, StringComparison.Ordinal)
+                ? await GetBranchesAtCommitAsync(publicationRepository, runner, commit).ConfigureAwait(false)
+                : null;
         try
         {
             await runner.RunAsync(
@@ -5386,16 +5395,18 @@ internal sealed class GitCliVersionControlService :
                         runner,
                         publicationRef)
                     .ConfigureAwait(false);
-                published = string.Equals(observedCommit, commit, StringComparison.OrdinalIgnoreCase);
-                // HEAD can be switched away after a lost update-ref response, so it is not stable
-                // evidence of the update. The commit object is new, so a branch at it is.
-                if (!published && !string.Equals(publicationRef, branchRef, StringComparison.Ordinal))
+                if (branchesAtCommitBefore is not null)
                 {
-                    published = await IsCommitOnAnyLocalBranchAsync(
+                    IReadOnlySet<string> branchesAtCommitAfter = await GetBranchesAtCommitAsync(
                             publicationRepository,
                             runner,
                             commit)
                         .ConfigureAwait(false);
+                    published = branchesAtCommitAfter.Except(branchesAtCommitBefore).Any();
+                }
+                else
+                {
+                    published = string.Equals(observedCommit, commit, StringComparison.OrdinalIgnoreCase);
                 }
             }
             catch (Exception observationException)
@@ -5429,7 +5440,7 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private static async Task<bool> IsCommitOnAnyLocalBranchAsync(
+    private static async Task<IReadOnlySet<string>> GetBranchesAtCommitAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         string commit)
@@ -5446,7 +5457,9 @@ internal sealed class GitCliVersionControlService :
                 GitCommandOptions.Local,
                 CancellationToken.None)
             .ConfigureAwait(false);
-        return !string.IsNullOrWhiteSpace(branches.Stdout);
+        return branches.Stdout
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     private async Task PublishSnapshotAndReconcileIndexAsync(
