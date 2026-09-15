@@ -5462,6 +5462,120 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CreateBranchAsync_removes_the_new_branch_when_HEAD_cannot_move()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string lockRecord = (await RunGitAsync("rev-parse", "--git-path", "HEAD.lock"))
+            .Stdout.TrimEnd('\r', '\n');
+        string headLock = Path.GetFullPath(
+            Path.IsPathFullyQualified(lockRecord) ? lockRecord : Path.Combine(Root, lockRecord));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            isWorktreeMutationAllowed: static () => false);
+
+        // Another Git process holding HEAD makes the move fail after the branch already exists.
+        await File.WriteAllTextAsync(headLock, string.Empty);
+        try
+        {
+            Assert.CatchAsync<GitOperationException>(
+                async () => await service.CreateBranchAsync(
+                    "open-branch",
+                    head,
+                    CancellationToken.None));
+        }
+        finally
+        {
+            File.Delete(headLock);
+        }
+
+        GitCommandResult leftover = await RunGitAsync("branch", "--list", "open-branch");
+        GitCommandResult current = await RunGitAsync("branch", "--show-current");
+        // The failed attempt must not take the name, so the retry succeeds.
+        await service.CreateBranchAsync("open-branch", head, CancellationToken.None);
+        GitCommandResult retried = await RunGitAsync("branch", "--show-current");
+        Assert.Multiple(() =>
+        {
+            Assert.That(leftover.Stdout, Is.Empty);
+            Assert.That(current.Stdout.Trim(), Is.EqualTo("main"));
+            Assert.That(retried.Stdout.Trim(), Is.EqualTo("open-branch"));
+        });
+    }
+
+    [Test]
+    public async Task CreateBranchAsync_reports_the_lock_failure_when_the_switch_creates_no_branch()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string lockRecord = (await RunGitAsync("rev-parse", "--git-path", "index.lock"))
+            .Stdout.TrimEnd('\r', '\n');
+        string indexLock = Path.GetFullPath(
+            Path.IsPathFullyQualified(lockRecord) ? lockRecord : Path.Combine(Root, lockRecord));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            isWorktreeMutationAllowed: static () => false);
+
+        // Another Git process holding the index makes the switch fail before it creates the branch.
+        await File.WriteAllTextAsync(indexLock, string.Empty);
+        GitOperationException? failure;
+        try
+        {
+            failure = Assert.ThrowsAsync<GitOperationException>(
+                async () => await service.CreateBranchAsync(
+                    "open-branch",
+                    head,
+                    CancellationToken.None));
+        }
+        finally
+        {
+            File.Delete(indexLock);
+        }
+
+        GitCommandResult branches = await RunGitAsync("branch", "--list", "open-branch");
+        Assert.Multiple(() =>
+        {
+            // The lock failure itself reaches the caller, so the lock can still be recovered.
+            Assert.That(failure?.IsRepositoryLockFailure, Is.True);
+            Assert.That(branches.Stdout, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task CreateBranchAsync_while_the_project_is_open_keeps_Git_consistent_when_HEAD_moves_first()
+    {
+        await CommitFileAsync("project.bep", "main\n", "main");
+        string mainTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await RunGitAsync("switch", "-c", "other");
+        await CommitFileAsync("project.bep", "other\n", "other");
+        await RunGitAsync("switch", "main");
+        // Another Git process checks out a branch after Beutl checked HEAD and before HEAD moves.
+        var runner = new BeforeHeadMoveRunner(
+            CreateRunner(),
+            async () => await RunGitAsync("switch", "other"));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner,
+            isWorktreeMutationAllowed: static () => false);
+
+        await service.CreateBranchAsync("open-branch", mainTip, CancellationToken.None);
+
+        GitCommandResult branch = await RunGitAsync("branch", "--show-current");
+        GitCommandResult status = await RunGitAsync("status", "--porcelain");
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.HeadMoves, Is.EqualTo(1));
+            Assert.That(branch.Stdout.Trim(), Is.EqualTo("open-branch"));
+            // HEAD, the index and the files describe one commit, not HEAD on main's commit over the
+            // index and files of the branch the other process checked out.
+            Assert.That(status.Stdout, Is.Empty);
+        });
+    }
+
+    [Test]
     public void Porcelain_v2_parser_reads_branch_counts_renames_copies_and_conflicts()
     {
         string output = string.Join('\0',
@@ -9667,6 +9781,48 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             }
 
             return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    // Runs an action, standing in for another Git process, just before the first command that moves HEAD.
+    private sealed class BeforeHeadMoveRunner(IGitCliRunner inner, Func<Task> beforeHeadMove) : IGitCliRunner
+    {
+        private int _headMoves;
+
+        public int HeadMoves => Volatile.Read(ref _headMoves);
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            bool movesHead = arguments.Contains("switch")
+                             || (arguments.Count > 1
+                                 && arguments[0] == "symbolic-ref"
+                                 && arguments[1] == "-m");
+            if (movesHead && Interlocked.Increment(ref _headMoves) == 1)
+            {
+                await beforeHeadMove();
+            }
+
+            return await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)

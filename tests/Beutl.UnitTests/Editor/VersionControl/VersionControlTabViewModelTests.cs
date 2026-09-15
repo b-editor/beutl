@@ -412,15 +412,16 @@ public class VersionControlTabViewModelTests
             Assert.That(viewModel.CommitCommand.CanExecute(), Is.False);
             Assert.That(viewModel.PushCommand.CanExecute(), Is.False);
             Assert.That(viewModel.PullCommand.CanExecute(), Is.False);
-            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.False);
+            // Configuring the remote needs no branch, so a detached HEAD leaves it available.
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.True);
         });
     }
 
     [Test]
-    public async Task Conflicted_repository_on_a_detached_head_keeps_remote_commands_blocked()
+    public async Task Conflicted_repository_on_a_detached_head_keeps_push_and_publish_blocked()
     {
-        // Only a conflict on a branch leaves the remote usable: pushing needs the branch that a
-        // detached HEAD does not have.
+        // Only a conflict on a branch leaves pushing usable: pushing and publishing need the branch
+        // that a detached HEAD does not have.
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WorkspaceStatus(
@@ -451,7 +452,7 @@ public class VersionControlTabViewModelTests
         {
             Assert.That(viewModel.HasBlockingGuidance.Value, Is.True);
             Assert.That(viewModel.PushCommand.CanExecute(), Is.False);
-            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.False);
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.True);
             Assert.That(unpublishedViewModel.PublishBranchCommand.CanExecute(), Is.False);
         });
     }
@@ -2340,6 +2341,48 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Set_remote_hides_a_new_http_url_that_carries_a_user_name()
+    {
+        const string remoteUrl = "https://ghp_exampletoken@github.com/owner/repository.git";
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.SetRemoteAsync(
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((url, _) =>
+            {
+                service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync([new RemoteInfo("origin", url)]);
+                return Task.CompletedTask;
+            });
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        var prefilledUrls = new List<string?>();
+        viewModel.RequestRemoteUrlAsync = (currentUrl, _) =>
+        {
+            prefilledUrls.Add(currentUrl);
+            return Task.FromResult<string?>(prefilledUrls.Count == 1 ? remoteUrl : null);
+        };
+        await viewModel.Initialization;
+
+        await viewModel.SetRemoteAsync();
+        await viewModel.SetRemoteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRemote.Value, Is.True);
+            Assert.That(viewModel.RemoteUrl.Value, Is.Empty);
+            // The user name can be an access token, so the next prompt starts empty too.
+            Assert.That(prefilledUrls, Is.EqualTo(new string?[] { null, string.Empty }));
+        });
+        coordinator.Verify(
+            x => x.SetRemoteAsync(remoteUrl, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
     public async Task Configure_remote_serializes_duplicate_and_remote_operation_requests()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -2447,6 +2490,9 @@ public class VersionControlTabViewModelTests
     [TestCase("https://example.invalid/repository.git?access_token=secret")]
     [TestCase("https://example.invalid/repository.git#access_token=secret")]
     [TestCase("ssh://git:secret@example.invalid/repository.git")]
+    [TestCase("https://user@example.invalid/repository.git")]
+    [TestCase("http://user@example.invalid/repository.git")]
+    [TestCase("https://ghp_exampletoken@github.com/owner/repository.git")]
     public async Task Set_remote_prompt_omits_unsafe_existing_url(string remoteUrl)
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -2480,10 +2526,8 @@ public class VersionControlTabViewModelTests
     }
 
     [TestCase("ssh://git@example.invalid/repository.git")]
-    [TestCase("https://user@example.invalid/repository.git")]
-    [TestCase("http://user@example.invalid/repository.git")]
     [TestCase("git+ssh://git@example.invalid/repository.git")]
-    public async Task Set_remote_prompt_preserves_a_passwordless_user_name(string remoteUrl)
+    public async Task Set_remote_prompt_preserves_an_ssh_user_name(string remoteUrl)
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))

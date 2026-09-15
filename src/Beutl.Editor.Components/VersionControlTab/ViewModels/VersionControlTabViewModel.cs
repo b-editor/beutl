@@ -227,9 +227,9 @@ internal sealed class VersionControlTabViewModel : IToolContext
                     static (canRun, hasMessage) => canRun && hasMessage))
             .WithSubscribe(CommitManualAsync)
             .DisposeWith(_disposables);
-        // Pushing and configuring the remote leave the worktree and the index alone, so, as with plain
-        // Git, an unresolved conflict does not block them the way it blocks commits and pulls. A
-        // detached HEAD still does, because pushing needs a checked-out branch.
+        // Pushing and publishing leave the worktree and the index alone, so, as with plain Git, an
+        // unresolved conflict does not block them the way it blocks commits and pulls. A detached HEAD
+        // still does, because both need a checked-out branch.
         IObservable<bool> canUpdateRemote = IsTracked.CombineLatest(
             HasBlockingGuidance,
             IsConflicted,
@@ -242,7 +242,14 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 && (!blocked || (conflicted && !detached && !unavailable))
                 && !isRunning
                 && !isConfiguring);
-        SetRemoteCommand = new AsyncReactiveCommand(canUpdateRemote)
+        // Configuring the remote needs no branch, so neither a conflict nor a detached HEAD blocks it.
+        IObservable<bool> canConfigureRemote = IsTracked.CombineLatest(
+            IsUnavailable,
+            IsRemoteOperationRunning,
+            _isConfiguringRemote,
+            static (tracked, unavailable, isRunning, isConfiguring) =>
+                tracked && !unavailable && !isRunning && !isConfiguring);
+        SetRemoteCommand = new AsyncReactiveCommand(canConfigureRemote)
             .WithSubscribe(SetRemoteAsync)
             .DisposeWith(_disposables);
         PublishBranchCommand = new AsyncReactiveCommand(
@@ -657,7 +664,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 return false;
             }
 
-            RemoteUrl.Value = normalizedUrl;
+            RemoteUrl.Value = GetRemoteUrlForPresentation(normalizedUrl);
             HasRemote.Value = true;
             StatusMessage.Value = Strings.VersionControl_RemoteConnected;
             return true;
@@ -1578,8 +1585,9 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return url;
         }
 
-        // A user name alone is no credential: it only tells the credential helper which account to use.
-        bool allowsUserName = uri.Scheme is "http" or "https" or "ssh" or "git+ssh";
+        // An SSH user name only selects the account. Over HTTP the user name can itself be an access
+        // token, as GitHub and GitLab accept, so any user information there stays hidden.
+        bool allowsUserName = uri.Scheme is "ssh" or "git+ssh";
         bool hasPassword = Uri.UnescapeDataString(uri.UserInfo).Contains(':');
         return allowsUserName && !hasPassword ? url : string.Empty;
     }

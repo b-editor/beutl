@@ -1195,14 +1195,15 @@ internal sealed class GitCliVersionControlService :
         Action<Action>? statusNotificationScheduler = null,
         Action<Action>? lockNotificationScheduler = null,
         string? projectFile = null,
-        Func<CancellationToken, Task<GitIdentity?>>? identityRequest = null)
+        Func<CancellationToken, Task<GitIdentity?>>? identityRequest = null,
+        Func<bool>? isWorktreeMutationAllowed = null)
         : this(
             installationLocator,
             repository,
             watcher,
             runnerFactory,
             createWatcherWhenRepositoryAvailable: false,
-            isWorktreeMutationAllowed: static () => true,
+            isWorktreeMutationAllowed: isWorktreeMutationAllowed ?? (static () => true),
             projectFile: projectFile,
             policyNoticeSink,
             identityRequest: identityRequest,
@@ -7018,7 +7019,8 @@ internal sealed class GitCliVersionControlService :
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         // Like git switch -c, a branch that starts at the checked-out commit changes no file, so it does
         // not need the project to be closed. Any other start point rewrites the worktree.
-        if (!_isWorktreeMutationAllowed())
+        bool projectOpen = !_isWorktreeMutationAllowed();
+        if (projectOpen)
         {
             CheckedOutBranchTip head = await GetCheckedOutBranchTipCoreAsync(
                     repository,
@@ -7029,37 +7031,114 @@ internal sealed class GitCliVersionControlService :
             {
                 EnsureWorktreeMutationAllowed();
             }
+        }
 
-            // Moving HEAD is all git switch -c would do to such a worktree, but switching also runs a
-            // post-checkout hook, which can rewrite project files behind the open editors. HEAD moves
-            // without a checkout instead, with the reflog entry git switch writes, so @{-1} still
-            // names the previous branch. The next real switch closes the project and runs the hooks.
-            await runner.RunAsync(
-                repository,
-                ["branch", name, startPoint],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
+        // With the project open, the switch would still run a post-checkout hook, which can rewrite
+        // project files behind the editors, so hooks stay off for it. As one command, the switch also
+        // keeps HEAD, the index and the files on one commit when another Git process moves HEAD after
+        // the check above.
+        string[] hooksOverride = projectOpen ? ["-c", "core.hooksPath=/dev/null"] : [];
+        try
+        {
             await runner.RunAsync(
                 repository,
                 [
-                    "symbolic-ref",
-                    "-m",
-                    $"checkout: moving from {GetBranchShortName(head.RefName)} to {name}",
-                    "HEAD",
-                    $"refs/heads/{name}",
+                    .. s_lfsPathFilterOverrides,
+                    .. hooksOverride,
+                    "switch",
+                    "--no-overwrite-ignore",
+                    "-c",
+                    name,
+                    startPoint,
                 ],
-                GitCommandOptions.Local,
-                CancellationToken.None).ConfigureAwait(false);
-            await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
-            return;
+                new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception switchFailure) when (projectOpen)
+        {
+            // git switch -c creates the branch before it moves HEAD, so a failed switch can leave the
+            // branch behind, and a retry would find the name taken. With hooks off, a switch that moved
+            // HEAD has done all its work.
+            if (!await RemoveBranchUnlessHeadMovedAsync(
+                    repository,
+                    runner,
+                    $"refs/heads/{name}",
+                    startPoint,
+                    switchFailure)
+                .ConfigureAwait(false))
+            {
+                throw;
+            }
         }
 
-        await runner.RunAsync(
-            repository,
-            [.. s_lfsPathFilterOverrides, "switch", "--no-overwrite-ignore", "-c", name, startPoint],
-            new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
-            cancellationToken).ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+    }
+
+    // Returns true when HEAD reached the branch even though the switch reported failure. Otherwise the
+    // branch goes, but only while it still points at the commit this attempt created it on; when HEAD
+    // cannot be read, the branch stays rather than leaving HEAD on a deleted ref.
+    private static async Task<bool> RemoveBranchUnlessHeadMovedAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string branchRef,
+        string startPoint,
+        Exception switchFailure)
+    {
+        string headRef;
+        try
+        {
+            GitCommandResult symbolicRef = await runner.RunAsync(
+                    repository,
+                    ["symbolic-ref", "--quiet", "HEAD"],
+                    GitCommandOptions.Local,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            headRef = symbolicRef.Stdout.Trim();
+        }
+        catch (Exception ex) when (ex is GitOperationException or TimeoutException)
+        {
+            return false;
+        }
+
+        if (string.Equals(headRef, branchRef, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        // The switch can fail before it creates the branch, as when another Git process holds the
+        // index, and then there is nothing to remove.
+        try
+        {
+            await runner.RunAsync(
+                    repository,
+                    ["rev-parse", "--verify", "--quiet", branchRef],
+                    GitCommandOptions.Local,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is GitOperationException or TimeoutException)
+        {
+            return false;
+        }
+
+        try
+        {
+            await runner.RunAsync(
+                    repository,
+                    ["update-ref", "-d", branchRef, startPoint],
+                    GitCommandOptions.Local,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception cleanupFailure)
+        {
+            throw new AggregateException(
+                $"Switching to the new branch '{branchRef}' failed, and the branch could not be removed.",
+                switchFailure,
+                cleanupFailure);
+        }
+
+        return false;
     }
 
     public Task<IReadOnlyList<string>> GetTrackedReservedPathsAsync(
@@ -12830,11 +12909,6 @@ internal sealed class GitCliVersionControlService :
         string localBranchRef,
         CancellationToken cancellationToken)
     {
-        if (!hasOrigin)
-        {
-            return new PullFetchTarget(["fetch"], "@{upstream}");
-        }
-
         string? configuredUpstream = await TryGetUpstreamRefAsync(
                 repository,
                 runner,
@@ -12845,12 +12919,17 @@ internal sealed class GitCliVersionControlService :
         if (configuredUpstream is not null
             && !configuredUpstream.StartsWith(OriginRefPrefix, StringComparison.Ordinal))
         {
-            // Beutl pulls only from origin. Fast-forwarding to origin's branch of the same name would
-            // follow history this branch does not track.
+            // Beutl pulls only from origin, whether or not the repository has one. Fast-forwarding to
+            // origin's branch of the same name would follow history this branch does not track.
             return new PullFetchTarget(
                 [],
                 upstreamRef,
                 new RemoteOpResult.Failed(Strings.VersionControl_PullUpstreamOnAnotherRemote));
+        }
+
+        if (!hasOrigin)
+        {
+            return new PullFetchTarget(["fetch"], "@{upstream}");
         }
 
         if (configuredUpstream is not null

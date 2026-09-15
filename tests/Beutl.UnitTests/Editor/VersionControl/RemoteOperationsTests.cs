@@ -317,6 +317,40 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Pull_refuses_another_remote_upstream_even_without_origin()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string upstreamRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await RunGitAsync("remote", "add", "upstream", upstreamRoot);
+        await RunGitAsync("push", "upstream", "main");
+        await RunGitAsync("branch", "--set-upstream-to=upstream/main", "main");
+        RepositoryInfo upstreamPeer = await CloneRemoteAsync(upstreamRoot);
+        await CommitInRepositoryAsync(upstreamPeer, "project.bep", "from upstream\n", "upstream update");
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+
+        // Without origin there is still no remote Beutl pulls from, so the branch's upstream on
+        // another remote is refused rather than fetched.
+        PullPreflightResult preflight = await service.PreflightPullAsync(
+            expected,
+            CancellationToken.None);
+        FastForwardPullResult pull = await service.PullFastForwardAsync(
+            expected,
+            checkpoint: null,
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+
+        var refusal = new RemoteOpResult.Failed(
+            Beutl.Language.Strings.VersionControl_PullUpstreamOnAnotherRemote);
+        Assert.Multiple(() =>
+        {
+            Assert.That(preflight.Result, Is.EqualTo(refusal));
+            Assert.That(pull.Result, Is.EqualTo(refusal));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("initial\n"));
+        });
+    }
+
+    [Test]
     public async Task Status_counts_against_the_tracked_origin_branch_when_the_names_differ()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
