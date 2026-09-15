@@ -305,7 +305,7 @@
             <Setter Property="CornerRadius" Value="8,8,0,0" />
         </Style>
 
-        <!--  Close button: hidden until the tab is hovered; the title fades out underneath it.  -->
+        <!--  Close button: hidden until the selected tab is hovered; the title fades out underneath it.  -->
         <Style Selector="^ Button#PART_TabCloseButton">
             <Setter Property="Opacity" Value="0" />
             <Setter Property="IsHitTestVisible" Value="False" />
@@ -322,11 +322,11 @@
             <Setter Property="Background" Value="{DynamicResource DockChromeButtonPressedBackgroundBrush}" />
         </Style>
         <!--  :focus-visible keeps the keyboard tab stop from being an invisible way to close the tab.  -->
-        <Style Selector="^:pointerover Button#PART_TabCloseButton, ^ Button#PART_TabCloseButton:focus-visible">
+        <Style Selector="^:selected:pointerover Button#PART_TabCloseButton, ^ Button#PART_TabCloseButton:focus-visible">
             <Setter Property="Opacity" Value="1" />
             <Setter Property="IsHitTestVisible" Value="True" />
         </Style>
-        <Style Selector="^:pointerover Panel.closable Border#PART_TabTitleHost, ^ Panel.closable:focus-within Border#PART_TabTitleHost">
+        <Style Selector="^:selected:pointerover Panel.closable Border#PART_TabTitleHost, ^ Panel.closable:focus-within Border#PART_TabTitleHost">
             <Setter Property="OpacityMask">
                 <!--
                     Absolute points are anchored to the left edge, so the brush is mirrored about its centre
