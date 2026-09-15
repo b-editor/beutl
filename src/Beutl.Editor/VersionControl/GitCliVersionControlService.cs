@@ -5396,11 +5396,12 @@ internal sealed class GitCliVersionControlService :
                     .ConfigureAwait(false);
                 published = publicationMarker is null
                     ? string.Equals(observedCommit, commit, StringComparison.OrdinalIgnoreCase)
-                    : await HeadReflogRecordsPublicationAsync(
+                    : await ReflogRecordsPublicationAsync(
                             publicationRepository,
                             runner,
                             publicationMarker,
-                            commit)
+                            commit,
+                            searchHead: observedCommit is not null)
                         .ConfigureAwait(false);
             }
             catch (Exception observationException)
@@ -5434,29 +5435,18 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    // --create-reflog makes Git write HEAD's reflog for this update even with core.logAllRefUpdates
-    // off, so a HEAD without a reflog was not updated. Checking first also keeps git log away from an
-    // unborn HEAD, which it cannot walk.
-    private static async Task<bool> HeadReflogRecordsPublicationAsync(
+    // Git records an update through HEAD in HEAD's reflog and, when HEAD named a branch, in that
+    // branch's reflog too; --create-reflog writes both even with core.logAllRefUpdates off. git log
+    // cannot walk the reflog of an unborn HEAD, so HEAD is searched only while it names a commit, and
+    // the branch reflogs still hold the entry after HEAD is switched to an unborn branch.
+    private static async Task<bool> ReflogRecordsPublicationAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         string publicationMarker,
-        string commit)
+        string commit,
+        bool searchHead)
     {
-        try
-        {
-            await runner.RunAsync(
-                    repository,
-                    ["reflog", "exists", "HEAD"],
-                    GitCommandOptions.Local,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-        }
-        catch (GitOperationException ex) when (ex.ExitCode == 1)
-        {
-            return false;
-        }
-
+        string[] headRevision = searchHead ? ["HEAD"] : [];
         GitCommandResult entries = await runner.RunAsync(
                 repository,
                 [
@@ -5466,7 +5456,8 @@ internal sealed class GitCliVersionControlService :
                     "--format=%H",
                     "--fixed-strings",
                     $"--grep-reflog={publicationMarker}",
-                    "HEAD",
+                    "--branches",
+                    .. headRevision,
                 ],
                 GitCommandOptions.Local,
                 CancellationToken.None)

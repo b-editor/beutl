@@ -8755,6 +8755,63 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    // git log cannot walk the reflog of an unborn HEAD, so after a lost response and a switch to an
+    // unborn branch the branch that received the snapshot is what records the update.
+    [Test]
+    public async Task CommitAllAsync_keeps_a_reftable_snapshot_whose_response_was_lost_before_HEAD_moved_to_an_unborn_branch()
+    {
+        GitCliRunner runner = CreateRunner();
+        (string repositoryRoot, RepositoryInfo reftableRepository)
+            = await CreateReftableRepositoryAsync(runner);
+        await File.WriteAllTextAsync(
+            Path.Combine(repositoryRoot, "project.bep"),
+            "{\"edited\":true}\n");
+        var losingRunner = new LoseSnapshotPublicationResponseRunner(
+            runner,
+            beforePublication: null,
+            afterPublication: () => runner.RunAsync(
+                reftableRepository,
+                ["symbolic-ref", "HEAD", "refs/heads/orphan"],
+                GitCommandOptions.Local,
+                CancellationToken.None));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            reftableRepository,
+            watcher: null,
+            _ => losingRunner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string mainTip = (await runner.RunAsync(
+            reftableRepository,
+            ["rev-parse", "refs/heads/main"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        string headRef = (await runner.RunAsync(
+            reftableRepository,
+            ["symbolic-ref", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        GitCommandResult indexAgainstSnapshot = await runner.RunAsync(
+            reftableRepository,
+            ["diff", "--cached", "--name-only", mainTip],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                mainTip,
+                Is.EqualTo(((CommitRevision.Known)((CommitResult.Committed)result).Revision).Sha));
+            Assert.That(headRef, Is.EqualTo("refs/heads/orphan"));
+            Assert.That(indexAgainstSnapshot.Stdout, Is.Empty);
+            Assert.That(losingRunner.LostResponseCount, Is.EqualTo(1));
+        });
+    }
+
     private async Task<(string Root, RepositoryInfo Repository)> CreateReftableRepositoryAsync(
         GitCliRunner runner)
     {
