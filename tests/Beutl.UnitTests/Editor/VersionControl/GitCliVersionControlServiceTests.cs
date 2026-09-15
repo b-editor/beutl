@@ -5608,6 +5608,34 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CreateBranchAsync_keeps_a_branch_another_process_created_first()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        // Another Git process creates the same branch after the name check and before the switch.
+        var runner = new BeforeHeadMoveRunner(
+            CreateRunner(),
+            async () => await RunGitAsync("branch", "open-branch", head));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner,
+            isWorktreeMutationAllowed: static () => false);
+
+        Assert.CatchAsync<GitOperationException>(
+            async () => await service.CreateBranchAsync("open-branch", head, CancellationToken.None));
+
+        GitCommandResult branches = await RunGitAsync("branch", "--list", "open-branch");
+        GitCommandResult current = await RunGitAsync("branch", "--show-current");
+        Assert.Multiple(() =>
+        {
+            Assert.That(branches.Stdout, Does.Contain("open-branch"));
+            Assert.That(current.Stdout.Trim(), Is.EqualTo("main"));
+        });
+    }
+
+    [Test]
     public async Task CreateBranchAsync_while_the_project_is_open_keeps_Git_consistent_when_HEAD_moves_first()
     {
         await CommitFileAsync("project.bep", "main\n", "main");
@@ -6924,6 +6952,27 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(
                 entry.Message,
                 Is.EqualTo("Failed to publish the Git LFS quota notice after configuring the remote."));
+        });
+    }
+
+    [Test]
+    public async Task SetRemoteAsync_drops_a_push_url_that_only_repeats_the_previous_fetch_url()
+    {
+        const string oldUrl = "https://example.invalid/old.git";
+        const string newUrl = "https://example.invalid/new.git";
+        await RunGitAsync("remote", "add", "origin", oldUrl);
+        // Earlier Beutl versions wrote the fetch URL as the push URL too.
+        await RunGitAsync("config", "--local", "--replace-all", "remote.origin.pushurl", oldUrl);
+        using var service = CreateService();
+
+        await service.SetRemoteAsync(newUrl, CancellationToken.None);
+
+        string fetchUrl = (await RunGitAsync("remote", "get-url", "origin")).Stdout.Trim();
+        string pushUrl = (await RunGitAsync("remote", "get-url", "--push", "origin")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(fetchUrl, Is.EqualTo(newUrl));
+            Assert.That(pushUrl, Is.EqualTo(newUrl));
         });
     }
 

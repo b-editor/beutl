@@ -1101,6 +1101,40 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
     }
 
     [Test]
+    public void Serialized_graph_resolves_relative_references_of_an_embedded_missing_extension_object()
+    {
+        string projectFile = Path.Combine(Root, "project.bep");
+        string sceneFile = Path.Combine(Root, "main.scene");
+        string elementFile = Path.Combine(Root, "elements", "33333333333333333333333333333333.belm");
+        string mediaFile = Path.Combine(Root, "assets", "clip.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(elementFile)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(mediaFile)!);
+        File.WriteAllText(mediaFile, "image\n");
+
+        var project = new Project { Uri = new Uri(projectFile) };
+        var scene = new Scene(640, 480, "main") { Uri = new Uri(sceneFile) };
+        var element = new Element { Uri = new Uri(elementFile) };
+        element.Objects.Add(new Beutl.Engine.FallbackEngineObject
+        {
+            // The object has no file of its own, so CoreSerializer wrote its source relative to the element.
+            Json = new System.Text.Json.Nodes.JsonObject
+            {
+                ["$type"] = "[Missing.Extension]Missing.Extension:CustomDrawable",
+                ["Source"] = "../assets/clip.png",
+            },
+        });
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        CoreSerializer.StoreToUri(scene, new Uri(sceneFile));
+        CoreSerializer.StoreToUri(element, new Uri(elementFile));
+
+        IReadOnlySet<string> referenced = SerializedProjectGraph.GetRelativePaths(projectFile, Root);
+
+        Assert.That(referenced, Does.Contain("assets/clip.png"));
+    }
+
+    [Test]
     public void Serialized_graph_skips_path_like_text_that_resolves_to_no_file()
     {
         // An extension's own converter can store a font face name like this. It names no file, so

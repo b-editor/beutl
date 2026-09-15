@@ -87,6 +87,7 @@ internal static class VersionControlSerializationGraph
             = new(ReferenceEqualityComparer.Instance);
         private readonly JsonSerializerOptions _passthroughOptions;
         private readonly JsonSerializerOptions _captureOptions;
+        private Uri? _currentFileUri;
 
         public SerializationGraphVisitor()
         {
@@ -191,31 +192,46 @@ internal static class VersionControlSerializationGraph
                 _objects.Add(coreObject);
             }
 
-            if (serializable is IFallback fallback)
+            // CoreSerializer writes a file source relative to the nearest object that has a file of its
+            // own, so an object saved inside another file resolves its paths against that file.
+            Uri? outerFileUri = _currentFileUri;
+            if (serializable is CoreObject { Uri: { } fileUri })
             {
-                CaptureFallbackFileUris(fallback.Json, (serializable as CoreObject)?.Uri);
-            }
-            else
-            {
-                var context = new SerializationGraphContext(this, serializable);
-                using (ThreadLocalSerializationContext.Enter(context))
-                {
-                    serializable.Serialize(context);
-                    context.Complete();
-                }
+                _currentFileUri = fileUri;
             }
 
-            // Hierarchy membership is the fallback for custom hierarchical implementations
-            // whose children are not exposed by Serialize. Run it after the serialization
-            // contract so a child already emitted under a declared contract wins.
-            if (serializable is IHierarchical hierarchical)
+            try
             {
-                foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+                if (serializable is IFallback fallback)
                 {
-                    bool childFileSourceIsAddressable = child is IFileSource
-                                                        && IsDirectFileSourceValue(serializable, child);
-                    VisitCoreSerializedValue(child, child.GetType(), childFileSourceIsAddressable);
+                    CaptureFallbackFileUris(fallback.Json, _currentFileUri);
                 }
+                else
+                {
+                    var context = new SerializationGraphContext(this, serializable);
+                    using (ThreadLocalSerializationContext.Enter(context))
+                    {
+                        serializable.Serialize(context);
+                        context.Complete();
+                    }
+                }
+
+                // Hierarchy membership is the fallback for custom hierarchical implementations
+                // whose children are not exposed by Serialize. Run it after the serialization
+                // contract so a child already emitted under a declared contract wins.
+                if (serializable is IHierarchical hierarchical)
+                {
+                    foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+                    {
+                        bool childFileSourceIsAddressable = child is IFileSource
+                                                            && IsDirectFileSourceValue(serializable, child);
+                        VisitCoreSerializedValue(child, child.GetType(), childFileSourceIsAddressable);
+                    }
+                }
+            }
+            finally
+            {
+                _currentFileUri = outerFileUri;
             }
         }
 

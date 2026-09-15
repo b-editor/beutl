@@ -7061,6 +7061,12 @@ internal sealed class GitCliVersionControlService :
                 new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
                 cancellationToken).ConfigureAwait(false);
         }
+        catch (GitOperationException ex) when (ex.Stderr.Contains("already exists", StringComparison.Ordinal))
+        {
+            // Another Git process created the branch after the name check, so the switch created nothing
+            // and the branch it found is not this attempt's to remove.
+            throw;
+        }
         catch (Exception switchFailure)
         {
             // git switch -c creates the branch before it moves HEAD, so a failed switch can leave the
@@ -8800,12 +8806,46 @@ internal sealed class GitCliVersionControlService :
                 runner,
                 async (stagingPath, updateCancellation) =>
                 {
-                    // Separate push URLs stay as the user configured them, as with git remote set-url.
+                    // Separate push URLs stay as the user configured them, as with git remote set-url. Earlier
+                    // Beutl versions also wrote the fetch URL as the push URL, and that copy would keep pushes
+                    // going to the old repository, so a push URL that only repeats the old fetch URL goes.
+                    string[] fetchUrls = await ReadStagedConfigValuesAsync("remote.origin.url");
+                    string[] pushUrls = await ReadStagedConfigValuesAsync("remote.origin.pushurl");
+                    if (fetchUrls.Length == 1
+                        && pushUrls.Length > 0
+                        && pushUrls.All(pushUrl => string.Equals(pushUrl, fetchUrls[0], StringComparison.Ordinal)))
+                    {
+                        await runner.RunAsync(
+                            repository,
+                            ["config", "--file", stagingPath, "--unset-all", "remote.origin.pushurl"],
+                            GitCommandOptions.Local,
+                            updateCancellation).ConfigureAwait(false);
+                    }
+
                     await runner.RunAsync(
                         repository,
                         ["config", "--file", stagingPath, "--replace-all", "remote.origin.url", url],
                         GitCommandOptions.Local,
                         updateCancellation).ConfigureAwait(false);
+
+                    async Task<string[]> ReadStagedConfigValuesAsync(string key)
+                    {
+                        try
+                        {
+                            GitCommandResult values = await runner.RunAsync(
+                                repository,
+                                ["config", "--file", stagingPath, "--get-all", key],
+                                GitCommandOptions.Local,
+                                updateCancellation).ConfigureAwait(false);
+                            return values.Stdout.Split(
+                                '\n',
+                                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        }
+                        catch (GitOperationException ex) when (ex.ExitCode == 1)
+                        {
+                            return [];
+                        }
+                    }
                 },
                 "remote update",
                 cancellationToken).ConfigureAwait(false);
