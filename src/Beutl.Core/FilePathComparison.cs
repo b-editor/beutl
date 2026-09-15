@@ -129,7 +129,10 @@ public static class FilePathComparison
         return new ResolutionContext();
     }
 
-    private static string ResolveCanonicalPath(string path, ResolutionContext context)
+    private static string ResolveCanonicalPath(
+        string path,
+        ResolutionContext context,
+        bool requireListing)
     {
         ValidatePath(path, nameof(path));
 
@@ -161,7 +164,8 @@ public static class FilePathComparison
                 resolved,
                 component,
                 candidate,
-                context);
+                context,
+                requireListing);
             string? target = TryGetLinkTarget(candidate);
             if (target is null)
             {
@@ -326,7 +330,8 @@ public static class FilePathComparison
         string parent,
         string component,
         string candidate,
-        ResolutionContext context)
+        ResolutionContext context,
+        bool requireListing)
     {
         if (!Path.Exists(candidate))
         {
@@ -342,7 +347,7 @@ public static class FilePathComparison
 
         try
         {
-            return context.SelectEntry(parent, component, candidate);
+            return context.SelectEntry(parent, component, candidate, requireListing);
         }
         catch (Exception ex)
             when (ex is IOException
@@ -441,24 +446,95 @@ public static class FilePathComparison
 
     internal sealed class ResolutionContext
     {
-        private readonly Dictionary<string, DirectoryEntries> _directoryEntries =
+        // HRESULT_FROM_WIN32(ERROR_NETWORK_ACCESS_DENIED). Windows reports a share that refuses
+        // enumeration with this code, and .NET raises it as a plain IOException. Unix raises EACCES
+        // and EPERM as UnauthorizedAccessException, and its other I/O errors carry a raw errno.
+        private const int NetworkAccessDeniedHResult = unchecked((int)0x80070041);
+
+        private readonly Func<string, string[]> _listDirectory;
+
+        // A null value records a directory whose listing a root-containment lookup was denied.
+        private readonly Dictionary<string, DirectoryEntries?> _directoryEntries =
             new(StringComparer.Ordinal);
+
+        public ResolutionContext()
+            : this(Directory.GetFileSystemEntries)
+        {
+        }
+
+        // Lets tests reproduce listing failures that a local filesystem cannot raise.
+        internal ResolutionContext(Func<string, string[]> listDirectory)
+        {
+            _listDirectory = listDirectory;
+        }
 
         public string ResolveCanonicalPath(string path)
         {
-            return FilePathComparison.ResolveCanonicalPath(path, this);
+            return FilePathComparison.ResolveCanonicalPath(path, this, requireListing: true);
         }
 
-        internal string SelectEntry(string directory, string component, string candidate)
+        /// <summary>
+        /// Resolves <paramref name="path"/> and determines whether it is
+        /// <paramref name="canonicalRoot"/> or one of its descendants.
+        /// </summary>
+        /// <param name="canonicalRoot">A root returned by <see cref="ResolveCanonicalPath(string)"/>.</param>
+        /// <param name="path">The path to resolve.</param>
+        /// <param name="identity">
+        /// The resolved path. It is comparable only with roots resolved by this context.
+        /// </param>
+        /// <remarks>
+        /// Unlike <see cref="ResolveCanonicalPath(string)"/>, this does not list every existing
+        /// ancestor of <paramref name="path"/>. An entry beneath a directory that can be traversed
+        /// but not listed, such as a traverse-only directory or a share that refuses enumeration,
+        /// keeps its supplied spelling, and symbolic links among such entries are still followed. The answer stays exact because resolving the root listed each existing
+        /// ancestor of the root. A directory that cannot be listed therefore lies either beneath the
+        /// root, whose resolved prefix the entry keeps, or outside the root's ancestry, from where
+        /// only a followed symbolic link can reach the root.
+        /// </remarks>
+        public bool IsSameOrDescendantOfCanonicalRoot(
+            string canonicalRoot,
+            string path,
+            out string identity)
         {
-            if (!_directoryEntries.TryGetValue(directory, out DirectoryEntries? entries))
+            identity = FilePathComparison.ResolveCanonicalPath(path, this, requireListing: false);
+            return FilePathComparison.IsSameOrDescendantCanonicalPath(canonicalRoot, identity);
+        }
+
+        internal string SelectEntry(
+            string directory,
+            string component,
+            string candidate,
+            bool requireListing)
+        {
+            // A strict resolution retries a denial cached by a containment lookup, so it reports
+            // the filesystem error instead of accepting an unverified spelling.
+            if (!_directoryEntries.TryGetValue(directory, out DirectoryEntries? entries)
+                || entries is null && requireListing)
             {
-                entries = new DirectoryEntries(Directory.GetFileSystemEntries(directory));
-                _directoryEntries.Add(directory, entries);
+                entries = ListEntries(directory, requireListing);
+                _directoryEntries[directory] = entries;
             }
 
-            return entries.Select(component, candidate);
+            return entries?.Select(component, candidate) ?? candidate;
         }
+
+        private DirectoryEntries? ListEntries(string directory, bool requireListing)
+        {
+            try
+            {
+                return new DirectoryEntries(_listDirectory(directory));
+            }
+            catch (Exception ex) when (!requireListing && IsListingDenied(ex))
+            {
+                return null;
+            }
+        }
+
+        // Only a refusal to list counts. Other failures, such as a sharing violation, a network
+        // error, or a directory that vanished, still abort the lookup.
+        private static bool IsListingDenied(Exception exception)
+            => exception is UnauthorizedAccessException
+                or IOException { HResult: NetworkAccessDeniedHResult };
 
         internal sealed class DirectoryEntries(string[] paths)
         {

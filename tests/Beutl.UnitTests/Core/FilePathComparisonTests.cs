@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using System.Runtime.Versioning;
+using Beutl.Editor.VersionControl;
 
 namespace Beutl.UnitTests.Core;
 
@@ -450,6 +451,309 @@ public class FilePathComparisonTests
         string alternatePath = alternateRoot + path[root.Length..];
 
         Assert.That(FilePathComparison.AreSameCanonicalPath(path, alternatePath), Is.True);
+    }
+
+    [Test]
+    [UnsupportedOSPlatform("windows")]
+    public void Canonical_identity_fails_closed_beneath_a_traverse_only_ancestor()
+    {
+        string temporaryRoot = CreateTemporaryDirectory();
+        string locked = Path.Combine(temporaryRoot, "Locked");
+        string clip = Path.Combine(locked, "Media", "clip.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(clip)!);
+        File.WriteAllText(clip, "content");
+        UnixFileMode? originalMode = null;
+        try
+        {
+            originalMode = MakeTraverseOnly(locked);
+
+            // Without a listing, a case or normalization alias cannot be told apart from a
+            // distinct entry, so general identity queries keep reporting an error.
+            Assert.Multiple(() =>
+            {
+                Assert.Throws<IOException>(() => FilePathComparison.ResolveCanonicalPath(clip));
+                Assert.Throws<IOException>(
+                    () => FilePathComparison.IsSameOrDescendant(temporaryRoot, clip));
+            });
+        }
+        finally
+        {
+            RestoreMode(locked, originalMode);
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    [Test]
+    [UnsupportedOSPlatform("windows")]
+    public void Root_containment_resolves_a_path_beneath_a_traverse_only_ancestor()
+    {
+        string temporaryRoot = CreateTemporaryDirectory();
+        string owned = Path.Combine(temporaryRoot, "owned");
+        string locked = Path.Combine(temporaryRoot, "Locked");
+        string clip = Path.Combine(locked, "Media", "clip.bin");
+        Directory.CreateDirectory(owned);
+        Directory.CreateDirectory(Path.GetDirectoryName(clip)!);
+        File.WriteAllText(clip, "content");
+        string expectedIdentity = Path.Combine(
+            FilePathComparison.ResolveCanonicalPath(temporaryRoot),
+            "Locked",
+            "Media",
+            "clip.bin");
+        UnixFileMode? originalMode = null;
+        try
+        {
+            originalMode = MakeTraverseOnly(locked);
+            var context = FilePathComparison.CreateResolutionContext();
+            string ownedRoot = context.ResolveCanonicalPath(owned);
+            string enclosingRoot = context.ResolveCanonicalPath(temporaryRoot);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    context.IsSameOrDescendantOfCanonicalRoot(ownedRoot, clip, out string outside),
+                    Is.False);
+                Assert.That(outside, Is.EqualTo(expectedIdentity));
+                Assert.That(
+                    context.IsSameOrDescendantOfCanonicalRoot(
+                        enclosingRoot,
+                        Path.Combine(locked, "Media", ".", "clip.bin"),
+                        out string inside),
+                    Is.True);
+                Assert.That(inside, Is.EqualTo(expectedIdentity));
+            });
+        }
+        finally
+        {
+            RestoreMode(locked, originalMode);
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    [Test]
+    [UnsupportedOSPlatform("windows")]
+    public void Root_containment_follows_a_symbolic_link_beneath_a_traverse_only_ancestor_into_the_root()
+    {
+        string temporaryRoot = CreateTemporaryDirectory();
+        string owned = Path.Combine(temporaryRoot, "owned");
+        string resource = Path.Combine(owned, "resource.bin");
+        string locked = Path.Combine(temporaryRoot, "Locked");
+        string alias = Path.Combine(locked, "alias.bin");
+        Directory.CreateDirectory(owned);
+        Directory.CreateDirectory(locked);
+        File.WriteAllText(resource, "content");
+        UnixFileMode? originalMode = null;
+        try
+        {
+            CreateSymbolicLinkOrIgnore(alias, resource);
+            originalMode = MakeTraverseOnly(locked);
+            var context = FilePathComparison.CreateResolutionContext();
+            string ownedRoot = context.ResolveCanonicalPath(owned);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    context.IsSameOrDescendantOfCanonicalRoot(ownedRoot, alias, out string identity),
+                    Is.True);
+                Assert.That(identity, Is.EqualTo(Path.Combine(ownedRoot, "resource.bin")));
+            });
+        }
+        finally
+        {
+            RestoreMode(locked, originalMode);
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    [Test]
+    [UnsupportedOSPlatform("windows")]
+    public void Root_containment_rejects_a_symbolic_link_beneath_a_traverse_only_directory_that_escapes_the_root()
+    {
+        string temporaryRoot = CreateTemporaryDirectory();
+        string owned = Path.Combine(temporaryRoot, "owned");
+        string outside = Path.Combine(temporaryRoot, "outside", "escaped.bin");
+        string locked = Path.Combine(owned, "Locked");
+        string alias = Path.Combine(locked, "escaped.bin");
+        string kept = Path.Combine(locked, "kept.bin");
+        Directory.CreateDirectory(locked);
+        Directory.CreateDirectory(Path.GetDirectoryName(outside)!);
+        File.WriteAllText(outside, "content");
+        File.WriteAllText(kept, "content");
+        UnixFileMode? originalMode = null;
+        try
+        {
+            CreateSymbolicLinkOrIgnore(alias, outside);
+            string outsideIdentity = FilePathComparison.ResolveCanonicalPath(outside);
+            originalMode = MakeTraverseOnly(locked);
+            var context = FilePathComparison.CreateResolutionContext();
+            string ownedRoot = context.ResolveCanonicalPath(owned);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    context.IsSameOrDescendantOfCanonicalRoot(ownedRoot, alias, out string escaped),
+                    Is.False);
+                Assert.That(escaped, Is.EqualTo(outsideIdentity));
+                Assert.That(
+                    context.IsSameOrDescendantOfCanonicalRoot(ownedRoot, kept, out string inside),
+                    Is.True);
+                Assert.That(inside, Is.EqualTo(Path.Combine(ownedRoot, "Locked", "kept.bin")));
+            });
+        }
+        finally
+        {
+            RestoreMode(locked, originalMode);
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    [Test]
+    [UnsupportedOSPlatform("windows")]
+    public void A_listing_denied_to_a_containment_lookup_still_fails_a_strict_resolution()
+    {
+        string temporaryRoot = CreateTemporaryDirectory();
+        string locked = Path.Combine(temporaryRoot, "Locked");
+        string nestedRoot = Path.Combine(locked, "owned");
+        string clip = Path.Combine(nestedRoot, "clip.bin");
+        Directory.CreateDirectory(nestedRoot);
+        File.WriteAllText(clip, "content");
+        UnixFileMode? originalMode = null;
+        try
+        {
+            originalMode = MakeTraverseOnly(locked);
+            var context = FilePathComparison.CreateResolutionContext();
+            string enclosingRoot = context.ResolveCanonicalPath(temporaryRoot);
+
+            Assert.That(
+                context.IsSameOrDescendantOfCanonicalRoot(enclosingRoot, clip, out _),
+                Is.True);
+            // A root beneath the unlisted directory could be spelled another way, so the cached
+            // denial must not let it resolve.
+            Assert.Throws<IOException>(() => context.ResolveCanonicalPath(nestedRoot));
+        }
+        finally
+        {
+            RestoreMode(locked, originalMode);
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    // Unix and local Windows volumes refuse a listing with UnauthorizedAccessException. Windows
+    // reports a share that refuses enumeration as ERROR_NETWORK_ACCESS_DENIED, a plain IOException.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Root_containment_treats_a_refused_listing_as_denied(bool refusedByShare)
+    {
+        string temporaryRoot = CreateTemporaryDirectory();
+        string share = Path.Combine(temporaryRoot, "Share");
+        string clip = Path.Combine(share, "Media", "clip.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(clip)!);
+        File.WriteAllText(clip, "content");
+        try
+        {
+            string canonicalShare = FilePathComparison.ResolveCanonicalPath(share);
+            Exception refusal = refusedByShare
+                ? new IOException("Network access is denied.", unchecked((int)0x80070041))
+                : new UnauthorizedAccessException("Access to the path is denied.");
+            FilePathComparison.ResolutionContext context =
+                CreateContextFailingToList(canonicalShare, refusal);
+            string enclosingRoot = context.ResolveCanonicalPath(temporaryRoot);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    context.IsSameOrDescendantOfCanonicalRoot(enclosingRoot, clip, out string identity),
+                    Is.True);
+                Assert.That(identity, Is.EqualTo(Path.Combine(canonicalShare, "Media", "clip.bin")));
+                IOException? strict = Assert.Throws<IOException>(
+                    () => context.ResolveCanonicalPath(clip));
+                Assert.That(strict?.InnerException, Is.SameAs(refusal));
+            });
+        }
+        finally
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    // ERROR_SHARING_VIOLATION, ERROR_UNEXP_NET_ERR and COR_E_IO are failures, not refusals to list.
+    [TestCase(unchecked((int)0x80070020))]
+    [TestCase(unchecked((int)0x8007003B))]
+    [TestCase(unchecked((int)0x80131620))]
+    public void Root_containment_does_not_hide_a_listing_failure_that_is_not_a_refusal(int hResult)
+    {
+        string temporaryRoot = CreateTemporaryDirectory();
+        string share = Path.Combine(temporaryRoot, "Share");
+        string clip = Path.Combine(share, "Media", "clip.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(clip)!);
+        File.WriteAllText(clip, "content");
+        try
+        {
+            var failure = new IOException("The listing failed.", hResult);
+            FilePathComparison.ResolutionContext context = CreateContextFailingToList(
+                FilePathComparison.ResolveCanonicalPath(share),
+                failure);
+            string enclosingRoot = context.ResolveCanonicalPath(temporaryRoot);
+
+            IOException? thrown = Assert.Throws<IOException>(
+                () => context.IsSameOrDescendantOfCanonicalRoot(enclosingRoot, clip, out _));
+            Assert.That(thrown?.InnerException, Is.SameAs(failure));
+        }
+        finally
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    private static FilePathComparison.ResolutionContext CreateContextFailingToList(
+        string failingDirectory,
+        Exception failure)
+    {
+        return new FilePathComparison.ResolutionContext(directory =>
+            string.Equals(directory, failingDirectory, StringComparison.Ordinal)
+                ? throw failure
+                : Directory.GetFileSystemEntries(directory));
+    }
+
+    // Grants traverse (execute) permission only, so entries can be reached by name but the
+    // directory cannot be listed. Ignores the test where the permission is not enforced,
+    // such as on Windows or when running as root.
+    [UnsupportedOSPlatform("windows")]
+    private static UnixFileMode MakeTraverseOnly(string directory)
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("Unix directory permissions are required.");
+        UnixFileMode original = File.GetUnixFileMode(directory);
+        File.SetUnixFileMode(directory, UnixFileMode.UserExecute);
+        try
+        {
+            Directory.GetFileSystemEntries(directory);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return original;
+        }
+
+        File.SetUnixFileMode(directory, original);
+        Assert.Ignore("Directory listing permissions are not enforced here.");
+        return original;
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private static void RestoreMode(string directory, UnixFileMode? original)
+    {
+        if (original is { } mode) File.SetUnixFileMode(directory, mode);
+    }
+
+    private static void CreateSymbolicLinkOrIgnore(string path, string target)
+    {
+        try
+        {
+            File.CreateSymbolicLink(path, target);
+        }
+        catch (Exception ex)
+            when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
+        }
     }
 
     private static string CreateTemporaryDirectory()

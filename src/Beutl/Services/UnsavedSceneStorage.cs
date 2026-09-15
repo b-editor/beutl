@@ -58,6 +58,8 @@ internal static class UnsavedSceneStorage
             // Share directory indexes only while preparing this save; the next save needs
             // a fresh snapshot to observe filesystem changes.
             var paths = FilePathComparison.CreateResolutionContext();
+            // Resolve the owned root strictly, so ownership lookups can skip listing the
+            // ancestors of referenced files that the user can traverse but not list.
             string ownedRoot = paths.ResolveCanonicalPath(GetDirectory(scene.Id));
             _elements = CreateElementRehomes(scene, sceneUri, paths, ownedRoot);
             _resources = CreateResourceRehomes(scene, sceneUri, paths, ownedRoot);
@@ -219,8 +221,7 @@ internal static class UnsavedSceneStorage
             string path,
             out string identity)
         {
-            identity = paths.ResolveCanonicalPath(path);
-            return FilePathComparison.IsSameOrDescendantCanonicalPath(ownedRoot, identity);
+            return paths.IsSameOrDescendantOfCanonicalRoot(ownedRoot, path, out identity);
         }
 
         private static string GetUniqueDestination(
