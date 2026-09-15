@@ -118,6 +118,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         IsConflicted = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
+        IsDetachedHead = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
         HasBlockingGuidance = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
         HasRecoverableLock = new ReactivePropertySlim<bool>(
@@ -226,16 +228,18 @@ internal sealed class VersionControlTabViewModel : IToolContext
             .WithSubscribe(CommitManualAsync)
             .DisposeWith(_disposables);
         // Pushing and configuring the remote leave the worktree and the index alone, so, as with plain
-        // Git, an unresolved conflict does not block them the way it blocks commits and pulls.
+        // Git, an unresolved conflict does not block them the way it blocks commits and pulls. A
+        // detached HEAD still does, because pushing needs a checked-out branch.
         IObservable<bool> canUpdateRemote = IsTracked.CombineLatest(
             HasBlockingGuidance,
             IsConflicted,
+            IsDetachedHead,
             IsUnavailable,
             IsRemoteOperationRunning,
             _isConfiguringRemote,
-            static (tracked, blocked, conflicted, unavailable, isRunning, isConfiguring) =>
+            static (tracked, blocked, conflicted, detached, unavailable, isRunning, isConfiguring) =>
                 tracked
-                && (!blocked || (conflicted && !unavailable))
+                && (!blocked || (conflicted && !detached && !unavailable))
                 && !isRunning
                 && !isConfiguring);
         SetRemoteCommand = new AsyncReactiveCommand(canUpdateRemote)
@@ -321,6 +325,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
     public ReactivePropertySlim<bool> IsUnavailable { get; }
 
     public ReactivePropertySlim<bool> IsConflicted { get; }
+
+    public ReactivePropertySlim<bool> IsDetachedHead { get; }
 
     public ReactivePropertySlim<bool> HasBlockingGuidance { get; }
 
@@ -1109,6 +1115,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
         IsGitAvailable.Value = false;
         IsUnavailable.Value = false;
         IsConflicted.Value = false;
+        IsDetachedHead.Value = false;
         HasBlockingGuidance.Value = false;
         HasRecoverableLock.Value = _lockRecoveryService?.RecoverableLock is not null;
         StaleLockGuidance.Value = Strings.VersionControl_StaleLockGuidance;
@@ -1722,6 +1729,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
     {
         IsTracked.Value = _service?.Repository is not null;
         IsConflicted.Value = status.HasConflicts;
+        IsDetachedHead.Value = status.IsDetachedHead;
         // A detached HEAD blocks the same writes as a conflict: there is no branch to record a
         // snapshot on until one is checked out outside Beutl.
         HasBlockingGuidance.Value = IsUnavailable.Value || status.HasConflicts || status.IsDetachedHead;

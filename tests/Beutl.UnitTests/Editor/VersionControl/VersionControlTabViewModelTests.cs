@@ -417,6 +417,46 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Conflicted_repository_on_a_detached_head_keeps_remote_commands_blocked()
+    {
+        // Only a conflict on a branch leaves the remote usable: pushing needs the branch that a
+        // detached HEAD does not have.
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus(
+                null,
+                0,
+                0,
+                [new FileChange("project.bep", FileChangeStatus.Modified)],
+                HasConflicts: true,
+                IsDetachedHead: true));
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
+        Mock<IProjectVersionControlService> unpublished = CreateServiceMock();
+        unpublished.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus(
+                null,
+                0,
+                0,
+                [],
+                HasConflicts: true,
+                IsDetachedHead: true));
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        using VersionControlTabViewModel unpublishedViewModel = CreateViewModel(unpublished.Object);
+
+        await viewModel.Initialization;
+        await unpublishedViewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasBlockingGuidance.Value, Is.True);
+            Assert.That(viewModel.PushCommand.CanExecute(), Is.False);
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.False);
+            Assert.That(unpublishedViewModel.PublishBranchCommand.CanExecute(), Is.False);
+        });
+    }
+
+    [Test]
     public async Task History_is_loaded_incrementally_and_status_is_formatted()
     {
         CommitInfo[] commits = Enumerable.Range(0, 53)

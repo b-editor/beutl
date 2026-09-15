@@ -892,6 +892,61 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [TestCase("empty clean filter")]
+    [TestCase("hook command only in a comment")]
+    [TestCase("hook that is not executable")]
+    public async Task EnsureRepositoryHygieneAsync_installs_Lfs_when_the_existing_setup_would_not_run(
+        string defect)
+    {
+        if (defect == "hook that is not executable" && OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Git for Windows runs hooks without an executable bit.");
+            return;
+        }
+
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        await RunGitAsync(
+            "config",
+            "filter.lfs.clean",
+            defect == "empty clean filter" ? "" : "git-lfs clean -- %f");
+        await RunGitAsync("config", "filter.lfs.smudge", "git-lfs smudge -- %f");
+        await RunGitAsync("config", "filter.lfs.process", "git-lfs filter-process");
+        await RunGitAsync("config", "filter.lfs.required", "true");
+        foreach (string hook in new[] { "pre-push", "post-checkout", "post-commit", "post-merge" })
+        {
+            string command = $"git lfs {hook} \"$@\"\n";
+            await WriteHookAsync(
+                hook,
+                defect == "hook command only in a comment" && hook == "pre-push"
+                    ? "# " + command
+                    : command);
+        }
+
+        if (defect == "hook that is not executable" && !OperatingSystem.IsWindows())
+        {
+            string prePush = (await RunGitAsync("rev-parse", "--git-path", "hooks/pre-push"))
+                .Stdout.TrimEnd('\r', '\n');
+            File.SetUnixFileMode(
+                Path.GetFullPath(
+                    Path.IsPathFullyQualified(prePush) ? prePush : Path.Combine(Root, prePush)),
+                UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+
+        var config = new VersionControlConfig { UseLfsWhenAvailable = true };
+        var runner = new RecordingLfsRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true, config),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+
+        // Git would not run this setup, so skipping the install would leave LFS content without a
+        // working filter or pre-push hook.
+        Assert.That(runner.LfsInstallCalls, Is.EqualTo(1));
+    }
+
     [TestCase(".WAVE")]
     [TestCase(".APNG")]
     [TestCase(".DNG")]
@@ -5382,6 +5437,31 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CreateBranchAsync_while_the_project_is_open_runs_no_checkout_hook()
+    {
+        // A post-checkout hook may rewrite project files. With the project open that would happen
+        // behind the editors, and their next save would overwrite what the hook wrote.
+        await CommitFileAsync("project.bep", "current\n", "current");
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await WriteHookAsync("post-checkout", "echo hook > hook-ran.txt\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            isWorktreeMutationAllowed: static () => false);
+
+        await service.CreateBranchAsync("open-branch", head, CancellationToken.None);
+
+        GitCommandResult branch = await RunGitAsync("branch", "--show-current");
+        GitCommandResult previous = await RunGitAsync("rev-parse", "--abbrev-ref", "@{-1}");
+        Assert.Multiple(() =>
+        {
+            Assert.That(branch.Stdout.Trim(), Is.EqualTo("open-branch"));
+            Assert.That(previous.Stdout.Trim(), Is.EqualTo("main"));
+            Assert.That(File.Exists(Path.Combine(Root, "hook-ran.txt")), Is.False);
+        });
+    }
+
+    [Test]
     public void Porcelain_v2_parser_reads_branch_counts_renames_copies_and_conflicts()
     {
         string output = string.Join('\0',
@@ -7871,6 +7951,58 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 cache,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
+    }
+
+    [Test]
+    public void Snapshot_walk_skips_only_unreferenced_folders_it_cannot_list()
+    {
+        var serializedPaths = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "project.bep",
+            "scenes/main.scene",
+        };
+
+        // A folder can be unreadable, or vanish or fail to list while the walk runs. Git only warns
+        // about it, so neither blocks a snapshot unless the project references something inside.
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                GitCliVersionControlService.CanSkipUnlistedDirectory(
+                    new UnauthorizedAccessException(),
+                    "render-cache",
+                    serializedPaths),
+                Is.True);
+            Assert.That(
+                GitCliVersionControlService.CanSkipUnlistedDirectory(
+                    new DirectoryNotFoundException(),
+                    "render-cache",
+                    serializedPaths),
+                Is.True);
+            Assert.That(
+                GitCliVersionControlService.CanSkipUnlistedDirectory(
+                    new IOException("Input/output error"),
+                    "render-cache",
+                    serializedPaths),
+                Is.True);
+            Assert.That(
+                GitCliVersionControlService.CanSkipUnlistedDirectory(
+                    new IOException("Input/output error"),
+                    "scenes",
+                    serializedPaths),
+                Is.False);
+            Assert.That(
+                GitCliVersionControlService.CanSkipUnlistedDirectory(
+                    new DirectoryNotFoundException(),
+                    ".",
+                    serializedPaths),
+                Is.False);
+            Assert.That(
+                GitCliVersionControlService.CanSkipUnlistedDirectory(
+                    new InvalidOperationException(),
+                    "render-cache",
+                    serializedPaths),
+                Is.False);
+        });
     }
 
     [Test]

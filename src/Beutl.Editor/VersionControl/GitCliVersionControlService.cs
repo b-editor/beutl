@@ -7029,6 +7029,29 @@ internal sealed class GitCliVersionControlService :
             {
                 EnsureWorktreeMutationAllowed();
             }
+
+            // Moving HEAD is all git switch -c would do to such a worktree, but switching also runs a
+            // post-checkout hook, which can rewrite project files behind the open editors. HEAD moves
+            // without a checkout instead, with the reflog entry git switch writes, so @{-1} still
+            // names the previous branch. The next real switch closes the project and runs the hooks.
+            await runner.RunAsync(
+                repository,
+                ["branch", name, startPoint],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            await runner.RunAsync(
+                repository,
+                [
+                    "symbolic-ref",
+                    "-m",
+                    $"checkout: moving from {GetBranchShortName(head.RefName)} to {name}",
+                    "HEAD",
+                    $"refs/heads/{name}",
+                ],
+                GitCommandOptions.Local,
+                CancellationToken.None).ConfigureAwait(false);
+            await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+            return;
         }
 
         await runner.RunAsync(
@@ -9875,12 +9898,20 @@ internal sealed class GitCliVersionControlService :
             return false;
         }
 
-        HashSet<string> configuredFilters = filters.Stdout
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(static line => line.Split(' ', 2)[0])
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (!configuredFilters.IsSupersetOf(
-                ["filter.lfs.clean", "filter.lfs.smudge", "filter.lfs.process"]))
+        // A key alone does not run Git LFS: an empty or unrelated command leaves content unfiltered.
+        // Git uses the last value listed for a key.
+        var configuredFilters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string line in filters.Stdout.Split(
+                     '\n',
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            string[] fields = line.Split(' ', 2);
+            configuredFilters[fields[0]] = fields.Length > 1 ? fields[1] : string.Empty;
+        }
+
+        if (!RunsLfsCommand(configuredFilters, "filter.lfs.clean", "git-lfs clean")
+            || !RunsLfsCommand(configuredFilters, "filter.lfs.smudge", "git-lfs smudge")
+            || !RunsLfsCommand(configuredFilters, "filter.lfs.process", "git-lfs filter-process"))
         {
             return false;
         }
@@ -9897,12 +9928,18 @@ internal sealed class GitCliVersionControlService :
                 : Path.Combine(repository.RepoRoot, hooksPath));
         foreach (string hook in s_lfsHookNames)
         {
+            string hookPath = Path.Combine(hooksDirectory, hook);
             string contents;
             try
             {
-                contents = await File.ReadAllTextAsync(
-                        Path.Combine(hooksDirectory, hook),
-                        cancellationToken)
+                // Git skips a hook it cannot execute, so the text of one proves nothing.
+                if (!OperatingSystem.IsWindows()
+                    && (File.GetUnixFileMode(hookPath) & UnixFileMode.UserExecute) == 0)
+                {
+                    return false;
+                }
+
+                contents = await File.ReadAllTextAsync(hookPath, cancellationToken)
                     .ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -9910,13 +9947,26 @@ internal sealed class GitCliVersionControlService :
                 return false;
             }
 
-            if (!contents.Contains($"git lfs {hook}", StringComparison.Ordinal))
+            // Only a command runs; the same text in a comment does nothing.
+            string command = $"git lfs {hook}";
+            if (!contents.Split('\n').Any(line =>
+                    !line.TrimStart().StartsWith('#')
+                    && line.Contains(command, StringComparison.Ordinal)))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private static bool RunsLfsCommand(
+        IReadOnlyDictionary<string, string> configuredFilters,
+        string key,
+        string command)
+    {
+        return configuredFilters.TryGetValue(key, out string? value)
+               && value.Contains(command, StringComparison.Ordinal);
     }
 
     private async Task RaiseLfsInstallFailedNoticeIfNeededAsync(
@@ -12859,13 +12909,9 @@ internal sealed class GitCliVersionControlService :
                 files = Directory.GetFiles(directory, "*", options);
                 children = Directory.GetDirectories(directory, "*", options);
             }
-            catch (UnauthorizedAccessException)
-                when (relativeDirectoryPath != "."
-                      && !serializedPaths.Any(path =>
-                          IsSameOrDescendantGitPath(path, relativeDirectoryPath)))
+            catch (Exception ex)
+                when (CanSkipUnlistedDirectory(ex, relativeDirectoryPath, serializedPaths))
             {
-                // Git warns about a folder it cannot read and snapshots everything else. Nothing the
-                // project references is inside this one, so there is nothing to protect.
                 continue;
             }
 
@@ -12945,6 +12991,20 @@ internal sealed class GitCliVersionControlService :
                 }
             }
         }
+    }
+
+    // Git warns about a folder it cannot list, whether it is unreadable or vanished or failed while the
+    // walk ran, and snapshots everything else. Nothing the project references is inside such a
+    // folder, so there is nothing to protect.
+    internal static bool CanSkipUnlistedDirectory(
+        Exception exception,
+        string relativeDirectoryPath,
+        IReadOnlySet<string> serializedPaths)
+    {
+        return exception is UnauthorizedAccessException or IOException
+               && relativeDirectoryPath != "."
+               && !serializedPaths.Any(path =>
+                   IsSameOrDescendantGitPath(path, relativeDirectoryPath));
     }
 
     private static bool IsSameOrDescendantGitPath(string path, string directory)
