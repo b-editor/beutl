@@ -120,6 +120,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         IsConflicted = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
+        IsDetachedHead = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
         HasBlockingGuidance = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
         HasRecoverableLock = new ReactivePropertySlim<bool>(
@@ -239,11 +241,33 @@ internal sealed class VersionControlTabViewModel : IToolContext
                     static (canRun, hasMessage) => canRun && hasMessage))
             .WithSubscribe(CommitManualAsync)
             .DisposeWith(_disposables);
-        SetRemoteCommand = new AsyncReactiveCommand(canMutate)
+        // Pushing and publishing leave the worktree and the index alone, so, as with plain Git, an
+        // unresolved conflict does not block them the way it blocks commits and pulls. A detached HEAD
+        // still does, because both need a checked-out branch.
+        IObservable<bool> canUpdateRemote = IsTracked.CombineLatest(
+            HasBlockingGuidance,
+            IsConflicted,
+            IsDetachedHead,
+            IsUnavailable,
+            IsRemoteOperationRunning,
+            _isConfiguringRemote,
+            static (tracked, blocked, conflicted, detached, unavailable, isRunning, isConfiguring) =>
+                tracked
+                && (!blocked || (conflicted && !detached && !unavailable))
+                && !isRunning
+                && !isConfiguring);
+        // Configuring the remote needs no branch, so neither a conflict nor a detached HEAD blocks it.
+        IObservable<bool> canConfigureRemote = IsTracked.CombineLatest(
+            IsUnavailable,
+            IsRemoteOperationRunning,
+            _isConfiguringRemote,
+            static (tracked, unavailable, isRunning, isConfiguring) =>
+                tracked && !unavailable && !isRunning && !isConfiguring);
+        SetRemoteCommand = new AsyncReactiveCommand(canConfigureRemote)
             .WithSubscribe(SetRemoteAsync)
             .DisposeWith(_disposables);
         PublishBranchCommand = new AsyncReactiveCommand(
-                canMutate.CombineLatest(
+                canUpdateRemote.CombineLatest(
                     HasRemote,
                     static (canRun, hasRemote) => canRun && !hasRemote))
             .WithSubscribe(PublishBranchAsync)
@@ -252,7 +276,10 @@ internal sealed class VersionControlTabViewModel : IToolContext
             HasRemote,
             IsRemoteOperationRunning,
             static (canRun, hasRemote, isRunning) => canRun && hasRemote && !isRunning);
-        PushCommand = new AsyncReactiveCommand(canRunRemoteOperation)
+        PushCommand = new AsyncReactiveCommand(
+                canUpdateRemote.CombineLatest(
+                    HasRemote,
+                    static (canRun, hasRemote) => canRun && hasRemote))
             .WithSubscribe(PushAsync)
             .DisposeWith(_disposables);
         PullCommand = new AsyncReactiveCommand(canRunRemoteOperation)
@@ -325,6 +352,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
     public ReactivePropertySlim<bool> IsUnavailable { get; }
 
     public ReactivePropertySlim<bool> IsConflicted { get; }
+
+    public ReactivePropertySlim<bool> IsDetachedHead { get; }
 
     public ReactivePropertySlim<bool> HasBlockingGuidance { get; }
 
@@ -663,7 +692,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 return false;
             }
 
-            RemoteUrl.Value = normalizedUrl;
+            RemoteUrl.Value = GetRemoteUrlForPresentation(normalizedUrl);
             HasRemote.Value = true;
             StatusMessage.Value = Strings.VersionControl_RemoteConnected;
             return true;
@@ -1128,6 +1157,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
         IsGitAvailable.Value = false;
         IsUnavailable.Value = false;
         IsConflicted.Value = false;
+        IsDetachedHead.Value = false;
         HasBlockingGuidance.Value = false;
         HasRecoverableLock.Value = _lockRecoveryService?.RecoverableLock is not null;
         StaleLockGuidance.Value = Strings.VersionControl_StaleLockGuidance;
@@ -1232,34 +1262,35 @@ internal sealed class VersionControlTabViewModel : IToolContext
         }
 
         ApplyStatus(status);
-        if (!status.HasConflicts)
+        try
         {
-            try
-            {
-                await RefreshRemotesAsync(
+            // Remote commands stay available through a conflict, so the remotes are read even when
+            // the history of the blocked worktree is not.
+            await RefreshRemotesAsync(
+                service,
+                cancellationToken,
+                statusRefreshRevision);
+            if (status.HasConflicts
+                || status.IsDetachedHead
+                || !IsCurrentStatusRefresh(
                     service,
-                    cancellationToken,
-                    statusRefreshRevision);
-                if (!IsCurrentStatusRefresh(
-                        service,
-                        statusRefreshRevision,
-                        cancellationToken))
-                {
-                    return;
-                }
-
-                await RefreshHistoryAsync(
-                    service,
-                    status.Branch,
                     statusRefreshRevision,
-                    cancellationToken);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    cancellationToken))
             {
+                return;
             }
-            catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
-            {
-            }
+
+            await RefreshHistoryAsync(
+                service,
+                status.Branch,
+                statusRefreshRevision,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
         }
     }
 
@@ -1598,9 +1629,11 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return url;
         }
 
-        bool isSsh = string.Equals(uri.Scheme, "ssh", StringComparison.OrdinalIgnoreCase);
+        // An SSH user name only selects the account. Over HTTP the user name can itself be an access
+        // token, as GitHub and GitLab accept, so any user information there stays hidden.
+        bool allowsUserName = uri.Scheme is "ssh" or "git+ssh";
         bool hasPassword = Uri.UnescapeDataString(uri.UserInfo).Contains(':');
-        return isSsh && !hasPassword ? url : string.Empty;
+        return allowsUserName && !hasPassword ? url : string.Empty;
     }
 
     private async Task LoadNextPageCoreAsync(
@@ -1676,15 +1709,12 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 eventService,
                 _serviceRevision,
                 cancellationToken);
-            Task statusRefresh = Task.CompletedTask;
-            if (!status.HasConflicts)
-            {
-                statusRefresh = RefreshAfterStatusChangedAsync(
-                    eventService,
-                    status.Branch,
-                    statusRefreshRevision,
-                    cancellationToken);
-            }
+            Task statusRefresh = RefreshAfterStatusChangedAsync(
+                eventService,
+                status.Branch,
+                refreshHistory: !status.HasConflicts && !status.IsDetachedHead,
+                statusRefreshRevision,
+                cancellationToken);
 
             Initialization = Task.WhenAll(
                 pendingRecoveryRefresh,
@@ -1695,6 +1725,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
     private async Task RefreshAfterStatusChangedAsync(
         IProjectVersionControlService service,
         string? branch,
+        bool refreshHistory,
         int statusRefreshRevision,
         CancellationToken cancellationToken)
     {
@@ -1704,7 +1735,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 service,
                 cancellationToken,
                 statusRefreshRevision);
-            if (!IsCurrentStatusRefresh(
+            if (!refreshHistory
+                || !IsCurrentStatusRefresh(
                     service,
                     statusRefreshRevision,
                     cancellationToken))
@@ -1749,10 +1781,18 @@ internal sealed class VersionControlTabViewModel : IToolContext
     {
         IsTracked.Value = _service?.Repository is not null;
         IsConflicted.Value = status.HasConflicts;
-        HasBlockingGuidance.Value = IsUnavailable.Value || status.HasConflicts;
+        IsDetachedHead.Value = status.IsDetachedHead;
+        // A detached HEAD blocks the same writes as a conflict: there is no branch to record a
+        // snapshot on until one is checked out outside Beutl.
+        HasBlockingGuidance.Value = IsUnavailable.Value || status.HasConflicts || status.IsDetachedHead;
         if (status.HasConflicts)
         {
             StatusMessage.Value = Strings.VersionControl_ConflictGuidance;
+            HasMoreHistory.Value = false;
+        }
+        else if (status.IsDetachedHead)
+        {
+            StatusMessage.Value = Strings.VersionControl_DetachedHeadGuidance;
             HasMoreHistory.Value = false;
         }
         else if (_historyIdentity is not null)

@@ -1118,6 +1118,86 @@ public class VersionControlSaveTests
     }
 
     [AvaloniaTest]
+    public async Task Package_close_without_saving_does_not_commit_edits_already_on_disk()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = true;
+            config.UseLfsWhenAvailable = false;
+
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-package-discard-autosaved-close");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "package-discard-autosaved-close",
+                location))!;
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                project,
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid")));
+            Assert.That(initialized, Is.True);
+
+            string projectFile = project.Uri!.LocalPath;
+            string projectRoot = Path.GetDirectoryName(projectFile)!;
+            int commitsBefore = await CountCommitsAsync(gitPath, projectRoot);
+            // Autosave writes an edit the moment it is made, so the worktree already differs from
+            // HEAD when the user picks the close path that keeps nothing.
+            project.Variables["package-discard"] = "autosaved before the close";
+            CoreSerializer.StoreToUri(project, project.Uri, CoreSerializationMode.Write);
+            var packageHandler = new PackageOperationHandler(
+                TestShell.MainViewModel._beutlClients,
+                TestShell.Editor,
+                TestShell.Project);
+
+            bool closed = await packageHandler.HandleProjectCloseChoice(
+                FAContentDialogResult.Primary,
+                project);
+
+            int commitsAfter = await CountCommitsAsync(gitPath, projectRoot);
+            int closeSnapshots = await CountCloseSnapshotsAsync(gitPath, projectRoot);
+            string committedProject = await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "show",
+                $"HEAD:{Path.GetFileName(projectFile)}");
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.True);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(commitsAfter, Is.EqualTo(commitsBefore));
+                Assert.That(closeSnapshots, Is.Zero);
+                // The project file also names the scene after the project, so look for the value.
+                Assert.That(committedProject, Does.Not.Contain("autosaved before the close"));
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Package_save_and_close_notifies_version_control_before_retirement()
     {
         await TestReset.ResetShellAsync();

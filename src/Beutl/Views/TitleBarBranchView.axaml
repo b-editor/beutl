@@ -88,6 +88,13 @@
                                                        Classes="branchName"
                                                        Text="{Binding Name}"
                                                        TextTrimming="CharacterEllipsis" />
+                                            <TextBlock x:Name="RemoteBranchMark"
+                                                       Grid.Column="1"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                       IsVisible="{Binding IsRemote}"
+                                                       Text="{x:Static lang:Strings.VersionControl_RemoteBranch}" />
                                             <icons:FluentIcon x:Name="CurrentBranchMark"
                                                               Grid.Column="1"
                                                               HorizontalAlignment="Right"

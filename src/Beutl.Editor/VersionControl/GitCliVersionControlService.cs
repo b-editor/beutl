@@ -134,7 +134,8 @@ internal sealed class GitCliVersionControlService :
 
     private sealed record PullFetchTarget(
         IReadOnlyList<string> Arguments,
-        string UpstreamRef);
+        string UpstreamRef,
+        RemoteOpResult? Refusal = null);
 
     private sealed record BranchUpstreamConfiguration(
         string RemoteName,
@@ -153,18 +154,28 @@ internal sealed class GitCliVersionControlService :
 
     private sealed class HeadOwnershipLease : IDisposable
     {
+        // The reftable backend keeps HEAD in its tables and leaves this placeholder in the HEAD file,
+        // so only Git can say which branch such a worktree has checked out. HEAD.lock does not stop
+        // that backend from moving HEAD either, so there the check before each ref update is the guard.
+        private const string ReftableHeadPlaceholder = "ref: refs/heads/.invalid\n";
         private readonly Action<Exception>? _releaseFailureSink;
+        private readonly RepositoryInfo _repository;
+        private readonly IGitCliRunner _runner;
         private readonly string _headPath;
         private readonly string _expectedRefName;
         private FileStream? _stream;
 
         private HeadOwnershipLease(
+            RepositoryInfo repository,
+            IGitCliRunner runner,
             string headPath,
             string expectedRefName,
             string lockPath,
             FileStream stream,
             Action<Exception>? releaseFailureSink)
         {
+            _repository = repository;
+            _runner = runner;
             _headPath = headPath;
             _expectedRefName = expectedRefName;
             LockPath = lockPath;
@@ -174,10 +185,13 @@ internal sealed class GitCliVersionControlService :
 
         public string LockPath { get; }
 
-        public static HeadOwnershipLease Acquire(
+        public static async Task<HeadOwnershipLease> AcquireAsync(
+            RepositoryInfo repository,
+            IGitCliRunner runner,
             string headPath,
             string expectedRefName,
-            Action<Exception>? releaseFailureSink)
+            Action<Exception>? releaseFailureSink,
+            CancellationToken cancellationToken)
         {
             string lockPath = headPath + ".lock";
             FileStream stream;
@@ -199,6 +213,8 @@ internal sealed class GitCliVersionControlService :
             }
 
             var lease = new HeadOwnershipLease(
+                repository,
+                runner,
                 headPath,
                 expectedRefName,
                 lockPath,
@@ -206,7 +222,7 @@ internal sealed class GitCliVersionControlService :
                 releaseFailureSink);
             try
             {
-                lease.VerifyStillOwned();
+                await lease.VerifyStillOwnedAsync(cancellationToken).ConfigureAwait(false);
                 return lease;
             }
             catch
@@ -216,16 +232,39 @@ internal sealed class GitCliVersionControlService :
             }
         }
 
-        public void VerifyStillOwned()
+        public async Task VerifyStillOwnedAsync(CancellationToken cancellationToken)
         {
             if (_stream is null)
             {
                 throw new ObjectDisposedException(nameof(HeadOwnershipLease));
             }
 
-            string expected = $"ref: {_expectedRefName}\n";
             string actual = File.ReadAllText(_headPath, new UTF8Encoding(false));
-            if (!string.Equals(actual, expected, StringComparison.Ordinal))
+            if (string.Equals(actual, $"ref: {_expectedRefName}\n", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (!string.Equals(actual, ReftableHeadPlaceholder, StringComparison.Ordinal))
+            {
+                throw new ProjectCheckpointStateChangedException();
+            }
+
+            GitCommandResult symbolicRef;
+            try
+            {
+                symbolicRef = await _runner.RunAsync(
+                    _repository,
+                    ["symbolic-ref", "--quiet", "HEAD"],
+                    GitCommandOptions.Local,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (GitOperationException ex) when (ex.ExitCode == 1)
+            {
+                throw new ProjectCheckpointStateChangedException();
+            }
+
+            if (!string.Equals(symbolicRef.Stdout.Trim(), _expectedRefName, StringComparison.Ordinal))
             {
                 throw new ProjectCheckpointStateChangedException();
             }
@@ -265,6 +304,8 @@ internal sealed class GitCliVersionControlService :
     private const string LfsQuotaNoticeConfigKeyPrefix = "beutl.lfsQuotaNoticeShown-";
     private const string LargeMediaNoticeConfigKeyPrefix = "beutl.largeMediaNoticeShown-";
     private const string MissingIdentityNoticeConfigKeyPrefix = "beutl.missingIdentityNoticeShown-";
+    private const string LfsInstallFailedNoticeConfigKeyPrefix = "beutl.lfsInstallFailedNoticeShown-";
+    private static readonly string[] s_lfsHookNames = ["pre-push", "post-checkout", "post-commit", "post-merge"];
     private const string PullSafetyCommitMessage = "beutl: safety snapshot before pull";
     private const string ManagedLfsBeginMarker = "# BEGIN BEUTL MANAGED LFS";
     private const string ManagedLfsEndMarker = "# END BEUTL MANAGED LFS";
@@ -367,16 +408,10 @@ internal sealed class GitCliVersionControlService :
         return s_mediaExtensions.Contains(Path.GetExtension(path));
     }
 
-    private static readonly HashSet<string> s_projectFileExtensions = new(
-        [".bep", ".scene", ".belm"],
-        StringComparer.OrdinalIgnoreCase);
-
+    // Beutl writes these itself, so they are checked by name. Every other file the project needs is in
+    // its reference graph and checked there, which leaves out files the project no longer uses.
     private static readonly string[] s_ignoredRequiredProjectPathspecSuffixes =
     [
-        "**/*.[bB][eE][pP]",
-        "**/*.[sS][cC][eE][nN][eE]",
-        "**/*.[bB][eE][lL][mM]",
-        "**/[rR][eE][sS][oO][uU][rR][cC][eE][sS]/**",
         ".gitignore",
         ".gitattributes",
     ];
@@ -1061,9 +1096,14 @@ internal sealed class GitCliVersionControlService :
     private readonly Func<string, IGitCliRunner> _runnerFactory;
     private readonly Func<bool> _isWorktreeMutationAllowed;
     private readonly string? _projectFile;
+    // The LFS setting the last hygiene run applied, which tells a change made while the project is
+    // open apart from a machine where LFS was never on.
+    private bool? _lastLfsRequested;
+    private bool _hygieneDeferred;
     private readonly Dictionary<string, IReadOnlySet<string>> _historicalRequiredTemporaryPaths =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
+    private readonly Func<CancellationToken, Task<GitIdentity?>>? _identityRequest;
     private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileReplace;
     private readonly Func<string, CancellationToken, Task>? _beforeFileCommit;
     private readonly Func<string, CancellationToken, Task>? _afterFileExchange;
@@ -1100,6 +1140,7 @@ internal sealed class GitCliVersionControlService :
             isWorktreeMutationAllowed: static () => true,
             projectFile: null,
             policyNoticeSink: null,
+            identityRequest: null,
             beforeHygieneFileReplace: null,
             beforeFileCommit: null,
             afterFileExchange: null,
@@ -1116,7 +1157,8 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo? repository,
         Func<bool> isWorktreeMutationAllowed,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
-        string? projectFile = null)
+        string? projectFile = null,
+        Func<CancellationToken, Task<GitIdentity?>>? identityRequest = null)
         : this(
             installationLocator,
             repository,
@@ -1126,6 +1168,7 @@ internal sealed class GitCliVersionControlService :
             isWorktreeMutationAllowed: isWorktreeMutationAllowed,
             projectFile: projectFile,
             policyNoticeSink: policyNoticeSink,
+            identityRequest: identityRequest,
             beforeHygieneFileReplace: null,
             beforeFileCommit: null,
             afterFileExchange: null,
@@ -1151,16 +1194,19 @@ internal sealed class GitCliVersionControlService :
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
         Action<Action>? statusNotificationScheduler = null,
         Action<Action>? lockNotificationScheduler = null,
-        string? projectFile = null)
+        string? projectFile = null,
+        Func<CancellationToken, Task<GitIdentity?>>? identityRequest = null,
+        Func<bool>? isWorktreeMutationAllowed = null)
         : this(
             installationLocator,
             repository,
             watcher,
             runnerFactory,
             createWatcherWhenRepositoryAvailable: false,
-            isWorktreeMutationAllowed: static () => true,
+            isWorktreeMutationAllowed: isWorktreeMutationAllowed ?? (static () => true),
             projectFile: projectFile,
             policyNoticeSink,
+            identityRequest: identityRequest,
             beforeHygieneFileReplace: beforeHygieneFileReplace,
             beforeFileCommit: beforeFileCommit,
             afterFileExchange: afterFileExchange,
@@ -1181,6 +1227,7 @@ internal sealed class GitCliVersionControlService :
         Func<bool> isWorktreeMutationAllowed,
         string? projectFile,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink,
+        Func<CancellationToken, Task<GitIdentity?>>? identityRequest,
         Func<string, CancellationToken, Task>? beforeHygieneFileReplace,
         Func<string, CancellationToken, Task>? beforeFileCommit,
         Func<string, CancellationToken, Task>? afterFileExchange,
@@ -1207,6 +1254,7 @@ internal sealed class GitCliVersionControlService :
                                          nameof(isWorktreeMutationAllowed));
         _projectFile = projectFile is null ? null : Path.GetFullPath(projectFile);
         _policyNoticeSink = policyNoticeSink;
+        _identityRequest = identityRequest;
         _beforeHygieneFileReplace = beforeHygieneFileReplace;
         _beforeFileCommit = beforeFileCommit;
         _afterFileExchange = afterFileExchange;
@@ -1291,31 +1339,49 @@ internal sealed class GitCliVersionControlService :
     {
         ThrowIfDisposed();
         return RunSerializedAsync(
-            async () =>
-            {
-                RepositoryInfo repository = GetRepository();
-                (GitAvailability availability, IGitCliRunner? runner)
-                    = await GetGitRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
-                if (availability.State != GitAvailabilityState.Installed || runner is null)
-                {
-                    throw new InvalidOperationException("Git is not available.");
-                }
-
-                await EnsureRepositoryHygienePreflightCoreAsync(
-                        repository,
-                        runner,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                bool useLfs = _installationLocator.Config.UseLfsWhenAvailable
-                              && availability.LfsInstalled;
-                await EnsureRepositoryHygieneCoreAsync(
-                        repository,
-                        runner,
-                        useLfs,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            },
+            () => EnsureRepositoryHygieneSerializedCoreAsync(cancellationToken),
             cancellationToken);
+    }
+
+    private async Task EnsureRepositoryHygieneSerializedCoreAsync(CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        (GitAvailability availability, IGitCliRunner? runner)
+            = await GetGitRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
+        if (availability.State != GitAvailabilityState.Installed || runner is null)
+        {
+            throw new InvalidOperationException("Git is not available.");
+        }
+
+        try
+        {
+            await EnsureRepositoryHygienePreflightCoreAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+            when (ex is VersionControlConflictedException or DetachedHeadNotSupportedException)
+        {
+            // Opening keeps such a repository tracked until the state is resolved outside Beutl, so the
+            // next commit finishes this hygiene instead of recording a snapshot without it.
+            _hygieneDeferred = true;
+            throw;
+        }
+
+        bool lfsRequested = _installationLocator.Config.UseLfsWhenAvailable;
+        await EnsureRepositoryHygieneCoreAsync(
+                repository,
+                runner,
+                lfsRequested && availability.LfsInstalled,
+                // Every machine using this repository shares the block. Only turning the
+                // setting off while the project is open is a decision about it.
+                removeManagedLfs: !lfsRequested && _lastLfsRequested == true,
+                cancellationToken)
+            .ConfigureAwait(false);
+        _lastLfsRequested = lfsRequested;
+        _hygieneDeferred = false;
     }
 
     public Task<bool> HasVersionTrackingOptInAsync(
@@ -1326,6 +1392,17 @@ internal sealed class GitCliVersionControlService :
         ArgumentNullException.ThrowIfNull(repository);
         return RunSerializedAsync(
             () => HasVersionTrackingOptInCoreAsync(repository, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<bool> HasCheckedOutCommitAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(repository);
+        return RunSerializedAsync(
+            () => HasCheckedOutCommitCoreAsync(repository, cancellationToken),
             cancellationToken);
     }
 
@@ -1835,6 +1912,7 @@ internal sealed class GitCliVersionControlService :
     internal static WorkspaceStatus ParseStatus(string output)
     {
         string? branch = null;
+        bool isDetachedHead = false;
         int ahead = 0;
         int behind = 0;
         bool hasConflicts = false;
@@ -1847,7 +1925,8 @@ internal sealed class GitCliVersionControlService :
             if (record.StartsWith("# branch.head ", StringComparison.Ordinal))
             {
                 string head = record["# branch.head ".Length..];
-                branch = head == "(detached)" ? null : head;
+                isDetachedHead = head == "(detached)";
+                branch = isDetachedHead ? null : head;
             }
             else if (record.StartsWith("# branch.ab ", StringComparison.Ordinal))
             {
@@ -1901,7 +1980,7 @@ internal sealed class GitCliVersionControlService :
             }
         }
 
-        return new WorkspaceStatus(branch, ahead, behind, changes, hasConflicts);
+        return new WorkspaceStatus(branch, ahead, behind, changes, hasConflicts, isDetachedHead);
     }
 
     internal static IReadOnlyList<CommitInfo> ParseHistory(string output)
@@ -1991,6 +2070,35 @@ internal sealed class GitCliVersionControlService :
                 fields[0],
                 fields[1].Trim() == "*",
                 string.IsNullOrEmpty(upstream) ? null : upstream));
+        }
+
+        return branches;
+    }
+
+    // Branches that so far exist only on origin, the one remote Beutl works with, which git switch also
+    // offers to check out. origin/HEAD only names the remote's default branch.
+    internal static IReadOnlyList<BranchInfo> ParseOriginOnlyBranches(
+        string output,
+        IReadOnlyList<BranchInfo> localBranches)
+    {
+        var branches = new List<BranchInfo>();
+        foreach (string record in output
+                     .Replace("\r\n", "\n", StringComparison.Ordinal)
+                     .Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string[] fields = record.Split('\0');
+            if (fields.Length < 2
+                || fields[1].Length > 0
+                || !fields[0].StartsWith(OriginRefPrefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string name = fields[0][OriginRefPrefix.Length..];
+            if (name.Length > 0 && !ContainsLocalBranch(localBranches, name))
+            {
+                branches.Add(new BranchInfo(name, IsCurrent: false, UpstreamName: null, IsRemote: true));
+            }
         }
 
         return branches;
@@ -2800,11 +2908,10 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         string branchName = recovery.RecoveryBranchName;
-        string branchRef = $"refs/heads/{branchName}";
         string? existing = await TryResolveCommitAsync(
                 repository,
                 runner,
-                branchRef,
+                $"refs/heads/{branchName}",
                 cancellationToken)
             .ConfigureAwait(false);
         if (string.Equals(
@@ -2821,42 +2928,81 @@ internal sealed class GitCliVersionControlService :
                 $"The recovery branch '{branchName}' already identifies another commit.");
         }
 
-        try
+        // A branch such as beutl takes the path the usual name needs, so Git refuses to create it and the
+        // checkpoint goes on a later name. A later name that already holds it is an earlier attempt's.
+        IReadOnlyList<string> candidates = recovery.RecoveryBranchNameCandidates;
+        var occupied = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string candidate in candidates.Skip(1))
         {
-            await runner.RunAsync(
-                repository,
-                [
-                    "update-ref",
-                    "--create-reflog",
-                    "-m",
-                    "beutl preserve pending pull checkpoint",
-                    branchRef,
-                    recovery.Checkpoint.Commit,
-                    string.Empty,
-                ],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception publicationException)
-        {
-            existing = await TryResolveCommitAsync(
+            string? preserved = await TryResolveCommitAsync(
                     repository,
                     runner,
-                    branchRef,
-                    CancellationToken.None)
+                    $"refs/heads/{candidate}",
+                    cancellationToken)
                 .ConfigureAwait(false);
-            if (!string.Equals(
-                    existing,
+            if (string.Equals(
+                    preserved,
                     recovery.Checkpoint.Commit,
                     StringComparison.OrdinalIgnoreCase))
             {
-                throw new AggregateException(
-                    $"The recovery branch '{branchName}' could not be published safely.",
-                    publicationException);
+                return candidate;
+            }
+
+            if (preserved is not null)
+            {
+                occupied.Add(candidate);
             }
         }
 
-        return branchName;
+        var publicationFailures = new List<Exception>();
+        foreach (string candidate in candidates)
+        {
+            if (occupied.Contains(candidate))
+            {
+                continue;
+            }
+
+            string branchRef = $"refs/heads/{candidate}";
+            try
+            {
+                await runner.RunAsync(
+                    repository,
+                    [
+                        "update-ref",
+                        "--create-reflog",
+                        "-m",
+                        "beutl preserve pending pull checkpoint",
+                        branchRef,
+                        recovery.Checkpoint.Commit,
+                        string.Empty,
+                    ],
+                    GitCommandOptions.Local,
+                    cancellationToken).ConfigureAwait(false);
+                return candidate;
+            }
+            catch (Exception publicationException)
+            {
+                string? published = await TryResolveCommitAsync(
+                        repository,
+                        runner,
+                        branchRef,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                if (string.Equals(
+                        published,
+                        recovery.Checkpoint.Commit,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return candidate;
+                }
+
+                publicationFailures.Add(publicationException);
+            }
+        }
+
+        throw new AggregateException(
+            $"The recovery branch '{branchName}' could not be published safely.",
+            publicationFailures);
     }
 
     private async Task<bool> TryReapplyCheckpointToExternallyOwnedTipAsync(
@@ -4069,12 +4215,16 @@ internal sealed class GitCliVersionControlService :
                 "HEAD",
                 cancellationToken)
             .ConfigureAwait(false);
-        HeadOwnershipLease lease = HeadOwnershipLease.Acquire(
-            headPath,
-            branchRef,
-            ex => LogWarningBestEffort(
-                ex,
-                "Failed to release the protected Git HEAD lock after a snapshot operation."));
+        HeadOwnershipLease lease = await HeadOwnershipLease.AcquireAsync(
+                repository,
+                runner,
+                headPath,
+                branchRef,
+                ex => LogWarningBestEffort(
+                    ex,
+                    "Failed to release the protected Git HEAD lock after a snapshot operation."),
+                cancellationToken)
+            .ConfigureAwait(false);
         try
         {
             string? currentBranchTip = await TryResolveCommitAsync(
@@ -4122,8 +4272,31 @@ internal sealed class GitCliVersionControlService :
             .ConfigureAwait(false);
         if (entries.StdoutTruncated)
         {
-            throw new InvalidOperationException(
-                "Git could not safely inspect the complete project tree for nested repositories.");
+            // Each entry of the full listing carries an object name and a path, so a large project,
+            // such as one holding a rendered frame sequence, overflows it long before a nested
+            // repository matters. Modes alone stay small enough to scan the whole tree.
+            GitCommandResult modes = await runner.RunAsync(
+                    repository,
+                    ["ls-tree", "-r", "-z", "--format=%(objectmode)", tree, "--", repository.Pathspec],
+                    GitCommandOptions.Local with
+                    {
+                        MaxStdoutBytes = MaxSnapshotTreeInspectionBytes,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (modes.StdoutTruncated)
+            {
+                throw new InvalidOperationException(
+                    "Git could not safely inspect the complete project tree for nested repositories.");
+            }
+
+            if (GitCliRunner.SplitNullSeparated(modes.Stdout).Contains("160000", StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    "The project tree contains a nested Git repository that cannot be snapshotted safely.");
+            }
+
+            return;
         }
 
         string? gitlink = GitCliRunner.SplitNullSeparated(entries.Stdout)
@@ -4372,11 +4545,15 @@ internal sealed class GitCliVersionControlService :
             arguments.Add(messagePath);
 
             cancellationToken.ThrowIfCancellationRequested();
+            // A signer may wait for a passphrase, so a signed commit runs without the local timeout and
+            // stays cancellable. Nothing is published before the commit object exists.
             GitCommandResult commit = await runner.RunAsync(
                     repository,
                     arguments,
-                    hookOptions,
-                    CancellationToken.None)
+                    signCommit
+                        ? hookOptions with { ExecutionKind = GitCommandExecutionKind.LocalUnbounded }
+                        : hookOptions,
+                    signCommit ? cancellationToken : CancellationToken.None)
                 .ConfigureAwait(false);
             string commitId = commit.Stdout.Trim();
             GitRevisionValidator.ValidateCommitId(commitId, nameof(commitId));
@@ -4838,10 +5015,12 @@ internal sealed class GitCliVersionControlService :
 
         async Task RunHookCoreAsync()
         {
+            // Hooks are the user's own programs and can legitimately run long, so only cancellation
+            // stops them, as with git commit.
             await runner.RunAsync(
                     repository,
                     arguments,
-                    options,
+                    options with { ExecutionKind = GitCommandExecutionKind.LocalUnbounded },
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -4851,7 +5030,8 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo repository,
         IGitCliRunner runner,
         SnapshotCommit commit,
-        string indexPath)
+        string indexPath,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -4874,24 +5054,25 @@ internal sealed class GitCliVersionControlService :
                             ["GIT_COMMITTER_EMAIL"] = commit.Committer.Email,
                             ["GIT_COMMITTER_DATE"] = commit.Committer.Date,
                         }),
-                    CancellationToken.None)
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // post-commit cannot reject a commit that is already durable. Match Git's one-way
-            // lifecycle: report the hook failure for diagnostics without making callers retry.
+            // lifecycle: report the hook failure, or its cancellation, for diagnostics without making
+            // callers retry.
             LogWarningBestEffort(
                 ex,
                 "The post-commit hook failed after the snapshot commit became durable.");
         }
     }
 
-    private bool ReleaseSnapshotHeadLeaseForPostCommit(HeadOwnershipLease headLease)
+    private async Task<bool> ReleaseSnapshotHeadLeaseForPostCommitAsync(HeadOwnershipLease headLease)
     {
         try
         {
-            headLease.VerifyStillOwned();
+            await headLease.VerifyStillOwnedAsync(CancellationToken.None).ConfigureAwait(false);
             return true;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -5262,7 +5443,7 @@ internal sealed class GitCliVersionControlService :
                     CancellationToken.None)
                 .ConfigureAwait(false);
 
-            headLease.VerifyStillOwned();
+            await headLease.VerifyStillOwnedAsync(cancellationToken).ConfigureAwait(false);
             await EnsureNoExternalRepositoryOperationAsync(
                     repository,
                     runner,
@@ -5286,7 +5467,7 @@ internal sealed class GitCliVersionControlService :
                 .ConfigureAwait(false);
             try
             {
-                headLease.VerifyStillOwned();
+                await headLease.VerifyStillOwnedAsync(CancellationToken.None).ConfigureAwait(false);
                 await PublishSnapshotCommitAsync(
                         refUpdateRepository,
                         runner,
@@ -5473,6 +5654,27 @@ internal sealed class GitCliVersionControlService :
             repository,
             ["status", "--porcelain=v1", "--untracked-files=all", "-z"],
             GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        return result.Stdout.Length == 0;
+    }
+
+    private static async Task<bool> IsOutsideProjectCleanAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            [
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+                "-z",
+                "--",
+                ":/",
+                $":(top,exclude,literal){repository.Pathspec}",
+            ],
+            new GitCommandOptions(GitCommandExecutionKind.Local) { UseLiteralPathspecs = false },
             cancellationToken).ConfigureAwait(false);
         return result.Stdout.Length == 0;
     }
@@ -5730,12 +5932,16 @@ internal sealed class GitCliVersionControlService :
         bool mutationStarted = false;
         try
         {
-            using HeadOwnershipLease lease = HeadOwnershipLease.Acquire(
-                headPath,
-                currentHead.RefName,
-                ex => LogWarningBestEffort(
-                    ex,
-                    "Failed to release the protected Git HEAD lock."));
+            using HeadOwnershipLease lease = await HeadOwnershipLease.AcquireAsync(
+                    repository,
+                    runner,
+                    headPath,
+                    currentHead.RefName,
+                    ex => LogWarningBestEffort(
+                        ex,
+                        "Failed to release the protected Git HEAD lock."),
+                    CancellationToken.None)
+                .ConfigureAwait(false);
             CheckedOutBranchTip actualHead = await GetCheckedOutBranchTipCoreAsync(
                     repository,
                     runner,
@@ -5898,6 +6104,7 @@ internal sealed class GitCliVersionControlService :
                             .ConfigureAwait(false));
                 }
 
+                await lease.VerifyStillOwnedAsync(CancellationToken.None).ConfigureAwait(false);
                 await EnsureNoExternalRepositoryOperationAsync(
                         repository,
                         runner,
@@ -6701,6 +6908,21 @@ internal sealed class GitCliVersionControlService :
     private async Task<IReadOnlyList<BranchInfo>> GetBranchesCoreAsync(
         CancellationToken cancellationToken)
     {
+        IReadOnlyList<BranchInfo> localBranches = await GetLocalBranchesCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            ["for-each-ref", "--format=%(refname)%00%(symref)", OriginRefPrefix],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        return [.. localBranches, .. ParseOriginOnlyBranches(result.Stdout, localBranches)];
+    }
+
+    private async Task<IReadOnlyList<BranchInfo>> GetLocalBranchesCoreAsync(
+        CancellationToken cancellationToken)
+    {
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         GitCommandResult result = await runner.RunAsync(
@@ -6739,7 +6961,7 @@ internal sealed class GitCliVersionControlService :
                 return false;
             }
 
-            IReadOnlyList<BranchInfo> branches = await GetBranchesCoreAsync(cancellationToken)
+            IReadOnlyList<BranchInfo> branches = await GetLocalBranchesCoreAsync(cancellationToken)
                 .ConfigureAwait(false);
             StringComparison branchNameComparison = await UsesCaseInsensitiveFilesRefStorageAsync(
                     repository,
@@ -6793,15 +7015,144 @@ internal sealed class GitCliVersionControlService :
         }
 
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
-        EnsureWorktreeMutationAllowed();
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-        await runner.RunAsync(
-            repository,
-            [.. s_lfsPathFilterOverrides, "switch", "--no-overwrite-ignore", "-c", name, startPoint],
-            new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
-            cancellationToken).ConfigureAwait(false);
+        // An abbreviated ID is a valid start point, but HEAD reads back as a full ID, so the comparison,
+        // the switch and the cleanup all use the commit the start point resolves to.
+        string startCommit = await TryResolveCommitAsync(repository, runner, startPoint, cancellationToken)
+                .ConfigureAwait(false)
+            ?? throw new ArgumentException(
+                "The start point must identify a commit in the repository.",
+                nameof(startPoint));
+        // Like git switch -c, a branch that starts at the checked-out commit changes no file, so it does
+        // not need the project to be closed. Any other start point rewrites the worktree.
+        bool projectOpen = !_isWorktreeMutationAllowed();
+        if (projectOpen)
+        {
+            CheckedOutBranchTip head = await GetCheckedOutBranchTipCoreAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!string.Equals(head.Commit, startCommit, StringComparison.OrdinalIgnoreCase))
+            {
+                EnsureWorktreeMutationAllowed();
+            }
+        }
+
+        // With the project open, the switch would still run a post-checkout hook, which can rewrite
+        // project files behind the editors, so hooks stay off for it. As one command, the switch also
+        // keeps HEAD, the index and the files on one commit when another Git process moves HEAD after
+        // the check above.
+        string[] hooksOverride = projectOpen ? ["-c", "core.hooksPath=/dev/null"] : [];
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                [
+                    .. s_lfsPathFilterOverrides,
+                    .. hooksOverride,
+                    "switch",
+                    "--no-overwrite-ignore",
+                    "-c",
+                    name,
+                    startCommit,
+                ],
+                new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitOperationException ex) when (ex.Stderr.Contains("already exists", StringComparison.Ordinal))
+        {
+            // Another Git process created the branch after the name check, so the switch created nothing
+            // and the branch it found is not this attempt's to remove.
+            throw;
+        }
+        catch (Exception switchFailure)
+        {
+            // git switch -c creates the branch before it moves HEAD, so a failed switch can leave the
+            // branch behind, and a retry would find the name taken. Once HEAD has moved, a switch with
+            // hooks off has done all its work; with hooks on, the post-checkout hook can still fail it.
+            bool headMoved = await RemoveBranchUnlessHeadMovedAsync(
+                    repository,
+                    runner,
+                    $"refs/heads/{name}",
+                    startCommit,
+                    switchFailure)
+                .ConfigureAwait(false);
+            if (!headMoved || !projectOpen)
+            {
+                throw;
+            }
+        }
+
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+    }
+
+    // Returns true when HEAD reached the branch even though the switch reported failure. Otherwise the
+    // branch goes, but only while it still points at the commit this attempt created it on; when HEAD
+    // cannot be read, the branch stays rather than leaving HEAD on a deleted ref.
+    private static async Task<bool> RemoveBranchUnlessHeadMovedAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string branchRef,
+        string startPoint,
+        Exception switchFailure)
+    {
+        string headRef;
+        try
+        {
+            GitCommandResult symbolicRef = await runner.RunAsync(
+                    repository,
+                    ["symbolic-ref", "--quiet", "HEAD"],
+                    GitCommandOptions.Local,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            headRef = symbolicRef.Stdout.Trim();
+        }
+        catch (Exception ex) when (ex is GitOperationException or TimeoutException)
+        {
+            return false;
+        }
+
+        if (string.Equals(headRef, branchRef, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        // The switch can fail before it creates the branch, as when another Git process holds the
+        // index, and then there is nothing to remove.
+        try
+        {
+            await runner.RunAsync(
+                    repository,
+                    ["rev-parse", "--verify", "--quiet", branchRef],
+                    GitCommandOptions.Local,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is GitOperationException or TimeoutException)
+        {
+            return false;
+        }
+
+        try
+        {
+            await runner.RunAsync(
+                    repository,
+                    ["update-ref", "-d", branchRef, startPoint],
+                    GitCommandOptions.Local,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception cleanupFailure)
+        {
+            throw new AggregateException(
+                $"Switching to the new branch '{branchRef}' failed, and the branch could not be removed.",
+                switchFailure,
+                cleanupFailure);
+        }
+
+        return false;
     }
 
     public Task<IReadOnlyList<string>> GetTrackedReservedPathsAsync(
@@ -6849,14 +7200,22 @@ internal sealed class GitCliVersionControlService :
             cancellationToken);
     }
 
-    private static bool IsReservedProjectPath(string repositoryRelativePath)
+    private static bool IsReservedProjectPath(RepositoryInfo repository, string repositoryRelativePath)
     {
         if (repositoryRelativePath.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
-        foreach (string segment in repositoryRelativePath.Split('/'))
+        // Only the part inside the project decides. A .beutl folder above the project in an enclosing
+        // repository is not Beutl state.
+        string projectRelativePath = repository.Pathspec != "."
+                                     && repositoryRelativePath.StartsWith(
+                                         repository.Pathspec + "/",
+                                         StringComparison.Ordinal)
+            ? repositoryRelativePath[(repository.Pathspec.Length + 1)..]
+            : repositoryRelativePath;
+        foreach (string segment in projectRelativePath.Split('/'))
         {
             if (string.Equals(segment, ".beutl", StringComparison.OrdinalIgnoreCase))
             {
@@ -6879,7 +7238,7 @@ internal sealed class GitCliVersionControlService :
             cancellationToken).ConfigureAwait(false);
         return listed.Stdout
             .Split('\0', StringSplitOptions.RemoveEmptyEntries)
-            .Where(IsReservedProjectPath)
+            .Where(path => IsReservedProjectPath(repository, path))
             .Where(path => !IsRequiredTemporaryRepositoryPath(repository, path))
             .ToArray();
     }
@@ -6972,12 +7331,16 @@ internal sealed class GitCliVersionControlService :
                     "HEAD",
                     cancellationToken)
                 .ConfigureAwait(false);
-            using HeadOwnershipLease headLease = HeadOwnershipLease.Acquire(
-                headPath,
-                expectedHead.RefName,
-                ex => LogWarningBestEffort(
-                    ex,
-                    "Failed to release the protected Git HEAD lock while untracking reserved project paths."));
+            using HeadOwnershipLease headLease = await HeadOwnershipLease.AcquireAsync(
+                    repository,
+                    runner,
+                    headPath,
+                    expectedHead.RefName,
+                    ex => LogWarningBestEffort(
+                        ex,
+                        "Failed to release the protected Git HEAD lock while untracking reserved project paths."),
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             temporaryIndex = Path.Combine(
                 Path.GetTempPath(),
@@ -7434,15 +7797,22 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private Task PrefetchBranchLfsObjectsCoreAsync(
+    private async Task PrefetchBranchLfsObjectsCoreAsync(
         string name,
         CancellationToken cancellationToken)
     {
         ValidateSwitchBranchName(name);
-        return PrefetchLfsObjectsCoreAsync(
-            name,
-            LfsPrefetchScope.RepositoryWide,
-            cancellationToken);
+        IReadOnlyList<BranchInfo> branches = await GetBranchesCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        // A branch only origin has so far is checked out from its remote-tracking ref.
+        string reference = !ContainsLocalBranch(branches, name) && ContainsOriginOnlyBranch(branches, name)
+            ? $"{OriginRefPrefix}{name}"
+            : name;
+        await PrefetchLfsObjectsCoreAsync(
+                reference,
+                LfsPrefetchScope.RepositoryWide,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private Task PrefetchCommitLfsObjectsCoreAsync(
@@ -8200,18 +8570,34 @@ internal sealed class GitCliVersionControlService :
         EnsureWorktreeMutationAllowed();
         IReadOnlyList<BranchInfo> branches = await GetBranchesCoreAsync(cancellationToken)
             .ConfigureAwait(false);
-        if (!ContainsLocalBranch(branches, name))
+        bool originOnly = !ContainsLocalBranch(branches, name);
+        if (originOnly
+            && (!ContainsOriginOnlyBranch(branches, name)
+                || !await CanCreateBranchCoreAsync(name, cancellationToken).ConfigureAwait(false)))
         {
             throw new ArgumentException(
-                "The branch must exactly name an existing local branch.",
+                "The branch must exactly name an existing local branch or a branch only origin has.",
                 nameof(name));
         }
 
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        // As git switch does for a branch only one remote has, create the local branch tracking it.
+        IReadOnlyList<string> arguments = originOnly
+            ?
+            [
+                .. s_lfsPathFilterOverrides,
+                "switch",
+                "--no-overwrite-ignore",
+                "-c",
+                name,
+                "--track",
+                $"{OriginRefPrefix}{name}",
+            ]
+            : [.. s_lfsPathFilterOverrides, "switch", "--no-overwrite-ignore", name];
         await runner.RunAsync(
             repository,
-            [.. s_lfsPathFilterOverrides, "switch", "--no-overwrite-ignore", name],
+            arguments,
             new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
             cancellationToken).ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
@@ -8233,7 +8619,17 @@ internal sealed class GitCliVersionControlService :
         string name)
     {
         return branches.Any(branch =>
-            string.Equals(branch.Name, name, StringComparison.Ordinal));
+            !branch.IsRemote
+            && string.Equals(branch.Name, name, StringComparison.Ordinal));
+    }
+
+    private static bool ContainsOriginOnlyBranch(
+        IReadOnlyList<BranchInfo> branches,
+        string name)
+    {
+        return branches.Any(branch =>
+            branch.IsRemote
+            && string.Equals(branch.Name, name, StringComparison.Ordinal));
     }
 
     private static bool BranchNamesConflict(
@@ -8390,7 +8786,8 @@ internal sealed class GitCliVersionControlService :
         string url,
         CancellationToken cancellationToken)
     {
-        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+        // Like plain Git, configuring the remote and pushing leave the worktree and the index alone, so
+        // an unresolved conflict does not block them.
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         bool isFirstRemote = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count == 0;
@@ -8409,16 +8806,46 @@ internal sealed class GitCliVersionControlService :
                 runner,
                 async (stagingPath, updateCancellation) =>
                 {
+                    // Separate push URLs stay as the user configured them, as with git remote set-url. Earlier
+                    // Beutl versions also wrote the fetch URL as the push URL, and that copy would keep pushes
+                    // going to the old repository, so a push URL that only repeats the old fetch URL goes.
+                    string[] fetchUrls = await ReadStagedConfigValuesAsync("remote.origin.url");
+                    string[] pushUrls = await ReadStagedConfigValuesAsync("remote.origin.pushurl");
+                    if (fetchUrls.Length == 1
+                        && pushUrls.Length > 0
+                        && pushUrls.All(pushUrl => string.Equals(pushUrl, fetchUrls[0], StringComparison.Ordinal)))
+                    {
+                        await runner.RunAsync(
+                            repository,
+                            ["config", "--file", stagingPath, "--unset-all", "remote.origin.pushurl"],
+                            GitCommandOptions.Local,
+                            updateCancellation).ConfigureAwait(false);
+                    }
+
                     await runner.RunAsync(
                         repository,
                         ["config", "--file", stagingPath, "--replace-all", "remote.origin.url", url],
                         GitCommandOptions.Local,
                         updateCancellation).ConfigureAwait(false);
-                    await runner.RunAsync(
-                        repository,
-                        ["config", "--file", stagingPath, "--replace-all", "remote.origin.pushurl", url],
-                        GitCommandOptions.Local,
-                        updateCancellation).ConfigureAwait(false);
+
+                    async Task<string[]> ReadStagedConfigValuesAsync(string key)
+                    {
+                        try
+                        {
+                            GitCommandResult values = await runner.RunAsync(
+                                repository,
+                                ["config", "--file", stagingPath, "--get-all", key],
+                                GitCommandOptions.Local,
+                                updateCancellation).ConfigureAwait(false);
+                            return values.Stdout.Split(
+                                '\n',
+                                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        }
+                        catch (GitOperationException ex) when (ex.ExitCode == 1)
+                        {
+                            return [];
+                        }
+                    }
                 },
                 "remote update",
                 cancellationToken).ConfigureAwait(false);
@@ -8435,7 +8862,6 @@ internal sealed class GitCliVersionControlService :
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
-        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -8559,6 +8985,14 @@ internal sealed class GitCliVersionControlService :
                 expectedCurrent.RefName,
                 cancellationToken)
             .ConfigureAwait(false);
+        if (fetchTarget.Refusal is not null)
+        {
+            return new PullPreflightResult(
+                fetchTarget.Refusal,
+                RequiresTransition: false,
+                UpstreamCommit: null);
+        }
+
         try
         {
             await runner.RunAsync(
@@ -8620,6 +9054,19 @@ internal sealed class GitCliVersionControlService :
                 runner,
                 cancellationToken)
             .ConfigureAwait(false);
+
+        if (relation == PullRelation.LocalBehind
+            && repository.Pathspec != "."
+            && !await IsOutsideProjectCleanAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            // The pull refuses unrelated changes elsewhere in the repository, but only after the
+            // project has been closed for it. Report them while the project is still open.
+            return new PullPreflightResult(
+                new RemoteOpResult.RepositoryDirty(),
+                RequiresTransition: false,
+                UpstreamCommit: null);
+        }
 
         return relation switch
         {
@@ -8721,6 +9168,11 @@ internal sealed class GitCliVersionControlService :
                 expectedCurrent.RefName,
                 cancellationToken)
             .ConfigureAwait(false);
+        if (fetchTarget.Refusal is not null)
+        {
+            return new FastForwardPullResult(fetchTarget.Refusal, expectedCurrent);
+        }
+
         try
         {
             await runner.RunAsync(
@@ -9233,14 +9685,32 @@ internal sealed class GitCliVersionControlService :
         {
             Directory.CreateDirectory(projectRoot);
             Repository = repository;
+            // Follow init.defaultBranch as git init does. An invalid value makes git init itself fail, so
+            // main replaces it for that one command.
+            string? configuredBranch = await GetConfiguredInitialBranchAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            bool useConfiguredBranch = configuredBranch is not null
+                                       && await IsValidInitialBranchNameAsync(
+                                               repository,
+                                               runner,
+                                               configuredBranch,
+                                               cancellationToken)
+                                           .ConfigureAwait(false);
+            string[] initArguments = configuredBranch is null || useConfiguredBranch
+                ? ["init"]
+                : ["-c", "init.defaultBranch=main", "init"];
+            string initialBranch = useConfiguredBranch ? configuredBranch! : "main";
             await runner.RunAsync(
                 repository,
-                ["init"],
+                initArguments,
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
             await runner.RunAsync(
                 repository,
-                ["symbolic-ref", "HEAD", "refs/heads/main"],
+                ["symbolic-ref", "HEAD", $"refs/heads/{initialBranch}"],
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
 
@@ -9282,6 +9752,7 @@ internal sealed class GitCliVersionControlService :
         string ignorePath = Path.Combine(repository.ProjectRoot, ".gitignore");
         string attributesPath = Path.Combine(repository.ProjectRoot, ".gitattributes");
         bool useLfs = options.UseLfsWhenAvailable && availability.LfsInstalled;
+        bool removeManagedLfs = false;
         if (useLfs)
         {
             useLfs = await TryInstallLfsLocallyAsync(
@@ -9289,6 +9760,7 @@ internal sealed class GitCliVersionControlService :
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
+            removeManagedLfs = !useLfs;
         }
 
         await EnsureLinesAsync(
@@ -9299,8 +9771,10 @@ internal sealed class GitCliVersionControlService :
         await EnsureAttributesAsync(
                 attributesPath,
                 useLfs,
+                removeManagedLfs,
                 cancellationToken)
             .ConfigureAwait(false);
+        _lastLfsRequested = options.UseLfsWhenAvailable;
 
         WorkspaceStatus status = await GetStatusCoreAsync(
                 repository,
@@ -9384,13 +9858,14 @@ internal sealed class GitCliVersionControlService :
                         "beutl: initialize version control",
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (ReleaseSnapshotHeadLeaseForPostCommit(headLease))
+                if (await ReleaseSnapshotHeadLeaseForPostCommitAsync(headLease).ConfigureAwait(false))
                 {
                     await RunPostCommitHookBestEffortAsync(
                             repository,
                             runner,
                             commit,
-                            snapshot.IndexPath)
+                            snapshot.IndexPath,
+                            cancellationToken)
                         .ConfigureAwait(false);
                 }
             }
@@ -9460,6 +9935,7 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo repository,
         IGitCliRunner runner,
         bool useLfs,
+        bool removeManagedLfs,
         CancellationToken cancellationToken)
     {
         EnsureHygienePathsAreSafe(repository);
@@ -9474,6 +9950,9 @@ internal sealed class GitCliVersionControlService :
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
+            // Git LFS is installed but could not be enabled here, so its filters would commit
+            // pointers that no hook pushes.
+            removeManagedLfs |= !useLfs;
         }
 
         await EnsureLinesAsync(
@@ -9483,6 +9962,7 @@ internal sealed class GitCliVersionControlService :
         await EnsureAttributesAsync(
             attributesPath,
             useLfs,
+            removeManagedLfs,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -9491,6 +9971,14 @@ internal sealed class GitCliVersionControlService :
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
+        // A repository whose LFS filters and hooks are already in place, from its own setup or a
+        // machine-wide git lfs install, needs nothing written to it.
+        if (await IsLfsInstalledForRepositoryAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return true;
+        }
+
         try
         {
             await runner.RunAsync(
@@ -9509,6 +9997,174 @@ internal sealed class GitCliVersionControlService :
             LogWarningBestEffort(
                 ex,
                 "Git LFS could not be enabled locally; continuing without Beutl-managed LFS rules.");
+            await RaiseLfsInstallFailedNoticeIfNeededAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return false;
+        }
+    }
+
+    private static async Task<bool> IsLfsInstalledForRepositoryAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult filters;
+        try
+        {
+            filters = await runner.RunAsync(
+                repository,
+                ["config", "--get-regexp", "^filter\\.lfs\\."],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return false;
+        }
+
+        // A key alone does not run Git LFS: an empty or unrelated command leaves content unfiltered.
+        // Git uses the last value listed for a key.
+        var configuredFilters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string line in filters.Stdout.Split(
+                     '\n',
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            string[] fields = line.Split(' ', 2);
+            configuredFilters[fields[0]] = fields.Length > 1 ? fields[1] : string.Empty;
+        }
+
+        if (!RunsLfsCommand(configuredFilters, "filter.lfs.clean", "git-lfs clean")
+            || !RunsLfsCommand(configuredFilters, "filter.lfs.smudge", "git-lfs smudge")
+            || !RunsLfsCommand(configuredFilters, "filter.lfs.process", "git-lfs filter-process"))
+        {
+            return false;
+        }
+
+        GitCommandResult hooksRecord = await runner.RunAsync(
+            repository,
+            ["rev-parse", "--git-path", "hooks"],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        string hooksPath = hooksRecord.Stdout.TrimEnd('\r', '\n');
+        string hooksDirectory = Path.GetFullPath(
+            Path.IsPathFullyQualified(hooksPath)
+                ? hooksPath
+                : Path.Combine(repository.RepoRoot, hooksPath));
+        foreach (string hook in s_lfsHookNames)
+        {
+            string hookPath = Path.Combine(hooksDirectory, hook);
+            string contents;
+            try
+            {
+                // Git skips a hook it cannot execute, so the text of one proves nothing.
+                if (!OperatingSystem.IsWindows()
+                    && (File.GetUnixFileMode(hookPath) & UnixFileMode.UserExecute) == 0)
+                {
+                    return false;
+                }
+
+                contents = await File.ReadAllTextAsync(hookPath, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return false;
+            }
+
+            // Only a command runs; the same text in a comment does nothing.
+            string command = $"git lfs {hook}";
+            if (!contents.Split('\n').Any(line =>
+                    !line.TrimStart().StartsWith('#')
+                    && line.Contains(command, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool RunsLfsCommand(
+        IReadOnlyDictionary<string, string> configuredFilters,
+        string key,
+        string command)
+    {
+        return configuredFilters.TryGetValue(key, out string? value)
+               && value.Contains(command, StringComparison.Ordinal);
+    }
+
+    private async Task RaiseLfsInstallFailedNoticeIfNeededAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        string acknowledgementKey = LfsInstallFailedNoticeConfigKeyPrefix
+                                    + GetConfigKeyHash(repository.Pathspec);
+        if (await GetLocalBooleanConfigAsync(
+                repository,
+                runner,
+                acknowledgementKey,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        if (!await PresentPolicyNoticeAsync(
+                new VersionControlPolicyNotice.LfsInstallFailed(),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        await SetLocalConfigValueAsync(
+            repository,
+            runner,
+            acknowledgementKey,
+            "true",
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<string?> GetConfiguredInitialBranchAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                ["config", "--get", "init.defaultBranch"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            string name = result.Stdout.TrimEnd('\r', '\n');
+            return name.Length == 0 ? null : name;
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<bool> IsValidInitialBranchNameAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string name,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                ["check-ref-format", "--branch", name],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return string.Equals(result.Stdout.TrimEnd('\r', '\n'), name, StringComparison.Ordinal);
+        }
+        catch (GitOperationException)
+        {
             return false;
         }
     }
@@ -9643,6 +10299,11 @@ internal sealed class GitCliVersionControlService :
     {
         RepositoryInfo repository = GetRepository();
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+        if (_hygieneDeferred)
+        {
+            await EnsureRepositoryHygieneSerializedCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         try
         {
             ValidateProjectSnapshotLayout(repository.ProjectRoot);
@@ -9731,21 +10392,17 @@ internal sealed class GitCliVersionControlService :
             .ConfigureAwait(false);
         if (identity is null)
         {
-            if (kind != SnapshotKind.Manual)
+            if (kind == SnapshotKind.Manual)
             {
-                if (presentMissingIdentityNotice)
-                {
-                    await RaiseMissingIdentityNoticeIfNeededAsync(
-                            repository,
-                            runner,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-
-                return new CommitResult.SkippedNoIdentity();
+                throw new GitIdentityRequiredException();
             }
 
-            throw new GitIdentityRequiredException();
+            if (!presentMissingIdentityNotice
+                || !await TryRequestMissingIdentityAsync(repository, runner, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return new CommitResult.SkippedNoIdentity();
+            }
         }
 
         await RaiseLargeMediaNoticeIfNeededAsync(
@@ -9793,13 +10450,14 @@ internal sealed class GitCliVersionControlService :
                     $"beutl: {kind.ToString().ToLowerInvariant()} snapshot",
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (ReleaseSnapshotHeadLeaseForPostCommit(headLease))
+            if (await ReleaseSnapshotHeadLeaseForPostCommitAsync(headLease).ConfigureAwait(false))
             {
                 await RunPostCommitHookBestEffortAsync(
                         repository,
                         runner,
                         commit,
-                        snapshot.IndexPath)
+                        snapshot.IndexPath,
+                        cancellationToken)
                     .ConfigureAwait(false);
             }
         }
@@ -10655,6 +11313,35 @@ internal sealed class GitCliVersionControlService :
         return true;
     }
 
+    // An automatic snapshot has no dialog of its own, so the first one without an identity asks for it
+    // as a manual commit does, and the snapshot is recorded with the answer. A dismissal is not asked
+    // again: later snapshots are skipped with the one-time notice instead.
+    private async Task<bool> TryRequestMissingIdentityAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        string acknowledgementKey = MissingIdentityNoticeConfigKeyPrefix
+                                    + GetConfigKeyHash(repository.Pathspec);
+        if (_identityRequest is not null
+            && !await GetLocalBooleanConfigAsync(
+                    repository,
+                    runner,
+                    acknowledgementKey,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            && await _identityRequest(cancellationToken).ConfigureAwait(false) is { } identity)
+        {
+            await SetLocalIdentityCoreAsync(repository, runner, identity, cancellationToken)
+                .ConfigureAwait(false);
+            return true;
+        }
+
+        await RaiseMissingIdentityNoticeIfNeededAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        return false;
+    }
+
     private async Task RaiseMissingIdentityNoticeIfNeededAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
@@ -10730,8 +11417,11 @@ internal sealed class GitCliVersionControlService :
         }
 
         string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
+        // A placeholder per media type still shows whether media added later would go through LFS.
         string[] mediaPaths = GetRequiredProjectRelativePaths(repository.ProjectRoot)
             .Where(path => s_mediaExtensions.Contains(Path.GetExtension(path)))
+            .Concat(s_mediaExtensions.Select(static extension => $"resources/beutl-required-media{extension}"))
+            .Distinct(StringComparer.Ordinal)
             .Select(path => prefix + path)
             .ToArray();
         HashSet<string> coveredPaths = await GetEffectiveLfsPathsAsync(
@@ -10879,13 +11569,17 @@ internal sealed class GitCliVersionControlService :
     private async Task EnsureAttributesAsync(
         string path,
         bool useLfs,
+        bool removeManagedLfs,
         CancellationToken cancellationToken)
     {
         await UpdateHygieneFileAsync(
             path,
             lines =>
             {
-                int? managedBlockIndex = RemoveManagedLfsBlocks(lines);
+                // A machine that does not use LFS leaves a block another machine wrote alone.
+                int? managedBlockIndex = useLfs || removeManagedLfs
+                    ? RemoveManagedLfsBlocks(lines)
+                    : null;
                 foreach (string requiredLine in s_textAttributeLines)
                 {
                     if (!lines.Contains(requiredLine, StringComparer.Ordinal))
@@ -10944,6 +11638,29 @@ internal sealed class GitCliVersionControlService :
         }
         catch (GitOperationException)
         {
+            return false;
+        }
+    }
+
+    private async Task<bool> HasCheckedOutCommitCoreAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            // --quiet reports a revision that does not resolve, such as an unborn branch, as exit
+            // code 1 without output. Any other failure still surfaces to the caller.
             return false;
         }
     }
@@ -11588,7 +12305,9 @@ internal sealed class GitCliVersionControlService :
                              }))
             await using (var writer = new StreamWriter(
                              stream,
-                             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+                             snapshot.IsLegacyEncoded
+                                 ? Encoding.Latin1
+                                 : new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
             {
                 await writer.WriteAsync(contents.AsMemory(), cancellationToken)
                     .ConfigureAwait(false);
@@ -11641,21 +12360,25 @@ internal sealed class GitCliVersionControlService :
                 ? s_utf8Bom.Length
                 : 0;
             string contents;
+            bool isLegacyEncoded = false;
             try
             {
                 contents = s_strictUtf8.GetString(bytes.AsSpan(offset));
             }
-            catch (DecoderFallbackException ex)
+            catch (DecoderFallbackException)
             {
-                throw new InvalidDataException(
-                    $"Repository hygiene requires '{path}' to use UTF-8 encoding.",
-                    ex);
+                // Git reads these files as bytes, so a comment in a legacy encoding is valid. Latin-1
+                // maps each byte to one character and keeps those bytes intact around Beutl's lines.
+                contents = Encoding.Latin1.GetString(bytes);
+                isLegacyEncoded = true;
             }
 
             if (contents.Contains('\0'))
             {
+                // Git matches these files line by line on raw bytes, which a UTF-16 file defeats, and
+                // appending Beutl's ASCII lines would corrupt it further.
                 throw new InvalidDataException(
-                    $"Repository hygiene requires '{path}' to use UTF-8 encoding.");
+                    $"Repository hygiene cannot edit '{path}' because it contains NUL bytes.");
             }
 
             FileAttributes attributes = File.GetAttributes(path);
@@ -11670,7 +12393,8 @@ internal sealed class GitCliVersionControlService :
                 Exists: true,
                 contents,
                 attributes,
-                unixMode);
+                unixMode,
+                isLegacyEncoded);
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
@@ -11728,7 +12452,8 @@ internal sealed class GitCliVersionControlService :
         bool Exists,
         string? Contents,
         FileAttributes? Attributes,
-        UnixFileMode? UnixMode);
+        UnixFileMode? UnixMode,
+        bool IsLegacyEncoded = false);
 
     private static void EnsureHygienePathsAreSafe(RepositoryInfo repository)
     {
@@ -11770,7 +12495,8 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
-        var paths = GetRequiredProjectRelativePaths(repository.ProjectRoot)
+        var nestedRepositories = new List<string>();
+        var paths = GetRequiredProjectRelativePaths(repository.ProjectRoot, nestedRepositories)
             .Where(static path => !path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
             .Select(path => prefix + path)
             .ToList();
@@ -11779,12 +12505,23 @@ internal sealed class GitCliVersionControlService :
             paths.Add(repository.Pathspec + "/");
         }
 
+        await ThrowIfNestedRepositoryWouldBeStagedAsync(
+                repository,
+                runner,
+                prefix,
+                nestedRepositories,
+                environmentOverrides: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        // Git keeps committing a tracked file whatever the ignore rules say, so only an untracked
+        // path can be dropped, the same check a snapshot runs.
         return await FindIgnoredPathAsync(
                 repository,
                 runner,
                 paths,
                 environmentOverrides: null,
-                includeTrackedFiles: true,
+                includeTrackedFiles: false,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -11818,7 +12555,11 @@ internal sealed class GitCliVersionControlService :
                 "Git could not safely determine whether required project files are ignored.");
         }
 
-        string? ignoredPath = GitCliRunner.SplitNullSeparated(result.Stdout).FirstOrDefault();
+        // Git can still list a nested repository inside an ignored folder, for example when a glob
+        // character in the project path stops it from pruning the walk. That entry is a directory
+        // Git never stages, not one of the files queried here.
+        string? ignoredPath = GitCliRunner.SplitNullSeparated(result.Stdout)
+            .FirstOrDefault(static path => !path.EndsWith('/'));
         if (ignoredPath is not null)
         {
             return ignoredPath;
@@ -11976,17 +12717,13 @@ internal sealed class GitCliVersionControlService :
         string prefix = repository.Pathspec == "."
             ? string.Empty
             : EscapeGitGlobPath(repository.Pathspec) + "/";
-        var result = new List<string>(
-            s_ignoredRequiredProjectPathspecSuffixes.Length
-            + s_ignoredOptionalProjectPathspecSuffixes.Length);
+        // Only the project-root files, with no exclude pathspecs: a pathspec that starts with a
+        // wildcard keeps Git from pruning its walk, so it would open every ignored folder and fail
+        // closed on one this account cannot read.
+        var result = new List<string>(s_ignoredRequiredProjectPathspecSuffixes.Length);
         foreach (string suffix in s_ignoredRequiredProjectPathspecSuffixes)
         {
             result.Add($":(top,glob){prefix}{suffix}");
-        }
-
-        foreach (string suffix in s_ignoredOptionalProjectPathspecSuffixes)
-        {
-            result.Add($":(top,exclude,glob){prefix}{suffix}");
         }
 
         return result;
@@ -12025,9 +12762,11 @@ internal sealed class GitCliVersionControlService :
         try
         {
             var probeRepository = new RepositoryInfo(probeRoot, probeRoot);
+            // The probe's branch name is never used, and an invalid init.defaultBranch makes a plain
+            // git init fail before the project's own repository is created.
             await runner.RunAsync(
                 probeRepository,
-                ["init"],
+                ["-c", "init.defaultBranch=main", "init"],
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
             var environmentOverrides = new Dictionary<string, string?>
@@ -12035,10 +12774,22 @@ internal sealed class GitCliVersionControlService :
                 ["GIT_DIR"] = Path.Combine(probeRoot, ".git"),
                 ["GIT_WORK_TREE"] = repository.ProjectRoot,
             };
+            var nestedRepositories = new List<string>();
+            IReadOnlyList<string> requiredPaths = GetRequiredProjectRelativePaths(
+                repository.ProjectRoot,
+                nestedRepositories);
+            await ThrowIfNestedRepositoryWouldBeStagedAsync(
+                    probeRepository,
+                    runner,
+                    prefix: string.Empty,
+                    nestedRepositories,
+                    environmentOverrides,
+                    cancellationToken)
+                .ConfigureAwait(false);
             return await FindIgnoredPathAsync(
                     probeRepository,
                     runner,
-                    GetRequiredProjectRelativePaths(repository.ProjectRoot)
+                    requiredPaths
                         .Where(static path => !path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)),
                     environmentOverrides,
                     includeTrackedFiles: true,
@@ -12048,6 +12799,50 @@ internal sealed class GitCliVersionControlService :
         finally
         {
             TryDeleteIgnoreProbeDirectory(probeRoot);
+        }
+    }
+
+    private static async Task ThrowIfNestedRepositoryWouldBeStagedAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string prefix,
+        IReadOnlyList<string> nestedRepositories,
+        IReadOnlyDictionary<string, string?>? environmentOverrides,
+        CancellationToken cancellationToken)
+    {
+        if (nestedRepositories.Count == 0)
+        {
+            return;
+        }
+
+        HashSet<string> ignored;
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                ["check-ignore", "--stdin", "-z"],
+                new GitCommandOptions(
+                    GitCommandExecutionKind.Local,
+                    EnvironmentOverrides: environmentOverrides,
+                    StandardInput: string.Concat(nestedRepositories.Select(path => $"{prefix}{path}/\0")),
+                    UseLiteralPathspecs: false),
+                cancellationToken).ConfigureAwait(false);
+            ignored = GitCliRunner.SplitNullSeparated(result.Stdout)
+                .Select(static path => path.TrimEnd('/'))
+                .ToHashSet(StringComparer.Ordinal);
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            ignored = [];
+        }
+
+        // An unignored repository would become a gitlink in the first snapshot, so refuse it before
+        // anything is written rather than after.
+        string? staged = nestedRepositories.FirstOrDefault(path => !ignored.Contains(prefix + path));
+        if (staged is not null)
+        {
+            throw new InvalidOperationException(
+                $"The nested Git repository '{staged}' cannot be snapshotted safely.");
         }
     }
 
@@ -12088,25 +12883,25 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private IReadOnlyList<string> GetRequiredProjectRelativePaths(string projectRoot)
+    private IReadOnlyList<string> GetRequiredProjectRelativePaths(
+        string projectRoot,
+        ICollection<string>? unreferencedNestedRepositories = null)
     {
         IReadOnlySet<string> serializedPaths = GetSerializedProjectRelativePaths(projectRoot);
+        // Beutl writes the hygiene files itself. Anything else is required only when the project
+        // references it, so a rule ignoring files the project does not use blocks nothing.
         var paths = new HashSet<string>(StringComparer.Ordinal)
         {
             ".gitignore",
             ".gitattributes",
-            "beutl-required-project.bep",
-            "beutl-required-project.scene",
-            "beutl-required-project.belm",
         };
-        foreach (string extension in s_mediaExtensions)
-        {
-            paths.Add($"resources/beutl-required-media{extension}");
-        }
 
         if (Directory.Exists(projectRoot))
         {
-            foreach (string path in EnumerateRequiredProjectFiles(projectRoot, serializedPaths))
+            foreach (string path in EnumerateRequiredProjectFiles(
+                         projectRoot,
+                         serializedPaths,
+                         unreferencedNestedRepositories))
             {
                 paths.Add(NormalizeGitPath(Path.GetRelativePath(projectRoot, path)));
             }
@@ -12162,11 +12957,6 @@ internal sealed class GitCliVersionControlService :
         string localBranchRef,
         CancellationToken cancellationToken)
     {
-        if (!hasOrigin)
-        {
-            return new PullFetchTarget(["fetch"], "@{upstream}");
-        }
-
         string? configuredUpstream = await TryGetUpstreamRefAsync(
                 repository,
                 runner,
@@ -12175,7 +12965,22 @@ internal sealed class GitCliVersionControlService :
         string branchName = GetBranchShortName(localBranchRef);
         string upstreamRef = $"{OriginRefPrefix}{branchName}";
         if (configuredUpstream is not null
-            && configuredUpstream.StartsWith(OriginRefPrefix, StringComparison.Ordinal)
+            && !configuredUpstream.StartsWith(OriginRefPrefix, StringComparison.Ordinal))
+        {
+            // Beutl pulls only from origin, whether or not the repository has one. Fast-forwarding to
+            // origin's branch of the same name would follow history this branch does not track.
+            return new PullFetchTarget(
+                [],
+                upstreamRef,
+                new RemoteOpResult.Failed(Strings.VersionControl_PullUpstreamOnAnotherRemote));
+        }
+
+        if (!hasOrigin)
+        {
+            return new PullFetchTarget(["fetch"], "@{upstream}");
+        }
+
+        if (configuredUpstream is not null
             && configuredUpstream.Length > OriginRefPrefix.Length)
         {
             upstreamRef = configuredUpstream;
@@ -12205,35 +13010,45 @@ internal sealed class GitCliVersionControlService :
 
     private static IEnumerable<string> EnumerateRequiredProjectFiles(
         string projectRoot,
-        IReadOnlySet<string> serializedPaths)
+        IReadOnlySet<string> serializedPaths,
+        ICollection<string>? unreferencedNestedRepositories = null)
     {
-        var pending = new Stack<(string Directory, bool IsResourceDirectory)>();
-        pending.Push((
-            projectRoot,
-            IsResourceDirectory: false));
+        var pending = new Stack<string>();
+        pending.Push(projectRoot);
         // Ordinal, not the platform rule: this dedupes directories the walk actually reached, and
         // a case-sensitive volume can hold both Assets/ and assets/ as distinct trees. Folding them
         // together would skip one subtree's symlink and nested-repository validation entirely.
         var visitedDirectories = new HashSet<string>(StringComparer.Ordinal);
         var options = new EnumerationOptions { AttributesToSkip = 0 };
-        while (pending.TryPop(out var item))
+        while (pending.TryPop(out string? directory))
         {
-            string canonicalDirectory = RepositoryPathComparer.ResolveCanonicalPath(item.Directory);
+            string canonicalDirectory = RepositoryPathComparer.ResolveCanonicalPath(directory);
             if (!visitedDirectories.Add(canonicalDirectory))
             {
                 continue;
             }
 
-            foreach (string file in Directory.EnumerateFiles(item.Directory, "*", options))
+            string relativeDirectoryPath = NormalizeGitPath(Path.GetRelativePath(projectRoot, directory));
+            string[] files;
+            string[] children;
+            try
             {
-                string extension = Path.GetExtension(file);
+                files = Directory.GetFiles(directory, "*", options);
+                children = Directory.GetDirectories(directory, "*", options);
+            }
+            catch (Exception ex)
+                when (CanSkipUnlistedDirectory(ex, relativeDirectoryPath, serializedPaths))
+            {
+                continue;
+            }
+
+            foreach (string file in files)
+            {
                 string relativeFile = NormalizeGitPath(Path.GetRelativePath(projectRoot, file));
-                bool isSerializedPath = serializedPaths.Contains(relativeFile);
-                if (isSerializedPath
-                    || !string.Equals(extension, ".tmp", StringComparison.OrdinalIgnoreCase)
-                    && (item.IsResourceDirectory
-                        || s_projectFileExtensions.Contains(extension)
-                        || s_mediaExtensions.Contains(extension)))
+                // Only a reference makes a file required. An unreferenced file is not project state,
+                // whatever its folder or type, so neither an ignore rule nor a link can lose anything
+                // the project needs.
+                if (serializedPaths.Contains(relativeFile))
                 {
                     var fileInfo = new FileInfo(file);
                     fileInfo.Refresh();
@@ -12248,7 +13063,7 @@ internal sealed class GitCliVersionControlService :
                 }
             }
 
-            foreach (string child in Directory.EnumerateDirectories(item.Directory, "*", options))
+            foreach (string child in children)
             {
                 string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(child));
                 if (!string.Equals(
@@ -12285,17 +13100,38 @@ internal sealed class GitCliVersionControlService :
                     if (Directory.Exists(Path.Combine(child, ".git"))
                         || File.Exists(Path.Combine(child, ".git")))
                     {
-                        throw new InvalidOperationException(
-                            $"The nested Git repository '{relativeDirectory}' cannot be snapshotted safely.");
+                        if (serializedPaths.Any(path =>
+                                IsSameOrDescendantGitPath(path, relativeDirectory)))
+                        {
+                            throw new InvalidOperationException(
+                                $"The nested Git repository '{relativeDirectory}' cannot be snapshotted safely.");
+                        }
+
+                        // Git leaves an ignored repository out of a snapshot and records an unignored
+                        // one as a gitlink, which the snapshot tree check refuses. A caller that must
+                        // refuse before changing anything asks Git which of these it would stage.
+                        unreferencedNestedRepositories?.Add(relativeDirectory);
+                        continue;
                     }
 
-                    pending.Push((
-                        child,
-                        item.IsResourceDirectory
-                        || string.Equals(name, "resources", StringComparison.OrdinalIgnoreCase)));
+                    pending.Push(child);
                 }
             }
         }
+    }
+
+    // Git warns about a folder it cannot list, whether it is unreadable or vanished or failed while the
+    // walk ran, and snapshots everything else. Nothing the project references is inside such a
+    // folder, so there is nothing to protect.
+    internal static bool CanSkipUnlistedDirectory(
+        Exception exception,
+        string relativeDirectoryPath,
+        IReadOnlySet<string> serializedPaths)
+    {
+        return exception is UnauthorizedAccessException or IOException
+               && relativeDirectoryPath != "."
+               && !serializedPaths.Any(path =>
+                   IsSameOrDescendantGitPath(path, relativeDirectoryPath));
     }
 
     private static bool IsSameOrDescendantGitPath(string path, string directory)
@@ -12409,13 +13245,19 @@ internal sealed class GitCliVersionControlService :
             return;
         }
 
-        bool isSsh = string.Equals(uri.Scheme, "ssh", StringComparison.OrdinalIgnoreCase);
-        bool hasPassword = Uri.UnescapeDataString(uri.UserInfo)
-            .Contains(':');
-        if (!isSsh || hasPassword)
+        if (Uri.UnescapeDataString(uri.UserInfo).Contains(':'))
         {
             throw new ArgumentException(
                 "Remote URLs must not embed credentials. Configure a Git credential helper instead.",
+                nameof(url));
+        }
+
+        // An SSH user name only selects the account. Over HTTP the user name can itself be an access token,
+        // which the repository configuration would keep in plain text.
+        if (uri.Scheme is not ("ssh" or "git+ssh"))
+        {
+            throw new ArgumentException(
+                "Only SSH remote URLs may include a user name. Remove it and configure a Git credential helper instead.",
                 nameof(url));
         }
     }

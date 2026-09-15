@@ -34,6 +34,84 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Branch_list_includes_origin_only_branches_without_blocking_a_local_name()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishOriginOnlyBranchAsync("feature", "feature\n");
+        await RunGitAsync("remote", "set-head", "origin", "main");
+
+        IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(CancellationToken.None);
+        bool canCreateSameName = await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            transaction => transaction.CanCreateBranchAsync("feature", CancellationToken.None),
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            // origin/HEAD only names the default branch, and origin/main already has a local branch.
+            Assert.That(
+                branches,
+                Is.EqualTo(new[]
+                {
+                    new BranchInfo("main", true, "origin/main"),
+                    new BranchInfo("feature", false, null, IsRemote: true),
+                }));
+            Assert.That(canCreateSameName, Is.True);
+            Assert.ThrowsAsync<ArgumentException>(
+                async () => await service.SwitchBranchAsync("origin/feature", CancellationToken.None));
+            Assert.ThrowsAsync<ArgumentException>(
+                async () => await service.SwitchBranchAsync("Feature", CancellationToken.None));
+        });
+    }
+
+    [Test]
+    public async Task SwitchBranchAsync_checks_out_an_origin_only_branch_and_tracks_it()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishOriginOnlyBranchAsync("feature", "feature\n");
+        string originTip = (await RunGitAsync("rev-parse", "refs/remotes/origin/feature"))
+            .Stdout.Trim();
+
+        // A branch switch prefetches the LFS content of the target before it checks it out.
+        await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            async transaction =>
+            {
+                await transaction.PrefetchBranchLfsObjectsAsync("feature", CancellationToken.None);
+                await transaction.SwitchBranchAsync("feature", CancellationToken.None);
+                return true;
+            },
+            CancellationToken.None);
+
+        string currentBranch = (await RunGitAsync("branch", "--show-current")).Stdout.Trim();
+        string localTip = (await RunGitAsync("rev-parse", "refs/heads/feature")).Stdout.Trim();
+        string upstream = (await RunGitAsync(
+                "for-each-ref",
+                "--format=%(upstream:short)",
+                "refs/heads/feature"))
+            .Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(currentBranch, Is.EqualTo("feature"));
+            Assert.That(localTip, Is.EqualTo(originTip));
+            Assert.That(upstream, Is.EqualTo("origin/feature"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, "project.bep")),
+                Is.EqualTo("feature\n"));
+        });
+    }
+
+    [Test]
     public async Task Push_uses_the_configured_origin_destination_when_branch_names_differ()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
@@ -128,12 +206,13 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task SetRemote_replaces_an_existing_push_url()
+    public async Task SetRemote_keeps_separate_push_urls()
     {
+        // Like git remote set-url, changing the URL leaves push URLs the user configured on purpose.
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string originalRemote = await CreateBareRemoteAsync();
-        string stalePushRemote = await CreateBareRemoteAsync();
-        string secondStalePushRemote = await CreateBareRemoteAsync();
+        string pushRemote = await CreateBareRemoteAsync();
+        string secondPushRemote = await CreateBareRemoteAsync();
         string replacementRemote = await CreateBareRemoteAsync();
         using var service = CreateService();
         await service.SetRemoteAsync(originalRemote, CancellationToken.None);
@@ -142,14 +221,14 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             "set-url",
             "--push",
             "origin",
-            stalePushRemote);
+            pushRemote);
         await RunGitAsync(
             "remote",
             "set-url",
             "--add",
             "--push",
             "origin",
-            secondStalePushRemote);
+            secondPushRemote);
 
         await service.SetRemoteAsync(replacementRemote, CancellationToken.None);
         string fetchUrl = (await RunGitAsync("remote", "get-url", "origin")).Stdout.Trim();
@@ -164,7 +243,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(fetchUrl, Is.EqualTo(replacementRemote));
-            Assert.That(pushUrls, Is.EqualTo(new[] { replacementRemote }));
+            Assert.That(pushUrls, Is.EqualTo(new[] { pushRemote, secondPushRemote }));
         });
     }
 
@@ -198,7 +277,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task PullFastForward_uses_origin_when_branch_tracks_another_remote()
+    public async Task Pull_refuses_a_branch_that_tracks_another_remote()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string originRoot = await CreateBareRemoteAsync();
@@ -217,16 +296,57 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitInRepositoryAsync(originPeer, "project.bep", "from origin\n", "origin update");
         CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
 
+        // origin/main is not the history this branch follows, so fast-forwarding to it would be a guess.
+        PullPreflightResult preflight = await service.PreflightPullAsync(
+            expected,
+            CancellationToken.None);
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
             Path.Combine(Root, "project.bep"),
             CancellationToken.None);
 
+        var refusal = new RemoteOpResult.Failed(
+            Beutl.Language.Strings.VersionControl_PullUpstreamOnAnotherRemote);
         Assert.Multiple(() =>
         {
-            Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Success>());
-            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("from origin\n"));
+            Assert.That(preflight.Result, Is.EqualTo(refusal));
+            Assert.That(pull.Result, Is.EqualTo(refusal));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("initial\n"));
+        });
+    }
+
+    [Test]
+    public async Task Pull_refuses_another_remote_upstream_even_without_origin()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string upstreamRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await RunGitAsync("remote", "add", "upstream", upstreamRoot);
+        await RunGitAsync("push", "upstream", "main");
+        await RunGitAsync("branch", "--set-upstream-to=upstream/main", "main");
+        RepositoryInfo upstreamPeer = await CloneRemoteAsync(upstreamRoot);
+        await CommitInRepositoryAsync(upstreamPeer, "project.bep", "from upstream\n", "upstream update");
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+
+        // Without origin there is still no remote Beutl pulls from, so the branch's upstream on
+        // another remote is refused rather than fetched.
+        PullPreflightResult preflight = await service.PreflightPullAsync(
+            expected,
+            CancellationToken.None);
+        FastForwardPullResult pull = await service.PullFastForwardAsync(
+            expected,
+            checkpoint: null,
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+
+        var refusal = new RemoteOpResult.Failed(
+            Beutl.Language.Strings.VersionControl_PullUpstreamOnAnotherRemote);
+        Assert.Multiple(() =>
+        {
+            Assert.That(preflight.Result, Is.EqualTo(refusal));
+            Assert.That(pull.Result, Is.EqualTo(refusal));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("initial\n"));
         });
     }
 
@@ -299,6 +419,38 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Success>());
             Assert.That(originHead, Is.EqualTo(peerHead));
             Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("from origin\n"));
+        });
+    }
+
+    [Test]
+    public async Task Pull_preflight_reports_unrelated_repository_changes_before_the_project_closes()
+    {
+        string projectRoot = Path.Combine(Root, "project");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "base\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "initial");
+        string originRoot = await CreateBareRemoteAsync();
+        using var service = CreateService(new RepositoryInfo(Root, projectRoot));
+        await service.SetRemoteAsync(originRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        RepositoryInfo peer = await CloneRemoteAsync(originRoot);
+        await CommitInRepositoryAsync(peer, "project/project.bep", "from peer\n", "peer update");
+        await File.WriteAllTextAsync(Path.Combine(Root, "notes.txt"), "scratch outside the project\n");
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+
+        PullPreflightResult preflight = await service.PreflightPullAsync(
+            expected,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            // The pull itself refuses this state only after the coordinator has closed the project,
+            // so the preflight has to report it while the project is still open.
+            Assert.That(preflight.Result, Is.TypeOf<RemoteOpResult.RepositoryDirty>());
+            Assert.That(preflight.RequiresTransition, Is.False);
         });
     }
 
@@ -2180,6 +2332,57 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Pending_pull_recovery_uses_another_branch_name_when_a_branch_named_beutl_exists()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        using var service = CreateService();
+        CheckedOutBranchTip baseTip = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local work\n");
+        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+            "beutl: checkpoint",
+            CancellationToken.None);
+        string baseTree = (await RunGitAsync("rev-parse", $"{baseTip.Commit}^{{tree}}")).Stdout.Trim();
+        string targetCommit = (await RunGitAsync(
+            "commit-tree",
+            baseTree,
+            "-p",
+            baseTip.Commit,
+            "-m",
+            "prospective pull target")).Stdout.Trim();
+        PendingPullRecovery recovery = await service.PersistPendingPullRecoveryAsync(
+            checkpoint,
+            new CheckedOutBranchTip(baseTip.RefName, targetCommit),
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+        string externalCommit = (await RunGitAsync(
+            "commit-tree",
+            baseTree,
+            "-p",
+            baseTip.Commit,
+            "-m",
+            "external branch owner")).Stdout.Trim();
+        await RunGitAsync("update-ref", baseTip.RefName, externalCommit, baseTip.Commit);
+        await RunGitAsync("reset", "--hard", externalCommit);
+        File.Delete(Path.Combine(Root, "local.belm"));
+        // A branch named beutl takes the path that beutl/recovery/<id> needs, so Git cannot create it.
+        await RunGitAsync("branch", "beutl", baseTip.Commit);
+
+        PendingPullRecoveryOutcome outcome = await service.RecoverPendingPullRecoveryAsync(
+            recovery,
+            CancellationToken.None);
+        string preservedCheckpoint = (await RunGitAsync(
+            "rev-parse",
+            $"refs/heads/beutl-recovery/{recovery.Id}")).Stdout.Trim();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(PendingPullRecoveryOutcome.ReappliedCheckpoint));
+            Assert.That(preservedCheckpoint, Is.EqualTo(checkpoint.Commit));
+        });
+    }
+
+    [Test]
     public async Task Pending_pull_recovery_preserves_external_tip_and_reapplies_checkpoint()
     {
         await CommitFileAsync("project.bep", "base\n", "initial");
@@ -2676,8 +2879,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
             "beutl: checkpoint",
             CancellationToken.None);
-        // Created after the checkpoint: snapshotting refuses a symbolic link with a project-file
-        // extension outright, and this covers the persistence guard, not that refusal.
+        // Created after the checkpoint, so only the persistence guard sees the link.
         CreateFileSymbolicLinkOrIgnore(linkedProject, externalProject);
 
         Assert.ThrowsAsync<ArgumentException>(async () =>
@@ -2695,8 +2897,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string externalRoot = CreateTemporaryDirectory();
         using var service = CreateService();
         PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
-        // Created after the checkpoint: snapshotting refuses a symbolic link with a project-file
-        // extension outright, and this covers enumeration, not that refusal.
+        // Created after the checkpoint, so only enumeration sees the link.
         CreateDirectorySymbolicLinkOrIgnore(
             Path.Combine(Root, "escape"),
             externalRoot);
@@ -2726,8 +2927,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(externalRoot, "project.bep"), "external\n");
         using var service = CreateService();
         PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
-        // Created after the checkpoint: snapshotting refuses a symbolic link with a project-file
-        // extension outright, and this covers enumeration, not that refusal.
+        // Created after the checkpoint, so only enumeration sees the link.
         CreateDirectorySymbolicLinkOrIgnore(
             Path.Combine(Root, "alias"),
             Path.Combine(externalRoot, "sub"));
@@ -2824,11 +3024,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Directory.CreateDirectory(targetDirectory);
         string targetProjectFile = Path.Combine(targetDirectory, "project-data");
         string repositoryProjectAlias = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(targetProjectFile, "base\n");
+        Beutl.Serialization.CoreSerializer.StoreToUri(new Project(), new Uri(targetProjectFile));
         CreateFileSymbolicLinkOrIgnore(repositoryProjectAlias, "target/project-data");
         await RunGitAsync("add", "-A");
         await RunGitAsync("commit", "-m", "initial");
-        using GitCliVersionControlService service = CreateService();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            projectFile: repositoryProjectAlias);
 
         InvalidOperationException? refusal = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CreateProjectCheckpointAsync(
@@ -3334,6 +3539,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         {
             Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
         }
+    }
+
+    // Leaves the branch only on origin, as a teammate's push that this clone has fetched would.
+    private async Task PublishOriginOnlyBranchAsync(string branchName, string projectContents)
+    {
+        await RunGitAsync("switch", "-c", branchName);
+        await CommitFileAsync("project.bep", projectContents, branchName);
+        await RunGitAsync("push", "origin", branchName);
+        await RunGitAsync("switch", "main");
+        await RunGitAsync("branch", "-D", branchName);
     }
 
     private async Task<string> CreateBareRemoteAsync()

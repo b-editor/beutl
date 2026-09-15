@@ -16,6 +16,9 @@ internal sealed record GitCommandResult(
 internal enum GitCommandExecutionKind
 {
     Local,
+    // Local work that runs the user's own programs, such as commit hooks or a commit signer. They can
+    // wait on the user or set up tools, so only cancellation stops them.
+    LocalUnbounded,
     LocalWithLfs,
     Network,
 }
@@ -594,6 +597,11 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         if (options.ExecutionKind == GitCommandExecutionKind.Local)
         {
             return GitExecutionPolicy.LocalTimeout;
+        }
+
+        if (options.ExecutionKind == GitCommandExecutionKind.LocalUnbounded)
+        {
+            return GitExecutionPolicy.Unbounded;
         }
 
         bool localWithLfs = options.ExecutionKind == GitCommandExecutionKind.LocalWithLfs;

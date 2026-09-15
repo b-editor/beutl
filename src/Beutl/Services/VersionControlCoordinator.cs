@@ -50,6 +50,7 @@ internal sealed class VersionControlCoordinator :
     private readonly Queue<StatePublication> _publicationQueue = new();
     private readonly Dictionary<ProjectService.ProjectCloseContext, NonTransactionalCloseBarrier>
         _preparedCloseBarriers = new();
+    private readonly HashSet<ProjectService.ProjectCloseContext> _closesWithoutSnapshot = new();
     private readonly Dictionary<IProjectVersionControlBackend, HashSet<ActivationContext>>
         _candidateServiceUsers = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<IProjectVersionControlBackend> _managedServices = new(
@@ -150,6 +151,7 @@ internal sealed class VersionControlCoordinator :
         ConfirmUntrackReservedPathsAsync = ShowUntrackReservedPathsConfirmationAsync;
         WarnConflictMarkersAsync = ShowConflictMarkerWarningAsync;
         RequestIdentityAsync = static _ => Task.FromResult<GitIdentity?>(null);
+        ConfirmCloseWithoutSnapshotAsync = ShowCloseWithoutSnapshotConfirmationAsync;
         PresentPolicyNoticeAsync = ShowPolicyNoticeAsync;
         _config.ConfigurationChanged += OnVersionControlConfigChanged;
         _projectService.OpeningPreflight += PrepareProjectOpeningAsync;
@@ -219,6 +221,8 @@ internal sealed class VersionControlCoordinator :
     { get; set; }
 
     internal Func<string, Task> WarnConflictMarkersAsync { get; set; }
+
+    internal Func<CancellationToken, Task<bool>> ConfirmCloseWithoutSnapshotAsync { get; set; }
 
     internal Func<CancellationToken, Task<GitIdentity?>> RequestIdentityAsync { get; set; }
 
@@ -551,7 +555,7 @@ internal sealed class VersionControlCoordinator :
 
         if (closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges)
         {
-            await TrySaveForCloseSnapshotAsync(cancellationToken).ConfigureAwait(false);
+            await TrySaveForCloseSnapshotAsync(closeContext, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -586,7 +590,9 @@ internal sealed class VersionControlCoordinator :
 
     // The close snapshot runs from ClosingFinalizing, by which point the editor host has disposed
     // every tab, so in-memory edits can only reach disk from this earlier ClosingPreparing phase.
-    private async Task TrySaveForCloseSnapshotAsync(CancellationToken cancellationToken)
+    private async Task TrySaveForCloseSnapshotAsync(
+        ProjectService.ProjectCloseContext closeContext,
+        CancellationToken cancellationToken)
     {
         if (!_config.AutoCommitOnClose
             || GetOwnedBackend()?.Repository is null
@@ -595,12 +601,23 @@ internal sealed class VersionControlCoordinator :
             return;
         }
 
-        // Aborting the close is the only way to keep the edits: continuing would dispose the tabs
-        // and let the close snapshot record the half-saved project as the version to come back to.
+        // Continuing disposes the tabs, so only the user can accept losing the edits that did not save.
+        // That close records no snapshot, because the half-saved project must not become the version to
+        // come back to. Declining aborts the close and keeps the edits.
         using IProjectFileWriteLease closeWrite =
             await _editorService.BeginProjectFileWriteAsync(cancellationToken).ConfigureAwait(false);
         if (!await TrySaveOpenProjectAsync(project, cancellationToken).ConfigureAwait(false))
         {
+            if (await ConfirmCloseWithoutSnapshotAsync(cancellationToken).ConfigureAwait(false))
+            {
+                lock (_stateGate)
+                {
+                    _closesWithoutSnapshot.Add(closeContext);
+                }
+
+                return;
+            }
+
             PublishNotification(() =>
                 NotificationService.ShowWarning(
                     Strings.VersionControl,
@@ -617,6 +634,7 @@ internal sealed class VersionControlCoordinator :
         lock (_stateGate)
         {
             _preparedCloseBarriers.Remove(closeContext);
+            _closesWithoutSnapshot.Remove(closeContext);
         }
 
         await closeBarrier.CompleteAsync(projectClosed).ConfigureAwait(false);
@@ -632,18 +650,27 @@ internal sealed class VersionControlCoordinator :
         }
 
         NonTransactionalCloseBarrier? closeBarrier;
+        bool closeSnapshotDeclined;
         lock (_stateGate)
         {
             _preparedCloseBarriers.TryGetValue(closeContext, out closeBarrier);
+            closeSnapshotDeclined = _closesWithoutSnapshot.Contains(closeContext);
         }
 
         if (closeBarrier is not null)
         {
-            await NotifyClosingCoreAsync(cancellationToken).ConfigureAwait(false);
+            await NotifyClosingCoreAsync(
+                    closeContext.CloseIntent,
+                    allowCloseSnapshot: !closeSnapshotDeclined,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 
-    private async Task NotifyClosingCoreAsync(CancellationToken closeCancellation)
+    private async Task NotifyClosingCoreAsync(
+        ProjectService.ProjectCloseIntent closeIntent,
+        bool allowCloseSnapshot,
+        CancellationToken closeCancellation)
     {
         bool closeSnapshotRequested = false;
         ActivationContext? activation;
@@ -689,7 +716,12 @@ internal sealed class VersionControlCoordinator :
                 }
 
                 service = ownedService;
-                finalSnapshotRequested = _config.AutoCommitOnClose;
+                // A discard close saves nothing, so it must not commit what autosave or another
+                // tool already wrote either. Nor may a close the user continued after its save
+                // failed, since the project on disk may be half-saved.
+                finalSnapshotRequested = _config.AutoCommitOnClose
+                                         && closeIntent == ProjectService.ProjectCloseIntent.SaveChanges
+                                         && allowCloseSnapshot;
             }
 
             bool snapshotRequiresReservation =
@@ -1252,17 +1284,15 @@ internal sealed class VersionControlCoordinator :
             return await ownedService.ExecuteExclusiveAsync(
                 async service =>
                 {
-                    if (create
-                        && !await CanCreateBranchAsync(
+                    if (create)
+                    {
+                        return await CreateBranchAtCheckedOutCommitAsync(
                             service,
                             branchName,
-                            cancellationToken))
-                    {
-                        return false;
+                            cancellationToken);
                     }
 
-                    if (!create
-                        && !await LocalBranchExistsAsync(
+                    if (!await SwitchTargetExistsAsync(
                             service,
                             branchName,
                             cancellationToken))
@@ -1276,8 +1306,7 @@ internal sealed class VersionControlCoordinator :
                         return false;
                     }
 
-                    if (!create
-                        && string.Equals(status.Branch, branchName, StringComparison.Ordinal))
+                    if (string.Equals(status.Branch, branchName, StringComparison.Ordinal))
                     {
                         return true;
                     }
@@ -1288,15 +1317,6 @@ internal sealed class VersionControlCoordinator :
                     }
 
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (create
-                        && !await CanCreateBranchAsync(
-                            service,
-                            branchName,
-                            CancellationToken.None))
-                    {
-                        return false;
-                    }
-
                     // Held until the project is closed further down: the awaits between this save
                     // and the close run real Git commands, and an edit made in that window would
                     // miss the safety snapshot and be discarded when the editors close.
@@ -1342,8 +1362,7 @@ internal sealed class VersionControlCoordinator :
                         }
                     }
 
-                    if (create
-                        && !await CanCreateBranchAsync(
+                    if (!await SwitchTargetExistsAsync(
                             service,
                             branchName,
                             CancellationToken.None))
@@ -1351,23 +1370,11 @@ internal sealed class VersionControlCoordinator :
                         return false;
                     }
 
-                    if (!create
-                        && !await LocalBranchExistsAsync(
-                            service,
-                            branchName,
-                            CancellationToken.None))
-                    {
-                        return false;
-                    }
-
-                    if (!create)
-                    {
-                        // The switch below runs uncancellable with the project closed, and its LFS
-                        // smudge filter would download missing objects there - a stalled endpoint
-                        // would strand the closed project. Pull them in first, while the operation
-                        // is still cancellable and the project is still open.
-                        await service.PrefetchBranchLfsObjectsAsync(branchName, cancellationToken);
-                    }
+                    // The switch below runs uncancellable with the project closed, and its LFS
+                    // smudge filter would download missing objects there - a stalled endpoint
+                    // would strand the closed project. Pull them in first, while the operation
+                    // is still cancellable and the project is still open.
+                    await service.PrefetchBranchLfsObjectsAsync(branchName, cancellationToken);
 
                     CheckedOutBranchTip expectedResultTip = originalTip;
                     bool projectClosed = false;
@@ -1377,19 +1384,9 @@ internal sealed class VersionControlCoordinator :
                         projectClosed = true;
                         try
                         {
-                            if (create)
-                            {
-                                await service.CreateBranchAsync(
-                                    branchName,
-                                    originalTip.Commit,
-                                    CancellationToken.None);
-                            }
-                            else
-                            {
-                                await service.SwitchBranchAsync(
-                                    branchName,
-                                    CancellationToken.None);
-                            }
+                            await service.SwitchBranchAsync(
+                                branchName,
+                                CancellationToken.None);
                         }
                         catch
                         {
@@ -1433,14 +1430,59 @@ internal sealed class VersionControlCoordinator :
         }
     }
 
-    private static async Task<bool> LocalBranchExistsAsync(
+    // Like git switch, a branch that so far exists only on origin can be switched to, which creates
+    // the local branch tracking it. The name still has to match exactly.
+    private static async Task<bool> SwitchTargetExistsAsync(
         IProjectVersionControlTransaction service,
         string branchName,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(cancellationToken);
-        return branches.Any(branch =>
+        BranchInfo? target = branches.FirstOrDefault(branch =>
             string.Equals(branch.Name, branchName, StringComparison.Ordinal));
+        return target is not null
+               && (!target.IsRemote
+                   || await service.CanCreateBranchAsync(branchName, cancellationToken));
+    }
+
+    // Like git switch -c, a new branch starts at the checked-out commit and changes no file. The
+    // project therefore stays open with its unsaved edits and undo history, and nothing needs a
+    // safety snapshot.
+    private async Task<bool> CreateBranchAtCheckedOutCommitAsync(
+        IProjectVersionControlTransaction service,
+        string branchName,
+        CancellationToken cancellationToken)
+    {
+        if (!await CanCreateBranchAsync(service, branchName, cancellationToken))
+        {
+            return false;
+        }
+
+        WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
+        if (!EnsureRepositoryIsNotConflicted(status))
+        {
+            return false;
+        }
+
+        CheckedOutBranchTip tip = await service.GetCheckedOutBranchTipAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        // The new branch becomes the checked-out one, so a pull or recovery still awaiting confirmation
+        // no longer describes the branch it would change. A switch cancels those when it closes the
+        // project; creating a branch keeps the project open, so it cancels them here.
+        AdvanceProjectServiceEpoch();
+        try
+        {
+            await service.CreateBranchAsync(branchName, tip.Commit, CancellationToken.None);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            return HandleCycleFailure(
+                ex,
+                recoveryFailure: null,
+                $"branch '{branchName}'",
+                cancellationToken);
+        }
     }
 
     private static Task<bool> CanCreateBranchAsync(
@@ -2024,13 +2066,17 @@ internal sealed class VersionControlCoordinator :
                                 await service.RecoverPendingPullRecoveryAsync(
                                 recovery,
                                 CancellationToken.None);
+                            string recoveryBranchName = await FindRecoveryBranchNameAsync(
+                                service,
+                                recovery,
+                                outcome);
                             await ReopenProjectAsync(transition, openProjectFile);
                             await service.CompletePendingPullRecoveryAsync(
                                 recovery,
                                 CancellationToken.None);
                             CompletePendingPullRecoveryPublication(recovery.Id);
-                            PublishRecoveryOutcomeNotification(recovery, outcome);
-                            return ToProjectRecoveryResult(recovery, outcome);
+                            PublishRecoveryOutcomeNotification(outcome, recoveryBranchName);
+                            return ToProjectRecoveryResult(outcome, recoveryBranchName);
                         }
                         catch (PendingPullRecoveryPreservedException ex)
                         {
@@ -2076,31 +2122,59 @@ internal sealed class VersionControlCoordinator :
     }
 
     private static ProjectRecoveryResult ToProjectRecoveryResult(
-        PendingPullRecovery recovery,
-        PendingPullRecoveryOutcome outcome)
+        PendingPullRecoveryOutcome outcome,
+        string recoveryBranchName)
     {
         return outcome switch
         {
             PendingPullRecoveryOutcome.RestoredOriginal
                 => new ProjectRecoveryResult.RestoredOriginal(),
             PendingPullRecoveryOutcome.ReappliedCheckpoint
-                => new ProjectRecoveryResult.ReappliedCheckpoint(
-                    recovery.RecoveryBranchName),
+                => new ProjectRecoveryResult.ReappliedCheckpoint(recoveryBranchName),
             _ => throw new ArgumentOutOfRangeException(nameof(outcome)),
         };
     }
 
     private void PublishRecoveryOutcomeNotification(
-        PendingPullRecovery recovery,
-        PendingPullRecoveryOutcome outcome)
+        PendingPullRecoveryOutcome outcome,
+        string recoveryBranchName)
     {
         PublishNotification(() => NotificationService.ShowInformation(
             Strings.VersionControl,
             outcome == PendingPullRecoveryOutcome.ReappliedCheckpoint
                 ? string.Format(
                     Strings.VersionControl_CheckpointReappliedOnRecoveryBranch,
-                    recovery.RecoveryBranchName)
+                    recoveryBranchName)
                 : Strings.VersionControl_PullRecovered));
+    }
+
+    // The service keeps a reapplied checkpoint on the first recovery branch name Git could create, which is
+    // not the usual one when a branch such as beutl already takes its path.
+    private async Task<string> FindRecoveryBranchNameAsync(
+        IProjectVersionControlTransaction service,
+        PendingPullRecovery recovery,
+        PendingPullRecoveryOutcome outcome)
+    {
+        if (outcome != PendingPullRecoveryOutcome.ReappliedCheckpoint)
+        {
+            return recovery.RecoveryBranchName;
+        }
+
+        try
+        {
+            IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(CancellationToken.None);
+            return recovery.RecoveryBranchNameCandidates.FirstOrDefault(candidate =>
+                       branches.Any(branch =>
+                           !branch.IsRemote
+                           && string.Equals(branch.Name, candidate, StringComparison.Ordinal)))
+                   ?? recovery.RecoveryBranchName;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The recovery already succeeded; a wrong branch name in the message must not undo that.
+            _logger.LogWarning(ex, "Failed to look up the recovery branch for {RecoveryId}.", recovery.Id);
+            return recovery.RecoveryBranchName;
+        }
     }
 
     private void PublishPreservedRecoveryBranchNotification(string recoveryReference)
@@ -2878,6 +2952,15 @@ internal sealed class VersionControlCoordinator :
             Owner: var owner,
         }
                && ReferenceEquals(owner, this);
+    }
+
+    private bool IsProjectCreationTransition()
+    {
+        return _projectService.CurrentTransition is
+        {
+            Purpose: ProjectTransitionPurpose.Normal,
+            Owner: ProjectService.ProjectCreation,
+        };
     }
 
     private Project GetOpenProject()
@@ -3678,6 +3761,14 @@ internal sealed class VersionControlCoordinator :
             cancellationToken);
     }
 
+    private Task<bool> ShowCloseWithoutSnapshotConfirmationAsync(CancellationToken cancellationToken)
+    {
+        return ShowConfirmationAsync(
+            Strings.VersionControl_CloseWithoutSnapshot,
+            Strings.VersionControl_CloseWithoutSnapshotConfirmation,
+            cancellationToken);
+    }
+
     private Task<bool> ShowSwitchBranchConfirmationAsync(
         string branchName,
         CancellationToken cancellationToken)
@@ -3938,6 +4029,12 @@ internal sealed class VersionControlCoordinator :
                 ex,
                 "Failed to inspect pending pull recovery before opening {ProjectFile}.",
                 attempt.ProjectFile);
+            PublishNotification(() =>
+                NotificationService.ShowError(
+                    Strings.VersionControl_ErrorTitle,
+                    string.Format(
+                        Strings.VersionControl_OpenAbortedFormat,
+                        GetErrorText(ex))));
             return new AbortProjectOpenPreparation();
         }
     }
@@ -4072,8 +4169,39 @@ internal sealed class VersionControlCoordinator :
                     projectFile);
                 return null;
             }
+            catch (Exception ex)
+                when (ex is not OperationCanceledException and not OutOfMemoryException
+                      && requiredRecoveryId is null
+                      && cleanupCandidate is null)
+            {
+                // Git refused the folder itself (for example dubious ownership on a shared or
+                // removable volume), so no pull recovery can run there either. Open the project
+                // without version control and say why instead of refusing the project.
+                _logger.LogWarning(
+                    ex,
+                    "Opening {ProjectFile} without version control because repository discovery failed.",
+                    projectFile);
+                PublishNotification(() =>
+                    NotificationService.ShowWarning(
+                        Strings.VersionControl,
+                        string.Format(
+                            Strings.VersionControl_OpenedWithoutVersionControlFormat,
+                            GetErrorText(ex))));
+                return null;
+            }
 
             if (repository is null)
+            {
+                return null;
+            }
+
+            // Activation leaves a branch with no commit yet for initialization, so asking to share
+            // the enclosing repository now would lead nowhere.
+            if (repository.IsNestedInForeignRepo
+                && requiredRecoveryId is null
+                && cleanupCandidate is null
+                && !await discoveryService.HasCheckedOutCommitAsync(repository, cancellationToken)
+                    .ConfigureAwait(false))
             {
                 return null;
             }
@@ -4356,6 +4484,7 @@ internal sealed class VersionControlCoordinator :
             }
 
             trackedService = CreateTemporaryBackend(repository, selection.ProjectFile);
+            string recoveryBranchName = selection.Recovery.RecoveryBranchName;
             PendingPullRecoveryOutcome? outcome = await trackedService.ExecuteExclusiveAsync(
                     async transaction =>
                     {
@@ -4410,10 +4539,15 @@ internal sealed class VersionControlCoordinator :
                             return (PendingPullRecoveryOutcome?)null;
                         }
 
-                        return (PendingPullRecoveryOutcome?)
+                        PendingPullRecoveryOutcome recovered =
                             await transaction.RecoverPendingPullRecoveryAsync(
                                 current,
                                 CancellationToken.None);
+                        recoveryBranchName = await FindRecoveryBranchNameAsync(
+                            transaction,
+                            current,
+                            recovered);
+                        return (PendingPullRecoveryOutcome?)recovered;
                     },
                     operationCancellation)
                 .ConfigureAwait(false);
@@ -4433,7 +4567,7 @@ internal sealed class VersionControlCoordinator :
                     new PendingOpeningPullRecovery(repository, selection.Recovery);
             }
 
-            PublishRecoveryOutcomeNotification(selection.Recovery, outcome.Value);
+            PublishRecoveryOutcomeNotification(outcome.Value, recoveryBranchName);
             return ProjectOpenPreparationResult.Proceed;
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
@@ -4573,7 +4707,19 @@ internal sealed class VersionControlCoordinator :
                    () => _projectService.CurrentProject.Value is not { } project
                          || !PathsEqual(GetProjectFile(project), projectFile),
                    PresentPolicyNoticeAsync,
-                   projectFile);
+                   projectFile,
+                   RequestIdentityForSnapshotAsync);
+    }
+
+    // The backend asks from its own Git continuation, but the identity prompt is a flyout that has to be
+    // created on the UI thread, like the one a manual commit shows.
+    private Task<GitIdentity?> RequestIdentityForSnapshotAsync(CancellationToken cancellationToken)
+    {
+        return _dispatcher.CheckAccess()
+            ? RequestIdentityAsync(cancellationToken)
+            : _dispatcher.InvokeAsync(
+                () => RequestIdentityAsync(cancellationToken),
+                DispatcherPriority.Normal);
     }
 
     private async Task ShowConflictMarkerWarningAsync(string markerFile)
@@ -4641,6 +4787,8 @@ internal sealed class VersionControlCoordinator :
         {
             VersionControlPolicyNotice.LfsRemoteQuota
                 => Strings.VersionControl_LfsQuotaNotice,
+            VersionControlPolicyNotice.LfsInstallFailed
+                => Strings.VersionControl_LfsInstallFailedNotice,
             VersionControlPolicyNotice.LargeMediaWithoutLfs largeMedia
                 => string.Format(
                     Strings.VersionControl_LargeMediaWarningFormat,
@@ -4804,6 +4952,7 @@ internal sealed class VersionControlCoordinator :
             project is null || internalTransition
                 ? null
                 : TryTakeOpeningRepositoryDecision(project);
+        bool newProject = project is not null && !internalTransition && IsProjectCreationTransition();
         CancellationTokenSource? configurationActivationCancellation;
         long activationRevision;
         lock (_stateGate)
@@ -4835,7 +4984,8 @@ internal sealed class VersionControlCoordinator :
             project,
             internalTransition,
             activationRevision,
-            openingRepositoryDecision);
+            openingRepositoryDecision,
+            newProject);
     }
 
     private void ObserveCurrentProjectSnapshot()
@@ -4877,27 +5027,31 @@ internal sealed class VersionControlCoordinator :
             project,
             internalTransition,
             activationRevision,
-            openingRepositoryDecision: null);
+            openingRepositoryDecision: null,
+            newProject: false);
     }
 
     private void StartProjectActivation(
         Project? project,
         bool internalTransition,
         long activationRevision,
-        PendingOpeningRepositoryDecision? openingRepositoryDecision)
+        PendingOpeningRepositoryDecision? openingRepositoryDecision,
+        bool newProject)
     {
         _ = StartProjectActivationAfterOpeningRecoveryAsync(
             project,
             internalTransition,
             activationRevision,
-            openingRepositoryDecision);
+            openingRepositoryDecision,
+            newProject);
     }
 
     private async Task StartProjectActivationAfterOpeningRecoveryAsync(
         Project? project,
         bool internalTransition,
         long activationRevision,
-        PendingOpeningRepositoryDecision? openingRepositoryDecision)
+        PendingOpeningRepositoryDecision? openingRepositoryDecision,
+        bool newProject)
     {
         try
         {
@@ -4920,6 +5074,7 @@ internal sealed class VersionControlCoordinator :
                     internalTransition,
                     activationRevision,
                     openingRepositoryDecision,
+                    newProject,
                     CancellationToken.None)
                 .ConfigureAwait(false);
         }
@@ -4946,6 +5101,7 @@ internal sealed class VersionControlCoordinator :
                     internalTransition,
                     activationRevision,
                     openingRepositoryDecision: null,
+                    newProject: false,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -4960,6 +5116,7 @@ internal sealed class VersionControlCoordinator :
         bool internalTransition,
         long activationRevision,
         PendingOpeningRepositoryDecision? openingRepositoryDecision,
+        bool newProject,
         CancellationToken cancellationToken)
     {
         try
@@ -5011,6 +5168,7 @@ internal sealed class VersionControlCoordinator :
                 projectFile,
                 service,
                 openingRepositoryDecision,
+                newProject,
                 cancellationToken);
             if (BeginActivation(activation, out bool cleanupRejectedService))
             {
@@ -5132,7 +5290,10 @@ internal sealed class VersionControlCoordinator :
 
             GitAvailability availability = await activation.Service.GetAvailabilityAsync(
                 activation.CancellationToken);
-            if (availability.State != GitAvailabilityState.Installed)
+            // A project created in this session starts untracked. The new-project dialog already asked
+            // whether to track it, so discovery neither adopts an enclosing repository nor asks again;
+            // initialization does both when the user chose tracking.
+            if (availability.State != GitAvailabilityState.Installed || activation.IsNewProject)
             {
                 return;
             }
@@ -5141,6 +5302,16 @@ internal sealed class VersionControlCoordinator :
                 activation.ProjectRoot,
                 activation.CancellationToken);
             if (repository is null)
+            {
+                return;
+            }
+
+            // Hygiene needs a checked-out commit, so a branch with none yet, such as a bare
+            // `git init`, can neither resume nor adopt tracking. Leaving the project untracked
+            // offers initialization instead, which accepts the unborn branch.
+            if (!await activation.Service.HasCheckedOutCommitAsync(
+                    repository,
+                    activation.CancellationToken))
             {
                 return;
             }
@@ -5190,7 +5361,8 @@ internal sealed class VersionControlCoordinator :
                     repository,
                     () => _projectService.CurrentProject.Value is null,
                     PresentPolicyNoticeAsync,
-                    activation.ProjectFile);
+                    activation.ProjectFile,
+                    RequestIdentityForSnapshotAsync);
             candidateService = trackedService;
             if (!TryRegisterCandidateService(activation, trackedService))
             {
@@ -5205,6 +5377,17 @@ internal sealed class VersionControlCoordinator :
             {
                 await trackedService.EnsureRepositoryHygieneAsync(
                     activation.CancellationToken);
+            }
+            catch (Exception ex)
+                when (ex is VersionControlConflictedException or DetachedHeadNotSupportedException
+                      && !activation.CancellationToken.IsCancellationRequested)
+            {
+                // Git keeps working in these states, so the project stays tracked and the tab explains
+                // what to resolve outside Beutl. The backend refuses every write until then and
+                // finishes the skipped hygiene before its next commit.
+                _logger.LogInformation(
+                    ex,
+                    "Opened a repository that needs attention in an external Git tool before Beutl can update it.");
             }
             catch
             {
@@ -6945,6 +7128,7 @@ internal sealed class VersionControlCoordinator :
             string projectFile,
             IProjectVersionControlBackend service,
             PendingOpeningRepositoryDecision? openingRepositoryDecision = null,
+            bool isNewProject = false,
             CancellationToken cancellationToken = default)
         {
             Revision = revision;
@@ -6952,6 +7136,7 @@ internal sealed class VersionControlCoordinator :
             ProjectFile = projectFile;
             Service = service;
             OpeningRepositoryDecision = openingRepositoryDecision;
+            IsNewProject = isNewProject;
             _ownedService = service;
             _cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         }
@@ -6965,6 +7150,9 @@ internal sealed class VersionControlCoordinator :
         public IProjectVersionControlBackend Service { get; }
 
         public PendingOpeningRepositoryDecision? OpeningRepositoryDecision { get; }
+
+        // Set for a project the app has just created, whose tracking the new-project dialog decides.
+        public bool IsNewProject { get; }
 
         public CancellationToken CancellationToken => _cancellation.Token;
 

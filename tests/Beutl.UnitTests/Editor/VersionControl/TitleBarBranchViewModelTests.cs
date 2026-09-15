@@ -261,6 +261,35 @@ public class TitleBarBranchViewModelTests
     }
 
     [Test]
+    public async Task Branch_items_mark_branches_that_only_origin_has()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(item => item.GetBranchesAsync(
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                new BranchInfo("main", true, "origin/main"),
+                new BranchInfo("feature", false, null, IsRemote: true),
+            ]);
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new TitleBarBranchViewModel(
+            serviceSource,
+            CreateGitAvailabilitySource(),
+            Mock.Of<IProjectVersionControlCoordinator>(),
+            action => action());
+        await viewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                viewModel.Branches.Select(branch => branch.IsRemote),
+                Is.EqualTo(new[] { false, true }));
+            Assert.That(viewModel.Branches.Last().CanSwitch.Value, Is.True);
+        });
+    }
+
+    [Test]
     public async Task Refresh_does_not_overwrite_a_newer_status_event()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();

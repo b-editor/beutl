@@ -87,6 +87,7 @@ internal static class VersionControlSerializationGraph
             = new(ReferenceEqualityComparer.Instance);
         private readonly JsonSerializerOptions _passthroughOptions;
         private readonly JsonSerializerOptions _captureOptions;
+        private Uri? _currentFileUri;
 
         public SerializationGraphVisitor()
         {
@@ -191,24 +192,99 @@ internal static class VersionControlSerializationGraph
                 _objects.Add(coreObject);
             }
 
-            var context = new SerializationGraphContext(this, serializable);
-            using (ThreadLocalSerializationContext.Enter(context))
+            // CoreSerializer writes a file source relative to the nearest object that has a file of its
+            // own, so an object saved inside another file resolves its paths against that file.
+            Uri? outerFileUri = _currentFileUri;
+            if (serializable is CoreObject { Uri: { } fileUri })
             {
-                serializable.Serialize(context);
-                context.Complete();
+                _currentFileUri = fileUri;
             }
 
-            // Hierarchy membership is the fallback for custom hierarchical implementations
-            // whose children are not exposed by Serialize. Run it after the serialization
-            // contract so a child already emitted under a declared contract wins.
-            if (serializable is IHierarchical hierarchical)
+            try
             {
-                foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+                if (serializable is IFallback fallback)
                 {
-                    bool childFileSourceIsAddressable = child is IFileSource
-                                                        && IsDirectFileSourceValue(serializable, child);
-                    VisitCoreSerializedValue(child, child.GetType(), childFileSourceIsAddressable);
+                    CaptureFallbackFileUris(fallback.Json, _currentFileUri);
                 }
+                else
+                {
+                    var context = new SerializationGraphContext(this, serializable);
+                    using (ThreadLocalSerializationContext.Enter(context))
+                    {
+                        serializable.Serialize(context);
+                        context.Complete();
+                    }
+                }
+
+                // Hierarchy membership is the fallback for custom hierarchical implementations
+                // whose children are not exposed by Serialize. Run it after the serialization
+                // contract so a child already emitted under a declared contract wins.
+                if (serializable is IHierarchical hierarchical)
+                {
+                    foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+                    {
+                        bool childFileSourceIsAddressable = child is IFileSource
+                                                            && IsDirectFileSourceValue(serializable, child);
+                        VisitCoreSerializedValue(child, child.GetType(), childFileSourceIsAddressable);
+                    }
+                }
+            }
+            finally
+            {
+                _currentFileUri = outerFileUri;
+            }
+        }
+
+        // An object whose extension is not loaded keeps its saved JSON but has no contract to
+        // inspect. Record the files that JSON demonstrably points at and skip strings that do not
+        // resolve: failing the whole graph would take version control away from anyone who opens
+        // a shared project without every extension installed.
+        private void CaptureFallbackFileUris(JsonNode? node, Uri? baseUri)
+        {
+            switch (node)
+            {
+                case JsonValue value when value.TryGetValue(out string? text):
+                    CaptureFallbackFileUri(text, baseUri);
+                    break;
+                case JsonArray array:
+                    foreach (JsonNode? item in array)
+                    {
+                        CaptureFallbackFileUris(item, baseUri);
+                    }
+
+                    break;
+                case JsonObject jsonObject:
+                    foreach ((string name, JsonNode? item) in jsonObject)
+                    {
+                        CaptureFallbackFileUri(name, baseUri);
+                        CaptureFallbackFileUris(item, baseUri);
+                    }
+
+                    break;
+            }
+        }
+
+        private void CaptureFallbackFileUri(string? value, Uri? baseUri)
+        {
+            try
+            {
+                if (TryResolveOpaqueFileUri(
+                        value,
+                        baseUri,
+                        allowExtensionlessRelative: false,
+                        requireFilePath: false,
+                        out Uri? uri)
+                    && File.Exists(uri.LocalPath))
+                {
+                    _unaddressableFileSources.Add(uri);
+                }
+            }
+            catch (Exception ex) when (ex is ArgumentException
+                                       or IOException
+                                       or NotSupportedException
+                                       or UriFormatException)
+            {
+                // Unresolvable fallback data cannot name a file the snapshot would omit.
             }
         }
 
@@ -1286,6 +1362,19 @@ internal static class VersionControlSerializationGraph
                 return visitedExpressions == expressions.Count;
             }
 
+            if (owner is Beutl.ProjectSystem.Scene
+                && name is Beutl.ProjectSystem.SceneRecovery.RecoveredElementIdsKey
+                    or Beutl.ProjectSystem.SceneRecovery.RecoveredDescendantIdsKey
+                    or Beutl.ProjectSystem.SceneRecovery.RecoveredDescendantIdentitiesKey)
+            {
+                // Recovery metadata maps the scene's own children to identities. Those children are
+                // serialized on their own, so an identity is all this JSON may carry.
+                return value is JsonObject identities
+                       && identities.All(static item => item.Value is JsonValue id
+                                                        && id.TryGetValue(out string? text)
+                                                        && Guid.TryParse(text, out _));
+            }
+
             return owner is Beutl.Animation.KeyFrame
                    && name == nameof(Beutl.Animation.KeyFrame.Easing)
                    && value is JsonObject easing
@@ -1370,6 +1459,8 @@ internal static class VersionControlSerializationGraph
             Uri? baseUri,
             bool allowExtensionlessRelative)
         {
+            // Text that resolves to no path, such as a font face name, names nothing an ignore rule or
+            // a layout check could protect, so it is skipped instead of failing the whole project.
             if (TryResolveOpaqueFileUri(
                     value,
                     baseUri,
@@ -1378,11 +1469,6 @@ internal static class VersionControlSerializationGraph
                     out Uri? uri))
             {
                 _unaddressableFileSources.Add(uri);
-            }
-            else if (!IsAbsoluteNonFileUri(value) && LooksLikeFilePath(value))
-            {
-                throw new InvalidDataException(
-                    $"Cannot resolve opaque serialized file path '{value}'.");
             }
         }
 
@@ -1478,14 +1564,6 @@ internal static class VersionControlSerializationGraph
 
             uri = CanonicalizeFileUri(resolved);
             return true;
-        }
-
-        private static bool IsAbsoluteNonFileUri(string? value)
-        {
-            return !string.IsNullOrWhiteSpace(value)
-                   && !LooksLikeWindowsPath(value)
-                   && Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
-                   && !uri.IsFile;
         }
 
         private static Uri CanonicalizeFileUri(Uri uri)

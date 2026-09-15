@@ -1,4 +1,5 @@
 ﻿using Avalonia.Headless.NUnit;
+using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 
 namespace Beutl.HeadlessUITests;
@@ -22,10 +23,12 @@ public class VersionControlConflictTests
             "project",
             location))!;
         string projectFile = project.Uri!.LocalPath;
+        // The scene loads every element file in its folder, so this is a conflict the project reads
+        // rather than a stray file beside it.
+        string sceneDirectory = Path.GetDirectoryName(
+            project.Items.OfType<Scene>().First().Uri!.LocalPath)!;
         await TestShell.Project.CloseProjectAsync();
-        string markerFile = Path.Combine(
-            Path.GetDirectoryName(projectFile)!,
-            "conflicted.belm");
+        string markerFile = Path.Combine(sceneDirectory, "conflicted.belm");
         await File.WriteAllTextAsync(
             markerFile,
             "<<<<<<< ours\n{}\n=======\n{}\n>>>>>>> theirs\n");
@@ -46,7 +49,10 @@ public class VersionControlConflictTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(warnedFile, Is.EqualTo(markerFile));
+                Assert.That(warnedFile, Is.Not.Null);
+                Assert.That(
+                    VersionControlPathComparison.AreSameCanonicalPath(warnedFile!, markerFile),
+                    Is.True);
                 Assert.That(
                     projectWasClosedAtWarning,
                     Is.True,

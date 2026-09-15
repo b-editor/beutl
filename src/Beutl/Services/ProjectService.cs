@@ -264,7 +264,7 @@ public sealed class ProjectService
     {
         await using ProjectTransitionScope transition = await BeginTransitionAsync(
             ProjectTransitionPurpose.Normal,
-            this,
+            new ProjectCreation(),
             CancellationToken.None);
         return await CreateProjectCoreAsync(
             width,
@@ -884,6 +884,11 @@ public sealed class ProjectService
                 }
             }
         }
+    }
+
+    // Owns the transition that creates a project, so observers can tell a new project from an opened one.
+    internal sealed class ProjectCreation
+    {
     }
 
     internal sealed class ProjectOpenAttempt

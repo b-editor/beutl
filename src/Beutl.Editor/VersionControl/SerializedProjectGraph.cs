@@ -64,8 +64,9 @@ internal static class SerializedProjectGraph
     }
 
     // The project file itself can be the conflicted one, and a half-written graph must not stop the
-    // caller from scanning what it already knows about.
-    public static IReadOnlySet<string> TryGetRelativePaths(string projectFile, string projectRoot)
+    // caller from scanning what it already knows about. Null tells that apart from a project that
+    // loads and references nothing.
+    public static IReadOnlySet<string>? TryGetRelativePaths(string projectFile, string projectRoot)
     {
         try
         {
@@ -73,7 +74,7 @@ internal static class SerializedProjectGraph
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
         {
-            return new HashSet<string>(StringComparer.Ordinal);
+            return null;
         }
     }
 }

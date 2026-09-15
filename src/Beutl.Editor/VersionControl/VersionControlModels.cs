@@ -164,6 +164,15 @@ internal sealed record PendingPullRecovery(
     DateTimeOffset CreatedAt)
 {
     public string RecoveryBranchName => $"beutl/recovery/{Id}";
+
+    // A branch named beutl or beutl-recovery takes the path an earlier name needs, so Git cannot create
+    // it; the checkpoint then goes on the next name.
+    public IReadOnlyList<string> RecoveryBranchNameCandidates =>
+    [
+        RecoveryBranchName,
+        $"beutl-recovery/{Id}",
+        $"beutl-recovery-{Id}",
+    ];
 }
 
 internal enum PendingPullRecoveryOutcome
@@ -250,7 +259,8 @@ public sealed record WorkspaceStatus(
     int Ahead,
     int Behind,
     IReadOnlyList<FileChange> Changes,
-    bool HasConflicts)
+    bool HasConflicts,
+    bool IsDetachedHead = false)
 {
     public bool IsClean => Changes.Count == 0;
 }
@@ -341,7 +351,8 @@ internal abstract record RemoteOpResult
     public sealed record Failed(string Stderr) : RemoteOpResult;
 }
 
-public sealed record BranchInfo(string Name, bool IsCurrent, string? UpstreamName);
+// IsRemote marks a branch that so far exists only on origin; switching to it creates the local branch.
+public sealed record BranchInfo(string Name, bool IsCurrent, string? UpstreamName, bool IsRemote = false);
 
 public sealed record RemoteInfo(string Name, string Url);
 
@@ -354,6 +365,8 @@ internal abstract record VersionControlPolicyNotice
     }
 
     internal sealed record LfsRemoteQuota : VersionControlPolicyNotice;
+
+    internal sealed record LfsInstallFailed : VersionControlPolicyNotice;
 
     internal sealed record LargeMediaWithoutLfs(
         string Path,
