@@ -8477,6 +8477,74 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    // After a lost update-ref response HEAD may already name another branch, so the recovery check
+    // must find the durable snapshot on the branch that received it rather than through HEAD.
+    [Test]
+    public async Task CommitAllAsync_keeps_a_reftable_snapshot_whose_publication_response_was_lost_after_a_HEAD_switch()
+    {
+        GitCliRunner runner = CreateRunner();
+        (string repositoryRoot, RepositoryInfo reftableRepository)
+            = await CreateReftableRepositoryAsync(runner);
+        string baseTip = (await runner.RunAsync(
+            reftableRepository,
+            ["rev-parse", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        await runner.RunAsync(
+            reftableRepository,
+            ["branch", "alternate", baseTip],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await File.WriteAllTextAsync(
+            Path.Combine(repositoryRoot, "project.bep"),
+            "{\"edited\":true}\n");
+        var losingRunner = new LoseSnapshotPublicationResponseRunner(
+            runner,
+            () => runner.RunAsync(
+                reftableRepository,
+                ["symbolic-ref", "HEAD", "refs/heads/alternate"],
+                GitCommandOptions.Local,
+                CancellationToken.None));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            reftableRepository,
+            watcher: null,
+            _ => losingRunner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string mainTip = (await runner.RunAsync(
+            reftableRepository,
+            ["rev-parse", "refs/heads/main"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        string alternateTip = (await runner.RunAsync(
+            reftableRepository,
+            ["rev-parse", "refs/heads/alternate"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        // HEAD now names the old tip, so the reconciled index is compared with the published commit
+        // rather than with HEAD: a restored index would differ from it.
+        GitCommandResult indexAgainstSnapshot = await runner.RunAsync(
+            reftableRepository,
+            ["diff", "--cached", "--name-only", mainTip],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                mainTip,
+                Is.EqualTo(((CommitRevision.Known)((CommitResult.Committed)result).Revision).Sha));
+            Assert.That(alternateTip, Is.EqualTo(baseTip));
+            Assert.That(indexAgainstSnapshot.Stdout, Is.Empty);
+            Assert.That(losingRunner.LostResponseCount, Is.EqualTo(1));
+        });
+    }
+
     private async Task<(string Root, RepositoryInfo Repository)> CreateReftableRepositoryAsync(
         GitCliRunner runner)
     {
@@ -8490,8 +8558,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 GitCommandOptions.Local,
                 CancellationToken.None);
         }
-        catch (GitOperationException)
+        catch (GitOperationException ex) when (
+            ex.Stderr.Contains("ref-format", StringComparison.Ordinal)
+            || ex.Stderr.Contains("ref storage format", StringComparison.Ordinal))
         {
+            // Git before 2.45 rejects the option; a build without reftable rejects the format name.
             Assert.Ignore("This Git does not support the reftable ref format.");
         }
 
@@ -9720,6 +9791,53 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     cancellationToken,
                     stderrProgress)
                 .ConfigureAwait(false);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    // Lets the first save-snapshot update-ref succeed, runs interference, then reports the command
+    // as failed so the service sees a lost response.
+    private sealed class LoseSnapshotPublicationResponseRunner(
+        IGitCliRunner inner,
+        Func<Task> interference) : IGitCliRunner
+    {
+        private int _lossPending = 1;
+
+        public int LostResponseCount { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            GitCommandResult result = await inner.RunAsync(
+                    repository,
+                    arguments,
+                    options,
+                    cancellationToken,
+                    stderrProgress)
+                .ConfigureAwait(false);
+            if (arguments.FirstOrDefault() == "update-ref"
+                && arguments.Contains("beutl: save snapshot")
+                && Interlocked.Exchange(ref _lossPending, 0) == 1)
+            {
+                await interference().ConfigureAwait(false);
+                LostResponseCount++;
+                throw new GitOperationException(-1, "The update-ref response was lost.");
+            }
+
+            return result;
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)

@@ -5378,6 +5378,7 @@ internal sealed class GitCliVersionControlService :
         catch (Exception publicationException)
         {
             string? observedCommit;
+            bool published;
             try
             {
                 observedCommit = await TryResolveCommitWithRetryAsync(
@@ -5385,6 +5386,17 @@ internal sealed class GitCliVersionControlService :
                         runner,
                         publicationRef)
                     .ConfigureAwait(false);
+                published = string.Equals(observedCommit, commit, StringComparison.OrdinalIgnoreCase);
+                // HEAD can be switched away after a lost update-ref response, so it is not stable
+                // evidence of the update. The commit object is new, so a branch at it is.
+                if (!published && !string.Equals(publicationRef, branchRef, StringComparison.Ordinal))
+                {
+                    published = await IsCommitOnAnyLocalBranchAsync(
+                            publicationRepository,
+                            runner,
+                            commit)
+                        .ConfigureAwait(false);
+                }
             }
             catch (Exception observationException)
             {
@@ -5394,7 +5406,7 @@ internal sealed class GitCliVersionControlService :
                     observationException);
             }
 
-            if (string.Equals(observedCommit, commit, StringComparison.OrdinalIgnoreCase))
+            if (published)
             {
                 LogWarningBestEffort(
                     publicationException,
@@ -5415,6 +5427,26 @@ internal sealed class GitCliVersionControlService :
                 publicationException,
                 new ProjectCheckpointStateChangedException());
         }
+    }
+
+    private static async Task<bool> IsCommitOnAnyLocalBranchAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string commit)
+    {
+        GitCommandResult branches = await runner.RunAsync(
+                repository,
+                [
+                    "for-each-ref",
+                    "--points-at",
+                    commit,
+                    "--format=%(refname)",
+                    "refs/heads/",
+                ],
+                GitCommandOptions.Local,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        return !string.IsNullOrWhiteSpace(branches.Stdout);
     }
 
     private async Task PublishSnapshotAndReconcileIndexAsync(
