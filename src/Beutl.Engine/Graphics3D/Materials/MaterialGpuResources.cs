@@ -14,7 +14,7 @@ internal static class MaterialGpuResources
             MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
     }
 
-    public static (IBuffer Buffer, IDescriptorSet Descriptors) CreateDrawBindings<TUbo>(
+    public static MaterialDrawBindings CreateDrawBindings<TUbo>(
         IGraphicsContext context, IPipeline3D pipeline, uint textureCount)
         where TUbo : struct
     {
@@ -28,7 +28,7 @@ internal static class MaterialGpuResources
                 new(DescriptorType.CombinedImageSampler, textureCount),
             ]);
             descriptors.UpdateBuffer(0, buffer);
-            return (buffer, descriptors);
+            return new MaterialDrawBindings(buffer, descriptors);
         }
         catch
         {

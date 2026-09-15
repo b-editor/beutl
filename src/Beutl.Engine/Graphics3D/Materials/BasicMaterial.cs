@@ -58,15 +58,15 @@ public sealed partial class BasicMaterial : Material3D
     {
         private IPipeline3D? _pipeline;
         private IRenderPass3D? _pipelineRenderPass;
-        private bool _bindingsRecorded;
-        private IDescriptorSet? _descriptorSet;
-        private IBuffer? _uniformBuffer;
+        private MaterialDrawBindingPool? _drawBindings;
         private ISampler? _sampler;
 
         // Default texture (1x1 pixel)
         private ITexture2D? _defaultWhiteTexture;
 
         protected internal override IPipeline3D? Pipeline => _pipeline;
+
+        internal MaterialDrawBindingPool? DrawBindings => _drawBindings;
 
         protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
         {
@@ -85,7 +85,6 @@ public sealed partial class BasicMaterial : Material3D
             var graphicsContext = context.GraphicsContext;
             var shaderCompiler = context.ShaderCompiler;
 
-            _uniformBuffer = MaterialGpuResources.CreateUniformBuffer<BasicMaterialUBO>(graphicsContext);
             _sampler = MaterialGpuResources.CreateLinearRepeatSampler(graphicsContext);
             _defaultWhiteTexture = MaterialGpuResources.Create1x1Texture(graphicsContext, [255, 255, 255, 255]);
 
@@ -108,16 +107,7 @@ public sealed partial class BasicMaterial : Material3D
                 descriptorBindings,
                 Vertex3D.GetVertexInputDescription());
 
-            // Create descriptor set
-            var poolSizes = new DescriptorPoolSize[]
-            {
-                new(DescriptorType.UniformBuffer, 1),
-                new(DescriptorType.CombinedImageSampler, 1)
-            };
-
-            _descriptorSet = graphicsContext.CreateDescriptorSet(_pipeline, poolSizes);
-            _descriptorSet.UpdateBuffer(0, _uniformBuffer);
-            _descriptorSet.UpdateTexture(1, _defaultWhiteTexture, _sampler);
+            _drawBindings = MaterialDrawBindingPool.Create<BasicMaterialUBO>(graphicsContext, _pipeline, 1);
 
             _pipelineRenderPass = context.RenderPass;
             IsPipelineInitialized = true;
@@ -125,19 +115,8 @@ public sealed partial class BasicMaterial : Material3D
 
         public override void Bind(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
         {
-            if (_pipeline == null || _descriptorSet == null || _uniformBuffer == null || _sampler == null)
+            if (_pipeline == null || _drawBindings == null || _sampler == null)
                 return;
-
-            // Recorded draws must retain immutable bindings until the backend completes them.
-            if (_bindingsRecorded)
-            {
-                var bindings = MaterialGpuResources.CreateDrawBindings<BasicMaterialUBO>(context.GraphicsContext, _pipeline, 1);
-                _descriptorSet.Dispose();
-                _uniformBuffer.Dispose();
-                _descriptorSet = bindings.Descriptors;
-                _uniformBuffer = bindings.Buffer;
-            }
-            _bindingsRecorded = true;
 
             var renderPass = context.RenderPass;
             var graphicsContext = context.GraphicsContext;
@@ -146,8 +125,11 @@ public sealed partial class BasicMaterial : Material3D
             ITexture2D? diffuseTex = DiffuseMap?.GetTexture(graphicsContext, context.SurfaceDensity);
             int hasTexture = diffuseTex != null ? 1 : 0;
 
+            // Recorded draws must retain immutable bindings until the backend completes them.
+            MaterialDrawBindings bindings = _drawBindings.Acquire();
+
             // Update texture binding
-            _descriptorSet.UpdateTexture(1, diffuseTex ?? _defaultWhiteTexture!, _sampler);
+            bindings.Descriptors.UpdateTexture(1, diffuseTex ?? _defaultWhiteTexture!, _sampler);
 
             // Convert shininess to roughness (inverse relationship)
             // Shininess 1 -> Roughness 1.0, Shininess 256 -> Roughness ~0.04
@@ -165,22 +147,20 @@ public sealed partial class BasicMaterial : Material3D
                 HasTexture = hasTexture | (obj.ReceiveShadows ? 0 : 2)
             };
 
-            _uniformBuffer.Upload(new ReadOnlySpan<BasicMaterialUBO>(ref ubo));
+            bindings.Buffer.Upload(new ReadOnlySpan<BasicMaterialUBO>(ref ubo));
 
             // Bind pipeline and descriptor set
             renderPass.BindPipeline(_pipeline);
-            renderPass.BindDescriptorSet(_pipeline, _descriptorSet);
+            renderPass.BindDescriptorSet(_pipeline, bindings.Descriptors);
+            _drawBindings.MarkBound(bindings);
         }
 
         partial void PostDispose(bool disposing)
         {
             _pipelineRenderPass = null;
-            _bindingsRecorded = false;
             IsPipelineInitialized = false;
-            _descriptorSet?.Dispose();
-            _descriptorSet = null;
-            _uniformBuffer?.Dispose();
-            _uniformBuffer = null;
+            _drawBindings?.Dispose();
+            _drawBindings = null;
             _sampler?.Dispose();
             _sampler = null;
 
