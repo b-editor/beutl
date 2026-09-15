@@ -193,6 +193,22 @@ public class FilePathComparisonTests
     }
 
     [Test]
+    public void Canonical_entry_selection_tolerates_a_listing_that_repeats_a_name()
+    {
+        string parent = Path.Combine(Path.GetTempPath(), "synthetic-parent");
+        string entry = Path.Combine(parent, "Templates");
+        var entries = new FilePathComparison.ResolutionContext.DirectoryEntries([entry, entry]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(entries.Select("Templates", entry), Is.EqualTo(entry));
+            Assert.That(
+                entries.Select("templates", Path.Combine(parent, "templates")),
+                Is.EqualTo(entry));
+        });
+    }
+
+    [Test]
     public void Containment_includes_the_root_and_rejects_a_sibling()
     {
         string temporaryRoot = CreateTemporaryDirectory();
