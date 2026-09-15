@@ -30,6 +30,7 @@ public sealed partial class MainWindow : FAAppWindow
         }
 
         TitleBar.Height = 40;
+        ExtendClientAreaTitleBarHeightHint = TitleBar.Height;
     }
 
     private void SetRect(PixelRect rect)
