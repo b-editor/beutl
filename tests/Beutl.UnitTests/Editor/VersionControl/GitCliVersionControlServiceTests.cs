@@ -8301,29 +8301,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     [Test]
     public async Task CommitAllAsync_snapshots_a_reftable_repository()
     {
-        string repositoryRoot = CreateTemporaryDirectory();
-        var reftableRepository = new RepositoryInfo(repositoryRoot, repositoryRoot);
         GitCliRunner runner = CreateRunner();
-        try
-        {
-            await runner.RunAsync(
-                reftableRepository,
-                ["init", "-b", "main", "--ref-format=reftable"],
-                GitCommandOptions.Local,
-                CancellationToken.None);
-        }
-        catch (GitOperationException)
-        {
-            Assert.Ignore("This Git does not support the reftable ref format.");
-        }
-
-        await runner.RunAsync(reftableRepository, ["config", "user.name", "Beutl Test"], GitCommandOptions.Local, CancellationToken.None);
-        await runner.RunAsync(reftableRepository, ["config", "user.email", "beutl-test@example.invalid"], GitCommandOptions.Local, CancellationToken.None);
-        await runner.RunAsync(reftableRepository, ["config", "commit.gpgsign", "false"], GitCommandOptions.Local, CancellationToken.None);
+        (string repositoryRoot, RepositoryInfo reftableRepository)
+            = await CreateReftableRepositoryAsync(runner);
         string projectFile = Path.Combine(repositoryRoot, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "{}\n");
-        await runner.RunAsync(reftableRepository, ["add", "--", "project.bep"], GitCommandOptions.Local, CancellationToken.None);
-        await runner.RunAsync(reftableRepository, ["commit", "-m", "baseline"], GitCommandOptions.Local, CancellationToken.None);
         await File.WriteAllTextAsync(projectFile, "{\"edited\":true}\n");
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
@@ -8346,6 +8327,181 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(result, Is.TypeOf<CommitResult.Committed>());
             Assert.That(committed.Stdout, Is.EqualTo("{\"edited\":true}\n"));
         });
+    }
+
+    // HEAD.lock guards nothing with reftable, so a HEAD switch between Beutl's check and the ref
+    // update cannot be excluded. Publishing through HEAD lets Git decide under its own lock, and the
+    // snapshot lands on the branch that is checked out when the update happens.
+    [Test]
+    public async Task CommitAllAsync_publishes_a_reftable_snapshot_on_the_branch_HEAD_names_at_publication()
+    {
+        GitCliRunner runner = CreateRunner();
+        (string repositoryRoot, RepositoryInfo reftableRepository)
+            = await CreateReftableRepositoryAsync(runner);
+        string baseTip = (await runner.RunAsync(
+            reftableRepository,
+            ["rev-parse", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        await runner.RunAsync(
+            reftableRepository,
+            ["branch", "alternate", baseTip],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await File.WriteAllTextAsync(
+            Path.Combine(repositoryRoot, "project.bep"),
+            "{\"edited\":true}\n");
+        var interferingRunner = new InterfereBeforeSnapshotPublicationRunner(
+            runner,
+            () => runner.RunAsync(
+                reftableRepository,
+                ["symbolic-ref", "HEAD", "refs/heads/alternate"],
+                GitCommandOptions.Local,
+                CancellationToken.None));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            reftableRepository,
+            watcher: null,
+            _ => interferingRunner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string mainTip = (await runner.RunAsync(
+            reftableRepository,
+            ["rev-parse", "refs/heads/main"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        string alternateTip = (await runner.RunAsync(
+            reftableRepository,
+            ["rev-parse", "refs/heads/alternate"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        string currentBranch = (await runner.RunAsync(
+            reftableRepository,
+            ["branch", "--show-current"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        GitCommandResult committed = await runner.RunAsync(
+            reftableRepository,
+            ["show", "refs/heads/alternate:project.bep"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        GitCommandResult staged = await runner.RunAsync(
+            reftableRepository,
+            ["diff", "--cached", "--name-only"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                alternateTip,
+                Is.EqualTo(((CommitRevision.Known)((CommitResult.Committed)result).Revision).Sha));
+            Assert.That(mainTip, Is.EqualTo(baseTip));
+            Assert.That(currentBranch, Is.EqualTo("alternate"));
+            Assert.That(committed.Stdout, Is.EqualTo("{\"edited\":true}\n"));
+            Assert.That(staged.Stdout, Is.Empty);
+            Assert.That(interferingRunner.InterferenceCount, Is.EqualTo(1));
+            Assert.That(interferingRunner.TemporaryWorktreeCount, Is.Zero);
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_rejects_a_reftable_snapshot_when_the_checked_out_branch_moved_before_publication()
+    {
+        GitCliRunner runner = CreateRunner();
+        (string repositoryRoot, RepositoryInfo reftableRepository)
+            = await CreateReftableRepositoryAsync(runner);
+        string baseTip = (await runner.RunAsync(
+            reftableRepository,
+            ["rev-parse", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        string baseTree = (await runner.RunAsync(
+            reftableRepository,
+            ["rev-parse", "HEAD^{tree}"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        string externalTip = (await runner.RunAsync(
+            reftableRepository,
+            ["commit-tree", baseTree, "-p", baseTip, "-m", "external ref update"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        string projectFile = Path.Combine(repositoryRoot, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "{\"edited\":true}\n");
+        var interferingRunner = new InterfereBeforeSnapshotPublicationRunner(
+            runner,
+            () => runner.RunAsync(
+                reftableRepository,
+                ["update-ref", "refs/heads/main", externalTip, baseTip],
+                GitCommandOptions.Local,
+                CancellationToken.None));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            reftableRepository,
+            watcher: null,
+            _ => interferingRunner);
+
+        Exception? exception = Assert.CatchAsync<Exception>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        string mainTip = (await runner.RunAsync(
+            reftableRepository,
+            ["rev-parse", "refs/heads/main"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        GitCommandResult committed = await runner.RunAsync(
+            reftableRepository,
+            ["show", "refs/heads/main:project.bep"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        GitCommandResult staged = await runner.RunAsync(
+            reftableRepository,
+            ["diff", "--cached", "--name-only"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("captured branch"));
+            Assert.That(mainTip, Is.EqualTo(externalTip));
+            Assert.That(committed.Stdout, Is.EqualTo("{}\n"));
+            Assert.That(staged.Stdout, Is.Empty);
+            Assert.That(File.ReadAllText(projectFile), Is.EqualTo("{\"edited\":true}\n"));
+            Assert.That(interferingRunner.InterferenceCount, Is.EqualTo(1));
+        });
+    }
+
+    private async Task<(string Root, RepositoryInfo Repository)> CreateReftableRepositoryAsync(
+        GitCliRunner runner)
+    {
+        string repositoryRoot = CreateTemporaryDirectory();
+        var reftableRepository = new RepositoryInfo(repositoryRoot, repositoryRoot);
+        try
+        {
+            await runner.RunAsync(
+                reftableRepository,
+                ["init", "-b", "main", "--ref-format=reftable"],
+                GitCommandOptions.Local,
+                CancellationToken.None);
+        }
+        catch (GitOperationException)
+        {
+            Assert.Ignore("This Git does not support the reftable ref format.");
+        }
+
+        await runner.RunAsync(reftableRepository, ["config", "user.name", "Beutl Test"], GitCommandOptions.Local, CancellationToken.None);
+        await runner.RunAsync(reftableRepository, ["config", "user.email", "beutl-test@example.invalid"], GitCommandOptions.Local, CancellationToken.None);
+        await runner.RunAsync(reftableRepository, ["config", "commit.gpgsign", "false"], GitCommandOptions.Local, CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "project.bep"), "{}\n");
+        await runner.RunAsync(reftableRepository, ["add", "--", "project.bep"], GitCommandOptions.Local, CancellationToken.None);
+        await runner.RunAsync(reftableRepository, ["commit", "-m", "baseline"], GitCommandOptions.Local, CancellationToken.None);
+        return (repositoryRoot, reftableRepository);
     }
 
     private GitCliVersionControlService CreateService(RepositoryWatcher? watcher = null)
@@ -9512,6 +9668,58 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             }
 
             return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    // Runs interference once, right before the first update-ref that publishes a save snapshot,
+    // whichever ref that update names.
+    private sealed class InterfereBeforeSnapshotPublicationRunner(
+        IGitCliRunner inner,
+        Func<Task> interference) : IGitCliRunner
+    {
+        private int _interferencePending = 1;
+
+        public int InterferenceCount { get; private set; }
+
+        public int TemporaryWorktreeCount { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments is ["worktree", "add", ..])
+            {
+                TemporaryWorktreeCount++;
+            }
+
+            if (arguments.FirstOrDefault() == "update-ref"
+                && arguments.Contains("beutl: save snapshot")
+                && Interlocked.Exchange(ref _interferencePending, 0) == 1)
+            {
+                await interference().ConfigureAwait(false);
+                InterferenceCount++;
+            }
+
+            return await inner.RunAsync(
+                    repository,
+                    arguments,
+                    options,
+                    cancellationToken,
+                    stderrProgress)
+                .ConfigureAwait(false);
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)

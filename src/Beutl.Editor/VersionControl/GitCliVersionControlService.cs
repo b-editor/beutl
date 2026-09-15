@@ -185,6 +185,10 @@ internal sealed class GitCliVersionControlService :
 
         public string LockPath { get; }
 
+        // Set once the HEAD file has shown the reftable placeholder. HEAD.lock then guards nothing, so a
+        // branch update has to let Git verify the checked-out branch inside its own transaction.
+        public bool HeadStoredInReftable { get; private set; }
+
         public static async Task<HeadOwnershipLease> AcquireAsync(
             RepositoryInfo repository,
             IGitCliRunner runner,
@@ -250,6 +254,7 @@ internal sealed class GitCliVersionControlService :
                 throw new ProjectCheckpointStateChangedException();
             }
 
+            HeadStoredInReftable = true;
             GitCommandResult symbolicRef;
             try
             {
@@ -5341,9 +5346,12 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
+    // publicationRef is the captured branch when the update runs from a temporary worktree, or HEAD
+    // when it runs in the project worktree; branchRef only names the captured branch in diagnostics.
     private async Task PublishSnapshotCommitAsync(
-        RepositoryInfo repository,
+        RepositoryInfo publicationRepository,
         IGitCliRunner runner,
+        string publicationRef,
         string branchRef,
         string? expectedOldCommit,
         string commit,
@@ -5352,13 +5360,13 @@ internal sealed class GitCliVersionControlService :
         try
         {
             await runner.RunAsync(
-                    repository,
+                    publicationRepository,
                     [
                         "update-ref",
                         "--create-reflog",
                         "-m",
                         reflogMessage,
-                        branchRef,
+                        publicationRef,
                         commit,
                         expectedOldCommit ?? string.Empty,
                     ],
@@ -5373,9 +5381,9 @@ internal sealed class GitCliVersionControlService :
             try
             {
                 observedCommit = await TryResolveCommitWithRetryAsync(
-                        repository,
+                        publicationRepository,
                         runner,
-                        branchRef)
+                        publicationRef)
                     .ConfigureAwait(false);
             }
             catch (Exception observationException)
@@ -5420,28 +5428,44 @@ internal sealed class GitCliVersionControlService :
         string reflogMessage,
         CancellationToken cancellationToken)
     {
-        string refUpdateWorktreePath = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-git-ref-update-{Guid.NewGuid():N}");
-        var refUpdateRepository = new RepositoryInfo(
-            refUpdateWorktreePath,
-            refUpdateWorktreePath);
+        // With the files backend the lease holds HEAD.lock, which also keeps Git from updating the
+        // branch checked out in this worktree, so the update runs from a detached temporary worktree
+        // where HEAD is not involved and the lock is what keeps HEAD on the captured branch. With the
+        // reftable backend HEAD.lock guards nothing, and Git cannot verify a symbolic HEAD in the same
+        // transaction that updates its target. The update therefore goes through HEAD, as git commit
+        // does: under Git's own lock the branch HEAD names at that moment must still be at the
+        // expected tip, and only that branch moves. A HEAD switched to another branch at the same tip
+        // in that window receives the commit on that branch, and a HEAD detached at the tip receives
+        // it directly; the post-commit hook then sees the ownership change.
+        bool publishThroughHead = headLease.HeadStoredInReftable;
+        string? refUpdateWorktreePath = publishThroughHead
+            ? null
+            : Path.Combine(
+                Path.GetTempPath(),
+                $"beutl-git-ref-update-{Guid.NewGuid():N}");
+        RepositoryInfo publicationRepository = refUpdateWorktreePath is null
+            ? repository
+            : new RepositoryInfo(refUpdateWorktreePath, refUpdateWorktreePath);
+        string publicationRef = publishThroughHead ? "HEAD" : branchRef;
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            await runner.RunAsync(
-                    repository,
-                    [
-                        "worktree",
-                        "add",
-                        "--detach",
-                        "--no-checkout",
-                        refUpdateWorktreePath,
-                        commit,
-                    ],
-                    GitCommandOptions.Local,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
+            if (refUpdateWorktreePath is not null)
+            {
+                await runner.RunAsync(
+                        repository,
+                        [
+                            "worktree",
+                            "add",
+                            "--detach",
+                            "--no-checkout",
+                            refUpdateWorktreePath,
+                            commit,
+                        ],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
 
             await headLease.VerifyStillOwnedAsync(cancellationToken).ConfigureAwait(false);
             await EnsureNoExternalRepositoryOperationAsync(
@@ -5469,8 +5493,9 @@ internal sealed class GitCliVersionControlService :
             {
                 await headLease.VerifyStillOwnedAsync(CancellationToken.None).ConfigureAwait(false);
                 await PublishSnapshotCommitAsync(
-                        refUpdateRepository,
+                        publicationRepository,
                         runner,
+                        publicationRef,
                         branchRef,
                         expectedOldCommit,
                         commit,
@@ -5504,11 +5529,14 @@ internal sealed class GitCliVersionControlService :
         }
         finally
         {
-            await RemoveRefUpdateWorktreeBestEffortAsync(
-                    repository,
-                    runner,
-                    refUpdateWorktreePath)
-                .ConfigureAwait(false);
+            if (refUpdateWorktreePath is not null)
+            {
+                await RemoveRefUpdateWorktreeBestEffortAsync(
+                        repository,
+                        runner,
+                        refUpdateWorktreePath)
+                    .ConfigureAwait(false);
+            }
         }
     }
 
