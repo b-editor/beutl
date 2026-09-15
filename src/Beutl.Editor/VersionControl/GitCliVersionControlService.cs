@@ -7017,6 +7017,13 @@ internal sealed class GitCliVersionControlService :
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        // An abbreviated ID is a valid start point, but HEAD reads back as a full ID, so the comparison,
+        // the switch and the cleanup all use the commit the start point resolves to.
+        string startCommit = await TryResolveCommitAsync(repository, runner, startPoint, cancellationToken)
+                .ConfigureAwait(false)
+            ?? throw new ArgumentException(
+                "The start point must identify a commit in the repository.",
+                nameof(startPoint));
         // Like git switch -c, a branch that starts at the checked-out commit changes no file, so it does
         // not need the project to be closed. Any other start point rewrites the worktree.
         bool projectOpen = !_isWorktreeMutationAllowed();
@@ -7027,7 +7034,7 @@ internal sealed class GitCliVersionControlService :
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!string.Equals(head.Commit, startPoint, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(head.Commit, startCommit, StringComparison.OrdinalIgnoreCase))
             {
                 EnsureWorktreeMutationAllowed();
             }
@@ -7049,23 +7056,24 @@ internal sealed class GitCliVersionControlService :
                     "--no-overwrite-ignore",
                     "-c",
                     name,
-                    startPoint,
+                    startCommit,
                 ],
                 new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
                 cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception switchFailure) when (projectOpen)
+        catch (Exception switchFailure)
         {
             // git switch -c creates the branch before it moves HEAD, so a failed switch can leave the
-            // branch behind, and a retry would find the name taken. With hooks off, a switch that moved
-            // HEAD has done all its work.
-            if (!await RemoveBranchUnlessHeadMovedAsync(
+            // branch behind, and a retry would find the name taken. Once HEAD has moved, a switch with
+            // hooks off has done all its work; with hooks on, the post-checkout hook can still fail it.
+            bool headMoved = await RemoveBranchUnlessHeadMovedAsync(
                     repository,
                     runner,
                     $"refs/heads/{name}",
-                    startPoint,
+                    startCommit,
                     switchFailure)
-                .ConfigureAwait(false))
+                .ConfigureAwait(false);
+            if (!headMoved || !projectOpen)
             {
                 throw;
             }

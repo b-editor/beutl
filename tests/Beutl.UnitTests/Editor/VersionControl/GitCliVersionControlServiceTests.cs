@@ -5437,6 +5437,47 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CreateBranchAsync_accepts_an_abbreviated_checked_out_commit_while_the_project_is_open()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            isWorktreeMutationAllowed: static () => false);
+
+        await service.CreateBranchAsync("open-branch", head[..7], CancellationToken.None);
+
+        GitCommandResult branch = await RunGitAsync("branch", "--show-current");
+        GitCommandResult branchTip = await RunGitAsync("rev-parse", "refs/heads/open-branch");
+        Assert.Multiple(() =>
+        {
+            Assert.That(branch.Stdout.Trim(), Is.EqualTo("open-branch"));
+            Assert.That(branchTip.Stdout.Trim(), Is.EqualTo(head));
+        });
+    }
+
+    [Test]
+    public async Task CreateBranchAsync_rejects_a_start_point_that_names_no_commit()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        using var service = CreateService();
+
+        ArgumentException? exception = Assert.ThrowsAsync<ArgumentException>(
+            async () => await service.CreateBranchAsync(
+                "missing-start",
+                "0123456789abcdef0123456789abcdef01234567",
+                CancellationToken.None));
+
+        GitCommandResult branches = await RunGitAsync("branch", "--list", "missing-start");
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception?.ParamName, Is.EqualTo("startPoint"));
+            Assert.That(branches.Stdout, Is.Empty);
+        });
+    }
+
+    [Test]
     public async Task CreateBranchAsync_while_the_project_is_open_runs_no_checkout_hook()
     {
         // A post-checkout hook may rewrite project files. With the project open that would happen
@@ -5462,7 +5503,31 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task CreateBranchAsync_removes_the_new_branch_when_HEAD_cannot_move()
+    public async Task CreateBranchAsync_with_the_project_closed_reports_a_failed_checkout_hook()
+    {
+        // Hooks run while the project is closed, so a failing post-checkout hook still fails the creation
+        // even though HEAD has already moved to the new branch.
+        await CommitFileAsync("project.bep", "current\n", "current");
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await WriteHookAsync("post-checkout", "exit 1\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            isWorktreeMutationAllowed: static () => true);
+
+        Assert.CatchAsync<GitOperationException>(
+            async () => await service.CreateBranchAsync(
+                "closed-branch",
+                head,
+                CancellationToken.None));
+
+        GitCommandResult branch = await RunGitAsync("branch", "--show-current");
+        Assert.That(branch.Stdout.Trim(), Is.EqualTo("closed-branch"));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task CreateBranchAsync_removes_the_new_branch_when_HEAD_cannot_move(bool projectOpen)
     {
         await CommitFileAsync("project.bep", "current\n", "current");
         string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -5473,7 +5538,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
             Repository,
-            isWorktreeMutationAllowed: static () => false);
+            isWorktreeMutationAllowed: () => !projectOpen);
 
         // Another Git process holding HEAD makes the move fail after the branch already exists.
         await File.WriteAllTextAsync(headLock, string.Empty);
