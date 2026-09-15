@@ -143,6 +143,44 @@ public sealed class MaterialDrawBindingPoolTests
         }
     }
 
+    [Test]
+    public void MarkBound_RejectsBindingsOtherThanTheOnesJustAcquired()
+    {
+        var queue = new DeferredWorkQueue();
+        using var pool = CreatePool(queue);
+        MaterialDrawBindings bound = Draw(pool);
+        pool.Acquire();
+
+        Assert.Throws<InvalidOperationException>(() => pool.MarkBound(bound));
+    }
+
+    [Test]
+    public void Create_OnAContextWithoutADeferredReleaseQueue_DisposesRetiredBindingsInsteadOfReusingThem()
+    {
+        var context = new Mock<IGraphicsContext>();
+        context.Setup(static c => c.CreateBuffer(It.IsAny<ulong>(), It.IsAny<BufferUsage>(), It.IsAny<MemoryProperty>()))
+            .Returns(static () => Mock.Of<IBuffer>());
+        context.Setup(static c => c.CreateDescriptorSet(It.IsAny<IPipeline3D>(), It.IsAny<DescriptorPoolSize[]>()))
+            .Returns(static () => Mock.Of<IDescriptorSet>());
+        using var pool = MaterialDrawBindingPool.Create<TestUniforms>(context.Object, Mock.Of<IPipeline3D>(), 1);
+
+        MaterialDrawBindings first = Draw(pool);
+        MaterialDrawBindings second = Draw(pool);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(second, Is.Not.SameAs(first));
+            AssertDisposed(first, Times.Once());
+            Mock.Get(first.Descriptors).Verify(descriptors => descriptors.UpdateBuffer(0, first.Buffer), Times.Once());
+            context.Verify(
+                static c => c.CreateBuffer(
+                    (ulong)System.Runtime.InteropServices.Marshal.SizeOf<TestUniforms>(),
+                    BufferUsage.UniformBuffer,
+                    It.IsAny<MemoryProperty>()),
+                Times.Exactly(2));
+        }
+    }
+
     private static MaterialDrawBindingPool CreatePool(DeferredWorkQueue? queue)
         => new(
             static () => new MaterialDrawBindings(Mock.Of<IBuffer>(), Mock.Of<IDescriptorSet>()),
@@ -160,6 +198,8 @@ public sealed class MaterialDrawBindingPoolTests
         Mock.Get(bindings.Buffer).Verify(static buffer => buffer.Dispose(), times);
         Mock.Get(bindings.Descriptors).Verify(static descriptors => descriptors.Dispose(), times);
     }
+
+    private readonly record struct TestUniforms(float Value);
 
     /// <summary>Stands in for the backend queue that runs a release once the submissions recorded so far complete.</summary>
     private sealed class DeferredWorkQueue
