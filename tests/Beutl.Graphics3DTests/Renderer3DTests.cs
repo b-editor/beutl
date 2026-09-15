@@ -52,7 +52,7 @@ public class Renderer3DTests
     public void MaterialBindings_AreReusedOnceTheFramesThatRecordedThemComplete(int kind)
     {
         const int meshes = 4;
-        FramesRendered rendered = RenderFrames(() => CreateMaterial(kind), meshes, frames: 6, waitEachFrame: true);
+        FramesRendered rendered = RenderFrames(() => CreateMaterial(kind), meshes, frames: 6);
 
         using (Assert.EnterMultipleScope())
         {
@@ -63,19 +63,18 @@ public class Renderer3DTests
         }
     }
 
-    [TestCase(true)]
-    [TestCase(false)]
-    public void MeshesSharingTheDefaultMaterial_KeepTheirOwnTransforms(bool waitEachFrame)
+    [Test]
+    public void MeshesSharingTheDefaultMaterial_KeepTheirOwnTransforms()
     {
         // Every mesh without a material binds the geometry pass's single default material resource, so one resource is
-        // bound once per mesh a frame; frames that are not waited for leave those bindings pending.
-        FramesRendered shared = RenderFrames(static () => null, meshes: 4, frames: 6, waitEachFrame);
-        FramesRendered own = RenderFrames(static () => new BasicMaterial(), meshes: 4, frames: 6, waitEachFrame);
+        // bound once per mesh a frame.
+        FramesRendered shared = RenderFrames(static () => null, meshes: 4, frames: 6);
+        FramesRendered own = RenderFrames(static () => new BasicMaterial(), meshes: 4, frames: 6);
 
         Assert.That(shared.LastFrame, Is.EqualTo(own.LastFrame), "A draw must not take another draw's transform from reused bindings.");
     }
 
-    private FramesRendered RenderFrames(Func<Material3D?> createMaterial, int meshes, int frames, bool waitEachFrame)
+    private FramesRendered RenderFrames(Func<Material3D?> createMaterial, int meshes, int frames)
     {
         return GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -103,10 +102,10 @@ public class Renderer3DTests
                 for (int frame = 0; frame < frames; frame++)
                 {
                     renderer.Render(composition, cameraResource, objects, [], Colors.Black, Colors.White, 1f);
-                    if (!waitEachFrame && frame < frames - 1)
-                        continue;
 
-                    // Downloading waits for every pending submission, which is what returns the bindings they retired.
+                    // Render rewrites the lighting and flip passes' descriptor sets, which invalidates an earlier frame
+                    // still recording into the same command buffer, so every frame is submitted before the next one.
+                    // Downloading waits for that submission, which is also what returns the bindings it retired.
                     lastFrame = renderer.DownloadPixels();
                     if (frame == 0)
                         firstFrame = lastFrame;
