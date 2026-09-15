@@ -13205,14 +13205,19 @@ internal sealed class GitCliVersionControlService :
             return;
         }
 
-        // A user name alone is no credential: it only tells the credential helper which account to use.
-        bool allowsUserName = uri.Scheme is "http" or "https" or "ssh" or "git+ssh";
-        bool hasPassword = Uri.UnescapeDataString(uri.UserInfo)
-            .Contains(':');
-        if (!allowsUserName || hasPassword)
+        if (Uri.UnescapeDataString(uri.UserInfo).Contains(':'))
         {
             throw new ArgumentException(
                 "Remote URLs must not embed credentials. Configure a Git credential helper instead.",
+                nameof(url));
+        }
+
+        // An SSH user name only selects the account. Over HTTP the user name can itself be an access token,
+        // which the repository configuration would keep in plain text.
+        if (uri.Scheme is not ("ssh" or "git+ssh"))
+        {
+            throw new ArgumentException(
+                "Only SSH remote URLs may include a user name. Remove it and configure a Git credential helper instead.",
                 nameof(url));
         }
     }

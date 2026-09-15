@@ -6956,11 +6956,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
-    // Hosting services put the account name in their clone URLs. A name alone is no credential: it only
-    // tells the credential helper which account to use.
-    [TestCase("https://org@dev.azure.com/org/project/_git/repository")]
-    [TestCase("https://user@bitbucket.org/workspace/repository.git")]
-    [TestCase("http://user@example.invalid/repository.git")]
+    // An SSH user name only selects the account, so it is no credential.
     [TestCase("git+ssh://git@example.invalid/repository.git")]
     public async Task SetRemoteAsync_accepts_a_user_name_without_a_password(string remoteUrl)
     {
@@ -6972,8 +6968,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.That(remotes.Select(static remote => remote.Url), Is.EqualTo(new[] { remoteUrl }));
     }
 
+    // Over HTTP the user name can itself be an access token, as GitHub accepts, and the repository
+    // configuration would keep it in plain text, so even a hosting service's clone URL needs it removed.
     [TestCase("https://user:secret@example.invalid/repository.git")]
     [TestCase("http://user:secret@example.invalid/repository.git")]
+    [TestCase("https://org@dev.azure.com/org/project/_git/repository")]
+    [TestCase("http://user@example.invalid/repository.git")]
+    [TestCase("https://ghp_exampletoken@github.com/owner/repository.git")]
     [TestCase("ftp://user:secret@example.invalid/repository.git")]
     [TestCase("ftp://user@example.invalid/repository.git")]
     [TestCase("ssh://git:secret@example.invalid/repository.git")]
