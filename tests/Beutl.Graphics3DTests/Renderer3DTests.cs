@@ -46,6 +46,113 @@ public class Renderer3DTests
         Assert.That(shared, Is.EqualTo(independent), "Sharing a material must not move both meshes to the last draw's transform.");
     }
 
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    public void MaterialBindings_AreReusedOnceTheFramesThatRecordedThemComplete(int kind)
+    {
+        const int meshes = 4;
+        FramesRendered rendered = RenderFrames(() => CreateMaterial(kind), meshes, frames: 6, waitEachFrame: true);
+
+        using (Assert.EnterMultipleScope())
+        {
+            // Each mesh binds its own material resource once a frame. A completed frame frees the bindings it retired,
+            // so each resource settles on two: the one it binds and the one its previous frame bound.
+            Assert.That(rendered.CreatedBindings, Is.LessThanOrEqualTo(2 * meshes), "Draws must not create bindings every frame.");
+            Assert.That(rendered.LastFrame, Is.EqualTo(rendered.FirstFrame), "Reused bindings must draw what fresh ones drew.");
+        }
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void MeshesSharingTheDefaultMaterial_KeepTheirOwnTransforms(bool waitEachFrame)
+    {
+        // Every mesh without a material binds the geometry pass's single default material resource, so one resource is
+        // bound once per mesh a frame; frames that are not waited for leave those bindings pending.
+        FramesRendered shared = RenderFrames(static () => null, meshes: 4, frames: 6, waitEachFrame);
+        FramesRendered own = RenderFrames(static () => new BasicMaterial(), meshes: 4, frames: 6, waitEachFrame);
+
+        Assert.That(shared.LastFrame, Is.EqualTo(own.LastFrame), "A draw must not take another draw's transform from reused bindings.");
+    }
+
+    private FramesRendered RenderFrames(Func<Material3D?> createMaterial, int meshes, int frames, bool waitEachFrame)
+    {
+        return GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var renderer = new Renderer3D(_context);
+            renderer.Initialize(64, 64);
+            var composition = new CompositionContext(TimeSpan.Zero);
+            var camera = new PerspectiveCamera();
+            camera.Position.CurrentValue = new Vector3(0, 0, 4);
+            camera.Target.CurrentValue = Vector3.Zero;
+            using var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(composition);
+            var objects = new List<Object3D.Resource>();
+            try
+            {
+                for (int i = 0; i < meshes; i++)
+                {
+                    var sphere = new Sphere3D();
+                    sphere.Position.CurrentValue = new Vector3(i - (meshes - 1) / 2f, 0, 0);
+                    sphere.Radius.CurrentValue = 0.3f;
+                    sphere.Material.CurrentValue = createMaterial();
+                    objects.Add((Object3D.Resource)sphere.ToResource(composition));
+                }
+
+                byte[] firstFrame = [];
+                byte[] lastFrame = [];
+                for (int frame = 0; frame < frames; frame++)
+                {
+                    renderer.Render(composition, cameraResource, objects, [], Colors.Black, Colors.White, 1f);
+                    if (!waitEachFrame && frame < frames - 1)
+                        continue;
+
+                    // Downloading waits for every pending submission, which is what returns the bindings they retired.
+                    lastFrame = renderer.DownloadPixels();
+                    if (frame == 0)
+                        firstFrame = lastFrame;
+                }
+
+                Assert.That(IsLit(lastFrame), Is.True);
+                int created = objects.Sum(obj => obj.Material is { } material ? CreatedDrawBindings(material) : 0);
+                return new FramesRendered(firstFrame, lastFrame, created);
+            }
+            finally
+            {
+                foreach (var obj in objects)
+                    obj.Dispose();
+            }
+        });
+    }
+
+    private static bool IsLit(byte[] pixels)
+    {
+        var values = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(pixels);
+        for (int i = 0; i < values.Length; i += 4)
+        {
+            if ((float)values[i] > 0.001f || (float)values[i + 1] > 0.001f || (float)values[i + 2] > 0.001f)
+                return true;
+        }
+
+        return false;
+    }
+
+    private readonly record struct FramesRendered(byte[] FirstFrame, byte[] LastFrame, int CreatedBindings);
+
+    private static int CreatedDrawBindings(Material3D.Resource material) => material switch
+    {
+        BasicMaterial.Resource basic => basic.DrawBindings!.CreatedCount,
+        PBRMaterial.Resource pbr => pbr.DrawBindings!.CreatedCount,
+        TransparentMaterial.Resource transparent => transparent.DrawBindings!.CreatedCount,
+        _ => throw new ArgumentOutOfRangeException(nameof(material)),
+    };
+
+    private static Material3D CreateMaterial(int kind) => kind switch
+    {
+        0 => new BasicMaterial(),
+        1 => new PBRMaterial(),
+        _ => new TransparentMaterial(),
+    };
+
     private byte[] RenderPair(bool shared, int kind, bool grouped = false)
     {
         return GpuTestEnvironment.InvokeOnRenderThread(() =>
@@ -57,13 +164,7 @@ public class Renderer3DTests
             camera.Position.CurrentValue = new Vector3(0, 0, 4);
             camera.Target.CurrentValue = Vector3.Zero;
             using var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(composition);
-            Material3D CreateMaterial() => kind switch
-            {
-                0 => new BasicMaterial(),
-                1 => new PBRMaterial(),
-                _ => new TransparentMaterial(),
-            };
-            Material3D material = CreateMaterial();
+            Material3D material = CreateMaterial(kind);
             var objects = new List<Object3D.Resource>();
             var group = new Group3D();
             group.Position.CurrentValue = new Vector3(1, 0, 0);
@@ -74,7 +175,7 @@ public class Renderer3DTests
                     var sphere = new Sphere3D();
                     sphere.Position.CurrentValue = new Vector3((i == 0 ? -0.75f : 0.75f) - (grouped ? 1 : 0), 0, 0);
                     sphere.Radius.CurrentValue = 0.4f;
-                    sphere.Material.CurrentValue = shared ? material : CreateMaterial();
+                    sphere.Material.CurrentValue = shared ? material : CreateMaterial(kind);
                     if (grouped) group.Children.Add(sphere);
                     else objects.Add((Object3D.Resource)sphere.ToResource(composition));
                 }
