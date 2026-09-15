@@ -441,7 +441,7 @@ public static class CoreSerializer
                 EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
 
                 CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
-                suppressed.WasReinstated = false;
+                ClearReinstatement(suppressed);
                 suppressedObj.Uri = uri;
                 return;
             }
@@ -469,13 +469,13 @@ public static class CoreSerializer
 
                 try
                 {
-                    File.Move(tempPath, rehomedPath, overwrite: false);
+                    StorageWriteTransaction.MoveIntoPlace(tempPath, rehomedPath, overwrite: false);
                 }
                 catch (IOException) when (File.Exists(rehomedPath))
                 {
                     EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
 
-                    suppressed.WasReinstated = false;
+                    ClearReinstatement(suppressed);
                     suppressedObj.Uri = uri;
                     return;
                 }
@@ -491,7 +491,7 @@ public static class CoreSerializer
                 }
             }
 
-            suppressed.WasReinstated = false;
+            ClearReinstatement(suppressed);
             suppressedObj.Uri = uri;
             return;
         }
@@ -528,7 +528,11 @@ public static class CoreSerializer
                     stream.Flush(flushToDisk: true);
                 }
 
-                File.Move(tmp, path, overwrite: true);
+                StorageWriteTransaction.MoveIntoPlace(
+                    tmp,
+                    path,
+                    overwrite: true,
+                    isCompatibilityGate: obj is Project);
             }
             catch
             {
@@ -643,7 +647,7 @@ public static class CoreSerializer
 
             try
             {
-                File.Move(tempPath, path, overwrite: false);
+                StorageWriteTransaction.MoveIntoPlace(tempPath, path, overwrite: false);
             }
             catch (IOException) when (File.Exists(path))
             {
@@ -689,7 +693,19 @@ public static class CoreSerializer
             WriteBytesAtomically(path, suppressed.RawBytes);
         }
 
+        ClearReinstatement(suppressed);
+    }
+
+    private static void ClearReinstatement(SuppressedStorageSource suppressed)
+    {
+        if (!suppressed.WasReinstated)
+        {
+            return;
+        }
+
         suppressed.WasReinstated = false;
+        // A rolled-back save puts the replaced bytes back, so the record must still restore them.
+        StorageWriteTransaction.Current?.OnRollback(() => suppressed.WasReinstated = true);
     }
 
     private static void WriteBytesAtomically(string path, byte[] bytes)
@@ -707,7 +723,7 @@ public static class CoreSerializer
                 stream.Flush(flushToDisk: true);
             }
 
-            File.Move(tempPath, path, overwrite: true);
+            StorageWriteTransaction.MoveIntoPlace(tempPath, path, overwrite: true);
         }
         finally
         {

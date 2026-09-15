@@ -4,6 +4,7 @@
 [assembly: InternalsVisibleTo("Beutl.Editor")]
 [assembly: InternalsVisibleTo("Beutl.Editor.Components")]
 [assembly: InternalsVisibleTo("Beutl.UnitTests")]
+[assembly: InternalsVisibleTo("Beutl.HeadlessUITests")]
 [assembly: InternalsVisibleTo("Beutl.Configuration")]
 [assembly: InternalsVisibleTo("Beutl.Engine")]
 [assembly: InternalsVisibleTo("Beutl.ProjectSystem")]
