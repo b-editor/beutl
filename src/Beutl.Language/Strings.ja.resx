@@ -465,6 +465,9 @@
   <data name="FileBrowser" xml:space="preserve">
     <value>ファイルブラウザ</value>
   </data>
+  <data name="FileBrowser_WorkspaceBusy" xml:space="preserve">
+    <value>プロジェクトのファイルは別の操作で使用中です。完了してからもう一度お試しください。</value>
+  </data>
   <data name="ListView" xml:space="preserve">
     <value>リスト表示</value>
   </data>

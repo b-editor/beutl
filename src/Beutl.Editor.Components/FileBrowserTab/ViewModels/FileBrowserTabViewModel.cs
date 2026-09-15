@@ -1,9 +1,11 @@
 ﻿using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Avalonia.Data.Converters;
 using Avalonia.Threading;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
@@ -37,6 +39,13 @@ public sealed class FileBrowserTabViewModel : IToolContext
     private volatile bool _disposed;
 
     internal string? ProjectDirectory => _projectDirectory;
+
+    /// <summary>
+    /// Shows a confirmation dialog and returns its result. A test replaces it to decide the dialog's
+    /// outcome, and to act between the dialog opening and the user confirming it.
+    /// </summary>
+    internal Func<FAContentDialog, Task<FAContentDialogResult>> ConfirmAsync { get; set; } =
+        static dialog => dialog.ShowAsync();
 
     public FileBrowserTabViewModel(IEditorContext editorContext)
     {
@@ -338,26 +347,30 @@ public sealed class FileBrowserTabViewModel : IToolContext
             DefaultButton = FAContentDialogButton.Close
         };
 
-        var result = await dialog.ShowAsync();
+        FAContentDialogResult result = await ConfirmAsync(dialog);
         if (result == FAContentDialogResult.Primary)
         {
-            try
-            {
-                if (!CanMutateItem(item)) return;
-                if (item.IsDirectory)
+            if (!CanMutateItem(item)) return;
+            if (!TryBeginProjectFileWrite(Strings.Delete, out IProjectFileWriteLease? fileWrite))
+                return;
+
+            using (fileWrite)
+                try
                 {
-                    Directory.Delete(item.FullPath, true);
+                    if (item.IsDirectory)
+                    {
+                        Directory.Delete(item.FullPath, true);
+                    }
+                    else
+                    {
+                        File.Delete(item.FullPath);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    File.Delete(item.FullPath);
+                    _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
+                    NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
-                NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
-            }
         }
     }
 
@@ -382,29 +395,33 @@ public sealed class FileBrowserTabViewModel : IToolContext
             DefaultButton = FAContentDialogButton.Close
         };
 
-        var result = await dialog.ShowAsync();
+        FAContentDialogResult result = await ConfirmAsync(dialog);
         if (result == FAContentDialogResult.Primary)
         {
-            foreach (var item in items)
-            {
-                try
+            if (!TryBeginProjectFileWrite(Strings.Delete, out IProjectFileWriteLease? fileWrite))
+                return;
+
+            using (fileWrite)
+                foreach (var item in items)
                 {
-                    if (!CanMutateItem(item)) continue;
-                    if (item.IsDirectory)
+                    try
                     {
-                        Directory.Delete(item.FullPath, true);
+                        if (!CanMutateItem(item)) continue;
+                        if (item.IsDirectory)
+                        {
+                            Directory.Delete(item.FullPath, true);
+                        }
+                        else
+                        {
+                            File.Delete(item.FullPath);
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        File.Delete(item.FullPath);
+                        _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
+                        NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
-                    NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
-                }
-            }
         }
     }
 
@@ -423,15 +440,19 @@ public sealed class FileBrowserTabViewModel : IToolContext
             counter++;
         }
 
-        try
-        {
-            Directory.CreateDirectory(newFolderPath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to create folder at {Path}", newFolderPath);
-            NotificationService.ShowError(Strings.NewFolder, MessageStrings.OperationFailed);
-        }
+        if (!TryBeginProjectFileWrite(Strings.NewFolder, out IProjectFileWriteLease? fileWrite))
+            return;
+
+        using (fileWrite)
+            try
+            {
+                Directory.CreateDirectory(newFolderPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create folder at {Path}", newFolderPath);
+                NotificationService.ShowError(Strings.NewFolder, MessageStrings.OperationFailed);
+            }
     }
 
     public async Task RenameItemAsync(FileSystemItemViewModel item, string newName)
@@ -454,22 +475,26 @@ public sealed class FileBrowserTabViewModel : IToolContext
             return;
         }
 
-        try
-        {
-            if (item.IsDirectory)
+        if (!TryBeginProjectFileWrite(Strings.Rename, out IProjectFileWriteLease? fileWrite))
+            return;
+
+        using (fileWrite)
+            try
             {
-                Directory.Move(item.FullPath, newPath);
+                if (item.IsDirectory)
+                {
+                    Directory.Move(item.FullPath, newPath);
+                }
+                else
+                {
+                    File.Move(item.FullPath, newPath);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                File.Move(item.FullPath, newPath);
+                _logger.LogError(ex, "Failed to rename {OldPath} to {NewPath}", item.FullPath, newPath);
+                NotificationService.ShowError(Strings.Rename, MessageStrings.OperationFailed);
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to rename {OldPath} to {NewPath}", item.FullPath, newPath);
-            NotificationService.ShowError(Strings.Rename, MessageStrings.OperationFailed);
-        }
     }
 
     public void Refresh()
@@ -531,6 +556,17 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void CopyFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
     {
+        if (!TryBeginProjectFileWrite(Strings.Copy, out IProjectFileWriteLease? fileWrite))
+            return;
+
+        using (fileWrite)
+            CopyFilesToDirectoryCore(files, targetDir);
+    }
+
+    private void CopyFilesToDirectoryCore(
+        IEnumerable<(string LocalPath, bool IsDirectory)> files,
+        string targetDir)
+    {
         foreach (var (localPath, isDir) in files)
         {
             string destPath = Path.Combine(targetDir, Path.GetFileName(localPath));
@@ -565,12 +601,29 @@ public sealed class FileBrowserTabViewModel : IToolContext
         if (string.IsNullOrEmpty(_projectDirectory))
             return;
 
-        string resourcesDir = Path.Combine(_projectDirectory, "resources");
-        Directory.CreateDirectory(resourcesDir);
-        CopyFilesToDirectory(files, resourcesDir);
+        if (!TryBeginProjectFileWrite(Strings.Copy, out IProjectFileWriteLease? fileWrite))
+            return;
+
+        using (fileWrite)
+        {
+            string resourcesDir = Path.Combine(_projectDirectory, "resources");
+            Directory.CreateDirectory(resourcesDir);
+            CopyFilesToDirectoryCore(files, resourcesDir);
+        }
     }
 
     public void MoveFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
+    {
+        if (!TryBeginProjectFileWrite(Strings.Move, out IProjectFileWriteLease? fileWrite))
+            return;
+
+        using (fileWrite)
+            MoveFilesToDirectoryCore(files, targetDir);
+    }
+
+    private void MoveFilesToDirectoryCore(
+        IEnumerable<(string LocalPath, bool IsDirectory)> files,
+        string targetDir)
     {
         string normalizedTargetDir = Path.GetFullPath(targetDir);
         string targetDirWithSep = normalizedTargetDir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
@@ -634,9 +687,50 @@ public sealed class FileBrowserTabViewModel : IToolContext
         if (string.IsNullOrEmpty(_projectDirectory))
             return;
 
-        string resourcesDir = Path.Combine(_projectDirectory, "resources");
-        Directory.CreateDirectory(resourcesDir);
-        MoveFilesToDirectory(files, resourcesDir);
+        if (!TryBeginProjectFileWrite(Strings.Move, out IProjectFileWriteLease? fileWrite))
+            return;
+
+        using (fileWrite)
+        {
+            string resourcesDir = Path.Combine(_projectDirectory, "resources");
+            Directory.CreateDirectory(resourcesDir);
+            MoveFilesToDirectoryCore(files, resourcesDir);
+        }
+    }
+
+    /// <summary>
+    /// Reserves the project workspace for one write, or reports why the write cannot start.
+    /// </summary>
+    /// <remarks>
+    /// Taken right before the write, after any confirmation dialog, so a confirmation that closes
+    /// during a branch switch, pull, or restore cannot land its write on the tree Git is replacing.
+    /// The admission comes from the host that owns the editor context, not from the context itself: an
+    /// out-of-tree editor context cannot serve it, and a context no host owns is refused, not admitted.
+    /// </remarks>
+    private bool TryBeginProjectFileWrite(
+        string operation,
+        [NotNullWhen(true)] out IProjectFileWriteLease? fileWrite)
+    {
+        fileWrite = null;
+        if (_disposed)
+            return false;
+
+        IProjectFileWriteAdmission? admission = HostProjectFileWriteAdmission.Resolve(_editorContext);
+        if (admission is null)
+        {
+            _logger.LogError(
+                "No host owns this editor context, so no write admission governs it; refusing {Operation}.",
+                operation);
+            NotificationService.ShowError(operation, MessageStrings.OperationFailed);
+            return false;
+        }
+
+        fileWrite = admission.TryBeginProjectFileWrite();
+        if (fileWrite is not null)
+            return true;
+
+        NotificationService.ShowWarning(operation, Strings.FileBrowser_WorkspaceBusy);
+        return false;
     }
 
     public void WriteToJson(JsonObject json)
