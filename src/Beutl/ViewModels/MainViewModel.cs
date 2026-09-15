@@ -43,7 +43,6 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly AiJobCompletionNotifier _aiJobCompletionNotifier;
     private readonly Action<BeutlApiApplication> _shutdownHandoff;
     private readonly Func<TimeSpan, Task>? _waitForPackageInstallerIdle;
-    private readonly Func<IClassicDesktopStyleApplicationLifetime, bool> _requestShutdown;
     private PackageInstaller? _packageInstallerForShutdown;
     private readonly object _disposeGate = new();
     private readonly object _apiClientDisposeGate = new();
@@ -62,11 +61,9 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     internal MainViewModel(
         Action<BeutlApiApplication>? shutdownHandoff,
-        Func<TimeSpan, Task>? waitForPackageInstallerIdle = null,
-        Func<IClassicDesktopStyleApplicationLifetime, bool>? requestShutdown = null)
+        Func<TimeSpan, Task>? waitForPackageInstallerIdle = null)
     {
         _shutdownHandoff = shutdownHandoff ?? PerformShutdownHandoff;
-        _requestShutdown = requestShutdown ?? (lifetime => lifetime.TryShutdown());
         _authHttpClient = new HttpClient();
         // Composition root: own the editor-session services here and thread the instances
         // down to child view models and services.
@@ -310,6 +307,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     private void BeginDisposeOrThrow()
     {
+        Task<bool>? sharedClose;
         lock (_disposeGate)
         {
             // Disposal is only published after the project close was accepted, and
@@ -317,12 +315,45 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             // must not pump the UI thread through another synchronous close.
             if (_disposeTask is not null)
                 return;
+
+            sharedClose = _closeForShutdownTask;
+        }
+
+        if (sharedClose is { IsCompleted: false })
+        {
+            // A window or shutdown request is already closing the project. Join that
+            // attempt instead of opening a second transition that would pump the UI
+            // thread behind the project gate and run the close and veto handlers again.
+            WaitOnUiThread(sharedClose);
+            if (!sharedClose.GetAwaiter().GetResult())
+            {
+                throw new ProjectCloseAbortedException(
+                    "The in-flight project close was refused.");
+            }
+
+            return;
         }
 
         _projectService.CloseProjectOrThrow();
         lock (_disposeGate)
         {
             _disposeTask ??= DisposeCoreAsync();
+        }
+    }
+
+    private static void WaitOnUiThread(Task task)
+    {
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            while (!task.IsCompleted)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                Thread.Sleep(1);
+            }
+        }
+        else
+        {
+            task.GetAwaiter().GetResult();
         }
     }
 
@@ -654,6 +685,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         {
             if (_desktopLifetime is { } previous && !ReferenceEquals(previous, desktop))
             {
+                previous.Exit -= OnExit;
                 previous.ShutdownRequested -= OnShutdownRequested;
             }
 
@@ -724,11 +756,34 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         if (Volatile.Read(ref _exitObserved) != 0)
             return;
 
-        _requestShutdown(lifetime);
+        lifetime.TryShutdown();
     }
 
     internal void CompleteShutdown()
-        => Dispose();
+    {
+        Dispose();
+
+        Task? disposal;
+        lock (_disposeGate)
+        {
+            disposal = _disposeTask;
+        }
+
+        if (disposal is null || disposal.IsCompleted)
+            return;
+
+        // Exit stops the dispatcher as soon as the handler returns, so a disposal that
+        // is still running (a forced Shutdown() during a window close, for example)
+        // would lose its editor teardown and package handoff. Pump it to completion.
+        try
+        {
+            WaitOnUiThread(disposal);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Disposal failed while draining for application exit.");
+        }
+    }
 
     private async Task CompleteShutdownAsync()
     {

@@ -205,19 +205,9 @@ public sealed class MainViewModelShutdownTests
     public async Task ShutdownRequest_WithInFlightProjectClose_DrainsBeforeReissuingShutdown()
     {
         await TestReset.ResetShellAsync();
-        // The real lifetime stops the shared headless dispatcher once a request reaches Exit,
-        // so the reissued request is recorded instead of being forwarded to TryShutdown.
         using var lifetime = new ClassicDesktopStyleApplicationLifetime();
         int handoffs = 0;
-        var reissues = new List<(bool DisposalComplete, int Handoffs)>();
-        MainViewModel? viewModel = null;
-        viewModel = new MainViewModel(
-            _ => handoffs++,
-            requestShutdown: _ =>
-            {
-                reissues.Add((viewModel!.WaitForDisposalAsync().IsCompleted, handoffs));
-                return true;
-            });
+        var viewModel = new MainViewModel(_ => handoffs++);
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-request-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
         await viewModel.ProjectService.CreateProject(640, 480, 30, 44100, "drain", location);
@@ -233,17 +223,13 @@ public sealed class MainViewModelShutdownTests
         };
         viewModel.ProjectService.ClosingPreparing += gate;
         viewModel.RegisterExitHandler(lifetime);
-        var refusals = new List<bool>();
-        // Subscribed after the view model so it observes the answer the lifetime will act on.
-        lifetime.ShutdownRequested += (_, e) => refusals.Add(e.Cancel);
-        int exits = 0;
-        lifetime.Exit += (_, _) => exits++;
+        ReissueGuard guard = ReissueGuard.Install(lifetime, () => (viewModel.WaitForDisposalAsync().IsCompleted, handoffs));
 
         try
         {
             Assert.That(lifetime.TryShutdown(), Is.False, "The first request must be refused while the close drains.");
             await closeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(exits, Is.Zero);
+            Assert.That(guard.Exits, Is.Zero);
             Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Not.Null);
 
             // The dispatcher keeps serving callbacks while the close is pending.
@@ -253,27 +239,22 @@ public sealed class MainViewModelShutdownTests
 
             Assert.That(lifetime.TryShutdown(), Is.False, "A repeated request joins the in-flight drain.");
             Assert.That(closeCalls, Is.EqualTo(1));
-            Assert.That(reissues, Is.Empty);
+            Assert.That(guard.Reissues, Is.Empty);
 
             releaseClose.TrySetResult();
-            await WaitUntilAsync(() => reissues.Count > 0, TimeSpan.FromSeconds(10));
+            await WaitUntilAsync(() => guard.Reissues.Count > 0, TimeSpan.FromSeconds(10));
             HeadlessTestHelpers.Settle();
-
-            // The reissued request is the only thing left between the lifetime and Exit.
-            var reissued = new ShutdownRequestedEventArgs();
-            viewModel.OnShutdownRequested(lifetime, reissued);
             viewModel.CompleteShutdown();
 
             Assert.Multiple(() =>
             {
-                Assert.That(refusals, Is.EqualTo(new[] { true, true }));
-                Assert.That(reissues, Has.Count.EqualTo(1));
-                Assert.That(reissues[0].DisposalComplete, Is.True, "Shutdown must not be reissued before disposal finished.");
-                Assert.That(reissues[0].Handoffs, Is.EqualTo(1));
-                Assert.That(reissued.Cancel, Is.False, "The reissued request must reach Exit.");
+                Assert.That(guard.Refusals, Is.EqualTo(new[] { true, true, false }), "Two refused requests, then one reissued request that passes.");
+                Assert.That(guard.Reissues, Has.Count.EqualTo(1));
+                Assert.That(guard.Reissues[0].DisposalComplete, Is.True, "Shutdown must not be reissued before disposal finished.");
+                Assert.That(guard.Reissues[0].Handoffs, Is.EqualTo(1));
                 Assert.That(handoffs, Is.EqualTo(1), "Exit must not repeat the package handoff.");
                 Assert.That(closeCalls, Is.EqualTo(1));
-                Assert.That(exits, Is.Zero);
+                Assert.That(guard.Exits, Is.Zero);
                 Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Null);
                 Assert.That(viewModel.EditorService.TabItems, Is.Empty);
             });
@@ -293,12 +274,7 @@ public sealed class MainViewModelShutdownTests
     {
         await TestReset.ResetShellAsync();
         using var lifetime = new ClassicDesktopStyleApplicationLifetime();
-        int reissues = 0;
-        var viewModel = new MainViewModel(null, requestShutdown: _ =>
-        {
-            reissues++;
-            return true;
-        });
+        var viewModel = new MainViewModel();
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-veto-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
         await viewModel.ProjectService.CreateProject(640, 480, 30, 44100, "veto", location);
@@ -306,8 +282,7 @@ public sealed class MainViewModelShutdownTests
             Task.FromException(new Beutl.Services.ProjectCloseAbortedException("veto"));
         viewModel.ProjectService.ClosingPreparing += veto;
         viewModel.RegisterExitHandler(lifetime);
-        int exits = 0;
-        lifetime.Exit += (_, _) => exits++;
+        ReissueGuard guard = ReissueGuard.Install(lifetime, () => (viewModel.WaitForDisposalAsync().IsCompleted, 0));
 
         try
         {
@@ -317,21 +292,22 @@ public sealed class MainViewModelShutdownTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(reissues, Is.Zero, "A vetoed close must not reissue the shutdown.");
-                Assert.That(exits, Is.Zero);
+                Assert.That(guard.Reissues, Is.Empty, "A vetoed close must not reissue the shutdown.");
+                Assert.That(guard.Exits, Is.Zero);
                 Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Not.Null);
                 Assert.That(viewModel.WaitForDisposalAsync().IsCompleted, Is.True);
             });
 
             viewModel.ProjectService.ClosingPreparing -= veto;
             Assert.That(lifetime.TryShutdown(), Is.False, "The retry drains asynchronously as well.");
-            await WaitUntilAsync(() => reissues > 0, TimeSpan.FromSeconds(10));
+            await WaitUntilAsync(() => guard.Reissues.Count > 0, TimeSpan.FromSeconds(10));
             HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
             {
-                Assert.That(reissues, Is.EqualTo(1));
-                Assert.That(exits, Is.Zero);
+                Assert.That(guard.Refusals, Is.EqualTo(new[] { true, true, false }));
+                Assert.That(guard.Reissues[0].DisposalComplete, Is.True);
+                Assert.That(guard.Exits, Is.Zero);
                 Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Null);
             });
         }
@@ -350,12 +326,7 @@ public sealed class MainViewModelShutdownTests
         await TestReset.ResetShellAsync();
         using var lifetime = new ClassicDesktopStyleApplicationLifetime();
         int handoffs = 0;
-        int reissues = 0;
-        var viewModel = new MainViewModel(_ => handoffs++, requestShutdown: _ =>
-        {
-            reissues++;
-            return true;
-        });
+        var viewModel = new MainViewModel(_ => handoffs++);
         var window = new MainWindow { DataContext = viewModel, Content = null };
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-window-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
@@ -371,6 +342,7 @@ public sealed class MainViewModelShutdownTests
         };
         viewModel.ProjectService.ClosingPreparing += gate;
         viewModel.RegisterExitHandler(lifetime);
+        ReissueGuard guard = ReissueGuard.Install(lifetime, () => (viewModel.WaitForDisposalAsync().IsCompleted, handoffs));
 
         try
         {
@@ -381,15 +353,17 @@ public sealed class MainViewModelShutdownTests
             Assert.That(window.IsVisible, Is.True);
 
             releaseClose.TrySetResult();
-            await WaitUntilAsync(() => reissues > 0, TimeSpan.FromSeconds(10));
+            await WaitUntilAsync(() => guard.Reissues.Count > 0, TimeSpan.FromSeconds(10));
             await WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(5));
             HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
             {
                 Assert.That(closeCalls, Is.EqualTo(1), "The window and the lifetime must share one close.");
-                Assert.That(reissues, Is.EqualTo(1));
+                Assert.That(guard.Reissues, Has.Count.EqualTo(1));
+                Assert.That(guard.Reissues[0].DisposalComplete, Is.True);
                 Assert.That(handoffs, Is.EqualTo(1));
+                Assert.That(guard.Exits, Is.Zero);
                 Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Null);
             });
         }
@@ -405,6 +379,131 @@ public sealed class MainViewModelShutdownTests
             viewModel.Dispose();
             await viewModel.WaitForDisposalAsync();
             viewModel.CompleteShutdown();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ForcedExit_DuringInFlightDisposal_DrainsDisposalBeforeReturning()
+    {
+        await TestReset.ResetShellAsync();
+        bool handedOff = false;
+        var releaseInstaller = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var viewModel = new MainViewModel(
+            _ => handedOff = true,
+            _ =>
+            {
+                // Only the dispatcher pump inside the Exit fallback can run this job.
+                Dispatcher.UIThread.Post(() => releaseInstaller.TrySetResult(), DispatcherPriority.Background);
+                return releaseInstaller.Task;
+            });
+
+        try
+        {
+            viewModel.Dispose();
+            Assert.That(viewModel.WaitForDisposalAsync().IsCompleted, Is.False, "Disposal must still be pending when Exit arrives.");
+
+            viewModel.CompleteShutdown();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.WaitForDisposalAsync().IsCompleted, Is.True, "Exit must not return with disposal still running.");
+                Assert.That(handedOff, Is.True);
+            });
+        }
+        finally
+        {
+            releaseInstaller.TrySetResult();
+            await viewModel.WaitForDisposalAsync();
+            viewModel.CompleteShutdown();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ForcedExit_DuringInFlightAsyncClose_JoinsTheSharedCloseWithoutPromptingAgain()
+    {
+        await TestReset.ResetShellAsync();
+        var viewModel = new MainViewModel();
+        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-join-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(location);
+        await viewModel.ProjectService.CreateProject(640, 480, 30, 44100, "join", location);
+        var releaseClose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int closeCalls = 0;
+        Func<Beutl.Services.ProjectService.ProjectCloseContext, CancellationToken, Task> vetoAfterRelease = async (_, _) =>
+        {
+            closeCalls++;
+            await releaseClose.Task;
+            throw new Beutl.Services.ProjectCloseAbortedException("veto");
+        };
+        viewModel.ProjectService.ClosingPreparing += vetoAfterRelease;
+
+        try
+        {
+            Task<bool> windowClose = viewModel.TryDisposeForWindowCloseAsync();
+            Assert.That(windowClose.IsCompleted, Is.False);
+            Assert.That(closeCalls, Is.EqualTo(1));
+            Dispatcher.UIThread.Post(() => releaseClose.TrySetResult(), DispatcherPriority.Background);
+
+            bool disposed = viewModel.TryDisposeForWindowClose();
+            await windowClose;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(disposed, Is.False, "A refused in-flight close must refuse the forced exit too.");
+                Assert.That(windowClose.Result, Is.False);
+                Assert.That(closeCalls, Is.EqualTo(1), "The forced exit must join the in-flight close instead of prompting again.");
+                Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Not.Null);
+                Assert.That(viewModel.WaitForDisposalAsync().IsCompleted, Is.True);
+            });
+        }
+        finally
+        {
+            viewModel.ProjectService.ClosingPreparing -= vetoAfterRelease;
+            releaseClose.TrySetResult();
+            viewModel.Dispose();
+            await viewModel.WaitForDisposalAsync();
+            viewModel.CompleteShutdown();
+        }
+    }
+
+    /// <summary>
+    /// Observes the real lifetime's requests after <see cref="MainViewModel"/> has answered them.
+    /// A request the view model lets through is the reissued shutdown; the guard records it and
+    /// then refuses it itself, because a request that reaches Exit shuts down the headless
+    /// dispatcher shared by every test in this assembly.
+    /// </summary>
+    private sealed class ReissueGuard
+    {
+        private readonly Func<(bool DisposalComplete, int Handoffs)> _snapshot;
+
+        private ReissueGuard(Func<(bool DisposalComplete, int Handoffs)> snapshot)
+        {
+            _snapshot = snapshot;
+        }
+
+        public List<bool> Refusals { get; } = [];
+
+        public List<(bool DisposalComplete, int Handoffs)> Reissues { get; } = [];
+
+        public int Exits { get; private set; }
+
+        public static ReissueGuard Install(
+            ClassicDesktopStyleApplicationLifetime lifetime,
+            Func<(bool DisposalComplete, int Handoffs)> snapshot)
+        {
+            var guard = new ReissueGuard(snapshot);
+            lifetime.ShutdownRequested += guard.OnShutdownRequested;
+            lifetime.Exit += (_, _) => guard.Exits++;
+            return guard;
+        }
+
+        private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
+        {
+            Refusals.Add(e.Cancel);
+            if (e.Cancel)
+                return;
+
+            Reissues.Add(_snapshot());
+            e.Cancel = true;
         }
     }
 
