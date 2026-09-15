@@ -64,6 +64,8 @@
                 <ResourceInclude Source="/ColorPicker/ColorPickerStyles.axaml" />
                 <ResourceInclude Source="/ColorPicker/ColorPickerButtonStyles.axaml" />
                 <ResourceInclude Source="/Styling/Dock/DockFluent.axaml" />
+                <!--  Dock also defines WindowDrawnDecorations; keep FluentAvalonia's caption buttons.  -->
+                <ResourceInclude Source="avares://FluentAvalonia/Styling/ControlThemes/BasicControls/WindowDecorations.axaml" />
                 <!--  Last, so the theme-resource overrides win the reverse merged-dictionary lookup.  -->
                 <ResourceInclude Source="/Styling/CornerRadius.axaml" />
             </ResourceDictionary.MergedDictionaries>
