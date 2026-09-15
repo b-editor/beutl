@@ -36,6 +36,8 @@ public sealed class InputLogicalScopeCallerDensityTests
         {
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(producer.ExecuteCount, Is.EqualTo(1));
+            Assert.That(producer.ObservedScales, Is.EqualTo(new[] { scale }),
+                "the source must be rasterized at the demand the resolver compiled for it");
         });
     }
 
@@ -90,6 +92,8 @@ public sealed class InputLogicalScopeCallerDensityTests
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(GetPixels(rasterization), Has.Some.Not.Zero);
             Assert.That(producer.ExecuteCount, Is.EqualTo(1));
+            Assert.That(producer.ObservedScales, Is.EqualTo(new[] { scale }),
+                "the source must be rasterized at the demand the resolver compiled for it");
         });
     }
 
@@ -116,6 +120,8 @@ public sealed class InputLogicalScopeCallerDensityTests
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(GetPixels(rasterization), Has.Some.Not.Zero);
             Assert.That(producer.ExecuteCount, Is.EqualTo(1));
+            Assert.That(producer.ObservedScales, Is.EqualTo(new[] { 1f }),
+                "the source must be rasterized at the demand the resolver compiled for it");
         });
     }
 
@@ -134,6 +140,8 @@ public sealed class InputLogicalScopeCallerDensityTests
         {
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(producer.ExecuteCount, Is.EqualTo(1));
+            Assert.That(producer.ObservedScales, Is.EqualTo(new[] { scale }),
+                "the source must be rasterized at the demand the resolver compiled for it");
         });
     }
 
@@ -157,6 +165,8 @@ public sealed class InputLogicalScopeCallerDensityTests
         {
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(producer.ExecuteCount, Is.EqualTo(1));
+            Assert.That(producer.ObservedScales, Is.EqualTo(new[] { 0.75f }),
+                "the source must be rasterized at the demand the resolver compiled for it");
         });
     }
 
@@ -319,18 +329,25 @@ public sealed class InputLogicalScopeCallerDensityTests
     private sealed class ProbeSourceNode : RenderNode
     {
         private static readonly RenderResourceSlot<ExecutionProbe> s_probeSlot = new();
+        private static readonly RenderResourceSlot<RecordingProbe<float>> s_scaleSlot = new();
         private readonly ExecutionProbe _probe = new();
+        private readonly RecordingProbe<float> _scales = new();
 
         public int ExecuteCount => _probe.Count;
+
+        /// <summary>The working scale each execution was asked to rasterize at: the compiled demand.</summary>
+        public IReadOnlyList<float> ObservedScales => _scales.Records;
 
         public override void Process(RenderNodeContext context)
         {
             RenderResource<ExecutionProbe> probeResource = context.Borrow(_probe);
+            RenderResource<RecordingProbe<float>> scaleResource = context.Borrow(_scales);
             context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
                 s_bounds,
                 static (session, bounds) => session.UseResource(s_probeSlot, probe =>
                 {
                     probe.Record();
+                    session.UseResource(s_scaleSlot, scales => scales.Record(session.WorkingScale));
                     using OpaqueRenderOutput output = session.CreateOutput(bounds);
                     output.Canvas.Use(canvas => canvas.Clear(s_white));
                     session.Publish(output);
@@ -340,7 +357,7 @@ public sealed class InputLogicalScopeCallerDensityTests
                 RenderValueCardinality.Single,
                 RenderScaleContract.Vector,
                 deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
-                resources: [s_probeSlot.Bind(probeResource)])));
+                resources: [s_probeSlot.Bind(probeResource), s_scaleSlot.Bind(scaleResource)])));
         }
     }
 
