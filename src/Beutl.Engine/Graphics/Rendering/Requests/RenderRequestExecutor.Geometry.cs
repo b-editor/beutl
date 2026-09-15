@@ -35,7 +35,9 @@ internal sealed partial class RenderRequestExecutor
             IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
                 fragment.Inputs[0],
                 currentTarget,
-                fragment.Inputs[0].EffectiveScale.IsUnbounded ? requestScale : null);
+                fragment.Inputs[0].EffectiveScale.IsUnbounded
+                    ? ResolveInputCallerScale(description.InputDemand, 0, requestScale)
+                    : null);
             var results = new List<MaterializedRenderValue>(inputs.Count);
             try
             {

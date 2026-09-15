@@ -170,7 +170,9 @@ internal sealed partial class RenderRequestExecutor
                 IReadOnlyList<MaterializedRenderValue> inputValues = Materialize(
                     input,
                     currentTarget,
-                    input.EffectiveScale.IsUnbounded ? outputSupply : null);
+                    input.EffectiveScale.IsUnbounded
+                        ? ResolveOpaqueInputCallerScale(fragment, description, inputIndex, outputSupply)
+                        : null);
                 RenderInputReadback readback = payload.InputReadbacks[inputIndex];
                 readback.ValidateRuntimeCount(input.ValueCardinality, inputValues.Count);
                 inputRanges.Add(new RenderExecutionInputRange(flattened.Count, inputValues.Count));
@@ -390,9 +392,13 @@ internal sealed partial class RenderRequestExecutor
                 return [];
             }
 
-            float requestedDensity = fragment.EffectiveScale.IsUnbounded
-                ? currentTarget.Density
-                : fragment.EffectiveScale.Value;
+            // The output is the value the plan compiled for this segment, so it is rasterized at the demand
+            // Materialize resolved, not at the density of the target it happens to be drawn onto: a cache
+            // capture of this value is checked against that planned density.
+            float requestedDensity = requestedScale?.Value
+                ?? (fragment.EffectiveScale.IsUnbounded
+                    ? currentTarget.Density
+                    : fragment.EffectiveScale.Value);
             EffectiveScale scale = ClampToActiveDeviceGrid(
                 fragment.Bounds,
                 EffectiveScale.At(requestedDensity));

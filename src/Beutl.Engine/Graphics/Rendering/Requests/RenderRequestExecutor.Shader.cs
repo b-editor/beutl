@@ -38,7 +38,9 @@ internal sealed partial class RenderRequestExecutor
             IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
                 fragment.Inputs[0],
                 currentTarget,
-                fragment.Inputs[0].EffectiveScale.IsUnbounded ? inputRequestScale : null);
+                fragment.Inputs[0].EffectiveScale.IsUnbounded
+                    ? ResolveInputCallerScale(description.InputDemand, 0, inputRequestScale)
+                    : null);
             var results = new List<MaterializedRenderValue>(inputs.Count);
             try
             {
@@ -143,7 +145,9 @@ internal sealed partial class RenderRequestExecutor
             EffectiveScale outputRequestScale = !outputFragment.EffectiveScale.IsUnbounded
                 ? outputFragment.EffectiveScale
                 : requestedScale ?? EffectiveScale.At(currentTarget.Density);
-            EffectiveScale inputRequestScale = requestedScale ?? outputRequestScale;
+            EffectiveScale inputRequestScale = ResolveShaderRunInputCallerScale(
+                run,
+                requestedScale ?? outputRequestScale);
             IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
                 inputFragment,
                 currentTarget,

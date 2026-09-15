@@ -480,8 +480,59 @@ internal sealed partial class RenderRequestExecutor
         /// space, bounded by the request ceiling at this step exactly as the demand resolver bounds it.
         /// </summary>
         private EffectiveScale ResolveScopeInputCallerScale(RenderScaleContract scale, EffectiveScale callerScale)
+            => BoundCallerScale(scale.MapOutputDemandToInput(callerScale).Value);
+
+        /// <summary>
+        /// Carries the scale an operation is materialized at back to one of its inputs through the operation's
+        /// declared <see cref="RenderInputDemandContract"/>, the step the demand resolver takes for a Shader, a
+        /// Geometry, or a many-input opaque operation.
+        /// </summary>
+        private EffectiveScale ResolveInputCallerScale(
+            RenderInputDemandContract inputDemand,
+            int inputIndex,
+            EffectiveScale outputScale)
+            => inputDemand.IsUnchanged
+                ? outputScale
+                : BoundCallerScale(inputDemand.Resolve(inputIndex, outputScale).Value);
+
+        /// <summary>
+        /// Carries the scale an opaque operation is materialized at back to one of its inputs: a map through its
+        /// scale contract, a combine or expand through its per-input demand contract, a source has no inputs.
+        /// </summary>
+        private EffectiveScale ResolveOpaqueInputCallerScale(
+            RenderFragmentReference fragment,
+            OpaqueRenderDescription description,
+            int inputIndex,
+            EffectiveScale outputScale)
+            => fragment.Kind switch
+            {
+                RenderFragmentKind.OpaqueMap => ResolveScopeInputCallerScale(description.Scale, outputScale),
+                RenderFragmentKind.OpaqueCombine or RenderFragmentKind.OpaqueExpand
+                    => ResolveInputCallerScale(description.InputDemand, inputIndex, outputScale),
+                _ => outputScale,
+            };
+
+        /// <summary>
+        /// Carries the scale a compiled shader run is materialized at back to the run's input, stage by stage
+        /// from the output, restarting from any stage that already has a concrete scale of its own.
+        /// </summary>
+        private EffectiveScale ResolveShaderRunInputCallerScale(CompiledShaderRun run, EffectiveScale outputScale)
+        {
+            EffectiveScale scale = outputScale;
+            for (int stageIndex = run.StageFragmentIndices.Length - 1; stageIndex >= 0; stageIndex--)
+            {
+                RenderFragmentReference stage = run.GetStage(_graph, stageIndex);
+                if (!stage.EffectiveScale.IsUnbounded)
+                    scale = stage.EffectiveScale;
+                scale = ResolveInputCallerScale(run.GetDescription(_graph, stageIndex).InputDemand, 0, scale);
+            }
+
+            return scale;
+        }
+
+        private EffectiveScale BoundCallerScale(float density)
             => EffectiveScale.At(MathF.Min(
-                scale.MapOutputDemandToInput(callerScale).Value,
+                density,
                 RenderScaleUtilities.SanitizeMaxWorkingScale(_options.MaxWorkingScale)));
 
         private void ReplayCore(

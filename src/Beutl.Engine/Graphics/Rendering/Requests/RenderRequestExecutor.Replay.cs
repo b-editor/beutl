@@ -55,12 +55,15 @@ internal sealed partial class RenderRequestExecutor
                 : fragment.EffectiveScale;
             try
             {
-                foreach (RenderFragmentReference input in fragment.Inputs)
+                for (int inputIndex = 0; inputIndex < fragment.Inputs.Length; inputIndex++)
                 {
+                    RenderFragmentReference input = fragment.Inputs[inputIndex];
                     inputs.AddRange(Materialize(
                         input,
                         destination,
-                        input.EffectiveScale.IsUnbounded ? outputSupply : null));
+                        input.EffectiveScale.IsUnbounded
+                            ? ResolveOpaqueInputCallerScale(fragment, description, inputIndex, outputSupply)
+                            : null));
                 }
 
                 ExecuteReplayIsland(
@@ -142,9 +145,9 @@ internal sealed partial class RenderRequestExecutor
                 return false;
             }
 
-            EffectiveScale inputRequestScale = !output.EffectiveScale.IsUnbounded
-                ? output.EffectiveScale
-                : callerScale;
+            EffectiveScale inputRequestScale = ResolveShaderRunInputCallerScale(
+                run,
+                !output.EffectiveScale.IsUnbounded ? output.EffectiveScale : callerScale);
             IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
                 inputFragment,
                 destination,
