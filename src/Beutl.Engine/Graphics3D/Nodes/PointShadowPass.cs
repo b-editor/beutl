@@ -159,6 +159,10 @@ void main() {
     /// <summary>
     /// Resizes the shadow cube map to a custom face size.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The face exceeds what the device can make of a cube map or render through a 2D attachment. The
+    /// current cube map is kept.
+    /// </exception>
     public void ResizeShadowMap(int faceSize)
     {
         CreateShadowCubeMap(faceSize);
@@ -166,6 +170,12 @@ void main() {
 
     private void CreateShadowCubeMap(int faceSize)
     {
+        // The extent this pass allocates is the face size, not the width and height Initialize was handed,
+        // so the device limit is asked here. Each face is drawn into a 2D attachment and copied into the
+        // cube, so it has to fit the cube limit and the attachment limit both. Refuse before disposing, so
+        // a refused resize keeps the map it had.
+        DeviceExtentLimits.ThrowIfCannotAttachCubeFaces(Context, faceSize);
+
         // Dispose old resources
         DisposeFaceResources();
         RenderPass?.Dispose();

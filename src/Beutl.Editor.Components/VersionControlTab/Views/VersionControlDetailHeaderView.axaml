@@ -1,6 +1,8 @@
 ﻿<UserControl x:Class="Beutl.Editor.Components.VersionControlTab.Views.VersionControlDetailHeaderView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -10,24 +12,34 @@
              x:CompileBindings="True"
              x:DataType="vm:VersionControlTabViewModel"
              mc:Ignorable="d">
-    <Border Padding="8"
-            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-            BorderThickness="0,0,0,1">
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+    <controls:ToolTabBar x:Name="DetailBar">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="2">
             <Button x:Name="BackButton"
+                    Margin="4,0,0,0"
+                    AutomationProperties.Name="{x:Static lang:Strings.Back}"
                     Command="{Binding BackToHistoryCommand}"
-                    Content="{x:Static lang:Strings.Back}"
-                    VerticalAlignment="Center" />
+                    Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                    ToolTip.Tip="{x:Static lang:Strings.Back}">
+                <icons:FluentIcon FontSize="16" Icon="ArrowLeft" />
+            </Button>
             <StackPanel Grid.Column="1"
+                        Margin="{DynamicResource ToolTabBarTitleMargin}"
                         VerticalAlignment="Center"
                         Spacing="2">
-                <TextBlock Classes="secondary"
+                <TextBlock x:Name="ShortShaText"
+                           FontSize="11"
+                           FontWeight="Normal"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            Text="{Binding SelectedCommit.Value.Commit.ShortSha}" />
-                <TextBlock FontWeight="SemiBold"
+                <TextBlock x:Name="CommitMessageText"
+                           Margin="0"
+                           MaxLines="1"
                            Text="{Binding SelectedCommit.Value.DisplayMessage}"
                            TextTrimming="CharacterEllipsis"
-                           TextWrapping="Wrap" />
+                           TextWrapping="NoWrap"
+                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}"
+                           ToolTip.Tip="{Binding SelectedCommit.Value.DisplayMessage}" />
             </StackPanel>
         </Grid>
-    </Border>
+    </controls:ToolTabBar>
 </UserControl>

@@ -12,6 +12,10 @@ internal record VulkanMemoryInfo(ulong DeviceLocalMemory, ulong HostVisibleMemor
 internal sealed unsafe class VulkanInstance : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<VulkanInstance>();
+
+    // The API version the instance is created for; Skia is told not to use anything newer.
+    internal static readonly Version32 InstanceApiVersion = Vk.Version12;
+
     private readonly Vk _vk;
     private readonly Instance _instance;
     private readonly ExtDebugUtils? _debugUtils;
@@ -235,7 +239,7 @@ internal sealed unsafe class VulkanInstance : IDisposable
                 ApplicationVersion = new Version32(1, 0, 0),
                 PEngineName = (byte*)engineNamePtr,
                 EngineVersion = new Version32(1, 0, 0),
-                ApiVersion = Vk.Version12
+                ApiVersion = InstanceApiVersion
             };
 
             var createInfo = new InstanceCreateInfo

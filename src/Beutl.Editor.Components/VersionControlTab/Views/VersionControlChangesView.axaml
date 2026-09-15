@@ -41,7 +41,7 @@
                               ColumnSpacing="4">
                             <TextBlock VerticalAlignment="Center"
                                        FontFamily="Consolas, Menlo, monospace"
-                                       FontWeight="SemiBold"
+                                       FontWeight="Normal"
                                        Text="{Binding StatusText}" />
                             <TextBlock Grid.Column="1"
                                        VerticalAlignment="Center"

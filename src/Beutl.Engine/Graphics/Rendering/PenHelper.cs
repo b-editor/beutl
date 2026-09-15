@@ -185,7 +185,6 @@ public static class PenHelper
             return null;
 
         scale = float.IsFinite(scale) && scale > 0f ? scale : 1f;
-        var offsetPath = new SKPath();
         using var offsetPaint = new SKPaint
         {
             IsStroke = true,
@@ -195,7 +194,7 @@ public static class PenHelper
             StrokeMiter = pen.MiterLimit,
             Style = SKPaintStyle.Stroke,
         };
-        CreateStrokePath(fillPath, offsetPath, offsetPaint, bounds);
+        SKPath offsetPath = CreateStrokePath(fillPath, offsetPaint, bounds);
 
         if (pen.Offset > 0)
         {
@@ -212,13 +211,14 @@ public static class PenHelper
     }
 
     // StrokeWidthが大きすぎる場合、元の内側に空間ができてしまうため、複数回に分けてStrokePathを生成する
-    private static void CreateStrokePath(SKPath fillPath, SKPath strokePath, SKPaint paint, Rect bounds)
+    private static SKPath CreateStrokePath(SKPath fillPath, SKPaint paint, Rect bounds)
     {
         float thickness = paint.StrokeWidth;
         float maxAspect = Math.Max(bounds.Width, bounds.Height);
         if (maxAspect < thickness)
         {
             paint.StrokeWidth = maxAspect;
+            var strokePath = new SKPath();
             bool first = true;
 
             while (maxAspect < thickness)
@@ -233,7 +233,10 @@ public static class PenHelper
                 }
                 else
                 {
-                    strokePath.AddPath(tmp);
+                    using var builder = new SKPathBuilder();
+                    builder.AddPath(tmp);
+                    strokePath.Dispose();
+                    strokePath = builder.Detach();
                     first = false;
                 }
 
@@ -250,11 +253,20 @@ public static class PenHelper
                     tmp2.Op(copy, SKPathOp.Union, strokePath);
                 }
             }
+
+            return strokePath;
         }
         else
         {
-            paint.GetFillPath(fillPath, strokePath);
+            return GetFillPath(paint, fillPath);
         }
+    }
+
+    private static SKPath GetFillPath(SKPaint paint, SKPath source)
+    {
+        using var builder = new SKPathBuilder();
+        paint.GetFillPath(source, builder);
+        return builder.Detach();
     }
 
     internal static SKPath CreateStrokePath(SKPath fillPath, Pen.Resource pen, Rect bounds, float scale = 1f)
@@ -264,7 +276,7 @@ public static class PenHelper
         if (offsetFillPath != null)
             fillPath = offsetFillPath;
 
-        var strokePath = new SKPath();
+        SKPath strokePath;
 
         using (var paint = new SKPaint())
         {
@@ -273,11 +285,11 @@ public static class PenHelper
             switch (pen.StrokeAlignment)
             {
                 case StrokeAlignment.Center:
-                    CreateStrokePath(fillPath, strokePath, paint, bounds);
+                    strokePath = CreateStrokePath(fillPath, paint, bounds);
                     break;
 
                 case StrokeAlignment.Outside:
-                    CreateStrokePath(fillPath, strokePath, paint, bounds);
+                    strokePath = CreateStrokePath(fillPath, paint, bounds);
 
                     using (var strokePathCopy = new SKPath(strokePath))
                     {
@@ -287,7 +299,7 @@ public static class PenHelper
                     break;
 
                 case StrokeAlignment.Inside:
-                    paint.GetFillPath(fillPath, strokePath);
+                    strokePath = GetFillPath(paint, fillPath);
 
                     using (var strokePathCopy = new SKPath(strokePath))
                     {
@@ -296,6 +308,7 @@ public static class PenHelper
 
                     break;
                 default:
+                    strokePath = new SKPath();
                     break;
             }
         }

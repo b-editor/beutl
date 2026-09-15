@@ -56,7 +56,7 @@ public sealed partial class TimelineTabView : UserControl
 
         gridSplitter.DragDelta += GridSplitter_DragDelta;
 
-        Scale.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
+        RulerBar.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
         ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
 
         TimelinePanel.AddHandler(DragDrop.DragOverEvent, TimelinePanel_DragOver);

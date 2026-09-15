@@ -30,19 +30,20 @@ public partial class GraphEditorView : UserControl
     public GraphEditorView()
     {
         InitializeComponent();
-        scale.PointerMoved += OnContentPointerMoved;
-        scale.PointerReleased += OnContentPointerReleased;
-        scale.PointerPressed += OnContentPointerPressed;
+        RulerBar.PointerMoved += OnContentPointerMoved;
+        RulerBar.PointerReleased += OnContentPointerReleased;
+        RulerBar.PointerPressed += OnContentPointerPressed;
         background.PointerMoved += OnContentPointerMoved;
         background.PointerReleased += OnContentPointerReleased;
         background.PointerPressed += OnContentPointerPressed;
         graphPanel.PointerMoved += OnGraphPanelPointerMoved;
         graphPanel.PointerReleased += OnGraphPanelPointerReleased;
 
-        scale.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
+        RulerBar.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
         graphPanel.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
         verticalScale.AddHandler(PointerWheelChangedEvent, OnVerticalScalePointerWheelChanged,
             RoutingStrategies.Tunnel);
+        scroll.ScrollChanged += OnScrollChanged;
 
         this.SubscribeDataContextChange<GraphEditorViewModel>(
             OnDataContextAttached,
@@ -90,18 +91,10 @@ public partial class GraphEditorView : UserControl
             .ObserveOnUIDispatcher()
             .Subscribe(time => OnCurrentTimeChangedForAutoScroll(obj, time))
             .DisposeWith(_disposables);
-    }
 
-    protected override void OnLoaded(RoutedEventArgs e)
-    {
-        base.OnLoaded(e);
-        if (DataContext is GraphEditorViewModel viewModel)
-        {
-            viewModel.ScrollOffset.Subscribe(offset => scroll.Offset = offset)
-                .DisposeWith(_disposables);
-        }
-
-        scroll.ScrollChanged += OnScrollChanged;
+        // A selected animation can change without loading the view again.
+        obj.ScrollOffset.Subscribe(offset => scroll.Offset = offset)
+            .DisposeWith(_disposables);
     }
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)

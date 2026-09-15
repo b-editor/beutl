@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.CurvesTab.Views.CurvesTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:curves="using:Beutl.Controls.Curves"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
@@ -12,32 +13,40 @@
              x:DataType="vm:CurvesTabViewModel"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">
-        <Grid Grid.Row="0"
-              Height="32"
-              ColumnDefinitions="*,Auto,Auto">
-            <TextBlock Grid.Column="0"
-                       Margin="8,0,0,0"
-                       VerticalAlignment="Center"
-                       FontWeight="SemiBold"
-                       Text="{x:Static lang:Strings.Curves}" />
+        <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
+            <controls:ToolTabBarPanel ItemSpacing="8">
+                <TextBlock Text="{x:Static lang:Strings.Curves}"
+                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
 
-            <ComboBox Grid.Column="1"
-                      Margin="0,0,8,0"
-                      VerticalAlignment="Center"
-                      DisplayMemberBinding="{ReflectionBinding DisplayName}"
-                      IsVisible="{Binding ShowCustom.Value}"
-                      ItemsSource="{Binding CustomCurveChannels}"
-                      SelectedValue="{Binding SelectedChannelItem.Value, Mode=TwoWay}"
-                      Theme="{StaticResource LiteComboBoxStyle}" />
+                <ComboBox x:Name="ChannelComboBox"
+                          VerticalAlignment="Center"
+                          IsVisible="{Binding ShowCustom.Value}"
+                          ItemsSource="{Binding CustomCurveChannels}"
+                          SelectedValue="{Binding SelectedChannelItem.Value, Mode=TwoWay}"
+                          Theme="{StaticResource LiteComboBoxStyle}"
+                          ToolTip.Tip="{Binding SelectedChannelItem.Value.DisplayName}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CustomCurveChannelItem">
+                            <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
 
-            <ComboBox Grid.Column="2"
-                      HorizontalAlignment="Right"
-                      VerticalAlignment="Center"
-                      DisplayMemberBinding="{ReflectionBinding DisplayName}"
-                      ItemsSource="{Binding CurveGroups}"
-                      SelectedValue="{Binding SelectedGroupItem.Value, Mode=TwoWay}"
-                      Theme="{StaticResource LiteComboBoxStyle}" />
-        </Grid>
+                <ComboBox x:Name="GroupComboBox"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          ItemsSource="{Binding CurveGroups}"
+                          SelectedValue="{Binding SelectedGroupItem.Value, Mode=TwoWay}"
+                          Theme="{StaticResource LiteComboBoxStyle}"
+                          ToolTip.Tip="{Binding SelectedGroupItem.Value.DisplayName}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CurveGroupItem">
+                            <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </controls:ToolTabBarPanel>
+        </controls:ToolTabBar>
 
         <Panel Grid.Row="1"
                Margin="8,0,8,8"

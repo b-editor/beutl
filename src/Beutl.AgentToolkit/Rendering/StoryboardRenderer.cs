@@ -80,12 +80,12 @@ public sealed class StoryboardRenderer
             SKRect cellImageRect = new(x, y, x + layout.CellWidth, y + layout.ImageHeight);
             SKRect imageRect = FitInto(bitmap.Width, bitmap.Height, cellImageRect);
             SKRect captionRect = new(x, y + layout.ImageHeight, x + layout.CellWidth, y + layout.ImageHeight + LabelHeight);
-            canvas.DrawBitmap(bitmap, imageRect);
+            canvas.DrawBitmap(bitmap, imageRect, SKSamplingOptions.Default);
             canvas.DrawRect(captionRect, captionBackground);
             canvas.DrawRect(new SKRect(x, y, x + layout.CellWidth, y + layout.ImageHeight + LabelHeight), borderPaint);
 
             string label = CreateLabel(frame);
-            canvas.DrawText(TrimToWidth(label, layout.CellWidth - 16, font), x + 8, y + layout.ImageHeight + 22, font, textPaint);
+            canvas.DrawText(TrimToWidth(label, layout.CellWidth - 16, font), x + 8, y + layout.ImageHeight + 22, SKTextAlign.Left, font, textPaint);
         }
 
         return new StoryboardContactSheetPng(ImagePreviewEncoder.EncodeSurfaceToPng(surface), layout);

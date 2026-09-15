@@ -52,4 +52,30 @@
         </Style>
     </ControlTheme>
 
+    <ControlTheme x:Key="LiteDropDownButtonStyle"
+                  BasedOn="{StaticResource {x:Type DropDownButton}}"
+                  TargetType="DropDownButton">
+        <Setter Property="Padding" Value="0,5" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontWeight" Value="Normal" />
+
+        <Style Selector="^:pointerover">
+            <Setter Property="Opacity" Value="0.8" />
+            <Style Selector="^ /template/ Border#RootBorder">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonForeground}" />
+            </Style>
+        </Style>
+        <Style Selector="^:pressed">
+            <Setter Property="Opacity" Value="0.5" />
+            <Style Selector="^ /template/ Border#RootBorder">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonForeground}" />
+            </Style>
+        </Style>
+    </ControlTheme>
 </ResourceDictionary>

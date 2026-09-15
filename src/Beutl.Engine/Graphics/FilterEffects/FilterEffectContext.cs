@@ -292,7 +292,11 @@ public sealed class FilterEffectContext : IDisposable
         AppendDescription(new FEItem_Skia<T>(
             data,
             (value, input, _) => factory(value, input),
-            transformBounds)
+            // A built-in Skia filter only transforms its input, so bounds an earlier filter left empty, such as a crop
+            // to an empty rectangle, give it nothing to grow. Inflating them would spread them around their origin and
+            // have the renderer allocate and composite a blank target. The mapping lives on the item because the
+            // render graph resolves it again from the item and requires the same answer.
+            (value, bounds) => bounds.IsEmpty ? bounds : transformBounds(value, bounds))
         {
             DirectFactory = factory,
             TransformSamplingBounds = transformSamplingBounds,
@@ -517,6 +521,40 @@ public sealed class FilterEffectContext : IDisposable
         radiusX = MathF.Max(radiusX, 0);
         radiusY = MathF.Max(radiusY, 0);
         return radiusX != 0 || radiusY != 0;
+    }
+
+    /// <summary>
+    /// Keeps the part of the output inside <paramref name="rect"/> and fills the rest according to
+    /// <paramref name="spreadMethod"/>.
+    /// </summary>
+    /// <param name="rect">The area to keep, in the coordinates of <see cref="Bounds"/>.</param>
+    /// <param name="spreadMethod">
+    /// <see cref="GradientSpreadMethod.Decal"/> leaves everything outside <paramref name="rect"/> transparent and
+    /// shrinks <see cref="Bounds"/> to the crop. <see cref="GradientSpreadMethod.Pad"/> extends the crop's edge
+    /// pixels, <see cref="GradientSpreadMethod.Repeat"/> tiles the crop and <see cref="GradientSpreadMethod.Reflect"/>
+    /// mirrors it, across the bounds the output already had.
+    /// </param>
+    public void Crop(Rect rect, GradientSpreadMethod spreadMethod = GradientSpreadMethod.Decal)
+    {
+        rect = rect.Normalize();
+        AppendDirectSkiaFilter(
+            data: (rect, spreadMethod),
+            factory: static (data, input) => data.rect.Width > 0 && data.rect.Height > 0
+                ? SKImageFilter.CreateCrop(data.rect.ToSKRect(), data.spreadMethod.ToSKShaderTileMode(), input)
+                // A factory that returns null passes its input through, so a crop to nothing needs a filter
+                // that draws nothing.
+                : SKImageFilter.CreateEmpty(),
+            transformBounds: static (data, bounds) =>
+            {
+                if (data.rect.Width <= 0 || data.rect.Height <= 0)
+                    return Rect.Empty;
+
+                // Every mode but decal fills the whole plane, so only the area the output already covered bounds it.
+                return data.spreadMethod == GradientSpreadMethod.Decal ? bounds.Intersect(data.rect) : bounds;
+            },
+            // Outside the crop, a tile anywhere in the output reads from anywhere in the crop.
+            transformSamplingBounds: static (data, region) =>
+                data.spreadMethod == GradientSpreadMethod.Decal ? region.Intersect(data.rect) : data.rect);
     }
 
     public void ColorMatrix(in ColorMatrix matrix)

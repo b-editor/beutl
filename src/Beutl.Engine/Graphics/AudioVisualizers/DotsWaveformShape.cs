@@ -23,7 +23,7 @@ public sealed partial class DotsWaveformShape : WaveformShape
 
     public new partial class Resource
     {
-        private SKPath? _path;
+        private SKPathBuilder? _builder;
         private SKPaint? _paint;
 
         protected internal override void Render(in WaveformRenderContext context)
@@ -49,8 +49,8 @@ public sealed partial class DotsWaveformShape : WaveformShape
             _paint ??= new SKPaint();
             VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
             _paint.IsAntialias = true;
-            _path ??= new SKPath();
-            _path.Reset();
+            _builder ??= new SKPathBuilder();
+            _builder.Reset();
 
             for (int i = 0; i < barCount; i++)
             {
@@ -59,28 +59,29 @@ public sealed partial class DotsWaveformShape : WaveformShape
                 {
                     float max = Math.Clamp(maxs[i] * gain, -1f, 1f);
                     float min = Math.Clamp(mins[i] * gain, -1f, 1f);
-                    _path.AddCircle(cx, centerY - max * halfHeight, dotRadius);
-                    _path.AddCircle(cx, centerY - min * halfHeight, dotRadius);
+                    _builder.AddCircle(cx, centerY - max * halfHeight, dotRadius);
+                    _builder.AddCircle(cx, centerY - min * halfHeight, dotRadius);
                 }
                 else
                 {
                     float center = (mins[i] + maxs[i]) * 0.5f;
                     float v = Math.Clamp(center * gain, -1f, 1f);
-                    _path.AddCircle(cx, centerY - v * halfHeight, dotRadius);
+                    _builder.AddCircle(cx, centerY - v * halfHeight, dotRadius);
                 }
             }
 
-            canvas.Canvas.DrawPath(_path, _paint);
+            using SKPath path = _builder.Detach();
+            canvas.Canvas.DrawPath(path, _paint);
         }
 
         partial void PostDispose(bool disposing)
         {
             if (disposing)
             {
-                _path?.Dispose();
+                _builder?.Dispose();
                 _paint?.Dispose();
             }
-            _path = null;
+            _builder = null;
             _paint = null;
         }
     }

@@ -10,6 +10,11 @@
              x:CompileBindings="True"
              x:DataType="vm:VersionControlTabViewModel"
              mc:Ignorable="d">
+    <UserControl.Styles>
+        <Style Selector="ListBox#CommitList ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+        </Style>
+    </UserControl.Styles>
     <Grid RowDefinitions="Auto,*,Auto" RowSpacing="6">
         <TextBlock Margin="8,8,8,0"
                    Classes="sectionHeader"
@@ -23,7 +28,7 @@
                      Tapped="OnCommitListTapped">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:VersionControlCommitViewModel">
-                        <Border Padding="8,6">
+                        <Border Padding="12,10">
                             <Border.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Command="{Binding RestoreCommand}"
@@ -33,31 +38,35 @@
                                 </ContextMenu>
                             </Border.ContextMenu>
                             <Grid ColumnDefinitions="*,Auto"
-                                  RowDefinitions="Auto,Auto,Auto"
-                                  ColumnSpacing="6">
-                                <TextBlock FontWeight="SemiBold"
-                                           Text="{Binding DisplayMessage}"
-                                           TextTrimming="CharacterEllipsis" />
-                                <Border Grid.Column="1"
-                                        Classes="kindBadge"
-                                        Classes.close="{Binding IsClose}"
-                                        Classes.init="{Binding IsInit}"
-                                        Classes.manual="{Binding IsManual}"
-                                        Classes.restore="{Binding IsRestore}"
-                                        Classes.safety="{Binding IsSafety}"
-                                        Classes.save="{Binding IsSave}">
-                                    <TextBlock FontSize="10" Text="{Binding KindText}" />
-                                </Border>
-                                <TextBlock Grid.Row="1"
+                                  RowDefinitions="Auto,Auto"
+                                  RowSpacing="6"
+                                  ColumnSpacing="8">
+                                <TextBlock x:Name="HistoryMessageText"
                                            Grid.ColumnSpan="2"
-                                           Margin="0,3,0,0"
+                                           FontSize="14"
+                                           FontWeight="Normal"
+                                           MaxLines="1"
+                                           Text="{Binding DisplayMessage}"
+                                           TextTrimming="CharacterEllipsis">
+                                    <ToolTip.Tip>
+                                        <StackPanel MaxWidth="400" Spacing="4">
+                                            <TextBlock MaxLines="0" Text="{Binding DisplayMessage}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Commit.ShortSha}" FontFamily="Consolas, Menlo, monospace" />
+                                        </StackPanel>
+                                    </ToolTip.Tip>
+                                </TextBlock>
+                                <TextBlock Grid.Row="1"
                                            Classes="secondary"
+                                           FontSize="12"
                                            Text="{Binding AuthorAndRelativeDate}"
                                            ToolTip.Tip="{Binding AbsoluteLocalDate}" />
-                                <TextBlock Grid.Row="2"
-                                           Grid.ColumnSpan="2"
-                                           Classes="secondary"
-                                           Text="{Binding Commit.ShortSha}" />
+                                <Border Grid.Row="1"
+                                        Grid.Column="1"
+                                        Classes="kindBadge"
+                                        Classes.restore="{Binding IsRestore}"
+                                        Classes.safety="{Binding IsSafety}">
+                                    <TextBlock FontSize="12" Text="{Binding KindText}" />
+                                </Border>
                             </Grid>
                         </Border>
                     </DataTemplate>

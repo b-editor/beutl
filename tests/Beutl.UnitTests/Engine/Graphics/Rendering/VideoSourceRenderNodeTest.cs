@@ -27,8 +27,9 @@ public class VideoSourceRenderNodeTest
             StrokeAlignment = { CurrentValue = alignment },
         };
         using var penResource = pen.ToResource(CompositionContext.Default);
-        using var fillPath = new SKPath();
-        fillPath.AddRect(SKRect.Create(0, 0, 100, 100));
+        using var fillBuilder = new SKPathBuilder();
+        fillBuilder.AddRect(SKRect.Create(0, 0, 100, 100));
+        using SKPath fillPath = fillBuilder.Detach();
         using var stroke = PenHelper.CreateStrokePath(fillPath, penResource, new Rect(0, 0, 100, 100));
         using var node = new VideoSourceRenderNode(_resource!, frame: 0, null, penResource);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest { Intent = RenderIntent.Preview });

@@ -759,6 +759,12 @@
   <data name="Separately" xml:space="preserve">
     <value>別々</value>
   </data>
+  <data name="PathEditor_ShowStroke" xml:space="preserve">
+    <value>輪郭線を表示</value>
+  </data>
+  <data name="PathEditor_ShowFill" xml:space="preserve">
+    <value>塗りを表示</value>
+  </data>
   <data name="Figure" xml:space="preserve">
     <value>図形</value>
   </data>
@@ -1467,6 +1473,24 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="ProxyStoreCap" xml:space="preserve">
     <value>上限</value>
+  </data>
+  <data name="ProxyClipCountSingular" xml:space="preserve">
+    <value>1 クリップ</value>
+  </data>
+  <data name="ProxyClipCountPlural" xml:space="preserve">
+    <value>{0} クリップ</value>
+  </data>
+  <data name="ProxyMoreActions" xml:space="preserve">
+    <value>その他の操作</value>
+  </data>
+  <data name="ProxyDetails" xml:space="preserve">
+    <value>詳細</value>
+  </data>
+  <data name="ProxyEmptyTitle" xml:space="preserve">
+    <value>プロキシ対象の動画がありません</value>
+  </data>
+  <data name="ProxyEmptyDescription" xml:space="preserve">
+    <value>プロジェクトに動画を追加すると、ここで軽量なプレビュー用ファイルを作成できます。</value>
   </data>
   <data name="ProxyClips" xml:space="preserve">
     <value>クリップ</value>
@@ -2536,6 +2560,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="VersionControl_AdoptExistingRepository" xml:space="preserve">
     <value>このプロジェクトのフォルダーは、Beutl が管理していない既存の Git リポジトリです。このリポジトリでプロジェクトを管理しますか？ Beutl 用の除外設定と属性設定が追加され、保存時と終了時にバージョンが記録されます。</value>
+  </data>
+  <data name="VersionControl_AdoptRepositoryAction" xml:space="preserve">
+    <value>このリポジトリで管理</value>
   </data>
   <data name="VersionControl_UseEnclosingRepository" xml:space="preserve">
     <value>親リポジトリを使用</value>

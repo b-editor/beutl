@@ -1162,7 +1162,8 @@ internal static class VersionControlSerializationGraph
                 if (IsAlwaysJsonIgnored(property)
                     || property.GetMethod is null
                     || property.GetIndexParameters().Length != 0
-                    || !MayContainExternalResource(property.PropertyType))
+                    || !MayContainExternalResource(property.PropertyType)
+                    || IsSynthesizedRecordEqualityContract(property))
                 {
                     continue;
                 }
@@ -1174,6 +1175,49 @@ internal static class VersionControlSerializationGraph
                         $"Cannot safely inspect external-resource accessor "
                         + $"'{type.FullName}.{property.Name}' without invoking its getter.");
                 }
+            }
+        }
+
+        private static bool IsSynthesizedRecordEqualityContract(PropertyInfo property)
+        {
+            // Records synthesize EqualityContract as `typeof(TRecord)`: no backing field, but no
+            // resource either. Verify that body in the IL rather than trusting [CompilerGenerated],
+            // which any getter can carry; treating the abstract System.Type as resource-free would
+            // also trust hand-written Type members.
+            if (property.Name != "EqualityContract" || property.PropertyType != typeof(Type))
+            {
+                return false;
+            }
+
+            MethodInfo? getter = property.GetMethod;
+            byte[]? il = getter?.GetMethodBody()?.GetILAsByteArray();
+            if (il is not { Length: 11 }
+                || il[0] != 0xd0 // ldtoken
+                || il[5] != 0x28 // call
+                || il[10] != 0x2a) // ret
+            {
+                return false;
+            }
+
+            try
+            {
+                Type[]? typeArguments = getter!.DeclaringType?.GetGenericArguments();
+                Type[] methodArguments = getter.GetGenericArguments();
+                Type loadedType = getter.Module.ResolveType(
+                    BinaryPrimitives.ReadInt32LittleEndian(il.AsSpan(1, 4)),
+                    typeArguments,
+                    methodArguments);
+                MethodBase? calledMethod = getter.Module.ResolveMethod(
+                    BinaryPrimitives.ReadInt32LittleEndian(il.AsSpan(6, 4)),
+                    typeArguments,
+                    methodArguments);
+                return loadedType == property.DeclaringType
+                       && calledMethod is { Name: nameof(Type.GetTypeFromHandle) }
+                       && calledMethod.DeclaringType == typeof(Type);
+            }
+            catch (ArgumentException)
+            {
+                return false;
             }
         }
 

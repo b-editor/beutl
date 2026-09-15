@@ -850,7 +850,7 @@ public sealed class GpuPassFusionScaleRegionTests
                                 BlendMode = SKBlendMode.Src,
                                 ImageFilter = blur,
                             };
-                            canvas.Canvas.DrawImage(image, 0, 0, paint);
+                            canvas.Canvas.DrawImage(image, 0, 0, SKSamplingOptions.Default, paint);
                         }));
                     },
                     TargetRegion.Region(bounds),

@@ -460,15 +460,27 @@ public static class FilePathComparison
             return entries.Select(component, candidate);
         }
 
-        private sealed class DirectoryEntries(string[] paths)
+        internal sealed class DirectoryEntries(string[] paths)
         {
-            private readonly Dictionary<string, string> _exact = paths.ToDictionary(
-                path => Path.GetFileName(path), StringComparer.Ordinal);
+            private readonly Dictionary<string, string> _exact = IndexByName(paths);
 
             public string Select(string component, string candidate)
                 => _exact.TryGetValue(component, out string? exact)
                     ? exact
                     : SelectCanonicalExistingEntry(component, candidate, paths);
+
+            // A directory that changes while it is being listed can report one name twice;
+            // both reports carry the same path, so the first one is kept.
+            private static Dictionary<string, string> IndexByName(string[] entries)
+            {
+                var exact = new Dictionary<string, string>(entries.Length, StringComparer.Ordinal);
+                foreach (string entry in entries)
+                {
+                    exact.TryAdd(Path.GetFileName(entry), entry);
+                }
+
+                return exact;
+            }
         }
     }
 

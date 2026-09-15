@@ -157,8 +157,8 @@ internal partial class WebBrowserTabView
         var content = new StackPanel
         {
             MaxWidth = 600,
-            Margin = new Avalonia.Thickness(16),
-            Spacing = 12,
+            Margin = new Avalonia.Thickness(12),
+            Spacing = 8,
             Children = { feedback, empty, items }
         };
         var scroll = new ScrollViewer

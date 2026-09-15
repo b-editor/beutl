@@ -28,6 +28,7 @@ public sealed partial class ProxiesTabView : UserControl
     {
         return source.FindAncestorOfType<Button>(includeSelf: true) != null
             || source.FindAncestorOfType<ComboBox>(includeSelf: true) != null
-            || source.FindAncestorOfType<CheckBox>(includeSelf: true) != null;
+            || source.FindAncestorOfType<CheckBox>(includeSelf: true) != null
+            || source.FindAncestorOfType<SelectableTextBlock>(includeSelf: true) != null;
     }
 }

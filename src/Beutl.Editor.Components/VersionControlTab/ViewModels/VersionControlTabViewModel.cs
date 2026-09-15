@@ -28,6 +28,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
     private readonly CompositeDisposable _disposables = [];
     private readonly SemaphoreSlim _historyGate = new(1, 1);
     private readonly ReactivePropertySlim<bool> _showingDetail;
+    private readonly IRepositoryAdoptionConfirmationSource? _repositoryAdoptionSource;
     private readonly ReactivePropertySlim<VersionControlPrimaryAction> _primaryAction;
     private readonly ReactiveCommandSlim _disabledPrimaryActionCommand;
     private readonly ReactivePropertySlim<bool> _isPrimaryActionEnabled;
@@ -100,6 +101,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
         ArgumentNullException.ThrowIfNull(serviceSource);
         IProjectVersionControlService? service = serviceSource.Value;
         _versionControlCoordinator = versionControlCoordinator;
+        _repositoryAdoptionSource = versionControlCoordinator as IRepositoryAdoptionConfirmationSource;
         _postToUi = postToUi ?? throw new ArgumentNullException(nameof(postToUi));
         if (_versionControlCoordinator is not null)
         {
@@ -183,9 +185,15 @@ internal sealed class VersionControlTabViewModel : IToolContext
                         repository.RepoRoot)
                     : string.Empty)
             .DisposeWith(_disposables);
+        PendingRepositoryAdoption = new ReactivePropertySlim<RepositoryAdoptionRequest?>()
+            .DisposeWith(_disposables);
+        HasPendingRepositoryAdoption = PendingRepositoryAdoption
+            .Select(static request => request is not null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
         CanEnableVersionControl = IsGitAvailable.CombineLatest(
-                IsTracked,
-                static (available, tracked) => available && !tracked)
+                IsTracked, HasPendingRepositoryAdoption,
+                static (available, tracked, pendingAdoption) => available && !tracked && !pendingAdoption)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         IsEnablingVersionControl = new ReactivePropertySlim<bool>()
@@ -202,6 +210,12 @@ internal sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         BackToHistoryCommand = new ReactiveCommandSlim(ShowingDetail)
             .WithSubscribe(ShowHistory)
+            .DisposeWith(_disposables);
+        AcceptRepositoryAdoptionCommand = new ReactiveCommandSlim(HasPendingRepositoryAdoption)
+            .WithSubscribe(() => PendingRepositoryAdoption.Value?.Respond(true))
+            .DisposeWith(_disposables);
+        CancelRepositoryAdoptionCommand = new ReactiveCommandSlim(HasPendingRepositoryAdoption)
+            .WithSubscribe(() => PendingRepositoryAdoption.Value?.Respond(false))
             .DisposeWith(_disposables);
         EnableVersionControlCommand = new AsyncReactiveCommand(CanEnableVersionControl)
             .WithSubscribe(EnableVersionControlAsync)
@@ -306,6 +320,12 @@ internal sealed class VersionControlTabViewModel : IToolContext
             .Subscribe(_ => UpdatePrimaryAction())
             .DisposeWith(_disposables);
 
+        if (_repositoryAdoptionSource is not null)
+        {
+            _repositoryAdoptionSource.RepositoryAdoptionChanged += OnRepositoryAdoptionChanged;
+            PendingRepositoryAdoption.Value = _repositoryAdoptionSource.PendingRepositoryAdoption;
+        }
+
         Initialization = RebindServiceAsync(service);
         serviceSource
             .Subscribe(publishedService =>
@@ -344,6 +364,14 @@ internal sealed class VersionControlTabViewModel : IToolContext
     public ReactivePropertySlim<bool> HasPendingPullRecovery { get; }
 
     public ReactivePropertySlim<string> DirtySummary { get; }
+
+    public ReactivePropertySlim<RepositoryAdoptionRequest?> PendingRepositoryAdoption { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> HasPendingRepositoryAdoption { get; }
+
+    public ReactiveCommandSlim AcceptRepositoryAdoptionCommand { get; }
+
+    public ReactiveCommandSlim CancelRepositoryAdoptionCommand { get; }
 
     public ReactivePropertySlim<string> StatusMessage { get; }
 
@@ -834,6 +862,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
     {
     }
 
+    internal event EventHandler? Disposed;
+
     public void Dispose()
     {
         if (_disposed)
@@ -842,8 +872,13 @@ internal sealed class VersionControlTabViewModel : IToolContext
         }
 
         _disposed = true;
+        Disposed?.Invoke(this, EventArgs.Empty);
         Interlocked.Increment(ref _statusRefreshRevision);
         Interlocked.Increment(ref _pendingRecoveryQueryRevision);
+        if (_repositoryAdoptionSource is not null)
+        {
+            _repositoryAdoptionSource.RepositoryAdoptionChanged -= OnRepositoryAdoptionChanged;
+        }
         if (_versionControlCoordinator is not null)
         {
             _versionControlCoordinator.PendingPullRecoveriesChanged -=
@@ -1300,6 +1335,15 @@ internal sealed class VersionControlTabViewModel : IToolContext
         {
             _logger.LogWarning(ex, "Failed to refresh pending pull recovery state.");
         }
+    }
+
+    private void OnRepositoryAdoptionChanged(object? sender, EventArgs e)
+    {
+        _postToUi(() =>
+        {
+            if (!_disposed)
+                PendingRepositoryAdoption.Value = _repositoryAdoptionSource?.PendingRepositoryAdoption;
+        });
     }
 
     private void OnPendingPullRecoveriesChanged(object? sender, EventArgs e)

@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
@@ -42,12 +43,15 @@ public sealed partial class LibraryTabView : UserControl
                     Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
                 };
                 tabItem.Bind(IsVisibleProperty, binding);
-                tabItem.Content = new StackPanel
+                AutomationProperties.SetName(tabItem, item.Text);
+                ToolTip.SetTip(tabItem, item.Text);
+                tabItem.Content = new Grid
                 {
+                    ColumnDefinitions = new ColumnDefinitions("Auto,*"),
                     Children =
                     {
                         new FluentIcon { Icon = item.Icon },
-                        new TextBlock { Text = item.Text }
+                        new TextBlock { Text = item.Text, [Grid.ColumnProperty] = 1 }
                     }
                 };
                 var switchMenu = new FAToggleMenuFlyoutItem

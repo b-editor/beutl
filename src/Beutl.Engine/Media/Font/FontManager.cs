@@ -18,6 +18,11 @@ public sealed class FontManager
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
     internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
     private readonly HashSet<FontFamily> _reportedMissingFamilies = [];
+    // Keyed by reference to a matched typeface; null when it has no wght axis.
+    private readonly Dictionary<SKTypeface, WeightAxis?> _weightAxes = [];
+    // Variable typefaces moved to another weight, keyed by the typeface they were cloned from and the wght
+    // value. Like the registered typefaces, they live as long as the manager.
+    private readonly Dictionary<(SKTypeface Typeface, float Weight), SKTypeface> _weightInstances = [];
     private readonly string[] _fontDirs;
 
     private FontManager()
@@ -283,7 +288,7 @@ public sealed class FontManager
             // as "Inter 28pt"), so this runs inside the render pass and must not throw.
             if (_fonts.TryGetValue(typeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? typefaces))
             {
-                return typefaces.Get(typeface);
+                return InstantiateWeight(typefaces.Get(typeface), typeface.Weight);
             }
 
             // ToSkia() runs per text layout, so an unregistered family in a multi-frame render
@@ -297,8 +302,71 @@ public sealed class FontManager
             }
 
             return _fonts.TryGetValue(DefaultTypeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? fallback)
-                ? fallback.Get(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight))
+                ? InstantiateWeight(fallback.Get(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight)), typeface.Weight)
                 : SKTypeface.Default;
+        }
+    }
+
+    // A variable font registers once, as its default instance, so every weight resolves to that instance.
+    // Move the matched typeface along its wght axis to the requested weight instead; a typeface without the
+    // axis, or already at that weight, is returned as is. Callers hold _gate.
+    private SKTypeface InstantiateWeight(SKTypeface typeface, FontWeight weight)
+    {
+        if (!_weightAxes.TryGetValue(typeface, out WeightAxis? axis))
+        {
+            axis = WeightAxis.Find(typeface);
+            _weightAxes.Add(typeface, axis);
+        }
+
+        if (axis is not { } weightAxis)
+        {
+            return typeface;
+        }
+
+        // Skia clamps to the axis as well; clamping first keeps a single instance per rendered weight.
+        float value = Math.Clamp((float)weight, weightAxis.Min, weightAxis.Max);
+        if (value == weightAxis.Position)
+        {
+            return typeface;
+        }
+
+        if (!_weightInstances.TryGetValue((typeface, value), out SKTypeface? instance))
+        {
+            ReadOnlySpan<SKFontVariationPositionCoordinate> position = [new() { Axis = WeightAxis.Tag, Value = value }];
+            instance = typeface.Clone(position) ?? typeface;
+            _weightInstances.Add((typeface, value), instance);
+        }
+
+        return instance;
+    }
+
+    private readonly record struct WeightAxis(float Min, float Max, float Position)
+    {
+        public static readonly SKFourByteTag Tag = new('w', 'g', 'h', 't');
+
+        public static WeightAxis? Find(SKTypeface typeface)
+        {
+            foreach (SKFontVariationAxis axis in typeface.VariationDesignParameters)
+            {
+                if (!axis.Tag.Equals(Tag))
+                {
+                    continue;
+                }
+
+                // A typeface created at a named instance sits at that instance rather than the axis default.
+                float position = axis.Default;
+                foreach (SKFontVariationPositionCoordinate coordinate in typeface.VariationDesignPosition)
+                {
+                    if (coordinate.Axis.Equals(Tag))
+                    {
+                        position = coordinate.Value;
+                    }
+                }
+
+                return new WeightAxis(axis.Min, axis.Max, position);
+            }
+
+            return null;
         }
     }
 

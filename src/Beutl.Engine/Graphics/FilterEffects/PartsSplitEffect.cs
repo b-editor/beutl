@@ -37,17 +37,17 @@ public partial class PartsSplitEffect : FilterEffect
                     {
                         ReadOnlySpan<PixelPoint> inner = points[i1];
                         int parent = parentIndices[i1];
-                        var skpath = new SKPath();
-                        pathes.Add((skpath, parent, i1));
+                        using var builder = new SKPathBuilder();
                         for (int j = 0; j < inner.Length; j++)
                         {
                             if (j == 0)
-                                skpath.MoveTo(inner[j].X, inner[j].Y);
+                                builder.MoveTo(inner[j].X, inner[j].Y);
                             else
-                                skpath.LineTo(inner[j].X, inner[j].Y);
+                                builder.LineTo(inner[j].X, inner[j].Y);
                         }
 
-                        skpath.Close();
+                        builder.Close();
+                        pathes.Add((builder.Detach(), parent, i1));
                     }
 
                     for (int j = 0; j < pathes.Count; j++)

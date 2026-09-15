@@ -4,7 +4,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="using:Beutl.Editor.Components.NodeGraphTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:paz="using:Avalonia.Controls.PanAndZoom"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.Editor.Components.NodeGraphTab.ViewModels"
              d:DesignHeight="450"
@@ -13,22 +12,36 @@
              x:DataType="viewModel:NodeGraphTabViewModel"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">
-        <local:NodeGraphView Grid.RowSpan="2" DataContext="{Binding NodeGraph.Value}" />
-
-        <ui:FABreadcrumbBar Margin="8"
-                          ItemClicked="BreadcrumbBarItemClicked"
-                          ItemsSource="{Binding Items}">
-            <ui:FABreadcrumbBar.ItemTemplate>
-                <DataTemplate x:DataType="viewModel:NodeGraphNavigationItem">
-                     <ui:FABreadcrumbBarItem Content="{Binding}">
+        <Border x:Name="NavigationBar"
+                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,0,0,1"
+                ClipToBounds="True"
+                IsVisible="{Binding NodeGraph.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <ui:FABreadcrumbBar x:Name="BreadcrumbBar"
+                                Margin="8"
+                                ItemClicked="BreadcrumbBarItemClicked"
+                                ItemsSource="{Binding Items}">
+                <ui:FABreadcrumbBar.ItemTemplate>
+                    <DataTemplate x:DataType="viewModel:NodeGraphNavigationItem">
+                        <ui:FABreadcrumbBarItem Content="{Binding}">
                             <ui:FABreadcrumbBarItem.ContentTemplate>
                                 <DataTemplate DataType="viewModel:NodeGraphNavigationItem">
-                                    <TextBlock Text="{Binding Name.Value}" />
+                                    <TextBlock MaxWidth="{Binding $parent[ui:FABreadcrumbBar].Bounds.Width}"
+                                               Text="{Binding Name.Value}"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding Name.Value}" />
                                 </DataTemplate>
                             </ui:FABreadcrumbBarItem.ContentTemplate>
                         </ui:FABreadcrumbBarItem>
-                </DataTemplate>
-            </ui:FABreadcrumbBar.ItemTemplate>
-        </ui:FABreadcrumbBar>
+                    </DataTemplate>
+                </ui:FABreadcrumbBar.ItemTemplate>
+            </ui:FABreadcrumbBar>
+        </Border>
+
+        <local:NodeGraphView x:Name="GraphView"
+                             Grid.Row="1"
+                             ClipToBounds="True"
+                             DataContext="{Binding NodeGraph.Value}" />
     </Grid>
 </UserControl>

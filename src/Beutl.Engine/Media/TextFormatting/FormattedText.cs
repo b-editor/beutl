@@ -190,11 +190,11 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     }
 
     // テスト用
-    internal Point AddToSKPath(SKPath path, Point point)
+    internal Point AddToSKPath(SKPathBuilder path, Point point)
     {
         using SKFont font = this.ToSKFont();
 
-        using var shaper = new SKShaper(font.Typeface);
+        using var shaper = new TextShaper(font.Typeface);
         using var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
@@ -333,7 +333,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
         using SKFont font = ToSKFont(density);
 
-        using var shaper = new SKShaper(font.Typeface);
+        using var shaper = new TextShaper(font.Typeface);
         using var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
@@ -344,7 +344,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         using var builder = new SKTextBlobBuilder();
         SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, result.Codepoints.Length);
 
-        var fillPath = new SKPath();
+        using var fillBuilder = new SKPathBuilder();
         Span<ushort> glyphs = run.Glyphs;
         Span<SKPoint> positions = run.Positions;
         Span<Geometry.Resource> pathList = default;
@@ -373,7 +373,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             SKPath? tmp = font.GetGlyphPath(glyphs[i]);
             if (tmp != null)
             {
-                fillPath.AddPath(tmp, point.X, point.Y);
+                fillBuilder.AddPath(tmp, point.X, point.Y);
 
                 if (updatePathList)
                 {
@@ -398,6 +398,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             }
         }
 
+        SKPath fillPath = fillBuilder.Detach();
         SKPath? strokePath = null;
         // 空白で開始または、終了した場合
         float width = MathF.Max(0, (Math.Max(0, glyphs.Length - 1) * spacing) + result.Width);

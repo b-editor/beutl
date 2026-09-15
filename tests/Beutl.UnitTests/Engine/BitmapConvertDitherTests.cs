@@ -63,7 +63,7 @@ public class BitmapConvertDitherTests
         using (var canvas = new SKCanvas(destBitmap))
         using (var paint = new SKPaint { BlendMode = SKBlendMode.Src, IsDither = false })
         {
-            canvas.DrawBitmap(source.SKBitmap, SKPoint.Empty, paint);
+            canvas.DrawBitmap(source.SKBitmap, SKPoint.Empty, SKSamplingOptions.Default, paint);
         }
 
         return new Bitmap(destBitmap);
@@ -157,7 +157,7 @@ public class BitmapConvertDitherTests
         using (var canvas = new SKCanvas(expected))
         using (var paint = new SKPaint { BlendMode = SKBlendMode.Src, IsDither = false })
         {
-            canvas.DrawBitmap(skBitmap, SKPoint.Empty, paint);
+            canvas.DrawBitmap(skBitmap, SKPoint.Empty, SKSamplingOptions.Default, paint);
         }
 
         ReadOnlySpan<byte> actualPixels = alpha.GetPixelSpan();

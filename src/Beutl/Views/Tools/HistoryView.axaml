@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Tools.HistoryView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:editor="using:Beutl.Editor"
              xmlns:lang="using:Beutl.Language"
@@ -44,32 +45,31 @@
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*">
-        <Grid Grid.Row="0"
-              Height="36"
-              Margin="4,4,4,0"
-              ColumnDefinitions="Auto,Auto,*">
-            <Button Grid.Column="0"
-                    Padding="6"
-                    Click="OnUndoClick"
-                    Theme="{StaticResource TransparentButton}"
-                    ToolTip.Tip="{x:Static lang:Strings.Undo}">
-                <icons:FluentIcon Icon="ArrowUndo" />
-            </Button>
-            <Button Grid.Column="1"
-                    Margin="4,0,0,0"
-                    Padding="6"
-                    Click="OnRedoClick"
-                    Theme="{StaticResource TransparentButton}"
-                    ToolTip.Tip="{x:Static lang:Strings.Redo}">
-                <icons:FluentIcon Icon="ArrowRedo" />
-            </Button>
-            <TextBlock Grid.Column="2"
-                       Margin="8,0,0,0"
-                       VerticalAlignment="Center"
-                       FontSize="11"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Text="{Binding CurrentIndex.Value, StringFormat='#{0}'}" />
-        </Grid>
+        <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
+            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="2">
+                <Button x:Name="UndoButton"
+                        Grid.Column="0"
+                        Click="OnUndoClick"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                        ToolTip.Tip="{x:Static lang:Strings.Undo}">
+                    <icons:FluentIcon FontSize="16" Icon="ArrowUndo" />
+                </Button>
+                <Button x:Name="RedoButton"
+                        Grid.Column="1"
+                        Click="OnRedoClick"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                        ToolTip.Tip="{x:Static lang:Strings.Redo}">
+                    <icons:FluentIcon FontSize="16" Icon="ArrowRedo" />
+                </Button>
+                <TextBlock x:Name="CurrentIndexText"
+                           Grid.Column="2"
+                           Margin="{DynamicResource ToolTabBarTitleMargin}"
+                           VerticalAlignment="Center"
+                           FontSize="11"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{Binding CurrentIndex.Value, StringFormat='#{0}'}" />
+            </Grid>
+        </controls:ToolTabBar>
 
         <ListBox x:Name="HistoryList"
                  Grid.Row="1"

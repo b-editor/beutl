@@ -26,7 +26,7 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
     public new partial class Resource
     {
         private SKPaint? _paint;
-        private SKPath? _path;
+        private SKPathBuilder? _builder;
 
         protected internal override void Render(in WaveformRenderContext context)
         {
@@ -55,8 +55,8 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
             {
                 _paint ??= new SKPaint();
                 VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
-                _path ??= new SKPath();
-                _path.Reset();
+                _builder ??= new SKPathBuilder();
+                _builder.Reset();
             }
 
             for (int i = 0; i < barCount; i++)
@@ -70,7 +70,7 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
 
                 if (round)
                 {
-                    BarGeometry.AddRoundedBar(_path!, x, topY, barWidth, barHeight, cr);
+                    BarGeometry.AddRoundedBar(_builder!, x, topY, barWidth, barHeight, cr);
                 }
                 else
                 {
@@ -80,7 +80,8 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
 
             if (round)
             {
-                canvas.Canvas.DrawPath(_path!, _paint!);
+                using SKPath path = _builder!.Detach();
+                canvas.Canvas.DrawPath(path, _paint!);
             }
         }
 
@@ -89,10 +90,10 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
             if (disposing)
             {
                 _paint?.Dispose();
-                _path?.Dispose();
+                _builder?.Dispose();
             }
             _paint = null;
-            _path = null;
+            _builder = null;
         }
     }
 }

@@ -17,6 +17,7 @@ using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -68,6 +69,12 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         _config = GlobalConfiguration.Instance.ProxyStoreConfig;
 
         ClipSummary = new ReactiveProperty<string>()
+            .DisposeWith(_disposables);
+        ClipCountText = new ReactiveProperty<string>()
+            .DisposeWith(_disposables);
+        HasClips = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        HasSelection = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
         SelectionSummary = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
@@ -214,6 +221,12 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public ReactiveProperty<string> ClipSummary { get; }
 
+    public ReactiveProperty<string> ClipCountText { get; }
+
+    public ReactivePropertySlim<bool> HasClips { get; }
+
+    public ReactivePropertySlim<bool> HasSelection { get; }
+
     public ReactiveProperty<string> SelectionSummary { get; }
 
     public ReactiveProperty<string> JobSummary { get; }
@@ -257,11 +270,19 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Proxies);
 
+    internal Action<Notification> Notify { get; set; } = NotificationService.Show;
+
+    private void ReportActionStatus(string message, NotificationType type)
+    {
+        StatusMessage.Value = message;
+        Notify(new Notification(Strings.Proxies, message, type));
+    }
+
     public async Task GenerateAsync(ProxyClipViewModel clip)
     {
         if (_queue == null)
         {
-            StatusMessage.Value = Strings.ProxyQueueUnavailable;
+            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
             return;
         }
 
@@ -314,9 +335,10 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         if (failed <= 0)
             return;
 
-        StatusMessage.Value = failed == 1
+        string message = failed == 1
             ? Strings.ProxyDeleteFailedSingular
             : string.Format(CultureInfo.CurrentCulture, Strings.ProxyDeleteFailedPluralFormat, failed);
+        ReportActionStatus(message, NotificationType.Error);
     }
 
     // A queued/running generation would Register the proxy again on success and silently undo the
@@ -413,7 +435,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         if (_queue == null)
         {
-            StatusMessage.Value = Strings.ProxyQueueUnavailable;
+            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
             return;
         }
 
@@ -423,7 +445,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             // An all-light project would otherwise no-op silently on an explicit action; tell the
             // user nothing met the heaviness floor and point them at per-clip generate.
             if (Clips.Count > 0)
-                StatusMessage.Value = Strings.ProxyBulkNoEligibleClips;
+                ReportActionStatus(Strings.ProxyBulkNoEligibleClips, NotificationType.Information);
 
             return;
         }
@@ -473,7 +495,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         if (_queue == null)
         {
-            StatusMessage.Value = Strings.ProxyQueueUnavailable;
+            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
             return;
         }
 
@@ -489,7 +511,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         if (_queue == null)
         {
-            StatusMessage.Value = Strings.ProxyQueueUnavailable;
+            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
             return;
         }
 
@@ -909,6 +931,12 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         int missing = Clips.Count(static c => c.IsMissing.Value);
         int selected = Clips.Count(static c => c.IsSelected.Value);
 
+        HasClips.Value = Clips.Count > 0;
+        HasSelection.Value = selected > 0;
+        ClipCountText.Value = Clips.Count == 1
+            ? Strings.ProxyClipCountSingular
+            : string.Format(CultureInfo.CurrentCulture, Strings.ProxyClipCountPlural, Clips.Count);
+
         string stateSummary = string.Format(
             CultureInfo.CurrentCulture,
             Strings.ProxyClipSummaryFormat,
@@ -1126,6 +1154,8 @@ public sealed class ProxyClipViewModel : IDisposable
             .DisposeWith(_disposables);
         LastUsedText = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
+        FailureReason = new ReactiveProperty<string?>()
+            .DisposeWith(_disposables);
         IsReady = new ReactiveProperty<bool>()
             .DisposeWith(_disposables);
         IsStale = new ReactiveProperty<bool>()
@@ -1237,6 +1267,8 @@ public sealed class ProxyClipViewModel : IDisposable
 
     public ReactiveProperty<string> LastUsedText { get; }
 
+    public ReactiveProperty<string?> FailureReason { get; }
+
     public ReactiveProperty<bool> IsReady { get; }
 
     public ReactiveProperty<bool> IsStale { get; }
@@ -1273,6 +1305,7 @@ public sealed class ProxyClipViewModel : IDisposable
             : entry.Source == Source
                 ? entry.State
                 : ProxyState.Stale;
+        FailureReason.Value = state == ProxyState.Failed ? entry?.FailureReason : null;
         State.Value = ProxiesTabViewModel.GetProxyStateText(state);
         IsReady.Value = state == ProxyState.Ready;
         IsStale.Value = state == ProxyState.Stale;

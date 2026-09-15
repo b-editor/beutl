@@ -87,7 +87,7 @@ The same missing API caps what `VulkanContext`'s Skia image allocation hook can 
 them in `TransferDstOptimal` while Ganesh still holds `Undefined` for them. Its first use may therefore
 transition out of `Undefined`, which Vulkan permits to discard the contents. Nothing can be reconciled
 here: Skia never hands out a backend handle for an image it allocated itself, so the
-`GRVkImageInfo.ImageLayout` route `VulkanTexture2D` uses does not apply, and SkiaSharp 3.119.4's
+`GRVkImageInfo.ImageLayout` route `VulkanTexture2D` uses does not apply, and SkiaSharp 4.152.0's
 `GRContextOptions` — `AvoidStencilBuffers`, `RuntimeProgramCacheSize`, `GlyphCacheTextureMaximumBytes`,
 `AllowPathMaskCaching`, `DoManualMipmapping`, `BufferMapThreshold` — has no clear-on-allocate switch that
 would hand the clear back to Skia. The clear still zeroes the backing allocation, which is what stops
