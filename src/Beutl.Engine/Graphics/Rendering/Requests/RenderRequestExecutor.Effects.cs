@@ -12,7 +12,8 @@ internal sealed partial class RenderRequestExecutor
     {
         private void ReplayOpacityMask(
             RenderFragmentReference fragment,
-            ImmediateCanvas destination)
+            ImmediateCanvas destination,
+            EffectiveScale callerScale)
         {
             if (fragment.Inputs.Length != 1)
                 throw new InvalidOperationException("An opacity mask requires exactly one input.");
@@ -23,7 +24,7 @@ internal sealed partial class RenderRequestExecutor
                 mask =>
                 {
                     using (destination.PushOpacityMask(mask, payload.BrushBounds, payload.Invert))
-                        Replay(fragment.Inputs[0], destination);
+                        Replay(fragment.Inputs[0], destination, callerScale);
                     return true;
                 });
         }
@@ -169,7 +170,9 @@ internal sealed partial class RenderRequestExecutor
                 IReadOnlyList<MaterializedRenderValue> inputValues = Materialize(
                     input,
                     currentTarget,
-                    input.EffectiveScale.IsUnbounded ? outputSupply : null);
+                    input.EffectiveScale.IsUnbounded
+                        ? ResolveOpaqueInputCallerScale(fragment, description, inputIndex, outputSupply)
+                        : null);
                 RenderInputReadback readback = payload.InputReadbacks[inputIndex];
                 readback.ValidateRuntimeCount(input.ValueCardinality, inputValues.Count);
                 inputRanges.Add(new RenderExecutionInputRange(flattened.Count, inputValues.Count));
@@ -237,16 +240,18 @@ internal sealed partial class RenderRequestExecutor
 
         private IReadOnlyList<MaterializedRenderValue> ExecuteEffectItem(
             RenderFragmentReference fragment,
-            ImmediateCanvas currentTarget)
+            ImmediateCanvas currentTarget,
+            EffectiveScale? requestedScale)
             => ExecuteOnDeviceGrid(
                 currentTarget,
-                () => ExecuteEffectItemCore(fragment, currentTarget),
+                () => ExecuteEffectItemCore(fragment, currentTarget, requestedScale),
                 normalizeGridPhase: fragment.Payload is FilterEffectSegmentRenderFragmentPayload payload
                                     && payload.HasImperativeItem);
 
         private IReadOnlyList<MaterializedRenderValue> ExecuteEffectItemCore(
             RenderFragmentReference fragment,
-            ImmediateCanvas currentTarget)
+            ImmediateCanvas currentTarget,
+            EffectiveScale? requestedScale)
         {
             Rect requiredRegion = ResolveFragmentRequirement(fragment, fragment.Bounds);
             var payload = (FilterEffectSegmentRenderFragmentPayload)fragment.Payload!;
@@ -256,13 +261,15 @@ internal sealed partial class RenderRequestExecutor
                     fragment,
                     currentTarget,
                     payload,
-                    requiredRegion);
+                    requiredRegion,
+                    requestedScale);
             }
 
             var inputs = new List<MaterializedRenderValue>();
-            EffectiveScale inputRequestScale = fragment.EffectiveScale.IsUnbounded
-                ? EffectiveScale.At(currentTarget.Density)
-                : fragment.EffectiveScale;
+            EffectiveScale inputRequestScale = requestedScale
+                ?? (!fragment.EffectiveScale.IsUnbounded
+                    ? fragment.EffectiveScale
+                    : EffectiveScale.At(currentTarget.Density));
             for (int index = 0; index < fragment.Inputs.Length; index++)
             {
                 RenderFragmentReference input = fragment.Inputs[index];
@@ -375,7 +382,8 @@ internal sealed partial class RenderRequestExecutor
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             FilterEffectSegmentRenderFragmentPayload payload,
-            Rect requiredRegion)
+            Rect requiredRegion,
+            EffectiveScale? requestedScale)
         {
             RenderFragmentReference input = fragment.Inputs[0];
             if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
@@ -384,12 +392,19 @@ internal sealed partial class RenderRequestExecutor
                 return [];
             }
 
-            float requestedDensity = fragment.EffectiveScale.IsUnbounded
-                ? currentTarget.Density
-                : fragment.EffectiveScale.Value;
+            // The output is the value the plan compiled for this segment, so it is rasterized at the demand
+            // Materialize resolved, not at the density of the target it happens to be drawn onto: a cache
+            // capture of this value is checked against that planned density.
+            float requestedDensity = requestedScale?.Value
+                ?? (fragment.EffectiveScale.IsUnbounded
+                    ? currentTarget.Density
+                    : fragment.EffectiveScale.Value);
             EffectiveScale scale = ClampToActiveDeviceGrid(
                 fragment.Bounds,
                 EffectiveScale.At(requestedDensity));
+            // The plan gave the replayed input this segment's demand, not the density of the buffer it is
+            // drawn into, so the nested replay is checked against the former.
+            EffectiveScale inputCallerScale = requestedScale ?? scale;
             MaterializedRenderValue? output = null;
             bool succeeded = false;
             bool replayStarted = false;
@@ -423,13 +438,13 @@ internal sealed partial class RenderRequestExecutor
                         using (canvas.PushFilterLayer(paint, layerContentBounds))
                         {
                             replayStarted = true;
-                            Replay(input, canvas);
+                            Replay(input, canvas, inputCallerScale);
                         }
                     }
                     else
                     {
                         replayStarted = true;
-                        Replay(input, canvas);
+                        Replay(input, canvas, inputCallerScale);
                     }
                 }
 

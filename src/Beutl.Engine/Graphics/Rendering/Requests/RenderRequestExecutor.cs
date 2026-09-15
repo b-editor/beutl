@@ -424,11 +424,30 @@ internal sealed partial class RenderRequestExecutor
             => _previewAllocationDropObserved || _targets.ContentDropObserved;
 
         public void Replay(RenderFragmentReference fragment, ImmediateCanvas destination)
+            => Replay(fragment, destination, ResolveCallerScale(destination));
+
+        /// <summary>
+        /// Replays <paramref name="fragment"/> onto <paramref name="destination"/> for a caller that asks
+        /// <paramref name="callerScale"/> of it.
+        /// </summary>
+        /// <remarks>
+        /// The caller scale is the density this replay demands of an unbounded fragment, expressed in the
+        /// fragment's own logical space: the destination density at a request root or a fresh buffer, carried
+        /// backwards through every <see cref="RenderScopeTransformSpace.InputLogical"/> scope on the way down
+        /// the same way <see cref="RenderMaterializationDemandResolver"/> compiled the demand it is checked
+        /// against. <see cref="ImmediateCanvas.Density"/> alone is the surface's density and does not see the
+        /// transform such a scope pushed on top of it, so a scope that shrinks its input would ask more of it
+        /// than the plan compiled and trip the materialization cross-check.
+        /// </remarks>
+        private void Replay(
+            RenderFragmentReference fragment,
+            ImmediateCanvas destination,
+            EffectiveScale callerScale)
         {
             _replayDepth++;
             try
             {
-                ReplayCore(fragment, destination);
+                ReplayCore(fragment, destination, callerScale);
                 CompleteFragmentUse(fragment);
             }
             catch (PreviewAllocationDropException) when (_replayDepth == 1)
@@ -447,7 +466,79 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private void ReplayCore(RenderFragmentReference fragment, ImmediateCanvas destination)
+        /// <summary>
+        /// The scale a replay onto <paramref name="destination"/> asks of an unbounded fragment when nothing
+        /// between them remaps the input's logical space.
+        /// </summary>
+        private EffectiveScale ResolveCallerScale(ImmediateCanvas destination)
+            => EffectiveScale.At(MathF.Min(
+                destination.Density,
+                RenderScaleUtilities.SanitizeMaxWorkingScale(_options.MaxWorkingScale)));
+
+        /// <summary>
+        /// Carries the scale a scope is replayed at back to the input it replays, in the input's own logical
+        /// space, bounded by the request ceiling at this step exactly as the demand resolver bounds it.
+        /// </summary>
+        private EffectiveScale ResolveScopeInputCallerScale(RenderScaleContract scale, EffectiveScale callerScale)
+            => BoundCallerScale(scale.MapOutputDemandToInput(callerScale).Value);
+
+        /// <summary>
+        /// Carries the scale an operation is materialized at back to one of its inputs through the operation's
+        /// declared <see cref="RenderInputDemandContract"/>, the step the demand resolver takes for a Shader, a
+        /// Geometry, or a many-input opaque operation.
+        /// </summary>
+        private EffectiveScale ResolveInputCallerScale(
+            RenderInputDemandContract inputDemand,
+            int inputIndex,
+            EffectiveScale outputScale)
+            => inputDemand.IsUnchanged
+                ? outputScale
+                : BoundCallerScale(inputDemand.Resolve(inputIndex, outputScale).Value);
+
+        /// <summary>
+        /// Carries the scale an opaque operation is materialized at back to one of its inputs: a map through its
+        /// scale contract, a combine or expand through its per-input demand contract, a source has no inputs.
+        /// </summary>
+        private EffectiveScale ResolveOpaqueInputCallerScale(
+            RenderFragmentReference fragment,
+            OpaqueRenderDescription description,
+            int inputIndex,
+            EffectiveScale outputScale)
+            => fragment.Kind switch
+            {
+                RenderFragmentKind.OpaqueMap => ResolveScopeInputCallerScale(description.Scale, outputScale),
+                RenderFragmentKind.OpaqueCombine or RenderFragmentKind.OpaqueExpand
+                    => ResolveInputCallerScale(description.InputDemand, inputIndex, outputScale),
+                _ => outputScale,
+            };
+
+        /// <summary>
+        /// Carries the scale a compiled shader run is materialized at back to the run's input, stage by stage
+        /// from the output, restarting from any stage that already has a concrete scale of its own.
+        /// </summary>
+        private EffectiveScale ResolveShaderRunInputCallerScale(CompiledShaderRun run, EffectiveScale outputScale)
+        {
+            EffectiveScale scale = outputScale;
+            for (int stageIndex = run.StageFragmentIndices.Length - 1; stageIndex >= 0; stageIndex--)
+            {
+                RenderFragmentReference stage = run.GetStage(_graph, stageIndex);
+                if (!stage.EffectiveScale.IsUnbounded)
+                    scale = stage.EffectiveScale;
+                scale = ResolveInputCallerScale(run.GetDescription(_graph, stageIndex).InputDemand, 0, scale);
+            }
+
+            return scale;
+        }
+
+        private EffectiveScale BoundCallerScale(float density)
+            => EffectiveScale.At(MathF.Min(
+                density,
+                RenderScaleUtilities.SanitizeMaxWorkingScale(_options.MaxWorkingScale)));
+
+        private void ReplayCore(
+            RenderFragmentReference fragment,
+            ImmediateCanvas destination,
+            EffectiveScale callerScale)
         {
             if (fragment.Id is { } boundaryId
                 && _cacheResolution.HasSelectedProducer(boundaryId))
@@ -456,7 +547,7 @@ internal sealed partial class RenderRequestExecutor
                     fragment,
                     destination,
                     fragment.EffectiveScale.IsUnbounded
-                        ? EffectiveScale.At(destination.Density)
+                        ? callerScale
                         : null);
                 if (fragment.ContributesValuesToTarget)
                     DrawValues(boundaryValues, destination);
@@ -476,7 +567,7 @@ internal sealed partial class RenderRequestExecutor
                 && canReplayMaterializedValue
                 && _resourceUses.GetRemainingUseCount(fragment) > 1)
             {
-                DrawMaterializedFragment(fragment, destination);
+                DrawMaterializedFragment(fragment, destination, callerScale);
                 return;
             }
 
@@ -486,11 +577,12 @@ internal sealed partial class RenderRequestExecutor
                 if (TryExecuteCompiledShaderRunDirect(
                         fragment,
                         membership.Island.ShaderRun,
-                        destination))
+                        destination,
+                        callerScale))
                 {
                     return;
                 }
-                DrawMaterializedFragment(fragment, destination);
+                DrawMaterializedFragment(fragment, destination, callerScale);
                 return;
             }
 
@@ -508,7 +600,7 @@ internal sealed partial class RenderRequestExecutor
                                 fragment,
                                 destination,
                                 fragment.EffectiveScale.IsUnbounded
-                                    ? EffectiveScale.At(destination.Density)
+                                    ? callerScale
                                     : null),
                             destination);
                     }
@@ -524,7 +616,7 @@ internal sealed partial class RenderRequestExecutor
                         () =>
                         {
                             using (destination.PushOpacity(((OpacityRenderFragmentPayload)fragment.Payload!).Opacity))
-                                Replay(fragment.Inputs.Single(), destination);
+                                Replay(fragment.Inputs.Single(), destination, callerScale);
                         });
                     return;
                 case RenderFragmentKind.Blend:
@@ -542,12 +634,12 @@ internal sealed partial class RenderRequestExecutor
                                 ? destination.PushDirectBlendMode(blendMode)
                                 : destination.PushBlendMode(blendMode))
                             {
-                                Replay(fragment.Inputs.Single(), destination);
+                                Replay(fragment.Inputs.Single(), destination, callerScale);
                             }
                         });
                     return;
                 case RenderFragmentKind.OpacityMask:
-                    ExecuteReplayIsland(fragment, () => ReplayOpacityMask(fragment, destination));
+                    ExecuteReplayIsland(fragment, () => ReplayOpacityMask(fragment, destination, callerScale));
                     return;
                 case RenderFragmentKind.Layer:
                     if (fragment.ContributesValuesToTarget)
@@ -558,29 +650,29 @@ internal sealed partial class RenderRequestExecutor
                         _ = Materialize(fragment, destination);
                     return;
                 case RenderFragmentKind.TargetLayerScope:
-                    ExecuteReplayIsland(fragment, () => ReplayTargetLayerScope(fragment, destination));
+                    ExecuteReplayIsland(fragment, () => ReplayTargetLayerScope(fragment, destination, callerScale));
                     return;
                 case RenderFragmentKind.OpaqueSource:
-                    if (TryReplayEngineSourceDirect(fragment, destination))
+                    if (TryReplayEngineSourceDirect(fragment, destination, callerScale))
                         return;
-                    DrawMaterializedFragment(fragment, destination);
+                    DrawMaterializedFragment(fragment, destination, callerScale);
                     return;
                 case RenderFragmentKind.OpaqueMap:
                 case RenderFragmentKind.OpaqueExpand:
                 case RenderFragmentKind.MaterializedInput:
                 case RenderFragmentKind.Shader:
                 case RenderFragmentKind.Geometry:
-                    DrawMaterializedFragment(fragment, destination);
+                    DrawMaterializedFragment(fragment, destination, callerScale);
                     return;
                 case RenderFragmentKind.FilterEffectSegment:
-                    if (TryReplayBuiltInSkiaFilterChainDirect(fragment, destination))
+                    if (TryReplayBuiltInSkiaFilterChainDirect(fragment, destination, callerScale))
                         return;
-                    DrawMaterializedFragment(fragment, destination);
+                    DrawMaterializedFragment(fragment, destination, callerScale);
                     return;
                 case RenderFragmentKind.OpaqueCombine:
-                    if (TryReplayEngineSourceDirect(fragment, destination))
+                    if (TryReplayEngineSourceDirect(fragment, destination, callerScale))
                         return;
-                    DrawMaterializedFragment(fragment, destination);
+                    DrawMaterializedFragment(fragment, destination, callerScale);
                     return;
                 case RenderFragmentKind.TargetCapture:
                     _ = Materialize(fragment, destination);
@@ -607,10 +699,10 @@ internal sealed partial class RenderRequestExecutor
                     ExecuteReplayIsland(fragment, () => ExecuteRawTargetCommand(fragment, destination));
                     return;
                 case RenderFragmentKind.TargetScope:
-                    ExecuteReplayIsland(fragment, () => ExecuteTargetScope(fragment, destination));
+                    ExecuteReplayIsland(fragment, () => ExecuteTargetScope(fragment, destination, callerScale));
                     return;
                 case RenderFragmentKind.RawTargetScope:
-                    ExecuteReplayIsland(fragment, () => ExecuteRawTargetScope(fragment, destination));
+                    ExecuteReplayIsland(fragment, () => ExecuteRawTargetScope(fragment, destination, callerScale));
                     return;
                 default:
                     throw new InvalidOperationException("The recorded render-fragment kind is invalid.");
