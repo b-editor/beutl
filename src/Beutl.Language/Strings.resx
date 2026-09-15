@@ -2335,6 +2335,15 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="VersionControl_ConflictGuidance" xml:space="preserve">
     <value>This repository has unresolved conflicts. Resolve them with an external Git tool before continuing.</value>
   </data>
+  <data name="VersionControl_DetachedHeadGuidance" xml:space="preserve">
+    <value>This repository is not on a branch (detached HEAD). Check out a branch with an external Git tool before continuing.</value>
+  </data>
+  <data name="VersionControl_CloseWithoutSnapshot" xml:space="preserve">
+    <value>Close without a snapshot</value>
+  </data>
+  <data name="VersionControl_CloseWithoutSnapshotConfirmation" xml:space="preserve">
+    <value>The project could not be saved. Close it without recording a snapshot? Changes that were not saved will be lost.</value>
+  </data>
   <data name="VersionControl_ConflictMarkerWarningTitle" xml:space="preserve">
     <value>Conflict Markers Detected</value>
   </data>
@@ -2407,6 +2416,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   </data>
   <data name="VersionControl_Branches" xml:space="preserve">
     <value>Branches</value>
+  </data>
+  <data name="VersionControl_RemoteBranch" xml:space="preserve">
+    <value>Remote only</value>
   </data>
   <data name="VersionControl_AheadBehindFormat" xml:space="preserve">
     <value>{0} ahead, {1} behind</value>
@@ -2542,6 +2554,12 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   </data>
   <data name="VersionControl_Diverged" xml:space="preserve">
     <value>The local and remote histories have diverged. Resolve this with an external Git tool.</value>
+  </data>
+  <data name="VersionControl_PullUpstreamOnAnotherRemote" xml:space="preserve">
+    <value>This branch follows a remote other than origin. Pull it with an external Git tool, or set its upstream to origin.</value>
+  </data>
+  <data name="VersionControl_LfsInstallFailedNotice" xml:space="preserve">
+    <value>Git LFS could not be set up for this repository, so media is stored as regular Git files. Check the repository's Git hooks, then reopen the project to try again.</value>
   </data>
   <data name="VersionControl_RepositoryDirty" xml:space="preserve">
     <value>Pull requires the entire repository to be clean. Commit or stash changes outside the project, then try again.</value>

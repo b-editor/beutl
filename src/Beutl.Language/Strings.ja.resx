@@ -2329,6 +2329,15 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_ConflictGuidance" xml:space="preserve">
     <value>このリポジトリには未解決の競合があります。続行する前に外部の Git ツールで解決してください。</value>
   </data>
+  <data name="VersionControl_DetachedHeadGuidance" xml:space="preserve">
+    <value>このリポジトリはブランチ上にありません（detached HEAD）。続行する前に外部の Git ツールでブランチをチェックアウトしてください。</value>
+  </data>
+  <data name="VersionControl_CloseWithoutSnapshot" xml:space="preserve">
+    <value>スナップショットを記録せずに閉じる</value>
+  </data>
+  <data name="VersionControl_CloseWithoutSnapshotConfirmation" xml:space="preserve">
+    <value>プロジェクトを保存できませんでした。スナップショットを記録せずに閉じますか？保存されていない変更は失われます。</value>
+  </data>
   <data name="VersionControl_ConflictMarkerWarningTitle" xml:space="preserve">
     <value>競合マーカーが検出されました</value>
   </data>
@@ -2401,6 +2410,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="VersionControl_Branches" xml:space="preserve">
     <value>ブランチ</value>
+  </data>
+  <data name="VersionControl_RemoteBranch" xml:space="preserve">
+    <value>リモートのみ</value>
   </data>
   <data name="VersionControl_AheadBehindFormat" xml:space="preserve">
     <value>{0} 先行、{1} 遅延</value>
@@ -2536,6 +2548,12 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="VersionControl_Diverged" xml:space="preserve">
     <value>ローカルとリモートの履歴が分岐しています。外部の Git ツールで解決してください。</value>
+  </data>
+  <data name="VersionControl_PullUpstreamOnAnotherRemote" xml:space="preserve">
+    <value>このブランチは origin 以外のリモートを追跡しています。外部の Git ツールでプルするか、上流を origin に設定してください。</value>
+  </data>
+  <data name="VersionControl_LfsInstallFailedNotice" xml:space="preserve">
+    <value>このリポジトリで Git LFS を設定できなかったため、メディアは通常の Git ファイルとして保存されます。リポジトリの Git フックを確認してから、プロジェクトを開き直してください。</value>
   </data>
   <data name="VersionControl_RepositoryDirty" xml:space="preserve">
     <value>プルするにはリポジトリ全体をクリーンにする必要があります。プロジェクト外の変更をコミットまたはスタッシュしてから再試行してください。</value>

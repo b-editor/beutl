@@ -618,6 +618,7 @@ internal sealed class TitleBarBranchItemViewModel : IDisposable
 
         Name = branch.Name;
         IsCurrent = branch.IsCurrent;
+        IsRemote = branch.IsRemote;
         CanSwitch = isBusy
             .Select(busy => !IsCurrent && !busy)
             .ToReadOnlyReactivePropertySlim(!IsCurrent);
@@ -626,6 +627,8 @@ internal sealed class TitleBarBranchItemViewModel : IDisposable
     internal string Name { get; }
 
     internal bool IsCurrent { get; }
+
+    internal bool IsRemote { get; }
 
     internal ReadOnlyReactivePropertySlim<bool> CanSwitch { get; }
 

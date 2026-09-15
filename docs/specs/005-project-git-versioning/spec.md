@@ -190,7 +190,7 @@ The user connects the project to a remote repository, pushes their history for b
 **Automatic snapshots**
 
 - **FR-012**: When tracking is enabled, an explicit save or save-all MUST record an automatic snapshot if anything changed since the last version.
-- **FR-013**: Closing a tracked project with changes since the last version MUST record a close snapshot.
+- **FR-013**: Closing a tracked project with changes since the last version MUST record a close snapshot. The only exception is a close the user explicitly continues after saving the project failed, which MUST NOT record the partly saved project.
 - **FR-014**: When nothing changed, save/close/commit MUST NOT create a version (no empty versions), and repeated saves MUST NOT spam history.
 - **FR-015**: The system MUST NOT record a version per editing action or autosave tick; continuous autosave keeps files current, while versions mark explicit user save points only.
 - **FR-016**: Automatic snapshot messages MUST be stable and machine-readable in the repository, with the kind (save / close / safety / restore / recovery) distinguishable, while the history view localizes what the user sees.
@@ -225,7 +225,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **FR-030**: Push MUST transfer the current branch with visible progress and cancellation; push MUST NOT require closing the project.
 - **FR-031**: Pull MUST apply only fast-forward updates via the durable-checkpoint + close/reopen cycle. On success, dirty local project state MUST be reapplied and committed on the fast-forwarded tip. On divergence or failure, the system MUST restore the exact captured local branch tip and project state without overwriting a concurrent external ref movement, preserve both sides, and direct the user to external Git tooling when automatic recovery is unsafe. `RepositoryDirty` MUST describe only a failed cleanliness precondition; ownership loss or unverified recovery MUST surface as one localized uncertain-transition failure without composing an inner remote-result message.
 - **FR-032**: Authentication MUST be fully delegated to the user's existing Git credential mechanisms; the app MUST NOT collect, store, or transmit credentials itself, and auth failures MUST surface immediately with actionable guidance.
-- **FR-033**: When the repository is in a conflicted state (e.g. after an external merge attempt), versioning operations MUST be blocked with clear guidance while the editor itself remains usable; the app MUST warn before opening project files that contain conflict markers.
+- **FR-033**: When the repository is in a conflicted state (e.g. after an external merge attempt), versioning operations that change the work tree, index, or history MUST be blocked with clear guidance while the editor itself remains usable; as in plain Git, configuring the remote and pushing remain available. A detached HEAD blocks the same operations with its own guidance, and the project stays tracked in both states. The app MUST warn before opening project files that contain conflict markers.
 
 **Media policy**
 

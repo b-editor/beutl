@@ -849,12 +849,46 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(commit, Is.TypeOf<CommitResult.Committed>());
             Assert.That(
                 notices,
-                Is.EqualTo(new[]
+                Is.EqualTo(new VersionControlPolicyNotice[]
                 {
+                    new VersionControlPolicyNotice.LfsInstallFailed(),
                     new VersionControlPolicyNotice.LargeMediaWithoutLfs(
                         "resources/large.mp4",
                         1),
                 }));
+        });
+    }
+
+    [Test]
+    public async Task EnsureRepositoryHygieneAsync_skips_the_Lfs_install_when_the_repository_already_has_it()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        // What git lfs install --local writes: the filter configuration and its four hooks.
+        await RunGitAsync("config", "filter.lfs.clean", "git-lfs clean -- %f");
+        await RunGitAsync("config", "filter.lfs.smudge", "git-lfs smudge -- %f");
+        await RunGitAsync("config", "filter.lfs.process", "git-lfs filter-process");
+        await RunGitAsync("config", "filter.lfs.required", "true");
+        foreach (string hook in new[] { "pre-push", "post-checkout", "post-commit", "post-merge" })
+        {
+            await WriteHookAsync(hook, $"git lfs {hook} \"$@\"\n");
+        }
+
+        var config = new VersionControlConfig { UseLfsWhenAvailable = true };
+        var runner = new RecordingLfsRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true, config),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.LfsInstallCalls, Is.Zero);
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, ".gitattributes")),
+                Does.Contain("# BEGIN BEUTL MANAGED LFS\n"));
         });
     }
 
@@ -1669,6 +1703,33 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Hygiene_skipped_for_a_detached_head_is_finished_by_the_next_commit()
+    {
+        // Opening keeps such a repository tracked, so the first snapshot after it is back on a branch
+        // must not be recorded without the hygiene files.
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await RunGitAsync("switch", "--detach", "HEAD");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "changed\n");
+        using var service = CreateService();
+
+        Assert.ThrowsAsync<DetachedHeadNotSupportedException>(
+            async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
+        bool ignoreWrittenWhileDetached = File.Exists(Path.Combine(Root, ".gitignore"));
+        await RunGitAsync("switch", "main");
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ignoreWrittenWhileDetached, Is.False);
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(File.Exists(Path.Combine(Root, ".gitignore")), Is.True);
+        });
+    }
+
+    [Test]
     public async Task EnsureRepositoryHygieneAsync_rejects_detached_HEAD_before_file_or_Lfs_mutation()
     {
         await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
@@ -1811,6 +1872,74 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 Does.Contain("symbolic-ref HEAD refs/heads/main"));
             Assert.That(runner.Commands, Does.Not.Contain("init -b main"));
         });
+    }
+
+    [Test]
+    public async Task InitializeAsync_uses_the_configured_default_branch()
+    {
+        string projectRoot = CreateTemporaryDirectory();
+        string globalConfig = Path.Combine(CreateTemporaryDirectory(), "gitconfig");
+        await File.WriteAllTextAsync(globalConfig, "[init]\n\tdefaultBranch = trunk\n");
+        var runner = new RecordingInitializationRunner(CreateRunnerWithGlobalConfig(globalConfig));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        await service.InitializeAsync(
+            new InitOptions(
+                new RepositoryInfo(projectRoot, projectRoot),
+                UseLfsWhenAvailable: false)
+            {
+                Identity = new GitIdentity(
+                    "Beutl Test",
+                    "beutl-test@example.invalid"),
+            },
+            CancellationToken.None);
+
+        GitCommandResult head = await CreateRunner().RunAsync(
+            new RepositoryInfo(projectRoot, projectRoot),
+            ["symbolic-ref", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(head.Stdout.Trim(), Is.EqualTo("refs/heads/trunk"));
+            Assert.That(runner.Commands, Does.Contain("symbolic-ref HEAD refs/heads/trunk"));
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_uses_main_when_the_configured_default_branch_is_invalid()
+    {
+        // Git itself refuses to init with an invalid init.defaultBranch, so this must not block enabling.
+        string projectRoot = CreateTemporaryDirectory();
+        string globalConfig = Path.Combine(CreateTemporaryDirectory(), "gitconfig");
+        await File.WriteAllTextAsync(globalConfig, "[init]\n\tdefaultBranch = bad..name\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunnerWithGlobalConfig(globalConfig));
+
+        await service.InitializeAsync(
+            new InitOptions(
+                new RepositoryInfo(projectRoot, projectRoot),
+                UseLfsWhenAvailable: false)
+            {
+                Identity = new GitIdentity(
+                    "Beutl Test",
+                    "beutl-test@example.invalid"),
+            },
+            CancellationToken.None);
+
+        GitCommandResult head = await CreateRunner().RunAsync(
+            new RepositoryInfo(projectRoot, projectRoot),
+            ["symbolic-ref", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.That(head.Stdout.Trim(), Is.EqualTo("refs/heads/main"));
     }
 
     [Test]
@@ -3629,6 +3758,60 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CommitAllAsync_waits_for_a_commit_hook_that_outlasts_the_local_timeout()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        // Hooks belong to the user and can take long, such as a hook framework that sets up its tools
+        // on the first run.
+        await WriteHookAsync("pre-commit", "sleep 6\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(TimeSpan.FromSeconds(3)));
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+    }
+
+    [Test]
+    public async Task Manual_commit_waits_for_a_signer_that_outlasts_the_local_timeout()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This test uses a POSIX shell script as a slow failing signer.");
+            return;
+        }
+
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        // A signer waiting for a passphrase must not be cut off. This one then fails, so no key is needed:
+        // Git's own signing failure proves the command was allowed to finish.
+        string signer = Path.Combine(CreateTemporaryDirectory(), "slow-signer");
+        await File.WriteAllTextAsync(signer, "#!/bin/sh\nsleep 6\nexit 1\n");
+        File.SetUnixFileMode(
+            signer,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        await RunGitAsync("config", "commit.gpgSign", "true");
+        await RunGitAsync("config", "gpg.program", signer);
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "manual\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(TimeSpan.FromSeconds(3)));
+
+        Assert.ThrowsAsync<GitOperationException>(async () => await service.CommitAllAsync(
+            "manual snapshot",
+            SnapshotKind.Manual,
+            CancellationToken.None));
+    }
+
+    [Test]
     public async Task CommitAllAsync_honors_pre_commit_rejection_without_running_post_commit()
     {
         await CommitFileAsync("project.bep", "baseline\n", "baseline");
@@ -5133,6 +5316,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     [Test]
     public async Task Worktree_mutations_are_rejected_until_the_project_is_closed()
     {
+        await CommitFileAsync("project.bep", "previous\n", "previous");
+        string previous = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await CommitFileAsync("project.bep", "current\n", "current");
         string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         using var service = new GitCliVersionControlService(
@@ -5152,7 +5337,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await service.CreateBranchAsync(
                     "blocked-branch",
-                    head,
+                    previous,
                     CancellationToken.None));
             Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await service.SwitchBranchAsync(
@@ -5167,6 +5352,32 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(
                 File.ReadAllText(Path.Combine(Root, "project.bep")),
                 Is.EqualTo("current\n"));
+        });
+    }
+
+    [Test]
+    public async Task CreateBranchAsync_at_the_checked_out_commit_is_allowed_while_the_project_is_open()
+    {
+        // Like git switch -c, a branch that starts where HEAD already is leaves every file as it is.
+        await CommitFileAsync("project.bep", "current\n", "current");
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "unsaved edit\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            isWorktreeMutationAllowed: static () => false);
+
+        await service.CreateBranchAsync("open-branch", head, CancellationToken.None);
+
+        GitCommandResult branch = await RunGitAsync("branch", "--show-current");
+        GitCommandResult branchTip = await RunGitAsync("rev-parse", "refs/heads/open-branch");
+        Assert.Multiple(() =>
+        {
+            Assert.That(branch.Stdout.Trim(), Is.EqualTo("open-branch"));
+            Assert.That(branchTip.Stdout.Trim(), Is.EqualTo(head));
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, "project.bep")),
+                Is.EqualTo("unsaved edit\n"));
         });
     }
 
@@ -5343,7 +5554,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Conflicted_repository_keeps_reads_available_and_blocks_every_mutation()
+    public async Task Conflicted_repository_blocks_worktree_mutations_but_not_reads_or_remote_updates()
     {
         await CommitFileAsync("project.bep", "base\n", "base");
         await RunGitAsync("switch", "-c", "alternate");
@@ -5418,24 +5629,23 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     new GitIdentity("Blocked", "blocked@example.invalid"),
                     CancellationToken.None))!,
             Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.SetRemoteAsync(
-                    "https://example.invalid/repository.git",
-                    CancellationToken.None))!,
-            Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.PushAsync(
-                    progress: null,
-                    CancellationToken.None))!,
-            Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.PullFastForwardAsync(
                     expectedTip,
                     checkpoint: null,
                     Path.Combine(Root, "project.bep"),
                     CancellationToken.None))!,
         ];
+        // Configuring the remote and pushing touch neither the worktree nor the index, so like plain Git
+        // they keep working while the conflict waits for an external merge tool.
+        string remoteRoot = CreateTemporaryDirectory();
+        await RunGitAsync("init", "--bare", "-b", "main", remoteRoot);
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        RemoteOpResult pushed = await service.PushAsync(progress: null, CancellationToken.None);
 
         Assert.Multiple(() =>
         {
             Assert.That(availability.State, Is.EqualTo(GitAvailabilityState.Installed));
+            Assert.That(pushed, Is.TypeOf<RemoteOpResult.Success>());
             Assert.That(discovered, Is.Not.Null);
             Assert.That(discovered!.RepoRoot, Is.EqualTo(expectedRepoRoot));
             Assert.That(discovered.ProjectRoot, Is.EqualTo(expectedRepoRoot));
@@ -6487,13 +6697,28 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    // Hosting services put the account name in their clone URLs. A name alone is no credential: it only
+    // tells the credential helper which account to use.
+    [TestCase("https://org@dev.azure.com/org/project/_git/repository")]
+    [TestCase("https://user@bitbucket.org/workspace/repository.git")]
+    [TestCase("http://user@example.invalid/repository.git")]
+    [TestCase("git+ssh://git@example.invalid/repository.git")]
+    public async Task SetRemoteAsync_accepts_a_user_name_without_a_password(string remoteUrl)
+    {
+        using var service = CreateService();
+
+        await service.SetRemoteAsync(remoteUrl, CancellationToken.None);
+        IReadOnlyList<RemoteInfo> remotes = await service.GetRemotesAsync(CancellationToken.None);
+
+        Assert.That(remotes.Select(static remote => remote.Url), Is.EqualTo(new[] { remoteUrl }));
+    }
+
     [TestCase("https://user:secret@example.invalid/repository.git")]
     [TestCase("http://user:secret@example.invalid/repository.git")]
-    [TestCase("https://user@example.invalid/repository.git")]
-    [TestCase("http://user@example.invalid/repository.git")]
     [TestCase("ftp://user:secret@example.invalid/repository.git")]
     [TestCase("ftp://user@example.invalid/repository.git")]
     [TestCase("ssh://git:secret@example.invalid/repository.git")]
+    [TestCase("git+ssh://git:secret@example.invalid/repository.git")]
     public async Task SetRemoteAsync_rejects_disallowed_remote_userinfo(string remoteUrl)
     {
         using var service = CreateService();
@@ -8360,7 +8585,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 || (arguments.Count > 5
                     && arguments[0] == "config"
                     && arguments[1] == "--file"
-                    && arguments[4] == "remote.origin.pushurl"))
+                    && arguments[4] == "remote.origin.url"))
             {
                 Volatile.Write(ref _remoteMutated, 1);
             }
@@ -8395,7 +8620,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             if (arguments.Count > 5
                 && arguments[0] == "config"
                 && arguments[1] == "--file"
-                && arguments[4] == "remote.origin.pushurl")
+                && arguments[4] == "remote.origin.url")
             {
                 Interlocked.Increment(ref _stagedFailureCount);
                 throw new IOException("staged push URL update failed");

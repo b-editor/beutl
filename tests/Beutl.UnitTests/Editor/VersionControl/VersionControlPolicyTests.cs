@@ -688,6 +688,85 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task First_automatic_snapshot_without_identity_asks_once_and_records_the_snapshot()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await RunGitAsync("config", "--local", "user.name", "");
+        await RunGitAsync("config", "--local", "user.email", "");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "changed\n");
+        var notices = new List<VersionControlPolicyNotice>();
+        int requests = 0;
+        using var service = CreateService(
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            requestIdentity: () =>
+            {
+                requests++;
+                return Task.FromResult<GitIdentity?>(
+                    new GitIdentity("Prompted User", "prompted@example.invalid"));
+            });
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+        GitCommandResult author = await RunGitAsync("log", "-1", "--format=%an <%ae>");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                author.Stdout.Trim(),
+                Is.EqualTo("Prompted User <prompted@example.invalid>"));
+            Assert.That(requests, Is.EqualTo(1));
+            Assert.That(notices, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Dismissed_identity_request_is_not_repeated_for_later_automatic_snapshots()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await RunGitAsync("config", "--local", "user.name", "");
+        await RunGitAsync("config", "--local", "user.email", "");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "changed\n");
+        var notices = new List<VersionControlPolicyNotice>();
+        int requests = 0;
+        using var service = CreateService(
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            requestIdentity: () =>
+            {
+                requests++;
+                return Task.FromResult<GitIdentity?>(null);
+            });
+
+        foreach (SnapshotKind kind in new[] { SnapshotKind.Save, SnapshotKind.Safety })
+        {
+            Assert.That(
+                await service.CommitAllAsync("automatic snapshot", kind, CancellationToken.None),
+                Is.TypeOf<CommitResult.SkippedNoIdentity>());
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(requests, Is.EqualTo(1));
+            Assert.That(notices, Has.Count.EqualTo(1));
+            Assert.That(notices[0], Is.TypeOf<VersionControlPolicyNotice.MissingIdentity>());
+        });
+    }
+
+    [Test]
     public async Task Missing_identity_notice_is_repository_local()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
@@ -840,8 +919,11 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         Func<VersionControlPolicyNotice, Task> presentNotice,
         RepositoryInfo? repository = null,
         IGitCliRunner? runner = null,
-        string? projectFile = null)
+        string? projectFile = null,
+        Func<Task<GitIdentity?>>? requestIdentity = null)
     {
+        Func<CancellationToken, Task<GitIdentity?>>? identityRequest =
+            requestIdentity is null ? null : _ => requestIdentity();
         if (runner is not null)
         {
             return new GitCliVersionControlService(
@@ -850,7 +932,8 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
                 watcher: null,
                 _ => runner,
                 policyNoticeSink: (notice, _) => presentNotice(notice),
-                projectFile: projectFile);
+                projectFile: projectFile,
+                identityRequest: identityRequest);
         }
 
         return new GitCliVersionControlService(
@@ -858,7 +941,8 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             repository ?? Repository,
             static () => true,
             (notice, _) => presentNotice(notice),
-            projectFile);
+            projectFile,
+            identityRequest);
     }
 
     private static VersionControlConfig CreateLargeMediaConfig()

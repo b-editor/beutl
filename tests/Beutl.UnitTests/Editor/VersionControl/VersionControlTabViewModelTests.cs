@@ -348,6 +348,75 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Conflicted_repository_keeps_remote_commands_available()
+    {
+        // Pushing and configuring the remote leave the worktree and the index alone, so a conflict
+        // only blocks the commands that would write them or the history.
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus(
+                "main",
+                1,
+                0,
+                [new FileChange("project.bep", FileChangeStatus.Modified)],
+                HasConflicts: true));
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
+        Mock<IProjectVersionControlService> unpublished = CreateServiceMock();
+        unpublished.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("main", 0, 0, [], HasConflicts: true));
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        using VersionControlTabViewModel unpublishedViewModel = CreateViewModel(unpublished.Object);
+        viewModel.CommitMessage.Value = "blocked";
+
+        await viewModel.Initialization;
+        await unpublishedViewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasBlockingGuidance.Value, Is.True);
+            Assert.That(viewModel.PushCommand.CanExecute(), Is.True);
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.True);
+            Assert.That(viewModel.PullCommand.CanExecute(), Is.False);
+            Assert.That(viewModel.CommitCommand.CanExecute(), Is.False);
+            Assert.That(unpublishedViewModel.PublishBranchCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Detached_head_blocks_mutations_with_its_own_guidance()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus(
+                null,
+                0,
+                0,
+                [new FileChange("project.bep", FileChangeStatus.Modified)],
+                HasConflicts: false,
+                IsDetachedHead: true));
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        viewModel.CommitMessage.Value = "blocked";
+
+        await viewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsTracked.Value, Is.True);
+            Assert.That(viewModel.HasBlockingGuidance.Value, Is.True);
+            Assert.That(
+                viewModel.StatusMessage.Value,
+                Is.EqualTo(Strings.VersionControl_DetachedHeadGuidance));
+            Assert.That(viewModel.CommitCommand.CanExecute(), Is.False);
+            Assert.That(viewModel.PushCommand.CanExecute(), Is.False);
+            Assert.That(viewModel.PullCommand.CanExecute(), Is.False);
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.False);
+        });
+    }
+
+    [Test]
     public async Task History_is_loaded_incrementally_and_status_is_formatted()
     {
         CommitInfo[] commits = Enumerable.Range(0, 53)
@@ -1991,28 +2060,26 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
-    public async Task Push_command_contains_conflict_fault_and_reenables()
+    public async Task Pull_command_contains_conflict_fault_and_reenables()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        coordinator.Setup(x => x.PushAsync(
-                It.IsAny<IProgress<string>>(),
-                It.IsAny<CancellationToken>()))
+        coordinator.Setup(x => x.PullAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new VersionControlConflictedException(Strings.VersionControl_ConflictGuidance));
         using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
 
-        viewModel.PushCommand.Execute(null);
+        viewModel.PullCommand.Execute(null);
         await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
-        await WaitForCommandReadyAsync(viewModel.PushCommand);
+        await WaitForCommandReadyAsync(viewModel.PullCommand);
 
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.VersionControl_ConflictGuidance));
             Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
-            Assert.That(viewModel.PushCommand.CanExecute(), Is.True);
+            Assert.That(viewModel.PullCommand.CanExecute(), Is.True);
         });
     }
 
@@ -2337,7 +2404,6 @@ public class VersionControlTabViewModelTests
     }
 
     [TestCase("https://user:secret@example.invalid/repository.git")]
-    [TestCase("https://user@example.invalid/repository.git")]
     [TestCase("https://example.invalid/repository.git?access_token=secret")]
     [TestCase("https://example.invalid/repository.git#access_token=secret")]
     [TestCase("ssh://git:secret@example.invalid/repository.git")]
@@ -2373,13 +2439,15 @@ public class VersionControlTabViewModelTests
             Times.Never);
     }
 
-    [Test]
-    public async Task Set_remote_prompt_preserves_passwordless_ssh_username()
+    [TestCase("ssh://git@example.invalid/repository.git")]
+    [TestCase("https://user@example.invalid/repository.git")]
+    [TestCase("http://user@example.invalid/repository.git")]
+    [TestCase("git+ssh://git@example.invalid/repository.git")]
+    public async Task Set_remote_prompt_preserves_a_passwordless_user_name(string remoteUrl)
     {
-        const string RemoteUrl = "ssh://git@example.invalid/repository.git";
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([new RemoteInfo("origin", RemoteUrl)]);
+            .ReturnsAsync([new RemoteInfo("origin", remoteUrl)]);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
@@ -2396,8 +2464,8 @@ public class VersionControlTabViewModelTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(RemoteUrl));
-            Assert.That(prefilledUrl, Is.EqualTo(RemoteUrl));
+            Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(remoteUrl));
+            Assert.That(prefilledUrl, Is.EqualTo(remoteUrl));
         });
     }
 

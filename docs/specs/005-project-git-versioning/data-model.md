@@ -60,10 +60,11 @@ Snapshot of the current repo state, produced by one `git status --porcelain=v2 -
 
 | Field | Type | Notes |
 |---|---|---|
-| `Branch` | `string?` | `null` only in the rejected detached case (defensive; UI shows a warning) |
+| `Branch` | `string?` | `null` only on a detached HEAD |
 | `Ahead` / `Behind` | `int` | vs upstream; 0 when no upstream |
 | `Changes` | `IReadOnlyList<FileChange>` | Scoped to `Pathspec` |
 | `HasConflicts` | `bool` | Unmerged paths present ⇒ service enters `Conflicted` (FR-033) |
+| `IsDetachedHead` | `bool` | HEAD is not on a branch ⇒ writes are blocked with guidance until a branch is checked out externally (FR-033) |
 | `IsClean` | `bool` | Derived: no changes |
 
 **Repository-state transitions**: `NotARepo → Ready` (initialization / opening a tracked project); `Ready → Conflicted` (unmerged paths detected); `Conflicted → Ready` (external resolution observed on refresh). There is no in-app transition into `Conflicted` — only external tools can create it.
@@ -94,7 +95,7 @@ Internal result state returned with a fast-forward pull:
 
 ## BranchInfo / RemoteInfo / GitIdentity
 
-- `BranchInfo`: `Name`, `IsCurrent`, `UpstreamName?`.
+- `BranchInfo`: `Name`, `IsCurrent`, `UpstreamName?`, `IsRemote` (a branch only `origin` has so far; switching to it creates the local branch that tracks it).
 - `RemoteInfo`: `Name` (always `origin` in v1), `Url`.
 - `GitIdentity`: `Name`, `Email`; `null` from `GetIdentityAsync` ⇒ unset (triggers the one-time prompt, stored repo-local — FR-004).
 
