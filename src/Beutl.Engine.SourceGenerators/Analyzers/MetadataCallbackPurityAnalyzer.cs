@@ -1114,11 +1114,14 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// <c>Enumerable</c>'s methods, which have no source here and stop the walk as any other such callee
     /// does.
     /// <para>
-    /// Only the first operator runs on a receiver written in the source, so only it is re-resolved against
-    /// the making of that receiver, on the same terms an instance call named outright is: a query over a
-    /// local declared as a base and made as a derived runs the derived operator, and reading the base body
-    /// would answer with one an override replaces. Every later operator runs on what the operator before it
-    /// returned, which no creation here makes and no declaration names, so it is followed as bound.
+    /// An operator that runs on a receiver written in the query is re-resolved against the making of that
+    /// receiver, on the same terms an instance call named outright is: a query over a local declared as a
+    /// base and made as a derived runs the derived operator, and reading the base body would answer with
+    /// one an override replaces. Two kinds of operator have such a receiver - the first of the chain the
+    /// query builds on its own from expression, and the <c>Cast</c> an explicitly typed clause runs on the
+    /// source that clause names, which for a second from or a join is that clause's own source and not the
+    /// query's. Everything else runs on what the operator before it returned, which no creation here makes
+    /// and no declaration names, so it is followed as bound.
     /// </para>
     /// </remarks>
     private static void FollowQuery(
@@ -1130,36 +1133,50 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        INamedTypeSymbol? made = null;
-        bool source = true;
+        // The receiver the chain has yet to run its first operator on. A Cast on the query's own from
+        // expression is that operator, and everything after it runs on what the Cast handed back.
+        ExpressionSyntax? chain = query.FromClause.Expression;
 
-        foreach ((SyntaxNode node, ISymbol? chosen) in GetQueryOperators(context, model, query))
+        foreach ((SyntaxNode node, ISymbol? chosen, ExpressionSyntax? cast) in
+                 GetQueryOperators(context, model, query))
         {
             if (chosen is not IMethodSymbol rewritten)
                 continue;
 
-            if (source)
+            ExpressionSyntax? on;
+
+            if (cast is not null)
             {
-                made = FollowHeldCreation(
+                on = cast;
+
+                if (cast == query.FromClause.Expression)
+                    chain = null;
+            }
+            else
+            {
+                on = chain;
+                chain = null;
+            }
+
+            INamedTypeSymbol? made = on is null
+                ? null
+                : FollowHeldCreation(
                     context,
-                    GetCreationHeldBy(context, model, query.FromClause.Expression),
+                    GetCreationHeldBy(context, model, on),
                     body,
                     node,
                     depth,
                     walked,
                     report);
-            }
 
             FollowCall(
                 context,
-                source ? RunsAsMade(made, rewritten) : rewritten,
+                RunsAsMade(made, rewritten),
                 node,
                 RunsAStaticMethod(rewritten) ? "static method" : "method",
                 depth,
                 walked,
                 report);
-
-            source = false;
         }
     }
 
@@ -1167,11 +1184,13 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// <remarks>
     /// A query is written in the order it is rewritten, so document order is that order: the from and its
     /// <c>Cast</c>, then each body clause, an <c>orderby</c> contributing one operator per ordering, then
-    /// the select or group, then whatever an <c>into</c> continues with. A query written inside this one is
-    /// left for the walk to reach as the expression it is, so that its own first operator is resolved
-    /// against its own source.
+    /// the select or group, then whatever an <c>into</c> continues with. A <c>Cast</c> is handed back with
+    /// the source its own clause names, because a second from and a join run theirs on the sequence that
+    /// clause introduces rather than on the one the chain has reached. A query written inside this one is
+    /// left for the walk to reach as the expression it is, so that its own operators are resolved against
+    /// its own sources.
     /// </remarks>
-    private static IEnumerable<(SyntaxNode Node, ISymbol? Chosen)> GetQueryOperators(
+    private static IEnumerable<(SyntaxNode Node, ISymbol? Chosen, ExpressionSyntax? Cast)> GetQueryOperators(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
         QueryExpressionSyntax query)
@@ -1183,23 +1202,36 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         {
             switch (node)
             {
-                // A clause can carry two operators: naming the element type turns the source into a Cast
-                // the clause runs ahead of the operator the clause itself is.
+                // A clause can carry two operators: naming the element type turns the source that clause
+                // names into a Cast it runs ahead of the operator the clause itself is.
                 case QueryClauseSyntax clause:
                     QueryClauseInfo chosen = model.GetQueryClauseInfo(clause, context.CancellationToken);
-                    yield return (clause, chosen.CastInfo.Symbol);
-                    yield return (clause, chosen.OperationInfo.Symbol);
+                    yield return (clause, chosen.CastInfo.Symbol, GetCastSource(clause));
+                    yield return (clause, chosen.OperationInfo.Symbol, null);
                     break;
 
                 // A select or a group names the value it produces rather than the Select or GroupBy
                 // producing it, and an ordering names the key rather than the OrderBy or ThenBy it is
                 // handed to.
                 case SelectOrGroupClauseSyntax or OrderingSyntax:
-                    yield return (node, model.GetSymbolInfo(node, context.CancellationToken).Symbol);
+                    yield return (node, model.GetSymbolInfo(node, context.CancellationToken).Symbol, null);
                     break;
             }
         }
     }
+
+    /// <summary>The sequence a clause's <c>Cast</c> runs on, where the clause names one.</summary>
+    /// <remarks>
+    /// Only a from and a join can be explicitly typed, and each runs its <c>Cast</c> on the sequence it
+    /// introduces. Any other clause carries no <c>Cast</c>, so none of them has a source to name.
+    /// </remarks>
+    private static ExpressionSyntax? GetCastSource(QueryClauseSyntax clause)
+        => clause switch
+        {
+            FromClauseSyntax from => from.Expression,
+            JoinClauseSyntax join => join.InExpression,
+            _ => null,
+        };
 
     /// <summary>Follows the members a <c>foreach</c> runs on the enumerator it makes.</summary>
     /// <remarks>

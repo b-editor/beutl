@@ -5031,6 +5031,88 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AStaticLambdaWhoseQuerySelectManyAnOverrideReplacesReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual float SelectMany<TResult>(
+                    Func<float, Boxes> collectionSelector,
+                    Func<float, float, TResult> resultSelector) => 0f;
+            }
+
+            internal sealed class OffsetWidths : Widths
+            {
+                public override float SelectMany<TResult>(
+                    Func<float, Boxes> collectionSelector,
+                    Func<float, float, TResult> resultSelector)
+                {
+                    _ = Settings.Offset;
+                    return 0f;
+                }
+            }
+
+            internal sealed class Boxes
+            {
+                public Boxes Cast<TResult>() => this;
+            }
+            """,
+            """
+            Widths seeds = new OffsetWidths();
+            width += from outer in seeds
+                     from float inner in new Boxes()
+                     select outer + inner;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the Cast the typed from runs belongs to that clause's own source, so it does not stand between "
+            + "the query's source and the SelectMany that is the first operator to run on it");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseQueryCastAnOverrideReplacesReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal sealed class Widths
+            {
+                public float SelectMany<TResult>(
+                    Func<float, Boxes> collectionSelector,
+                    Func<float, float, TResult> resultSelector) => 0f;
+            }
+
+            internal class Boxes
+            {
+                public virtual Boxes Cast<TResult>() => this;
+            }
+
+            internal sealed class OffsetBoxes : Boxes
+            {
+                public override Boxes Cast<TResult>()
+                {
+                    _ = Settings.Offset;
+                    return this;
+                }
+            }
+            """,
+            """
+            Boxes boxes = new OffsetBoxes();
+            width += from outer in new Widths()
+                     from float inner in boxes
+                     select outer + inner;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "that Cast runs on the sequence its own clause introduces, so it is resolved against how that "
+            + "sequence was made rather than against the source of the query around it");
+    }
+
+    [Test]
     public void AStaticLambdaWhoseQueryJoinReadsAMutableStatic_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
