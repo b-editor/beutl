@@ -37,6 +37,8 @@ public class GitCliRunnerTests : RealGitTestRepository
         {
             Assert.That(startInfo.UseShellExecute, Is.False);
             Assert.That(startInfo.RedirectStandardInput, Is.True);
+            Assert.That(startInfo.StandardInputEncoding?.WebName, Is.EqualTo("utf-8"));
+            Assert.That(startInfo.StandardInputEncoding?.GetPreamble(), Is.Empty);
             Assert.That(startInfo.WorkingDirectory, Is.EqualTo(Repository.RepoRoot));
             Assert.That(startInfo.ArgumentList,
                 Is.EqualTo(new[] { "show", "--format=value with spaces", "HEAD" }));

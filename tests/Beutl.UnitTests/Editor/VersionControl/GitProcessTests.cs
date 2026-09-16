@@ -165,7 +165,10 @@ public partial class GitProcessTests
         }
         finally
         {
-            UnixGitProcess.ResetChildrenReapedElsewhereForTesting();
+            if (!OperatingSystem.IsWindows())
+            {
+                UnixGitProcess.ResetChildrenReapedElsewhereForTesting();
+            }
         }
     }
 

@@ -112,6 +112,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
     private static readonly TimeSpan s_cleanupGracePeriod = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan s_defaultLocalTimeout = TimeSpan.FromSeconds(30);
     internal const int UncollectedExitCode = -1;
+    private static readonly Encoding s_utf8WithoutPreamble = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
     private const string UncollectedExitStatusDiagnostic =
         "[Git's exit status could not be collected; the process was reaped outside Beutl]";
     internal static readonly TimeSpan StaleLockAge = TimeSpan.FromMinutes(10);
@@ -589,6 +590,9 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            // Git reads its input as UTF-8. Process would otherwise encode it with the console code page
+            // on Windows, which is the ANSI code page for an application without a console.
+            StandardInputEncoding = s_utf8WithoutPreamble,
             StandardErrorEncoding = Encoding.UTF8,
         };
         foreach (string argument in arguments)

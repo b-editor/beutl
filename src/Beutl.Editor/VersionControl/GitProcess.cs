@@ -3,9 +3,9 @@
 namespace Beutl.Editor.VersionControl;
 
 // A Git command together with every process it starts, owned from launch. On Linux and macOS the
-// command leads a new session, and on Windows it runs in a job object of its own. A descendant that
-// outlives the command is still reached through that group, where a walk of the process tree loses it
-// as soon as its parent has exited.
+// command leads a new session, and on Windows it is started suspended and joins a job object of its own
+// before it runs. A descendant that outlives the command is still reached through that group, where a
+// walk of the process tree loses it as soon as its parent has exited.
 //
 // A descendant that leaves the group on purpose (setsid, setpgid, or CREATE_BREAKAWAY_FROM_JOB) is not
 // owned: it is neither killed nor waited for, and closing the command's pipes detaches it instead.
@@ -36,7 +36,12 @@ internal abstract class GitProcess : IDisposable
                 nameof(startInfo));
         }
 
-        if (!OperatingSystem.IsWindows() && UnixGitProcess.IsSupported)
+        if (OperatingSystem.IsWindows())
+        {
+            return WindowsGitProcess.TryStart(startInfo) ?? (GitProcess)ManagedGitProcess.Start(startInfo);
+        }
+
+        if (UnixGitProcess.IsSupported)
         {
             return UnixGitProcess.Start(startInfo);
         }
