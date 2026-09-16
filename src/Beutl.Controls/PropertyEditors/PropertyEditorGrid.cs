@@ -26,12 +26,14 @@ public sealed class PropertyEditorGrid : Grid
     private const double MinimumScopeWidth = 640;
     private const double MinimumHeaderWidth = 80;
     private const double InputInset = 4;
+    private const double LayoutTolerance = .1;
     private Control? _scope;
     private ColumnDefinition? _alignedHeader;
     private GridLength _originalHeaderWidth;
     private double _rightInset = double.NaN;
     private double _precedingWidth;
     private bool _settingWidth;
+    private bool _reclampPending;
 
     static PropertyEditorGrid()
     {
@@ -73,6 +75,7 @@ public sealed class PropertyEditorGrid : Grid
 
     private void ReleaseAlignmentScope()
     {
+        CancelPendingReclamp();
         if (_scope != null)
             _scope.PropertyChanged -= OnScopePropertyChanged;
         _scope = null;
@@ -95,10 +98,10 @@ public sealed class PropertyEditorGrid : Grid
 
     protected override Size MeasureOverride(Size availableSize)
     {
+        CancelPendingReclamp();
         if (_scope is { Bounds.Width: >= MinimumScopeWidth }
             && double.IsFinite(availableSize.Width)
-            && ValueColumn > 0 && ValueColumn < ColumnDefinitions.Count
-            && Children.Any(child => child.IsVisible && GetColumn(child) == ValueColumn && GetRow(child) == 0))
+            && HasInlineValue())
         {
             // Only the splitter columns lie between the label and value. Measure their
             // margins as well so different templates share the actual Box edge.
@@ -117,7 +120,7 @@ public sealed class PropertyEditorGrid : Grid
             double bandWidth = _scope.Bounds.Width * (1 - GetValueColumnRatio(_scope))
                 - (double.IsNaN(_rightInset) ? 0 : _rightInset);
             double labelWidth = availableSize.Width - bandWidth - _precedingWidth - InputInset;
-            if (labelWidth >= MinimumHeaderWidth)
+            if (labelWidth >= MinimumHeaderWidth - LayoutTolerance)
             {
                 if (_alignedHeader != ColumnDefinitions[0])
                 {
@@ -126,12 +129,16 @@ public sealed class PropertyEditorGrid : Grid
                     _originalHeaderWidth = _alignedHeader.Width;
                     _alignedHeader.PropertyChanged += OnHeaderPropertyChanged;
                 }
-                SetHeaderWidth(new GridLength(labelWidth));
+                SetHeaderWidth(new GridLength(Math.Max(labelWidth, MinimumHeaderWidth)));
                 PseudoClasses.Set(":aligned", true);
             }
             else
             {
                 RestoreHeaderWidth();
+                // Bounds still describe the previous layout during measure/arrange.
+                // Clamp once the new row position and scope width are both final.
+                _reclampPending = true;
+                LayoutUpdated += ReclampAfterLayout;
             }
         }
         else
@@ -140,6 +147,30 @@ public sealed class PropertyEditorGrid : Grid
         }
 
         return base.MeasureOverride(availableSize);
+    }
+
+    private bool HasInlineValue()
+        => ValueColumn > 0 && ValueColumn < ColumnDefinitions.Count
+            && Children.Any(child => child.IsVisible && GetColumn(child) == ValueColumn && GetRow(child) == 0);
+
+    private void CancelPendingReclamp()
+    {
+        if (!_reclampPending) return;
+        LayoutUpdated -= ReclampAfterLayout;
+        _reclampPending = false;
+    }
+
+    private void ReclampAfterLayout(object? sender, EventArgs e)
+    {
+        CancelPendingReclamp();
+        if (_scope is { Bounds.Width: >= MinimumScopeWidth } && IsEffectivelyVisible && HasInlineValue()
+            && this.TranslatePoint(default, _scope) is { } origin)
+        {
+            double minimumRatio = (origin.X + MinimumHeaderWidth + _precedingWidth + InputInset) / _scope.Bounds.Width;
+            // Leave rows that cannot fit even the label in their proportional layout.
+            if (minimumRatio <= 1 && minimumRatio > GetValueColumnRatio(_scope))
+                SetValueColumnRatio(_scope, minimumRatio);
+        }
     }
 
     protected override Size ArrangeOverride(Size finalSize)
@@ -151,7 +182,7 @@ public sealed class PropertyEditorGrid : Grid
             // The row's right edge accounts for every ancestor's padding and border,
             // unlike counting TreeLineDecorator indentation levels.
             double inset = _scope.Bounds.Width - right.X;
-            if (double.IsNaN(_rightInset) || Math.Abs(_rightInset - inset) > .1)
+            if (double.IsNaN(_rightInset) || Math.Abs(_rightInset - inset) > LayoutTolerance)
             {
                 _rightInset = inset;
                 InvalidateMeasure();

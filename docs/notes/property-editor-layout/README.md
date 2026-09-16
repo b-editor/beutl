@@ -35,13 +35,16 @@ The capture produces 30 PNGs: three widths, two themes, and five list states
 (collapsed, expanded, hovered while collapsed, hovered while expanded, reordered).
 The six expanded screenshots are retained here for review.
 
-The 33 test cases cover:
+The 39 test cases cover:
 
 - Color and alignment input placement with and without keyframe controls.
 - Shared input alignment, splitter movement, reparenting, and preservation of
   focused text edits while resizing.
 - Repeated splitter movement against the minimum label width and back, initiated
   from both outer and nested rows at 760px and 1040px.
+- Re-clamping after deeper rows become visible or are added, and after shrinking
+  a wide inspector to 640px or 760px at 1x and 1.25x render scales, without shifting
+  farther than the label minimum requires.
 - Enabling, disabling, and re-enabling an alignment scope while its editors remain
   attached, preserving focused text edits and following the nearest enabled scope.
 - Finite horizontal layout and shared input edges in the actual selected-element

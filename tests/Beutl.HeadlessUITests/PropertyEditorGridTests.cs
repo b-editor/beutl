@@ -14,6 +14,118 @@ namespace Beutl.HeadlessUITests;
 public class PropertyEditorGridTests
 {
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Revealing_a_deeper_row_reclamps_the_shared_splitter(bool addAfterLayout)
+    {
+        var outer = new NumberEditor<float> { Header = "Width", Value = 640 };
+        var nested = new NumberEditor<float> { Header = "Opacity", Value = 75, KeyFrameCount = 3 };
+        var branch = new TreeLineDecorator
+        {
+            IsVisible = false,
+            Child = new TreeLineDecorator
+            {
+                Child = new TreeLineDecorator
+                {
+                    Child = new StackPanel { Margin = new Thickness(0, 0, 7, 0), Children = { nested } }
+                }
+            }
+        };
+        var scope = new StackPanel { Children = { outer } };
+        if (!addAfterLayout) scope.Children.Add(branch);
+        PropertyEditorGrid.SetIsAlignmentScope(scope, true);
+        var window = new Window { Content = scope, Width = 760, Height = 300 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            MoveSplitterToMinimum(window, outer);
+            double before = GetBox(outer).TranslatePoint(default, scope)!.Value.X;
+
+            if (addAfterLayout) scope.Children.Add(branch);
+            branch.IsVisible = true;
+            HeadlessTestHelpers.Render(3);
+            AssertMinimumAlignment(scope, outer, nested);
+            Assert.That(GetBox(outer).TranslatePoint(default, scope)!.Value.X, Is.GreaterThan(before));
+            double ratio = PropertyEditorGrid.GetValueColumnRatio(scope);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(PropertyEditorGrid.GetValueColumnRatio(scope), Is.EqualTo(ratio));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(640, 1d)]
+    [TestCase(640, 1.25d)]
+    [TestCase(760, 1d)]
+    [TestCase(760, 1.25d)]
+    public void Shrinking_a_wide_scope_reclamps_without_overadjusting_the_shared_splitter(int width, double scale)
+    {
+        var outer = new NumberEditor<float> { Header = "Width", Value = 640 };
+        var nested = new NumberEditor<float> { Header = "Opacity", Value = 75 };
+        var scope = new StackPanel
+        {
+            Children =
+            {
+                outer,
+                new TreeLineDecorator
+                {
+                    Child = new TreeLineDecorator
+                    {
+                        Child = new StackPanel { Margin = new Thickness(0, 0, 7, 0), Children = { nested } }
+                    }
+                }
+            }
+        };
+        PropertyEditorGrid.SetIsAlignmentScope(scope, true);
+        var window = new Window { Content = scope, Width = 1040, Height = 300 };
+        try
+        {
+            window.Show();
+            window.SetRenderScaling(scale);
+            HeadlessTestHelpers.Render(3);
+            MoveSplitterToMinimum(window, outer);
+            double before = PropertyEditorGrid.GetValueColumnRatio(scope);
+
+            window.Width = width;
+            HeadlessTestHelpers.Render(3);
+            AssertMinimumAlignment(scope, outer, nested);
+            double ratio = PropertyEditorGrid.GetValueColumnRatio(scope);
+            Assert.That(ratio, Is.GreaterThan(before));
+
+            window.Width = 1040;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(PropertyEditorGrid.GetValueColumnRatio(scope), Is.EqualTo(ratio));
+            foreach (var editor in new[] { outer, nested })
+                Assert.That(GetBox(editor).TranslatePoint(default, scope)!.Value.X,
+                    Is.EqualTo(scope.Bounds.Width * ratio).Within(1));
+        }
+        finally { window.Close(); }
+    }
+
+    private static void MoveSplitterToMinimum(Window window, PropertyEditor editor)
+    {
+        var splitter = editor.GetVisualDescendants().OfType<GridSplitter>().Single();
+        Assert.That(splitter.Focus(), Is.True);
+        splitter.KeyboardIncrement = window.Width;
+        window.KeyPress(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
+        window.KeyRelease(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
+        HeadlessTestHelpers.Render(3);
+    }
+
+    private static void AssertMinimumAlignment(Control scope, PropertyEditor outer, PropertyEditor nested)
+    {
+        foreach (var editor in new[] { outer, nested })
+        {
+            Assert.That(GetGrid(editor).ColumnDefinitions[0].Width.IsAbsolute, Is.True);
+            Assert.That(GetBox(editor).TranslatePoint(default, scope)!.Value.X,
+                Is.EqualTo(GetBox(outer).TranslatePoint(default, scope)!.Value.X).Within(1));
+        }
+        Assert.That(GetGrid(nested).ColumnDefinitions[0].ActualWidth, Is.EqualTo(80).Within(1),
+            "Only increase the shared position enough to preserve the deepest label's minimum width.");
+    }
+
+    [AvaloniaTest]
     [TestCase(760, false)]
     [TestCase(760, true)]
     [TestCase(1040, false)]
