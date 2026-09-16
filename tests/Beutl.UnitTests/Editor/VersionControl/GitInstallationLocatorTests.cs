@@ -1,12 +1,231 @@
 ﻿using System.Diagnostics;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
 public class GitInstallationLocatorTests
 {
+    [TestCase(-1)]
+    [TestCase(0)]
+    [TestCase(1)]
+    public async Task Concurrent_discovery_shares_probes_without_sharing_caller_cancellation(int canceledCaller)
+    {
+        string path = Path.GetFullPath("custom/git");
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationToken probeToken = default;
+        var probe = CreateInstalledProbe(path);
+        probe.BeforeRun = async (_, arguments, token) =>
+        {
+            if (arguments == "--version")
+            {
+                probeToken = token;
+                await release.Task.WaitAsync(token);
+            }
+        };
+        var locator = new GitInstallationLocator(new VersionControlConfig { GitExecutablePath = path }, probe, GitHostPlatform.Linux);
+        using var firstCancellation = new CancellationTokenSource();
+        using var secondCancellation = new CancellationTokenSource();
+        Task<GitAvailability>[] calls = [locator.LocateAsync(firstCancellation.Token), locator.LocateAsync(secondCancellation.Token)];
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(1));
+        if (canceledCaller >= 0)
+        {
+            (canceledCaller == 0 ? firstCancellation : secondCancellation).Cancel();
+            Assert.ThrowsAsync<OperationCanceledException>(async () => await calls[canceledCaller]);
+            Assert.That(probeToken.IsCancellationRequested, Is.False);
+        }
+        release.SetResult();
+        foreach (Task<GitAvailability> call in calls.Where((_, index) => index != canceledCaller))
+        {
+            Assert.That((await call).LfsInstalled, Is.True);
+        }
+        await locator.LocateAsync();
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public async Task Abandoned_discovery_is_canceled_and_cannot_replace_a_new_flight()
+    {
+        string path = Path.GetFullPath("custom/git");
+        var oldRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var newRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var oldCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationToken oldToken = default;
+        int versions = 0;
+        var probe = CreateInstalledProbe(path);
+        probe.BeforeRun = async (_, arguments, token) =>
+        {
+            if (arguments != "--version") return;
+            if (++versions == 1)
+            {
+                oldToken = token;
+                using var registration = token.Register(() => oldCancelled.TrySetResult());
+                await oldRelease.Task; // Simulate a provider that completes late after cancellation.
+            }
+            else
+            {
+                await newRelease.Task.WaitAsync(token);
+            }
+        };
+        var locator = new GitInstallationLocator(new VersionControlConfig { GitExecutablePath = path }, probe, GitHostPlatform.Linux);
+        using var cancellation = new CancellationTokenSource();
+        Task<GitAvailability> abandoned = locator.LocateAsync(cancellation.Token);
+        cancellation.Cancel();
+        await oldCancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(oldToken.IsCancellationRequested, Is.True);
+        Task<GitAvailability> replacement = locator.LocateAsync();
+        try
+        {
+            Assert.ThrowsAsync<TimeoutException>(async () =>
+                await abandoned.WaitAsync(TimeSpan.FromMilliseconds(100)));
+        }
+        finally
+        {
+            oldRelease.TrySetResult();
+        }
+        Assert.ThrowsAsync<OperationCanceledException>(async () => await abandoned);
+        Task<GitAvailability> shared = locator.LocateAsync();
+        Assert.That(shared.IsCompleted, Is.False);
+        newRelease.SetResult();
+        Assert.That((await replacement).LfsInstalled, Is.True);
+        Assert.That((await shared).LfsInstalled, Is.True);
+        await locator.LocateAsync();
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(3));
+    }
+
+    [Test]
+    public async Task Different_discovery_keys_do_not_wait_for_each_other()
+    {
+        string firstPath = Path.GetFullPath("custom/git");
+        string secondPath = Path.GetFullPath("other/git");
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var probe = CreateInstalledProbe(firstPath, secondPath);
+        probe.BeforeRun = async (path, _, token) =>
+        {
+            if (path == firstPath) await release.Task.WaitAsync(token);
+        };
+        var config = new VersionControlConfig { GitExecutablePath = firstPath };
+        var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+        Task<GitAvailability> first = locator.LocateAsync();
+        config.GitExecutablePath = secondPath;
+        Assert.That((await locator.LocateAsync().WaitAsync(TimeSpan.FromSeconds(2))).GitPath, Is.EqualTo(secondPath));
+        Assert.That(first.IsCompleted, Is.False);
+        release.SetResult();
+        await first;
+        await locator.LocateAsync();
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(4));
+    }
+
+    [Test]
+    public async Task Shared_discovery_failures_are_observed_and_retried()
+    {
+        string path = Path.GetFullPath("custom/git");
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var probe = CreateInstalledProbe(path);
+        probe.BeforeRun = (_, _, token) => release.Task.WaitAsync(token);
+        var locator = new GitInstallationLocator(new VersionControlConfig { GitExecutablePath = path }, probe, GitHostPlatform.Linux);
+        Task<GitAvailability> first = locator.LocateAsync();
+        Task<GitAvailability> second = locator.LocateAsync();
+        release.SetException(new IOException("probe failed"));
+        Assert.ThrowsAsync<IOException>(async () => await first);
+        Assert.ThrowsAsync<IOException>(async () => await second);
+        probe.BeforeRun = null;
+        Assert.That((await locator.LocateAsync()).LfsInstalled, Is.True);
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(3));
+    }
+
+    private static FakeProbe CreateInstalledProbe(params string[] paths)
+    {
+        var probe = new FakeProbe();
+        foreach (string path in paths)
+        {
+            probe.Results[(path, "--version")] = new GitProbeResult(0, "git version 2.50.1", "");
+            probe.Results[(path, "lfs version")] = new GitProbeResult(0, "git-lfs/3.7.0", "");
+        }
+        return probe;
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Mac_system_git_uses_the_selected_implementation_only_for_automatic_discovery(bool explicitOverride)
+    {
+        string selected = Path.GetFullPath(Path.Combine("Xcode.app", "Contents", "Developer", "usr", "bin", "git"));
+        var config = new VersionControlConfig { GitExecutablePath = explicitOverride ? "/usr/bin/git" : null };
+        var probe = new FakeProbe
+        {
+            Paths = ["/usr/bin/git"],
+            ExistingFiles = ["/usr/bin/git", selected],
+            MacCommandLineToolsInstalled = true,
+        };
+        probe.Results[("/usr/bin/xcrun", "--find git")] = new GitProbeResult(0, selected + "\n", "");
+        foreach (string executable in new[] { Path.GetFullPath("/usr/bin/git"), selected })
+        {
+            probe.Results[(executable, "--version")] = new GitProbeResult(0, "git version 2.50.1", "");
+            probe.Results[(executable, "lfs version")] = new GitProbeResult(0, "git-lfs/3.7.0", "");
+        }
+        var locator = new GitInstallationLocator(config, probe, GitHostPlatform.MacOS);
+        Assert.That((await locator.LocateAsync()).GitPath,
+            Is.EqualTo(explicitOverride ? Path.GetFullPath("/usr/bin/git") : selected));
+        Assert.That(probe.RunCalls.Count(call => call.Executable == "/usr/bin/xcrun"), Is.EqualTo(explicitOverride ? 0 : 1));
+    }
+
+    [Test]
+    public async Task Failed_system_git_resolution_falls_back_to_the_installed_shim()
+    {
+        var probe = new FakeProbe { Paths = ["/usr/bin/git"], MacCommandLineToolsInstalled = true };
+        probe.Results[("/usr/bin/xcrun", "--find git")] = new GitProbeResult(1, "", "lookup failed");
+        probe.Results[("/usr/bin/git", "--version")] = new GitProbeResult(0, "git version 2.50.1", "");
+        var locator = new GitInstallationLocator(new VersionControlConfig(), probe, GitHostPlatform.MacOS);
+        Assert.That((await locator.LocateAsync()).GitPath, Is.EqualTo("/usr/bin/git"));
+    }
+
+    [Test]
+    public async Task Successful_discovery_is_reused_briefly_and_reprobed_after_expiry_or_path_changes()
+    {
+        string firstPath = Path.GetFullPath(Path.Combine("custom", "git"));
+        string secondPath = Path.GetFullPath(Path.Combine("other", "git"));
+        var config = new VersionControlConfig { GitExecutablePath = firstPath };
+        var probe = new FakeProbe();
+        foreach (string path in new[] { firstPath, secondPath })
+        {
+            probe.Results[(path, "--version")] = new GitProbeResult(0, "git version 2.43.1", "");
+            probe.Results[(path, "lfs version")] = new GitProbeResult(0, "git-lfs/3.5.1", "");
+        }
+        var clock = new FakeTimeProvider();
+        var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux, TimeSpan.FromSeconds(10), clock);
+        await locator.LocateAsync();
+        await locator.LocateAsync();
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(2));
+        Assert.ThrowsAsync<OperationCanceledException>(async () => await locator.LocateAsync(new CancellationToken(true)));
+        clock.Advance(GitInstallationLocator.DiscoveryCacheLifetime);
+        await locator.LocateAsync();
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(4));
+        config.GitExecutablePath = secondPath;
+        Assert.That((await locator.LocateAsync()).GitPath, Is.EqualTo(secondPath));
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(6));
+        probe.Environment["PATH"] = "different search path";
+        await locator.LocateAsync();
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(8));
+    }
+
+    [Test]
+    public async Task Missing_git_and_failed_lfs_probes_are_not_cached()
+    {
+        string path = Path.GetFullPath(Path.Combine("custom", "git"));
+        var config = new VersionControlConfig { GitExecutablePath = path };
+        var probe = new FakeProbe();
+        var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+        Assert.That((await locator.LocateAsync()).State, Is.EqualTo(GitAvailabilityState.NotInstalled));
+        probe.Results[(path, "--version")] = new GitProbeResult(0, "git version 2.43.1", "");
+        probe.Results[(path, "lfs version")] = new GitProbeResult(-1, "", "timeout");
+        Assert.That((await locator.LocateAsync()).LfsInstalled, Is.False);
+        probe.Results[(path, "lfs version")] = new GitProbeResult(0, "git-lfs/3.5.1", "");
+        Assert.That((await locator.LocateAsync()).LfsInstalled, Is.True);
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(5));
+    }
+
     [Test]
     public async Task Override_path_is_authoritative_and_lfs_is_probed()
     {
@@ -652,6 +871,8 @@ public class GitInstallationLocatorTests
 
     private sealed class FakeProbe : IGitInstallationProbe
     {
+        public Func<string, string, CancellationToken, Task>? BeforeRun { get; set; }
+        public Dictionary<string, string?> Environment { get; } = [];
         public IReadOnlyList<string> Paths { get; init; } = [];
 
         public TimeSpan FindOnPathDelay { get; init; }
@@ -692,7 +913,8 @@ public class GitInstallationLocatorTests
             CancellationToken cancellationToken)
         {
             string joined = string.Join(' ', arguments);
-            RunCalls.Add((executablePath, joined));
+            lock (RunCalls) RunCalls.Add((executablePath, joined));
+            if (BeforeRun is { } beforeRun) await beforeRun(executablePath, joined, cancellationToken);
             TimeSpan delay = RunDelays.GetValueOrDefault((executablePath, joined), RunDelay);
             if (delay > TimeSpan.Zero)
             {
@@ -706,6 +928,6 @@ public class GitInstallationLocatorTests
 
         public bool FileExists(string path) => ExistingFiles.Contains(path);
 
-        public string? GetEnvironmentVariable(string name) => null;
+        public string? GetEnvironmentVariable(string name) => Environment.GetValueOrDefault(name);
     }
 }

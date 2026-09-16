@@ -12,6 +12,384 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [TestFixture]
 public class VersionControlTabViewModelTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Metadata_change_reloads_a_completed_preview_and_preserves_selection(bool diff)
+    {
+        var (service, commit, file) = CreatePreviewService();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.OpenCommitDetailAsync(viewModel.Commits[0]);
+        if (diff) await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        var selectedCommit = viewModel.SelectedCommit.Value;
+        var selectedFile = viewModel.SelectedFile.Value;
+        var files = new TaskCompletionSource<IReadOnlyList<FileChange>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var text = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var currentFile = file with { Status = FileChangeStatus.Added };
+        if (diff)
+            service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).Returns(text.Task);
+        else
+            service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).Returns(files.Task);
+
+        RaisePreviewMetadata(service, commit, 1);
+        try
+        {
+            Assert.That(diff ? viewModel.DiffLines.Count : viewModel.ChangedFiles.Count, Is.Zero,
+                "Invalidated content must disappear while the replacement is loading.");
+        }
+        finally
+        {
+            files.TrySetResult([currentFile]);
+            text.TrySetResult("Binary files a/project.bep and b/project.bep differ");
+        }
+        await viewModel.Initialization;
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selectedCommit));
+            Assert.That(viewModel.ShowingDetail.Value, Is.True);
+            if (diff)
+            {
+                Assert.That(viewModel.SelectedFile.Value, Is.SameAs(selectedFile));
+                Assert.That(viewModel.DiffLines.Single().Text, Does.StartWith("Binary files"));
+            }
+            else
+            {
+                Assert.That(viewModel.ChangedFiles.Single().Change, Is.EqualTo(currentFile));
+            }
+        });
+    }
+
+    [Test]
+    public async Task Metadata_burst_shares_a_displayed_preview_reload_and_publishes_the_latest_result()
+    {
+        var (service, commit, file) = CreatePreviewService();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        var obsolete = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.SetupSequence(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()))
+            .Returns(obsolete.Task).ReturnsAsync("+latest");
+        RaisePreviewMetadata(service, commit, 1);
+        Task firstRefresh = viewModel.Initialization;
+        RaisePreviewMetadata(service, commit, 2);
+        RaisePreviewMetadata(service, commit, 3);
+        try
+        {
+            service.Verify(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()), Times.Exactly(2));
+            Assert.That(viewModel.Initialization.IsCompleted, Is.False);
+        }
+        finally
+        {
+            obsolete.TrySetResult("+obsolete");
+        }
+        await viewModel.Initialization;
+        await firstRefresh;
+        Assert.That(viewModel.DiffLines.Single().Text, Is.EqualTo("+latest"));
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        service.Verify(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()), Times.Exactly(3));
+    }
+
+    [Test]
+    public async Task A_new_selection_refresh_does_not_wait_for_an_obsolete_automatic_reload()
+    {
+        var (service, commit, file) = CreatePreviewService();
+        var other = new FileChange("other.bep", FileChangeStatus.Modified);
+        service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).ReturnsAsync([file, other]);
+        service.SetupSequence(x => x.GetDiffAsync(commit.Sha, other.Path, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("+other-before").ReturnsAsync("+other-after");
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        var obsolete = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).Returns(obsolete.Task);
+        RaisePreviewMetadata(service, commit, 1);
+        Task firstRefresh = viewModel.Initialization;
+        try
+        {
+            await viewModel.SelectFileAsync(viewModel.ChangedFiles[1]);
+            RaisePreviewMetadata(service, commit, 2);
+            await viewModel.Initialization.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.That(viewModel.DiffLines.Single().Text, Is.EqualTo("+other-after"));
+        }
+        finally
+        {
+            obsolete.TrySetResult("+obsolete");
+        }
+        await firstRefresh;
+        Assert.That(viewModel.DiffLines.Single().Text, Is.EqualTo("+other-after"));
+        Assert.That(viewModel.SelectedFile.Value?.Change.Path, Is.EqualTo(other.Path));
+    }
+
+    [Test]
+    public async Task Service_rebind_does_not_reuse_an_old_automatic_preview_reload()
+    {
+        var (oldService, commit, file) = CreatePreviewService();
+        var (service, _, _) = CreatePreviewService();
+        using var source = CreateServiceSource(oldService.Object);
+        using var viewModel = new VersionControlTabViewModel(Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(),
+            source, null, action => action());
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        var obsolete = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        oldService.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).Returns(obsolete.Task);
+        RaisePreviewMetadata(oldService, commit, 1);
+        Task oldRefresh = viewModel.Initialization;
+        try
+        {
+            source.Value = service.Object;
+            await viewModel.Initialization;
+            await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+            await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+            service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).ReturnsAsync("+new-service");
+            RaisePreviewMetadata(service, commit, 1);
+            await viewModel.Initialization.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        finally
+        {
+            obsolete.TrySetResult("+old-service");
+        }
+        await oldRefresh;
+        Assert.That(viewModel.DiffLines.Single().Text, Is.EqualTo("+new-service"));
+    }
+
+    [Test]
+    public async Task Removing_the_selected_commit_does_not_wait_for_its_old_automatic_reload()
+    {
+        var (service, commit, file) = CreatePreviewService();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        var obsolete = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).Returns(obsolete.Task);
+        RaisePreviewMetadata(service, commit, 1);
+        Task oldRefresh = viewModel.Initialization;
+        try
+        {
+            CommitInfo replacement = CreateCommit(2, SnapshotKind.Save);
+            service.Setup(x => x.GetHistoryAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([replacement]);
+            RaisePreviewMetadata(service, replacement, 2);
+            await viewModel.Initialization.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.That(viewModel.SelectedCommit.Value, Is.Null);
+        }
+        finally
+        {
+            obsolete.TrySetResult("+obsolete");
+        }
+        await oldRefresh;
+        Assert.That(viewModel.DiffLines, Is.Empty);
+    }
+
+    [Test]
+    public async Task A_failed_displayed_preview_reload_is_retried_on_the_next_metadata_change()
+    {
+        var (service, commit, file) = CreatePreviewService();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        service.SetupSequence(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new IOException("preview failed")).ReturnsAsync("+recovered");
+        RaisePreviewMetadata(service, commit, 1);
+        Assert.ThrowsAsync<IOException>(async () => await viewModel.Initialization);
+        Assert.That(viewModel.DiffLines, Is.Empty);
+        RaisePreviewMetadata(service, commit, 2);
+        await viewModel.Initialization;
+        Assert.That(viewModel.DiffLines.Single().Text, Is.EqualTo("+recovered"));
+    }
+
+    [Test]
+    public async Task Worktree_only_changes_do_not_reload_a_completed_preview()
+    {
+        var (service, commit, file) = CreatePreviewService();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            new WorkspaceStatus("main", 0, 0, [], false)
+            {
+                HeadCommit = commit.Sha,
+                NotificationSequence = 1,
+                ChangeKind = RepositoryChangeKind.Worktree,
+            });
+        await viewModel.Initialization;
+        service.Verify(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private static (Mock<IProjectVersionControlService> Service, CommitInfo Commit, FileChange File) CreatePreviewService()
+    {
+        var service = CreateServiceMock();
+        CommitInfo commit = CreateCommit(1, SnapshotKind.Save);
+        var file = new FileChange("project.bep", FileChangeStatus.Modified);
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("main", 0, 0, [], false) { HeadCommit = commit.Sha });
+        service.Setup(x => x.GetHistoryAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).ReturnsAsync([file]);
+        service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).ReturnsAsync("+before");
+        return (service, commit, file);
+    }
+
+    private static void RaisePreviewMetadata(Mock<IProjectVersionControlService> service, CommitInfo commit, long sequence)
+    {
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            new WorkspaceStatus("main", 0, 0, [], false)
+            {
+                HeadCommit = commit.Sha,
+                NotificationSequence = sequence,
+                ChangeKind = RepositoryChangeKind.Metadata,
+            });
+    }
+
+    [Test]
+    public async Task Initialization_keeps_a_newer_read_when_an_older_notification_arrives_before_it_is_applied()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).Returns(() =>
+        {
+            var current = new WorkspaceStatus("current", 0, 0, [], false) { NotificationSequence = 5 };
+            service.Raise(x => x.StatusChanged += null, service.Object,
+                new WorkspaceStatus("stale", 0, 0, [], true) { NotificationSequence = 4 });
+            return Task.FromResult(current);
+        });
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        Assert.That(viewModel.IsConflicted.Value, Is.False);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Invalidated_preview_reloads_the_current_selection_without_publishing_stale_data(bool diff)
+    {
+        CommitInfo commit = CreateCommit(1, SnapshotKind.Save);
+        var file = new FileChange("project.bep", FileChangeStatus.Modified);
+        var currentFile = new FileChange("current.bep", FileChangeStatus.Added);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).ReturnsAsync([file]);
+        var files = new TaskCompletionSource<IReadOnlyList<FileChange>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var text = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        if (diff)
+        {
+            await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+            service.SetupSequence(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()))
+                .Returns(text.Task).ReturnsAsync("+current\n");
+        }
+        else
+        {
+            service.SetupSequence(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>()))
+                .Returns(files.Task).ReturnsAsync([currentFile]);
+        }
+        Task load = diff ? viewModel.SelectFileAsync(viewModel.ChangedFiles[0])
+            : viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        service.Raise(x => x.StatusChanged += null, service.Object, new WorkspaceStatus("main", 0, 0, [], false));
+        await viewModel.Initialization;
+        files.TrySetResult([file]);
+        text.TrySetResult("+stale\n");
+        await load;
+        Assert.That(viewModel.SelectedCommit.Value?.Commit.Sha, Is.EqualTo(commit.Sha));
+        if (diff)
+        {
+            Assert.That(viewModel.DiffLines.Select(line => line.Text), Does.Contain("+current").And.Not.Contain("+stale"));
+            await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+            service.Verify(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()), Times.Exactly(2));
+        }
+        else
+        {
+            Assert.That(viewModel.ChangedFiles.Select(item => item.Change.Path), Is.EqualTo(new[] { currentFile.Path }));
+            await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+            service.Verify(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>()), Times.Exactly(2));
+        }
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task Invalidated_preview_does_not_restart_after_selection_cancellation(bool diff, bool dispose)
+    {
+        CommitInfo commit = CreateCommit(1, SnapshotKind.Save);
+        var file = new FileChange("project.bep", FileChangeStatus.Modified);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).ReturnsAsync([file]);
+        var files = new TaskCompletionSource<IReadOnlyList<FileChange>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var text = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        if (diff)
+        {
+            await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+            service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).Returns(text.Task);
+        }
+        else
+        {
+            service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).Returns(files.Task);
+        }
+        Task load = diff ? viewModel.SelectFileAsync(viewModel.ChangedFiles[0])
+            : viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        service.Raise(x => x.StatusChanged += null, service.Object, new WorkspaceStatus("main", 0, 0, [], false));
+        await viewModel.Initialization;
+        if (dispose) viewModel.Dispose();
+        else await viewModel.SelectCommitAsync(null);
+        files.SetResult([file]);
+        text.SetResult("+stale\n");
+        await load;
+        Assert.That(viewModel.DiffLines, Is.Empty);
+        if (diff)
+        {
+            service.Verify(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()), Times.Once);
+        }
+        else
+        {
+            Assert.That(viewModel.ChangedFiles, Is.Empty);
+            service.Verify(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>()), Times.Once);
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Recovery_only_refresh_does_not_clear_a_failed_metadata_refresh(bool failHistory)
+    {
+        var status = new WorkspaceStatus("main", 0, 0, [], false) { HeadCommit = new string('a', 40) };
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(status);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        if (failHistory)
+        {
+            service.Setup(x => x.GetHistoryAsync(0, 1, It.IsAny<CancellationToken>())).ThrowsAsync(new IOException("history failed"));
+        }
+        else
+        {
+            service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new IOException("remotes failed"));
+        }
+        service.Raise(x => x.StatusChanged += null, service.Object, status with { NotificationSequence = 1 });
+        Assert.ThrowsAsync<IOException>(async () => await viewModel.Initialization);
+        service.Setup(x => x.GetHistoryAsync(0, 1, It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        coordinator.Raise(x => x.PendingPullRecoveriesChanged += null, coordinator.Object, EventArgs.Empty);
+        await viewModel.Initialization;
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            status with { NotificationSequence = 2, ChangeKind = RepositoryChangeKind.Worktree });
+        await viewModel.Initialization;
+        service.Verify(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()), Times.Exactly(3));
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            status with { NotificationSequence = 3, ChangeKind = RepositoryChangeKind.Worktree });
+        await viewModel.Initialization;
+        service.Verify(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()), Times.Exactly(3));
+    }
+
     [Test]
     public async Task Not_installed_collapses_to_platform_install_guidance()
     {
@@ -605,6 +983,53 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task New_status_cancels_superseded_remote_and_history_queries()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+
+        CancellationToken remoteToken = default;
+        CancellationToken historyToken = default;
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .Returns<CancellationToken>(async token =>
+            {
+                remoteToken = token;
+                await Task.Delay(Timeout.Infinite, token);
+                return [];
+            });
+        RaiseStatus();
+        Task staleRemoteRefresh = viewModel.Initialization;
+        Assert.That(staleRemoteRefresh.IsCompleted, Is.False);
+
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        service.Setup(x => x.GetHistoryAsync(0, 1, It.IsAny<CancellationToken>()))
+            .Returns<int, int, CancellationToken>(async (_, _, token) =>
+            {
+                historyToken = token;
+                await Task.Delay(Timeout.Infinite, token);
+                return [];
+            });
+        RaiseStatus();
+        Task staleHistoryRefresh = viewModel.Initialization;
+        Assert.That(remoteToken.IsCancellationRequested, Is.True);
+        await staleRemoteRefresh.WaitAsync(TimeSpan.FromSeconds(2));
+
+        service.Setup(x => x.GetHistoryAsync(0, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        RaiseStatus();
+        Assert.That(historyToken.IsCancellationRequested, Is.True);
+        await staleHistoryRefresh.WaitAsync(TimeSpan.FromSeconds(2));
+        await viewModel.Initialization.WaitAsync(TimeSpan.FromSeconds(2));
+
+        void RaiseStatus() => service.Raise(
+            x => x.StatusChanged += null,
+            service.Object,
+            new WorkspaceStatus("main", 0, 0, [], false));
+    }
+
+    [Test]
     public async Task Latest_status_refresh_wins_when_an_older_remote_query_completes_late()
     {
         CommitInfo initialTip = CreateCommit(1, SnapshotKind.Save);
@@ -1153,6 +1578,149 @@ public class VersionControlTabViewModelTests
         {
             Assert.That(viewModel.Initialization.Status, Is.EqualTo(TaskStatus.RanToCompletion));
             Assert.That(viewModel.HasPendingPullRecovery.Value, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Worktree_change_retries_failed_recovery_metadata()
+    {
+        var status = new WorkspaceStatus("main", 0, 0, [], false) { HeadCommit = new string('a', 40) };
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(status);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.SetupSequence(x => x.GetPendingPullRecoveriesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new IOException("temporary failure"))
+            .ReturnsAsync([new ProjectRecoveryInfo("recovery", "project.bep", DateTimeOffset.UtcNow)]);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            status with { NotificationSequence = 1, ChangeKind = RepositoryChangeKind.Worktree });
+        await viewModel.Initialization;
+        Assert.That(viewModel.HasPendingPullRecovery.Value, Is.True);
+        coordinator.Verify(x => x.GetPendingPullRecoveriesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Test]
+    public async Task Initial_recovery_metadata_is_at_least_as_new_as_the_adopted_status_sequence()
+    {
+        IReadOnlyList<ProjectRecoveryInfo> recoveries = [];
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                recoveries = [new ProjectRecoveryInfo("recovery", "project.bep", DateTimeOffset.UtcNow)];
+                return new WorkspaceStatus("main", 0, 0, [], false) { NotificationSequence = 7 };
+            });
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.GetPendingPullRecoveriesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => recoveries);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        Assert.That(viewModel.HasPendingPullRecovery.Value, Is.True);
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            new WorkspaceStatus("main", 0, 0, [], false) { NotificationSequence = 7 });
+        await viewModel.Initialization;
+        Assert.That(viewModel.HasPendingPullRecovery.Value, Is.True);
+    }
+
+    [Test]
+    public async Task Worktree_notifications_reuse_metadata_but_head_changes_and_unknown_events_refresh_it()
+    {
+        var initial = new WorkspaceStatus("main", 0, 0, [], false) { HeadCommit = new string('a', 40) };
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(initial);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            initial with
+            {
+                NotificationSequence = 1,
+                ChangeKind = RepositoryChangeKind.Worktree,
+                Changes = [new FileChange("project.bep", FileChangeStatus.Modified)]
+            });
+        await viewModel.Initialization;
+        service.Verify(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        service.Verify(x => x.GetHistoryAsync(0, 1, It.IsAny<CancellationToken>()), Times.Never);
+        coordinator.Verify(x => x.GetPendingPullRecoveriesAsync(It.IsAny<CancellationToken>()), Times.Once);
+
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            initial with { NotificationSequence = 2, ChangeKind = RepositoryChangeKind.Worktree, HeadCommit = new string('b', 40) });
+        await viewModel.Initialization;
+        service.Raise(x => x.StatusChanged += null, service.Object, initial with { NotificationSequence = 3 });
+        await viewModel.Initialization;
+        service.Raise(x => x.StatusChanged += null, service.Object, initial with { NotificationSequence = 1 });
+        await viewModel.Initialization;
+        service.Verify(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()), Times.Exactly(3));
+        coordinator.Verify(x => x.GetPendingPullRecoveriesAsync(It.IsAny<CancellationToken>()), Times.Exactly(3));
+    }
+
+    [Test]
+    public async Task Revisiting_a_preview_uses_cache_until_a_metadata_notification()
+    {
+        CommitInfo commit = CreateCommit(1, SnapshotKind.Save);
+        var file = new FileChange("project.bep", FileChangeStatus.Modified);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).ReturnsAsync([file]);
+        service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).ReturnsAsync("+before\n");
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        for (int i = 0; i < 3; i++)
+        {
+            await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+            await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        }
+        service.Verify(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>()), Times.Once);
+        service.Verify(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()), Times.Once);
+        service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).ReturnsAsync("+after\n");
+        service.Raise(x => x.StatusChanged += null, service.Object, new WorkspaceStatus("main", 0, 0, [], false));
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        service.Verify(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()), Times.Exactly(2));
+        Assert.That(viewModel.DiffLines[0].Text, Is.EqualTo("+after"));
+    }
+
+    [Test]
+    public void Preview_cache_bounds_memory_and_expires_unobserved_configuration_changes()
+    {
+        var clock = new FakeTimeProvider();
+        var cache = new VersionControlPreviewCache<string, string>(2, 10, clock);
+        cache.Add("a", "a", 4);
+        cache.Add("b", "b", 4);
+        Assert.That(cache.TryGet("a", out _), Is.True);
+        cache.Add("c", "c", 4);
+        Assert.That(cache.TryGet("b", out _), Is.False);
+        cache.Add("large", "large", 11);
+        Assert.That(cache.TryGet("large", out _), Is.False);
+        clock.Advance(TimeSpan.FromSeconds(31));
+        Assert.That(cache.TryGet("a", out _), Is.False);
+        Assert.That(cache.TryGet("c", out _), Is.False);
+    }
+
+    [Test]
+    public async Task Large_diff_is_published_in_one_batch()
+    {
+        CommitInfo commit = CreateCommit(1, SnapshotKind.Save);
+        var file = new FileChange("project.bep", FileChangeStatus.Modified);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(0, 50, It.IsAny<CancellationToken>())).ReturnsAsync([commit]);
+        service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).ReturnsAsync([file]);
+        service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("@@ -0,0 +1,30000 @@\n" + string.Concat(Enumerable.Repeat("+value\n", 30000)));
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        int notifications = 0;
+        viewModel.DiffLines.CollectionChanged += (_, _) => notifications++;
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.DiffLines.Count, Is.EqualTo(30002));
+            Assert.That(notifications, Is.EqualTo(1));
+            Assert.That(viewModel.DiffLines[1].IsAdded, Is.True);
         });
     }
 

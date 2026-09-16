@@ -34,6 +34,21 @@ public class RepositoryWatcherTests
         Assert.That(RepositoryWatcher.ShouldExcludePath(_tempDirectory, path), Is.True);
     }
 
+    [TestCase(false, RepositoryChangeKind.Worktree)]
+    [TestCase(true, RepositoryChangeKind.All)]
+    public async Task Debouncing_preserves_metadata_changes_in_a_worktree_burst(bool attributesChanged, RepositoryChangeKind expected)
+    {
+        var time = new FakeTimeProvider();
+        using var watcher = new RepositoryWatcher(new RepositoryInfo(_tempDirectory, _tempDirectory), time, false);
+        var changed = new TaskCompletionSource<RepositoryChangeKind>(TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.Changed += (_, args) => changed.TrySetResult(((RepositoryChangedEventArgs)args).Kind);
+        watcher.NotifyPathChanged(Path.Combine(_tempDirectory, "project.bep"));
+        if (attributesChanged) watcher.NotifyPathChanged(Path.Combine(_tempDirectory, ".gitattributes"));
+        watcher.NotifyPathChanged(Path.Combine(_tempDirectory, "main.scene"));
+        time.Advance(RepositoryWatcher.DebounceInterval);
+        Assert.That(await changed.Task.WaitAsync(TimeSpan.FromSeconds(5)), Is.EqualTo(expected));
+    }
+
     [TestCase(".BEUTL/view-state.json")]
     [TestCase(".Git/config")]
     public void Reserved_directories_follow_the_actual_volume_case_semantics(

@@ -68,22 +68,33 @@
                    Classes="sectionHeader"
                    Text="{x:Static lang:Strings.VersionControl_Diff}" />
         <Grid Grid.Row="4">
-            <ScrollViewer x:Name="DiffScrollViewer"
-                          Padding="8"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding DiffLines}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:VersionControlDiffLineViewModel">
-                            <TextBlock Classes="diffLine"
-                                       Classes.added="{Binding IsAdded}"
-                                       Classes.header="{Binding IsHeader}"
-                                       Classes.removed="{Binding IsRemoved}"
-                                       Text="{Binding Text}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+            <ItemsControl x:Name="DiffList" ItemsSource="{Binding DiffLines}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.Template>
+                    <ControlTemplate>
+                        <ScrollViewer x:Name="PART_ScrollViewer"
+                                      Padding="8"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto">
+                            <ItemsPresenter x:Name="PART_ItemsPresenter"
+                                            ItemsPanel="{TemplateBinding ItemsPanel}" />
+                        </ScrollViewer>
+                    </ControlTemplate>
+                </ItemsControl.Template>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:VersionControlDiffLineViewModel">
+                        <TextBlock Classes="diffLine"
+                                   Classes.added="{Binding IsAdded}"
+                                   Classes.header="{Binding IsHeader}"
+                                   Classes.removed="{Binding IsRemoved}"
+                                   Text="{Binding Text}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
             <TextBlock x:Name="DiffEmptyHint"
                        Margin="12"
                        HorizontalAlignment="Center"

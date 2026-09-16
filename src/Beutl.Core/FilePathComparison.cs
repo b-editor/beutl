@@ -12,7 +12,7 @@ namespace Beutl;
 /// candidates are visible, the supplied spelling is retained rather than guessing which distinct
 /// entry the filesystem resolved.
 /// </remarks>
-public static class FilePathComparison
+public static partial class FilePathComparison
 {
     private const int MaxSymbolicLinkHops = 64;
 
@@ -452,20 +452,22 @@ public static class FilePathComparison
         private const int NetworkAccessDeniedHResult = unchecked((int)0x80070041);
 
         private readonly Func<string, string[]> _listDirectory;
+        private readonly bool _useNativeEntryNames;
 
         // A null value records a directory whose listing a root-containment lookup was denied.
         private readonly Dictionary<string, DirectoryEntries?> _directoryEntries =
             new(StringComparer.Ordinal);
 
         public ResolutionContext()
-            : this(Directory.GetFileSystemEntries)
+            : this(Directory.GetFileSystemEntries, useNativeEntryNames: true)
         {
         }
 
         // Lets tests reproduce listing failures that a local filesystem cannot raise.
-        internal ResolutionContext(Func<string, string[]> listDirectory)
+        internal ResolutionContext(Func<string, string[]> listDirectory, bool useNativeEntryNames = false)
         {
             _listDirectory = listDirectory;
+            _useNativeEntryNames = useNativeEntryNames;
         }
 
         public string ResolveCanonicalPath(string path)
@@ -483,11 +485,11 @@ public static class FilePathComparison
         /// The resolved path. It is comparable only with roots resolved by this context.
         /// </param>
         /// <remarks>
-        /// Unlike <see cref="ResolveCanonicalPath(string)"/>, this does not list every existing
-        /// ancestor of <paramref name="path"/>. An entry beneath a directory that can be traversed
+        /// Unlike <see cref="ResolveCanonicalPath(string)"/>, this can continue through an
+        /// ancestor of <paramref name="path"/> whose entry names cannot be inspected. An entry beneath a directory that can be traversed
         /// but not listed, such as a traverse-only directory or a share that refuses enumeration,
-        /// keeps its supplied spelling, and symbolic links among such entries are still followed. The answer stays exact because resolving the root listed each existing
-        /// ancestor of the root. A directory that cannot be listed therefore lies either beneath the
+        /// keeps its supplied spelling, and symbolic links among such entries are still followed. The answer stays exact because resolving the root verified the spelling of each existing
+        /// ancestor of the root. A directory that cannot be inspected therefore lies either beneath the
         /// root, whose resolved prefix the entry keeps, or outside the root's ancestry, from where
         /// only a followed symbolic link can reach the root.
         /// </remarks>
@@ -506,6 +508,14 @@ public static class FilePathComparison
             string candidate,
             bool requireListing)
         {
+            // Query only this entry on macOS. Listing every sibling here makes even an empty
+            // project's lifecycle scale with the size of unrelated ancestor/temp directories.
+            if (_useNativeEntryNames && OperatingSystem.IsMacOS()
+                && TryGetMacExistingEntry(directory, component, candidate) is { } nativeEntry)
+            {
+                return nativeEntry;
+            }
+
             // A strict resolution retries a denial cached by a containment lookup, so it reports
             // the filesystem error instead of accepting an unverified spelling.
             if (!_directoryEntries.TryGetValue(directory, out DirectoryEntries? entries)

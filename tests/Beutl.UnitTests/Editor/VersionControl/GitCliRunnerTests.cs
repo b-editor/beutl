@@ -964,6 +964,123 @@ public class GitCliRunnerTests : RealGitTestRepository
         Assert.That(result.ExitCode, Is.Zero);
     }
 
+    [TestCase(false, 0, false)]
+    [TestCase(true, 0, false)]
+    [TestCase(false, 5, false)]
+    [TestCase(true, 5, false)]
+    [TestCase(false, 8192, false)]
+    [TestCase(true, 8192, false)]
+    [TestCase(false, 0, true)]
+    [TestCase(true, 0, true)]
+    [TestCase(false, 5, true)]
+    [TestCase(true, 5, true)]
+    [TestCase(false, 8192, true)]
+    [TestCase(true, 8192, true)]
+    public async Task Stdout_limit_marks_truncation_only_when_output_is_omitted(bool bytes, int limit, bool overflow)
+    {
+        using var stream = new MemoryStream(Enumerable.Repeat((byte)'a', limit + (overflow ? 1 : 0)).ToArray());
+        bool truncated;
+        int length;
+        if (bytes)
+        {
+            var output = await GitCliRunner.ReadStandardOutputBytesAsync(stream, limit);
+            truncated = output.Truncated;
+            length = output.Output.Length;
+        }
+        else
+        {
+            var output = await GitCliRunner.ReadStandardOutputAsync(stream, limit);
+            truncated = output.Truncated;
+            length = output.Output.Length;
+        }
+        Assert.Multiple(() =>
+        {
+            Assert.That(truncated, Is.EqualTo(overflow));
+            Assert.That(length, Is.EqualTo(limit));
+            Assert.That(stream.Position, Is.EqualTo(stream.Length), "Capped output must still drain to EOF.");
+        });
+    }
+
+    [TestCase(false, 0)]
+    [TestCase(true, 0)]
+    [TestCase(false, 3)]
+    [TestCase(true, 3)]
+    [TestCase(false, 5)]
+    [TestCase(true, 5)]
+    public async Task Stdout_limit_waits_for_command_completion(bool bytes, int limit)
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("This process regression uses a Unix shell.");
+        string directory = CreateTemporaryDirectory();
+        string pidPath = Path.Combine(directory, "after-output.pid");
+        string releasePath = Path.Combine(directory, "release");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
+        var options = GitCommandOptions.Local with
+        {
+            MaxStdoutBytes = limit,
+            CaptureStdoutBytes = bytes,
+            EnvironmentOverrides = new Dictionary<string, string?>
+            {
+                ["BEUTL_TEST_AFTER_OUTPUT_PID"] = pidPath,
+                ["BEUTL_TEST_RELEASE"] = releasePath,
+            },
+        };
+        const string command = "printf abcde; printf '%s' \"$$\" > \"$BEUTL_TEST_AFTER_OUTPUT_PID\"; "
+            + "while [ ! -f \"$BEUTL_TEST_RELEASE\" ]; do sleep 0.01; done; printf 'completed\\n' >&2";
+        Task<GitCommandResult> run = runner.RunAsync(Repository, ["-c", command], options, CancellationToken.None);
+        try
+        {
+            Assert.That(await WaitForRecordedProcessIdAsync(pidPath), Is.Not.Null);
+            Assert.That(run.IsCompleted, Is.False, "The retention limit must not complete the command early.");
+            await File.WriteAllTextAsync(releasePath, "release");
+            GitCommandResult result = await run.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Stdout, Is.EqualTo("abcde"[..limit]));
+                Assert.That(result.StdoutTruncated, Is.EqualTo(limit < 5));
+                Assert.That(result.Stderr, Does.Contain("completed"));
+                if (bytes) Assert.That(result.StdoutBytes, Has.Length.EqualTo(limit));
+                Assert.That(runner.HasActiveProcess, Is.False);
+            });
+        }
+        finally
+        {
+            await File.WriteAllTextAsync(releasePath, "release");
+            await ObserveAsync(run);
+        }
+    }
+
+    [TestCase(0, 3)]
+    [TestCase(7, 3)]
+    [TestCase(0, 5)]
+    [TestCase(7, 5)]
+    public async Task Stdout_limit_preserves_the_final_exit_code_and_diagnostic(int exitCode, int limit)
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("This process regression uses a Unix shell.");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
+        Task<GitCommandResult> run = runner.RunAsync(Repository,
+            ["-c", $"printf abcde; printf 'final diagnostic' >&2; exit {exitCode}"],
+            GitCommandOptions.Local with { MaxStdoutBytes = limit }, CancellationToken.None);
+        if (exitCode == 0)
+        {
+            GitCommandResult result = await run;
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Stdout, Is.EqualTo("abcde"[..limit]));
+                Assert.That(result.StdoutTruncated, Is.EqualTo(limit < 5));
+                Assert.That(result.Stderr, Is.EqualTo("final diagnostic"));
+            });
+        }
+        else
+        {
+            var error = Assert.ThrowsAsync<GitOperationException>(async () => await run);
+            Assert.Multiple(() =>
+            {
+                Assert.That(error!.ExitCode, Is.EqualTo(exitCode));
+                Assert.That(error.Stderr, Is.EqualTo("final diagnostic"));
+            });
+        }
+    }
+
     [Test]
     public async Task Stdout_byte_limit_drains_the_process_and_omits_partial_utf8_sequence()
     {
