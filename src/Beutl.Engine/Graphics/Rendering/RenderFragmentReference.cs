@@ -151,7 +151,7 @@ internal sealed class RenderFragmentReference
             ? ImmutableArray<RenderFragmentReference>.Empty
             : Inputs;
 
-    public object? Payload { get; }
+    public object? Payload { get; private set; }
 
     public RenderFragmentId? Id { get; private set; }
 
@@ -168,6 +168,17 @@ internal sealed class RenderFragmentReference
     }
 
     public bool HitTest(Point point) => _hitTest.Evaluate(Bounds, Inputs, point);
+
+    /// <summary>Replaces the payload this fragment was recorded with by the one resolution derived for it.</summary>
+    /// <remarks>
+    /// A fragment reference belongs to one request, so rewriting it here leaves the description the recording
+    /// snapshot retained untouched: the next request resolves the declaration again over its own ambient.
+    /// </remarks>
+    internal void ApplyResolvedPayload(object payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+        Payload = payload;
+    }
 
     public void ApplyResolvedMetadata(
         Rect bounds,

@@ -11,10 +11,16 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 [TestFixture]
 public sealed class ValueReplaySafetyTests
 {
+    /// <remarks>
+    /// A value replay map holds together only when the transform between the scope and its input is expressed
+    /// in the input's own coordinates. Every composition is resolved into such a matrix before anything reads
+    /// the scope, so all three qualify - the ambient one no longer leaves a transform the value graph has no
+    /// representation of.
+    /// </remarks>
     [TestCase(TransformOperator.Prepend, true)]
-    [TestCase(TransformOperator.Append, false)]
-    [TestCase(TransformOperator.Set, false)]
-    public void Transform_OnlyPrependPublishesAValueReplayMap(
+    [TestCase(TransformOperator.Append, true)]
+    [TestCase(TransformOperator.Set, true)]
+    public void Transform_PublishesEveryCompositionAsAValueReplayMap(
         TransformOperator transformOperator,
         bool expectedValueReplay)
     {
@@ -84,13 +90,21 @@ public sealed class ValueReplaySafetyTests
         });
     }
 
-    [Test]
-    public void AppendTransform_LayerMaterializesAtPlannedDestinationDensity()
+    /// <remarks>
+    /// An ambient composition is resolved into the input's own space before planning reads it, so the density
+    /// it carries back to its input is the one the step between them needs - the same answer the identical
+    /// matrix gets as a Prepend. Materializing at the unscaled demand and enlarging the result during replay
+    /// is what a scope whose transform the value graph could not represent was left with.
+    /// </remarks>
+    [TestCase(TransformOperator.Prepend)]
+    [TestCase(TransformOperator.Append)]
+    public void ATransformedLayerMaterializesAtTheDensityItsScopeEnlargesItBy(
+        TransformOperator transformOperator)
     {
         var requestedSizes = new List<PixelSize>();
         using RenderNode root = CreateTransformedLayer(
             Matrix.CreateScale(4, 4),
-            TransformOperator.Append,
+            transformOperator,
             new Rect(0, 0, 8, 6));
         using var renderer = CreateRenderer(root, new RecordingCpuTargetFactory(requestedSizes));
 
@@ -99,8 +113,8 @@ public sealed class ValueReplaySafetyTests
         Assert.Multiple(() =>
         {
             Assert.That(rasterization.IsEmpty, Is.False);
-            Assert.That(requestedSizes, Does.Contain(new PixelSize(8, 6)),
-                "The executor must use the planner's unscaled Layer demand across an Append scope.");
+            Assert.That(requestedSizes, Does.Contain(new PixelSize(32, 24)),
+                "The layer must be rasterized at the density its scope draws it at.");
         });
     }
 

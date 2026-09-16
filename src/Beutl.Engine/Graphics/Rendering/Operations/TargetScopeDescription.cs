@@ -15,7 +15,8 @@ public sealed class TargetScopeDescription
         IReadOnlyList<RenderResourceBinding> resources,
         bool isValueReplayMap,
         RenderScopeTransformSpace transformSpace,
-        bool builtInBackdropCapturesBackingTarget)
+        bool builtInBackdropCapturesBackingTarget,
+        RenderScopeAmbientTransform? ambientTransform)
     {
         _execution = execution;
         Bounds = bounds;
@@ -28,6 +29,7 @@ public sealed class TargetScopeDescription
         IsValueReplayMap = isValueReplayMap;
         TransformSpace = transformSpace;
         BuiltInBackdropCapturesBackingTarget = builtInBackdropCapturesBackingTarget;
+        AmbientTransform = ambientTransform;
     }
 
     public RenderBoundsContract Bounds { get; }
@@ -60,6 +62,13 @@ public sealed class TargetScopeDescription
     public RenderScopeTransformSpace TransformSpace { get; }
 
     internal bool BuiltInBackdropCapturesBackingTarget { get; }
+
+    /// <summary>Gets the transform this scope declared, when it declared one the engine resolves.</summary>
+    /// <remarks>
+    /// Kept as declared rather than as resolved, so the resolution pass reads the author's composition on
+    /// every request instead of composing a previous request's answer a second time.
+    /// </remarks>
+    internal RenderScopeAmbientTransform? AmbientTransform { get; }
 
     /// <param name="state">
     /// Immutable pixel-affecting state retained for execution.
@@ -148,7 +157,8 @@ public sealed class TargetScopeDescription
         RenderDeviceGridSensitivity deviceGridSensitivity,
         RenderDeviceGridMapping deviceGridMapping,
         bool builtInBackdropCapturesBackingTarget = false,
-        IReadOnlyList<RenderResourceBinding>? resources = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null,
+        RenderScopeAmbientTransform? ambientTransform = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -168,7 +178,8 @@ public sealed class TargetScopeDescription
             // A value replay map is lowered into the value graph, which only holds together when the
             // transform between the scope and its input is expressed in the input's own coordinates.
             RenderScopeTransformSpace.InputLogical,
-            builtInBackdropCapturesBackingTarget);
+            builtInBackdropCapturesBackingTarget,
+            ambientTransform);
 
     internal static TargetScopeDescription CreateCore(
         RenderExecutionChannel<TargetScopeSession> execution,
@@ -181,7 +192,8 @@ public sealed class TargetScopeDescription
         IReadOnlyList<RenderResourceBinding>? resources,
         bool isValueReplayMap,
         RenderScopeTransformSpace transformSpace,
-        bool builtInBackdropCapturesBackingTarget = false)
+        bool builtInBackdropCapturesBackingTarget = false,
+        RenderScopeAmbientTransform? ambientTransform = null)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
@@ -205,7 +217,8 @@ public sealed class TargetScopeDescription
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
             isValueReplayMap,
             transformSpace,
-            builtInBackdropCapturesBackingTarget);
+            builtInBackdropCapturesBackingTarget,
+            ambientTransform);
     }
 }
 

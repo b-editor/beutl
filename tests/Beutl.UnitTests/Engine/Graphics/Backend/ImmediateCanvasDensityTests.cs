@@ -183,6 +183,31 @@ public class ImmediateCanvasDensityTests
     }
 
     [Test]
+    public void PushTransform_Append_ComposesAfterTheSceneRatherThanTheBase()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var target = RenderTarget.Create(200, 100)!;
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 2f, logicalSize: new Size(100, 50));
+
+            var scene = Matrix.CreateScale(3f, 3f);
+            var appended = Matrix.CreateTranslation(7, 9);
+            using (canvas.PushTransform(scene))
+            using (canvas.PushTransform(appended, TransformOperator.Append))
+            {
+                // Appending translates by 7 logical units, not by 7 device pixels: the base density stays
+                // outside the composition, exactly as Set leaves it outside.
+                Assert.That(
+                    canvas.Transform,
+                    Is.EqualTo(Matrix.CreateScale(2f, 2f).Prepend(scene.Append(appended))));
+            }
+
+            Assert.That(canvas.Transform, Is.EqualTo(Matrix.CreateScale(2f, 2f)));
+        });
+    }
+
+    [Test]
     public void PushPop_PreservesBaseTransform()
     {
         VulkanTestEnvironment.EnsureAvailable();

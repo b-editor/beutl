@@ -1267,7 +1267,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
         else if (transformOperator == TransformOperator.Append)
         {
-            Transform = Transform.Append(matrix);
+            // Append composes after the scene's own transform, not after the base CTM the target's density
+            // lives in: appending a translation has to move content the same logical distance whatever
+            // density the frame is rendered at, and Set already draws the same line.
+            Transform = _currentBaseTransform.TryInvert(out Matrix inverseBase)
+                ? Transform.Append(inverseBase).Append(matrix).Append(_currentBaseTransform)
+                : Transform.Append(matrix);
         }
         else
         {
