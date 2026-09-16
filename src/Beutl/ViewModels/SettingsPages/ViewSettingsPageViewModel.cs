@@ -22,6 +22,12 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
         _config = GlobalConfiguration.Instance.ViewConfig;
         _editorSettings = editorSettings;
 
+        ShowStorageServices = _config.GetObservable(ViewConfig.ShowStorageServicesProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        ShowStorageServices.Skip(1).Subscribe(value => _config.ShowStorageServices = value)
+            .DisposeWith(_disposables);
+
         // Created before the first refresh: RefreshAvailableThemes restores the selection through it.
         SelectedThemeDescriptor = new ReactiveProperty<ThemeDescriptor?>(ThemeRegistry.Resolve(_config.Theme))
             .DisposeWith(_disposables);
@@ -139,6 +145,8 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
     public ReactiveProperty<Color> CustomAccentColor { get; }
 
     public IReadOnlyList<Color> PredefinedColors { get; } = GetPredefColors();
+
+    public ReactiveProperty<bool> ShowStorageServices { get; }
 
     public AsyncReactiveCommand NavigateToEditorSettings { get; }
 

@@ -11,9 +11,9 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
              x:Name="root"
-             x:CompileBindings="True"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="vm:ViewSettingsPageViewModel"
              mc:Ignorable="d">
     <Grid Margin="18" RowDefinitions="Auto,*">
@@ -168,6 +168,21 @@
                                     </DockPanel>
                                 </StackPanel>
                             </ctrls:OptionsDisplayItem.Content>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:Strings.FileBrowser}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ShowStorageServicesDescription}" Header="{x:Static lang:SettingsStrings.ShowStorageServices}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch x:Name="ShowStorageServicesToggle"
+                                              AutomationProperties.Name="{x:Static lang:SettingsStrings.ShowStorageServices}"
+                                              IsChecked="{Binding ShowStorageServices.Value}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
                         </ctrls:OptionsDisplayItem>
                     </ctrls:OptionsGroupPanel>
                 </Border>

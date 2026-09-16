@@ -91,6 +91,7 @@ public class BeutlApiApplication : IAsyncDisposable
         Packages = RestService.For<IPackagesClient>(_httpClient);
         Releases = RestService.For<IReleasesClient>(_httpClient);
         Files = RestService.For<IFilesClient>(_httpClient);
+        Storage = RestService.For<IStorageClient>(_httpClient);
         Users = RestService.For<IUsersClient>(_httpClient);
         Account = RestService.For<IAccountClient>(_httpClient);
         Discover = RestService.For<IDiscoverClient>(_httpClient);
@@ -119,6 +120,8 @@ public class BeutlApiApplication : IAsyncDisposable
     public IAccountClient Account { get; }
 
     public IFilesClient Files { get; }
+
+    internal IStorageClient Storage { get; }
 
     public IDiscoverClient Discover { get; }
 

@@ -2863,4 +2863,61 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="BrowserIgnorePageDownloads" xml:space="preserve">
     <value>ページを再読み込みするまでダウンロード要求を無視</value>
   </data>
+  <data name="CloudStorage" xml:space="preserve">
+    <value>Beutlストレージ</value>
+  </data>
+  <data name="CloudStorageSignIn" xml:space="preserve">
+    <value>ログインすると、Webストレージのファイルとフォルダーを表示できます。</value>
+  </data>
+  <data name="CloudStorageAccountSettings" xml:space="preserve">
+    <value>アカウント設定を開く</value>
+  </data>
+  <data name="CloudStorageUp" xml:space="preserve">
+    <value>親フォルダーへ</value>
+  </data>
+  <data name="CloudStorageFolder" xml:space="preserve">
+    <value>フォルダー</value>
+  </data>
+  <data name="CloudStoragePublic" xml:space="preserve">
+    <value>公開</value>
+  </data>
+  <data name="CloudStoragePrivate" xml:space="preserve">
+    <value>非公開</value>
+  </data>
+  <data name="CloudStorageDedicated" xml:space="preserve">
+    <value>使用中</value>
+  </data>
+  <data name="CloudStorageFree" xml:space="preserve">
+    <value>無料</value>
+  </data>
+  <data name="CloudStorageUsage" xml:space="preserve">
+    <value>{0} / {1} · {2:N0} / {3:N0} ファイル · {4}</value>
+  </data>
+  <data name="CloudStorageEmpty" xml:space="preserve">
+    <value>表示するファイルやフォルダーはありません。</value>
+  </data>
+  <data name="CloudStorageLoadFailed" xml:space="preserve">
+    <value>クラウドストレージを読み込めませんでした。接続を確認して再読み込みしてください。</value>
+  </data>
+  <data name="CloudStorageUnavailable" xml:space="preserve">
+    <value>このサーバーでは、クラウドストレージの一覧表示はまだ利用できません。</value>
+  </data>
+  <data name="LocalFiles" xml:space="preserve">
+    <value>このデバイス</value>
+  </data>
+  <data name="StorageLocations" xml:space="preserve">
+    <value>ストレージの切り替え</value>
+  </data>
+  <data name="StorageProviderOpenFailed" xml:space="preserve">
+    <value>ストレージサービスを開けませんでした。もう一度お試しください。</value>
+  </data>
+  <data name="CloudStorageLoadingMore" xml:space="preserve">
+    <value>ファイルを追加で読み込んでいます…</value>
+  </data>
+  <data name="CloudStorageLoadMoreFailed" xml:space="preserve">
+    <value>追加のファイルを読み込めませんでした。</value>
+  </data>
+  <data name="CloudStorageRetryLoadMore" xml:space="preserve">
+    <value>再試行</value>
+  </data>
 </root>

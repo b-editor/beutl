@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Avalonia.Data.Converters;
 using Avalonia.Threading;
+using Beutl.Configuration;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
@@ -25,7 +26,7 @@ public enum FileBrowserViewMode
     Icon
 }
 
-public sealed class FileBrowserTabViewModel : IToolContext
+public sealed partial class FileBrowserTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<FileBrowserTabViewModel>();
@@ -48,8 +49,16 @@ public sealed class FileBrowserTabViewModel : IToolContext
         static dialog => dialog.ShowAsync();
 
     public FileBrowserTabViewModel(IEditorContext editorContext)
+        : this(editorContext, GlobalConfiguration.Instance.ViewConfig,
+            editorContext.GetService<FileBrowserStorageProviderRegistry>())
+    {
+    }
+
+    internal FileBrowserTabViewModel(IEditorContext editorContext, ViewConfig config,
+        FileBrowserStorageProviderRegistry? storageProviders)
     {
         _editorContext = editorContext;
+        InitializeStorage(config, storageProviders);
 
         // お気に入り変更時にホームビューを更新
         _favoritesManager.Changed += () =>
@@ -78,7 +87,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
         // プロジェクトディレクトリの取得
         _projectDirectory = GetProjectDirectory();
 
-        Header = RootPath.Select(CreateHeader)
+        Header = RootPath.CombineLatest(ActiveStorageProvider,
+                (path, provider) => provider?.DisplayName ?? CreateHeader(path))
             .ToReadOnlyReactivePropertySlim(CreateHeader(RootPath.Value))
             .AddTo(_disposables)!;
 
@@ -282,6 +292,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void NavigateToHome()
     {
+        ShowLocalFiles();
         IsHomeView.Value = true;
     }
 
@@ -798,7 +809,9 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void Dispose()
     {
+        if (_disposed) return;
         _disposed = true;
+        CloseStorageBrowser();
         DecoderRegistry.DecodersChanged -= OnDecodersChanged;
         _mediaSearcher.Dispose();
         _favoritesManager.Dispose();

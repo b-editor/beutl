@@ -746,4 +746,10 @@
     <value>Loading AI plan…</value>
     <comment/>
   </data>
+  <data name="ShowStorageServices" xml:space="preserve">
+    <value>Show online storage</value>
+  </data>
+  <data name="ShowStorageServicesDescription" xml:space="preserve">
+    <value>Show registered storage services in the file browser. Services connect only when opened.</value>
+  </data>
 </root>

@@ -16,6 +16,7 @@ public sealed class ViewConfig : ConfigurationBase
     public static readonly CoreProperty<bool> UseCustomAccentColorProperty;
     public static readonly CoreProperty<string?> CustomAccentColorProperty;
     public static readonly CoreProperty<bool> ShowExactBoundariesProperty;
+    public static readonly CoreProperty<bool> ShowStorageServicesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentFilesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
     public static readonly CoreProperty<string?> LastOpenedProjectFileProperty;
@@ -59,6 +60,10 @@ public sealed class ViewConfig : ConfigurationBase
         ShowExactBoundariesProperty = ConfigureProperty<bool, ViewConfig>(nameof(ShowExactBoundaries))
             .Accessor(o => o.ShowExactBoundaries, (o, v) => o.ShowExactBoundaries = v)
             .DefaultValue(false)
+            .Register();
+
+        ShowStorageServicesProperty = ConfigureProperty<bool, ViewConfig>(nameof(ShowStorageServices))
+            .DefaultValue(true)
             .Register();
 
         RecentFilesProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(RecentFiles))
@@ -129,6 +134,12 @@ public sealed class ViewConfig : ConfigurationBase
     {
         get => _showExactBoundaries;
         set => SetAndRaise(ShowExactBoundariesProperty, ref _showExactBoundaries, value);
+    }
+
+    public bool ShowStorageServices
+    {
+        get => GetValue(ShowStorageServicesProperty);
+        set => SetValue(ShowStorageServicesProperty, value);
     }
 
     [NotAutoSerialized]
@@ -228,7 +239,7 @@ public sealed class ViewConfig : ConfigurationBase
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(ShowExactBoundaries) or nameof(LastOpenedProjectFile))
+        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(ShowExactBoundaries) or nameof(ShowStorageServices) or nameof(LastOpenedProjectFile))
         {
             OnChanged();
         }
