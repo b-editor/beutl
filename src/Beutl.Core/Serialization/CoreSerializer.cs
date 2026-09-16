@@ -118,9 +118,17 @@ public static class CoreSerializer
         if (File.Exists(path))
         {
             JsonNode? node;
-            using (FileStream stream = File.OpenRead(path))
+            try
             {
+                using FileStream stream = File.OpenRead(path);
                 node = JsonNode.Parse(stream);
+            }
+            catch (JsonException)
+            {
+                // Unreadable bytes are not a graph worth preserving, and refusing here would leave
+                // a malformed destination unsaveable. Only a failure to reach the file at all is
+                // allowed to stop the save.
+                return false;
             }
 
             // Nothing to raise in place; the caller writes the file the ordinary way.

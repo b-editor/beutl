@@ -793,6 +793,24 @@ public class NoMigrationRegressionTests
     }
 
     [Test]
+    public void A_malformed_project_file_does_not_block_the_save_that_replaces_it()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        File.WriteAllText(project.Uri!.LocalPath, "{ this is not json");
+
+        Assert.DoesNotThrow(() => CoreSerializer.StoreToUri(project, project.Uri));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                (string?)JsonNode.Parse(File.ReadAllText(project.Uri.LocalPath))!["minAppVersion"],
+                Is.EqualTo("9.0.0"));
+            Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
+        });
+    }
+
+    [Test]
     public void An_unreadable_persisted_gate_does_not_fail_the_save()
     {
         (Project project, StandaloneValueElement element) =
