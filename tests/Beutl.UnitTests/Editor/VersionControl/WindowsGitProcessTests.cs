@@ -15,12 +15,13 @@ public class WindowsGitProcessTests
 
     private readonly List<string> _temporaryDirectories = [];
 
+    // A runtime that does not expose the lock Process.Start takes keeps Process, which owns no job.
     [SetUp]
-    public void RequireWindows()
+    public void RequireJobObjects()
     {
-        if (!OperatingSystem.IsWindows())
+        if (!OperatingSystem.IsWindows() || !WindowsGitProcess.IsSupported)
         {
-            Assert.Ignore("These tests start Windows processes.");
+            Assert.Ignore("These tests need a suspended Windows start with a job object of its own.");
         }
     }
 

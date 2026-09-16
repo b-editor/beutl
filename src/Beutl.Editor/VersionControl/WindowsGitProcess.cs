@@ -35,9 +35,13 @@ internal sealed partial class WindowsGitProcess : GitProcess
     private const int JobObjectBasicAccountingInformationClass = 1;
     private const int JobObjectExtendedLimitInformationClass = 9;
     private const uint JobObjectLimitBreakawayOk = 0x00000800;
+    private const uint WaitObject0 = 0;
 
     private static readonly Encoding s_utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
     private static readonly ILogger s_logger = Log.CreateLogger<WindowsGitProcess>();
+
+    // Suspended commands that could not be ended, each held by its handle until it has ended.
+    private static readonly HashSet<SafeProcessHandle> s_unendedCommands = [];
 
     // Process.Start creates its inheritable pipe ends and its process under this lock, so that one start
     // does not hand another's pipes to its child. Without it the suspended start is not made at all: a
@@ -80,6 +84,10 @@ internal sealed partial class WindowsGitProcess : GitProcess
     public override StreamReader StandardError => _standardError;
 
     public override bool OwnsDescendants => true;
+
+    // False where the runtime does not expose the lock Process.Start takes, so commands start with
+    // Process and own no job.
+    internal static bool IsSupported => s_createProcessLock is not null;
 
     // Null only where the runtime does not expose the lock Process.Start takes, so that the caller starts
     // the command with Process instead. Any other start either gives the command a job of its own or
@@ -428,6 +436,36 @@ internal sealed partial class WindowsGitProcess : GitProcess
         return job;
     }
 
+    // TerminateProcess only begins the end of a process, which nothing can stop once begun, so the
+    // handle may be closed as soon as it succeeds. It fails for a process that has already ended.
+    private static bool TryEnd(SafeProcessHandle process, out int error)
+    {
+        if (Native.TerminateProcess(process, 1))
+        {
+            error = 0;
+            return true;
+        }
+
+        error = Marshal.GetLastPInvokeError();
+        return Native.WaitForSingleObject(process, 0) == WaitObject0;
+    }
+
+    private static async Task KeepUntilEndedAsync(SafeProcessHandle process)
+    {
+        lock (s_unendedCommands)
+        {
+            s_unendedCommands.Add(process);
+        }
+
+        await PollUntilAsync(() => TryEnd(process, out _)).ConfigureAwait(false);
+        lock (s_unendedCommands)
+        {
+            s_unendedCommands.Remove(process);
+        }
+
+        process.Dispose();
+    }
+
     // Worded as Process words a failed start.
     private static Win32Exception CreateStartException(int error, string fileName, string? workingDirectory)
     {
@@ -491,12 +529,24 @@ internal sealed partial class WindowsGitProcess : GitProcess
             }
 
             _abandoned = true;
-            Native.TerminateProcess(Process, 1);
+            bool ended = TryEnd(Process, out int error);
             CloseThread();
-            Process.Dispose();
             _input?.Dispose();
             _output?.Dispose();
             _error?.Dispose();
+            if (ended)
+            {
+                Process.Dispose();
+                return;
+            }
+
+            // Its handle is the only way left to end it, so it is not closed until the command has ended.
+            s_logger.LogWarning(
+                "Git process {ProcessId}, which never ran, could not be ended ({Error}: {Message}); ending it is tried again until it has ended.",
+                ProcessId,
+                error,
+                Marshal.GetPInvokeErrorMessage(error));
+            _ = KeepUntilEndedAsync(Process);
         }
 
         private static SafeFileHandle Take(ref SafeFileHandle? handle)
@@ -564,6 +614,9 @@ internal sealed partial class WindowsGitProcess : GitProcess
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool TerminateProcess(SafeProcessHandle process, int exitCode);
+
+        [LibraryImport("kernel32.dll")]
+        internal static partial uint WaitForSingleObject(SafeProcessHandle handle, uint milliseconds);
 
         [LibraryImport(
             "kernel32.dll",
