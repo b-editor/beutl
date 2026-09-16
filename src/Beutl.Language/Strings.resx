@@ -2982,6 +2982,9 @@ when history recording is enabled.</value>
   <data name="CloudStorageDownloading" xml:space="preserve">
     <value>Downloading…</value>
   </data>
+  <data name="CloudStorageDownloadLocalDestinationRequired" xml:space="preserve">
+    <value>This location does not support safe file replacement. Choose a local folder for this download.</value>
+  </data>
   <data name="CloudStorageMimeType" xml:space="preserve">
     <value>MIME type</value>
   </data>

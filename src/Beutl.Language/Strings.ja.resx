@@ -2977,6 +2977,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="CloudStorageDownloading" xml:space="preserve">
     <value>ダウンロード中…</value>
   </data>
+  <data name="CloudStorageDownloadLocalDestinationRequired" xml:space="preserve">
+    <value>この保存先ではファイルを安全に置き換えられません。ダウンロード先にローカルフォルダーを選択してください。</value>
+  </data>
   <data name="CloudStorageMimeType" xml:space="preserve">
     <value>MIMEタイプ</value>
   </data>

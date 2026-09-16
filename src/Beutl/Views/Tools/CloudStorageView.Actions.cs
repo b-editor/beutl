@@ -235,7 +235,14 @@ public sealed partial class CloudStorageView
         });
         if (file == null || !vm.IsActionCurrent(context)) return;
         string? local = file.TryGetLocalPath();
-        string temporary = Path.Combine(local != null ? Path.GetDirectoryName(local)! : Path.GetTempPath(), $".beutl-download-{Guid.NewGuid():N}.tmp");
+        if (local == null)
+        {
+            // IStorageFile only exposes direct writes, with no atomic replacement contract.
+            vm.ActionError.Value = Strings.CloudStorageDownloadLocalDestinationRequired;
+            return;
+        }
+        vm.ActionError.Value = null;
+        string temporary = Path.Combine(Path.GetDirectoryName(local)!, $".beutl-download-{Guid.NewGuid():N}.tmp");
         using var cancellation = new CancellationTokenSource();
         var dialog = new FAContentDialog
         {
@@ -252,13 +259,7 @@ public sealed partial class CloudStorageView
             await using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true))
                 downloaded = await vm.DownloadAsync(context, output, cancellation.Token);
             if (!downloaded || cancellation.IsCancellationRequested) return;
-            if (local != null) File.Move(temporary, local, overwrite: true);
-            else
-            {
-                await using var input = File.OpenRead(temporary);
-                await using var output = await file.OpenWriteAsync();
-                await input.CopyToAsync(output, cancellation.Token);
-            }
+            File.Move(temporary, local, overwrite: true);
         }
         finally
         {
