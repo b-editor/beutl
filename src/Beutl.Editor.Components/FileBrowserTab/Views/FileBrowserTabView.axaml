@@ -175,7 +175,9 @@
                         </Button>
                     </StackPanel>
                 </Grid>
-                <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsStorageView.Value}">
+                <Grid ColumnDefinitions="*,Auto,Auto"
+                      ColumnSpacing="2"
+                      IsVisible="{Binding IsStorageView.Value}">
                     <Panel>
                         <TextBlock IsVisible="{Binding StorageNavigation.Value, Converter={x:Static ObjectConverters.IsNull}}"
                                    Text="{Binding ActiveStorageProvider.Value.DisplayName}"
@@ -240,6 +242,7 @@
                 </Grid>
                 <Button x:Name="StorageLocationsButton"
                         Grid.Column="1"
+                        Margin="2,0,0,0"
                         AutomationProperties.Name="{x:Static lang:Strings.StorageLocations}"
                         IsVisible="{Binding ShowStorageServices.Value}"
                         Theme="{StaticResource ToolTabBarIconButtonTheme}"
