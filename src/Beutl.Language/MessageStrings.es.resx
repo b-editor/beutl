@@ -191,6 +191,20 @@ porque el nuevo nombre entra en conflicto con una carpeta existente.</value>
     <value>Abriendo '{0}'.
 Espera un momento.</value>
   </data>
+  <data name="CreatingProject" xml:space="preserve">
+    <value>Creando el proyecto</value>
+  </data>
+  <data name="CreatingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>Configurando el control de versiones y registrando la primera versión.
+El editor se abrirá cuando termine.</value>
+  </data>
+  <data name="ClosingProject" xml:space="preserve">
+    <value>Cerrando el proyecto</value>
+  </data>
+  <data name="ClosingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>Terminando el trabajo de control de versiones antes de cerrar el proyecto.
+Puede tardar un poco en proyectos grandes.</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>Se produjo una excepción al guardar el archivo.</value>
   </data>

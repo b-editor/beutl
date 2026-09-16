@@ -838,8 +838,8 @@ public class VersionControlRestoreTests
             var backend = new PullCycleTestBackend(repository, repository, tip);
             var editorService = new EditorService(new ExtensionProvider());
             var failedCommands = new FailedSaveCommands();
-            editorService.TabItems.Add(new EditorTabItem(
-                new FailedSaveEditorContext(project, failedCommands)));
+            var failedContext = new FailedSaveEditorContext(project, failedCommands);
+            editorService.TabItems.Add(new EditorTabItem(failedContext));
             coordinator = new VersionControlCoordinator(
                 TestShell.Project,
                 editorService,
@@ -853,20 +853,42 @@ public class VersionControlRestoreTests
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && coordinator.IsTracked.Value);
             var answers = new Queue<bool>(new[] { false, true });
-            coordinator.ConfirmCloseWithoutSnapshotAsync = _ => Task.FromResult(answers.Dequeue());
+            var activitiesWhileConfirming = new List<ProjectLifecycleActivity>();
+            coordinator.ConfirmCloseWithoutSnapshotAsync = _ =>
+            {
+                activitiesWhileConfirming.Add(editorService.LifecycleActivity.Value);
+                return Task.FromResult(answers.Dequeue());
+            };
 
             bool closedAfterDecline = await TestShell.Project.TryCloseProjectAsync(
                 project,
                 ProjectService.ProjectCloseIntent.SaveChanges);
+            HeadlessTestHelpers.Settle();
             Project? openAfterDecline = TestShell.Project.CurrentProject.Value;
+            // The aborted close gives the editor back instead of leaving it behind the progress view.
+            ProjectLifecycleActivity activityAfterDecline = editorService.LifecycleActivity.Value;
+            bool editorEnabledAfterDecline = failedContext.IsEnabled.Value;
             bool closedAfterAccept = await TestShell.Project.TryCloseProjectAsync(
                 project,
                 ProjectService.ProjectCloseIntent.SaveChanges);
+            HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
             {
                 Assert.That(closedAfterDecline, Is.False);
                 Assert.That(openAfterDecline, Is.SameAs(project));
+                Assert.That(activityAfterDecline, Is.EqualTo(ProjectLifecycleActivity.None));
+                Assert.That(editorEnabledAfterDecline, Is.True);
+                Assert.That(
+                    activitiesWhileConfirming,
+                    Is.EqualTo(new[]
+                    {
+                        ProjectLifecycleActivity.ClosingProject,
+                        ProjectLifecycleActivity.ClosingProject,
+                    }));
+                Assert.That(
+                    editorService.LifecycleActivity.Value,
+                    Is.EqualTo(ProjectLifecycleActivity.None));
                 Assert.That(closedAfterAccept, Is.True);
                 Assert.That(answers, Is.Empty);
                 Assert.That(failedCommands.SaveCalls, Is.EqualTo(2));
@@ -8001,10 +8023,7 @@ public class VersionControlRestoreTests
             var originalTip = new CheckedOutBranchTip(
                 "refs/heads/main",
                 "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, originalTip)
-            {
-                HasVersionTrackingOptIn = false,
-            };
+            var untrackedBackends = new List<PullCycleTestBackend>();
             var tracked = new PullCycleTestBackend(repository, repository, originalTip)
             {
                 HasVersionTrackingOptIn = false,
@@ -8015,7 +8034,20 @@ public class VersionControlRestoreTests
                 new EditorService(new ExtensionProvider()),
                 new VersionControlConfig { AutoCommitOnClose = false },
                 installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
+                serviceFactory: candidate =>
+                {
+                    if (candidate is not null)
+                    {
+                        return tracked;
+                    }
+
+                    var untracked = new PullCycleTestBackend(null, repository, originalTip)
+                    {
+                        HasVersionTrackingOptIn = false,
+                    };
+                    untrackedBackends.Add(untracked);
+                    return untracked;
+                });
             int confirmations = 0;
             coordinator.ConfirmUseEnclosingRepositoryAsync = (_, _) =>
             {
@@ -8023,26 +8055,39 @@ public class VersionControlRestoreTests
                 return Task.FromResult(false);
             };
 
-            Project? project = await projectService.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "declined",
-                location);
+            // With "Track history" checked, the dialog initializes the project before it opens.
+            bool? initialized = null;
+            Project? project;
+            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject(
+                             _ => Task.FromResult<GitIdentity?>(
+                                 new GitIdentity("Beutl Headless Test", "headless@example.invalid"))))
+            {
+                project = await projectService.CreateProject(
+                    640,
+                    480,
+                    30,
+                    44100,
+                    "declined",
+                    location,
+                    async (created, cancellationToken) => initialized = await setup.InitializeAsync(
+                        created,
+                        cancellationToken));
+            }
+
             Assert.That(project, Is.Not.Null);
             await WaitUntilAsync(() => coordinator.CurrentService is not null);
-            // With "Track history" checked, the dialog initializes the project it just created.
-            bool initialized = await coordinator.InitializeCurrentProjectAsync(
-                project!,
-                _ => Task.FromResult<GitIdentity?>(
-                    new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
+            await WaitUntilAsync(() => untrackedBackends.FirstOrDefault()?.DisposeCalls == 1);
 
             Assert.Multiple(() =>
             {
                 Assert.That(initialized, Is.False);
                 Assert.That(confirmations, Is.EqualTo(1));
                 Assert.That(coordinator.IsTracked.Value, Is.False);
+                Assert.That(untrackedBackends, Has.Count.EqualTo(2));
+                // The backend that asked is discarded, and the project opens with a fresh untracked one.
+                Assert.That(untrackedBackends[0].InitializeCalls, Is.Zero);
+                Assert.That(coordinator.CurrentService, Is.SameAs(untrackedBackends[1]));
+                Assert.That(untrackedBackends[1].DisposeCalls, Is.Zero);
             });
         }
         finally
@@ -8050,6 +8095,553 @@ public class VersionControlRestoreTests
             if (coordinator is not null)
             {
                 await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task New_project_with_tracking_opens_with_the_backend_that_recorded_its_first_version()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-new-project-prepared");
+            Directory.CreateDirectory(location);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backends = new List<PullCycleTestBackend>();
+            var projectService = new ProjectService();
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                editorService,
+                new VersionControlConfig { AutoCommitOnClose = true },
+                installationLocator: null,
+                serviceFactory: candidate =>
+                {
+                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, tip)
+                    {
+                        RequireIdentityForInitialization = true,
+                    };
+                    backends.Add(backend);
+                    return backend;
+                });
+            int identityRequests = 0;
+            bool? initialized = null;
+            ProjectLifecycleActivity activityWhileInitializing = ProjectLifecycleActivity.None;
+            Project? openProjectWhileInitializing = null;
+            ProjectLifecycleActivity activityWhenOpened;
+            Project? project;
+            INewProjectVersionControlSetup setup = coordinator.BeginNewProject(_ =>
+            {
+                identityRequests++;
+                return Task.FromResult<GitIdentity?>(
+                    new GitIdentity("Beutl Headless Test", "headless@example.invalid"));
+            });
+            try
+            {
+                Assert.That(
+                    editorService.LifecycleActivity.Value,
+                    Is.EqualTo(ProjectLifecycleActivity.CreatingProject));
+                project = await projectService.CreateProject(
+                    640,
+                    480,
+                    30,
+                    44100,
+                    "prepared",
+                    location,
+                    async (created, cancellationToken) =>
+                    {
+                        activityWhileInitializing = editorService.LifecycleActivity.Value;
+                        openProjectWhileInitializing = projectService.CurrentProject.Value;
+                        initialized = await setup.InitializeAsync(created, cancellationToken);
+                    });
+                activityWhenOpened = editorService.LifecycleActivity.Value;
+
+                // The project opens already tracked, with the backend that recorded its first version.
+                Assert.Multiple(() =>
+                {
+                    Assert.That(project, Is.Not.Null);
+                    Assert.That(initialized, Is.True);
+                    Assert.That(openProjectWhileInitializing, Is.Null);
+                    Assert.That(backends, Has.Count.EqualTo(1));
+                    Assert.That(coordinator.CurrentService, Is.SameAs(backends[0]));
+                    Assert.That(coordinator.IsTracked.Value, Is.True);
+                });
+            }
+            finally
+            {
+                await setup.DisposeAsync();
+            }
+
+            PullCycleTestBackend prepared = backends.Single();
+            string projectRoot = Path.GetDirectoryName(project!.Uri!.LocalPath)!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    activityWhileInitializing,
+                    Is.EqualTo(ProjectLifecycleActivity.CreatingProject));
+                Assert.That(activityWhenOpened, Is.EqualTo(ProjectLifecycleActivity.CreatingProject));
+                Assert.That(
+                    editorService.LifecycleActivity.Value,
+                    Is.EqualTo(ProjectLifecycleActivity.None));
+                Assert.That(identityRequests, Is.EqualTo(1));
+                Assert.That(prepared.InitializeCalls, Is.EqualTo(2));
+                Assert.That(
+                    prepared.InitializationOptions.Select(options => options.TargetRepository),
+                    Has.All.EqualTo(new RepositoryInfo(projectRoot, projectRoot)));
+                // Initialization already did what opening a discovered repository would repeat.
+                Assert.That(prepared.HasCheckedOutCommitCalls, Is.Zero);
+                Assert.That(prepared.EnsureHygieneCalls, Is.Zero);
+                Assert.That(prepared.RetirementCalls, Is.Zero);
+                Assert.That(prepared.DisposeCalls, Is.Zero);
+            });
+
+            await projectService.CloseProjectAsync();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(projectService.CurrentProject.Value, Is.Null);
+                Assert.That(prepared.RetirementSnapshots, Has.Count.EqualTo(1));
+                Assert.That(prepared.RetirementSnapshots[0]?.Kind, Is.EqualTo(SnapshotKind.Close));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task New_project_backend_is_retired_when_the_project_does_not_open()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var projectService = new ProjectService();
+        Func<Project, Task> failOpening = static _ =>
+            Task.FromException(new IOException("simulated editor failure"));
+
+        try
+        {
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-new-project-not-opened");
+            Directory.CreateDirectory(location);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backends = new List<PullCycleTestBackend>();
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                editorService,
+                new VersionControlConfig { AutoCommitOnClose = true },
+                installationLocator: null,
+                serviceFactory: candidate =>
+                {
+                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, tip);
+                    backends.Add(backend);
+                    return backend;
+                });
+            projectService.Opened += failOpening;
+
+            bool? initialized = null;
+            Project? project;
+            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject(
+                             _ => Task.FromResult<GitIdentity?>(null)))
+            {
+                project = await projectService.CreateProject(
+                    640,
+                    480,
+                    30,
+                    44100,
+                    "not-opened",
+                    location,
+                    async (created, cancellationToken) => initialized = await setup.InitializeAsync(
+                        created,
+                        cancellationToken));
+            }
+
+            await WaitUntilAsync(() => backends.FirstOrDefault()?.DisposeCalls == 1);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(project, Is.Null);
+                Assert.That(initialized, Is.True);
+                Assert.That(projectService.CurrentProject.Value, Is.Null);
+                Assert.That(coordinator.CurrentService, Is.Null);
+                Assert.That(backends, Has.Count.EqualTo(1));
+                Assert.That(backends[0].RetirementSnapshots, Is.EqualTo(new ProjectVersionControlFinalSnapshot?[] { null }));
+                Assert.That(
+                    editorService.LifecycleActivity.Value,
+                    Is.EqualTo(ProjectLifecycleActivity.None));
+            });
+        }
+        finally
+        {
+            projectService.Opened -= failOpening;
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Close_requested_during_new_project_identity_prompt_cancels_it_and_closes_the_project()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var projectService = new ProjectService();
+        var identityRequested = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<Project?>? creation = null;
+        Task? close = null;
+
+        try
+        {
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-new-project-close-during-identity");
+            Directory.CreateDirectory(location);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backends = new List<PullCycleTestBackend>();
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                new VersionControlConfig { AutoCommitOnClose = true },
+                installationLocator: null,
+                serviceFactory: candidate =>
+                {
+                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, tip)
+                    {
+                        RequireIdentityForInitialization = true,
+                    };
+                    backends.Add(backend);
+                    return backend;
+                });
+            bool identityCanceled = false;
+            Exception? initializationFailure = null;
+            await using INewProjectVersionControlSetup setup = coordinator.BeginNewProject(
+                async cancellationToken =>
+                {
+                    identityRequested.TrySetResult();
+                    try
+                    {
+                        await Task.Delay(Timeout.Infinite, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        identityCanceled = true;
+                        throw;
+                    }
+
+                    return null;
+                });
+            creation = projectService.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "close-during-identity",
+                location,
+                async (created, cancellationToken) =>
+                {
+                    try
+                    {
+                        await setup.InitializeAsync(created, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        initializationFailure = ex;
+                        throw;
+                    }
+                });
+            await identityRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            // Closing the window asks for the close while the creation still waits on the user.
+            close = projectService.CloseProjectAsync();
+            Project? created = await creation.WaitAsync(TimeSpan.FromSeconds(5));
+            await close.WaitAsync(TimeSpan.FromSeconds(5));
+            await WaitUntilAsync(() => backends.FirstOrDefault()?.DisposeCalls == 1);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(identityCanceled, Is.True);
+                Assert.That(initializationFailure, Is.InstanceOf<OperationCanceledException>());
+                Assert.That(created, Is.Not.Null);
+                Assert.That(projectService.CurrentProject.Value, Is.Null);
+                Assert.That(backends, Has.Count.EqualTo(2));
+                Assert.That(backends[0].InitializeCalls, Is.EqualTo(1));
+                // The project opened untracked with a fresh backend, which the close retired.
+                Assert.That(backends[1].Repository, Is.Null);
+                Assert.That(backends[1].InitializeCalls, Is.Zero);
+                Assert.That(backends[1].RetirementCalls, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            if (creation is not null)
+            {
+                await creation.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            if (close is not null)
+            {
+                await close.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task New_project_backend_prepared_before_disposal_is_retired_with_the_coordinator()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var projectService = new ProjectService();
+        INewProjectVersionControlSetup? setup = null;
+        var releaseOpening = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<Project?>? creation = null;
+
+        try
+        {
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-new-project-disposed");
+            Directory.CreateDirectory(location);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backends = new List<PullCycleTestBackend>();
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                new VersionControlConfig { AutoCommitOnClose = false },
+                installationLocator: null,
+                serviceFactory: candidate =>
+                {
+                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, tip);
+                    backends.Add(backend);
+                    return backend;
+                });
+            setup = coordinator.BeginNewProject(_ => Task.FromResult<GitIdentity?>(null));
+            var initialized = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            INewProjectVersionControlSetup activeSetup = setup;
+            creation = projectService.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "disposed",
+                location,
+                async (created, cancellationToken) =>
+                {
+                    initialized.TrySetResult(
+                        await activeSetup.InitializeAsync(created, cancellationToken));
+                    await releaseOpening.Task;
+                });
+            Assert.That(await initialized.Task.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+
+            // The app shuts down before the project opens: the repository the creation prepared is
+            // released with the coordinator rather than left with a live watcher.
+            await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(backends, Has.Count.EqualTo(1));
+                Assert.That(backends[0].RetirementCalls, Is.EqualTo(1));
+                Assert.That(backends[0].DisposeCalls, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            releaseOpening.TrySetResult();
+            if (creation is not null)
+            {
+                await creation.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            if (setup is not null)
+            {
+                await setup.DisposeAsync();
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Closing_a_tracked_project_shows_the_close_in_place_of_the_editor_until_it_completes()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var retirementStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRetirement = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<bool>? close = null;
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-close-presentation");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                RetirementStarted = retirementStarted,
+                RetirementRelease = releaseRetirement.Task,
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+            var commands = new PassiveSaveCommands();
+            var context = new PassiveEditorContext(project, commands);
+            editorService.TabItems.Add(new EditorTabItem(context));
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig { AutoCommitOnClose = true },
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, backend)
+                && coordinator.IsTracked.Value);
+            ProjectLifecycleActivity activityWhileSaving = ProjectLifecycleActivity.None;
+            bool editorEnabledWhileSaving = true;
+            commands.Saving = () =>
+            {
+                activityWhileSaving = editorService.LifecycleActivity.Value;
+                editorEnabledWhileSaving = context.IsEnabled.Value;
+            };
+            Assert.That(
+                editorService.LifecycleActivity.Value,
+                Is.EqualTo(ProjectLifecycleActivity.None));
+
+            close = TestShell.Project.TryCloseProjectAsync(
+                project,
+                ProjectService.ProjectCloseIntent.SaveChanges);
+            await retirementStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(commands.SaveCalls, Is.EqualTo(1));
+                Assert.That(activityWhileSaving, Is.EqualTo(ProjectLifecycleActivity.ClosingProject));
+                Assert.That(editorEnabledWhileSaving, Is.False);
+                Assert.That(
+                    editorService.LifecycleActivity.Value,
+                    Is.EqualTo(ProjectLifecycleActivity.ClosingProject));
+                Assert.That(close.IsCompleted, Is.False);
+            });
+
+            releaseRetirement.TrySetResult();
+            Assert.That(await close.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(
+                    editorService.LifecycleActivity.Value,
+                    Is.EqualTo(ProjectLifecycleActivity.None));
+            });
+        }
+        finally
+        {
+            releaseRetirement.TrySetResult();
+            if (close is not null)
+            {
+                await close.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Closing_an_untracked_project_keeps_the_editor_area_as_is()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-close-untracked-presentation");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(null, discoveredRepository: null, tip);
+            var editorService = new EditorService(new ExtensionProvider());
+            var activities = new List<ProjectLifecycleActivity>();
+            using IDisposable subscription = editorService.LifecycleActivity.Subscribe(activities.Add);
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig
+                {
+                    AutoCommitOnSave = true,
+                    AutoCommitOnClose = true,
+                },
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            // A save snapshot waits for the activation to finish deciding that nothing is tracked.
+            await coordinator.NotifySavedAsync();
+            HeadlessTestHelpers.Settle();
+            Assert.That(coordinator.IsTracked.Value, Is.False);
+
+            Assert.That(
+                await TestShell.Project.TryCloseProjectAsync(
+                    project,
+                    ProjectService.ProjectCloseIntent.SaveChanges),
+                Is.True);
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(activities, Is.EqualTo(new[] { ProjectLifecycleActivity.None }));
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
             }
 
             await TestReset.ResetShellAsync();
@@ -11497,9 +12089,12 @@ public class VersionControlRestoreTests
     {
         public int SaveCalls { get; private set; }
 
+        public Action? Saving { get; set; }
+
         public ValueTask<bool> OnSave()
         {
             SaveCalls++;
+            Saving?.Invoke();
             return ValueTask.FromResult(true);
         }
     }

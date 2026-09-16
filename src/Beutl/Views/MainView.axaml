@@ -332,9 +332,42 @@
         <views:EditorHostView Name="EditorHost"
                               Grid.Row="2"
                               DataContext="{Binding EditorHost.SelectedTabItem.Value.Context.Value}"
+                              IsEnabled="{Binding !#ProjectLifecycleOverlay.IsVisible}"
                               IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}" />
 
-        <views:EditorHostFallback Grid.Row="2" IsVisible="{Binding EditorHost.SelectedTabItem.Value.Context.Value, Converter={x:Static ObjectConverters.IsNull}}" />
+        <views:EditorHostFallback Grid.Row="2"
+                                  IsEnabled="{Binding !#ProjectLifecycleOverlay.IsVisible}"
+                                  IsVisible="{Binding EditorHost.SelectedTabItem.Value.Context.Value, Converter={x:Static ObjectConverters.IsNull}}" />
+
+        <!-- Covers the editor area while a project is created or closed with Git, so an editor that is
+             waiting on Git never looks usable. -->
+        <Border x:Name="ProjectLifecycleOverlay"
+                Grid.Row="2"
+                Background="{DynamicResource MainWindowBackground}"
+                IsVisible="{Binding EditorHost.LifecycleProgress.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <StackPanel MaxWidth="560"
+                        Margin="32"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="12">
+                <ui:FAProgressRing Width="40"
+                                   Height="40"
+                                   HorizontalAlignment="Center"
+                                   IsIndeterminate="{Binding #ProjectLifecycleOverlay.IsVisible}" />
+                <TextBlock x:Name="ProjectLifecycleTitle"
+                           HorizontalAlignment="Center"
+                           Text="{Binding EditorHost.LifecycleProgress.Value.Title}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           Theme="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Name="ProjectLifecycleMessage"
+                           HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{Binding EditorHost.LifecycleProgress.Value.Message}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
 
         <StackPanel x:Name="NotificationPanel"
                     Grid.RowSpan="3"

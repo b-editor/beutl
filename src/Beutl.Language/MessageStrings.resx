@@ -191,6 +191,20 @@ because the new name conflicts with an existing folder.</value>
     <value>Opening '{0}'.
 Please wait a moment.</value>
   </data>
+  <data name="CreatingProject" xml:space="preserve">
+    <value>Creating the project</value>
+  </data>
+  <data name="CreatingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>Setting up version control and recording the first version.
+The editor opens when this finishes.</value>
+  </data>
+  <data name="ClosingProject" xml:space="preserve">
+    <value>Closing the project</value>
+  </data>
+  <data name="ClosingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>Finishing version control work before the project closes.
+This can take a while for a large project.</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>An exception occurred while saving the file.</value>
   </data>

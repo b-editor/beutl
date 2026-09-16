@@ -191,6 +191,20 @@
     <value>正在打开“{0}”。
 请稍候。</value>
   </data>
+  <data name="CreatingProject" xml:space="preserve">
+    <value>正在创建项目</value>
+  </data>
+  <data name="CreatingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>正在设置版本控制并记录第一个版本。
+完成后将打开编辑器。</value>
+  </data>
+  <data name="ClosingProject" xml:space="preserve">
+    <value>正在关闭项目</value>
+  </data>
+  <data name="ClosingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>正在完成版本控制操作，然后关闭项目。
+大型项目可能需要一些时间。</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>保存文件时发生异常。</value>
   </data>

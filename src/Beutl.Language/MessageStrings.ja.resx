@@ -186,6 +186,20 @@
     <value>'{0}'を開いています。
 しばらくお待ちください。</value>
   </data>
+  <data name="CreatingProject" xml:space="preserve">
+    <value>プロジェクトを作成しています</value>
+  </data>
+  <data name="CreatingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>バージョン管理を設定し、最初のバージョンを記録しています。
+完了するとエディターが開きます。</value>
+  </data>
+  <data name="ClosingProject" xml:space="preserve">
+    <value>プロジェクトを閉じています</value>
+  </data>
+  <data name="ClosingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>プロジェクトを閉じる前に、バージョン管理の処理を完了しています。
+プロジェクトが大きい場合は時間がかかることがあります。</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>ファイルの保存中に例外が発生しました。</value>
   </data>
