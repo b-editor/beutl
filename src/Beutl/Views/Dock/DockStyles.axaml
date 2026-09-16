@@ -34,15 +34,22 @@
                         Fills PART_IconPresenter, which the tab strip lays out immediately left of the
                         header. Dockables that expose no icon collapse it so the title keeps the tab's
                         left edge; the fallback also covers dockables without the property at all.
+
+                        The Viewbox is what sizes the icon: a glyph source draws at its own FontSize
+                        (20 by default) and an icon element has no FontSize to override it, so bounds
+                        alone would leave the glyph overflowing this slot. Scaling also keeps whatever
+                        an extension hands us — glyph, path or bitmap — inside the tab.
                     -->
-                    <ui:FAIconSourceElement Width="{DynamicResource DockToolTabIconSize}"
-                                            Height="{DynamicResource DockToolTabIconSize}"
-                                            Margin="{DynamicResource DockToolTabIconMargin}"
-                                            VerticalAlignment="Center"
-                                            IconSource="{Binding Icon}"
-                                            IsVisible="{Binding Icon,
-                                                                Converter={x:Static ObjectConverters.IsNotNull},
-                                                                FallbackValue=False}" />
+                    <Viewbox Width="{DynamicResource DockToolTabIconSize}"
+                             Height="{DynamicResource DockToolTabIconSize}"
+                             Margin="{DynamicResource DockToolTabIconMargin}"
+                             VerticalAlignment="Center"
+                             IsVisible="{Binding Icon,
+                                                 Converter={x:Static ObjectConverters.IsNotNull},
+                                                 FallbackValue=False}"
+                             Stretch="Uniform">
+                        <ui:FAIconSourceElement IconSource="{Binding Icon}" />
+                    </Viewbox>
                 </DataTemplate>
             </Setter>
 

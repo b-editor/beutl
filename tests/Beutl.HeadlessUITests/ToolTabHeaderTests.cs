@@ -3,7 +3,10 @@ using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Extensibility;
@@ -150,19 +153,26 @@ public class ToolTabHeaderTests
 
             ToolTabStripItem libraryTab = FindTab(view, dockable => dockable.ToolContext.Extension is LibraryTabExtension);
             var libraryDockable = (BeutlToolDockable)libraryTab.DataContext!;
-            FAIconSourceElement icon = FindIcon(libraryTab);
+            Viewbox slot = FindIconSlot(libraryTab);
+            FAIconSourceElement icon = slot.GetVisualDescendants().OfType<FAIconSourceElement>().Single();
             TextBlock title = libraryTab.GetVisualDescendants()
                 .OfType<TextBlock>()
                 .Single(text => text.Name == "PART_TabTitle");
+
+            var size = (double)slot.FindResource("DockToolTabIconSize")!;
+            // A glyph source draws at its own font size, so measure what reaches the tab rather than
+            // the element's own bounds: an unscaled icon overflows the slot instead of shrinking.
+            Rect drawn = new Rect(icon.Bounds.Size).TransformToAABB(icon.TransformToVisual(libraryTab)!.Value);
 
             Assert.Multiple(() =>
             {
                 Assert.That(libraryDockable.Icon, Is.Not.Null);
                 Assert.That(icon.IconSource, Is.SameAs(libraryDockable.Icon));
-                Assert.That(icon.IsVisible, Is.True);
-                Assert.That(icon.Bounds.Width, Is.EqualTo(icon.FindResource("DockToolTabIconSize")));
+                Assert.That(slot.IsVisible, Is.True);
+                Assert.That(drawn.Width, Is.EqualTo(size).Within(0.01));
+                Assert.That(drawn.Height, Is.EqualTo(size).Within(0.01));
                 Assert.That(
-                    icon.TranslatePoint(new Point(icon.Bounds.Width, 0), libraryTab)!.Value.X,
+                    drawn.Right,
                     Is.LessThanOrEqualTo(title.TranslatePoint(default, libraryTab)!.Value.X));
             });
 
@@ -171,11 +181,56 @@ public class ToolTabHeaderTests
             Assert.That(editor.OpenToolTab(withoutIcon), Is.True);
             HeadlessTestHelpers.Render();
 
-            FAIconSourceElement plainIcon = FindIcon(FindTab(view, dockable => ReferenceEquals(dockable.ToolContext, withoutIcon)));
+            Viewbox plainSlot = FindIconSlot(FindTab(view, dockable => ReferenceEquals(dockable.ToolContext, withoutIcon)));
             Assert.Multiple(() =>
             {
-                Assert.That(plainIcon.IsVisible, Is.False);
-                Assert.That(plainIcon.Bounds.Width, Is.EqualTo(0));
+                Assert.That(plainSlot.IsVisible, Is.False);
+                Assert.That(plainSlot.Bounds.Width, Is.EqualTo(0));
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task The_tab_icon_is_drawn_no_larger_than_its_slot()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-icon-extent");
+
+        var view = new EditView { DataContext = editor };
+        var window = new Window { Content = view, Width = 900, Height = 700 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            ToolTabStripItem tab = FindTab(view, dockable => dockable.ToolContext.Extension is LibraryTabExtension);
+            Viewbox slot = FindIconSlot(tab);
+            TextBlock title = tab.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(text => text.Name == "PART_TabTitle");
+
+            Point tabOrigin = tab.TranslatePoint(default, window)!.Value;
+            double titleLeft = title.TranslatePoint(default, window)!.Value.X;
+            // Everything left of the title, minus the selected tab's accent underline.
+            var region = new Rect(
+                tabOrigin.X,
+                tabOrigin.Y,
+                titleLeft - tabOrigin.X,
+                Math.Max(0, tab.Bounds.Height - AccentUnderlineHeight));
+
+            Rect ink = MeasureInk(window, region);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ink.Width, Is.GreaterThan(0), "The tab should draw an icon left of its title.");
+                Assert.That(ink.Width, Is.LessThanOrEqualTo(slot.Bounds.Width + 1));
+                Assert.That(ink.Height, Is.LessThanOrEqualTo(slot.Bounds.Height + 1));
             });
         }
         finally
@@ -192,14 +247,63 @@ public class ToolTabHeaderTests
             .Single(item => item.DataContext is BeutlToolDockable dockable && predicate(dockable));
     }
 
-    private static FAIconSourceElement FindIcon(ToolTabStripItem tab)
+    private static Viewbox FindIconSlot(ToolTabStripItem tab)
     {
         return tab.GetVisualDescendants()
             .OfType<ContentPresenter>()
             .Single(presenter => presenter.Name == "PART_IconPresenter")
             .GetVisualDescendants()
-            .OfType<FAIconSourceElement>()
+            .OfType<Viewbox>()
             .Single();
+    }
+
+    private const int AccentUnderlineHeight = 3;
+
+    // The tab background renders at 249 and the icon's strokes well below 235, so anything darker
+    // than this is drawn content rather than the tab itself.
+    private const int InkThreshold = 235;
+
+    // Measures what the icon actually paints. Its element bounds cannot stand in for this: a glyph
+    // source draws at its own font size and overflows a smaller element instead of shrinking to it,
+    // so only the rendered pixels show whether the slot really sizes the icon.
+    private static Rect MeasureInk(Window window, Rect region)
+    {
+        using WriteableBitmap frame = window.CaptureRenderedFrame()
+            ?? throw new InvalidOperationException("CaptureRenderedFrame returned null; the window never rendered.");
+        using ILockedFramebuffer buffer = frame.Lock();
+        Assert.That(buffer.Format, Is.EqualTo(PixelFormat.Rgba8888).Or.EqualTo(PixelFormat.Bgra8888),
+            $"MeasureInk assumes a 32bpp RGBA or BGRA framebuffer but the frame is {buffer.Format}.");
+
+        double scale = window.RenderScaling;
+        int left = Math.Max(0, (int)Math.Floor(region.X * scale));
+        int top = Math.Max(0, (int)Math.Floor(region.Y * scale));
+        int right = Math.Min(buffer.Size.Width, (int)Math.Ceiling(region.Right * scale));
+        int bottom = Math.Min(buffer.Size.Height, (int)Math.Ceiling(region.Bottom * scale));
+
+        int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+        unsafe
+        {
+            for (int y = top; y < bottom; y++)
+            {
+                uint* row = (uint*)((byte*)buffer.Address + (y * buffer.RowBytes));
+                for (int x = left; x < right; x++)
+                {
+                    uint pixel = row[x];
+                    // A mean over the three colour channels is the same whichever order they came in.
+                    int mean = (int)(((pixel & 0xFF) + ((pixel >> 8) & 0xFF) + ((pixel >> 16) & 0xFF)) / 3);
+                    if (mean >= InkThreshold) continue;
+
+                    minX = Math.Min(minX, x);
+                    maxX = Math.Max(maxX, x);
+                    minY = Math.Min(minY, y);
+                    maxY = Math.Max(maxY, y);
+                }
+            }
+        }
+
+        return minX == int.MaxValue
+            ? default
+            : new Rect(minX / scale, minY / scale, (maxX - minX + 1) / scale, (maxY - minY + 1) / scale);
     }
 
     private sealed class FakeToolContext(string header, ToolTabExtension? extension = null) : IToolContext
