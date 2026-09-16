@@ -98,18 +98,22 @@ public class ProcessTreeWalkTests
     }
 
     [Test]
-    public void Listing_that_runs_past_its_end_is_not_read()
+    public void Listing_whose_offsets_leave_the_entries_is_not_read()
     {
         int size = Unsafe.SizeOf<WindowsInterop.SystemProcessInformation>();
         byte[] pointsPastTheEnd = new byte[size];
         Write(pointsPastTheEnd, 0, nextEntryOffset: size * 2, threads: 1, createTime: 110, id: 11, parentId: RootId);
         byte[] endsInsideAnEntry = new byte[size + 8];
         Write(endsInsideAnEntry, 0, nextEntryOffset: size, threads: 1, createTime: 110, id: 11, parentId: RootId);
+        // An offset inside the entry would read its own bytes as the next one, where a zero ends the listing.
+        byte[] pointsInsideItself = new byte[size * 2];
+        Write(pointsInsideItself, 0, nextEntryOffset: 8, threads: 1, createTime: 110, id: 11, parentId: RootId);
 
         Assert.Multiple(() =>
         {
             Assert.That(SystemProcessListing.TryRead(pointsPastTheEnd, []), Is.False);
             Assert.That(SystemProcessListing.TryRead(endsInsideAnEntry, []), Is.False);
+            Assert.That(SystemProcessListing.TryRead(pointsInsideItself, []), Is.False);
             Assert.That(SystemProcessListing.TryRead(new byte[size - 1], []), Is.False);
         });
     }

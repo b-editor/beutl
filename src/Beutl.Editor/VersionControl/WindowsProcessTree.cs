@@ -129,7 +129,9 @@ internal static class SystemProcessListing
                 return true;
             }
 
-            if (information.NextEntryOffset > (uint)(listing.Length - offset))
+            // The next entry starts past this one and inside the listing; anything else is not a listing.
+            if (information.NextEntryOffset < (uint)entrySize
+                || information.NextEntryOffset > (uint)(listing.Length - offset))
             {
                 return false;
             }

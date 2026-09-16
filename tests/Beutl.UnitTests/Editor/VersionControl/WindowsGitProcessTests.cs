@@ -1,0 +1,229 @@
+﻿using System.ComponentModel;
+using System.Diagnostics;
+using Beutl.Editor.VersionControl;
+
+namespace Beutl.UnitTests.Editor.VersionControl;
+
+// The suspended start and its job object, on Windows. Elsewhere these are skipped; the parts that run on
+// every platform are covered by WindowsProcessArgumentsTests and ProcessTreeWalkTests.
+[TestFixture]
+public class WindowsGitProcessTests
+{
+    private const string StartDetachedPing =
+        "$child = Start-Process -FilePath ping.exe -ArgumentList '-n','60','127.0.0.1' -NoNewWindow -PassThru; "
+        + "Set-Content -LiteralPath $env:BEUTL_TEST_PROCESS_PID -Value $child.Id";
+
+    private readonly List<string> _temporaryDirectories = [];
+
+    [SetUp]
+    public void RequireWindows()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("These tests start Windows processes.");
+        }
+    }
+
+    [TearDown]
+    public void DeleteTemporaryDirectories()
+    {
+        foreach (string directory in _temporaryDirectories)
+        {
+            try
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+
+        _temporaryDirectories.Clear();
+    }
+
+    [Test]
+    public async Task Command_runs_in_a_job_with_its_arguments_environment_input_and_exit_code()
+    {
+        string directory = CreateTemporaryDirectory();
+        ProcessStartInfo startInfo = CreateStartInfo(
+            "cmd.exe",
+            "/d",
+            "/c",
+            "cd & echo %BEUTL_TEST_VALUE% & sort & exit /b 7");
+        startInfo.WorkingDirectory = directory;
+        startInfo.Environment["BEUTL_TEST_VALUE"] = "environment value";
+
+        using GitProcess process = GitProcess.Start(startInfo);
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+        Task<string> stderr = process.StandardError.ReadToEndAsync();
+        await process.StandardInput.WriteLineAsync("standard input");
+        process.StandardInput.Close();
+        await Task.WhenAll(process.WaitForExitAsync(), stdout, stderr).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(process.OwnsDescendants, Is.True);
+            Assert.That(stdout.Result, Does.Contain(Path.GetFileName(directory)));
+            Assert.That(stdout.Result, Does.Contain("environment value"));
+            Assert.That(stdout.Result, Does.Contain("standard input"));
+            Assert.That(process.TryGetExitCode(out int exitCode), Is.True);
+            Assert.That(exitCode, Is.EqualTo(7));
+        });
+    }
+
+    [Test]
+    public void Missing_executable_fails_to_start()
+    {
+        string missing = Path.Combine(CreateTemporaryDirectory(), "missing.exe");
+
+        Win32Exception? exception = Assert.Throws<Win32Exception>(
+            () => GitProcess.Start(CreateStartInfo(missing)));
+
+        Assert.That(exception!.Message, Does.Contain(missing));
+    }
+
+    // PowerShell starts ping with its own standard handles and exits, so ping outlives its parent and
+    // holds the command's pipes. The job still owns it.
+    [Test]
+    public async Task Job_owns_a_descendant_whose_parent_has_exited_until_it_is_killed()
+    {
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "ping.pid");
+        ProcessStartInfo startInfo = CreateStartInfo(
+            "powershell.exe",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            StartDetachedPing);
+        startInfo.Environment["BEUTL_TEST_PROCESS_PID"] = pidPath;
+        using GitProcess process = GitProcess.Start(startInfo);
+        process.StandardInput.Close();
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+        Task<string> stderr = process.StandardError.ReadToEndAsync();
+        Process? descendant = null;
+
+        try
+        {
+            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(60));
+            descendant = Process.GetProcessById(await ReadProcessIdAsync(pidPath));
+            Task groupExit = process.WaitForGroupExitAsync();
+            await Task.Delay(500);
+            Assert.That(groupExit.IsCompleted, Is.False);
+
+            process.Kill();
+
+            await groupExit.WaitAsync(TimeSpan.FromSeconds(10));
+            await Task.WhenAll(stdout, stderr).WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(descendant.WaitForExit(TimeSpan.FromSeconds(10)), Is.True);
+        }
+        finally
+        {
+            KillQuietly(descendant);
+            descendant?.Dispose();
+        }
+    }
+
+    [Test]
+    public async Task Runner_timeout_ends_a_descendant_that_holds_its_pipes()
+    {
+        string directory = CreateTemporaryDirectory();
+        string pidPath = Path.Combine(directory, "ping.pid");
+        var runner = new GitCliRunner(
+            "powershell.exe",
+            TimeSpan.FromSeconds(15),
+            new Dictionary<string, string?> { ["BEUTL_TEST_PROCESS_PID"] = pidPath });
+        Task<GitCommandResult> runTask = runner.RunAsync(
+            new RepositoryInfo(directory, directory),
+            ["-NoProfile", "-NonInteractive", "-Command", StartDetachedPing],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Process? descendant = null;
+
+        try
+        {
+            descendant = Process.GetProcessById(await ReadProcessIdAsync(pidPath));
+            Assert.ThrowsAsync<TimeoutException>(async () => await runTask.WaitAsync(TimeSpan.FromSeconds(60)));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(descendant.WaitForExit(TimeSpan.FromSeconds(10)), Is.True);
+                Assert.That(runner.HasActiveProcess, Is.False);
+            });
+        }
+        finally
+        {
+            KillQuietly(descendant);
+            descendant?.Dispose();
+            try
+            {
+                await runTask.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            catch (Exception)
+            {
+            }
+        }
+    }
+
+    private static ProcessStartInfo CreateStartInfo(string fileName, params string[] arguments)
+    {
+        var startInfo = new ProcessStartInfo(fileName)
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        return startInfo;
+    }
+
+    private string CreateTemporaryDirectory()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"beutl-windows-process-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        _temporaryDirectories.Add(directory);
+        return directory;
+    }
+
+    private static async Task<int> ReadProcessIdAsync(string pidPath)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        while (stopwatch.Elapsed < TimeSpan.FromSeconds(60))
+        {
+            try
+            {
+                if (File.Exists(pidPath)
+                    && int.TryParse((await File.ReadAllTextAsync(pidPath)).Trim(), out int pid))
+                {
+                    return pid;
+                }
+            }
+            catch (IOException)
+            {
+                // PowerShell may still be writing the file.
+            }
+
+            await Task.Delay(50);
+        }
+
+        Assert.Fail("The descendant did not record its process id.");
+        return 0;
+    }
+
+    private static void KillQuietly(Process? process)
+    {
+        try
+        {
+            if (process is { HasExited: false })
+            {
+                process.Kill();
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
+        {
+        }
+    }
+}
