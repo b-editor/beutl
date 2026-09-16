@@ -7,6 +7,7 @@ namespace Beutl.Editor.VersionControl;
 internal sealed partial class GitInstallationLocator
 {
     private static readonly TimeSpan s_defaultDiscoveryTimeout = TimeSpan.FromSeconds(10);
+    internal static readonly TimeSpan DiscoveryCacheLifetime = TimeSpan.FromSeconds(5);
 
     public static readonly Version MinimumVersion = new(2, 36);
 
@@ -14,6 +15,15 @@ internal sealed partial class GitInstallationLocator
     private readonly TimeSpan _discoveryTimeout;
     private readonly IGitInstallationProbe _probe;
     private readonly GitHostPlatform _platform;
+    private readonly TimeProvider _timeProvider;
+    private readonly object _cacheGate = new();
+    private DiscoveryKey? _cachedKey;
+    private GitAvailability? _cachedAvailability;
+    private long _cachedAt;
+
+    private sealed record DiscoveryKey(
+        string? Executable, string? Path, string? PathExtensions, string? ProgramFiles,
+        string? DeveloperDirectory, string? Toolchains, string WorkingDirectory);
 
     public GitInstallationLocator(VersionControlConfig config)
         : this(config, ProcessGitInstallationProbe.Instance, GetCurrentPlatform())
@@ -32,7 +42,8 @@ internal sealed partial class GitInstallationLocator
         VersionControlConfig config,
         IGitInstallationProbe probe,
         GitHostPlatform platform,
-        TimeSpan discoveryTimeout)
+        TimeSpan discoveryTimeout,
+        TimeProvider? timeProvider = null)
     {
         if (discoveryTimeout <= TimeSpan.Zero)
         {
@@ -43,6 +54,7 @@ internal sealed partial class GitInstallationLocator
         _probe = probe ?? throw new ArgumentNullException(nameof(probe));
         _platform = platform;
         _discoveryTimeout = discoveryTimeout;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     internal VersionControlConfig Config => _config;
@@ -50,6 +62,16 @@ internal sealed partial class GitInstallationLocator
     public async Task<GitAvailability> LocateAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        DiscoveryKey key = GetDiscoveryKey();
+        lock (_cacheGate)
+        {
+            if (_cachedKey == key && _cachedAvailability is { } cached
+                && _timeProvider.GetElapsedTime(_cachedAt) < DiscoveryCacheLifetime)
+            {
+                return cached;
+            }
+        }
+
         using var timeoutCts = new CancellationTokenSource(_discoveryTimeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
@@ -58,16 +80,21 @@ internal sealed partial class GitInstallationLocator
         GitAvailability timeoutFallback = GitAvailability.NotInstalled;
         try
         {
-            IReadOnlyList<string> candidates = await GetCandidatesAsync(discoveryToken).ConfigureAwait(false);
+            IReadOnlyList<string> candidates = await GetCandidatesAsync(key.Executable, discoveryToken).ConfigureAwait(false);
             discoveryToken.ThrowIfCancellationRequested();
             GitAvailability? oldestSupportedFailure = null;
 
             StringComparer candidateComparer = _platform == GitHostPlatform.Windows
                 ? StringComparer.OrdinalIgnoreCase
                 : StringComparer.Ordinal;
-            foreach (string candidate in candidates.Distinct(candidateComparer))
+            foreach (string discoveredCandidate in candidates.Distinct(candidateComparer))
             {
                 discoveryToken.ThrowIfCancellationRequested();
+                string candidate = discoveredCandidate;
+                if (_platform == GitHostPlatform.MacOS && key.Executable is null && IsMacSystemGit(candidate))
+                {
+                    candidate = await ResolveMacSystemGitAsync(candidate, discoveryToken).ConfigureAwait(false);
+                }
                 GitProbeResult result = await _probe.RunAsync(
                     candidate,
                     ["--version"],
@@ -100,7 +127,20 @@ internal sealed partial class GitInstallationLocator
                     ["lfs", "version"],
                     discoveryToken).ConfigureAwait(false);
                 discoveryToken.ThrowIfCancellationRequested();
-                return installedWithoutLfs with { LfsInstalled = lfs.ExitCode == 0 };
+                GitAvailability availability = installedWithoutLfs with { LfsInstalled = lfs.ExitCode == 0 };
+                // A timed-out or otherwise failed LFS probe must be retried, not remembered as
+                // a successful discovery. Only a confirmed install/absence is reusable.
+                if (lfs.ExitCode is 0 or 1 && key == GetDiscoveryKey())
+                {
+                    lock (_cacheGate)
+                    {
+                        _cachedKey = key;
+                        _cachedAvailability = availability;
+                        _cachedAt = _timeProvider.GetTimestamp();
+                    }
+                }
+
+                return availability;
             }
 
             discoveryToken.ThrowIfCancellationRequested();
@@ -129,11 +169,37 @@ internal sealed partial class GitInstallationLocator
         return true;
     }
 
-    private async Task<IReadOnlyList<string>> GetCandidatesAsync(CancellationToken cancellationToken)
+    private DiscoveryKey GetDiscoveryKey()
     {
-        if (!string.IsNullOrWhiteSpace(_config.GitExecutablePath))
+        string? configured = _config.GitExecutablePath;
+        return new DiscoveryKey(
+            string.IsNullOrWhiteSpace(configured) ? null : Path.GetFullPath(configured),
+            _probe.GetEnvironmentVariable("PATH"),
+            _probe.GetEnvironmentVariable("PATHEXT"),
+            _probe.GetEnvironmentVariable("ProgramFiles"),
+            _probe.GetEnvironmentVariable("DEVELOPER_DIR"),
+            _probe.GetEnvironmentVariable("TOOLCHAINS"),
+            Environment.CurrentDirectory);
+    }
+
+    private async Task<string> ResolveMacSystemGitAsync(string fallback, CancellationToken cancellationToken)
+    {
+        // GetCandidatesAsync only includes the system shim after checking that developer tools
+        // are installed. Resolve its selected implementation once instead of launching the shim
+        // for every repository command. An explicit executable override remains authoritative.
+        GitProbeResult result = await _probe.RunAsync(
+            "/usr/bin/xcrun", ["--find", "git"], cancellationToken).ConfigureAwait(false);
+        string path = result.Stdout.Trim();
+        return result.ExitCode == 0 && Path.IsPathFullyQualified(path) && !path.Any(char.IsControl)
+               && _probe.FileExists(path)
+            ? path : fallback;
+    }
+
+    private async Task<IReadOnlyList<string>> GetCandidatesAsync(string? configuredPath, CancellationToken cancellationToken)
+    {
+        if (configuredPath is not null)
         {
-            return [Path.GetFullPath(_config.GitExecutablePath)];
+            return [configuredPath];
         }
 
         var candidates = new List<string>();
@@ -187,7 +253,9 @@ internal sealed partial class GitInstallationLocator
     }
 
     private static bool IsMacSystemGit(string path)
-        => string.Equals(Path.GetFullPath(path), "/usr/bin/git", StringComparison.Ordinal);
+        // Candidate paths are already absolute/normalized. Do not normalize a macOS path with
+        // the host's path rules when the discovery platform is supplied by a test.
+        => string.Equals(path, "/usr/bin/git", StringComparison.Ordinal);
 
     private static GitHostPlatform GetCurrentPlatform()
     {

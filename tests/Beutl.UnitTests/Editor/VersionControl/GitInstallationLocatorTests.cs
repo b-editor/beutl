@@ -1,12 +1,92 @@
 ﻿using System.Diagnostics;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
 public class GitInstallationLocatorTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Mac_system_git_uses_the_selected_implementation_only_for_automatic_discovery(bool explicitOverride)
+    {
+        string selected = Path.GetFullPath(Path.Combine("Xcode.app", "Contents", "Developer", "usr", "bin", "git"));
+        var config = new VersionControlConfig { GitExecutablePath = explicitOverride ? "/usr/bin/git" : null };
+        var probe = new FakeProbe
+        {
+            Paths = ["/usr/bin/git"],
+            ExistingFiles = ["/usr/bin/git", selected],
+            MacCommandLineToolsInstalled = true,
+        };
+        probe.Results[("/usr/bin/xcrun", "--find git")] = new GitProbeResult(0, selected + "\n", "");
+        foreach (string executable in new[] { Path.GetFullPath("/usr/bin/git"), selected })
+        {
+            probe.Results[(executable, "--version")] = new GitProbeResult(0, "git version 2.50.1", "");
+            probe.Results[(executable, "lfs version")] = new GitProbeResult(0, "git-lfs/3.7.0", "");
+        }
+        var locator = new GitInstallationLocator(config, probe, GitHostPlatform.MacOS);
+        Assert.That((await locator.LocateAsync()).GitPath,
+            Is.EqualTo(explicitOverride ? Path.GetFullPath("/usr/bin/git") : selected));
+        Assert.That(probe.RunCalls.Count(call => call.Executable == "/usr/bin/xcrun"), Is.EqualTo(explicitOverride ? 0 : 1));
+    }
+
+    [Test]
+    public async Task Failed_system_git_resolution_falls_back_to_the_installed_shim()
+    {
+        var probe = new FakeProbe { Paths = ["/usr/bin/git"], MacCommandLineToolsInstalled = true };
+        probe.Results[("/usr/bin/xcrun", "--find git")] = new GitProbeResult(1, "", "lookup failed");
+        probe.Results[("/usr/bin/git", "--version")] = new GitProbeResult(0, "git version 2.50.1", "");
+        var locator = new GitInstallationLocator(new VersionControlConfig(), probe, GitHostPlatform.MacOS);
+        Assert.That((await locator.LocateAsync()).GitPath, Is.EqualTo("/usr/bin/git"));
+    }
+
+    [Test]
+    public async Task Successful_discovery_is_reused_briefly_and_reprobed_after_expiry_or_path_changes()
+    {
+        string firstPath = Path.GetFullPath(Path.Combine("custom", "git"));
+        string secondPath = Path.GetFullPath(Path.Combine("other", "git"));
+        var config = new VersionControlConfig { GitExecutablePath = firstPath };
+        var probe = new FakeProbe();
+        foreach (string path in new[] { firstPath, secondPath })
+        {
+            probe.Results[(path, "--version")] = new GitProbeResult(0, "git version 2.43.1", "");
+            probe.Results[(path, "lfs version")] = new GitProbeResult(0, "git-lfs/3.5.1", "");
+        }
+        var clock = new FakeTimeProvider();
+        var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux, TimeSpan.FromSeconds(10), clock);
+        await locator.LocateAsync();
+        await locator.LocateAsync();
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(2));
+        Assert.ThrowsAsync<OperationCanceledException>(async () => await locator.LocateAsync(new CancellationToken(true)));
+        clock.Advance(GitInstallationLocator.DiscoveryCacheLifetime);
+        await locator.LocateAsync();
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(4));
+        config.GitExecutablePath = secondPath;
+        Assert.That((await locator.LocateAsync()).GitPath, Is.EqualTo(secondPath));
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(6));
+        probe.Environment["PATH"] = "different search path";
+        await locator.LocateAsync();
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(8));
+    }
+
+    [Test]
+    public async Task Missing_git_and_failed_lfs_probes_are_not_cached()
+    {
+        string path = Path.GetFullPath(Path.Combine("custom", "git"));
+        var config = new VersionControlConfig { GitExecutablePath = path };
+        var probe = new FakeProbe();
+        var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+        Assert.That((await locator.LocateAsync()).State, Is.EqualTo(GitAvailabilityState.NotInstalled));
+        probe.Results[(path, "--version")] = new GitProbeResult(0, "git version 2.43.1", "");
+        probe.Results[(path, "lfs version")] = new GitProbeResult(-1, "", "timeout");
+        Assert.That((await locator.LocateAsync()).LfsInstalled, Is.False);
+        probe.Results[(path, "lfs version")] = new GitProbeResult(0, "git-lfs/3.5.1", "");
+        Assert.That((await locator.LocateAsync()).LfsInstalled, Is.True);
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(5));
+    }
+
     [Test]
     public async Task Override_path_is_authoritative_and_lfs_is_probed()
     {
@@ -652,6 +732,7 @@ public class GitInstallationLocatorTests
 
     private sealed class FakeProbe : IGitInstallationProbe
     {
+        public Dictionary<string, string?> Environment { get; } = [];
         public IReadOnlyList<string> Paths { get; init; } = [];
 
         public TimeSpan FindOnPathDelay { get; init; }
@@ -706,6 +787,6 @@ public class GitInstallationLocatorTests
 
         public bool FileExists(string path) => ExistingFiles.Contains(path);
 
-        public string? GetEnvironmentVariable(string name) => null;
+        public string? GetEnvironmentVariable(string name) => Environment.GetValueOrDefault(name);
     }
 }
