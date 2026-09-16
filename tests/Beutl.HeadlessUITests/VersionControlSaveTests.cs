@@ -528,6 +528,7 @@ public class VersionControlSaveTests
             {
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
                 // Closing disables the editor only behind the progress view.
+                Assert.That(disabledEditors, Is.Not.Empty);
                 Assert.That(disabledEditors, Has.All.EqualTo(ProjectLifecycleActivity.ClosingProject));
                 Assert.That(
                     TestShell.Editor.LifecycleActivity.Value,
