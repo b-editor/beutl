@@ -234,7 +234,7 @@ public sealed class DeviceBufferBudgetTests
             offenders,
             Is.Empty,
             "a buffer-dimension budget is named by BufferDimensionBudget alone; a second public member "
-            + "naming one is the collision this consolidated");
+            + "naming one re-opens the collision this type consolidated away");
     }
 
     [Test]

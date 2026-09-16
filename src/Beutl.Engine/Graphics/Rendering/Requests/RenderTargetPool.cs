@@ -316,7 +316,7 @@ internal sealed class RenderTargetPool : IDisposable
     /// it measured against one; anything else is bounded by the engine ceiling planning already clamped the
     /// density to, and its own allocator declines what it cannot make - <see cref="TryAcquire"/> reports
     /// that as the same decline. A named <see cref="RenderTargetPoolOptions.Budget"/> overrides both,
-    /// because it states what this pool may attach whoever allocates it.
+    /// because it states what this pool may attach regardless of which allocator makes the allocation.
     /// </remarks>
     private BufferDimensionBudget ResolveBufferBudget(RenderTargetLeaseSession request)
         => _options.Budget
