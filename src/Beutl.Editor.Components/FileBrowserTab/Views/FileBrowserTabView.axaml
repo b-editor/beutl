@@ -244,7 +244,7 @@
                         Grid.Column="1"
                         Margin="2,0,0,0"
                         AutomationProperties.Name="{x:Static lang:Strings.StorageLocations}"
-                        IsVisible="{Binding ShowStorageServices.Value}"
+                        IsVisible="{Binding HasStorageProviders}"
                         Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.StorageLocations}">
                     <icons:FluentIcon FontSize="16" Icon="MoreVertical" />

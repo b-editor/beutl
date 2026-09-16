@@ -173,21 +173,6 @@
                 </Border>
 
                 <TextBlock Margin="0,16,0,0"
-                           Text="{x:Static lang:Strings.FileBrowser}"
-                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
-                <Border Classes="options-group">
-                    <ctrls:OptionsGroupPanel>
-                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ShowStorageServicesDescription}" Header="{x:Static lang:SettingsStrings.ShowStorageServices}">
-                            <ctrls:OptionsDisplayItem.ActionButton>
-                                <ToggleSwitch x:Name="ShowStorageServicesToggle"
-                                              AutomationProperties.Name="{x:Static lang:SettingsStrings.ShowStorageServices}"
-                                              IsChecked="{Binding ShowStorageServices.Value}" />
-                            </ctrls:OptionsDisplayItem.ActionButton>
-                        </ctrls:OptionsDisplayItem>
-                    </ctrls:OptionsGroupPanel>
-                </Border>
-
-                <TextBlock Margin="0,16,0,0"
                            Text="{x:Static lang:SettingsStrings.EditorSettings}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 

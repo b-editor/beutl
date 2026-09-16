@@ -742,10 +742,4 @@
     <value>AIプランを読み込んでいます…</value>
     <comment/>
   </data>
-  <data name="ShowStorageServices" xml:space="preserve">
-    <value>オンラインストレージを表示</value>
-  </data>
-  <data name="ShowStorageServicesDescription" xml:space="preserve">
-    <value>ファイルブラウザーにストレージサービスを表示します。サービスを開くまで通信は開始しません。</value>
-  </data>
 </root>

@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Avalonia.Data.Converters;
 using Avalonia.Threading;
-using Beutl.Configuration;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
@@ -49,16 +48,14 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         static dialog => dialog.ShowAsync();
 
     public FileBrowserTabViewModel(IEditorContext editorContext)
-        : this(editorContext, GlobalConfiguration.Instance.ViewConfig,
-            editorContext.GetService<FileBrowserStorageProviderRegistry>())
+        : this(editorContext, editorContext.GetService<FileBrowserStorageProviderRegistry>())
     {
     }
 
-    internal FileBrowserTabViewModel(IEditorContext editorContext, ViewConfig config,
-        FileBrowserStorageProviderRegistry? storageProviders)
+    internal FileBrowserTabViewModel(IEditorContext editorContext, FileBrowserStorageProviderRegistry? storageProviders)
     {
         _editorContext = editorContext;
-        InitializeStorage(config, storageProviders);
+        InitializeStorage(storageProviders);
 
         // お気に入り変更時にホームビューを更新
         _favoritesManager.Changed += () =>

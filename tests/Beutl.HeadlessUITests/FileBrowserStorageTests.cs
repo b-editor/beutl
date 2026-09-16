@@ -1,4 +1,5 @@
-﻿using System.Windows.Input;
+﻿using System.Text.Json.Nodes;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -17,11 +18,9 @@ using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Components.FileBrowserTab.Views;
 using Beutl.Extensibility;
 using Beutl.Language;
-using Beutl.Pages.SettingsPages;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.SettingsPages;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
 using Moq;
@@ -38,7 +37,7 @@ public sealed class FileBrowserStorageTests
     {
         var first = new TestProvider("first", "First storage");
         var second = new TestProvider("second", "Second storage");
-        using var vm = Create(new ViewConfig(), first, second);
+        using var vm = Create(first, second);
         var view = new FileBrowserTabView { DataContext = vm };
         var window = new Window { Content = view, Width = 320, Height = 520 };
         try
@@ -86,53 +85,46 @@ public sealed class FileBrowserStorageTests
     }
 
     [AvaloniaTest]
-    public void HidingServicesUpdatesEveryBrowserAndPreservesLocalLocation()
+    public void ReturningToLocalFilesPreservesTheLocationAndOtherTabsConnection()
     {
-        // Visibility changes do not depend on the contents of the host's shared temp directory.
-        string directory = Path.Combine(Path.GetTempPath(), $"beutl-storage-visibility-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"beutl-storage-local-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
-            var config = new ViewConfig();
             var provider = new TestProvider("test", "Test storage");
-            using var first = Create(config, provider);
-            using var second = Create(config, provider);
+            using var first = Create(provider);
+            using var second = Create(provider);
             first.RootPath.Value = directory;
             first.OpenStorage(provider);
             second.OpenStorage(provider);
-            config.ShowStorageServices = false;
-            Assert.That(provider.Browsers.All(x => x.Disposed), Is.True);
-            foreach (var vm in new[] { first, second })
-            {
-                Assert.That(vm.ShowStorageServices.Value, Is.False);
-                Assert.That(vm.IsStorageView.Value, Is.False);
-                Assert.That(vm.StorageBrowser.Value, Is.Null);
-                vm.OpenStorage(provider);
-                Assert.That(vm.StorageBrowser.Value, Is.Null);
-            }
+            first.ShowLocalFiles();
+            Assert.That(provider.Browsers[0].Disposed, Is.True);
+            Assert.That(provider.Browsers[1].Disposed, Is.False);
+            Assert.That(first.IsStorageView.Value, Is.False);
+            Assert.That(first.StorageBrowser.Value, Is.Null);
+            Assert.That(second.IsStorageView.Value, Is.True);
             Assert.That(first.RootPath.Value, Is.EqualTo(directory));
-            config.ShowStorageServices = true;
-            Assert.That(first.ShowStorageServices.Value, Is.True);
-            Assert.That(provider.Browsers, Has.Count.EqualTo(2), "Re-enabling must not connect.");
+            Assert.That(first.HasStorageProviders, Is.True);
+            first.OpenStorage(provider);
+            Assert.That(provider.Browsers, Has.Count.EqualTo(3));
         }
         finally { Directory.Delete(directory, recursive: true); }
     }
 
     [AvaloniaTest]
-    public async Task BeutlConnectionIsLazyAndHidingCancelsRequestsAndAuthenticationSubscriptions()
+    public async Task BeutlConnectionIsLazyAndReturningToLocalCancelsRequestsAndAuthenticationSubscriptions()
     {
         using var handler = new Handler();
         using var http = new HttpClient(handler);
         await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
         SignIn(clients, "a");
         var provider = BeutlProvider(clients);
-        var config = new ViewConfig();
-        using var vm = Create(config, provider);
+        using var vm = Create(provider);
         Assert.That(handler.Requests, Is.Empty);
         vm.OpenStorage(provider);
         await WaitFor(() => handler.Requests.Count == 1);
         var browser = (CloudStorageViewModel)vm.StorageBrowser.Value!;
-        config.ShowStorageServices = false;
+        vm.ShowLocalFiles();
         Assert.That(handler.Requests[0].Token.IsCancellationRequested, Is.True);
         handler.Requests[0].Complete(Response());
         SignIn(clients, "b");
@@ -147,7 +139,7 @@ public sealed class FileBrowserStorageTests
     public void RecreatedViewsReuseTheBrowserWithoutCreatingAnotherConnection()
     {
         var provider = new TestProvider("test", "Test storage");
-        using var vm = Create(new ViewConfig(), provider);
+        using var vm = Create(provider);
         vm.OpenStorage(provider);
         var window = new Window { Width = 320, Height = 520 };
         try
@@ -166,43 +158,23 @@ public sealed class FileBrowserStorageTests
     }
 
     [AvaloniaTest]
-    public void SettingIsPersistedAndTheSettingsPageUpdatesOpenBrowsers()
+    public void LegacyStorageVisibilitySettingDoesNotHideRegisteredServices()
     {
-        var config = GlobalConfiguration.Instance.ViewConfig;
-        bool original = config.ShowStorageServices;
-        try
-        {
-            config.ShowStorageServices = true;
-            var provider = new TestProvider("test", "Test storage");
-            using var browser = Create(config, provider);
-            using var settings = new ViewSettingsPageViewModel(new(() => new EditorSettingsPageViewModel()));
-            var page = new ViewSettingsPage { DataContext = settings };
-            var window = new Window { Content = page, Width = 900, Height = 800 };
-            try
-            {
-                window.Show();
-                var toggle = page.FindControl<ToggleSwitch>("ShowStorageServicesToggle")!;
-                toggle.IsChecked = false;
-                Assert.That(config.ShowStorageServices, Is.False);
-                Assert.That(browser.ShowStorageServices.Value, Is.False);
-                var saved = CoreSerializer.SerializeToJsonObject(config);
-                var restored = new ViewConfig();
-                CoreSerializer.PopulateFromJsonObject(restored, saved);
-                Assert.That(restored.ShowStorageServices, Is.False);
-                Assert.That(new ViewConfig().ShowStorageServices, Is.True);
-                config.ShowStorageServices = true;
-                Assert.That(toggle.IsChecked, Is.True);
-            }
-            finally { window.Close(); }
-        }
-        finally { config.ShowStorageServices = original; }
+        var config = new ViewConfig();
+        CoreSerializer.PopulateFromJsonObject(config, new JsonObject { ["ShowStorageServices"] = false });
+        Assert.That(CoreSerializer.SerializeToJsonObject(config).ContainsKey("ShowStorageServices"), Is.False);
+        var provider = new TestProvider("test", "Test storage");
+        using var vm = Create(provider);
+        Assert.That(vm.HasStorageProviders, Is.True);
+        Assert.That(provider.Browsers, Is.Empty, "Being available in the menu must not connect automatically.");
+        vm.OpenStorage(provider);
+        Assert.That(vm.ActiveStorageProvider.Value, Is.SameAs(provider));
     }
 
     [AvaloniaTest]
-    public void HiddenServicesHaveNoEntryOrLocationMenu()
+    public void NoRegisteredServicesHaveNoLocationMenu()
     {
-        var provider = new TestProvider("test", "Test storage");
-        using var vm = Create(new ViewConfig { ShowStorageServices = false }, provider);
+        using var vm = Create();
         var view = new FileBrowserTabView { DataContext = vm };
         var window = new Window { Content = view, Width = 320, Height = 520 };
         try
@@ -211,19 +183,18 @@ public sealed class FileBrowserStorageTests
             HeadlessTestHelpers.Render();
             Assert.That(view.FindControl<ItemsControl>("StorageLocations"), Is.Null);
             Assert.That(view.FindControl<Button>("StorageLocationsButton")!.IsEffectivelyVisible, Is.False);
-            Assert.That(provider.Browsers, Is.Empty);
+            Assert.That(vm.StorageProviders, Is.Empty);
         }
         finally { window.Close(); }
     }
 
     [AvaloniaTest]
-    public void RegistryRejectsDuplicateIdsAndHidingDuringCreationDisposesTheNewBrowser()
+    public void RegistryRejectsDuplicateIdsAndDisposingDuringCreationDisposesTheNewBrowser()
     {
         var provider = new TestProvider("test", "Test storage");
         Assert.Throws<ArgumentException>(() => new FileBrowserStorageProviderRegistry(provider, provider));
-        var config = new ViewConfig();
-        using var vm = Create(config, provider);
-        provider.OnCreate = () => config.ShowStorageServices = false;
+        using var vm = Create(provider);
+        provider.OnCreate = vm.Dispose;
         vm.OpenStorage(provider);
         Assert.That(vm.StorageBrowser.Value, Is.Null);
         Assert.That(vm.IsStorageView.Value, Is.False);
@@ -238,7 +209,7 @@ public sealed class FileBrowserStorageTests
         await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
         SignIn(clients, "a");
         var provider = BeutlProvider(clients);
-        using var vm = Create(new ViewConfig(), provider);
+        using var vm = Create(provider);
         vm.OpenStorage(provider);
         var browser = (CloudStorageViewModel)vm.StorageBrowser.Value!;
         await WaitFor(() => handler.Requests.Count == 1);
@@ -294,7 +265,7 @@ public sealed class FileBrowserStorageTests
         await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
         SignIn(clients, "a");
         var provider = BeutlProvider(clients);
-        using var vm = Create(new ViewConfig(), provider);
+        using var vm = Create(provider);
         vm.OpenStorage(provider);
         await WaitFor(() => handler.Requests.Count == 1);
         handler.Requests[0].Complete(Response(name: "非常に長い日本語の映像素材-September-2026.mp4"));
@@ -329,8 +300,8 @@ public sealed class FileBrowserStorageTests
         finally { window.Close(); }
     }
 
-    private static FileBrowserTabViewModel Create(ViewConfig config, params IFileBrowserStorageProvider[] providers) =>
-        new(new Mock<IEditorContext>().Object, config, new(providers));
+    private static FileBrowserTabViewModel Create(params IFileBrowserStorageProvider[] providers) =>
+        new(new Mock<IEditorContext>().Object, new(providers));
 
     private static BeutlStorageProvider BeutlProvider(BeutlApiApplication clients) =>
         new(clients, () => throw new InvalidOperationException("Not used by this test"));
