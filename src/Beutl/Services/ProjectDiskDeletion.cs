@@ -22,12 +22,23 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ProjectDiskDeletion>();
 
-    // Neither the scan for other projects nor the deletion may follow a link out of the folder.
+    // The entries made writable before the folder is deleted. Links are skipped, so nothing outside
+    // the folder is touched.
     private static readonly EnumerationOptions s_folderEntries = new()
     {
         RecurseSubdirectories = true,
         AttributesToSkip = FileAttributes.ReparsePoint,
+    };
+
+    // The scan for other projects skips links too, since the deletion removes them without following
+    // them. A subfolder it cannot list could hold a project, though, so it throws there instead of
+    // skipping, and the folder counts as shared.
+    private static readonly EnumerationOptions s_projectScan = new()
+    {
+        RecurseSubdirectories = true,
+        AttributesToSkip = FileAttributes.ReparsePoint,
         MatchCasing = MatchCasing.CaseInsensitive,
+        IgnoreInaccessible = false,
     };
 
     internal Func<FAContentDialog, Task<FAContentDialogResult>> ConfirmAsync { get; set; } =
@@ -200,7 +211,7 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
 
             // Another project inside would be deleted along with this one.
             return Directory
-                .EnumerateFiles(folder, $"*.{EditorConstants.ProjectFileExtension}", s_folderEntries)
+                .EnumerateFiles(folder, $"*.{EditorConstants.ProjectFileExtension}", s_projectScan)
                 .All(file => FilePathComparison.AreSameCanonicalPath(file, projectFile));
         }
         catch (Exception ex) when (ex is IOException

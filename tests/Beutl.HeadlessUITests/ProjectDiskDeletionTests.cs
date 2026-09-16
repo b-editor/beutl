@@ -323,6 +323,40 @@ public class ProjectDiskDeletionTests
     }
 
     [Test]
+    public void Keeps_a_folder_it_cannot_list_completely()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Denying a folder listing takes an ACL change on Windows.");
+            return;
+        }
+
+        string workspace = NewWorkspace("unlistable");
+        string projectFile = CreateFile(Path.Combine(workspace, "guarded", "guarded.bep"), "{}");
+        string locked = Path.Combine(workspace, "guarded", "locked");
+        // The subfolder it cannot list holds another project.
+        CreateFile(Path.Combine(locked, "inner", "inner.bep"), "{}");
+        File.SetUnixFileMode(locked, UnixFileMode.None);
+        try
+        {
+            try
+            {
+                _ = Directory.GetFileSystemEntries(locked);
+                Assert.Ignore("This process can list a folder it has no permission to list.");
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            Assert.That(ProjectDiskDeletion.Resolve(projectFile, [])?.IsFolder, Is.False);
+        }
+        finally
+        {
+            File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    [Test]
     public void Keeps_a_folder_that_holds_or_is_a_protected_folder()
     {
         string workspace = NewWorkspace("protected");
