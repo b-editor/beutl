@@ -464,4 +464,7 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
     <value>Una exportación, un guardado o una operación de control de versiones todavía está usando archivos del proyecto. Espera a que termine e inténtalo de nuevo.</value>
   </data>
+  <data name="WorkspaceBusyCannotOpenFile" xml:space="preserve">
+    <value>Otra operación está modificando archivos del proyecto. Espera a que termine y vuelve a abrir el archivo.</value>
+  </data>
 </root>

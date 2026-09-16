@@ -273,6 +273,44 @@ public class ProjectDiskDeletionTests
     }
 
     [AvaloniaTest]
+    public async Task A_file_is_not_opened_while_a_deletion_holds_the_workspace()
+    {
+        await TestReset.ResetShellAsync();
+        (_, string sceneFile) = await CreateClosedProjectAsync("reopened-scene", NewWorkspace("open-during-delete"));
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+        NotificationService.Handler = notifications;
+        // The deletion runs off the UI thread while it holds this reservation, so the start page can
+        // still ask to open a scene from the folder being deleted.
+        IDisposable deletion = TestShell.Editor.TryBeginWorktreeMutation()!;
+        try
+        {
+            TestShell.MainViewModel.MenuBar.OpenFileCore(sceneFile);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Editor.TabItems.Select(tab => tab.FilePath.Value), Does.Not.Contain(sceneFile));
+                Assert.That(
+                    notifications.All.Select(notification => notification.Message),
+                    Does.Contain(MessageStrings.WorkspaceBusyCannotOpenFile));
+            });
+
+            deletion.Dispose();
+            TestShell.MainViewModel.MenuBar.OpenFileCore(sceneFile);
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(TestShell.Editor.TabItems.Select(tab => tab.FilePath.Value), Does.Contain(sceneFile));
+        }
+        finally
+        {
+            deletion.Dispose();
+            NotificationService.Handler = previousHandler;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Reports_a_project_file_that_is_already_gone()
     {
         INotificationServiceHandler previousHandler = NotificationService.Handler;
