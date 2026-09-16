@@ -13,12 +13,20 @@ These public extension methods return
 - `ToolWindowExtension.GetIcon()` (virtual)
 - `ToolTabExtension.GetIcon()` (virtual)
 
-Their previous return type was `FluentAvalonia.UI.Controls.IconSource?`.
+The first two previously returned `FluentAvalonia.UI.Controls.IconSource?`.
 The return type is part of the CLR method signature. An existing binary's
 override does not implement the new contract, even if the method name and
 namespace are unchanged. Loading exported types can fail and cause strict
 package discovery to reject the entire package. Do not rely on the tool
 window's default `null` icon as a compatibility fallback.
+
+`ToolTabExtension.GetIcon()` has a longer gap. The Dock.Avalonia layout
+migration removed it outright, so releases between that migration and this
+one have no tool-tab icon hook at all; it returns here on the FluentAvalonia
+3 contract. An `override IconSource GetIcon()` compiled against the older
+SDK loads against neither shape — with no base method it overrides nothing,
+and against this one the return type still differs — so such an extension
+needs the same rebuild as the other two, not a compatibility shim.
 
 Update the override and any concrete icon sources. For example, an override
 shared by either extension kind becomes:
