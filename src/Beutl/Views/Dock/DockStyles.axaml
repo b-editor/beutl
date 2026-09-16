@@ -35,8 +35,8 @@
                         header. Dockables that expose no icon collapse it so the title keeps the tab's
                         left edge; the fallback also covers dockables without the property at all.
                     -->
-                    <ui:FAIconSourceElement Width="{DynamicResource DockIconSizeNormal}"
-                                            Height="{DynamicResource DockIconSizeNormal}"
+                    <ui:FAIconSourceElement Width="{DynamicResource DockIconSizeSmall}"
+                                            Height="{DynamicResource DockIconSizeSmall}"
                                             Margin="0,0,4,0"
                                             VerticalAlignment="Center"
                                             IconSource="{Binding Icon}"

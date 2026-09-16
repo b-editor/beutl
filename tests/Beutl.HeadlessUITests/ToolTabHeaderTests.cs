@@ -160,7 +160,7 @@ public class ToolTabHeaderTests
                 Assert.That(libraryDockable.Icon, Is.Not.Null);
                 Assert.That(icon.IconSource, Is.SameAs(libraryDockable.Icon));
                 Assert.That(icon.IsVisible, Is.True);
-                Assert.That(icon.Bounds.Width, Is.EqualTo(icon.FindResource("DockIconSizeNormal")));
+                Assert.That(icon.Bounds.Width, Is.EqualTo(icon.FindResource("DockIconSizeSmall")));
                 Assert.That(
                     icon.TranslatePoint(new Point(icon.Bounds.Width, 0), libraryTab)!.Value.X,
                     Is.LessThanOrEqualTo(title.TranslatePoint(default, libraryTab)!.Value.X));
