@@ -61,6 +61,7 @@ public static class CoreSerializer
         SerializedObjectCapture.Record(obj);
         var type = obj.GetType();
         var context = new JsonSerializationContext(type, ThreadLocalSerializationContext.Current, options: options);
+        context.BeginSerialization(obj);
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Serialize(context);

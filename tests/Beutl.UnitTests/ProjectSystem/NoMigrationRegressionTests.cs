@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json.Nodes;
 using Beutl.Editor;
@@ -280,6 +281,111 @@ public class NoMigrationRegressionTests
         project.Items.Add(restored);
 
         Assert.That(project.MinAppVersion, Is.EqualTo("8.0.0"));
+    }
+
+    [Test]
+    public void A_standalone_value_attached_afterwards_migrates_the_project_it_is_saved_into()
+    {
+        MigratingLeaf leaf = CreateMigrated(new MigratingLeaf("7.0.0"));
+        var owner = new MigratingContainer();
+        string path = Path.Combine(_tempDirectory, "project.bep");
+        var project = new Project { Uri = new Uri(path) };
+        project.Items.Add(owner);
+        // The value reported to a context that has already ended, so no owner knows about it yet.
+        Assert.That(project.MinAppVersion, Is.EqualTo(Project.DefaultMinAppVersion));
+
+        owner.First = leaf;
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        JsonObject saved = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        Assert.Multiple(() =>
+        {
+            Assert.That(project.MinAppVersion, Is.EqualTo("7.0.0"));
+            Assert.That((string?)saved["minAppVersion"], Is.EqualTo("7.0.0"));
+        });
+    }
+
+    [Test]
+    public void Standalone_values_attached_to_one_owner_keep_the_highest_migration()
+    {
+        var owner = new MigratingContainer
+        {
+            First = CreateMigrated(new MigratingLeaf("7.0.0")),
+            Second = CreateMigrated(new MigratingLeaf("9.0.0")),
+        };
+        string path = Path.Combine(_tempDirectory, "project.bep");
+        var project = new Project { Uri = new Uri(path) };
+        project.Items.Add(owner);
+
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        JsonObject saved = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        Assert.That((string?)saved["minAppVersion"], Is.EqualTo("9.0.0"));
+    }
+
+    [Test]
+    public void Saving_a_standalone_value_hands_its_migration_to_the_owner_for_later_saves()
+    {
+        var owner = new MigratingContainer { First = CreateMigrated(new MigratingLeaf("7.0.0")) };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
+    }
+
+    // The metadata is written before the items and rewritten afterwards, so it must keep the place
+    // the released format gives it rather than move to the end of the file.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Project_keys_keep_the_released_order_whether_or_not_a_migration_arrives_late(
+        bool migrate)
+    {
+        string path = Path.Combine(_tempDirectory, "project.bep");
+        var project = new Project { Uri = new Uri(path) };
+        project.Items.Add(migrate
+            ? new MigratingContainer { First = CreateMigrated(new MigratingLeaf("7.0.0")) }
+            : new MigratingContainer());
+
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        Assert.That(
+            string.Join(",", JsonNode.Parse(File.ReadAllText(path))!.AsObject().Select(property => property.Key)),
+            Is.EqualTo("Id,Name,appVersion,minAppVersion,items,variables,$type"));
+    }
+
+    [Test]
+    public void A_failed_standalone_deserialization_retains_no_migration()
+    {
+        var leaf = new ThrowingMigrationLeaf();
+        JsonObject json = CoreSerializer.SerializeToJsonObject(leaf);
+        Assert.Throws<InvalidOperationException>(() =>
+            CoreSerializer.PopulateFromJsonObject(leaf, json));
+
+        var owner = new StandaloneValueOwner { Value = leaf };
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+    }
+
+    [Test]
+    public void A_retained_standalone_migration_does_not_keep_its_value_alive()
+    {
+        WeakReference reference = CreateMigratedLeafReference();
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        Assert.That(reference.IsAlive, Is.False);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateMigratedLeafReference()
+    {
+        MigratingLeaf leaf = CreateMigrated(new MigratingLeaf("7.0.0"));
+        Assert.That(AttachedContentMigrations.Get(leaf), Is.EqualTo("7.0.0"));
+        return new WeakReference(leaf);
     }
 
     [Test]
@@ -677,6 +783,37 @@ public class NoMigrationRegressionTests
         {
             RequiredVersion = context.GetValue<string>(nameof(RequiredVersion))!;
             context.ReportPersistedContentMigration(RequiredVersion);
+        }
+    }
+
+    private sealed class StandaloneValueOwner : ProjectItem
+    {
+        public ICoreSerializable? Value { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Value), Value);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            Value = context.GetValue<ICoreSerializable>(nameof(Value));
+        }
+    }
+
+    private sealed class ThrowingMigrationLeaf : ICoreSerializable
+    {
+        public void Serialize(ICoreSerializationContext context)
+        {
+            context.SetValue("RequiredVersion", "9.0.0");
+        }
+
+        public void Deserialize(ICoreSerializationContext context)
+        {
+            context.ReportPersistedContentMigration("9.0.0");
+            throw new InvalidOperationException("migration failed");
         }
     }
 

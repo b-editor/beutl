@@ -1218,6 +1218,11 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
                     // The scene is the commit record for every child/resource URI. Persist it only
                     // after every referenced file is durable at its new location.
                     CoreSerializer.StoreToUri(scene, sceneUri, CoreSerializationMode.Write);
+                    // A value deserialized on its own and assigned to this scene afterwards
+                    // reports its requirement only while the scene is written, so it cannot reach
+                    // the preflight above. Completing the metadata again keeps that requirement in
+                    // the same save instead of waiting for the next one.
+                    CoreSerializer.PersistProjectMigrationMetadata([scene]);
                     transaction.Commit();
                 }
                 catch

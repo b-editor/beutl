@@ -45,11 +45,16 @@ public partial class JsonSerializationContext
         }
 
         var innerContext = new JsonSerializationContext(actualType, parent);
+        innerContext.BeginSerialization(coreSerializable);
 
         using (ThreadLocalSerializationContext.Enter(innerContext))
         {
             coreSerializable.Serialize(innerContext);
         }
+
+        // Persisting the value is the first point at which the owner of a separately deserialized
+        // value is known, so its retained migration requirement is handed over here.
+        TransferRetainedMigration(coreSerializable, parent);
 
         JsonObject obj = innerContext.GetJsonObject();
 
