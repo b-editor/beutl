@@ -783,34 +783,32 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
-        IReadOnlyList<FileChange> files;
-        int previewRevision = _previewRevision;
+        IProjectVersionControlService service = _service;
         try
         {
-            if (!_fileCache.TryGet(commit.Commit.Sha, out files!))
+            while (!cancellationToken.IsCancellationRequested)
             {
-                files = await _service.GetCommitFilesAsync(commit.Commit.Sha, cancellationToken);
-                if (!cancellationToken.IsCancellationRequested && previewRevision == _previewRevision)
+                int previewRevision = _previewRevision;
+                if (!_fileCache.TryGet(commit.Commit.Sha, out var files))
                 {
+                    files = await service.GetCommitFilesAsync(commit.Commit.Sha, cancellationToken);
+                    if (cancellationToken.IsCancellationRequested) return;
+                    // Keep the same selection alive, but retry against the latest metadata.
+                    if (previewRevision != _previewRevision) continue;
                     files = files.ToArray();
                     _fileCache.Add(commit.Commit.Sha, files,
                         files.Sum(static item => 64L + 2L * (item.Path.Length + (item.OldPath?.Length ?? 0))));
                 }
+
+                foreach (FileChange file in files)
+                {
+                    ChangedFiles.Add(new VersionControlFileChangeViewModel(file));
+                }
+                return;
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return;
-        }
-
-        if (cancellationToken.IsCancellationRequested || previewRevision != _previewRevision)
-        {
-            return;
-        }
-
-        foreach (FileChange file in files)
-        {
-            ChangedFiles.Add(new VersionControlFileChangeViewModel(file));
         }
     }
 
@@ -844,40 +842,31 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
+        IProjectVersionControlService service = _service;
         var cacheKey = (commit.Commit.Sha, file.Change.Path);
-        if (_diffCache.TryGet(cacheKey, out var cachedLines))
-        {
-            DiffLines.AddRange(cachedLines);
-            return;
-        }
-
-        int previewRevision = _previewRevision;
-        string diff;
         try
         {
-            diff = await _service.GetDiffAsync(
-                commit.Commit.Sha,
-                file.Change.Path,
-                cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            return;
-        }
-
-        if (cancellationToken.IsCancellationRequested || previewRevision != _previewRevision)
-        {
-            return;
-        }
-
-        try
-        {
-            IReadOnlyList<VersionControlDiffLineViewModel> lines = await Task.Run(
-                () => VersionControlDiffLineViewModel.Parse(diff, cancellationToken), cancellationToken);
-            if (!cancellationToken.IsCancellationRequested && previewRevision == _previewRevision)
+            while (!cancellationToken.IsCancellationRequested)
             {
+                int previewRevision = _previewRevision;
+                if (_diffCache.TryGet(cacheKey, out var cachedLines))
+                {
+                    DiffLines.AddRange(cachedLines);
+                    return;
+                }
+
+                string diff = await service.GetDiffAsync(commit.Commit.Sha, file.Change.Path, cancellationToken);
+                if (cancellationToken.IsCancellationRequested) return;
+                if (previewRevision != _previewRevision) continue;
+
+                IReadOnlyList<VersionControlDiffLineViewModel> lines = await Task.Run(
+                    () => VersionControlDiffLineViewModel.Parse(diff, cancellationToken), cancellationToken);
+                if (cancellationToken.IsCancellationRequested) return;
+                if (previewRevision != _previewRevision) continue;
+
                 _diffCache.Add(cacheKey, lines, lines.Sum(static line => 48L + 2L * line.Text.Length));
                 DiffLines.AddRange(lines);
+                return;
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
