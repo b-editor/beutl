@@ -31,81 +31,16 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
 
     public override void Process(RenderNodeContext context)
     {
-        Matrix transform = Transform;
-        TransformOperator transformOperator = TransformOperator;
-        Matrix inverse = transform.HasInverse ? transform.Invert() : default;
-        var metadataState = new TransformMetadataState(transform, inverse, context.TargetDomain);
-        RenderBoundsContract bounds = transform.HasInverse
-            ? RenderBoundsContract.Create(
-                metadataState,
-                static (state, value) => state.TransformBounds(value),
-                static (state, value) => state.GetRequiredInputBounds(value))
-            : RenderBoundsContract.CreateFullInput(
-                metadataState,
-                static (state, value) => state.TransformBounds(value));
-        RenderHitTestContract hitTest = RenderHitTestContract.Custom(HitTest);
-        RenderScaleContract scale = RenderScaleContract.MapInputSupply(MapSupply, MapDemand);
-        // Set discards the ambient transform for the canvas base transform, so it moves the input even when
-        // the matrix is identity.
-        RenderDeviceGridMapping gridMapping =
-            transform.IsIdentity && transformOperator != TransformOperator.Set
-                ? RenderDeviceGridMapping.Preserved
-                : RenderDeviceGridMapping.Remapped;
-
-        // Only Prepend places its matrix in the input's own logical space. Append and Set are defined
-        // against the ambient target transform, which the value graph has no representation of.
-        if (transformOperator == TransformOperator.Prepend)
-        {
-            TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
-                (transform, transformOperator),
-                ExecuteTransform,
-                bounds,
-                hitTest,
-                scale,
-                RenderDeviceGridSensitivity.Insensitive,
-                gridMapping,
-                builtInBackdropCapturesBackingTarget: false);
-            context.PublishMappedInputs(
-                description,
-                static (context, input, value) => context.TargetScope(input, value));
-            return;
-        }
-
+        var declaration = new RenderScopeAmbientTransform(Transform, TransformOperator, context.TargetDomain);
+        // Only Prepend is complete as declared. Append and Set are defined against the ambient transform,
+        // which no bottom-up recording can see, so they are recorded over the matrix as written and rewritten
+        // into their input-space equivalent once the whole graph exists.
         context.PublishMappedInputs(
-            TargetScopeDescription.Create(
-                (transform, transformOperator),
-                ExecuteTransform,
-                bounds,
-                hitTest,
-                scale,
-                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
-                deviceGridMapping: gridMapping),
+            RenderScopeAmbientTransform.CreateScope(
+                declaration,
+                declaration.Resolve(Matrix.Identity),
+                capturesBackingTarget: false),
             static (context, input, value) => context.TargetScope(input, value));
-    }
-
-    private bool HitTest(RenderHitTestContext context, Point point)
-    {
-        Matrix transform = Transform;
-        if (!transform.HasInverse)
-            return false;
-        return context.Inputs[0].HitTest(point * transform.Invert());
-    }
-
-    private EffectiveScale MapSupply(EffectiveScale inputSupply) => RescaleDensity(inputSupply, Transform);
-
-    private EffectiveScale MapDemand(EffectiveScale outputDemand) => RescaleDemand(outputDemand, Transform);
-
-    private static void ExecuteTransform(
-        TargetScopeSession session,
-        (Matrix Transform, TransformOperator Operator) state)
-    {
-        session.Canvas.Use(canvas =>
-        {
-            using (canvas.PushTransform(state.Transform, state.Operator))
-            {
-                session.ReplayInput();
-            }
-        });
     }
 
     /// <summary>
@@ -155,15 +90,5 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
         return float.IsFinite(density) && density > 0f
             ? EffectiveScale.At(density)
             : outputDemand;
-    }
-
-    private readonly record struct TransformMetadataState(
-        Matrix Transform,
-        Matrix Inverse,
-        Rect? DeliveredTo)
-    {
-        public Rect TransformBounds(Rect value) => value.TransformToDeliveredAABB(Transform, DeliveredTo);
-
-        public Rect GetRequiredInputBounds(Rect value) => value.TransformToAABB(Inverse);
     }
 }

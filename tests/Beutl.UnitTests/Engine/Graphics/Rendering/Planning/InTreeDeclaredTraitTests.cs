@@ -17,16 +17,20 @@ public sealed class InTreeDeclaredTraitTests
 
     private static readonly Matrix s_subpixelShift = Matrix.CreateTranslation(3.25f, 4.5f);
 
-    [TestCase(TransformOperator.Prepend, false, true, RenderDeviceGridMapping.Remapped)]
-    [TestCase(TransformOperator.Prepend, true, true, RenderDeviceGridMapping.Preserved)]
-    [TestCase(TransformOperator.Append, false, false, RenderDeviceGridMapping.Remapped)]
-    [TestCase(TransformOperator.Append, true, false, RenderDeviceGridMapping.Preserved)]
-    [TestCase(TransformOperator.Set, false, false, RenderDeviceGridMapping.Remapped)]
-    [TestCase(TransformOperator.Set, true, false, RenderDeviceGridMapping.Remapped)]
-    public void TransformRenderNode_DeclaresEligibilityAndGridMappingIndependently(
+    /// <remarks>
+    /// Every composition is resolved into one input-space matrix before anything reads the scope, so both
+    /// declarations follow from that matrix alone and no operator has a rule of its own. Recorded standing
+    /// alone, the ambient is the identity, so the resolved matrix is the one written here.
+    /// </remarks>
+    [TestCase(TransformOperator.Prepend, false, RenderDeviceGridMapping.Remapped)]
+    [TestCase(TransformOperator.Prepend, true, RenderDeviceGridMapping.Preserved)]
+    [TestCase(TransformOperator.Append, false, RenderDeviceGridMapping.Remapped)]
+    [TestCase(TransformOperator.Append, true, RenderDeviceGridMapping.Preserved)]
+    [TestCase(TransformOperator.Set, false, RenderDeviceGridMapping.Remapped)]
+    [TestCase(TransformOperator.Set, true, RenderDeviceGridMapping.Preserved)]
+    public void TransformRenderNode_DeclaresItsGridMappingFromTheResolvedMatrix(
         TransformOperator transformOperator,
         bool identityMatrix,
-        bool expectedValueReplayMap,
         RenderDeviceGridMapping expectedMapping)
     {
         using var transform = new TransformRenderNode(
@@ -38,7 +42,7 @@ public sealed class InTreeDeclaredTraitTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(description.IsValueReplayMap, Is.EqualTo(expectedValueReplayMap));
+            Assert.That(description.IsValueReplayMap, Is.True);
             Assert.That(description.DeviceGridMapping, Is.EqualTo(expectedMapping));
         });
     }
