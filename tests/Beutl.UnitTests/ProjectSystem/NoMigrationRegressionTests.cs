@@ -334,6 +334,22 @@ public class NoMigrationRegressionTests
         Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
     }
 
+    // A converter reaches CoreSerializer's root entry point rather than SerializeCoreSerializable,
+    // so the requirement has to be handed over there too.
+    [Test]
+    public void A_standalone_value_reached_through_a_converter_migrates_its_owner()
+    {
+        var owner = new OptionalValueOwner
+        {
+            Value = new Optional<MigratingLeaf>(CreateMigrated(new MigratingLeaf("7.0.0"))),
+        };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
+    }
+
     // The metadata is written before the items and rewritten afterwards, so it must keep the place
     // the released format gives it rather than move to the end of the file.
     [TestCase(false)]
@@ -814,6 +830,23 @@ public class NoMigrationRegressionTests
         {
             RequiredVersion = context.GetValue<string>(nameof(RequiredVersion))!;
             context.ReportPersistedContentMigration(RequiredVersion);
+        }
+    }
+
+    private sealed class OptionalValueOwner : ProjectItem
+    {
+        public Optional<MigratingLeaf> Value { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Value), Value);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            Value = context.GetValue<Optional<MigratingLeaf>>(nameof(Value));
         }
     }
 

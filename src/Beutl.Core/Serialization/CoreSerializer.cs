@@ -127,6 +127,11 @@ public static class CoreSerializer
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Serialize(context);
+            // A System.Text.Json converter routes a nested value through this entry point instead of
+            // SerializeCoreSerializable — an Optional<T> holding one, or a property whose declared
+            // type sends it to CoreSerializableJsonConverter — so the requirement is handed to the
+            // ambient owner here as well. A save that starts here has no parent and skips it.
+            JsonSerializationContext.TransferRetainedMigration(obj, context.Parent);
             var jsonObject = context.GetJsonObject();
             jsonObject.WriteDiscriminator(type);
             return jsonObject;
