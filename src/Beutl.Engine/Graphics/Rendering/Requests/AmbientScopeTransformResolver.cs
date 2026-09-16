@@ -48,14 +48,17 @@ internal static class AmbientScopeTransformResolver
             Matrix effective = declaration.Resolve(ambient);
             if (declaration.DependsOnAmbient)
             {
-                // Recording bars a fragment over such a scope from fan-out, which is what leaves one ambient
-                // per scope to resolve. The fragment holds one description, so a second one would overwrite
-                // the first silently rather than stop.
+                // A fragment holds one description, so a scope shared by consumers that contribute the same
+                // ambient resolves once and answers both. Two ambients have no such answer, and overwriting
+                // the first would hand one consumer the other's matrix without a word.
                 if (resolved.TryGetValue(reference, out Matrix previous) && previous != ambient)
                 {
                     throw new InvalidOperationException(
-                        "A scope whose transform is defined against the ambient transform was reached under "
-                        + "two different ambients, so one description would have to answer for both.");
+                        "A scope whose transform is defined against the ambient transform - "
+                        + "TransformOperator.Append or TransformOperator.Set - was reached under two different "
+                        + "ambient transforms, and one scope resolves to one matrix. Record the subtree once "
+                        + "per consumer, or express the scope with TransformOperator.Prepend, which is stated "
+                        + "in its input's own space and needs no ambient.");
                 }
 
                 resolved[reference] = ambient;

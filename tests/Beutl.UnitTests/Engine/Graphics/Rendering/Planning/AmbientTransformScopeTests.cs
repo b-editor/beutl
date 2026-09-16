@@ -195,29 +195,49 @@ public sealed class AmbientTransformScopeTests
     }
 
     /// <remarks>
-    /// One fragment holds one description, so a scope that resolves to a different matrix per ambient has an
-    /// answer only while it has one consuming path. Recording says so where the mistake is made rather than
-    /// letting the second consumer silently take the first one's matrix, and the bar is carried up the graph:
-    /// the scope here is shared through two opacity fragments, neither of which is itself ambient-resolved.
+    /// One fragment holds one description, so a scope shared by consumers that contribute the same ambient
+    /// resolves once and answers both - which is the ordinary case, and stays recordable. The scope here is
+    /// shared through two opacity fragments, so nothing between it and its consumers changes the ambient.
     /// </remarks>
     [Test]
-    public void AnAmbientCompositionCannotBeFannedOutToTwoConsumers()
+    public void AnAmbientCompositionIsSharedByConsumersThatContributeOneAmbient()
     {
         using RenderNode subtree = BuildChain([(s_shift, TransformOperator.Set)], new MarkNode());
-        using var root = new FanOutNode(subtree);
+        using var root = new SharedSubtreeNode(subtree, null, null);
+        using var renderer = CreateRenderer(root);
+
+        RenderNodeMeasurement measurement = default;
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => measurement = renderer.Measure(), Throws.Nothing);
+            Assert.That(measurement.OutputBounds, Is.EqualTo(s_mark.TransformToAABB(s_shift)));
+        });
+    }
+
+    /// <remarks>
+    /// Two ambients have no single answer, and overwriting the first resolution would hand one consumer the
+    /// other's matrix without a word - measured, hit tested and drawn through a transform belonging to the
+    /// other branch. Resolution says so instead.
+    /// </remarks>
+    [Test]
+    public void AnAmbientCompositionCannotBeSharedByConsumersThatContributeTwoAmbients()
+    {
+        using RenderNode subtree = BuildChain([(s_shift, TransformOperator.Set)], new MarkNode());
+        using var root = new SharedSubtreeNode(subtree, s_scale, s_translate);
         using var renderer = CreateRenderer(root);
 
         Assert.That(
             () => renderer.Measure(),
             Throws.InvalidOperationException.With.Message.Contains(
-                "cannot be consumed or published more than once"));
+                "was reached under two different ambient transforms"));
     }
 
+    /// <remarks>The control: a Prepend is stated in its input's own space, so two ambients ask it nothing.</remarks>
     [Test]
-    public void APrependCompositionStillFansOutToTwoConsumers()
+    public void APrependCompositionIsSharedByConsumersThatContributeTwoAmbients()
     {
         using RenderNode subtree = BuildChain([(s_shift, TransformOperator.Prepend)], new MarkNode());
-        using var root = new FanOutNode(subtree);
+        using var root = new SharedSubtreeNode(subtree, s_scale, s_translate);
         using var renderer = CreateRenderer(root);
 
         Assert.That(() => renderer.Measure(), Throws.Nothing);
@@ -298,14 +318,34 @@ public sealed class AmbientTransformScopeTests
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node) => new(node, Request(s_domain));
 
-    /// <summary>Publishes one recorded subtree through two consumers, which is what fan-out is.</summary>
-    private sealed class FanOutNode(RenderNode subtree) : RenderNode
+    /// <summary>
+    /// Publishes one recorded subtree through two consumers, each optionally under a transform of its own so
+    /// the two contribute different ambients.
+    /// </summary>
+    private sealed class SharedSubtreeNode(RenderNode subtree, Matrix? first, Matrix? second) : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle inner = context.RecordSubtree(subtree)[0];
-            context.Publish(context.Opacity(inner, 0.5f));
-            context.Publish(context.Opacity(inner, 0.25f));
+            context.Publish(Consume(context, inner, first, 0.5f));
+            context.Publish(Consume(context, inner, second, 0.25f));
+        }
+
+        private static RenderFragmentHandle Consume(
+            RenderNodeContext context,
+            RenderFragmentHandle input,
+            Matrix? transform,
+            float opacity)
+        {
+            RenderFragmentHandle consumed = context.Opacity(input, opacity);
+            return transform is not { } matrix
+                ? consumed
+                : context.TargetScope(
+                    consumed,
+                    RenderScopeAmbientTransform.CreateScope(
+                        new RenderScopeAmbientTransform(matrix, TransformOperator.Prepend, context.TargetDomain),
+                        matrix,
+                        capturesBackingTarget: false));
         }
     }
 
