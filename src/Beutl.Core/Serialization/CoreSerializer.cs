@@ -94,39 +94,47 @@ public static class CoreSerializer
         }
 
         project.MarkAsMigrated(required);
-        if (destination.Scheme != "file" || !TryRaiseGateInPlace(project, destination.LocalPath))
+        if (destination.Scheme != "file" || !TryWriteMigrationGate(project, destination.LocalPath))
         {
             StoreToUri(project, destination, CoreSerializationMode.Write);
         }
     }
 
     /// <summary>
-    /// Raises the version metadata of the project file already at <paramref name="path"/>, leaving
-    /// the graph it records alone, and reports whether it did.
+    /// Puts the project's version metadata at <paramref name="path"/> without recording the item
+    /// graph, and reports whether it could.
     /// </summary>
     /// <remarks>
     /// This preflight runs before the save it guards, and that save can still fail — after which
-    /// <c>ProjectPersistence</c> rolls the in-memory item list back. Re-serializing the current
-    /// graph here would leave the file recording a graph that never happened, pointing at sidecars
-    /// that were never written. A destination with no file yet has no graph to preserve and nothing
-    /// an older application could open, so the caller writes it the ordinary way.
+    /// <c>ProjectPersistence</c> rolls the in-memory item list back. Re-serializing the graph here
+    /// would leave the file recording a graph that never happened and pointing at sidecars that were
+    /// never written, so a file that is already there keeps the graph it records and a destination
+    /// with none gets the gate alone, which points at nothing. A location that cannot hold the gate
+    /// is not skipped: its failure stops the save before any sidecar is replaced.
     /// </remarks>
-    private static bool TryRaiseGateInPlace(Project project, string path)
+    private static bool TryWriteMigrationGate(Project project, string path)
     {
-        if (!File.Exists(path))
+        JsonObject json;
+        if (File.Exists(path))
         {
-            return false;
-        }
+            JsonNode? node;
+            using (FileStream stream = File.OpenRead(path))
+            {
+                node = JsonNode.Parse(stream);
+            }
 
-        JsonNode? node;
-        using (FileStream stream = File.OpenRead(path))
-        {
-            node = JsonNode.Parse(stream);
-        }
+            // Nothing to raise in place; the caller writes the file the ordinary way.
+            if (node is not JsonObject existing)
+            {
+                return false;
+            }
 
-        if (node is not JsonObject json)
+            json = existing;
+        }
+        else
         {
-            return false;
+            json = [];
+            json.WriteDiscriminator(typeof(Project));
         }
 
         // A gate already on disk is never lowered, the way Project.MarkAsMigrated treats the one it
@@ -134,6 +142,12 @@ public static class CoreSerializer
         string persisted = (string?)json["minAppVersion"] ?? Project.DefaultMinAppVersion;
         json["minAppVersion"] = Project.GetMaximumVersion(persisted, project.MinAppVersion);
         json["appVersion"] = project.AppVersion;
+
+        string? directory = Path.GetDirectoryName(path);
+        if (directory != null)
+        {
+            Directory.CreateDirectory(directory);
+        }
 
         string temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try

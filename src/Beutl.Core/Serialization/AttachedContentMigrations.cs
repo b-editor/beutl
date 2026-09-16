@@ -19,6 +19,12 @@ namespace Beutl.Serialization;
 /// Requirements are keyed weakly on the value itself, so one lives exactly as long as the migrated
 /// value it describes and never keeps that value alive.
 /// </para>
+/// <para>
+/// A value type is retained against the box it was deserialized into, which is the instance an
+/// owner holding it through an interface keeps. A caller that unboxes and copies it leaves the
+/// requirement behind, because the copy is a different value with no identity to find it by; such a
+/// value still reports through its parent context while the graph around it is being deserialized.
+/// </para>
 /// </remarks>
 internal static class AttachedContentMigrations
 {
@@ -73,14 +79,6 @@ internal static class AttachedContentMigrations
     {
         ArgumentNullException.ThrowIfNull(value);
         ArgumentException.ThrowIfNullOrWhiteSpace(minAppVersion);
-
-        // A boxed value type has no identity to attach to: the copy that reaches the new owner is a
-        // different object, so an entry here could never be found again. Such a value still reports
-        // through its parent context while the graph around it is being deserialized.
-        if (value.GetType().IsValueType)
-        {
-            return;
-        }
 
         s_any = true;
         s_requirements.GetOrCreateValue(value).Merge(minAppVersion);

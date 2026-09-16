@@ -695,11 +695,11 @@ public class NoMigrationRegressionTests
         });
     }
 
-    // The gate belongs at the URI this save names: a project saved for the first time carries none,
-    // and a Save As carries a different one that must not be rewritten.
+    // The destination is gated before the files that gate guards, but the preflight records no item
+    // graph: a save that fails after it must not leave a project pointing at sidecars it never wrote.
     [TestCase(true)]
     [TestCase(false)]
-    public void A_project_saved_to_a_new_destination_gates_that_destination(bool firstSave)
+    public void A_project_saved_to_a_new_destination_is_gated_without_an_item_graph(bool firstSave)
     {
         (Project project, StandaloneValueElement element) =
             CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
@@ -711,16 +711,20 @@ public class NoMigrationRegressionTests
         }
 
         string destinationPath = Path.Combine(_tempDirectory, "elsewhere", "project.bep");
-        string? gateAtElementWrite = null;
-        element.BeforeSerialization = () => gateAtElementWrite = File.Exists(destinationPath)
-            ? (string?)JsonNode.Parse(File.ReadAllText(destinationPath))!["minAppVersion"]
+        JsonObject? destinationAtElementWrite = null;
+        element.BeforeSerialization = () => destinationAtElementWrite ??= File.Exists(destinationPath)
+            ? JsonNode.Parse(File.ReadAllText(destinationPath))!.AsObject()
             : null;
 
         CoreSerializer.StoreToUri(project, new Uri(destinationPath));
 
         Assert.Multiple(() =>
         {
-            Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
+            Assert.That((string?)destinationAtElementWrite?["minAppVersion"], Is.EqualTo("9.0.0"));
+            Assert.That(destinationAtElementWrite?.ContainsKey("items"), Is.False);
+            Assert.That(
+                (string?)JsonNode.Parse(File.ReadAllText(destinationPath))!["minAppVersion"],
+                Is.EqualTo("9.0.0"));
             if (!firstSave)
             {
                 Assert.That(
@@ -729,6 +733,23 @@ public class NoMigrationRegressionTests
                     "a Save As must not rewrite the project it came from");
             }
         });
+    }
+
+    [Test]
+    public void A_standalone_value_type_kept_as_an_interface_box_migrates_its_owner()
+    {
+        var owner = new StandaloneValueOwner
+        {
+            Value = (ICoreSerializable)CoreSerializer.DeserializeFromJsonObject(
+                CoreSerializer.SerializeToJsonObject(new MigratingStructLeaf("7.0.0")),
+                typeof(MigratingStructLeaf)),
+        };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        // The box the deserializer returned is the instance the owner holds, so it stays trackable.
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
     }
 
     [Test]
@@ -1055,6 +1076,31 @@ public class NoMigrationRegressionTests
         {
             base.Deserialize(context);
             Value = context.GetValue<ICoreSerializable>(nameof(Value));
+        }
+    }
+
+    private struct MigratingStructLeaf : ICoreSerializable
+    {
+        public MigratingStructLeaf()
+        {
+        }
+
+        public MigratingStructLeaf(string requiredVersion)
+        {
+            RequiredVersion = requiredVersion;
+        }
+
+        public string RequiredVersion { get; set; } = null!;
+
+        public void Serialize(ICoreSerializationContext context)
+        {
+            context.SetValue(nameof(RequiredVersion), RequiredVersion);
+        }
+
+        public void Deserialize(ICoreSerializationContext context)
+        {
+            RequiredVersion = context.GetValue<string>(nameof(RequiredVersion))!;
+            context.ReportPersistedContentMigration(RequiredVersion);
         }
     }
 
