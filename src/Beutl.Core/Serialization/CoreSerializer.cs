@@ -36,23 +36,52 @@ public static class CoreSerializer
             }
         }
 
-        // Discover only while a guarded project's gate does not already cover every requirement a
-        // live value still carries. That is what a value assigned to a new owner looks like from
-        // here, whether it is reaching its first owner or a second one, and it is also why a graph
-        // that has taken its requirements over never pays for the pass again.
+        RaiseAttachedMigrationsIfUncovered(pending, projects);
+
+        foreach (Project project in projects)
+        {
+            if (project.Uri is not null)
+            {
+                WriteMigrationGate(project, project.Uri);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The same preflight for a project being written to a named destination, which is not always
+    /// the URI it currently carries: a first save has none, and a Save As names a different one.
+    /// </summary>
+    private static void PersistProjectMigrationGate(Project project, Uri destination)
+    {
+        RaiseAttachedMigrationsIfUncovered([project], [project]);
+        WriteMigrationGate(project, destination);
+    }
+
+    /// <summary>
+    /// Discovers only while a guarded project's gate does not already cover every requirement a live
+    /// value still carries.
+    /// </summary>
+    /// <remarks>
+    /// That is what a value assigned to a new owner looks like from here, whether it is reaching its
+    /// first owner or a second one, and it is equally why a graph that has taken its requirements
+    /// over never pays for the pass again.
+    /// </remarks>
+    private static void RaiseAttachedMigrationsIfUncovered(
+        CoreObject[] pending,
+        IReadOnlyCollection<Project> projects)
+    {
         if (AttachedContentMigrations.HighestRetained is { } outstanding
             && projects.Any(project => !CoversMigration(project, outstanding)))
         {
             RaiseAttachedMigrations(pending);
         }
+    }
 
-        foreach (Project project in projects)
+    private static void WriteMigrationGate(Project project, Uri destination)
+    {
+        if (project.Items.Any(item => Project.GetRequiredMigrationVersion(item) is not null))
         {
-            if (project.Uri is not null
-                && project.Items.Any(item => Project.GetRequiredMigrationVersion(item) is not null))
-            {
-                StoreToUri(project, project.Uri, CoreSerializationMode.Write);
-            }
+            StoreToUri(project, destination, CoreSerializationMode.Write);
         }
     }
 
@@ -461,13 +490,16 @@ public static class CoreSerializer
         where T : ICoreSerializable
     {
         // A project save writes the files it references while the project itself is still being
-        // serialized, so its own bytes reach the disk last. Complete the preflight first, the way
-        // the scene save and the auto-save do, so the compatibility gate is never behind the
-        // sidecars it guards. The preflight's own write omits SaveReferencedObjects and stops here.
-        if (obj is Project { Uri: not null } project
+        // serialized, so its own bytes reach the disk last. Gate the destination first, the way the
+        // scene save and the auto-save do, so the compatibility gate is never behind the sidecars it
+        // guards. The gate is written to the URI this save names rather than the one the project
+        // currently carries, which a first save does not have and a Save As points elsewhere. That
+        // write omits SaveReferencedObjects, so it stops here rather than recursing.
+        if (obj is Project project
+            && uri.Scheme == "file"
             && (mode ?? DefaultStoreMode).HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
-            PersistProjectMigrationMetadata([project]);
+            PersistProjectMigrationGate(project, uri);
         }
 
         // Serialization is synchronous, like ThreadLocalSerializationContext. Track

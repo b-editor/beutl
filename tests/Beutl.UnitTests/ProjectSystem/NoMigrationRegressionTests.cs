@@ -695,6 +695,42 @@ public class NoMigrationRegressionTests
         });
     }
 
+    // The gate belongs at the URI this save names: a project saved for the first time carries none,
+    // and a Save As carries a different one that must not be rewritten.
+    [TestCase(true)]
+    [TestCase(false)]
+    public void A_project_saved_to_a_new_destination_gates_that_destination(bool firstSave)
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        string sourcePath = project.Uri!.LocalPath;
+        File.WriteAllText(sourcePath, "{\"minAppVersion\":\"1.0.0\"}");
+        if (firstSave)
+        {
+            project.Uri = null;
+        }
+
+        string destinationPath = Path.Combine(_tempDirectory, "elsewhere", "project.bep");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite = File.Exists(destinationPath)
+            ? (string?)JsonNode.Parse(File.ReadAllText(destinationPath))!["minAppVersion"]
+            : null;
+
+        CoreSerializer.StoreToUri(project, new Uri(destinationPath));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
+            if (!firstSave)
+            {
+                Assert.That(
+                    (string?)JsonNode.Parse(File.ReadAllText(sourcePath))!["minAppVersion"],
+                    Is.EqualTo("1.0.0"),
+                    "a Save As must not rewrite the project it came from");
+            }
+        });
+    }
+
     [Test]
     public void A_standalone_value_shared_with_another_project_is_discovered_again()
     {
