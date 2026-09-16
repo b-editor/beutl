@@ -5,6 +5,8 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
 using static Beutl.Editor.VersionControl.WindowsInterop;
 
@@ -30,14 +32,14 @@ internal sealed partial class WindowsGitProcess : GitProcess
     private const uint JobObjectLimitBreakawayOk = 0x00000800;
 
     private static readonly Encoding s_utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+    private static readonly ILogger s_logger = Log.CreateLogger<WindowsGitProcess>();
 
     // Process.Start creates its inheritable pipe ends and its process under this lock, so that one start
-    // does not hand another's pipes to its child. Taking the same lock keeps this start out of the
-    // runtime's way; should the runtime rename it, only the starts made here are kept apart.
-    private static readonly object s_createProcessLock =
+    // does not hand another's pipes to its child. Without it the suspended start is not made at all: a
+    // start the runtime made meanwhile could inherit this command's pipe ends and hold them open.
+    private static readonly object? s_createProcessLock =
         typeof(Process).GetField("s_createProcessLock", BindingFlags.NonPublic | BindingFlags.Static)
-            ?.GetValue(null)
-        ?? new object();
+            ?.GetValue(null);
 
     private readonly Process _process;
     private readonly SafeProcessHandle _handle;
@@ -78,6 +80,11 @@ internal sealed partial class WindowsGitProcess : GitProcess
     // its usual way.
     internal static WindowsGitProcess? TryStart(ProcessStartInfo startInfo)
     {
+        if (s_createProcessLock is not { } createProcessLock)
+        {
+            return null;
+        }
+
         char[] commandLine = WindowsProcessArguments.BuildCommandLine(startInfo);
         char[] environment = WindowsProcessArguments.BuildEnvironmentBlock(startInfo.Environment);
         string? workingDirectory = string.IsNullOrEmpty(startInfo.WorkingDirectory)
@@ -98,6 +105,7 @@ internal sealed partial class WindowsGitProcess : GitProcess
         try
         {
             if (!TryCreateSuspended(
+                    createProcessLock,
                     commandLine,
                     environment,
                     workingDirectory,
@@ -226,12 +234,23 @@ internal sealed partial class WindowsGitProcess : GitProcess
     {
         if (_job is not null)
         {
-            Native.TerminateJobObject(_job, 1);
+            if (Native.TerminateJobObject(_job, 1))
+            {
+                return;
+            }
+
+            // No failure of this call is known to be transient, so it is not repeated. The job's
+            // members are the command's descendants, reachable through the tree while their parents
+            // live; any that survive both keep cleanup unconfirmed until they exit.
+            int error = Marshal.GetLastPInvokeError();
+            s_logger.LogWarning(
+                "The job of Git process {ProcessId} could not be terminated ({Error}: {Message}); ending its process tree instead.",
+                _process.Id,
+                error,
+                Marshal.GetPInvokeErrorMessage(error));
         }
-        else
-        {
-            ManagedGitProcess.KillTree(_process);
-        }
+
+        ManagedGitProcess.KillTree(_process);
     }
 
     // Accounting that cannot be read is not taken as an empty job.
@@ -252,6 +271,7 @@ internal sealed partial class WindowsGitProcess : GitProcess
         => WindowsProcessTree.IsTreeGone(_process, _handle, _killRequested);
 
     private static unsafe bool TryCreateSuspended(
+        object createProcessLock,
         char[] commandLine,
         char[] environment,
         string? workingDirectory,
@@ -268,7 +288,7 @@ internal sealed partial class WindowsGitProcess : GitProcess
         SafeFileHandle? childOutput = null;
         SafeFileHandle? childError = null;
         bool created = false;
-        lock (s_createProcessLock)
+        lock (createProcessLock)
         {
             try
             {
