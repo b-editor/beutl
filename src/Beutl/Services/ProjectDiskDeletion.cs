@@ -14,6 +14,15 @@ namespace Beutl.Services;
 // otherwise the project file alone.
 internal sealed record ProjectDiskDeletionTarget(string ProjectFile, string Path, bool IsFolder);
 
+internal enum ProjectDiskDeletionOutcome
+{
+    Deleted,
+    // The project file is gone.
+    Missing,
+    // The project now resolves to something other than what was confirmed.
+    Changed,
+}
+
 // "Delete from Disk" for a project in the start page's recent list. The deletion is permanent, like
 // the file browser's. The folder goes with the project only when it is the project's own: the
 // <name>/<name>.bep layout the new-project dialog creates, holding no other project and none of the
@@ -71,22 +80,8 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
         {
             await projectService.RunExclusiveOfTransitionsAsync(async () =>
             {
-                // The confirmation can stay open for a while. Delete only what it named, and only
-                // while nothing has the project open.
-                ProjectDiskDeletionTarget? current = await Task.Run(() => Resolve(projectFile, protectedFolders));
-                if (current is null)
-                {
-                    NotificationService.ShowInformation(Strings.DeleteFromDisk, MessageStrings.FileDoesNotExist);
-                    return;
-                }
-
-                if (current != target)
-                {
-                    NotificationService.ShowError(Strings.DeleteFromDisk, MessageStrings.OperationFailed);
-                    return;
-                }
-
-                if (IsInUse(current))
+                // The confirmation can stay open for a while, so the project may have been opened since.
+                if (IsInUse(target))
                 {
                     return;
                 }
@@ -103,16 +98,27 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
                     return;
                 }
 
-                attempted = current;
+                attempted = target;
+                ProjectDiskDeletionOutcome outcome;
                 try
                 {
-                    await Task.Run(() => Delete(current));
+                    outcome = await Task.Run(() => DeleteIfUnchanged(projectFile, target, protectedFolders));
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    s_logger.LogError(ex, "Failed to delete a project from disk. Path: {Path}", current.Path);
+                    s_logger.LogError(ex, "Failed to delete a project from disk. Path: {Path}", target.Path);
                     // Part of the folder may be left behind; the exception names what could not go.
                     NotificationService.ShowError(Strings.DeleteFromDisk, ex.Message);
+                    return;
+                }
+
+                if (outcome == ProjectDiskDeletionOutcome.Missing)
+                {
+                    NotificationService.ShowInformation(Strings.DeleteFromDisk, MessageStrings.FileDoesNotExist);
+                }
+                else if (outcome == ProjectDiskDeletionOutcome.Changed)
+                {
+                    NotificationService.ShowError(Strings.DeleteFromDisk, MessageStrings.OperationFailed);
                 }
             });
         }
@@ -141,6 +147,29 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
         return folder is not null && IsProjectsOwnFolder(projectFile, folder, protectedFolders)
             ? new ProjectDiskDeletionTarget(projectFile, folder, IsFolder: true)
             : new ProjectDiskDeletionTarget(projectFile, projectFile, IsFolder: false);
+    }
+
+    // Resolves the project again and deletes it only if it still resolves to what was confirmed. Both
+    // happen in one step, as late as possible: the path is all that can be checked, since .NET offers
+    // no way to bind a recursive deletion to the folder the user saw.
+    internal static ProjectDiskDeletionOutcome DeleteIfUnchanged(
+        string projectFile,
+        ProjectDiskDeletionTarget confirmed,
+        IReadOnlyCollection<string> protectedFolders)
+    {
+        ProjectDiskDeletionTarget? current = Resolve(projectFile, protectedFolders);
+        if (current is null)
+        {
+            return ProjectDiskDeletionOutcome.Missing;
+        }
+
+        if (current != confirmed)
+        {
+            return ProjectDiskDeletionOutcome.Changed;
+        }
+
+        Delete(current);
+        return ProjectDiskDeletionOutcome.Deleted;
     }
 
     internal static void Delete(ProjectDiskDeletionTarget target)

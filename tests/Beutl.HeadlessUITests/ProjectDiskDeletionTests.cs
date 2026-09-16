@@ -233,6 +233,43 @@ public class ProjectDiskDeletionTests
     }
 
     [AvaloniaTest]
+    public async Task Deletes_nothing_when_the_folder_changed_during_the_confirmation()
+    {
+        await TestReset.ResetShellAsync();
+        (string projectFile, _) = await CreateClosedProjectAsync("changed", NewWorkspace("changed"));
+        string folder = Path.GetDirectoryName(projectFile)!;
+        var deletion = new ProjectDiskDeletion(TestShell.Project, TestShell.Editor)
+        {
+            // Another project lands in the folder while the confirmation names the whole folder.
+            ConfirmAsync = dialog =>
+            {
+                CreateFile(Path.Combine(folder, "copy", "copy.bep"), "{}");
+                return Task.FromResult(FAContentDialogResult.Primary);
+            },
+        };
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+        NotificationService.Handler = notifications;
+        try
+        {
+            await deletion.DeleteAsync(projectFile);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.Exists(projectFile), Is.True);
+                Assert.That(File.Exists(Path.Combine(folder, "copy", "copy.bep")), Is.True);
+                Assert.That(
+                    notifications.All.Select(notification => notification.Message),
+                    Does.Contain(MessageStrings.OperationFailed));
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousHandler;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Refuses_while_an_export_that_outlived_its_project_holds_the_workspace()
     {
         await TestReset.ResetShellAsync();
