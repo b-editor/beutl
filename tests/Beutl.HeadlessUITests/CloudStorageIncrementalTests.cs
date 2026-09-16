@@ -51,22 +51,22 @@ public sealed class CloudStorageIncrementalTests
 
         var refresh = vm.LoadAsync();
         await WaitFor(() => scope.Handler.Requests.Count == 4);
-        Assert.That(scope.Handler.Requests[3].Uri.Query, Does.Contain("page=1"));
+        Assert.That(scope.Handler.Requests[3].Uri.Query, Does.Not.Contain("cursor="));
         scope.Handler.Requests[3].Complete(Response(fileId: "refreshed"));
         await refresh;
         Assert.That(vm.Items.Select(x => x.Id), Is.EqualTo(new[] { "folder & 日本", "refreshed" }));
     }
 
     [AvaloniaTest]
-    public async Task AClampedLastPageStopsFurtherRequestsWithoutAppendingTheOldPage()
+    public async Task ARepeatedCursorStopsFurtherRequestsAndDeduplicatesTheRepeatedEntries()
     {
         await using var scope = new StorageScope();
         await scope.LoadFirstAsync(Response(pageCount: 2));
         var append = scope.ViewModel.LoadMoreAsync();
         await WaitFor(() => scope.Handler.Requests.Count == 2);
-        scope.Handler.Requests[1].Complete(Response(page: 1, pageCount: 1, fileId: "clamped"));
+        scope.Handler.Requests[1].Complete(Response(page: 1, pageCount: 2));
         await append;
-        Assert.That(scope.ViewModel.Items.Select(x => x.Id), Does.Not.Contain("clamped"));
+        Assert.That(scope.ViewModel.Items.Select(x => x.Id), Is.EqualTo(new[] { "folder & 日本", "file" }));
         Assert.That(scope.ViewModel.HasMore.Value, Is.False);
     }
 
@@ -84,9 +84,9 @@ public sealed class CloudStorageIncrementalTests
         Assert.That(scope.Handler.Requests[1].Token.IsCancellationRequested, Is.True);
         Assert.That(vm.Items, Is.Empty);
         Assert.That(vm.Breadcrumbs.Last().FolderId, Is.EqualTo(folder.Id), "Navigation should acknowledge the destination immediately.");
-        Assert.That(vm.HasUsage.Value, Is.False);
+        Assert.That(vm.HasUsage.Value, Is.True, "Usage belongs to the account and should remain visible while navigating.");
         Assert.That(vm.IsLoadingMore.Value, Is.False);
-        Assert.That(scope.Handler.Requests[2].Uri.Query, Does.Contain("page=1"));
+        Assert.That(scope.Handler.Requests[2].Uri.Query, Does.Not.Contain("cursor="));
         scope.Handler.Requests[2].Complete(Response(folder: folder.Id, fileId: "current"));
         await navigation;
         await WaitFor(() => !vm.IsLoading.Value);
@@ -124,7 +124,7 @@ public sealed class CloudStorageIncrementalTests
         await append;
         await WaitFor(() => scope.Handler.Requests.Count == 2);
         Assert.That(scope.Handler.Requests[1].Authorization, Is.EqualTo("Bearer token-b"));
-        Assert.That(scope.Handler.Requests[1].Uri.Query, Does.Contain("page=1"));
+        Assert.That(scope.Handler.Requests[1].Uri.Query, Does.Not.Contain("cursor="));
         scope.Handler.Requests[1].Complete(Response(fileId: "account-b"));
         await WaitFor(() => !scope.ViewModel.IsLoading.Value);
         Assert.That(scope.ViewModel.Items.Select(x => x.Id), Does.Contain("account-b"));
@@ -161,10 +161,10 @@ public sealed class CloudStorageIncrementalTests
         await navigate;
         var append = vm.LoadMoreAsync();
         await WaitFor(() => scope.Handler.Requests.Count == 3);
-        scope.Handler.Requests[2].Complete(Response(folder: null, fileId: "wrong-location"));
+        scope.Handler.Requests[2].Complete("{\"error_code\":\"storageFolderNotFound\"}", HttpStatusCode.NotFound);
         await WaitFor(() => scope.Handler.Requests.Count == 4);
         Assert.That(vm.Items, Is.Empty);
-        Assert.That(scope.Handler.Requests[3].Uri.Query, Does.Not.Contain("folder="));
+        Assert.That(scope.Handler.Requests[3].Uri.Query, Does.Not.Contain("parentId="));
         scope.Handler.Requests[3].Complete(Response(fileId: "root-reloaded"));
         await append;
         Assert.That(vm.Items.Select(x => x.Id), Does.Contain("root-reloaded").And.Not.Contain("wrong-location"));
@@ -458,7 +458,7 @@ public sealed class CloudStorageIncrementalTests
             Assert.That(scope.Handler.Requests, Has.Count.EqualTo(2));
             vm.RetryLoadMore.Execute();
             await WaitFor(() => scope.Handler.Requests.Count == 3);
-            Assert.That(scope.Handler.Requests[2].Uri.Query, Does.Contain("page=2"));
+            Assert.That(scope.Handler.Requests[2].Uri.Query, Does.Contain("cursor=cursor-2"));
             scope.Handler.Requests[2].Complete(Response(page: 2, pageCount: 2, fileId: "retried"));
             await WaitFor(() => !vm.IsLoadingMore.Value);
             HeadlessTestHelpers.Render();

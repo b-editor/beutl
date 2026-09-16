@@ -44,6 +44,7 @@ public sealed partial class CloudStorageView : UserControl
     {
         _attached = false;
         CancelPrefetchIntent();
+        CloseStorageInteractions();
         _subscriptions.Dispose();
         SetScrollViewer(null);
         base.OnDetachedFromVisualTree(e);
@@ -52,6 +53,7 @@ public sealed partial class CloudStorageView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        CloseStorageInteractions();
         CancelPrefetchIntent();
         if (_attached) SubscribeToListing();
     }
@@ -74,6 +76,8 @@ public sealed partial class CloudStorageView : UserControl
         if (e.Action == NotifyCollectionChangedAction.Reset)
         {
             CancelPrefetchIntent();
+            CloseStorageInteractions();
+            if (DataContext is CloudStorageViewModel vm) vm.DetailsItem.Value = null;
             StorageItems.SelectedItem = null;
             _scroll?.ScrollToHome();
         }
@@ -102,7 +106,7 @@ public sealed partial class CloudStorageView : UserControl
             StorageItems.UpdateLayout();
             if (_scroll is not { Viewport.Height: > 0 } scroll
                 || vm.IsLoading.Value || vm.IsLoadingMore.Value || vm.LoadMoreError.Value != null
-                || vm.Error.Value != null || !vm.HasMore.Value) return;
+                || vm.Error.Value != null || vm.IsBusy.Value || !vm.HasMore.Value) return;
             double remaining = scroll.Extent.Height - scroll.Viewport.Height - scroll.Offset.Y;
             // Keep roughly one viewport ready ahead of the user. Stop once that buffer is filled;
             // opening the view must not eagerly download the entire listing.
@@ -168,6 +172,12 @@ public sealed partial class CloudStorageView : UserControl
 
     private async void OnItemsKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Apps || e.Key == Key.F10 && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            e.Handled = true;
+            OnStorageContextRequested(sender, new ContextRequestedEventArgs { Source = e.Source });
+            return;
+        }
         if (e.Key == Key.Enter && DataContext is CloudStorageViewModel vm
             && sender is ListBox { SelectedItem: CloudStorageItem { IsFolder: true } item })
         {

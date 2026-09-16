@@ -4,24 +4,25 @@ namespace Beutl.Api.Clients;
 
 internal sealed record StorageResponse
 {
-    [JsonPropertyName("files")] public required StorageFileResponse[] Files { get; init; }
-    [JsonPropertyName("folders")] public required StorageFolderResponse[] Folders { get; init; }
-    [JsonPropertyName("folderId")] public required string? FolderId { get; init; }
-    [JsonPropertyName("total")] public required int Total { get; init; }
-    [JsonPropertyName("page")] public required int Page { get; init; }
-    [JsonPropertyName("pageCount")] public required int PageCount { get; init; }
-    [JsonPropertyName("usage")] public required StorageUsageResponse Usage { get; init; }
+    [JsonPropertyName("entries")] public required StorageEntryResponse[] Entries { get; init; }
+    [JsonPropertyName("path")] public required StorageFolderResponse[] Path { get; init; }
+    [JsonPropertyName("parentId")] public required string? ParentId { get; init; }
+    [JsonPropertyName("nextCursor")] public required string? NextCursor { get; init; }
 }
 
-internal sealed record StorageFileResponse
+internal sealed record StorageEntryResponse
 {
     [JsonPropertyName("id")] public required string Id { get; init; }
+    [JsonPropertyName("kind")] public required string Kind { get; init; }
     [JsonPropertyName("name")] public required string Name { get; init; }
-    [JsonPropertyName("size")] public required long Size { get; init; }
-    [JsonPropertyName("mimeType")] public required string MimeType { get; init; }
-    [JsonPropertyName("visibility")] public required string Visibility { get; init; }
-    [JsonPropertyName("createdAt")] public required DateTimeOffset CreatedAt { get; init; }
-    [JsonPropertyName("folderId")] public required string? FolderId { get; init; }
+    [JsonPropertyName("parentId")] public string? ParentId { get; init; }
+    [JsonPropertyName("size")] public long Size { get; init; }
+    [JsonPropertyName("mimeType")] public string MimeType { get; init; } = "";
+    [JsonPropertyName("visibility")] public string Visibility { get; init; } = "";
+    [JsonPropertyName("createdAt")] public DateTimeOffset CreatedAt { get; init; }
+    [JsonPropertyName("updatedAt")] public DateTimeOffset UpdatedAt { get; init; }
+    [JsonPropertyName("actions")] public string[] Actions { get; init; } = [];
+    [JsonPropertyName("contentUrl")] public string? ContentUrl { get; init; }
 }
 
 internal sealed record StorageFolderResponse
@@ -31,9 +32,24 @@ internal sealed record StorageFolderResponse
     [JsonPropertyName("parentId")] public required string? ParentId { get; init; }
 }
 
+internal sealed record StorageFolderDetailsResponse
+{
+    [JsonPropertyName("folder")] public required StorageFolderResponse Folder { get; init; }
+    [JsonPropertyName("ancestors")] public required StorageFolderResponse[] Ancestors { get; init; }
+    [JsonPropertyName("fileCount")] public int FileCount { get; init; }
+    [JsonPropertyName("folderCount")] public int FolderCount { get; init; }
+}
+
+internal sealed record StorageMutationResponse
+{
+    [JsonPropertyName("id")] public string? Id { get; init; }
+    [JsonPropertyName("affected")] public int Affected { get; init; }
+    [JsonPropertyName("deletedFiles")] public int DeletedFiles { get; init; }
+    [JsonPropertyName("deletedFolders")] public int DeletedFolders { get; init; }
+}
+
 internal sealed record StorageUsageResponse
 {
-    // The API uses null for the free allowance; paid tiers are "100gb", "200gb", or "1tb".
     [JsonPropertyName("plan")] public required string? Plan { get; init; }
     [JsonPropertyName("quotaBytes")] public required long QuotaBytes { get; init; }
     [JsonPropertyName("usedBytes")] public required long UsedBytes { get; init; }

@@ -71,6 +71,9 @@
         </DataTemplate>
     </UserControl.Resources>
     <UserControl.Styles>
+        <Style Selector="MenuItem.storage-destructive">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Style>
         <Style Selector="ListBox#StorageItems">
             <Setter Property="ItemTemplate" Value="{StaticResource StorageListTemplate}" />
             <Setter Property="ItemsPanel">
@@ -125,7 +128,9 @@
                         Content="{x:Static lang:Strings.CloudStorageAccountSettings}" />
             </StackPanel>
         </ScrollViewer>
-        <Grid IsVisible="{Binding SignedIn.Value}" RowDefinitions="Auto,Auto,*,Auto">
+        <Grid ContextRequested="OnStorageContextRequested"
+              IsVisible="{Binding SignedIn.Value}"
+              RowDefinitions="Auto,Auto,*,Auto">
             <Border Height="2">
                 <ProgressBar x:Name="LoadingProgress"
                              Height="2"
@@ -147,7 +152,9 @@
                      GotFocus="OnItemFocused"
                      ItemsSource="{Binding Items}"
                      LostFocus="OnItemLostFocus"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     SelectionChanged="OnStorageSelectionChanged"
+                     SelectionMode="Multiple" />
             <ItemsControl x:Name="LoadingSkeleton"
                           Grid.Row="2"
                           AutomationProperties.AccessibilityView="Raw"
@@ -167,6 +174,63 @@
                        TextAlignment="Center"
                        TextWrapping="Wrap" />
             <StackPanel Grid.Row="3" Spacing="4">
+                <TextBlock Margin="8,4"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           IsVisible="{Binding ActionError.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{Binding ActionError.Value}"
+                           TextWrapping="Wrap" />
+                <ProgressBar Height="2"
+                             IsIndeterminate="True"
+                             IsVisible="{Binding IsBusy.Value}" />
+                <Border Margin="8"
+                        Padding="8"
+                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        IsVisible="{Binding DetailsItem.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <Grid RowDefinitions="Auto,Auto">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.Details}" />
+                            <Button Grid.Column="1"
+                                    Click="OnCloseStorageDetails"
+                                    Content="{x:Static lang:Strings.Close}" />
+                        </Grid>
+                        <ContentControl Grid.Row="1" Content="{Binding DetailsItem.Value}">
+                            <ContentControl.ContentTemplate>
+                                <DataTemplate x:DataType="vm:CloudStorageItem">
+                                    <ScrollViewer MaxHeight="200">
+                                        <StackPanel Spacing="4">
+                                            <SelectableTextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding VisibilityText}" />
+                                            <Grid ColumnDefinitions="Auto,*"
+                                                  ColumnSpacing="8"
+                                                  RowDefinitions="Auto,Auto,Auto,Auto"
+                                                  RowSpacing="4">
+                                                <TextBlock Text="{x:Static lang:Strings.Size}" />
+                                                <TextBlock Grid.Column="1" Text="{Binding SizeText}" />
+                                                <TextBlock Grid.Row="1" Text="{x:Static lang:Strings.CloudStorageMimeType}" />
+                                                <SelectableTextBlock Grid.Row="1"
+                                                                     Grid.Column="1"
+                                                                     Text="{Binding Entry.MimeType}"
+                                                                     TextWrapping="Wrap" />
+                                                <TextBlock Grid.Row="2" Text="{x:Static lang:Strings.CloudStorageCreatedAt}" />
+                                                <TextBlock Grid.Row="2"
+                                                           Grid.Column="1"
+                                                           Text="{Binding CreatedText}"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock Grid.Row="3" Text="{x:Static lang:Strings.Location}" />
+                                                <SelectableTextBlock Grid.Row="3"
+                                                                     Grid.Column="1"
+                                                                     Text="{Binding Location}"
+                                                                     TextWrapping="Wrap" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
+                    </Grid>
+                </Border>
                 <Border Height="2">
                     <ProgressBar x:Name="LoadingMoreProgress"
                                  Height="2"

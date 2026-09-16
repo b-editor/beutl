@@ -116,12 +116,20 @@ public sealed class CloudStorageFolderLoadingTests
         static string FolderResponse(string? folder)
         {
             var json = JsonNode.Parse(Response(folder: folder))!;
-            json["folders"] = new JsonArray(Enumerable.Range(0, 8).Select(i => (JsonNode)new JsonObject
+            if (folder == null)
             {
-                ["id"] = $"folder-{i}",
-                ["name"] = $"Folder {i}",
-                ["parentId"] = null,
-            }).ToArray());
+                var entries = new JsonArray(Enumerable.Range(0, 8).Select(i => (JsonNode)new JsonObject
+                {
+                    ["id"] = $"folder-{i}",
+                    ["kind"] = "folder",
+                    ["name"] = $"Folder {i}",
+                    ["parentId"] = null,
+                    ["actions"] = new JsonArray("open", "rename", "move", "delete"),
+                }).ToArray());
+                foreach (var entry in json["entries"]!.AsArray().Where(x => x!["kind"]!.GetValue<string>() == "file"))
+                    entries.Add(entry!.DeepClone());
+                json["entries"] = entries;
+            }
             return json.ToJsonString();
         }
     }

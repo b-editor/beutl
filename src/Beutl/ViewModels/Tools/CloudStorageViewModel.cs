@@ -18,12 +18,16 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.ViewModels.Tools;
 
-internal sealed record CloudStorageItem(string Id, string Name, bool IsFolder, string Details, Icon Icon = Icon.Document)
+internal sealed record CloudStorageItem(string Id, string Name, bool IsFolder, string Details, Icon Icon = Icon.Document, StorageEntryResponse? Entry = null, string Location = "")
 {
+    public string SizeText => CloudStorageViewModel.FormatBytes(Entry?.Size ?? 0);
+    public string VisibilityText => CloudStorageViewModel.VisibilityLabel(Entry?.Visibility ?? "");
+    public string CreatedText => Entry?.CreatedAt.ToLocalTime().ToString("g") ?? "";
+    public bool Can(string action) => Entry?.Actions.Contains(action, StringComparer.Ordinal) == true;
     public string ToolTip => $"{Name}{Environment.NewLine}{Details}";
 }
 
-internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileBrowserStorageNavigation
+internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileBrowserStorageNavigation
 {
     private readonly BeutlApiApplication _clients;
     private readonly Func<SettingsDialogViewModel> _createSettings;
@@ -35,7 +39,8 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
     private AuthenticatedUser? _owner;
     private StorageFolderResponse[] _folders = [];
     private string? _folderId;
-    private int _page;
+    private string? _nextCursor;
+    private CancellationTokenSource? _usageLoad;
     private readonly HashSet<string> _fileIds = new(StringComparer.Ordinal);
     private long _version;
     private bool _disposed;
@@ -53,12 +58,12 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
         _createSettings = createSettings;
         _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
         Breadcrumbs = new(_breadcrumbs);
-        ShowPlaceholders = IsLoadingVisible.CombineLatest(HasUsage, (loading, loaded) => loading && !loaded)
+        ShowPlaceholders = IsLoadingVisible.CombineLatest(HasListing, (loading, loaded) => loading && !loaded)
             .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
 
         // Navigation and refresh may replace an in-flight append request.
-        Refresh = new AsyncReactiveCommand(SignedIn).DisposeWith(_disposables);
-        Refresh.Subscribe(LoadAsync).DisposeWith(_disposables);
+        Refresh = new AsyncReactiveCommand(SignedIn.CombineLatest(IsBusy, (signedIn, busy) => signedIn && !busy)).DisposeWith(_disposables);
+        Refresh.Subscribe(() => Task.WhenAll(LoadAsync(), LoadUsageAsync())).DisposeWith(_disposables);
         CycleViewMode = new ReactiveCommand().DisposeWith(_disposables);
         CycleViewMode.Subscribe(() => ViewMode.Value = ViewMode.Value == FileBrowserViewMode.Icon
             ? FileBrowserViewMode.List : FileBrowserViewMode.Icon).DisposeWith(_disposables);
@@ -89,6 +94,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
     public ReactivePropertySlim<bool> IsLoadingMoreVisible { get; } = new();
     public ReadOnlyReactivePropertySlim<bool> ShowPlaceholders { get; }
     public ReactivePropertySlim<bool> IsEmpty { get; } = new();
+    public ReactivePropertySlim<bool> HasListing { get; } = new();
     public ReactivePropertySlim<bool> HasUsage { get; } = new();
     public ReactivePropertySlim<bool> IsLoadingMore { get; } = new();
     public ReactivePropertySlim<bool> HasMore { get; } = new();
@@ -103,13 +109,14 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
     {
         // A newer account may already have replaced this notification while the UI was busy.
         if (_disposed || !ReferenceEquals(_clients.AuthenticatedUser.Value, user)) return;
+        CancelActions();
         ClearFolderCache();
         ++_version;
         _load?.Cancel();
         _load = null;
         _folders = [];
         _folderId = null;
-        _page = 0;
+        _nextCursor = null;
         _breadcrumbs.Clear();
         _breadcrumbs.Add(new(Strings.CloudStorage, null));
         Error.Value = null;
@@ -117,21 +124,27 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
         IsLoadingMore.Value = false;
         IsLoadingVisible.Value = false;
         IsLoadingMoreVisible.Value = false;
-        ClearListing();
+        ClearListing(clearUsage: true);
+        _usageLoad?.Cancel();
         _owner = user;
         SignedIn.Value = _owner != null;
-        if (SignedIn.Value) _ = LoadAsync();
+        if (SignedIn.Value)
+        {
+            _ = LoadAsync();
+            _ = LoadUsageAsync();
+        }
     }
 
     internal Task LoadAsync()
     {
+        if (_disposed || IsBusy.Value) return Task.CompletedTask;
         _folderCache.Remove(_folderId ?? "");
         return LoadPageAsync(append: false);
     }
 
     internal Task LoadMoreAsync(bool retry = false)
     {
-        if (_disposed || IsLoading.Value || IsLoadingMore.Value || !HasMore.Value || Error.Value != null
+        if (_disposed || IsBusy.Value || IsLoading.Value || IsLoadingMore.Value || !HasMore.Value || Error.Value != null
             || (!retry && LoadMoreError.Value != null))
             return Task.CompletedTask;
         return LoadPageAsync(append: true);
@@ -163,7 +176,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
         }
         long version = _version;
         string? folder = _folderId;
-        int page = append ? _page + 1 : 1;
+        string? cursor = append ? _nextCursor : null;
         _ = ShowLoadingAfterDelayAsync(operation);
         try
         {
@@ -177,21 +190,27 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
             }
             else
             {
-                response = await FetchPageAsync(user, folder, page, operation.Token);
+                response = await FetchPageAsync(user, folder, cursor, operation.Token);
             }
             if (!IsCurrent()) return;
-            if (append && response.FolderId != folder)
+            if (append && response.ParentId != folder)
             {
                 // A deleted folder resolves to the root on the server. Never mix its files
                 // into the old folder's accumulated listing.
-                _clients.CommitForAuthenticatedUser(user, () => ResetFolder(response.FolderId), operation.Token);
+                _clients.CommitForAuthenticatedUser(user, () => ResetFolder(response.ParentId), operation.Token);
                 await LoadAsync();
                 return;
             }
             _clients.CommitForAuthenticatedUser(user,
-                () => Apply(response, append, page), operation.Token);
+                () => Apply(response, append, cursor), operation.Token);
         }
         catch (OperationCanceledException) when (operation.IsCancellationRequested) { }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound && folder != null && IsCurrent())
+        {
+            ClearFolderCache();
+            ResetFolder(null);
+            await LoadAsync();
+        }
         catch (Exception ex)
         {
             if (!IsCurrent()) return;
@@ -233,62 +252,77 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
         catch (OperationCanceledException) when (operation.IsCancellationRequested) { }
     }
 
-    private void Apply(StorageResponse response, bool append, int requestedPage, bool cache = true)
+    private void Apply(StorageResponse response, bool append, string? requestedCursor, bool cache = true)
     {
         if (!append)
         {
             Items.Clear();
             _fileIds.Clear();
-            _page = 0;
-            _folders = response.Folders;
-            _folderId = response.FolderId;
+            _folderId = response.ParentId;
+            _folders = response.Path.Concat(response.Entries.Where(x => x.Kind == "folder")
+                .Select(x => new StorageFolderResponse { Id = x.Id, Name = x.Name, ParentId = x.ParentId }))
+                .DistinctBy(x => x.Id).ToArray();
             UpdateBreadcrumbs();
-            foreach (var folder in _folders.Where(x => x.ParentId == _folderId))
-                Items.Add(new(folder.Id, folder.Name, true, Strings.CloudStorageFolder, Icon.Folder));
         }
-
-        // Offset pagination can overlap when files change between requests. A clamped page
-        // signals that the list shrank; do not keep requesting that same last page.
-        if (response.Page >= requestedPage)
+        foreach (var entry in response.Entries)
         {
-            _page = response.Page;
-            foreach (var file in response.Files)
-            {
-                if (!_fileIds.Add(file.Id)) continue;
-                string visibility = file.Visibility switch
-                {
-                    "PUBLIC" => Strings.CloudStoragePublic,
-                    "PRIVATE" => Strings.CloudStoragePrivate,
-                    "DEDICATED" => Strings.CloudStorageDedicated,
-                    _ => file.Visibility,
-                };
-                string details = $"{FormatBytes(file.Size)} · {file.CreatedAt.ToLocalTime():d} · {visibility}";
-                Icon icon = file.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ? Icon.Image
-                    : file.MimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ? Icon.Video
-                    : file.MimeType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) ? Icon.MusicNote1
-                    : Icon.Document;
-                Items.Add(new(file.Id, file.Name, false, details, icon));
-            }
+            if (!_fileIds.Add($"{entry.Kind}:{entry.Id}")) continue;
+            bool folder = entry.Kind == "folder";
+            string visibility = VisibilityLabel(entry.Visibility);
+            string details = folder ? Strings.CloudStorageFolder
+                : $"{FormatBytes(entry.Size)} · {entry.CreatedAt.ToLocalTime():d} · {visibility}";
+            Icon icon = folder ? Icon.Folder
+                : entry.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ? Icon.Image
+                : entry.MimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ? Icon.Video
+                : entry.MimeType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) ? Icon.MusicNote1 : Icon.Document;
+            Items.Add(new(entry.Id, entry.Name, folder, details, icon, entry, string.Join(" / ", Breadcrumbs.Select(x => x.Name))));
+            if (folder && _folders.All(x => x.Id != entry.Id))
+                _folders = [.. _folders, new StorageFolderResponse { Id = entry.Id, Name = entry.Name, ParentId = entry.ParentId }];
         }
-        HasMore.Value = response.Page >= requestedPage && response.Page < response.PageCount;
+        _nextCursor = response.NextCursor;
+        HasMore.Value = !string.IsNullOrEmpty(_nextCursor) && _nextCursor != requestedCursor;
         IsEmpty.Value = Items.Count == 0 && !HasMore.Value;
-
-        var usage = response.Usage;
-        string plan = usage.Plan?.ToUpperInvariant() ?? Strings.CloudStorageFree;
-        UsageText.Value = string.Format(Strings.CloudStorageUsage,
-            FormatBytes(usage.UsedBytes), FormatBytes(usage.QuotaBytes), usage.FileCount, usage.FileCountLimit, plan);
-        UsagePercent.Value = usage.QuotaBytes > 0
-            ? Math.Clamp(100.0 * usage.UsedBytes / usage.QuotaBytes, 0, 100)
-            : 0;
-        HasUsage.Value = true;
+        HasListing.Value = true;
         if (!append && cache) CacheFolder(response);
     }
 
-    private async Task<StorageResponse> FetchPageAsync(AuthenticatedUser user, string? folder, int page, CancellationToken token)
+    internal static string VisibilityLabel(string visibility) => visibility switch
+    {
+        "PUBLIC" => Strings.CloudStoragePublic,
+        "PRIVATE" => Strings.CloudStoragePrivate,
+        "DEDICATED" => Strings.CloudStorageDedicated,
+        _ => visibility,
+    };
+
+    private async Task<StorageResponse> FetchPageAsync(AuthenticatedUser user, string? folder, string? cursor, CancellationToken token)
     {
         var result = await _clients.SendAuthenticatedAsync(
-            (authorization, cancellation) => _clients.Storage.GetStorage(authorization, cancellation, folder, page), token, user);
+            (authorization, cancellation) => _clients.Storage.GetEntries(authorization, cancellation, folder, cursor), token, user);
         return result.Value;
+    }
+
+    internal async Task LoadUsageAsync()
+    {
+        if (_disposed || _owner is not { } user || !ReferenceEquals(_clients.AuthenticatedUser.Value, user)) return;
+        _usageLoad?.Cancel();
+        using var operation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        _usageLoad = operation;
+        try
+        {
+            var result = await _clients.SendAuthenticatedAsync((authorization, token) => _clients.Storage.GetUsage(authorization, token), operation.Token, user);
+            _clients.CommitForAuthenticatedUser(user, () =>
+            {
+                if (_disposed || !ReferenceEquals(_usageLoad, operation)) return;
+                var usage = result.Value;
+                string plan = usage.Plan?.ToUpperInvariant() ?? Strings.CloudStorageFree;
+                UsageText.Value = string.Format(Strings.CloudStorageUsage, FormatBytes(usage.UsedBytes), FormatBytes(usage.QuotaBytes), usage.FileCount, usage.FileCountLimit, plan);
+                UsagePercent.Value = usage.QuotaBytes > 0 ? Math.Clamp(100.0 * usage.UsedBytes / usage.QuotaBytes, 0, 100) : 0;
+                HasUsage.Value = true;
+            }, operation.Token);
+        }
+        catch (OperationCanceledException) when (operation.IsCancellationRequested) { }
+        catch (Exception ex) { if (!_disposed) _logger.LogDebug(ex, "Could not update storage usage."); }
+        finally { if (ReferenceEquals(_usageLoad, operation)) _usageLoad = null; }
     }
 
     private bool TryGetCachedFolder(string? folder, out StorageResponse response)
@@ -306,7 +340,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
 
     private void CacheFolder(StorageResponse response)
     {
-        string key = response.FolderId ?? "";
+        string key = response.ParentId ?? "";
         _folderCache.Remove(key);
         _folderCache.Add(key, (response, _utcNow().AddSeconds(30), ++_cacheAccess));
         while (_folderCache.Count > 8) _folderCache.Remove(_folderCache.MinBy(x => x.Value.Access).Key);
@@ -314,13 +348,13 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
 
     internal async Task PrefetchFolderAsync(CloudStorageItem item)
     {
-        if (_disposed || IsLoading.Value || !item.IsFolder || !Items.Contains(item)
+        if (_disposed || IsBusy.Value || IsLoading.Value || !item.IsFolder || !Items.Contains(item)
             || _owner is not { } user || !ReferenceEquals(_clients.AuthenticatedUser.Value, user)
             || TryGetCachedFolder(item.Id, out _) || _prefetch?.FolderId == item.Id) return;
         _prefetch?.Cancel();
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         var prefetch = new FolderPrefetch(item.Id, user, cancellation,
-            FetchPageAsync(user, item.Id, 1, cancellation.Token));
+            FetchPageAsync(user, item.Id, null, cancellation.Token));
         _prefetch = prefetch;
         await ObservePrefetchAsync(prefetch);
     }
@@ -332,7 +366,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
             var response = await prefetch.Request;
             if (!_disposed && ReferenceEquals(_prefetch, prefetch) && !prefetch.Cancellation.IsCancellationRequested
                 && ReferenceEquals(_clients.AuthenticatedUser.Value, prefetch.User)
-                && response.FolderId == prefetch.FolderId)
+                && response.ParentId == prefetch.FolderId)
                 CacheFolder(response);
         }
         catch (OperationCanceledException) { }
@@ -383,7 +417,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
 
     private Task NavigateAsync(string? folder)
     {
-        if (_disposed || _owner is not { } user || !ReferenceEquals(_clients.AuthenticatedUser.Value, user))
+        if (_disposed || IsBusy.Value || _owner is not { } user || !ReferenceEquals(_clients.AuthenticatedUser.Value, user))
             return Task.CompletedTask;
         if (_folderId == folder) return LoadAsync();
         _load?.Cancel();
@@ -397,7 +431,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
         ResetFolder(folder);
         if (TryGetCachedFolder(folder, out var cached))
         {
-            _clients.CommitForAuthenticatedUser(user, () => Apply(cached, false, 1, cache: false), _lifetime.Token);
+            _clients.CommitForAuthenticatedUser(user, () => Apply(cached, false, null, cache: false), _lifetime.Token);
             return Task.CompletedTask;
         }
         return LoadAsync();
@@ -418,14 +452,18 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
         await dialog.ShowDialog(owner);
     }
 
-    private void ClearListing()
+    private void ClearListing(bool clearUsage = false)
     {
         Items.Clear();
         IsEmpty.Value = false;
-        HasUsage.Value = false;
-        UsageText.Value = "";
-        UsagePercent.Value = 0;
-        _page = 0;
+        HasListing.Value = false;
+        if (clearUsage)
+        {
+            HasUsage.Value = false;
+            UsageText.Value = "";
+            UsagePercent.Value = 0;
+        }
+        _nextCursor = null;
         _fileIds.Clear();
         HasMore.Value = false;
         LoadMoreError.Value = null;
@@ -444,6 +482,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
     {
         if (_disposed) return;
         _disposed = true;
+        CancelActions();
         ClearFolderCache();
         _owner = null;
         ++_version;
@@ -456,6 +495,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
         IsLoadingVisible.Dispose();
         IsLoadingMoreVisible.Dispose();
         IsEmpty.Dispose();
+        HasListing.Dispose();
         HasUsage.Dispose();
         IsLoadingMore.Dispose();
         HasMore.Dispose();
@@ -466,5 +506,8 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
         UsageText.Dispose();
         UsagePercent.Dispose();
         Error.Dispose();
+        IsBusy.Dispose();
+        ActionError.Dispose();
+        DetailsItem.Dispose();
     }
 }

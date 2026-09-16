@@ -60,13 +60,13 @@ public sealed class CloudStorageTests
         try
         {
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja");
-            using var handler = new Handler();
+            using var handler = new Handler { UsagePlan = plan };
             using var http = new HttpClient(handler);
             await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
             SignIn(clients, "a");
             using var vm = Create(clients);
             await WaitFor(() => handler.Requests.Count == 1);
-            handler.Requests[0].Complete(Response(plan: plan));
+            handler.Requests[0].Complete(Response());
             await WaitFor(() => !vm.IsLoading.Value);
             Assert.That(vm.UsageText.Value, Does.EndWith(expected));
         }
@@ -83,7 +83,7 @@ public sealed class CloudStorageTests
         using var vm = Create(clients);
         await WaitFor(() => handler.Requests.Count == 1);
         Assert.That(handler.Requests[0].Authorization, Is.EqualTo("Bearer token-a"));
-        Assert.That(handler.Requests[0].Uri.AbsolutePath, Is.EqualTo("/api/v3/storage"));
+        Assert.That(handler.Requests[0].Uri.AbsolutePath, Is.EqualTo("/api/v3/storage/entries"));
         handler.Requests[0].Complete(Response());
         await WaitFor(() => !vm.IsLoading.Value);
         Assert.That(vm.Items.Select(x => x.Id), Is.EqualTo(new[] { "folder & 日本", "file" }));
@@ -100,7 +100,7 @@ public sealed class CloudStorageTests
             list.SelectedIndex = 0;
             list.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
             await WaitFor(() => handler.Requests.Count == 2);
-            Assert.That(Uri.UnescapeDataString(handler.Requests[1].Uri.Query), Does.Contain("folder=folder & 日本"));
+            Assert.That(Uri.UnescapeDataString(handler.Requests[1].Uri.Query), Does.Contain("parentId=folder & 日本"));
             handler.Requests[1].Complete(Response(folder: "folder & 日本"));
             await WaitFor(() => !vm.IsLoading.Value);
             Assert.That(vm.Breadcrumbs.Last().FolderId, Is.EqualTo("folder & 日本"));
@@ -124,7 +124,7 @@ public sealed class CloudStorageTests
 
         var navigation = vm.OpenFolderAsync(vm.Items[0]);
         await WaitFor(() => handler.Requests.Count == 2);
-        Assert.That(Uri.UnescapeDataString(handler.Requests[1].Uri.Query), Does.Contain("folder=folder & 日本"));
+        Assert.That(Uri.UnescapeDataString(handler.Requests[1].Uri.Query), Does.Contain("parentId=folder & 日本"));
         handler.Requests[1].Complete(Response(folder: "folder & 日本", pageCount: 2));
         await navigation;
         await WaitFor(() => !vm.IsLoading.Value);
@@ -132,8 +132,8 @@ public sealed class CloudStorageTests
         Assert.That(vm.HasMore.Value, Is.True);
         var append = vm.LoadMoreAsync();
         await WaitFor(() => handler.Requests.Count == 3);
-        Assert.That(handler.Requests[2].Uri.Query, Does.Contain("page=2"));
-        Assert.That(Uri.UnescapeDataString(handler.Requests[2].Uri.Query), Does.Contain("folder=folder & 日本"));
+        Assert.That(handler.Requests[2].Uri.Query, Does.Contain("cursor=cursor-2"));
+        Assert.That(Uri.UnescapeDataString(handler.Requests[2].Uri.Query), Does.Contain("parentId=folder & 日本"));
         handler.Requests[2].Complete(Response(folder: "folder & 日本", page: 2, pageCount: 2, fileId: "second"));
         await append;
         await WaitFor(() => !vm.IsLoading.Value);
@@ -343,33 +343,41 @@ public sealed class CloudStorageTests
         }, clients, DateTime.UtcNow);
     }
 
-    internal static string Response(string name = "video.mp4", string? folder = null, int page = 1, int pageCount = 1, bool empty = false, string fileId = "file", int fileCount = 1, string? plan = null)
+    internal static string Response(string name = "video.mp4", string? folder = null, int page = 1, int pageCount = 1, bool empty = false, string fileId = "file", int fileCount = 1, string visibility = "PRIVATE")
         => JsonSerializer.Serialize(new
         {
-            files = Enumerable.Range(0, empty ? 0 : fileCount).Select(index => new
+            entries = (empty || folder != null || page != 1 ? [] : new[]
+            {
+                new { id = "folder & 日本", kind = "folder", name = "素材", parentId = (string?)null,
+                    size = 0L, mimeType = "", visibility = "", createdAt = "2026-09-01T00:00:00Z",
+                    actions = new[] { "open", "rename", "move", "delete" } }
+            }).Concat(Enumerable.Range(0, empty ? 0 : fileCount).Select(index => new
             {
                 id = fileCount == 1 ? fileId : $"{fileId}-{page}-{index}",
+                kind = "file",
                 name = fileCount == 1 ? name : $"{index:D2}-{name}",
+                parentId = folder,
                 size = 5L * 1024 * 1024 * 1024,
                 mimeType = "video/mp4",
-                visibility = "PRIVATE",
+                visibility,
                 createdAt = "2026-09-01T00:00:00Z",
-                folderId = folder,
-            }).ToArray(),
-            folders = empty ? [] : new[] { new { id = "folder & 日本", name = "素材", parentId = (string?)null } },
-            folderId = folder,
-            total = empty ? 0 : fileCount * pageCount,
-            page,
-            pageCount,
-            usage = new
-            {
-                plan,
-                quotaBytes = 10L * 1024 * 1024 * 1024,
-                usedBytes = 5L * 1024 * 1024 * 1024,
-                fileCount = 1,
-                fileCountLimit = 10000
-            },
+                actions = visibility == "DEDICATED" ? new[] { "open", "download", "move", "details" }
+                    : visibility == "PUBLIC" ? new[] { "open", "download", "copyLink", "rename", "move", "details", "setPrivate", "delete" }
+                    : new[] { "open", "download", "rename", "move", "details", "setPublic", "delete" },
+            })).ToArray(),
+            path = folder == null ? [] : new[] { new { id = folder, name = "素材", parentId = (string?)null } },
+            parentId = folder,
+            nextCursor = page < pageCount ? $"cursor-{page + 1}" : null,
         });
+
+    internal static string UsageResponse(string? plan = null) => JsonSerializer.Serialize(new
+    {
+        plan,
+        quotaBytes = 10L * 1024 * 1024 * 1024,
+        usedBytes = 5L * 1024 * 1024 * 1024,
+        fileCount = 1,
+        fileCountLimit = 10000,
+    });
 
     internal static async Task WaitFor(Func<bool> predicate)
     {
@@ -382,6 +390,8 @@ public sealed class CloudStorageTests
     internal sealed class Pending(HttpRequestMessage request, CancellationToken token)
     {
         public Uri Uri { get; } = request.RequestUri!;
+        public HttpMethod Method { get; } = request.Method;
+        public Task<string> ReadBodyAsync() => request.Content?.ReadAsStringAsync() ?? Task.FromResult("");
         public string Authorization { get; } = request.Headers.Authorization?.ToString() ?? "";
         public CancellationToken Token { get; } = token;
         public TaskCompletionSource<HttpResponseMessage> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -396,9 +406,20 @@ public sealed class CloudStorageTests
     internal sealed class Handler : HttpMessageHandler
     {
         private readonly ConcurrentQueue<Pending> _requests = new();
+        public string? UsagePlan { get; set; }
+        public ConcurrentQueue<string> UsageAuthorizations { get; } = new();
         public IReadOnlyList<Pending> Requests => _requests.ToArray();
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/storage/usage", StringComparison.Ordinal))
+            {
+                UsageAuthorizations.Enqueue(request.Headers.Authorization?.ToString() ?? "");
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    RequestMessage = request,
+                    Content = new StringContent(UsageResponse(UsagePlan), Encoding.UTF8, "application/json"),
+                });
+            }
             var pending = new Pending(request, cancellationToken);
             _requests.Enqueue(pending);
             return pending.Completion.Task;
