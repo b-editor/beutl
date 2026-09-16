@@ -1,5 +1,5 @@
-﻿using System.ComponentModel;
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Microsoft.Win32.SafeHandles;
@@ -8,15 +8,16 @@ using static Beutl.Editor.VersionControl.WindowsInterop;
 namespace Beutl.Editor.VersionControl;
 
 // Finds the live descendants of a Windows command that is not in a job. The handle a caller holds keeps
-// the command's id reserved after it exits, so its children are still found by their parent id.
+// the command's id reserved after it exits, so its children are still found by their parent id. The
+// system's process list names every process, including one this process may not open, so a descendant
+// that cannot be inspected is still counted.
 [SupportedOSPlatform("windows")]
 internal static unsafe partial class WindowsProcessTree
 {
-    private const uint SnapshotProcesses = 0x00000002;
-    private const uint ProcessQueryLimitedInformation = 0x1000;
-    private const uint Synchronize = 0x00100000;
-    private const int ProcessBasicInformationClass = 0;
-    private const uint WaitObject0 = 0;
+    private const int SystemProcessInformationClass = 5;
+    private const int StatusInfoLengthMismatch = unchecked((int)0xC0000004);
+    private const int InitialListingSize = 256 * 1024;
+    private const int MaximumListingSize = 64 * 1024 * 1024;
 
     // True once no descendant of the root is alive. A process list that cannot be read leaves the tree
     // unconfirmed, and a descendant found alive after a kill is ended again.
@@ -35,109 +36,84 @@ internal static unsafe partial class WindowsProcessTree
     private static bool? HasLiveDescendant(int rootId, SafeProcessHandle rootHandle)
     {
         if (!Native.GetProcessTimes(rootHandle, out long rootCreationTime, out _, out _, out _)
-            || !TryListProcesses(out List<ProcessTreeEntry> candidates))
+            || !TryListProcesses(out List<ProcessTreeEntry> listing))
         {
             return null;
         }
 
-        bool found = false;
-        ProcessTreeWalk.VisitLiveDescendants<SafeProcessHandle>(
-            rootId,
-            rootCreationTime,
-            candidates,
-            Open,
-            Identify,
-            HasExited,
-            _ => found = true);
-        return found;
+        return ProcessTreeWalk.HasLiveDescendant(rootId, rootCreationTime, listing);
     }
 
     private static bool TryListProcesses(out List<ProcessTreeEntry> entries)
     {
         entries = [];
-        nint snapshot = Native.CreateToolhelp32Snapshot(SnapshotProcesses, 0);
-        if (snapshot == -1)
+        int length = InitialListingSize;
+        while (length <= MaximumListingSize)
         {
-            return false;
-        }
-
-        try
-        {
-            ProcessEntry entry = default;
-            entry.Size = (uint)sizeof(ProcessEntry);
-            if (!Native.Process32FirstW(snapshot, &entry))
+            byte* buffer = (byte*)NativeMemory.Alloc((nuint)length);
+            try
             {
-                return false;
-            }
+                uint required;
+                int status = Native.NtQuerySystemInformation(
+                    SystemProcessInformationClass,
+                    buffer,
+                    (uint)length,
+                    &required);
+                if (status == StatusInfoLengthMismatch)
+                {
+                    // Past the maximum the loop ends and the listing counts as unreadable.
+                    length = (int)Math.Min(
+                        MaximumListingSize + 1L,
+                        Math.Max(length * 2L, required + (long)InitialListingSize));
+                    continue;
+                }
 
-            do
+                if (status != 0)
+                {
+                    return false;
+                }
+
+                // One listing taken at one moment, so every id, parent id and creation time agree.
+                uint offset = 0;
+                while (true)
+                {
+                    SystemProcessInformation information =
+                        Unsafe.ReadUnaligned<SystemProcessInformation>(buffer + offset);
+                    entries.Add(new ProcessTreeEntry(
+                        (int)information.UniqueProcessId,
+                        (int)information.InheritedFromUniqueProcessId,
+                        information.CreateTime,
+                        // A process that has exited but is still referenced is listed without threads.
+                        IsAlive: information.NumberOfThreads > 0));
+                    if (information.NextEntryOffset == 0)
+                    {
+                        return true;
+                    }
+
+                    offset += information.NextEntryOffset;
+                    if (offset + (uint)sizeof(SystemProcessInformation) > (uint)length)
+                    {
+                        return false;
+                    }
+                }
+            }
+            finally
             {
-                entries.Add(new ProcessTreeEntry((int)entry.ProcessId, (int)entry.ParentProcessId));
-                entry.Size = (uint)sizeof(ProcessEntry);
+                NativeMemory.Free(buffer);
             }
-            while (Native.Process32NextW(snapshot, &entry));
+        }
 
-            return true;
-        }
-        finally
-        {
-            Native.CloseHandle(snapshot);
-        }
+        return false;
     }
-
-    private static SafeProcessHandle? Open(int processId)
-    {
-        SafeProcessHandle handle = Native.OpenProcess(
-            ProcessQueryLimitedInformation | Synchronize,
-            false,
-            (uint)processId);
-        if (!handle.IsInvalid)
-        {
-            return handle;
-        }
-
-        handle.Dispose();
-        return null;
-    }
-
-    private static ProcessTreeIdentity? Identify(SafeProcessHandle handle)
-    {
-        ProcessBasicInformation information = default;
-        if (Native.NtQueryInformationProcess(
-                handle,
-                ProcessBasicInformationClass,
-                &information,
-                (uint)sizeof(ProcessBasicInformation),
-                out _) != 0
-            || !Native.GetProcessTimes(handle, out long creationTime, out _, out _, out _))
-        {
-            return null;
-        }
-
-        return new ProcessTreeIdentity((int)information.InheritedFromUniqueProcessId, creationTime);
-    }
-
-    private static bool HasExited(SafeProcessHandle handle)
-        => Native.WaitForSingleObject(handle, 0) == WaitObject0;
 
     private static partial class Native
     {
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        internal static partial nint CreateToolhelp32Snapshot(uint flags, uint processId);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        internal static partial bool Process32FirstW(nint snapshot, ProcessEntry* entry);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        internal static partial bool Process32NextW(nint snapshot, ProcessEntry* entry);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        internal static partial SafeProcessHandle OpenProcess(
-            uint desiredAccess,
-            [MarshalAs(UnmanagedType.Bool)] bool inheritHandle,
-            uint processId);
+        [LibraryImport("ntdll.dll")]
+        internal static partial int NtQuerySystemInformation(
+            int informationClass,
+            byte* information,
+            uint informationLength,
+            uint* returnLength);
 
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -147,21 +123,6 @@ internal static unsafe partial class WindowsProcessTree
             out long exitTime,
             out long kernelTime,
             out long userTime);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        internal static partial uint WaitForSingleObject(SafeProcessHandle handle, uint milliseconds);
-
-        [LibraryImport("ntdll.dll")]
-        internal static partial int NtQueryInformationProcess(
-            SafeProcessHandle process,
-            int informationClass,
-            ProcessBasicInformation* information,
-            uint informationLength,
-            out uint returnLength);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        internal static partial bool CloseHandle(nint handle);
     }
 }
 
@@ -258,100 +219,70 @@ internal static class WindowsInterop
         public uint TotalTerminatedProcesses;
     }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    internal unsafe struct ProcessEntry
+    // The leading fields of SYSTEM_PROCESS_INFORMATION, as the runtime reads them for Process.
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct SystemProcessInformation
     {
-        public uint Size;
-        public uint Usage;
-        public uint ProcessId;
-        public nuint DefaultHeapId;
-        public uint ModuleId;
-        public uint Threads;
-        public uint ParentProcessId;
-        public int PriorityClassBase;
-        public uint Flags;
-        public fixed char ExeFile[260];
+        public uint NextEntryOffset;
+        public uint NumberOfThreads;
+        public long WorkingSetPrivateSize;
+        public uint HardFaultCount;
+        public uint NumberOfThreadsHighWatermark;
+        public ulong CycleTime;
+        public long CreateTime;
+        public long UserTime;
+        public long KernelTime;
+        public UnicodeString ImageName;
+        public int BasePriority;
+        public nint UniqueProcessId;
+        public nint InheritedFromUniqueProcessId;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct ProcessBasicInformation
+    internal struct UnicodeString
     {
-        public uint ExitStatus;
-        public nint PebBaseAddress;
-        public nuint AffinityMask;
-        public int BasePriority;
-        public nuint UniqueProcessId;
-        public nuint InheritedFromUniqueProcessId;
+        public ushort Length;
+        public ushort MaximumLength;
+        public nint Buffer;
     }
 }
 
-internal readonly record struct ProcessTreeEntry(int Id, int ParentId);
+internal readonly record struct ProcessTreeEntry(int Id, int ParentId, long CreationTime, bool IsAlive);
 
-internal readonly record struct ProcessTreeIdentity(int ParentId, long CreationTime);
-
-// Finds the live descendants of a process from a listing of (id, parent id) pairs, which can be stale by
-// the time a process is opened. A candidate counts only if the process behind the opened handle names the
-// matched parent as its own and was created no earlier than that parent, so an id reused since the
-// listing, or a child of an older process that once held the parent's id, is never taken for a
-// descendant. A matched parent's handle stays open until the walk ends, so its id cannot be reused
-// meanwhile. An exited process is not visited, but its children are still searched.
+// Searches one consistent process listing for a live descendant of a process. A listed process is a
+// child of a listed parent only if it was created no earlier than that parent: a child of an older
+// process that once held the parent's id was created before the parent took the id, so it is never
+// taken for a descendant. An exited process that is still listed is searched below but not counted.
 internal static class ProcessTreeWalk
 {
-    internal static void VisitLiveDescendants<THandle>(
+    internal static bool HasLiveDescendant(
         int rootId,
         long rootCreationTime,
-        IReadOnlyList<ProcessTreeEntry> candidates,
-        Func<int, THandle?> open,
-        Func<THandle, ProcessTreeIdentity?> identify,
-        Func<THandle, bool> hasExited,
-        Action<THandle> visit)
-        where THandle : class, IDisposable
+        IReadOnlyList<ProcessTreeEntry> listing)
     {
         var parents = new Queue<(int Id, long CreationTime)>();
-        var matched = new List<THandle>();
         var seen = new HashSet<int> { rootId };
         parents.Enqueue((rootId, rootCreationTime));
-        try
+        while (parents.TryDequeue(out (int Id, long CreationTime) parent))
         {
-            while (parents.TryDequeue(out (int Id, long CreationTime) parent))
+            foreach (ProcessTreeEntry entry in listing)
             {
-                foreach (ProcessTreeEntry candidate in candidates)
+                if (entry.ParentId != parent.Id
+                    || entry.CreationTime < parent.CreationTime
+                    || !seen.Add(entry.Id))
                 {
-                    if (candidate.ParentId != parent.Id || seen.Contains(candidate.Id))
-                    {
-                        continue;
-                    }
-
-                    THandle? handle = open(candidate.Id);
-                    if (handle is null)
-                    {
-                        continue;
-                    }
-
-                    if (identify(handle) is not { } identity
-                        || identity.ParentId != parent.Id
-                        || identity.CreationTime < parent.CreationTime)
-                    {
-                        handle.Dispose();
-                        continue;
-                    }
-
-                    matched.Add(handle);
-                    seen.Add(candidate.Id);
-                    parents.Enqueue((candidate.Id, identity.CreationTime));
-                    if (!hasExited(handle))
-                    {
-                        visit(handle);
-                    }
+                    continue;
                 }
+
+                if (entry.IsAlive)
+                {
+                    return true;
+                }
+
+                parents.Enqueue((entry.Id, entry.CreationTime));
             }
         }
-        finally
-        {
-            foreach (THandle handle in matched)
-            {
-                handle.Dispose();
-            }
-        }
+
+        return false;
     }
 }

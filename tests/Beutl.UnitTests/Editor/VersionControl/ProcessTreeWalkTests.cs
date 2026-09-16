@@ -1,10 +1,11 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Beutl.Editor.VersionControl;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
-// The walk that finds a Windows command's descendants when it has no job, and the Windows interop
-// layouts. Both are platform neutral, so these run everywhere; the walk runs against a fake process table.
+// The search for a Windows command's live descendants when it has no job, and the Windows interop
+// layouts. Both are platform neutral, so these run everywhere.
 [TestFixture]
 public class ProcessTreeWalkTests
 {
@@ -12,110 +13,79 @@ public class ProcessTreeWalkTests
     private const long RootCreationTime = 100;
 
     [Test]
-    public void Walk_visits_live_descendants_and_searches_below_an_exited_one()
+    public void Finds_a_live_child()
     {
-        var table = new FakeProcessTable(
-            new FakeProcess(11, ParentId: RootId, CreationTime: 110),
-            new FakeProcess(12, ParentId: 11, CreationTime: 120, Exited: true),
-            new FakeProcess(13, ParentId: 12, CreationTime: 130),
-            new FakeProcess(99, ParentId: 50, CreationTime: 90));
+        Assert.That(HasLiveDescendant(Entry(11, RootId, 110)), Is.True);
+    }
 
-        IReadOnlyList<int> visited = table.Walk();
+    [Test]
+    public void Finds_a_live_process_below_an_exited_one_that_is_still_listed()
+    {
+        Assert.That(
+            HasLiveDescendant(
+                Entry(11, RootId, 110, alive: false),
+                Entry(12, 11, 120)),
+            Is.True);
+    }
 
+    [Test]
+    public void Ignores_exited_descendants_and_unrelated_processes()
+    {
+        Assert.That(
+            HasLiveDescendant(
+                Entry(11, RootId, 110, alive: false),
+                Entry(12, 11, 120, alive: false),
+                Entry(99, 50, 90),
+                Entry(RootId, 1, RootCreationTime)),
+            Is.False);
+    }
+
+    // The root's id was held by an older process whose child is still running.
+    [Test]
+    public void Ignores_a_child_of_an_older_process_that_held_the_root_id()
+    {
+        Assert.That(HasLiveDescendant(Entry(11, RootId, RootCreationTime - 1)), Is.False);
+    }
+
+    // An exited child's id was taken by a newer process after the child had started a grandchild.
+    [Test]
+    public void Ignores_a_child_of_an_older_process_that_held_a_descendant_id()
+    {
         Assert.Multiple(() =>
         {
-            Assert.That(visited, Is.EquivalentTo(new[] { 11, 13 }));
-            Assert.That(table.Opened, Does.Not.Contain(99));
-            Assert.That(table.AllHandlesDisposed, Is.True);
+            Assert.That(
+                HasLiveDescendant(
+                    Entry(11, RootId, 150, alive: false),
+                    Entry(12, 11, 120)),
+                Is.False);
+            Assert.That(
+                HasLiveDescendant(
+                    Entry(11, RootId, 110, alive: false),
+                    Entry(12, 11, 110)),
+                Is.True,
+                "A child created in the same tick as its parent is still its child.");
         });
     }
 
     [Test]
-    public void Walk_rejects_an_id_reused_since_the_listing()
+    public void Terminates_on_a_listing_that_repeats_an_entry_or_loops_back_to_the_root()
     {
-        // The listing names 11 as a child of the root, but the process now holding id 11 is not.
-        var table = new FakeProcessTable(
-            new FakeProcess(11, ParentId: RootId, CreationTime: 110) { ActualParentId = 50 },
-            new FakeProcess(12, ParentId: 11, CreationTime: 120));
-
-        IReadOnlyList<int> visited = table.Walk();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(visited, Is.Empty);
-            Assert.That(table.Opened, Does.Not.Contain(12), "A rejected process is not searched.");
-            Assert.That(table.AllHandlesDisposed, Is.True);
-        });
+        Assert.That(
+            HasLiveDescendant(
+                Entry(11, RootId, 110, alive: false),
+                Entry(11, RootId, 110, alive: false),
+                Entry(12, 11, 120, alive: false),
+                Entry(11, 12, 130, alive: false),
+                Entry(RootId, 12, 140, alive: false)),
+            Is.False);
     }
 
     [Test]
-    public void Walk_rejects_a_child_of_an_older_process_that_held_the_parent_id()
-    {
-        var table = new FakeProcessTable(
-            new FakeProcess(11, ParentId: RootId, CreationTime: RootCreationTime - 1),
-            new FakeProcess(12, ParentId: RootId, CreationTime: RootCreationTime));
-
-        Assert.That(table.Walk(), Is.EquivalentTo(new[] { 12 }));
-    }
-
-    [Test]
-    public void Walk_skips_a_process_it_cannot_open_or_identify()
-    {
-        var table = new FakeProcessTable(
-            new FakeProcess(11, ParentId: RootId, CreationTime: 110) { CanOpen = false },
-            new FakeProcess(12, ParentId: RootId, CreationTime: 120) { CanIdentify = false },
-            new FakeProcess(13, ParentId: RootId, CreationTime: 130));
-
-        IReadOnlyList<int> visited = table.Walk();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(visited, Is.EquivalentTo(new[] { 13 }));
-            Assert.That(table.AllHandlesDisposed, Is.True);
-        });
-    }
-
-    [Test]
-    public void Walk_keeps_a_matched_parent_open_while_its_children_are_matched()
-    {
-        var table = new FakeProcessTable(
-            new FakeProcess(11, ParentId: RootId, CreationTime: 110),
-            new FakeProcess(12, ParentId: 11, CreationTime: 120));
-        bool parentOpenWhileChildVisited = false;
-
-        table.Walk(handle =>
-        {
-            if (handle.Process.Id == 12)
-            {
-                parentOpenWhileChildVisited = table.IsOpen(11);
-            }
-        });
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(parentOpenWhileChildVisited, Is.True);
-            Assert.That(table.AllHandlesDisposed, Is.True);
-        });
-    }
-
-    [Test]
-    public void Walk_visits_each_process_once_and_never_the_root()
-    {
-        // A stale listing can repeat an entry or name the root as someone's child.
-        var table = new FakeProcessTable(
-            new FakeProcess(11, ParentId: RootId, CreationTime: 110),
-            new FakeProcess(11, ParentId: RootId, CreationTime: 110),
-            new FakeProcess(RootId, ParentId: 11, CreationTime: RootCreationTime));
-
-        Assert.That(table.Walk(), Is.EqualTo(new[] { 11 }));
-    }
-
-    [Test]
-    public void Windows_interop_structures_match_their_native_sizes()
+    public void Windows_interop_structures_match_their_native_layout()
     {
         if (IntPtr.Size != 8)
         {
-            Assert.Ignore("The expected sizes are those of a 64-bit process.");
+            Assert.Ignore("The expected layout is that of a 64-bit process.");
         }
 
         Assert.Multiple(() =>
@@ -127,73 +97,22 @@ public class ProcessTreeWalkTests
             Assert.That(Unsafe.SizeOf<WindowsInterop.IoCounters>(), Is.EqualTo(48));
             Assert.That(Unsafe.SizeOf<WindowsInterop.JobObjectExtendedLimitInformation>(), Is.EqualTo(144));
             Assert.That(Unsafe.SizeOf<WindowsInterop.JobObjectBasicAccountingInformation>(), Is.EqualTo(48));
-            Assert.That(Unsafe.SizeOf<WindowsInterop.ProcessEntry>(), Is.EqualTo(568));
-            Assert.That(Unsafe.SizeOf<WindowsInterop.ProcessBasicInformation>(), Is.EqualTo(48));
+            Assert.That(OffsetOf(nameof(WindowsInterop.SystemProcessInformation.NumberOfThreads)), Is.EqualTo(4));
+            Assert.That(OffsetOf(nameof(WindowsInterop.SystemProcessInformation.CreateTime)), Is.EqualTo(32));
+            Assert.That(OffsetOf(nameof(WindowsInterop.SystemProcessInformation.ImageName)), Is.EqualTo(56));
+            Assert.That(OffsetOf(nameof(WindowsInterop.SystemProcessInformation.UniqueProcessId)), Is.EqualTo(80));
+            Assert.That(
+                OffsetOf(nameof(WindowsInterop.SystemProcessInformation.InheritedFromUniqueProcessId)),
+                Is.EqualTo(88));
         });
     }
 
-    private sealed record FakeProcess(int Id, int ParentId, long CreationTime, bool Exited = false)
-    {
-        public int? ActualParentId { get; init; }
+    private static int OffsetOf(string field)
+        => (int)Marshal.OffsetOf<WindowsInterop.SystemProcessInformation>(field);
 
-        public bool CanOpen { get; init; } = true;
+    private static ProcessTreeEntry Entry(int id, int parentId, long creationTime, bool alive = true)
+        => new(id, parentId, creationTime, alive);
 
-        public bool CanIdentify { get; init; } = true;
-    }
-
-    private sealed class FakeHandle(FakeProcess process) : IDisposable
-    {
-        public FakeProcess Process { get; } = process;
-
-        public bool Disposed { get; private set; }
-
-        public void Dispose() => Disposed = true;
-    }
-
-    private sealed class FakeProcessTable(params FakeProcess[] processes)
-    {
-        private readonly List<FakeHandle> _handles = [];
-
-        public List<int> Opened { get; } = [];
-
-        public bool AllHandlesDisposed => _handles.All(static handle => handle.Disposed);
-
-        public bool IsOpen(int id) => _handles.Any(handle => handle.Process.Id == id && !handle.Disposed);
-
-        public IReadOnlyList<int> Walk(Action<FakeHandle>? onVisit = null)
-        {
-            var visited = new List<int>();
-            ProcessTreeWalk.VisitLiveDescendants(
-                RootId,
-                RootCreationTime,
-                processes.Select(static process => new ProcessTreeEntry(process.Id, process.ParentId)).ToArray(),
-                Open,
-                static handle => handle.Process.CanIdentify
-                    ? new ProcessTreeIdentity(
-                        handle.Process.ActualParentId ?? handle.Process.ParentId,
-                        handle.Process.CreationTime)
-                    : null,
-                static handle => handle.Process.Exited,
-                handle =>
-                {
-                    visited.Add(handle.Process.Id);
-                    onVisit?.Invoke(handle);
-                });
-            return visited;
-        }
-
-        private FakeHandle? Open(int id)
-        {
-            Opened.Add(id);
-            FakeProcess? process = processes.FirstOrDefault(candidate => candidate.Id == id);
-            if (process is not { CanOpen: true })
-            {
-                return null;
-            }
-
-            var handle = new FakeHandle(process);
-            _handles.Add(handle);
-            return handle;
-        }
-    }
+    private static bool HasLiveDescendant(params ProcessTreeEntry[] listing)
+        => ProcessTreeWalk.HasLiveDescendant(RootId, RootCreationTime, listing);
 }
