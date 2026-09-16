@@ -5217,7 +5217,9 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             diagnostics.Select(static d => d.Id),
             Does.Contain("BESG004"),
             "a source whose making this rule was not shown leaves the operator as the binder bound it, "
-            + "which is the declaration the query names");
+            + "which is the declaration the query names and not necessarily the body that runs - the "
+            + "override here is pure, so this report is the known cost of answering at all, pinned so it "
+            + "cannot change unnoticed, and it is the same reading a foreach gives its sequence");
     }
 
     [Test]
