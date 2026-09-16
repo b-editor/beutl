@@ -123,5 +123,5 @@
     <!--  Its own key, not one of the steps above: the tab icon is scaled to this box on its own.  -->
     <sys:Double x:Key="DockToolTabIconSize">14</sys:Double>
     <!--  The title's own DockHeaderContentPadding adds 2 more on its left.  -->
-    <Thickness x:Key="DockToolTabIconMargin">0,0,6,0</Thickness>
+    <Thickness x:Key="DockToolTabIconMargin">0,0,4,0</Thickness>
 </ResourceDictionary>
