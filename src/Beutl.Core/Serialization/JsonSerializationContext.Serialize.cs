@@ -41,15 +41,24 @@ public partial class JsonSerializationContext
         // 外部ファイル参照として保存するケース
         if (coreSerializable is CoreObject { Uri: not null } coreObject && parent != null)
         {
+            // Hand the requirement over before the file is written, not after: only the hierarchy
+            // carries it otherwise, and a referenced object reached through an ordinary property is
+            // outside it.
+            TransferRetainedMigration(coreObject, parent);
             return SerializeObjectFile(coreObject, parent);
         }
 
         var innerContext = new JsonSerializationContext(actualType, parent);
+        innerContext.BeginSerialization(coreSerializable);
 
         using (ThreadLocalSerializationContext.Enter(innerContext))
         {
             coreSerializable.Serialize(innerContext);
         }
+
+        // Persisting the value is the first point at which the owner of a separately deserialized
+        // value is known, so its retained migration requirement is handed over here.
+        TransferRetainedMigration(coreSerializable, parent);
 
         JsonObject obj = innerContext.GetJsonObject();
 
