@@ -29,7 +29,7 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 - Never through a shell; argument arrays only. Working directory = repository root.
 - Environment on every call: `GIT_TERMINAL_PROMPT=0` (fail fast instead of hanging on credential prompts), `GIT_OPTIONAL_LOCKS=0` (`git status` must not write the index — prevents a feedback loop with the work-tree watcher), `GIT_LITERAL_PATHSPECS=1` (treat generated project paths as literal data), and `LC_ALL=C` (stable parseable output). The sole literal-path exception is `git check-ignore --stdin -z`, which receives validated NUL-delimited repository-relative paths and sets `GIT_LITERAL_PATHSPECS=0` so Git can apply ignore patterns. Network operations preserve inherited `GIT_SSH_COMMAND`/`GIT_SSH`/`GIT_SSH_VARIANT` and effective repository/global `core.sshCommand`/`ssh.variant`; only the unconfigured default transport adds `GIT_SSH_COMMAND=ssh -oBatchMode=yes`.
 - Machine-readable output only: `status --porcelain=v2 -z`, `log --format=…%x00 -z`, `show --name-status -z`, `rev-parse`, `for-each-ref`. Human-facing output is never parsed.
-- Cancellation kills the child process.
+- Cancellation kills the command's process group, which is owned from launch so that a descendant outliving the command is still reached.
 
 **Rationale**: prompts hanging a GUI process, locale-dependent output, and index-writing status calls are the three classic failure modes of GUI-embedded git; each rule closes one. Preserving the effective SSH command keeps user-selected wrappers and non-OpenSSH clients functional, while closing the redirected standard-input stream and adding BatchMode only to default OpenSSH keeps the default path noninteractive. Detailed in `contracts/git-cli-invocation.md`.
 
