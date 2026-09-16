@@ -41,8 +41,12 @@ internal readonly record struct RenderScopeAmbientTransform(
     /// <paramref name="ambient"/>.
     /// </summary>
     /// <remarks>
-    /// A singular ambient has already collapsed everything below it, and no input-space matrix escapes a
-    /// collapse the composition happens after, so the declaration stands as written there.
+    /// A singular ambient has no input-space matrix at all - every product with a singular matrix is singular -
+    /// and the ancestor that holds it already measures the subtree as empty, because with no inverse it
+    /// declares a full-input contract whose forward mapping collapses whatever its input reports. The
+    /// declaration therefore stands as written there, and a <see cref="TransformOperator.Set"/> stays collapsed
+    /// rather than escaping; letting it escape means detaching the subtree from its ancestors' bounds
+    /// composition, which is tracked by https://github.com/b-editor/beutl/issues/2422.
     /// </remarks>
     public Matrix Resolve(Matrix ambient)
     {

@@ -115,6 +115,38 @@ public sealed class AmbientTransformScopeTests
         });
     }
 
+    /// <remarks>
+    /// A known limit, pinned so it is met where it applies. A composition reaches its destination by composing
+    /// with what its ancestors contribute, so <see cref="TransformOperator.Set"/> is the input-space matrix
+    /// <c>M * ambient⁻¹</c> - and a singular ambient has none, because every product with a singular matrix is
+    /// singular. The ancestor measures the subtree as empty on its own account too: with no inverse it declares
+    /// a full-input contract whose forward mapping collapses whatever its input reports. Escaping it means
+    /// detaching the subtree from its ancestors' bounds composition, which is tracked by #2422; measured
+    /// identical on f6596ea05, before any of this was resolved.
+    /// </remarks>
+    [Test]
+    public void ASetUnderASingularAmbientStaysCollapsed()
+    {
+        using RenderNode root = BuildChain(
+            [
+                (Matrix.CreateScale(0, 0), TransformOperator.Prepend),
+                (Matrix.Identity, TransformOperator.Set),
+            ],
+            new MarkNode());
+        using var renderer = CreateRenderer(root);
+
+        RenderNodeMeasurement measurement = renderer.Measure();
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.OutputBounds, Is.EqualTo(default(Rect)));
+            Assert.That(rasterization.IsEmpty, Is.True);
+            Assert.That(renderer.HitTest(s_mark.Center), Is.False,
+                "A collapsed subtree must not answer a hit its content is not committed for.");
+        });
+    }
+
     [Test]
     public void AnAmbientCompositionCommitsTheRequestedRegionOfWhereItDraws()
     {
