@@ -456,6 +456,7 @@ internal sealed partial class WindowsGitProcess : GitProcess
         private SafeFileHandle? _input = input;
         private SafeFileHandle? _output = output;
         private SafeFileHandle? _error = error;
+        private bool _abandoned;
 
         public SafeProcessHandle Process { get; } = process;
 
@@ -479,8 +480,15 @@ internal sealed partial class WindowsGitProcess : GitProcess
         }
 
         // A command that was never resumed has run none of its own code, so ending it undoes nothing.
+        // Safe to repeat, so a cleanup path can never replace the failure that led to it.
         public void Abandon()
         {
+            if (_abandoned)
+            {
+                return;
+            }
+
+            _abandoned = true;
             Native.TerminateProcess(Process, 1);
             CloseThread();
             Process.Dispose();
