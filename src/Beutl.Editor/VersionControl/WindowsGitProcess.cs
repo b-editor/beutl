@@ -308,7 +308,9 @@ internal sealed partial class WindowsGitProcess : GitProcess
                 int flags = CreateSuspended | CreateNoWindow | CreateUnicodeEnvironment
                             | (leaveCallerJob ? CreateBreakawayFromJob : 0);
                 ProcessInformation information = default;
-                fixed (char* commandLinePointer = commandLine)
+                // CreateProcess may write to the command line, so each attempt gets a copy of its own.
+                char[] writableCommandLine = (char[])commandLine.Clone();
+                fixed (char* commandLinePointer = writableCommandLine)
                 fixed (char* environmentPointer = environment)
                 {
                     created = Native.CreateProcessW(
