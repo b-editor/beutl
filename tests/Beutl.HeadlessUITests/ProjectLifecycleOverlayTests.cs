@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
@@ -50,6 +51,7 @@ public sealed class ProjectLifecycleOverlayTests
 
             creating = TestShell.Editor.BeginLifecycleActivity(ProjectLifecycleActivity.CreatingProject);
             HeadlessTestHelpers.Render();
+            IInputElement? hitWhileCreating = await WaitForHitAsync(window, center, overlay);
 
             Assert.Multiple(() =>
             {
@@ -57,7 +59,7 @@ public sealed class ProjectLifecycleOverlayTests
                 Assert.That(title.Text, Is.EqualTo(MessageStrings.CreatingProject));
                 Assert.That(message.Text, Is.EqualTo(MessageStrings.CreatingProjectWithVersionControlMessage));
                 Assert.That(fallback.IsEffectivelyEnabled, Is.False);
-                Assert.That(IsWithin(window.InputHitTest(center), overlay), Is.True);
+                Assert.That(IsWithin(hitWhileCreating, overlay), Is.True, Describe(hitWhileCreating));
             });
 
             // Creating a project first closes the open one, so the later activity is shown on top.
@@ -75,11 +77,12 @@ public sealed class ProjectLifecycleOverlayTests
 
             creating.Dispose();
             HeadlessTestHelpers.Render();
+            IInputElement? hitAfterwards = await WaitForHitAsync(window, center, fallback);
             Assert.Multiple(() =>
             {
                 Assert.That(overlay.IsVisible, Is.False);
                 Assert.That(fallback.IsEffectivelyEnabled, Is.True);
-                Assert.That(IsWithin(window.InputHitTest(center), fallback), Is.True);
+                Assert.That(IsWithin(hitAfterwards, fallback), Is.True, Describe(hitAfterwards));
             });
         }
         finally
@@ -113,6 +116,32 @@ public sealed class ProjectLifecycleOverlayTests
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 editorService.BeginLifecycleActivity(ProjectLifecycleActivity.None));
         });
+    }
+
+    // Hit testing reads the composition tree, which follows a visibility change only after a layout pass
+    // and a later render update, so keep rendering until it catches up or the wait runs out.
+    private static async Task<IInputElement?> WaitForHitAsync(Window window, Point point, Visual expected)
+    {
+        var timeout = Stopwatch.StartNew();
+        while (true)
+        {
+            window.UpdateLayout();
+            HeadlessTestHelpers.Render();
+            IInputElement? hit = window.InputHitTest(point);
+            if (IsWithin(hit, expected) || timeout.Elapsed > TimeSpan.FromSeconds(5))
+            {
+                return hit;
+            }
+
+            await Task.Delay(10);
+        }
+    }
+
+    private static string Describe(IInputElement? element)
+    {
+        return element is null
+            ? "Nothing was hit."
+            : $"Hit {element.GetType().Name} named '{(element as Control)?.Name}'.";
     }
 
     private static bool IsWithin(IInputElement? element, Visual ancestor)
