@@ -651,6 +651,44 @@ public class NoMigrationRegressionTests
     }
 
     [Test]
+    public void A_project_save_writes_the_gate_before_the_referenced_files_it_guards()
+    {
+        string projectPath = Path.Combine(_tempDirectory, "project.bep");
+        var project = new Project { Uri = new Uri(projectPath) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "scene.scene")) };
+        var element = new StandaloneValueElement
+        {
+            Uri = new Uri(Path.Combine(_tempDirectory, "element.belm")),
+            Value = CreateMigrated(new MigratingLeaf("9.0.0")),
+        };
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        File.WriteAllText(projectPath, "{\"minAppVersion\":\"1.0.0\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(projectPath))!["minAppVersion"];
+
+        // A project writes the files it references before its own bytes reach the disk, so the
+        // requirement has to be persisted by a preflight rather than by this save's own metadata.
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
+    }
+
+    [Test]
+    public void Handing_a_standalone_migration_to_an_owner_stops_it_arming_the_preflight()
+    {
+        MigratingLeaf leaf = CreateMigrated(new MigratingLeaf("7.0.0"));
+        var owner = new MigratingContainer { First = leaf };
+        Assert.That(AttachedContentMigrations.IsPendingTransfer(leaf), Is.True);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        // The owner keeps it from here on, so no later save pays for the discovery pass again.
+        Assert.That(AttachedContentMigrations.IsPendingTransfer(leaf), Is.False);
+    }
+
+    [Test]
     public void AutoSave_persists_a_standalone_value_migration_before_writing_the_element()
     {
         var project = new Project { Uri = new Uri(Path.Combine(_tempDirectory, "project.bep")) };

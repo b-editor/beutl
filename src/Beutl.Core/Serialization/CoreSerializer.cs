@@ -15,6 +15,10 @@ public static class CoreSerializer
     [ThreadStatic]
     private static Dictionary<ICoreSerializable, HashSet<Uri>>? t_activeWrites;
 
+    // What StoreToUri writes with when its caller names no mode.
+    private const CoreSerializationMode DefaultStoreMode =
+        CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects;
+
     // Complete this preflight for the whole save before replacing any migrated sidecar.
     internal static void PersistProjectMigrationMetadata(IEnumerable<CoreObject> objects)
     {
@@ -53,11 +57,11 @@ public static class CoreSerializer
     /// Serializing to a discarded buffer first is the same discovery <c>SceneRecovery</c> performs,
     /// and nothing reaches the disk: <see cref="CoreSerializationMode.Write"/> on its own leaves a
     /// referenced object as a URI. The pass is skipped outright until such a value exists at all,
-    /// which is never in a session where nothing reported a standalone migration.
+    /// which is never in a session where no live value is still waiting to hand one over.
     /// </remarks>
     private static void RaiseAttachedMigrations(CoreObject[] objects)
     {
-        if (AttachedContentMigrations.IsEmpty)
+        if (!AttachedContentMigrations.HasPendingTransfer)
         {
             return;
         }
@@ -437,6 +441,16 @@ public static class CoreSerializer
         string? authorizedRootPath)
         where T : ICoreSerializable
     {
+        // A project save writes the files it references while the project itself is still being
+        // serialized, so its own bytes reach the disk last. Complete the preflight first, the way
+        // the scene save and the auto-save do, so the compatibility gate is never behind the
+        // sidecars it guards. The preflight's own write omits SaveReferencedObjects and stops here.
+        if (obj is Project { Uri: not null } project
+            && (mode ?? DefaultStoreMode).HasFlag(CoreSerializationMode.SaveReferencedObjects))
+        {
+            PersistProjectMigrationMetadata([project]);
+        }
+
         // Serialization is synchronous, like ThreadLocalSerializationContext. Track
         // object identity AND destination so back edges retain their URI without
         // re-entering a file that this call chain is already writing.
@@ -583,7 +597,7 @@ public static class CoreSerializer
             // 中途半端な状態で残るのを防ぐ。
             // 固定 `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
             // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
-            var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects };
+            var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? DefaultStoreMode };
             string tmp = $"{path}.{Guid.NewGuid():N}.tmp";
             try
             {

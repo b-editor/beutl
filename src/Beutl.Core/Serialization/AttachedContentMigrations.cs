@@ -37,6 +37,37 @@ internal static class AttachedContentMigrations
     internal static bool IsEmpty => !s_any;
 
     /// <summary>
+    /// Gets a value indicating whether a live requirement still has to reach an owner, which is what
+    /// a save has to discover before it writes anything.
+    /// </summary>
+    /// <remarks>
+    /// This is the gate for work proportional to the graph, so unlike <see cref="IsEmpty"/> it goes
+    /// back to <see langword="false"/>: the entries of collected values are gone, and a requirement
+    /// an owner has taken over is found by the ordinary walk from then on. The table holds one entry
+    /// per migrated standalone value, so the scan costs nothing measurable beside a save.
+    /// </remarks>
+    internal static bool HasPendingTransfer
+    {
+        get
+        {
+            if (!s_any)
+            {
+                return false;
+            }
+
+            foreach (KeyValuePair<ICoreSerializable, Requirement> entry in s_requirements)
+            {
+                if (!entry.Value.IsTransferred)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Retains <paramref name="minAppVersion"/> for <paramref name="value"/>, keeping the higher of
     /// it and any version already retained.
     /// </summary>
@@ -68,11 +99,40 @@ internal static class AttachedContentMigrations
             : null;
     }
 
+    /// <summary>
+    /// Records that an owner has taken <paramref name="value"/>'s requirement over and keeps it from
+    /// here on, so no later save has to discover it again.
+    /// </summary>
+    internal static void MarkTransferred(ICoreSerializable value)
+    {
+        if (s_requirements.TryGetValue(value, out Requirement? requirement))
+        {
+            requirement.MarkTransferred();
+        }
+    }
+
+    /// <summary>
+    /// Returns whether <paramref name="value"/> still carries a requirement no owner has taken over.
+    /// </summary>
+    internal static bool IsPendingTransfer(ICoreSerializable value)
+    {
+        return s_requirements.TryGetValue(value, out Requirement? requirement)
+               && !requirement.IsTransferred;
+    }
+
     private sealed class Requirement
     {
+        private volatile bool _transferred;
         private string? _minAppVersion;
 
         internal string? MinAppVersion => Volatile.Read(ref _minAppVersion);
+
+        internal bool IsTransferred => _transferred;
+
+        internal void MarkTransferred()
+        {
+            _transferred = true;
+        }
 
         internal void Merge(string minAppVersion)
         {
@@ -80,10 +140,18 @@ internal static class AttachedContentMigrations
             {
                 string? current = Volatile.Read(ref _minAppVersion);
                 string? required = Project.GetMaximumMigrationVersion(current, minAppVersion);
+                if (ReferenceEquals(required, current))
+                {
+                    // Already covered by what the owners were given.
+                    return;
+                }
+
                 if (ReferenceEquals(
                         Interlocked.CompareExchange(ref _minAppVersion, required, current),
                         current))
                 {
+                    // A raised requirement has to reach the owners again.
+                    _transferred = false;
                     return;
                 }
             }

@@ -121,6 +121,9 @@ public partial class JsonSerializationContext(
         {
             context.MergeOwnerMigration(requiredVersion);
         }
+
+        // The owners keep it from here on, so no later save has to discover it again.
+        AttachedContentMigrations.MarkTransferred(value);
     }
 
     private void MergeOwnerMigration(string requiredVersion)
