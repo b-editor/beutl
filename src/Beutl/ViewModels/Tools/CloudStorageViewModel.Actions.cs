@@ -60,8 +60,9 @@ internal sealed partial class CloudStorageViewModel
     internal Task<bool> SetVisibilityAsync(StorageActionContext context, bool makePublic)
     {
         string action = makePublic ? "setPublic" : "setPrivate";
-        var ids = context.Items.Where(item => !item.IsFolder && item.Can(action)).Select(x => x.Id).ToArray();
-        if (ids.Length is 0 or > 200) return Task.FromResult(false);
+        if (context.Items.Length is 0 or > 200 || context.Items.Any(item => item.IsFolder || !item.Can(action)))
+            return Task.FromResult(false);
+        var ids = context.Items.Select(x => x.Id).ToArray();
         return MutateAsync(context, async (authorization, token) =>
             await _clients.Storage.FileBatch(authorization, new { operation = "visibility", ids, visibility = makePublic ? "PUBLIC" : "PRIVATE" }, token));
     }

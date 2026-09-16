@@ -89,8 +89,8 @@ public sealed partial class CloudStorageView
             if (single?.Can("rename") == true) Add("rename", Strings.Rename, Icon.Rename, 1);
             if (targets.All(x => x.Can("move"))) Add("move", Strings.Move, Icon.FolderArrowRight, 1);
             if (single?.Can("details") == true) Add("details", Strings.Details, Icon.Info, 1);
-            if (targets.Any(x => x.Can("setPublic"))) Add("setPublic", Strings.CloudStorageSetPublic, Icon.Globe, 2);
-            if (targets.Any(x => x.Can("setPrivate"))) Add("setPrivate", Strings.CloudStorageSetPrivate, Icon.LockClosed, 2);
+            if (targets.All(x => x.Can("setPublic"))) Add("setPublic", Strings.CloudStorageSetPublic, Icon.Globe, 2);
+            if (targets.All(x => x.Can("setPrivate"))) Add("setPrivate", Strings.CloudStorageSetPrivate, Icon.LockClosed, 2);
             if (targets.Any(x => x.Can("delete"))) Add("delete", Strings.Delete, Icon.Delete, 3);
             if (targets.All(x => x.Entry?.Visibility == "DEDICATED"))
             {
