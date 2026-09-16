@@ -2867,7 +2867,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>Beutlストレージ</value>
   </data>
   <data name="CloudStorageSignIn" xml:space="preserve">
-    <value>ログインすると、Webストレージのファイルとフォルダーを表示できます。</value>
+    <value>ログインすると、Beutlストレージのファイルとフォルダーを表示できます。</value>
   </data>
   <data name="CloudStorageAccountSettings" xml:space="preserve">
     <value>アカウント設定を開く</value>
@@ -2897,10 +2897,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>表示するファイルやフォルダーはありません。</value>
   </data>
   <data name="CloudStorageLoadFailed" xml:space="preserve">
-    <value>クラウドストレージを読み込めませんでした。接続を確認して再読み込みしてください。</value>
+    <value>Beutlストレージを読み込めませんでした。接続を確認して再読み込みしてください。</value>
   </data>
   <data name="CloudStorageUnavailable" xml:space="preserve">
-    <value>このサーバーでは、クラウドストレージの一覧表示はまだ利用できません。</value>
+    <value>このサーバーでは、Beutlストレージの一覧表示はまだ利用できません。</value>
   </data>
   <data name="LocalFiles" xml:space="preserve">
     <value>このデバイス</value>

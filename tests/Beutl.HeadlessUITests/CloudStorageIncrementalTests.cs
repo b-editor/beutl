@@ -1,7 +1,11 @@
 ﻿using System.Net;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Services;
@@ -123,6 +127,25 @@ public sealed class CloudStorageIncrementalTests
     }
 
     [AvaloniaTest]
+    public async Task QueuedAccountChangesLoadOnlyTheLatestAccountOnce()
+    {
+        await using var scope = new StorageScope();
+        await scope.LoadFirstAsync(Response());
+        SignInOnBackgroundThread(scope.Clients, "b");
+        SignInOnBackgroundThread(scope.Clients, "c");
+        // Both notifications are queued while the UI thread is still in this test.
+        HeadlessTestHelpers.Settle();
+        await WaitFor(() => scope.Handler.Requests.Count >= 2);
+        await Task.Delay(50);
+        HeadlessTestHelpers.Settle();
+        Assert.That(scope.Handler.Requests, Has.Count.EqualTo(2));
+        Assert.That(scope.Handler.Requests[1].Authorization, Is.EqualTo("Bearer token-c"));
+        scope.Handler.Requests[1].Complete(Response(fileId: "account-c"));
+        await WaitFor(() => !scope.ViewModel.IsLoading.Value);
+        Assert.That(scope.ViewModel.Items.Select(x => x.Id), Does.Contain("account-c"));
+    }
+
+    [AvaloniaTest]
     public async Task DeletedFolderRestartsAtRootInsteadOfAppendingRootFilesToTheOldFolder()
     {
         await using var scope = new StorageScope();
@@ -185,6 +208,77 @@ public sealed class CloudStorageIncrementalTests
             Assert.That(view.FindControl<Button>("PreviousButton"), Is.Null);
             Assert.That(view.FindControl<Button>("NextButton"), Is.Null);
             Assert.That(view.GetVisualDescendants().OfType<FileBrowserItemView>().Any(), Is.True);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    public async Task IconViewVirtualizesLargeListingsAcrossScrollingResizingAndModeChanges()
+    {
+        await using var scope = new StorageScope();
+        await scope.LoadFirstAsync(Response(fileCount: 1000));
+        var vm = scope.ViewModel;
+        var view = new CloudStorageView { DataContext = vm };
+        var window = new Window { Content = view, Width = 320, Height = 320 };
+        var list = view.FindControl<ListBox>("StorageItems")!;
+        int prepared = 0;
+        list.ContainerPrepared += (_, _) => prepared++;
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Assert.That(prepared, Is.LessThan(100), "Initial layout must not temporarily realize the whole listing.");
+            var scroll = list.GetVisualDescendants().OfType<ScrollViewer>().Single();
+            AssertVirtualized();
+            list.SelectedIndex = 0;
+            list.ContainerFromIndex(0)!.Focus();
+            window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+            window.KeyReleaseQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+            HeadlessTestHelpers.Render();
+            Assert.That(list.SelectedIndex, Is.EqualTo(1));
+            window.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+            window.KeyReleaseQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+            HeadlessTestHelpers.Render();
+            Assert.That(list.SelectedIndex, Is.GreaterThan(2), "Down should advance by a tile row.");
+            window.KeyPressQwerty(PhysicalKey.End, RawInputModifiers.None);
+            window.KeyReleaseQwerty(PhysicalKey.End, RawInputModifiers.None);
+            HeadlessTestHelpers.Render();
+            Assert.That(list.SelectedIndex, Is.EqualTo(1000));
+            Assert.That(scroll.Offset.Y, Is.GreaterThan(0));
+            AssertVirtualized();
+            var last = list.ContainerFromIndex(1000)!;
+            var lastPosition = last.TranslatePoint(default, scroll)!.Value;
+            Assert.That(lastPosition.Y, Is.InRange(0, scroll.Viewport.Height));
+
+            window.Width = 640;
+            HeadlessTestHelpers.Render();
+            AssertVirtualized();
+            Assert.That(scroll.Offset.Y, Is.LessThanOrEqualTo(scroll.Extent.Height - scroll.Viewport.Height + 1));
+            scroll.ScrollToHome();
+            HeadlessTestHelpers.Render();
+            AssertVirtualized();
+            list.SelectedIndex = 1;
+            vm.ViewMode.Value = FileBrowserViewMode.List;
+            HeadlessTestHelpers.Render();
+            AssertVirtualized();
+            Assert.That(list.SelectedIndex, Is.EqualTo(1));
+            Assert.That(list.GetLogicalChildren().OfType<ListBoxItem>()
+                .All(x => TopLevel.GetTopLevel(x) == window), Is.True, "Switching modes must release old tile containers.");
+            vm.ViewMode.Value = FileBrowserViewMode.Icon;
+            HeadlessTestHelpers.Render();
+            AssertVirtualized();
+            Assert.That(list.SelectedIndex, Is.EqualTo(1));
+            vm.Items.Clear();
+            HeadlessTestHelpers.Render();
+            Assert.That(list.GetRealizedContainers(), Is.Empty);
+            Assert.That(scroll.Offset.Y, Is.Zero);
+            Assert.That(list.SelectedIndex, Is.EqualTo(-1));
+
+            void AssertVirtualized()
+            {
+                Assert.That(list.GetRealizedContainers().Count(), Is.InRange(1, 60));
+                Assert.That(list.GetVisualDescendants().OfType<FileBrowserItemView>().Count(), Is.InRange(1, 60));
+            }
         }
         finally { window.Close(); }
     }

@@ -5,6 +5,7 @@
              xmlns:files="using:Beutl.Editor.Components.FileBrowserTab.Views"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.Tools"
              xmlns:vm="using:Beutl.ViewModels.Tools"
              x:CompileBindings="True"
              x:DataType="vm:CloudStorageViewModel">
@@ -40,7 +41,7 @@
             <Setter Property="ItemTemplate" Value="{StaticResource StorageIconTemplate}" />
             <Setter Property="ItemsPanel">
                 <ItemsPanelTemplate>
-                    <WrapPanel Margin="4" />
+                    <local:StorageIconPanel />
                 </ItemsPanelTemplate>
             </Setter>
         </Style>

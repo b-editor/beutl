@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -10,6 +11,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
@@ -45,6 +47,30 @@ public sealed class CloudStorageTests
             Assert.That(((System.Windows.Input.ICommand)vm.Refresh).CanExecute(null), Is.False);
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(null, "無料")]
+    [TestCase("100gb", "100GB")]
+    [TestCase("200gb", "200GB")]
+    [TestCase("1tb", "1TB")]
+    public async Task StoragePlanLabelsFollowTheApiContract(string? plan, string expected)
+    {
+        var originalCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja");
+            using var handler = new Handler();
+            using var http = new HttpClient(handler);
+            await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
+            SignIn(clients, "a");
+            using var vm = Create(clients);
+            await WaitFor(() => handler.Requests.Count == 1);
+            handler.Requests[0].Complete(Response(plan: plan));
+            await WaitFor(() => !vm.IsLoading.Value);
+            Assert.That(vm.UsageText.Value, Does.EndWith(expected));
+        }
+        finally { CultureInfo.CurrentUICulture = originalCulture; }
     }
 
     [AvaloniaTest]
@@ -254,6 +280,12 @@ public sealed class CloudStorageTests
                 Assert.That(position.Y + control.Bounds.Height, Is.LessThanOrEqualTo(520), name);
             }
             Assert.That(view.FindControl<ListBox>("StorageItems")!.Bounds.Height, Is.GreaterThan(120));
+            var label = view.GetVisualDescendants().OfType<TextBlock>()
+                .Single(x => x.IsEffectivelyVisible && x.Text?.StartsWith("非常に長い") == true);
+            Assert.That(label.TextLayout.TextLines, Has.Count.EqualTo(2), "Long tile names must retain both lines.");
+            var tile = label.FindAncestorOfType<ListBoxItem>()!;
+            var labelPosition = label.TranslatePoint(default, tile)!.Value;
+            Assert.That(labelPosition.Y + label.Bounds.Height, Is.LessThanOrEqualTo(tile.Bounds.Height));
             if (Environment.GetEnvironmentVariable("BEUTL_STORAGE_CAPTURE") is { Length: > 0 } path)
             {
                 Directory.CreateDirectory(path);
@@ -311,7 +343,7 @@ public sealed class CloudStorageTests
         }, clients, DateTime.UtcNow);
     }
 
-    internal static string Response(string name = "video.mp4", string? folder = null, int page = 1, int pageCount = 1, bool empty = false, string fileId = "file", int fileCount = 1)
+    internal static string Response(string name = "video.mp4", string? folder = null, int page = 1, int pageCount = 1, bool empty = false, string fileId = "file", int fileCount = 1, string? plan = null)
         => JsonSerializer.Serialize(new
         {
             files = Enumerable.Range(0, empty ? 0 : fileCount).Select(index => new
@@ -331,7 +363,7 @@ public sealed class CloudStorageTests
             pageCount,
             usage = new
             {
-                plan = (string?)null,
+                plan,
                 quotaBytes = 10L * 1024 * 1024 * 1024,
                 usedBytes = 5L * 1024 * 1024 * 1024,
                 fileCount = 1,

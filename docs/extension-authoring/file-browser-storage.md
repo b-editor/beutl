@@ -19,8 +19,10 @@ The integration contract is in `Beutl.Editor.Components.FileBrowserTab`:
   The application exposes it through `IEditorContext.GetService`. Every registered provider appears
   automatically in the file browser's location menu.
 - Providers can implement `IFileBrowserStorageNavigation` to place breadcrumbs and the display-mode
-  switch in the existing toolbar. `FileBrowserItemView` supplies the same icon and compact list
-  presentation as local files, including thumbnail support.
+  switch in the existing toolbar. Expose one stable `ReadOnlyObservableCollection` of breadcrumbs,
+  backed by an `ObservableCollection` that the provider updates on the UI thread. Collection changes
+  update the toolbar without replacing the browser or its view. `FileBrowserItemView` supplies the
+  same icon and compact list presentation as local files, including thumbnail support.
 
 To add a service, implement the two interfaces and register its provider alongside
 `BeutlStorageProvider` in the application composition root (`MainViewModel`). No changes to the
@@ -62,3 +64,5 @@ refresh, folder changes, and account changes cancel pending work and restart at 
 page. Overlapping file IDs are deduplicated. Append failures retain loaded files and wait for an
 explicit retry. The API's page numbers stay internal to the adapter; the UI has no page controls.
 `CloudStorageIncrementalTests` covers these paths in both list and icon modes.
+The icon panel virtualizes fixed-size tiles inside the existing `ListBox`, retaining selection and
+keyboard navigation while limiting realized controls to viewport rows and a small scroll buffer.

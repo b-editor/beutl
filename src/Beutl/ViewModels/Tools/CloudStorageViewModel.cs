@@ -30,6 +30,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<CloudStorageViewModel>();
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly ObservableCollection<FileBrowserStorageBreadcrumb> _breadcrumbs = [];
     private CancellationTokenSource? _load;
     private AuthenticatedUser? _owner;
     private StorageFolderResponse[] _folders = [];
@@ -45,6 +46,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
     {
         _clients = clients;
         _createSettings = createSettings;
+        Breadcrumbs = new(_breadcrumbs);
 
         // Navigation and refresh may replace an in-flight append request.
         Refresh = new AsyncReactiveCommand(SignedIn).DisposeWith(_disposables);
@@ -56,20 +58,19 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
             (signedIn, loading) => signedIn && !loading)).DisposeWith(_disposables);
         RetryLoadMore.Subscribe(() => LoadMoreAsync(retry: true)).DisposeWith(_disposables);
 
-        clients.AuthenticatedUser.Subscribe(_ =>
+        clients.AuthenticatedUser.Subscribe(user =>
         {
             if (Dispatcher.UIThread.CheckAccess())
-                AuthenticationChanged();
+                AuthenticationChanged(user);
             else
-                Dispatcher.UIThread.Post(AuthenticationChanged);
+                Dispatcher.UIThread.Post(() => AuthenticationChanged(user));
         }).DisposeWith(_disposables);
     }
 
     ICommand IFileBrowserStorageBrowser.Refresh => Refresh;
     ICommand IFileBrowserStorageNavigation.CycleViewMode => CycleViewMode;
     IReadOnlyReactiveProperty<FileBrowserViewMode> IFileBrowserStorageNavigation.ViewMode => ViewMode;
-    IReadOnlyList<FileBrowserStorageBreadcrumb> IFileBrowserStorageNavigation.Breadcrumbs => Breadcrumbs;
-    public ObservableCollection<FileBrowserStorageBreadcrumb> Breadcrumbs { get; } = [];
+    public ReadOnlyObservableCollection<FileBrowserStorageBreadcrumb> Breadcrumbs { get; }
     public ReactivePropertySlim<FileBrowserViewMode> ViewMode { get; } = new(FileBrowserViewMode.Icon);
     public ReactiveCommand CycleViewMode { get; }
     public Control CreateView() => new CloudStorageView { DataContext = this };
@@ -87,22 +88,23 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
     public AsyncReactiveCommand Refresh { get; }
     public AsyncReactiveCommand RetryLoadMore { get; }
 
-    private void AuthenticationChanged()
+    private void AuthenticationChanged(AuthenticatedUser? user)
     {
-        if (_disposed) return;
+        // A newer account may already have replaced this notification while the UI was busy.
+        if (_disposed || !ReferenceEquals(_clients.AuthenticatedUser.Value, user)) return;
         ++_version;
         _load?.Cancel();
         _load = null;
         _folders = [];
         _folderId = null;
         _page = 0;
-        Breadcrumbs.Clear();
-        Breadcrumbs.Add(new(Strings.CloudStorage, null));
+        _breadcrumbs.Clear();
+        _breadcrumbs.Add(new(Strings.CloudStorage, null));
         Error.Value = null;
         IsLoading.Value = false;
         IsLoadingMore.Value = false;
         ClearListing();
-        _owner = _clients.AuthenticatedUser.Value;
+        _owner = user;
         SignedIn.Value = _owner != null;
         if (SignedIn.Value) _ = LoadAsync();
     }
@@ -234,7 +236,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
 
     private void UpdateBreadcrumbs()
     {
-        Breadcrumbs.Clear();
+        _breadcrumbs.Clear();
         var path = new List<FileBrowserStorageBreadcrumb>();
         var visited = new HashSet<string>();
         string? id = _folderId;
@@ -245,7 +247,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
         }
         path.Add(new(Strings.CloudStorage, null));
         path.Reverse();
-        foreach (var item in path) Breadcrumbs.Add(item);
+        foreach (var item in path) _breadcrumbs.Add(item);
     }
 
     internal Task OpenFolderAsync(CloudStorageItem? item) => item is { IsFolder: true }
@@ -308,7 +310,7 @@ internal sealed class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileB
         HasMore.Dispose();
         LoadMoreError.Dispose();
         ViewMode.Dispose();
-        Breadcrumbs.Clear();
+        _breadcrumbs.Clear();
         _fileIds.Clear();
         UsageText.Dispose();
         UsagePercent.Dispose();

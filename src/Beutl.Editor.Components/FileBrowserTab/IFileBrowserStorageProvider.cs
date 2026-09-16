@@ -1,4 +1,5 @@
-﻿using System.Windows.Input;
+﻿using System.Collections.ObjectModel;
+using System.Windows.Input;
 using Avalonia.Controls;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Reactive.Bindings;
@@ -32,7 +33,8 @@ public interface IFileBrowserStorageBrowser : IDisposable
 /// <summary>Optional navigation presented in the file browser's existing toolbar.</summary>
 public interface IFileBrowserStorageNavigation
 {
-    IReadOnlyList<FileBrowserStorageBreadcrumb> Breadcrumbs { get; }
+    /// <summary>A stable collection that notifies the toolbar when the provider changes its path.</summary>
+    ReadOnlyObservableCollection<FileBrowserStorageBreadcrumb> Breadcrumbs { get; }
     IReadOnlyReactiveProperty<FileBrowserViewMode> ViewMode { get; }
     ICommand CycleViewMode { get; }
     Task NavigateToAsync(FileBrowserStorageBreadcrumb breadcrumb);

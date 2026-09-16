@@ -113,7 +113,7 @@
                             <DataTemplate x:DataType="vm:BreadcrumbPathItem">
                                 <ui:FABreadcrumbBarItem Content="{Binding}">
                                     <ui:FABreadcrumbBarItem.ContentTemplate>
-                                        <DataTemplate DataType="vm:BreadcrumbPathItem">
+                                        <DataTemplate x:DataType="vm:BreadcrumbPathItem">
                                             <TextBlock Text="{Binding Name}" />
                                         </DataTemplate>
                                     </ui:FABreadcrumbBarItem.ContentTemplate>

@@ -2872,7 +2872,7 @@ when history recording is enabled.</value>
     <value>Beutl storage</value>
   </data>
   <data name="CloudStorageSignIn" xml:space="preserve">
-    <value>Sign in to see the files and folders in your Web storage.</value>
+    <value>Sign in to see the files and folders in your Beutl storage.</value>
   </data>
   <data name="CloudStorageAccountSettings" xml:space="preserve">
     <value>Open account settings</value>
@@ -2902,10 +2902,10 @@ when history recording is enabled.</value>
     <value>No files or folders to display.</value>
   </data>
   <data name="CloudStorageLoadFailed" xml:space="preserve">
-    <value>Could not load cloud storage. Check your connection and try Refresh.</value>
+    <value>Could not load Beutl storage. Check your connection and try Refresh.</value>
   </data>
   <data name="CloudStorageUnavailable" xml:space="preserve">
-    <value>Cloud storage browsing is not available on this server yet.</value>
+    <value>Beutl storage browsing is not available on this server yet.</value>
   </data>
   <data name="LocalFiles" xml:space="preserve">
     <value>This device</value>

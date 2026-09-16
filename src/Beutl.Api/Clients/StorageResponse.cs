@@ -33,6 +33,7 @@ internal sealed record StorageFolderResponse
 
 internal sealed record StorageUsageResponse
 {
+    // The API uses null for the free allowance; paid tiers are "100gb", "200gb", or "1tb".
     [JsonPropertyName("plan")] public required string? Plan { get; init; }
     [JsonPropertyName("quotaBytes")] public required long QuotaBytes { get; init; }
     [JsonPropertyName("usedBytes")] public required long UsedBytes { get; init; }

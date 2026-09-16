@@ -261,6 +261,9 @@ public sealed class FileBrowserStorageTests
             handler.Requests[1].Complete(Response(folder: "folder & 日本"));
             await navigation;
             HeadlessTestHelpers.Render();
+            Assert.That(view.GetVisualDescendants().OfType<TextBlock>()
+                .Any(x => x.IsEffectivelyVisible && x.Text == "素材"), Is.True,
+                "The existing toolbar must observe breadcrumb collection changes.");
             var root = view.GetVisualDescendants().OfType<TextBlock>()
                 .Single(x => x.IsEffectivelyVisible && x.Text == Strings.CloudStorage);
             var point = root.TranslatePoint(new Point(root.Bounds.Width / 2, root.Bounds.Height / 2), window)!.Value;
