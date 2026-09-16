@@ -6997,7 +6997,7 @@ internal sealed class GitCliVersionControlService :
                 "--",
                 pathspec,
             ],
-            GitCommandOptions.Local with { MaxStdoutBytes = MaxDiffBytes, StopAfterStdoutLimit = true },
+            GitCommandOptions.Local with { MaxStdoutBytes = MaxDiffBytes },
             cancellationToken).ConfigureAwait(false);
         return result.StdoutTruncated
             ? string.Concat(result.Stdout, DiffTruncationMarker)

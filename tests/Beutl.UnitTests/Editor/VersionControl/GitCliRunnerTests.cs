@@ -976,21 +976,20 @@ public class GitCliRunnerTests : RealGitTestRepository
     [TestCase(true, 5, true)]
     [TestCase(false, 8192, true)]
     [TestCase(true, 8192, true)]
-    public async Task Preview_marks_truncation_only_when_output_is_omitted(bool bytes, int limit, bool overflow)
+    public async Task Stdout_limit_marks_truncation_only_when_output_is_omitted(bool bytes, int limit, bool overflow)
     {
         using var stream = new MemoryStream(Enumerable.Repeat((byte)'a', limit + (overflow ? 1 : 0)).ToArray());
-        int signals = 0;
         bool truncated;
         int length;
         if (bytes)
         {
-            var output = await GitCliRunner.ReadStandardOutputBytesAsync(stream, limit, _ => signals++);
+            var output = await GitCliRunner.ReadStandardOutputBytesAsync(stream, limit);
             truncated = output.Truncated;
             length = output.Output.Length;
         }
         else
         {
-            var output = await GitCliRunner.ReadStandardOutputAsync(stream, limit, _ => signals++);
+            var output = await GitCliRunner.ReadStandardOutputAsync(stream, limit);
             truncated = output.Truncated;
             length = output.Output.Length;
         }
@@ -998,184 +997,88 @@ public class GitCliRunnerTests : RealGitTestRepository
         {
             Assert.That(truncated, Is.EqualTo(overflow));
             Assert.That(length, Is.EqualTo(limit));
-            Assert.That(signals, Is.EqualTo(1));
+            Assert.That(stream.Position, Is.EqualTo(stream.Length), "Capped output must still drain to EOF.");
         });
     }
 
-    [Test]
-    public async Task Completed_command_takes_precedence_over_a_preview_limit()
-    {
-        var limit = new TaskCompletionSource();
-        limit.SetResult();
-        var completion = new TaskCompletionSource();
-        completion.SetException(new GitOperationException(7, "preview failed"));
-        Assert.That(await GitCliRunner.WaitForPreviewLimitAsync(
-            completion.Task, limit.Task, CancellationToken.None), Is.False);
-        var error = Assert.ThrowsAsync<GitOperationException>(async () => await completion.Task);
-        Assert.That(error!.ExitCode, Is.EqualTo(7));
-    }
-
-    [TestCase(false, 5)]
-    [TestCase(true, 5)]
     [TestCase(false, 0)]
     [TestCase(true, 0)]
-    public async Task Preview_stops_at_the_exact_limit_without_waiting_for_more_output(bool bytes, int limit)
+    [TestCase(false, 3)]
+    [TestCase(true, 3)]
+    [TestCase(false, 5)]
+    [TestCase(true, 5)]
+    public async Task Stdout_limit_waits_for_command_completion(bool bytes, int limit)
     {
         if (OperatingSystem.IsWindows()) Assert.Ignore("This process regression uses a Unix shell.");
-        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
-        GitCommandResult result = await runner.RunAsync(Repository,
-            ["-c", limit == 0 ? "exec sleep 30" : "printf abcde; exec sleep 30"],
-            GitCommandOptions.Local with
-            {
-                MaxStdoutBytes = limit,
-                CaptureStdoutBytes = bytes,
-                StopAfterStdoutLimit = true,
-            }, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Stdout, Is.EqualTo(limit == 0 ? "" : "abcde"));
-            Assert.That(result.StdoutTruncated, Is.True);
-            if (bytes) Assert.That(result.StdoutBytes, Has.Length.EqualTo(limit));
-            Assert.That(runner.HasActiveProcess, Is.False);
-        });
-    }
-
-    [Test]
-    public void Failed_preview_preserves_the_exit_code_and_diagnostic()
-    {
-        if (OperatingSystem.IsWindows()) Assert.Ignore("This process regression uses a Unix shell.");
-        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
-        var error = Assert.ThrowsAsync<GitOperationException>(async () => await runner.RunAsync(Repository,
-            ["-c", "printf abc; printf 'preview failed' >&2; exit 7"],
-            GitCommandOptions.Local with { MaxStdoutBytes = 10, StopAfterStdoutLimit = true },
-            CancellationToken.None));
-        Assert.Multiple(() =>
-        {
-            Assert.That(error!.ExitCode, Is.EqualTo(7));
-            Assert.That(error.Stderr, Does.Contain("preview failed"));
-        });
-    }
-
-    [TestCase(0, 5, false)]
-    [TestCase(7, 5, false)]
-    [TestCase(0, 3, false)]
-    [TestCase(7, 3, false)]
-    [TestCase(0, 5, true)]
-    public async Task Preview_limit_after_wrapper_exit_preserves_diagnostics_and_cleans_up_pipes(
-        int exitCode, int limit, bool holdCleanup)
-    {
-        if (OperatingSystem.IsWindows()) Assert.Ignore("This regression uses Unix inherited pipes.");
         string directory = CreateTemporaryDirectory();
-        string pidPath = Path.Combine(directory, "descendant.pid");
-        string readyPath = Path.Combine(directory, "ready");
-        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment,
-            closeRedirectedStreams: holdCleanup ? static _ => { }
-        : null);
-        var diagnosticRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var progress = new CallbackProgress(_ => diagnosticRead.TrySetResult());
+        string pidPath = Path.Combine(directory, "after-output.pid");
+        string releasePath = Path.Combine(directory, "release");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
         var options = GitCommandOptions.Local with
         {
             MaxStdoutBytes = limit,
-            StopAfterStdoutLimit = true,
-            CaptureStdoutBytes = limit == 3,
+            CaptureStdoutBytes = bytes,
             EnvironmentOverrides = new Dictionary<string, string?>
             {
-                ["BEUTL_TEST_DESCENDANT_PID"] = pidPath,
-                ["BEUTL_TEST_PREVIEW_READY"] = readyPath,
+                ["BEUTL_TEST_AFTER_OUTPUT_PID"] = pidPath,
+                ["BEUTL_TEST_RELEASE"] = releasePath,
             },
         };
-        string command = "parent=$$; "
-            + "(while kill -0 \"$parent\" 2>/dev/null || [ ! -f \"$BEUTL_TEST_PREVIEW_READY\" ]; do sleep 0.01; done; "
-            + "printf abcde; exec sleep 30) & descendant=$!; "
-            + "printf '%s' \"$descendant\" > \"$BEUTL_TEST_DESCENDANT_PID\"; "
-            + "printf 'wrapper diagnostic https://user:secret@example.invalid/repo\\n' >&2; "
-            + $"exit {exitCode}";
-        Task<GitCommandResult> run = runner.RunAsync(Repository, ["-c", command], options, CancellationToken.None, progress);
-        Task<GitCommandResult>? next = null;
+        const string command = "printf abcde; printf '%s' \"$$\" > \"$BEUTL_TEST_AFTER_OUTPUT_PID\"; "
+            + "while [ ! -f \"$BEUTL_TEST_RELEASE\" ]; do sleep 0.01; done; printf 'completed\\n' >&2";
+        Task<GitCommandResult> run = runner.RunAsync(Repository, ["-c", command], options, CancellationToken.None);
         try
         {
-            await diagnosticRead.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await File.WriteAllTextAsync(readyPath, "ready");
-            string stderr;
-            if (exitCode == 0)
+            Assert.That(await WaitForRecordedProcessIdAsync(pidPath), Is.Not.Null);
+            Assert.That(run.IsCompleted, Is.False, "The retention limit must not complete the command early.");
+            await File.WriteAllTextAsync(releasePath, "release");
+            GitCommandResult result = await run.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
             {
-                GitCommandResult result = await run.WaitAsync(TimeSpan.FromSeconds(4));
                 Assert.That(result.Stdout, Is.EqualTo("abcde"[..limit]));
-                Assert.That(result.StdoutTruncated, Is.True);
-                stderr = result.Stderr;
-            }
-            else
-            {
-                var error = Assert.ThrowsAsync<GitOperationException>(async () =>
-                    await run.WaitAsync(TimeSpan.FromSeconds(4)));
-                Assert.That(error!.ExitCode, Is.EqualTo(exitCode));
-                stderr = error.Stderr;
-            }
-            Assert.That(stderr, Does.Contain("wrapper diagnostic").And.Not.Contain("secret"));
-            next = runner.RunAsync(Repository, ["-c", "exit 0"], GitCommandOptions.Local, CancellationToken.None);
-            if (holdCleanup)
-            {
-                Assert.That(runner.HasActiveProcess, Is.True);
-                Assert.That(next.IsCompleted, Is.False);
-            }
+                Assert.That(result.StdoutTruncated, Is.EqualTo(limit < 5));
+                Assert.That(result.Stderr, Does.Contain("completed"));
+                if (bytes) Assert.That(result.StdoutBytes, Has.Length.EqualTo(limit));
+                Assert.That(runner.HasActiveProcess, Is.False);
+            });
         }
         finally
         {
-            await KillRecordedProcessAsync(pidPath);
+            await File.WriteAllTextAsync(releasePath, "release");
             await ObserveAsync(run);
         }
-        if (next is not null) await next.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(runner.HasActiveProcess, Is.False);
     }
 
-    [Test]
-    public async Task Preview_limit_keeps_unconfirmed_cleanup_quarantined()
+    [TestCase(0, 3)]
+    [TestCase(7, 3)]
+    [TestCase(0, 5)]
+    [TestCase(7, 5)]
+    public async Task Stdout_limit_preserves_the_final_exit_code_and_diagnostic(int exitCode, int limit)
     {
         if (OperatingSystem.IsWindows()) Assert.Ignore("This process regression uses a Unix shell.");
-        string pidPath = Path.Combine(CreateTemporaryDirectory(), "preview.pid");
-        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment,
-            killProcessTree: static _ => { }, closeRedirectedStreams: static _ => { });
-        Task<GitCommandResult>? next = null;
-        try
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
+        Task<GitCommandResult> run = runner.RunAsync(Repository,
+            ["-c", $"printf abcde; printf 'final diagnostic' >&2; exit {exitCode}"],
+            GitCommandOptions.Local with { MaxStdoutBytes = limit }, CancellationToken.None);
+        if (exitCode == 0)
         {
-            var options = GitCommandOptions.Local with
+            GitCommandResult result = await run;
+            Assert.Multiple(() =>
             {
-                MaxStdoutBytes = 3,
-                StopAfterStdoutLimit = true,
-                EnvironmentOverrides = new Dictionary<string, string?> { ["BEUTL_TEST_PROCESS_PID"] = pidPath },
-            };
-            GitCommandResult preview = await runner.RunAsync(Repository,
-                ["-c", "printf '%s' \"$$\" > \"$BEUTL_TEST_PROCESS_PID\"; printf abc; exec sleep 30"],
-                options, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(preview.StdoutTruncated, Is.True);
-            Assert.That(runner.HasActiveProcess, Is.True);
-            next = runner.RunAsync(Repository, ["-c", "exit 0"], GitCommandOptions.Local, CancellationToken.None);
-            Assert.That(next.IsCompleted, Is.False);
+                Assert.That(result.Stdout, Is.EqualTo("abcde"[..limit]));
+                Assert.That(result.StdoutTruncated, Is.EqualTo(limit < 5));
+                Assert.That(result.Stderr, Is.EqualTo("final diagnostic"));
+            });
         }
-        finally
+        else
         {
-            await KillRecordedProcessAsync(pidPath);
+            var error = Assert.ThrowsAsync<GitOperationException>(async () => await run);
+            Assert.Multiple(() =>
+            {
+                Assert.That(error!.ExitCode, Is.EqualTo(exitCode));
+                Assert.That(error.Stderr, Is.EqualTo("final diagnostic"));
+            });
         }
-        await next!.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(runner.HasActiveProcess, Is.False);
-    }
-
-    [Test]
-    public async Task Preview_output_limit_stops_a_pipe_holding_process_and_allows_the_next_command()
-    {
-        var runner = CreateRunner(TimeSpan.FromSeconds(10));
-        var watch = Stopwatch.StartNew();
-        GitCommandResult result = await runner.RunAsync(Repository,
-            ["-c", "alias.preview=!printf abcdefgh; sleep 30", "preview"],
-            GitCommandOptions.Local with { MaxStdoutBytes = 5, StopAfterStdoutLimit = true }, CancellationToken.None);
-        await runner.RunAsync(Repository, ["--version"], GitCommandOptions.Local, CancellationToken.None);
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Stdout, Is.EqualTo("abcde"));
-            Assert.That(result.StdoutTruncated, Is.True);
-            Assert.That(watch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(10)));
-            Assert.That(runner.HasActiveProcess, Is.False);
-        });
     }
 
     [Test]
@@ -1847,11 +1750,6 @@ public class GitCliRunnerTests : RealGitTestRepository
             Assert.That(File.Exists(lockPath), Is.True);
             Assert.That(File.ReadAllText(lockPath), Is.EqualTo("active replacement"));
         });
-    }
-
-    private sealed class CallbackProgress(Action<string> report) : IProgress<string>
-    {
-        public void Report(string value) => report(value);
     }
 
     private sealed class RecordingProgress : IProgress<string>
