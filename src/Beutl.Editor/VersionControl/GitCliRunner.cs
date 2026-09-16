@@ -277,6 +277,21 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         bool throwOnFailure,
         bool stopAfterStdoutLimit = false)
     {
+        GitCommandResult CompleteResult(int exitCode, string stdout, string stderr, bool truncated, byte[]? bytes)
+        {
+            stderr = GitDiagnosticSanitizer.RedactCredentials(stderr);
+            if (throwOnFailure && exitCode != 0)
+            {
+                var exception = new GitOperationException(exitCode, stderr);
+                if (exception.IsRepositoryLockFailure)
+                {
+                    RepositoryLockFailed?.Invoke(this, new GitRepositoryLockEventArgs(repository, exception));
+                }
+                throw exception;
+            }
+            return new GitCommandResult(exitCode, stdout, stderr, truncated, bytes);
+        }
+
         var process = new Process { StartInfo = startInfo };
         bool processQuarantined = false;
         bool previewStopped = false;
@@ -300,9 +315,11 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                 maxStdoutBytes,
                 captureStdoutBytes,
                 stopAfterStdoutLimit ? output => outputLimitReached.TrySetResult(output) : null);
+            var stderrCapture = new StandardErrorCapture();
             Task<string> stderrTask = ReadStandardErrorAsync(
                 process.StandardError,
-                stderrProgress);
+                stderrProgress,
+                stderrCapture);
             using var timeoutCts = executionPolicy.HasFlag(GitExecutionPolicy.LocalTimeout)
                 ? new CancellationTokenSource(_localTimeout)
                 : null;
@@ -327,13 +344,15 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                 {
                     bool limitWon = await WaitForPreviewLimitAsync(
                         completion, outputLimitReached.Task, linkedCts.Token).ConfigureAwait(false);
-                    // Preserve the real exit code and stderr if the producer already exited.
-                    if (limitWon && !process.HasExited)
+                    if (limitWon)
                     {
+                        // An exited wrapper can leave descendants holding its redirected pipes.
+                        // Preserve its result while applying the same bounded cleanup to the pipes.
+                        int? completedExitCode = process.HasExited ? process.ExitCode : null;
                         bool outputComplete = stdoutTask.IsCompletedSuccessfully && !stdoutTask.Result.Truncated;
                         // Only read-only previews opt in. Stop the producer as well as the reader,
                         // and retain the cancellation path's quarantine until every pipe has closed.
-                        _killProcessTree(process);
+                        if (completedExitCode is null) _killProcessTree(process);
                         _closeRedirectedStreams(process);
                         Task cleanup = Task.WhenAll(
                             ObserveCleanupTaskAsync(completion), ObserveCleanupTaskAsync(processExitTask));
@@ -353,7 +372,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                         // The captured prefix is available even when an uncooperative process
                         // keeps the EOF probe open and cleanup has to remain quarantined.
                         var preview = await outputLimitReached.Task.ConfigureAwait(false);
-                        return new GitCommandResult(0, preview.Output, string.Empty, !outputComplete, preview.OutputBytes);
+                        return CompleteResult(completedExitCode ?? 0, preview.Output,
+                            stderrCapture.Snapshot(), !outputComplete, preview.OutputBytes);
                     }
                 }
 
@@ -386,27 +406,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
 
             (string stdout, byte[]? stdoutBytes, bool stdoutTruncated) =
                 await stdoutTask.ConfigureAwait(false);
-            string stderr = GitDiagnosticSanitizer.RedactCredentials(
-                await stderrTask.ConfigureAwait(false));
-            if (throwOnFailure && process.ExitCode != 0)
-            {
-                var exception = new GitOperationException(process.ExitCode, stderr);
-                if (exception.IsRepositoryLockFailure)
-                {
-                    RepositoryLockFailed?.Invoke(
-                        this,
-                        new GitRepositoryLockEventArgs(repository, exception));
-                }
-
-                throw exception;
-            }
-
-            return new GitCommandResult(
-                process.ExitCode,
-                stdout,
-                stderr,
-                stdoutTruncated,
-                stdoutBytes);
+            return CompleteResult(process.ExitCode, stdout,
+                await stderrTask.ConfigureAwait(false), stdoutTruncated, stdoutBytes);
         }
         finally
         {
@@ -839,12 +840,48 @@ internal sealed partial class GitCliRunner : IGitCliRunner
     private const string OmittedProgressRecord =
         "[progress record omitted because it exceeded the retention limit]";
 
-    internal static async Task<string> ReadStandardErrorAsync(
-        TextReader reader,
-        IProgress<string>? progress)
+    private sealed class StandardErrorCapture
     {
-        var retainedRecords = new Queue<string>();
-        int retainedLength = 0;
+        private readonly object _sync = new();
+        private readonly Queue<string> _records = new();
+        private int _length;
+
+        public void Clear()
+        {
+            lock (_sync)
+            {
+                _records.Clear();
+                _length = 0;
+            }
+        }
+
+        public void Add(string record)
+        {
+            lock (_sync)
+            {
+                RetainCompleteStandardErrorRecord(_records, ref _length, record);
+            }
+        }
+
+        public string Snapshot()
+        {
+            lock (_sync)
+            {
+                // While a pipe is open, expose only complete, redacted records. An incomplete
+                // record may split a credential across reads and cannot safely be published.
+                return string.Concat(_records);
+            }
+        }
+    }
+
+    internal static Task<string> ReadStandardErrorAsync(TextReader reader, IProgress<string>? progress)
+        => ReadStandardErrorAsync(reader, progress, new StandardErrorCapture());
+
+    private static async Task<string> ReadStandardErrorAsync(
+        TextReader reader,
+        IProgress<string>? progress,
+        StandardErrorCapture capture)
+    {
         var errorRecord = new StringBuilder();
         var progressRecord = new StringBuilder();
         bool errorRecordOmitted = false;
@@ -861,14 +898,10 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                 > MaxRetainedStandardErrorLength)
             {
                 retainedContent = OmittedStandardErrorRecord;
-                retainedRecords.Clear();
-                retainedLength = 0;
+                capture.Clear();
             }
 
-            RetainCompleteStandardErrorRecord(
-                retainedRecords,
-                ref retainedLength,
-                retainedContent + delimiter);
+            capture.Add(retainedContent + delimiter);
             errorRecord.Clear();
             errorRecordOmitted = false;
         }
@@ -898,8 +931,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                     // credentials in the retained suffix.
                     errorRecord.Clear();
                     errorRecordOmitted = true;
-                    retainedRecords.Clear();
-                    retainedLength = 0;
+                    capture.Clear();
                 }
                 else
                 {
@@ -969,7 +1001,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             CompleteProgressRecord();
         }
 
-        return string.Concat(retainedRecords);
+        return capture.Snapshot();
     }
 
     private static void RetainCompleteStandardErrorRecord(

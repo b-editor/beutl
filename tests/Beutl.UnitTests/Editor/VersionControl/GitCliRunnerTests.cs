@@ -1056,6 +1056,78 @@ public class GitCliRunnerTests : RealGitTestRepository
         });
     }
 
+    [TestCase(0, 5, false)]
+    [TestCase(7, 5, false)]
+    [TestCase(0, 3, false)]
+    [TestCase(7, 3, false)]
+    [TestCase(0, 5, true)]
+    public async Task Preview_limit_after_wrapper_exit_preserves_diagnostics_and_cleans_up_pipes(
+        int exitCode, int limit, bool holdCleanup)
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("This regression uses Unix inherited pipes.");
+        string directory = CreateTemporaryDirectory();
+        string pidPath = Path.Combine(directory, "descendant.pid");
+        string readyPath = Path.Combine(directory, "ready");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment,
+            closeRedirectedStreams: holdCleanup ? static _ => { }
+        : null);
+        var diagnosticRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var progress = new CallbackProgress(_ => diagnosticRead.TrySetResult());
+        var options = GitCommandOptions.Local with
+        {
+            MaxStdoutBytes = limit,
+            StopAfterStdoutLimit = true,
+            CaptureStdoutBytes = limit == 3,
+            EnvironmentOverrides = new Dictionary<string, string?>
+            {
+                ["BEUTL_TEST_DESCENDANT_PID"] = pidPath,
+                ["BEUTL_TEST_PREVIEW_READY"] = readyPath,
+            },
+        };
+        string command = "parent=$$; "
+            + "(while kill -0 \"$parent\" 2>/dev/null || [ ! -f \"$BEUTL_TEST_PREVIEW_READY\" ]; do sleep 0.01; done; "
+            + "printf abcde; exec sleep 30) & descendant=$!; "
+            + "printf '%s' \"$descendant\" > \"$BEUTL_TEST_DESCENDANT_PID\"; "
+            + "printf 'wrapper diagnostic https://user:secret@example.invalid/repo\\n' >&2; "
+            + $"exit {exitCode}";
+        Task<GitCommandResult> run = runner.RunAsync(Repository, ["-c", command], options, CancellationToken.None, progress);
+        Task<GitCommandResult>? next = null;
+        try
+        {
+            await diagnosticRead.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await File.WriteAllTextAsync(readyPath, "ready");
+            string stderr;
+            if (exitCode == 0)
+            {
+                GitCommandResult result = await run.WaitAsync(TimeSpan.FromSeconds(4));
+                Assert.That(result.Stdout, Is.EqualTo("abcde"[..limit]));
+                Assert.That(result.StdoutTruncated, Is.True);
+                stderr = result.Stderr;
+            }
+            else
+            {
+                var error = Assert.ThrowsAsync<GitOperationException>(async () =>
+                    await run.WaitAsync(TimeSpan.FromSeconds(4)));
+                Assert.That(error!.ExitCode, Is.EqualTo(exitCode));
+                stderr = error.Stderr;
+            }
+            Assert.That(stderr, Does.Contain("wrapper diagnostic").And.Not.Contain("secret"));
+            next = runner.RunAsync(Repository, ["-c", "exit 0"], GitCommandOptions.Local, CancellationToken.None);
+            if (holdCleanup)
+            {
+                Assert.That(runner.HasActiveProcess, Is.True);
+                Assert.That(next.IsCompleted, Is.False);
+            }
+        }
+        finally
+        {
+            await KillRecordedProcessAsync(pidPath);
+            await ObserveAsync(run);
+        }
+        if (next is not null) await next.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(runner.HasActiveProcess, Is.False);
+    }
+
     [Test]
     public async Task Preview_limit_keeps_unconfirmed_cleanup_quarantined()
     {
@@ -1775,6 +1847,11 @@ public class GitCliRunnerTests : RealGitTestRepository
             Assert.That(File.Exists(lockPath), Is.True);
             Assert.That(File.ReadAllText(lockPath), Is.EqualTo("active replacement"));
         });
+    }
+
+    private sealed class CallbackProgress(Action<string> report) : IProgress<string>
+    {
+        public void Report(string value) => report(value);
     }
 
     private sealed class RecordingProgress : IProgress<string>
