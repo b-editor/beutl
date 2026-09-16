@@ -119,4 +119,9 @@
 
     <sys:Double x:Key="DockIconSizeSmall">12</sys:Double>
     <sys:Double x:Key="DockIconSizeNormal">14</sys:Double>
+
+    <!--  Tool tab icons sit below the theme's small step so they read as a marker beside the title.  -->
+    <sys:Double x:Key="DockToolTabIconSize">10</sys:Double>
+    <!--  The title's own DockHeaderContentPadding adds 2 more on its left.  -->
+    <Thickness x:Key="DockToolTabIconMargin">0,0,6,0</Thickness>
 </ResourceDictionary>
