@@ -36,6 +36,16 @@ public sealed class PropertyEditorGrid : Grid
     static PropertyEditorGrid()
     {
         AffectsMeasure<PropertyEditorGrid>(ValueColumnProperty);
+        // Listen at the attached property so enabling a scope also reaches rows
+        // that have no active scope subscription, without retaining detached rows.
+        IsAlignmentScopeProperty.Changed.AddClassHandler<Control>((control, _) =>
+        {
+            foreach (var grid in control.GetVisualDescendants().OfType<PropertyEditorGrid>())
+            {
+                if (grid.IsAttachedToVisualTree())
+                    grid.RefreshAlignmentScope();
+            }
+        });
     }
 
     public static bool GetIsAlignmentScope(Control control) => control.GetValue(IsAlignmentScopeProperty);
@@ -52,10 +62,7 @@ public sealed class PropertyEditorGrid : Grid
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _scope = this.GetVisualAncestors().OfType<Control>().FirstOrDefault(GetIsAlignmentScope);
-        if (_scope != null)
-            _scope.PropertyChanged += OnScopePropertyChanged;
-        InvalidateMeasure();
+        RefreshAlignmentScope();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -71,6 +78,19 @@ public sealed class PropertyEditorGrid : Grid
         _scope = null;
         _rightInset = double.NaN;
         RestoreHeaderWidth();
+    }
+
+    private void RefreshAlignmentScope()
+    {
+        Control? scope = this.GetVisualAncestors().OfType<Control>().FirstOrDefault(GetIsAlignmentScope);
+        if (_scope != scope)
+        {
+            ReleaseAlignmentScope();
+            _scope = scope;
+            if (_scope != null)
+                _scope.PropertyChanged += OnScopePropertyChanged;
+        }
+        InvalidateMeasure();
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -142,12 +162,7 @@ public sealed class PropertyEditorGrid : Grid
 
     private void OnScopePropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property == IsAlignmentScopeProperty && _scope != null && !GetIsAlignmentScope(_scope))
-        {
-            ReleaseAlignmentScope();
-            InvalidateMeasure();
-        }
-        else if (e.Property == BoundsProperty || e.Property == ValueColumnRatioProperty)
+        if (e.Property == BoundsProperty || e.Property == ValueColumnRatioProperty)
             InvalidateMeasure();
     }
 

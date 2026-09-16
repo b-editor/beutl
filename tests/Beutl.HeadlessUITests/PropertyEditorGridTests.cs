@@ -72,29 +72,50 @@ public class PropertyEditorGridTests
     }
 
     [AvaloniaTest]
-    public void Disabling_an_attached_scope_restores_the_ordinary_layout()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Attached_scope_can_be_enabled_disabled_and_reenabled(bool initiallyEnabled)
     {
         var number = new NumberEditor<float> { Header = "Width", Value = 640 };
         var alignment = new AlignmentXEditor { Header = "Alignment X" };
         var scope = new StackPanel { Children = { number, alignment } };
-        PropertyEditorGrid.SetIsAlignmentScope(scope, true);
+        PropertyEditorGrid.SetIsAlignmentScope(scope, initiallyEnabled);
         var window = new Window { Content = scope, Width = 760, Height = 300 };
         try
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
-            Assert.That(GetGrid(number).ColumnDefinitions[0].Width.IsAbsolute, Is.True);
-            Assert.That(GetBox(alignment).HorizontalAlignment, Is.EqualTo(Avalonia.Layout.HorizontalAlignment.Left));
-
-            PropertyEditorGrid.SetIsAlignmentScope(scope, false);
+            if (!initiallyEnabled) AssertRestored();
+            PropertyEditorGrid.SetIsAlignmentScope(scope, true);
             HeadlessTestHelpers.Render(3);
-            AssertRestored();
+            AssertAligned();
 
-            // A disabled scope must no longer drive its previously aligned descendants.
-            PropertyEditorGrid.SetValueColumnRatio(scope, .7);
-            window.Width = 900;
-            HeadlessTestHelpers.Render(3);
-            AssertRestored();
+            var input = number.GetVisualDescendants().OfType<TextBox>().Single();
+            input.Focus();
+            input.SelectAll();
+            window.KeyTextInput("720");
+            for (int cycle = 0; cycle < 2; cycle++)
+            {
+                PropertyEditorGrid.SetIsAlignmentScope(scope, false);
+                HeadlessTestHelpers.Render(3);
+                AssertRestored();
+
+                // A disabled scope must no longer drive its previously aligned descendants.
+                PropertyEditorGrid.SetValueColumnRatio(scope, .6 + cycle * .1);
+                window.Width = 800 + cycle * 100;
+                HeadlessTestHelpers.Render(3);
+                AssertRestored();
+
+                PropertyEditorGrid.SetIsAlignmentScope(scope, true);
+                HeadlessTestHelpers.Render(3);
+                AssertAligned();
+                PropertyEditorGrid.SetValueColumnRatio(scope, .5);
+                HeadlessTestHelpers.Render(3);
+                AssertAligned();
+                Assert.That(number.GetVisualDescendants().OfType<TextBox>().Single(), Is.SameAs(input));
+                Assert.That(input.Text, Is.EqualTo("720"));
+                Assert.That(input.IsFocused, Is.True);
+            }
         }
         finally { window.Close(); }
 
@@ -103,6 +124,63 @@ public class PropertyEditorGridTests
             Assert.That(GetGrid(number).ColumnDefinitions[0].Width.IsStar, Is.True);
             Assert.That(GetGrid(alignment).ColumnDefinitions[0].Width.IsStar, Is.True);
             Assert.That(GetBox(alignment).HorizontalAlignment, Is.EqualTo(Avalonia.Layout.HorizontalAlignment.Right));
+        }
+
+        void AssertAligned()
+        {
+            foreach (PropertyEditor editor in new PropertyEditor[] { number, alignment })
+            {
+                Assert.That(GetGrid(editor).ColumnDefinitions[0].Width.IsAbsolute, Is.True);
+                Assert.That(GetBox(editor).TranslatePoint(default, scope)!.Value.X,
+                    Is.EqualTo(scope.Bounds.Width * PropertyEditorGrid.GetValueColumnRatio(scope)).Within(1));
+            }
+            Assert.That(GetBox(alignment).HorizontalAlignment, Is.EqualTo(Avalonia.Layout.HorizontalAlignment.Left));
+        }
+    }
+
+    [AvaloniaTest]
+    public void Attached_editors_follow_the_nearest_enabled_scope_when_scopes_change()
+    {
+        var outer = new NumberEditor<float> { Header = "Width", Value = 640 };
+        var nested = new NumberEditor<float> { Header = "Opacity", Value = 75 };
+        var innerScope = new StackPanel { Margin = new Thickness(40, 0, 20, 0), Children = { nested } };
+        var outerScope = new StackPanel { Children = { outer, innerScope } };
+        PropertyEditorGrid.SetIsAlignmentScope(outerScope, true);
+        PropertyEditorGrid.SetValueColumnRatio(innerScope, .65);
+        var window = new Window { Content = outerScope, Width = 900, Height = 300 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            AssertInput(outer, 450);
+            AssertInput(nested, 450);
+
+            PropertyEditorGrid.SetIsAlignmentScope(innerScope, true);
+            HeadlessTestHelpers.Render(3);
+            double innerInput = innerScope.Bounds.X + innerScope.Bounds.Width * .65;
+            AssertInput(outer, 450);
+            AssertInput(nested, innerInput);
+
+            PropertyEditorGrid.SetValueColumnRatio(outerScope, .55);
+            HeadlessTestHelpers.Render(3);
+            AssertInput(outer, 495);
+            AssertInput(nested, innerInput);
+
+            PropertyEditorGrid.SetIsAlignmentScope(innerScope, false);
+            HeadlessTestHelpers.Render(3);
+            AssertInput(nested, 495);
+            PropertyEditorGrid.SetIsAlignmentScope(innerScope, true);
+            PropertyEditorGrid.SetIsAlignmentScope(outerScope, false);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(GetGrid(outer).ColumnDefinitions[0].Width.IsStar, Is.True);
+            AssertInput(nested, innerInput);
+        }
+        finally { window.Close(); }
+
+        void AssertInput(PropertyEditor editor, double expected)
+        {
+            Assert.That(GetGrid(editor).ColumnDefinitions[0].Width.IsAbsolute, Is.True);
+            Assert.That(GetBox(editor).TranslatePoint(default, outerScope)!.Value.X, Is.EqualTo(expected).Within(1));
         }
     }
 
