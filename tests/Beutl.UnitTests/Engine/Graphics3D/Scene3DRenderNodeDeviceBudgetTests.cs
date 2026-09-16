@@ -4,21 +4,32 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics3D;
+using Beutl.Graphics3D.Nodes;
 using Beutl.Media;
 using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
-// A 3D scene wider than the device can attach is refused by the allocation, and a preview drops the value
-// rather than failing. The recording has to reach the same answer, because hit testing never executes: a
-// scene that is never drawn must not answer clicks, and walking topmost-first it must not swallow the clicks
-// meant for the 2D content beneath it.
+// A 3D scene the device cannot render is refused by the allocation, and a preview drops the value rather
+// than failing. The recording has to reach the same answer, because hit testing never executes: a scene that
+// is never drawn must not answer clicks, and walking topmost-first it must not swallow the clicks meant for
+// the 2D content beneath it.
+//
+// The scene here is deliberately larger than the fixed shadow extents, so a device that refuses it is one
+// that refuses its size rather than one too small to render any 3D at all. The tiny-scene cases below cover
+// that second shape, which the scene footprint alone cannot see.
 [NonParallelizable]
 [TestFixture]
 public sealed class Scene3DRenderNodeDeviceBudgetTests
 {
-    private static readonly Rect s_sceneBounds = new(0, 0, 64, 48);
-    private static readonly Point s_sceneCenter = new(32, 24);
+    private const int SceneWidth = 4096;
+    private const int SceneHeight = 3072;
+    private const int CubeFaceBudget = PointShadowPass.DefaultCubeFaceSize;
+    private const int ShadowMapBudget = ShadowPass.DefaultShadowMapSize;
+
+    private static readonly Rect s_sceneBounds = new(0, 0, SceneWidth, SceneHeight);
+    private static readonly Point s_sceneCenter = new(SceneWidth / 2, SceneHeight / 2);
+    private static readonly Rect s_tinySceneBounds = new(0, 0, 64, 48);
 
     [Test]
     public void HitTest_OverTheDeviceAttachmentBudget_ReportsNoHit()
@@ -26,17 +37,17 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                HitTestSceneCenter(max3DAttachmentDimension: 32),
+                HitTestSceneCenter(Budget(attachment: SceneWidth / 2)),
                 Is.False,
                 "a scene whose surface the device cannot attach is never drawn, so it must not answer a hit");
             Assert.That(
-                HitTestSceneCenter(max3DAttachmentDimension: 64),
+                HitTestSceneCenter(Budget(attachment: SceneWidth)),
                 Is.True,
                 "the control: the same scene exactly within the budget still answers");
             Assert.That(
-                HitTestSceneCenter(max3DAttachmentDimension: 0),
+                HitTestSceneCenter(Device3DExtentBudget.Unreported),
                 Is.True,
-                "the control: an unreported limit refuses nothing, and the allocation still decides");
+                "the control: unreported limits refuse nothing, and the allocation still decides");
         });
     }
 
@@ -45,14 +56,16 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
     {
         var rect = new Rect(0, 0, 8, 8);
         var insideRectOnly = new Point(4, 4);
-        var insideSceneOnly = new Point(48, 32);
+        var insideSceneOnly = new Point(SceneWidth - 8, SceneHeight - 8);
         using var fill = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
         using var root = new ContainerRenderNode();
-        using var scene = CreateScene();
+        using var scene = CreateScene(s_sceneBounds);
         // Children draw in order, so the scene is on top of the rectangle.
         root.AddChild(new RectangleRenderNode(rect, fill, null));
         root.AddChild(new Scene3DRenderNode(scene));
-        using var renderer = new RenderNodeRenderer(root, CreateRequest(max3DAttachmentDimension: 32));
+        using var renderer = new RenderNodeRenderer(
+            root,
+            CreateRequest(Budget(attachment: SceneWidth / 2), s_sceneBounds));
 
         Assert.Multiple(() =>
         {
@@ -66,8 +79,12 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
     [Test]
     public void Recording_OverTheDeviceAttachmentBudget_PublishesNothing()
     {
-        using RenderNodeMeasurementProbe over = MeasureScene(CreateRequest(max3DAttachmentDimension: 32));
-        using RenderNodeMeasurementProbe within = MeasureScene(CreateRequest(max3DAttachmentDimension: 64));
+        using RenderNodeMeasurementProbe over = MeasureScene(
+            s_sceneBounds,
+            CreateRequest(Budget(attachment: SceneWidth / 2), s_sceneBounds));
+        using RenderNodeMeasurementProbe within = MeasureScene(
+            s_sceneBounds,
+            CreateRequest(Budget(attachment: SceneWidth), s_sceneBounds));
 
         Assert.Multiple(() =>
         {
@@ -83,19 +100,19 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
     [Test]
     public void Recording_MeasuresTheBudgetInDevicePixels()
     {
-        using RenderNodeMeasurementProbe atOne = MeasureScene(AtScale(1f));
-        using RenderNodeMeasurementProbe atTwo = MeasureScene(AtScale(2f));
+        using RenderNodeMeasurementProbe atOne = MeasureScene(s_sceneBounds, AtScale(1f));
+        using RenderNodeMeasurementProbe atTwo = MeasureScene(s_sceneBounds, AtScale(2f));
 
         Assert.Multiple(() =>
         {
             Assert.That(atOne.Measurement.HasFragments, Is.True,
-                "64x48 logical units at one device pixel each fit a 96 pixel attachment");
+                "4096x3072 logical units at one device pixel each fit a 4096 pixel attachment");
             Assert.That(atTwo.Measurement.HasFragments, Is.False,
-                "the same scene at two device pixels per unit is 128x96, which does not");
+                "the same scene at two device pixels per unit is 8192x6144, which does not");
         });
 
         static RenderNodeRenderRequest AtScale(float outputScale)
-            => CreateRequest(max3DAttachmentDimension: 96) with
+            => CreateRequest(Budget(attachment: SceneWidth), s_sceneBounds) with
             {
                 OutputScale = outputScale,
                 MaxWorkingScale = outputScale,
@@ -105,11 +122,49 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
     [Test]
     public void Recording_ForDelivery_KeepsPublishingOverTheBudget()
     {
-        using RenderNodeMeasurementProbe delivery = MeasureScene(
-            CreateRequest(max3DAttachmentDimension: 32) with { Intent = RenderIntent.Delivery });
+        RenderNodeRenderRequest request =
+            CreateRequest(Budget(attachment: SceneWidth / 2), s_sceneBounds) with
+            {
+                Intent = RenderIntent.Delivery,
+            };
+        using RenderNodeMeasurementProbe delivery = MeasureScene(s_sceneBounds, request);
 
         Assert.That(delivery.Measurement.HasFragments, Is.True,
             "delivery reports a refused allocation instead of dropping it, so the value stays described");
+    }
+
+    // The fixed shadow extents refuse every scene on a device too small for them, however small the scene is,
+    // so a footprint check alone would leave exactly the same stale hit answer behind.
+    [Test]
+    public void HitTest_OnADeviceThatCannotAttachTheShadowMaps_ReportsNoHitForEvenATinyScene()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                HitTestTinySceneCenter(new Device3DExtentBudget(ShadowMapBudget - 1, CubeFaceBudget)),
+                Is.False,
+                "the shadow maps every scene allocates do not fit, so no scene is ever drawn");
+            Assert.That(
+                HitTestTinySceneCenter(new Device3DExtentBudget(ShadowMapBudget, CubeFaceBudget)),
+                Is.True,
+                "the control: one pixel more and the same tiny scene is drawn, so it answers");
+        });
+    }
+
+    [Test]
+    public void HitTest_OnADeviceThatCannotBuildTheShadowCube_ReportsNoHitForEvenATinyScene()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                HitTestTinySceneCenter(new Device3DExtentBudget(ShadowMapBudget, CubeFaceBudget - 1)),
+                Is.False,
+                "the shadow cube faces do not fit, and a cube answers to its own limit");
+            Assert.That(
+                HitTestTinySceneCenter(new Device3DExtentBudget(ShadowMapBudget, CubeFaceBudget)),
+                Is.True,
+                "the control: one pixel more and the same tiny scene is drawn, so it answers");
+        });
     }
 
     [Test]
@@ -117,8 +172,8 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
     {
         // The production path: no request value is stated, so the renderer predicts the budget from the
         // process-wide graphics state.
-        bool overTheLimit = HitTestSceneCenterUnder(CreateDevice(maxAttachmentDimension: 32));
-        bool withinTheLimit = HitTestSceneCenterUnder(CreateDevice(maxAttachmentDimension: 8192));
+        bool overTheLimit = HitTestSceneCenterUnder(CreateDevice(attachment: SceneWidth / 2));
+        bool withinTheLimit = HitTestSceneCenterUnder(CreateDevice(attachment: SceneWidth));
 
         Assert.Multiple(() =>
         {
@@ -129,47 +184,19 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
         });
     }
 
-    // The record-time question and the allocation-time refusal have to be one question. This walks the grid
-    // where they could disagree - unreported limits, exact fits, one axis over - and pins that they do not.
-    [TestCase(0, 64, 48)]
-    [TestCase(-1, 64, 48)]
-    [TestCase(64, 64, 48)]
-    [TestCase(63, 64, 48)]
-    [TestCase(48, 64, 48)]
-    [TestCase(47, 64, 48)]
-    [TestCase(8192, 64, 48)]
-    public void TheRecordTimeQuestion_IsTheAllocationTimeQuestion(int budget, int width, int height)
-    {
-        var device = new Mock<IGraphicsContext>();
-        device.SetupGet(c => c.MaxAttachmentDimension).Returns(budget);
-
-        bool recordTimeAnswer = DeviceExtentLimits.CanAttach(budget, width, height);
-        bool allocationAccepts = true;
-        try
-        {
-            DeviceExtentLimits.ThrowIfCannotAttach(device.Object, width, height);
-        }
-        catch (InvalidOperationException)
-        {
-            allocationAccepts = false;
-        }
-
-        Assert.That(recordTimeAnswer, Is.EqualTo(allocationAccepts));
-    }
-
     [Test]
     public void TheDeviceFootprint_IsTheOneTheAllocationAsksFor()
     {
         Assert.Multiple(() =>
         {
             Assert.That(
-                Scene3DRenderNode.ResolveDeviceFootprint(s_sceneBounds, 1f),
+                Scene3DRenderNode.ResolveDeviceFootprint(s_tinySceneBounds, 1f),
                 Is.EqualTo((64, 48)));
             Assert.That(
-                Scene3DRenderNode.ResolveDeviceFootprint(s_sceneBounds, 2f),
+                Scene3DRenderNode.ResolveDeviceFootprint(s_tinySceneBounds, 2f),
                 Is.EqualTo((128, 96)));
             Assert.That(
-                Scene3DRenderNode.ResolveDeviceFootprint(s_sceneBounds, 0.5f),
+                Scene3DRenderNode.ResolveDeviceFootprint(s_tinySceneBounds, 0.5f),
                 Is.EqualTo((32, 24)));
             Assert.That(
                 Scene3DRenderNode.ResolveDeviceFootprint(new Rect(0, 0, 10.2f, 10.8f), 1f),
@@ -188,7 +215,7 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
             new InstalledGraphics(device, null, null, FailedToInitialize: false));
         try
         {
-            return HitTestSceneCenter(max3DAttachmentDimension: null);
+            return HitTestSceneCenter(budget: null);
         }
         finally
         {
@@ -196,48 +223,59 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
         }
     }
 
-    private static IGraphicsContext CreateDevice(int maxAttachmentDimension)
+    private static IGraphicsContext CreateDevice(int attachment)
     {
         var device = new Mock<IGraphicsContext>();
         device.SetupGet(static c => c.Supports3DRendering).Returns(true);
-        device.SetupGet(c => c.MaxAttachmentDimension).Returns(maxAttachmentDimension);
+        device.SetupGet(c => c.MaxAttachmentDimension).Returns(attachment);
+        device.SetupGet(static c => c.MaxCubeFaceDimension).Returns(CubeFaceBudget);
         return device.Object;
     }
 
-    private static bool HitTestSceneCenter(int? max3DAttachmentDimension)
+    private static bool HitTestSceneCenter(Device3DExtentBudget? budget)
+        => HitTest(s_sceneBounds, s_sceneCenter, budget);
+
+    private static bool HitTestTinySceneCenter(Device3DExtentBudget budget)
+        => HitTest(s_tinySceneBounds, new Point(32, 24), budget);
+
+    private static bool HitTest(Rect sceneBounds, Point point, Device3DExtentBudget? budget)
     {
-        using var scene = CreateScene();
+        using var scene = CreateScene(sceneBounds);
         using var node = new Scene3DRenderNode(scene);
-        using var renderer = new RenderNodeRenderer(node, CreateRequest(max3DAttachmentDimension));
-        return renderer.HitTest(s_sceneCenter);
+        using var renderer = new RenderNodeRenderer(node, CreateRequest(budget, sceneBounds));
+        return renderer.HitTest(point);
     }
 
-    private static RenderNodeMeasurementProbe MeasureScene(RenderNodeRenderRequest request)
+    private static RenderNodeMeasurementProbe MeasureScene(Rect sceneBounds, RenderNodeRenderRequest request)
     {
-        Scene3D.Resource scene = CreateScene();
+        Scene3D.Resource scene = CreateScene(sceneBounds);
         var node = new Scene3DRenderNode(scene);
         var renderer = new RenderNodeRenderer(node, request);
         return new RenderNodeMeasurementProbe(scene, node, renderer, renderer.Measure());
     }
 
-    private static Scene3D.Resource CreateScene()
+    private static Scene3D.Resource CreateScene(Rect bounds)
     {
         var scene = new Scene3D();
-        scene.RenderWidth.CurrentValue = (float)s_sceneBounds.Width;
-        scene.RenderHeight.CurrentValue = (float)s_sceneBounds.Height;
+        scene.RenderWidth.CurrentValue = (float)bounds.Width;
+        scene.RenderHeight.CurrentValue = (float)bounds.Height;
         return (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
     }
 
-    private static RenderNodeRenderRequest CreateRequest(int? max3DAttachmentDimension)
+    private static RenderNodeRenderRequest CreateRequest(Device3DExtentBudget? budget, Rect targetDomain)
         => new()
         {
             Intent = RenderIntent.Preview,
-            TargetDomain = s_sceneBounds,
+            TargetDomain = targetDomain,
             CacheOptions = RenderCacheOptions.Disabled,
             // Stated so these tests pin the extent budget rather than whether this process has a backend.
             Supports3DRendering = true,
-            Max3DAttachmentDimension = max3DAttachmentDimension,
+            Device3DExtentBudget = budget,
         };
+
+    // A device large enough for the fixed shadow extents, so a scene-sized refusal is about the scene.
+    private static Device3DExtentBudget Budget(int attachment)
+        => new(attachment, CubeFaceBudget);
 
     private sealed class RenderNodeMeasurementProbe(
         Scene3D.Resource scene,

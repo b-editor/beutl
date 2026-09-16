@@ -25,14 +25,7 @@ internal static class DeviceExtentLimits
     /// <see cref="IGraphicsContext.MaxAttachmentDimension"/>, and a device may set the two differently.
     /// </remarks>
     public static int ResolveCubeFaceAttachmentBudget(IGraphicsContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        int cube = context.MaxCubeFaceDimension;
-        int attachment = context.MaxAttachmentDimension;
-        if (cube <= 0) return attachment;
-        if (attachment <= 0) return cube;
-        return Math.Min(cube, attachment);
-    }
+        => Device3DExtentBudget.FromContext(context).ResolveCubeFaceAttachmentBudget();
 
     /// <summary>Refuses an extent past what a device can make of an image created with attachment usage.</summary>
     /// <param name="maxImageDimension">The device's image limit for the kind, or zero or less when unknown.</param>
@@ -148,13 +141,12 @@ internal static class DeviceExtentLimits
     /// <exception cref="InvalidOperationException">The face exceeds either device limit.</exception>
     public static void ThrowIfCannotAttachCubeFaces(IGraphicsContext context, int faceSize)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(faceSize);
-        int budget = ResolveCubeFaceAttachmentBudget(context);
-        if (budget <= 0 || faceSize <= budget)
+        Device3DExtentBudget budget = Device3DExtentBudget.FromContext(context);
+        if (budget.CanAttachCubeFaces(faceSize))
             return;
 
         throw new InvalidOperationException(
-            $"A {faceSize} pixel shadow cube face exceeds the {budget} pixels this device can render into "
-            + "a cube map.");
+            $"A {faceSize} pixel shadow cube face exceeds the {budget.ResolveCubeFaceAttachmentBudget()} "
+            + "pixels this device can render into a cube map.");
     }
 }

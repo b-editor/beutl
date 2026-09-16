@@ -93,7 +93,7 @@ internal sealed partial class RenderRequestExecutor
                             cachePolicy: RenderCacheOptions.Disabled,
                             fusionMode: _options.FusionMode,
                             supports3DRendering: _options.Supports3DRendering,
-                            max3DAttachmentDimension: _options.Max3DAttachmentDimension));
+                            device3DExtentBudget: _options.Device3DExtentBudget));
                     var recorder = new RenderRequestRecorder(request);
                     RecordedRenderGraph graph = recorder.Record(root);
                     CompiledRenderRequest result = new RenderRequestCompiler(

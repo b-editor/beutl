@@ -72,24 +72,26 @@ public class GraphicsContextFactoryTests
         }
     }
 
-    // The extent budget is settled the same way: only a context that exists and can render 3D reports one,
-    // and every other state answers 0, which refuses nothing.
-    [TestCase(null, 0, 0, TestName = "Predict3DAttachmentBudget_BeforeAnyContext_IsUnreported")]
-    [TestCase(true, 8192, 8192, TestName = "Predict3DAttachmentBudget_UnderA3DCapableContext_IsTheDeviceLimit")]
-    [TestCase(false, 8192, 0, TestName = "Predict3DAttachmentBudget_UnderAContextWithout3D_IsUnreported")]
-    [TestCase(true, 0, 0, TestName = "Predict3DAttachmentBudget_WhenTheDeviceReportsNoLimit_IsUnreported")]
-    [TestCase(true, -1, 0, TestName = "Predict3DAttachmentBudget_WhenTheDeviceReportsANegativeLimit_IsUnreported")]
-    public void Predict3DAttachmentBudget_FollowsTheInstalledState(
+    // The extent budget is settled the same way: only a context that exists and can render 3D reports
+    // limits, and every other state answers Unreported, which refuses nothing.
+    [TestCase(null, 0, 0, 0, 0, TestName = "Predict3DExtentBudget_BeforeAnyContext_IsUnreported")]
+    [TestCase(true, 8192, 4096, 8192, 4096, TestName = "Predict3DExtentBudget_UnderA3DCapableContext_IsTheDeviceLimits")]
+    [TestCase(false, 8192, 4096, 0, 0, TestName = "Predict3DExtentBudget_UnderAContextWithout3D_IsUnreported")]
+    [TestCase(true, 0, 4096, 0, 4096, TestName = "Predict3DExtentBudget_CarriesTheOneLimitTheDeviceReported")]
+    public void Predict3DExtentBudget_FollowsTheInstalledState(
         bool? installedSupports3D,
-        int installedLimit,
-        int expected)
+        int installedAttachment,
+        int installedCube,
+        int expectedAttachment,
+        int expectedCube)
     {
         IGraphicsContext? installed = null;
         if (installedSupports3D is { } supports3D)
         {
             var context = new Mock<IGraphicsContext>();
             context.SetupGet(static c => c.Supports3DRendering).Returns(supports3D);
-            context.SetupGet(static c => c.MaxAttachmentDimension).Returns(installedLimit);
+            context.SetupGet(c => c.MaxAttachmentDimension).Returns(installedAttachment);
+            context.SetupGet(c => c.MaxCubeFaceDimension).Returns(installedCube);
             installed = context.Object;
         }
 
@@ -97,7 +99,9 @@ public class GraphicsContextFactoryTests
             new InstalledGraphics(installed, null, null, FailedToInitialize: false));
         try
         {
-            Assert.That(GraphicsContextFactory.Predict3DAttachmentBudget(), Is.EqualTo(expected));
+            Assert.That(
+                GraphicsContextFactory.Predict3DExtentBudget(),
+                Is.EqualTo(new Device3DExtentBudget(expectedAttachment, expectedCube)));
         }
         finally
         {

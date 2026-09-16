@@ -78,27 +78,34 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             bounds,
             context.OutputScale,
             context.MaxWorkingScale).Value;
-        // The same question the allocation asks, asked while there is still somewhere to put the answer.
-        // Over the device's limit the 3D surface is refused, and a preview drops the value rather than
-        // failing; recording it anyway would publish bounds and a hit test for a value that is never drawn,
-        // and walking topmost-first that hit swallows the clicks meant for the 2D content beneath. Delivery
-        // keeps recording, because there the refusal is reported rather than dropped and must stay so.
-        // This asks at the density the recording declares. The executor may lower that density further to
-        // fit the 2D buffer budget, so the refusal errs towards dropping a scene that would have just fit,
-        // never towards recording one the allocation goes on to refuse - which is the direction that would
-        // put the hit test back out of step with what is drawn.
+        // The same question Renderer3D.Initialize asks, asked while there is still somewhere to put the
+        // answer. An extent the device cannot attach is refused there, and a preview drops the value rather
+        // than failing; recording it anyway would publish bounds and a hit test for a value that is never
+        // drawn, and walking topmost-first that hit swallows the clicks meant for the 2D content beneath.
+        // Delivery keeps recording, because there the refusal is reported rather than dropped and must stay
+        // so.
+        //
+        // Both sides measure the same footprint: the executor resolves this node's density from the same
+        // scale contract over the same bounds, so the number here is the one RenderCore allocates with. The
+        // executor re-clamps it to the 2D buffer budget over bounds translated by the active device-grid
+        // offset, which is identity for this node unless it is nested inside a grid-aligned scope; where
+        // that offset is non-zero the executor's density can land a pixel lower, which can only make the
+        // allocation fit. The refusal therefore never records a scene the allocation goes on to refuse,
+        // which is the direction that would put the hit test back out of step with what is drawn.
         (int deviceWidth, int deviceHeight) = ResolveDeviceFootprint(bounds, workingScale);
         if (context.Intent == RenderIntent.Preview
-            && !CanAttachSurface(context.Max3DAttachmentDimension, deviceWidth, deviceHeight))
+            && !CanRenderScene(context.Device3DExtentBudget, deviceWidth, deviceHeight))
         {
             if (context.Purpose == RenderRequestPurpose.Frame)
             {
                 s_logger.LogWarning(
-                    "A {Width}x{Height} px 3D surface is not one this device can attach (limit {Budget} px, "
-                    + "0 meaning unreported); dropping the 3D value for this preview request.",
+                    "A 3D scene needing a {Width}x{Height} px surface is not one this device can render "
+                    + "(attachment limit {Attachment} px, cube face limit {CubeFace} px, 0 meaning "
+                    + "unreported); dropping the 3D value for this preview request.",
                     deviceWidth,
                     deviceHeight,
-                    context.Max3DAttachmentDimension);
+                    context.Device3DExtentBudget.MaxAttachmentDimension,
+                    context.Device3DExtentBudget.MaxCubeFaceDimension);
             }
 
             return;
@@ -347,16 +354,17 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         session.Publish(output);
     }
 
-    /// <summary>Whether a device with <paramref name="budget"/> can attach this scene's surface.</summary>
+    /// <summary>Whether a device with <paramref name="budget"/> can render this scene at all.</summary>
     /// <remarks>
-    /// An axis of zero is an extent the allocation refuses as readily as one past the limit, and refusing it
-    /// here rather than letting <see cref="DeviceExtentLimits.CanAttach"/> report a caller error keeps every
-    /// unallocatable footprint one answer that a recording can act on.
+    /// Defers to <see cref="Renderer3D.CanInitialize"/> so the recording asks for every extent the
+    /// allocation refuses on, including the fixed shadow extents that do not depend on the scene. An axis of
+    /// zero is refused here rather than passed on, because the allocation refuses it as readily as one past
+    /// a limit and <see cref="Renderer3D.CanInitialize"/> would report it as a caller error instead.
     /// </remarks>
-    private static bool CanAttachSurface(int budget, int deviceWidth, int deviceHeight)
+    private static bool CanRenderScene(Device3DExtentBudget budget, int deviceWidth, int deviceHeight)
         => deviceWidth > 0
            && deviceHeight > 0
-           && DeviceExtentLimits.CanAttach(budget, deviceWidth, deviceHeight);
+           && Renderer3D.CanInitialize(budget, deviceWidth, deviceHeight);
 
     /// <summary>The device extents a scene of <paramref name="bounds"/> asks for at <paramref name="density"/>.</summary>
     /// <remarks>

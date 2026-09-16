@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering.Cache;
+﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
@@ -24,7 +25,7 @@ internal readonly record struct RenderNodeRecordingKey(
     FusionMode FusionMode,
     bool HasSeparateTargetBinding,
     bool Supports3DRendering,
-    int Max3DAttachmentDimension,
+    Device3DExtentBudget Device3DExtentBudget,
     bool TransactionCacheEnabled)
 {
     public static RenderNodeRecordingKey Create(
@@ -42,6 +43,6 @@ internal readonly record struct RenderNodeRecordingKey(
             options.FusionMode,
             options.TargetBinding is not null,
             options.Supports3DRendering,
-            options.Max3DAttachmentDimension,
+            options.Device3DExtentBudget,
             transactionCacheEnabled);
 }

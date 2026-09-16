@@ -753,8 +753,8 @@ public sealed class RenderNodeRenderer : IDisposable
             renderRequest.FusionMode,
             supports3DRendering: renderRequest.Supports3DRendering
                                  ?? GraphicsContextFactory.Predict3DRenderingSupport(),
-            max3DAttachmentDimension: renderRequest.Max3DAttachmentDimension
-                                      ?? GraphicsContextFactory.Predict3DAttachmentBudget()));
+            device3DExtentBudget: renderRequest.Device3DExtentBudget
+                                  ?? GraphicsContextFactory.Predict3DExtentBudget()));
 
     private RenderNodeRenderRequest ResolveRequest(RenderNodeRenderRequest? request)
         => request is null

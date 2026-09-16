@@ -130,26 +130,26 @@ public class GraphicsContextFactory
         return installed is not null ? installed.Supports3DRendering : !s_failedToInitialize;
     }
 
-    /// <summary>Predicts the largest 3D attachment the shared context can make, from any thread.</summary>
+    /// <summary>Predicts the 3D extents the shared context can attach, from any thread.</summary>
     /// <remarks>
-    /// The companion to <see cref="Predict3DRenderingSupport"/> for the extent a recording may read, with the
-    /// same rule about what is settled: a limit is reported only once a context exists to report one, and
-    /// before that the answer is "unknown", so nothing is refused on a guess about a device that has not been
-    /// chosen yet. A context that cannot render 3D reports nothing either, because it has no 3D attachment
-    /// limit to give and <see cref="Predict3DRenderingSupport"/> already answers for it.
+    /// The companion to <see cref="Predict3DRenderingSupport"/> for the extents a recording may read, with
+    /// the same rule about what is settled: a limit is reported only once a context exists to report one, and
+    /// before that the answer is <see cref="Device3DExtentBudget.Unreported"/>, so nothing is refused on a
+    /// guess about a device that has not been chosen yet. A context that cannot render 3D reports nothing
+    /// either, because it has no 3D limits to give and <see cref="Predict3DRenderingSupport"/> already
+    /// answers for it.
+    /// <para>
+    /// A request settles this once and <see cref="Requests.RenderNodeRecordingKey"/> carries it, so the
+    /// unreported answer a cold start records against is never reused once a device has answered: the first
+    /// request after the context exists carries a different budget and records again.
+    /// </para>
     /// </remarks>
-    /// <returns>
-    /// The device's <see cref="IGraphicsContext.MaxAttachmentDimension"/>, or <c>0</c> when no context has
-    /// answered for one.
-    /// </returns>
-    internal static int Predict3DAttachmentBudget()
+    internal static Device3DExtentBudget Predict3DExtentBudget()
     {
         IGraphicsContext? installed = SharedContext;
-        if (installed is null || !installed.Supports3DRendering)
-            return 0;
-
-        int budget = installed.MaxAttachmentDimension;
-        return budget > 0 ? budget : 0;
+        return installed is null || !installed.Supports3DRendering
+            ? Device3DExtentBudget.Unreported
+            : Device3DExtentBudget.FromContext(installed);
     }
 
     public static IGraphicsContext? GetOrCreateShared()

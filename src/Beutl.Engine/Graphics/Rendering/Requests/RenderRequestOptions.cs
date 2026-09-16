@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering.Cache;
+﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
@@ -16,7 +17,7 @@ internal sealed class RenderRequestOptions
         RenderRequestOwner? owner = null,
         NestedRenderTargetBinding? targetBinding = null,
         bool supports3DRendering = true,
-        int max3DAttachmentDimension = 0)
+        Device3DExtentBudget device3DExtentBudget = default)
     {
         if (!Enum.IsDefined(intent))
         {
@@ -35,7 +36,6 @@ internal sealed class RenderRequestOptions
 
         ValidateTargetDomain(targetDomain);
         ValidateRequestedRegion(requestedRegion);
-        ArgumentOutOfRangeException.ThrowIfNegative(max3DAttachmentDimension);
 
         Intent = intent;
         Purpose = purpose;
@@ -50,7 +50,7 @@ internal sealed class RenderRequestOptions
         OwnsOwner = owner is null;
         TargetBinding = targetBinding;
         Supports3DRendering = supports3DRendering;
-        Max3DAttachmentDimension = max3DAttachmentDimension;
+        Device3DExtentBudget = device3DExtentBudget;
         PlanIdentity = new RenderRequestPlanIdentity(
             Purpose,
             FusionMode,
@@ -90,14 +90,14 @@ internal sealed class RenderRequestOptions
     /// </remarks>
     public bool Supports3DRendering { get; }
 
-    /// <summary>The largest 3D attachment this request may expect to allocate, or <c>0</c> when unknown.</summary>
+    /// <summary>The 3D extents this request may expect to allocate, or unreported when unknown.</summary>
     /// <remarks>
     /// Settled alongside <see cref="Supports3DRendering"/> and carried the same way, so a node that would
-    /// allocate a 3D surface can ask at record time whether the extent it needs is one the device can make,
-    /// and answer for bounds, cardinality and hit testing with what the request can actually draw. <c>0</c>
-    /// means no device has reported a limit and nothing is refused on it; the allocation still decides.
+    /// allocate a 3D surface can ask at record time whether the extents it needs are ones the device can
+    /// make, and answer for bounds, cardinality and hit testing with what the request can actually draw.
+    /// <see cref="Device3DExtentBudget.Unreported"/> refuses nothing; the allocation still decides.
     /// </remarks>
-    public int Max3DAttachmentDimension { get; }
+    public Device3DExtentBudget Device3DExtentBudget { get; }
 
     internal bool OwnsOwner { get; }
 
@@ -156,7 +156,7 @@ internal sealed class RenderRequestOptions
             Owner,
             targetBinding,
             Supports3DRendering,
-            Max3DAttachmentDimension);
+            Device3DExtentBudget);
         nested.NestedPolicyParent = this;
         return nested;
     }

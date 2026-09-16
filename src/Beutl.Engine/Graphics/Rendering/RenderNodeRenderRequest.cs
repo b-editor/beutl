@@ -67,13 +67,14 @@ public sealed record RenderNodeRenderRequest
     /// </remarks>
     internal bool? Supports3DRendering { get; init; }
 
-    /// <summary>Gets the 3D attachment limit to record against, or <see langword="null"/> to predict it.</summary>
+    /// <summary>Gets the 3D extent limits to record against, or <see langword="null"/> to predict them.</summary>
     /// <remarks>
     /// <see langword="null"/> takes the answer from
-    /// <see cref="Backend.GraphicsContextFactory.Predict3DAttachmentBudget"/> when each request is created,
+    /// <see cref="Backend.GraphicsContextFactory.Predict3DExtentBudget"/> when each request is created,
     /// which is what every production request does. A stated value stands in for that prediction, so a test
-    /// can record against a device limit without installing a device that has one. <c>0</c> states that no
-    /// limit is known, which refuses nothing.
+    /// can record against a device's limits without installing a device that has them.
+    /// <see cref="Backend.Device3DExtentBudget.Unreported"/> states that no limits are known, which refuses
+    /// nothing.
     /// </remarks>
-    internal int? Max3DAttachmentDimension { get; init; }
+    internal Backend.Device3DExtentBudget? Device3DExtentBudget { get; init; }
 }
