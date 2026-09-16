@@ -273,6 +273,17 @@ public sealed class DeviceBufferBudgetTests
     }
 
     [Test]
+    public void AnUndefinedScopeIsRefusedRatherThanResolvedAsAllocation()
+    {
+        // The two scopes are inverses, so falling through to either one for a value that names neither
+        // would hand the caller the opposite answer in exactly the situations the scope exists to tell
+        // apart. Enum.IsDefined is not free here - the switch has no default budget to fall back on.
+        Assert.That(
+            () => BufferDimensionBudget.Resolve((BufferBudgetScope)(-1)),
+            Throws.InstanceOf<ArgumentOutOfRangeException>());
+    }
+
+    [Test]
     public void ADefaultBudgetIsRefusedWhereItIsAccepted_NotAtFirstUse()
     {
         var factory = new RecordingCpuTargetFactory();
