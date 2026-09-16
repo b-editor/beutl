@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 using Beutl.Logging;
 using Beutl.Media;
@@ -22,6 +23,8 @@ namespace Beutl.Embedding.MediaFoundation.Decoding;
 namespace Beutl.Extensions.MediaFoundation.Decoding;
 #endif
 
+// Media Foundation and NAudio.Wasapi exist only on Windows.
+[SupportedOSPlatform("windows")]
 public class MFReader : MediaReader
 {
     private readonly ILogger _logger = Log.CreateLogger<MFReader>();

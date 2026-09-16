@@ -2350,7 +2350,9 @@ public class ProxyJobQueueTests
 
         public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
+#pragma warning disable CS0067 // Not exercised by these tests.
         public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
+#pragma warning restore CS0067
     }
 
     private sealed class MutatingThenThrowStore : IProxyStore
