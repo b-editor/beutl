@@ -184,6 +184,46 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
         });
     }
 
+    // A known gap, pinned so it cannot close or widen unnoticed. The preflight sizes the 3D surface from
+    // origin-free bounds, which is what Renderer3D allocates, but the 2D intermediate the published output
+    // lands in is sized by CreateOwnedValue as PixelRect.FromRect(bounds.Translate(gridOffset), density).
+    // Under a fractional device-grid phase that is one pixel wider on each axis, so a scene whose footprint
+    // lands exactly on the device's limit records here and is then refused by the pool. The phase belongs to
+    // the target being drawn into and no recording can read it; widening the check by that pixel would
+    // refuse the same scene under the integral phases where it renders. See the comment in
+    // Scene3DRenderNode.Process.
+    [Test]
+    public void ASceneExactlyAtTheDeviceLimit_IsAKnownGap()
+    {
+        var bounds = new Rect(0, 0, 4096, 4096);
+        (int width, int height) = Scene3DRenderNode.ResolveDeviceFootprint(bounds, 1f);
+        int budget = width;
+        var fractionalPhase = new Vector(0.5f, 0.5f);
+
+        PixelRect integralPhase = PixelRect.FromRect(bounds, 1f);
+        PixelRect shifted = PixelRect.FromRect(bounds.Translate(fractionalPhase), 1f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                Renderer3D.CanInitialize(new Device3DExtentBudget(budget, CubeFaceBudget), width, height),
+                Is.True,
+                "the 3D surface fits exactly, so the scene records");
+            Assert.That(
+                RenderScaleUtilities.FitsBufferBudget(integralPhase.Size, budget),
+                Is.True,
+                "on an integral phase the intermediate fits too, and the scene renders");
+            Assert.That(
+                (shifted.Width, shifted.Height),
+                Is.EqualTo((width + 1, height + 1)),
+                "a fractional phase covers one more device pixel on each axis");
+            Assert.That(
+                RenderScaleUtilities.FitsBufferBudget(shifted.Size, budget),
+                Is.False,
+                "which the pool refuses, dropping the preview value while the hit answer stays behind");
+        });
+    }
+
     [Test]
     public void TheDeviceFootprint_IsTheOneTheAllocationAsksFor()
     {
