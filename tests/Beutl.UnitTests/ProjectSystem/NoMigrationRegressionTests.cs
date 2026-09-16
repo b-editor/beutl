@@ -824,7 +824,28 @@ public class NoMigrationRegressionTests
 
         CoreSerializer.StoreToUri(project, project.Uri);
 
+        // 99 already guards what this migration needs, so the preflight must keep it.
         Assert.That(gateAtElementWrite, Is.EqualTo("99.0.0"));
+    }
+
+    // A project reloaded at a raised version reports no migration of its own, but it still writes
+    // content an older application must not read, so the destination has to carry its constraint.
+    [Test]
+    public void A_reloaded_projects_own_gate_reaches_a_lower_gated_destination()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", new MigratingLeaf("9.0.0"));
+        project.RestoreVersionMetadata(BeutlApplication.Version, "9.0.0");
+        string destinationPath = Path.Combine(_tempDirectory, "elsewhere", "project.bep");
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        File.WriteAllText(destinationPath, "{\"minAppVersion\":\"1.0.0\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(destinationPath))!["minAppVersion"];
+
+        CoreSerializer.StoreToUri(project, new Uri(destinationPath));
+
+        Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
     }
 
     // The gate that counts is the one in the file being written, not the constraint the project

@@ -82,24 +82,41 @@ public static class CoreSerializer
 
     private static void WriteMigrationGate(Project project, Uri destination)
     {
-        string? required = null;
+        string? migrated = null;
         foreach (ProjectItem item in project.Items)
         {
-            required = Project.GetMaximumMigrationVersion(
-                required,
+            migrated = Project.GetMaximumMigrationVersion(
+                migrated,
                 Project.GetRequiredMigrationVersion(item));
         }
 
-        if (required is null)
+        // Only a migration this session advances the recorded application version; a plain load and
+        // save keeps the one from disk.
+        if (migrated is not null)
         {
+            project.MarkAsMigrated(migrated);
+        }
+        else if (ReadPersistedGate(destination) is not { } persisted
+                 || IsCoveredBy(project.MinAppVersion, persisted))
+        {
+            // Nothing migrated here, and the destination either advertises at least what this
+            // project constrains or holds nothing an older application could open. A project
+            // reloaded at a raised version reports no migration of its own but still writes content
+            // that constraint guards, which is why the destination is compared at all. A gate that
+            // cannot be read counts as strict enough, the way Project.MarkAsMigrated retains an
+            // unknown persisted constraint rather than weakening it.
             return;
         }
 
-        project.MarkAsMigrated(required);
         if (destination.Scheme != "file" || !TryWriteMigrationGate(project, destination.LocalPath))
         {
             StoreToUri(project, destination, CoreSerializationMode.Write);
         }
+    }
+
+    private static bool IsCoveredBy(string version, string gate)
+    {
+        return ReferenceEquals(Project.GetMaximumVersion(gate, version), gate);
     }
 
     /// <summary>
