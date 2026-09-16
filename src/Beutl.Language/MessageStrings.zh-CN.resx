@@ -452,4 +452,13 @@
   <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
     <value>丢弃不可用结果</value>
   </data>
+  <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
+    <value>是否永久删除此项目的文件夹及其中的所有内容？此操作无法撤销。</value>
+  </data>
+  <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
+    <value>此项目不在专用文件夹中，因此只会删除项目文件，其场景和其他文件将保留在磁盘上。是否永久删除该项目文件？此操作无法撤销。</value>
+  </data>
+  <data name="ProjectInUseCannotDeleteFromDisk" xml:space="preserve">
+    <value>此项目或其文件已在 Beutl 中打开。请先将其关闭，再从磁盘删除该项目。</value>
+  </data>
 </root>

@@ -124,6 +124,14 @@ public partial class EditorHostFallback : UserControl
         }
     }
 
+    private async void DeleteRecentProjectFromDisk_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: FileInfo fi })
+        {
+            await ExecuteMainViewModelCommandAsync(vm => vm.ProjectDiskDeletion.DeleteAsync(fi.FullName));
+        }
+    }
+
     private void OpenRecentItem_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is MenuItem { DataContext: FileInfo fi })

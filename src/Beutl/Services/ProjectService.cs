@@ -289,6 +289,20 @@ public sealed class ProjectService
             preservedOpenAttempt);
     }
 
+    // Runs a change to project files on disk that no open, close or create may interleave with:
+    // one already running finishes first and the next waits for the change. Unlike a transition it
+    // leaves a pending open alone, because deleting one project must not cancel opening another; an
+    // open of the changed project itself goes on to find the files as the change left them.
+    internal async Task RunExclusiveOfTransitionsAsync(Func<Task> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        await _transitionGate.WaitAsync();
+        await using ProjectTransitionScope transition = EnterTransition(
+            ProjectTransitionPurpose.Normal,
+            new ProjectFileChange());
+        await action();
+    }
+
     private async ValueTask<ProjectTransitionScope> BeginTransitionAsync(
         ProjectTransitionPurpose purpose,
         object owner,
@@ -305,6 +319,12 @@ public sealed class ProjectService
             cancellationToken.ThrowIfCancellationRequested();
         }
 
+        return EnterTransition(purpose, owner);
+    }
+
+    // Must be called while holding _transitionGate; disposing the scope releases it.
+    private ProjectTransitionScope EnterTransition(ProjectTransitionPurpose purpose, object owner)
+    {
         var context = new ProjectTransitionContext(
             Interlocked.Increment(ref _nextTransitionId),
             purpose,
@@ -888,6 +908,11 @@ public sealed class ProjectService
 
     // Owns the transition that creates a project, so observers can tell a new project from an opened one.
     internal sealed class ProjectCreation
+    {
+    }
+
+    // Owns the transition held by RunExclusiveOfTransitionsAsync, which opens and closes nothing.
+    internal sealed class ProjectFileChange
     {
     }
 
