@@ -2,6 +2,9 @@
 using Avalonia.Controls;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
+using FluentAvalonia.UI.Controls;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.GraphEditorTab;
 
@@ -19,6 +22,11 @@ public sealed class GraphEditorTabExtension : ToolTabExtension
     public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
 
     public override int DefaultOrder => 1;
+
+    public override FAIconSource? GetIcon()
+    {
+        return new FluentIconSource { Icon = Icon.StarEmphasis };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

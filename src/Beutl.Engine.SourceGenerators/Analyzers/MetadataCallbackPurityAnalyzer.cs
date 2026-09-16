@@ -850,6 +850,17 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // A query spells no method at all: every clause is rewritten into a call on what the clause before
+        // it produced, and the compiler picks each call off that value's own type by the query pattern.
+        // The whole query is read at once rather than clause by clause because only its first call runs on
+        // a receiver the source names - the from expression - and which clause carries that call depends on
+        // the clauses before it.
+        if (node is QueryExpressionSyntax query)
+        {
+            FollowQuery(context, model, body, query, depth, walked, report);
+            return;
+        }
+
         if (node is not (BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax
             or PrimaryConstructorBaseTypeSyntax or CastExpressionSyntax or BinaryExpressionSyntax
             or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax or AssignmentExpressionSyntax))
@@ -1093,6 +1104,135 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    /// <summary>Follows the query-pattern operators a query expression is rewritten into.</summary>
+    /// <remarks>
+    /// The binder has already applied every rule a query is allowed to pick its operators by - an instance
+    /// method, an extension one, a generic one whose arguments it inferred - so each method is read off its
+    /// answer rather than resolved a second time here. A clause the compiler removes rather than rewrites,
+    /// the identity <c>select</c> of a query that has any other clause, answers with nothing and is
+    /// followed nowhere, which is correct: no such call runs. A LINQ-to-objects query answers with
+    /// <c>Enumerable</c>'s methods, which have no source here and stop the walk as any other such callee
+    /// does.
+    /// <para>
+    /// An operator that runs on a receiver written in the query is re-resolved against the making of that
+    /// receiver, on the same terms an instance call named outright is: a query over a local declared as a
+    /// base and made as a derived runs the derived operator, and reading the base body would answer with
+    /// one an override replaces. Two kinds of operator have such a receiver - the first of the chain the
+    /// query builds on its own from expression, and the <c>Cast</c> an explicitly typed clause runs on the
+    /// source that clause names, which for a second from or a join is that clause's own source and not the
+    /// query's. Everything else runs on what the operator before it returned, which no creation here makes
+    /// and no declaration names, so it is followed as bound.
+    /// </para>
+    /// </remarks>
+    private static void FollowQuery(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode body,
+        QueryExpressionSyntax query,
+        int depth,
+        Dictionary<ISymbol, int> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        // The receiver the chain has yet to run its first operator on. A Cast on the query's own from
+        // expression is that operator, and everything after it runs on what the Cast handed back.
+        ExpressionSyntax? chain = query.FromClause.Expression;
+
+        foreach ((SyntaxNode node, ISymbol? chosen, ExpressionSyntax? cast) in
+                 GetQueryOperators(context, model, query))
+        {
+            if (chosen is not IMethodSymbol rewritten)
+                continue;
+
+            ExpressionSyntax? on;
+
+            if (cast is not null)
+            {
+                on = cast;
+
+                if (cast == query.FromClause.Expression)
+                    chain = null;
+            }
+            else
+            {
+                on = chain;
+                chain = null;
+            }
+
+            INamedTypeSymbol? made = on is null
+                ? null
+                : FollowHeldCreation(
+                    context,
+                    GetCreationHeldBy(context, model, on),
+                    body,
+                    node,
+                    depth,
+                    walked,
+                    report);
+
+            FollowCall(
+                context,
+                RunsAsMade(made, rewritten),
+                node,
+                RunsAStaticMethod(rewritten) ? "static method" : "method",
+                depth,
+                walked,
+                report);
+        }
+    }
+
+    /// <summary>The operators <paramref name="query"/> runs, in the order it runs them.</summary>
+    /// <remarks>
+    /// A query is written in the order it is rewritten, so document order is that order: the from and its
+    /// <c>Cast</c>, then each body clause, an <c>orderby</c> contributing one operator per ordering, then
+    /// the select or group, then whatever an <c>into</c> continues with. A <c>Cast</c> is handed back with
+    /// the source its own clause names, because a second from and a join run theirs on the sequence that
+    /// clause introduces rather than on the one the chain has reached. A query written inside this one is
+    /// left for the walk to reach as the expression it is, so that its own operators are resolved against
+    /// its own sources.
+    /// </remarks>
+    private static IEnumerable<(SyntaxNode Node, ISymbol? Chosen, ExpressionSyntax? Cast)> GetQueryOperators(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        QueryExpressionSyntax query)
+    {
+        // The predicate is asked of the query itself before it is asked of anything inside it, so the
+        // query has to answer for itself that its own clauses are to be read.
+        foreach (SyntaxNode node in query.DescendantNodes(
+            child => child == query || child is not QueryExpressionSyntax))
+        {
+            switch (node)
+            {
+                // A clause can carry two operators: naming the element type turns the source that clause
+                // names into a Cast it runs ahead of the operator the clause itself is.
+                case QueryClauseSyntax clause:
+                    QueryClauseInfo chosen = model.GetQueryClauseInfo(clause, context.CancellationToken);
+                    yield return (clause, chosen.CastInfo.Symbol, GetCastSource(clause));
+                    yield return (clause, chosen.OperationInfo.Symbol, null);
+                    break;
+
+                // A select or a group names the value it produces rather than the Select or GroupBy
+                // producing it, and an ordering names the key rather than the OrderBy or ThenBy it is
+                // handed to.
+                case SelectOrGroupClauseSyntax or OrderingSyntax:
+                    yield return (node, model.GetSymbolInfo(node, context.CancellationToken).Symbol, null);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>The sequence a clause's <c>Cast</c> runs on, where the clause names one.</summary>
+    /// <remarks>
+    /// Only a from and a join can be explicitly typed, and each runs its <c>Cast</c> on the sequence it
+    /// introduces. Any other clause carries no <c>Cast</c>, so none of them has a source to name.
+    /// </remarks>
+    private static ExpressionSyntax? GetCastSource(QueryClauseSyntax clause)
+        => clause switch
+        {
+            FromClauseSyntax from => from.Expression,
+            JoinClauseSyntax join => join.InExpression,
+            _ => null,
+        };
+
     /// <summary>Follows the members a <c>foreach</c> runs on the enumerator it makes.</summary>
     /// <remarks>
     /// The binder has already applied every rule the loop is allowed to pick a sequence apart by - a
@@ -1222,8 +1362,26 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         int depth,
         Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
+        => FollowHeldCreation(
+            context,
+            GetReceiverCreation(context, model, reference),
+            body,
+            reference,
+            depth,
+            walked,
+            report);
+
+    /// <summary>The type <paramref name="held"/> was made as, following the constructor that made it.</summary>
+    private static INamedTypeSymbol? FollowHeldCreation(
+        SyntaxNodeAnalysisContext context,
+        (ExpressionSyntax Creation, SemanticModel Model, INamedTypeSymbol Made)? held,
+        SyntaxNode body,
+        SyntaxNode reference,
+        int depth,
+        Dictionary<ISymbol, int> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
     {
-        if (GetReceiverCreation(context, model, reference) is not { } made)
+        if (held is not { } made)
             return null;
 
         if (RunsWith(body, made.Creation)
@@ -1288,10 +1446,15 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             SyntaxNodeAnalysisContext context,
             SemanticModel model,
             SyntaxNode reference)
-    {
-        if (GetReceiver(reference) is not { } receiver)
-            return null;
+        => GetReceiver(reference) is { } receiver ? GetCreationHeldBy(context, model, receiver) : null;
 
+    /// <summary>The creation the instance <paramref name="receiver"/> holds was made by.</summary>
+    private static (ExpressionSyntax Creation, SemanticModel Model, INamedTypeSymbol Made)?
+        GetCreationHeldBy(
+            SyntaxNodeAnalysisContext context,
+            SemanticModel model,
+            ExpressionSyntax receiver)
+    {
         ExpressionSyntax expression = StripParentheses(receiver);
         (ExpressionSyntax Creation, SemanticModel Model)? made =
             expression is BaseObjectCreationExpressionSyntax written

@@ -463,7 +463,7 @@ public readonly struct Rect
     /// <remarks>
     /// <para>
     /// A perspective-mapped rectangle's exact box runs to millions of pixels as the near edge tips towards
-    /// the eye, and <see cref="RenderScaleUtilities.ClampWorkingScaleToBufferBudget"/> pays for that in
+    /// the eye, and <see cref="Rendering.BufferDimensionBudget.ClampWorkingScale"/> pays for that in
     /// working density. <see cref="DefaultNearPlane"/> bought the density back by giving up a wedge the
     /// rasterizer still draws - and, when the wedge falls inside the frame, that wedge is content the viewer
     /// should have seen.

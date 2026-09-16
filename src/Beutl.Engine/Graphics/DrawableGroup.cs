@@ -277,82 +277,15 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
         public override void Process(RenderNodeContext context)
         {
-            var bounds = Bounds.Value;
-            var transform = GetTransformMatrix(bounds);
-            bool hasInverse = transform.HasInverse;
-            Matrix inverse = hasInverse ? transform.Invert() : Matrix.Identity;
-            var metadataState = new CustomTransformMetadataState(
-                transform,
-                hasInverse,
-                inverse,
-                context.TargetDomain);
-            RenderBoundsContract boundsContract = hasInverse
-                ? RenderBoundsContract.Create(
-                    metadataState,
-                    static (state, value) => state.TransformBounds(value),
-                    static (state, value) => state.GetRequiredInputBounds(value))
-                : RenderBoundsContract.CreateFullInput(
-                    metadataState,
-                    static (state, value) => state.TransformBounds(value));
-            var scaleMapper = new TransformScaleMapper(transform);
-            TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
-                state: transform,
-                execute: ExecuteTransform,
-                bounds: boundsContract,
-                hitTest: RenderHitTestContract.Custom(
-                    metadataState,
-                    static (state, context, point) => state.HitTest(context, point)),
-                scale: RenderScaleContract.MapInputSupply(
-                    scaleMapper,
-                    static (mapper, supply) => mapper.MapSupply(supply),
-                    static (mapper, demand) => mapper.MapDemand(demand)),
-                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
-                deviceGridMapping: transform.IsIdentity
-                    ? RenderDeviceGridMapping.Preserved
-                    : RenderDeviceGridMapping.Remapped,
-                builtInBackdropCapturesBackingTarget: true);
+            Matrix transform = GetTransformMatrix(Bounds.Value);
+            // Declared rather than hand-built so this scope joins the ambient every Append and Set below it
+            // composes against: its matrix comes from measured content, so nothing above can predict it.
             context.PublishMappedInputs(
-                description,
+                RenderScopeAmbientTransform.CreateScope(
+                    new RenderScopeAmbientTransform(transform, TransformOperator.Prepend, context.TargetDomain),
+                    transform,
+                    capturesBackingTarget: true),
                 static (context, input, value) => context.TargetScope(input, value));
-        }
-
-        private static void ExecuteTransform(TargetScopeSession session, Matrix transform)
-        {
-            session.Canvas.Use(canvas =>
-            {
-                using (canvas.PushTransform(transform))
-                {
-                    session.ReplayInput();
-                }
-            });
-        }
-
-        private readonly record struct CustomTransformMetadataState(
-            Matrix Transform,
-            bool HasInverse,
-            Matrix Inverse,
-            Rect? DeliveredTo)
-        {
-            public Rect TransformBounds(Rect inputBounds)
-                => inputBounds.TransformToDeliveredAABB(Transform, DeliveredTo);
-
-            public Rect GetRequiredInputBounds(Rect outputBounds) => outputBounds.TransformToAABB(Inverse);
-
-            public bool HitTest(RenderHitTestContext context, Point point)
-            {
-                if (HasInverse)
-                    point *= Inverse;
-                return context.Inputs[0].HitTest(point);
-            }
-        }
-
-        private readonly record struct TransformScaleMapper(Matrix Transform)
-        {
-            public EffectiveScale MapSupply(EffectiveScale inputSupply)
-                => TransformRenderNode.RescaleDensity(inputSupply, Transform);
-
-            public EffectiveScale MapDemand(EffectiveScale outputDemand)
-                => TransformRenderNode.RescaleDemand(outputDemand, Transform);
         }
     }
 }

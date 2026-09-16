@@ -18,6 +18,7 @@ public class BeutlToolDockable : Tool, IDisposable
 
         Id = CreateId(context);
         Title = ResolveTitle(context, context.Header.Value);
+        Icon = context.Extension.GetIcon();
         Context = context;
         CanClose = true;
         CanFloat = true;
@@ -47,6 +48,9 @@ public class BeutlToolDockable : Tool, IDisposable
     }
 
     public IToolContext ToolContext { get; }
+
+    /// <summary>Gets the icon the tab strip shows left of the title, or <see langword="null"/> for none.</summary>
+    public FAIconSource? Icon { get; }
 
     public EditViewModel EditViewModel { get; }
 

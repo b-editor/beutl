@@ -1979,7 +1979,7 @@ public sealed class RenderToolsStoryboardTests
     /// </remarks>
     private static void AssertRenderScaleLimitError(ToolError? error, string requestedExtent)
     {
-        int limit = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
+        int limit = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction).MaxDimension;
         string maximumScalePrefix = (Math.Truncate(limit / 1920.0 * 1000) / 1000)
             .ToString("0.000", CultureInfo.InvariantCulture);
 

@@ -15,7 +15,7 @@ public class WorkingScaleCeilingTests
         Assert.That(WorkingScaleCeiling.Preview(outputScale), Is.EqualTo(expected).Within(1e-6));
     }
 
-    // Export has no working-scale ceiling; allocatability is per-buffer via ClampWorkingScaleToBufferBudget.
+    // Export has no working-scale ceiling; allocatability is per-buffer via BufferDimensionBudget.ClampWorkingScale.
     [Test]
     public void Export_HasNoWorkingScaleCeiling()
     {

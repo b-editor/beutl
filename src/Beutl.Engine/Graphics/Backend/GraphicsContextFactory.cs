@@ -19,9 +19,60 @@ public class GraphicsContextFactory
     private static VulkanPhysicalDeviceInfo? s_selectedPhysicalDevice;
     private static Action s_reclaimQueueDischarge = GpuResourceReclaimQueue.DrainAfterContextSync;
 
+    // The limit and the context that reported it live in one field, so a reader can never pair one
+    // context's identity with another's answer.
+    private sealed class ResolvedAttachmentDimension(IGraphicsContext context, int value)
+    {
+        public IGraphicsContext Context { get; } = context;
+
+        public int Value { get; } = value;
+    }
+
+    private static ResolvedAttachmentDimension? s_resolvedAttachmentDimension;
+
     public static IGraphicsContext? SharedContext { get; private set; }
 
     internal static VulkanInstance? VulkanInstance => s_vulkanInstance;
+
+    /// <summary>
+    /// The largest 2D extent <paramref name="context"/> can attach, or <see langword="null"/> when there is
+    /// no context or the device did not answer.
+    /// </summary>
+    /// <param name="context">The context whose device limit to read, or <see langword="null"/> for none.</param>
+    /// <remarks>
+    /// A device reports a limit fixed for the life of its context, so it is read once and remembered - but
+    /// the shared context is replaceable, and answering for the next device out of the last one's memo asks
+    /// a device that attaches less for an attachment it cannot make. The memo is therefore keyed to the
+    /// context that answered, so any other context re-reads however it was replaced. This is context-lifetime
+    /// state, which is why it lives with the contexts rather than with the density arithmetic that consumes
+    /// it; <see cref="Rendering.BufferDimensionBudget.ForDevice"/> is what applies the engine's own ceiling
+    /// to the answer.
+    /// </remarks>
+    internal static int? ResolveAttachmentDimension(IGraphicsContext? context)
+    {
+        ResolvedAttachmentDimension? resolved = Volatile.Read(ref s_resolvedAttachmentDimension);
+        if (resolved is not null && ReferenceEquals(resolved.Context, context))
+            return resolved.Value;
+
+        if (context is null)
+        {
+            // Dropping the memo here stops it outliving the context it describes, and stops a disposed
+            // context being kept alive by it.
+            if (resolved is not null)
+                Volatile.Write(ref s_resolvedAttachmentDimension, null);
+
+            return null;
+        }
+
+        // Only remember it once a context has actually answered; before that there is no measurement and
+        // the next caller should ask again.
+        int deviceLimit = context.MaxAttachmentDimension;
+        if (deviceLimit <= 0)
+            return null;
+
+        Volatile.Write(ref s_resolvedAttachmentDimension, new ResolvedAttachmentDimension(context, deviceLimit));
+        return deviceLimit;
+    }
 
     /// <summary>
     /// Gets all available graphics devices.
@@ -270,8 +321,8 @@ public class GraphicsContextFactory
             finally
             {
                 // A context left installed is handed straight back by the next GetOrCreateShared, and the
-                // buffer-dimension memo is only invalidated by the context changing, so no failure above may
-                // decide whether the release happens.
+                // attachment-dimension memo is retired with it, so no failure above may decide whether the
+                // release happens.
                 try
                 {
                     ReleaseInstalledGraphics();
@@ -312,6 +363,9 @@ public class GraphicsContextFactory
         SharedContext = null;
         s_vulkanInstance = null;
         s_selectedPhysicalDevice = null;
+        // The memo describes the device being destroyed, and holds it alive until something asks about
+        // another one. Dropping it here retires it with the context it belongs to.
+        Volatile.Write(ref s_resolvedAttachmentDimension, null);
 
         try
         {

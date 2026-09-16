@@ -32,13 +32,13 @@ public sealed class SaveFrameDialogViewModel : IDisposable
         Warning = SelectedScale
             .Select(scale =>
             {
-                int maxDimension = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
-                if (SaveFrameScale.FitsBufferLimit(baseSize, scale, maxDimension)) return null;
+                BufferDimensionBudget budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction);
+                if (SaveFrameScale.FitsBufferLimit(baseSize, scale, budget)) return null;
 
                 (long width, long height) = SaveFrameScale.GetRenderSize(baseSize, scale);
                 return string.Format(
                     MessageStrings.SaveImageExceedsMaxRenderSize,
-                    scale, width, height, maxDimension);
+                    scale, width, height, budget.MaxDimension);
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);

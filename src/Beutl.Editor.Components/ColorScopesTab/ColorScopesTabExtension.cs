@@ -4,6 +4,9 @@ using Avalonia.Controls;
 
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 using Beutl.Editor.Components.ColorScopesTab.Views;
+using FluentAvalonia.UI.Controls;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.ColorScopesTab;
 
@@ -19,6 +22,11 @@ public sealed class ColorScopesTabExtension : ToolTabExtension
     public override string DisplayName => Strings.ColorScopes;
 
     public override string Header => Strings.ColorScopes;
+
+    public override FAIconSource? GetIcon()
+    {
+        return new FluentIconSource { Icon = Icon.Microscope };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

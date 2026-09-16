@@ -81,12 +81,24 @@ internal static class SymbolicMetadataCrossCheck
             + "used it.");
     }
 
+    private static bool DeclaresAmbientTransform(RenderFragmentReference reference)
+        => reference.Payload is TargetScopeRenderFragmentPayload
+        {
+            Description.AmbientTransform.DependsOnAmbient: true,
+        };
+
     private static Rect? ReplayRecordedBounds(RenderFragmentReference reference)
     {
         // An owning-domain fragment states no bounds of its own while recording, so the rectangle it carries
-        // is a placeholder the domain replaces rather than an answer any mapping gave.
-        if (reference.BoundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain)
+        // is a placeholder the domain replaces rather than an answer any mapping gave. A scope whose transform
+        // composes against the ambient carries a placeholder for the same reason: the mapping recording ran is
+        // the engine's own over a matrix only the resolved graph can supply, so replaying it here would compare
+        // the engine against itself over a matrix that legitimately moved.
+        if (reference.BoundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain
+            || DeclaresAmbientTransform(reference))
+        {
             return null;
+        }
 
         switch (reference.Kind)
         {
@@ -130,6 +142,11 @@ internal static class SymbolicMetadataCrossCheck
         RenderFragmentReference reference,
         RenderRequestOptions options)
     {
+        // The same placeholder rule the forward bounds follow: this scope's density contract reads the matrix
+        // resolution supplies, so recording stored the engine's answer over a provisional one.
+        if (DeclaresAmbientTransform(reference))
+            return null;
+
         switch (reference.Kind)
         {
             case RenderFragmentKind.Shader:

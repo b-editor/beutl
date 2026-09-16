@@ -501,7 +501,7 @@ internal sealed partial class RenderRequestExecutor
             }
 
             Rect physicalBounds = target.RasterBounds.Union(target.Bounds);
-            float density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+            float density = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                 physicalBounds.Translate(target.DeviceGridOffset),
                 target.Scale.Value);
             EffectiveScale normalizedScale = EffectiveScale.At(density);

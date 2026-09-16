@@ -478,7 +478,7 @@ public sealed class RenderNodeContext
                 [reference.EffectiveScale],
                 OutputScale,
                 MaxWorkingScale);
-            workingScale = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, workingScale);
+            workingScale = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(bounds, workingScale);
             scale = EffectiveScale.At(workingScale);
         }
         else
@@ -544,7 +544,7 @@ public sealed class RenderNodeContext
                 [reference.EffectiveScale],
                 OutputScale,
                 MaxWorkingScale);
-            workingScale = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, workingScale);
+            workingScale = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(bounds, workingScale);
             scale = EffectiveScale.At(workingScale);
         }
 
@@ -1703,7 +1703,11 @@ public sealed class RenderNodeContext
             raw
                 ? new RawTargetScopeRenderFragmentPayload((RawTargetScopeDescription)description)
                 : new TargetScopeRenderFragmentPayload((TargetScopeDescription)description),
-            RenderFragmentHitTest.FromContract(hitTestContract, resourceBindings));
+            RenderFragmentHitTest.FromContract(hitTestContract, resourceBindings),
+            // A scope whose transform composes against the ambient is recorded over the matrix as declared and
+            // rewritten once the graph exists, so the bounds recorded here are provisional by construction.
+            hasDirectSymbolicBoundsDependency:
+                description is TargetScopeDescription { AmbientTransform.DependsOnAmbient: true });
     }
 
     private void ValidateDescriptionResources(

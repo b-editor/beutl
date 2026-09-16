@@ -220,8 +220,12 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
             Assert.That(probe.CapturedDensity, Is.EqualTo(maximumSingularValue).Within(1e-4f),
                 "A capture preserving the target's supply must retain the affine transform's maximum singular value.");
             Assert.That(probe.CapturedDeviceSize, Is.EqualTo(expectedFootprint.Size));
-            Assert.That(expectedFootprint.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
-            Assert.That(expectedFootprint.Height, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(
+                expectedFootprint.Width,
+                Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
+            Assert.That(
+                expectedFootprint.Height,
+                Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
         });
     }
 
@@ -244,21 +248,23 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         // The preimage is 2x4096, so the maximum singular value alone overflows the ceiling, and the largest
         // density that still fits it is the ceiling over the taller preimage axis.
         Rect captureBounds = domain.TransformToAABB(transform.Invert());
-        float expectedDensity = RenderScaleUtilities.MaxBufferDimension / captureBounds.Height;
+        float expectedDensity = BufferDimensionBudget.EngineCeiling.MaxDimension / captureBounds.Height;
         PixelRect expectedFootprint = PixelRect.FromRect(captureBounds, expectedDensity);
         PixelRect unclampedFootprint = PixelRect.FromRect(captureBounds, maximumSingularValue);
         Assert.Multiple(() =>
         {
-            Assert.That(unclampedFootprint.Height, Is.GreaterThan(RenderScaleUtilities.MaxBufferDimension),
+            Assert.That(unclampedFootprint.Height, Is.GreaterThan(BufferDimensionBudget.EngineCeiling.MaxDimension),
                 "The fixture must ask for a footprint the engine ceiling refuses, or nothing is clamped.");
             Assert.That(probe.CapturedDensity, Is.EqualTo(expectedDensity).Within(1e-4f),
                 "Only a density taken from the maximum singular value overflows here - the coarser axis and "
                 + "the two axes' geometric mean both fit unclamped and would have been reported unreduced.");
             Assert.That(probe.CapturedDensity, Is.LessThan(maximumSingularValue));
             Assert.That(probe.CapturedDeviceSize, Is.EqualTo(expectedFootprint.Size));
-            Assert.That(expectedFootprint.Height, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+            Assert.That(expectedFootprint.Height, Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
                 "The clamp must give up only what the ceiling costs, leaving the limiting axis against it.");
-            Assert.That(expectedFootprint.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(
+                expectedFootprint.Width,
+                Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
         });
     }
 

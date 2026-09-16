@@ -149,6 +149,9 @@ internal sealed class RenderRequestCompiler
 
         request.TransitionTo(RenderRequestState.TargetDependenciesLowered);
         ImmutableArray<RenderFragmentReference> roots = ResolveRoots(graph);
+        // Before anything reads a scope's transform: lowering, region analysis and execution all have to see
+        // the one matrix an ambient-composed scope resolves to, not the provisional one recording stored.
+        AmbientScopeTransformResolver.Resolve(roots);
         TargetDependencyPlan targetDependencies = TargetDependencyLowerer.Lower(
             roots,
             request.Options.TargetDomain);
@@ -172,6 +175,7 @@ internal sealed class RenderRequestCompiler
             {
                 CollectNestedMetadata(nested.Graph, measurements);
                 ImmutableArray<RenderFragmentReference> roots = ResolveRoots(nested.Graph);
+                AmbientScopeTransformResolver.Resolve(roots);
                 TargetDependencyPlan targetDependencies = TargetDependencyLowerer.Lower(
                     roots,
                     nested.Request.Options.TargetDomain);

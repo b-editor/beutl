@@ -222,9 +222,9 @@ public class Renderer : IRenderer
     /// </remarks>
     private static RenderTarget CreateRootSurface(PixelSize deviceSize)
     {
-        int maxDimension = RenderScaleUtilities.ResolveMaxBufferDimension();
-        if (!RenderScaleUtilities.FitsBufferBudget(deviceSize, maxDimension))
-            throw RenderTargetPool.CreateAllocationFailure(deviceSize, maxDimension);
+        BufferDimensionBudget budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation);
+        if (!budget.Fits(deviceSize))
+            throw RenderTargetPool.CreateAllocationFailure(deviceSize, budget.MaxDimension);
 
         return RenderTarget.Create(deviceSize.Width, deviceSize.Height)
                ?? throw new InvalidOperationException(

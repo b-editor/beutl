@@ -146,7 +146,7 @@ internal static class FilterEffectStageFallbackExecutor
         RenderIntent intent,
         RenderTargetLeaseSession? leaseSession)
     {
-        density = RenderScaleUtilities.ClampWorkingScaleToExactDeviceBufferBudget(
+        density = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).ClampWorkingScaleToExactFootprint(
             outputBounds.Translate(input.DeviceGridOffset),
             density);
         return AllocateTarget(
@@ -585,7 +585,7 @@ internal static class FilterEffectStageFallbackExecutor
         }
 
         Rect physicalBounds = source.RasterBounds.Union(source.Bounds);
-        density = RenderScaleUtilities.ClampWorkingScaleToExactDeviceBufferBudget(
+        density = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).ClampWorkingScaleToExactFootprint(
             physicalBounds.Translate(source.DeviceGridOffset),
             density);
         PixelRect physicalDeviceBounds = PixelRect.FromRect(physicalBounds, density);
@@ -698,7 +698,7 @@ internal static class FilterEffectStageFallbackExecutor
 
         if (physicalDeviceBounds is null)
         {
-            density = RenderScaleUtilities.ClampWorkingScaleToExactDeviceBufferBudget(
+            density = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).ClampWorkingScaleToExactFootprint(
                 bounds.Translate(deviceGridOffset),
                 density);
         }
