@@ -676,16 +676,61 @@ public class NoMigrationRegressionTests
     }
 
     [Test]
-    public void Handing_a_standalone_migration_to_an_owner_stops_it_arming_the_preflight()
+    public void A_project_that_already_covers_a_standalone_migration_skips_the_discovery_pass()
     {
-        MigratingLeaf leaf = CreateMigrated(new MigratingLeaf("7.0.0"));
-        var owner = new MigratingContainer { First = leaf };
-        Assert.That(AttachedContentMigrations.IsPendingTransfer(leaf), Is.True);
+        int serializations = 0;
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        element.BeforeSerialization = () => serializations++;
 
-        CoreSerializer.SerializeToJsonObject(owner);
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        int discovering = serializations;
+        serializations = 0;
+        CoreSerializer.StoreToUri(project, project.Uri!);
 
-        // The owner keeps it from here on, so no later save pays for the discovery pass again.
-        Assert.That(AttachedContentMigrations.IsPendingTransfer(leaf), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(discovering, Is.GreaterThan(1), "the first save has to discover the requirement");
+            Assert.That(serializations, Is.EqualTo(1), "the gate already covers it, so nothing is discovered");
+        });
+    }
+
+    [Test]
+    public void A_standalone_value_shared_with_another_project_is_discovered_again()
+    {
+        MigratingLeaf leaf = CreateMigrated(new MigratingLeaf("9.0.0"));
+        (Project first, StandaloneValueElement _) = CreateProjectWithStandaloneValue("first.bep", leaf);
+        CoreSerializer.StoreToUri(first, first.Uri!);
+
+        // The same value now reaches a second project, whose gate knows nothing about it.
+        (Project second, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("second.bep", leaf);
+        File.WriteAllText(second.Uri!.LocalPath, "{\"minAppVersion\":\"1.0.0\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(second.Uri.LocalPath))!["minAppVersion"];
+
+        CoreSerializer.StoreToUri(second, second.Uri);
+
+        Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
+    }
+
+    private (Project Project, StandaloneValueElement Element) CreateProjectWithStandaloneValue(
+        string projectFileName,
+        MigratingLeaf leaf)
+    {
+        string directory = Path.Combine(_tempDirectory, Path.GetFileNameWithoutExtension(projectFileName));
+        Directory.CreateDirectory(directory);
+        var project = new Project { Uri = new Uri(Path.Combine(directory, projectFileName)) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(directory, "scene.scene")) };
+        var element = new StandaloneValueElement
+        {
+            Uri = new Uri(Path.Combine(directory, "element.belm")),
+            Value = leaf,
+        };
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        return (project, element);
     }
 
     [Test]

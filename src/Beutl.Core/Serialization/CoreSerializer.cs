@@ -23,7 +23,6 @@ public static class CoreSerializer
     internal static void PersistProjectMigrationMetadata(IEnumerable<CoreObject> objects)
     {
         CoreObject[] pending = objects as CoreObject[] ?? objects.ToArray();
-        RaiseAttachedMigrations(pending);
 
         var projects = new HashSet<Project>();
         foreach (CoreObject obj in pending)
@@ -37,6 +36,16 @@ public static class CoreSerializer
             }
         }
 
+        // Discover only while a guarded project's gate does not already cover every requirement a
+        // live value still carries. That is what a value assigned to a new owner looks like from
+        // here, whether it is reaching its first owner or a second one, and it is also why a graph
+        // that has taken its requirements over never pays for the pass again.
+        if (AttachedContentMigrations.HighestRetained is { } outstanding
+            && projects.Any(project => !CoversMigration(project, outstanding)))
+        {
+            RaiseAttachedMigrations(pending);
+        }
+
         foreach (Project project in projects)
         {
             if (project.Uri is not null
@@ -45,6 +54,21 @@ public static class CoreSerializer
                 StoreToUri(project, project.Uri, CoreSerializationMode.Write);
             }
         }
+    }
+
+    private static bool CoversMigration(Project project, string requiredVersion)
+    {
+        string? covered = project.MinAppVersion;
+        foreach (ProjectItem item in project.Items)
+        {
+            covered = Project.GetMaximumMigrationVersion(
+                covered,
+                Project.GetRequiredMigrationVersion(item));
+        }
+
+        return ReferenceEquals(
+            Project.GetMaximumMigrationVersion(covered, requiredVersion),
+            covered);
     }
 
     /// <summary>
@@ -56,16 +80,11 @@ public static class CoreSerializer
     /// waiting for the real write would put the compatibility gate behind the sidecars it guards.
     /// Serializing to a discarded buffer first is the same discovery <c>SceneRecovery</c> performs,
     /// and nothing reaches the disk: <see cref="CoreSerializationMode.Write"/> on its own leaves a
-    /// referenced object as a URI. The pass is skipped outright until such a value exists at all,
-    /// which is never in a session where no live value is still waiting to hand one over.
+    /// referenced object as a URI, and the caller runs this only while a gate about to be written
+    /// does not already cover every requirement a live value carries.
     /// </remarks>
     private static void RaiseAttachedMigrations(CoreObject[] objects)
     {
-        if (!AttachedContentMigrations.HasPendingTransfer)
-        {
-            return;
-        }
-
         var visited = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
         var pending = new Stack<(CoreObject Object, bool OwnsFile)>();
         foreach (CoreObject obj in objects)
