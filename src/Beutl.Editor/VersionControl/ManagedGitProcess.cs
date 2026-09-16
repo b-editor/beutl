@@ -4,8 +4,8 @@ using System.Diagnostics;
 namespace Beutl.Editor.VersionControl;
 
 // System.Diagnostics.Process, for a start that cannot give the command a group of its own: a Unix C
-// library without the posix_spawn chdir action, a runtime that reaps every child, or a Windows start
-// that could not be made suspended. Descendants are reached through the process tree. On Windows the
+// library without the posix_spawn chdir action, a runtime that reaps every child, or a Windows runtime
+// that does not expose the lock Process.Start takes. Descendants are reached through the process tree. On Windows the
 // handle Process holds keeps the command's id reserved after it exits, so the tree is still walked then
 // and cleanup waits until no descendant is left; on Unix the tree is walked only while the command is
 // alive, and only the command itself can be waited for.

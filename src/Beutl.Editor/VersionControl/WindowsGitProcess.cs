@@ -16,8 +16,9 @@ namespace Beutl.Editor.VersionControl;
 // runs and every process it starts is born inside the job. Process has no way to ask for a suspended
 // start. A descendant that leaves the job on purpose (CREATE_BREAKAWAY_FROM_JOB) is not owned.
 //
-// A command that cannot join a job is still owned through the process tree: the handle kept here holds
-// its id reserved after it exits, so its children are still found by their parent id.
+// A command runs only inside its job. One that cannot join is ended before it runs, having run none of
+// its own code, and started again outside the job this process is in, where that job lets it leave. A
+// command that still cannot join is not run at all, and its start fails.
 [SupportedOSPlatform("windows")]
 [ExcludeFromCodeCoverage(Justification = CoverageJustification)]
 internal sealed partial class WindowsGitProcess : GitProcess
@@ -25,9 +26,12 @@ internal sealed partial class WindowsGitProcess : GitProcess
     private const int StreamBufferSize = 4096;
     private const int CreateSuspended = 0x00000004;
     private const int CreateUnicodeEnvironment = 0x00000400;
+    private const int CreateBreakawayFromJob = 0x01000000;
     private const int CreateNoWindow = 0x08000000;
     private const int StartUseStandardHandles = 0x00000100;
     private const int DuplicateSameAccess = 2;
+    private const int ErrorBadExecutableFormat = 193;
+    private const int ErrorExecutableMachineTypeMismatch = 216;
     private const int JobObjectBasicAccountingInformationClass = 1;
     private const int JobObjectExtendedLimitInformationClass = 9;
     private const uint JobObjectLimitBreakawayOk = 0x00000800;
@@ -42,18 +46,19 @@ internal sealed partial class WindowsGitProcess : GitProcess
         typeof(Process).GetField("s_createProcessLock", BindingFlags.NonPublic | BindingFlags.Static)
             ?.GetValue(null);
 
+    private static int s_missingLockReported;
+
     private readonly Process _process;
     private readonly SafeProcessHandle _handle;
-    private readonly SafeJobObjectHandle? _job;
+    private readonly SafeJobObjectHandle _job;
     private readonly StreamWriter _standardInput;
     private readonly StreamReader _standardOutput;
     private readonly StreamReader _standardError;
-    private volatile bool _killRequested;
 
     private WindowsGitProcess(
         Process process,
         SafeProcessHandle handle,
-        SafeJobObjectHandle? job,
+        SafeJobObjectHandle job,
         StreamWriter standardInput,
         StreamReader standardOutput,
         StreamReader standardError)
@@ -74,15 +79,21 @@ internal sealed partial class WindowsGitProcess : GitProcess
 
     public override StreamReader StandardError => _standardError;
 
-    public override bool OwnsDescendants => _job is not null;
+    public override bool OwnsDescendants => true;
 
-    // Null when the suspended start could not be made. Nothing is left running then, so the caller can
-    // start the command with Process instead, which also reports a start that cannot succeed at all in
-    // its usual way.
+    // Null only where the runtime does not expose the lock Process.Start takes, so that the caller starts
+    // the command with Process instead. Any other start either gives the command a job of its own or
+    // throws, without the command having run.
     internal static WindowsGitProcess? TryStart(ProcessStartInfo startInfo)
     {
         if (s_createProcessLock is not { } createProcessLock)
         {
+            if (Interlocked.Exchange(ref s_missingLockReported, 1) == 0)
+            {
+                s_logger.LogWarning(
+                    "The runtime does not expose the lock Process.Start takes; Git commands start without a job of their own.");
+            }
+
             return null;
         }
 
@@ -92,113 +103,70 @@ internal sealed partial class WindowsGitProcess : GitProcess
             ? null
             : startInfo.WorkingDirectory;
 
-        SafeFileHandle? parentInput = null;
-        SafeFileHandle? parentOutput = null;
-        SafeFileHandle? parentError = null;
-        SafeProcessHandle? processHandle = null;
-        nint threadHandle = 0;
+        SafeJobObjectHandle job = CreateJob(startInfo.FileName);
+        SuspendedCommand? command = null;
         Process? process = null;
-        SafeJobObjectHandle? job = null;
         StreamWriter? standardInput = null;
         StreamReader? standardOutput = null;
         StreamReader? standardError = null;
         bool resumed = false;
         try
         {
-            if (!TryCreateSuspended(
-                    createProcessLock,
-                    commandLine,
-                    environment,
-                    workingDirectory,
-                    out parentInput,
-                    out parentOutput,
-                    out parentError,
-                    out ProcessInformation information))
-            {
-                return null;
-            }
-
-            processHandle = new SafeProcessHandle(information.Process, ownsHandle: true);
-            threadHandle = information.Thread;
-            process = Process.GetProcessById(information.ProcessId);
-
-            job = TryCreateJob();
-            if (job is not null && !Native.AssignProcessToJobObject(job, processHandle))
-            {
-                job.Dispose();
-                job = null;
-            }
+            command = StartInJob(createProcessLock, job, commandLine, environment, startInfo.FileName, workingDirectory);
+            process = Process.GetProcessById(command.ProcessId);
 
             // Everything that can fail is done before the command runs, so a failure never leaves a
-            // command that has already done work to be started a second time.
+            // command that has already done work.
             standardInput = new StreamWriter(
-                new FileStream(parentInput, FileAccess.Write, StreamBufferSize, isAsync: false),
+                new FileStream(command.TakeInput(), FileAccess.Write, StreamBufferSize, isAsync: false),
                 startInfo.StandardInputEncoding ?? s_utf8,
                 StreamBufferSize)
             {
                 AutoFlush = true,
             };
-            parentInput = null;
             standardOutput = new StreamReader(
-                new FileStream(parentOutput, FileAccess.Read, StreamBufferSize, isAsync: false),
+                new FileStream(command.TakeOutput(), FileAccess.Read, StreamBufferSize, isAsync: false),
                 startInfo.StandardOutputEncoding ?? s_utf8,
                 detectEncodingFromByteOrderMarks: true,
                 StreamBufferSize);
-            parentOutput = null;
             standardError = new StreamReader(
-                new FileStream(parentError, FileAccess.Read, StreamBufferSize, isAsync: false),
+                new FileStream(command.TakeError(), FileAccess.Read, StreamBufferSize, isAsync: false),
                 startInfo.StandardErrorEncoding ?? s_utf8,
                 detectEncodingFromByteOrderMarks: true,
                 StreamBufferSize);
-            parentError = null;
 
-            if (Native.ResumeThread(threadHandle) == -1)
+            if (Native.ResumeThread(command.Thread) == -1)
             {
-                return null;
+                throw CreateStartException(Marshal.GetLastPInvokeError(), startInfo.FileName, workingDirectory);
             }
 
             resumed = true;
             return new WindowsGitProcess(
                 process,
-                processHandle,
+                command.Process,
                 job,
                 standardInput,
                 standardOutput,
                 standardError);
         }
-        catch (Exception ex) when (ex is Win32Exception
-                                   or InvalidOperationException
+        catch (Exception ex) when (ex is InvalidOperationException
                                    or ArgumentException
                                    or IOException
                                    or NotSupportedException)
         {
-            return null;
+            throw new Win32Exception($"Git '{startInfo.FileName}' could not be started. {ex.Message}", ex);
         }
         finally
         {
-            if (threadHandle != 0)
-            {
-                Native.CloseHandle(threadHandle);
-            }
-
+            command?.CloseThread();
             if (!resumed)
             {
-                // A command that was never resumed has run none of its own code, so ending it undoes
-                // nothing.
-                if (processHandle is not null)
-                {
-                    Native.TerminateProcess(processHandle, 1);
-                    processHandle.Dispose();
-                }
-
+                command?.Abandon();
                 process?.Dispose();
-                job?.Dispose();
+                job.Dispose();
                 standardInput?.Dispose();
                 standardOutput?.Dispose();
                 standardError?.Dispose();
-                parentInput?.Dispose();
-                parentOutput?.Dispose();
-                parentError?.Dispose();
             }
         }
     }
@@ -213,14 +181,27 @@ internal sealed partial class WindowsGitProcess : GitProcess
 
     public override void Kill()
     {
-        _killRequested = true;
-        KillCore();
+        if (Native.TerminateJobObject(_job, 1))
+        {
+            return;
+        }
+
+        // No failure of this call is known to be transient, so it is not repeated. The job's members
+        // are the command's descendants, reachable through the tree while their parents live; any that
+        // survive both keep cleanup unconfirmed until they exit.
+        int error = Marshal.GetLastPInvokeError();
+        s_logger.LogWarning(
+            "The job of Git process {ProcessId} could not be terminated ({Error}: {Message}); ending its process tree instead.",
+            _process.Id,
+            error,
+            Marshal.GetPInvokeErrorMessage(error));
+        ManagedGitProcess.KillTree(_process);
     }
 
     public override async Task WaitForGroupExitAsync()
     {
         await WaitForExitAsync().ConfigureAwait(false);
-        await PollUntilAsync(_job is null ? IsTreeGone : IsJobEmpty).ConfigureAwait(false);
+        await PollUntilAsync(IsJobEmpty).ConfigureAwait(false);
     }
 
     public override void Dispose()
@@ -228,38 +209,14 @@ internal sealed partial class WindowsGitProcess : GitProcess
         CloseStandardStreams();
         _process.Dispose();
         _handle.Dispose();
-        _job?.Dispose();
-    }
-
-    private void KillCore()
-    {
-        if (_job is not null)
-        {
-            if (Native.TerminateJobObject(_job, 1))
-            {
-                return;
-            }
-
-            // No failure of this call is known to be transient, so it is not repeated. The job's
-            // members are the command's descendants, reachable through the tree while their parents
-            // live; any that survive both keep cleanup unconfirmed until they exit.
-            int error = Marshal.GetLastPInvokeError();
-            s_logger.LogWarning(
-                "The job of Git process {ProcessId} could not be terminated ({Error}: {Message}); ending its process tree instead.",
-                _process.Id,
-                error,
-                Marshal.GetPInvokeErrorMessage(error));
-        }
-
-        ManagedGitProcess.KillTree(_process);
+        _job.Dispose();
     }
 
     // Accounting that cannot be read is not taken as an empty job.
     private unsafe bool IsJobEmpty()
     {
         JobObjectBasicAccountingInformation accounting = default;
-        return _job is not null
-               && Native.QueryInformationJobObject(
+        return Native.QueryInformationJobObject(
                    _job,
                    JobObjectBasicAccountingInformationClass,
                    &accounting,
@@ -268,23 +225,67 @@ internal sealed partial class WindowsGitProcess : GitProcess
                && accounting.ActiveProcesses == 0;
     }
 
-    private bool IsTreeGone()
-        => WindowsProcessTree.IsTreeGone(_process, _handle, _killRequested);
+    private static SuspendedCommand StartInJob(
+        object createProcessLock,
+        SafeJobObjectHandle job,
+        char[] commandLine,
+        char[] environment,
+        string fileName,
+        string? workingDirectory)
+    {
+        SuspendedCommand command = CreateSuspendedCommand(
+            createProcessLock,
+            commandLine,
+            environment,
+            fileName,
+            workingDirectory,
+            leaveCallerJob: false);
+        if (Native.AssignProcessToJobObject(job, command.Process))
+        {
+            return command;
+        }
 
-    private static unsafe bool TryCreateSuspended(
+        int error = Marshal.GetLastPInvokeError();
+        command.Abandon();
+
+        // The job this process is in may not take a job below it. A command that leaves that job can
+        // still join one of its own, where the job lets it leave.
+        try
+        {
+            command = CreateSuspendedCommand(
+                createProcessLock,
+                commandLine,
+                environment,
+                fileName,
+                workingDirectory,
+                leaveCallerJob: true);
+        }
+        catch (Win32Exception)
+        {
+            throw CreateJobException(error, fileName);
+        }
+
+        if (Native.AssignProcessToJobObject(job, command.Process))
+        {
+            return command;
+        }
+
+        error = Marshal.GetLastPInvokeError();
+        command.Abandon();
+        throw CreateJobException(error, fileName);
+    }
+
+    private static unsafe SuspendedCommand CreateSuspendedCommand(
         object createProcessLock,
         char[] commandLine,
         char[] environment,
+        string fileName,
         string? workingDirectory,
-        [NotNullWhen(true)] out SafeFileHandle? parentInput,
-        [NotNullWhen(true)] out SafeFileHandle? parentOutput,
-        [NotNullWhen(true)] out SafeFileHandle? parentError,
-        out ProcessInformation information)
+        bool leaveCallerJob)
     {
-        parentInput = null;
-        parentOutput = null;
-        parentError = null;
-        information = default;
+        SafeFileHandle? parentInput = null;
+        SafeFileHandle? parentOutput = null;
+        SafeFileHandle? parentError = null;
         SafeFileHandle? childInput = null;
         SafeFileHandle? childOutput = null;
         SafeFileHandle? childError = null;
@@ -304,7 +305,9 @@ internal sealed partial class WindowsGitProcess : GitProcess
                     StandardOutput = childOutput.DangerousGetHandle(),
                     StandardError = childError.DangerousGetHandle(),
                 };
-                ProcessInformation result = default;
+                int flags = CreateSuspended | CreateNoWindow | CreateUnicodeEnvironment
+                            | (leaveCallerJob ? CreateBreakawayFromJob : 0);
+                ProcessInformation information = default;
                 fixed (char* commandLinePointer = commandLine)
                 fixed (char* environmentPointer = environment)
                 {
@@ -314,19 +317,25 @@ internal sealed partial class WindowsGitProcess : GitProcess
                         0,
                         0,
                         true,
-                        CreateSuspended | CreateNoWindow | CreateUnicodeEnvironment,
+                        flags,
                         environmentPointer,
                         workingDirectory,
                         &startup,
-                        &result);
+                        &information);
                 }
 
-                information = result;
-                return created;
-            }
-            catch (Win32Exception)
-            {
-                return false;
+                if (!created)
+                {
+                    throw CreateStartException(Marshal.GetLastPInvokeError(), fileName, workingDirectory);
+                }
+
+                return new SuspendedCommand(
+                    new SafeProcessHandle(information.Process, ownsHandle: true),
+                    information.ProcessId,
+                    information.Thread,
+                    parentInput,
+                    parentOutput,
+                    parentError);
             }
             finally
             {
@@ -338,9 +347,6 @@ internal sealed partial class WindowsGitProcess : GitProcess
                     parentInput?.Dispose();
                     parentOutput?.Dispose();
                     parentError?.Dispose();
-                    parentInput = null;
-                    parentOutput = null;
-                    parentError = null;
                 }
             }
         }
@@ -387,17 +393,18 @@ internal sealed partial class WindowsGitProcess : GitProcess
         }
     }
 
-    private static unsafe SafeJobObjectHandle? TryCreateJob()
+    // A descendant may still leave on purpose, as setsid lets it on Unix. A job that cannot allow that is
+    // not used, since starting a process with CREATE_BREAKAWAY_FROM_JOB would fail inside it.
+    private static unsafe SafeJobObjectHandle CreateJob(string fileName)
     {
         SafeJobObjectHandle job = Native.CreateJobObjectW(0, null);
         if (job.IsInvalid)
         {
+            int error = Marshal.GetLastPInvokeError();
             job.Dispose();
-            return null;
+            throw CreateJobException(error, fileName);
         }
 
-        // A descendant may still leave on purpose, as setsid lets it on Unix. A job that cannot allow
-        // that is not used: starting a process with CREATE_BREAKAWAY_FROM_JOB would fail inside it.
         var limits = new JobObjectExtendedLimitInformation
         {
             BasicLimitInformation = new JobObjectBasicLimitInformation
@@ -411,11 +418,83 @@ internal sealed partial class WindowsGitProcess : GitProcess
                 &limits,
                 (uint)sizeof(JobObjectExtendedLimitInformation)))
         {
+            int error = Marshal.GetLastPInvokeError();
             job.Dispose();
-            return null;
+            throw CreateJobException(error, fileName);
         }
 
         return job;
+    }
+
+    // Worded as Process words a failed start.
+    private static Win32Exception CreateStartException(int error, string fileName, string? workingDirectory)
+    {
+        string reason = error is ErrorBadExecutableFormat or ErrorExecutableMachineTypeMismatch
+            ? "The specified executable is not a valid application for this OS platform."
+            : Marshal.GetPInvokeErrorMessage(error);
+        return new Win32Exception(
+            error,
+            $"An error occurred trying to start process '{fileName}' with working directory "
+            + $"'{workingDirectory ?? Directory.GetCurrentDirectory()}'. {reason}");
+    }
+
+    private static Win32Exception CreateJobException(int error, string fileName)
+        => new(
+            error,
+            $"Git '{fileName}' was not started, because it could not be given a job object of its own. "
+            + Marshal.GetPInvokeErrorMessage(error));
+
+    // A command created suspended, with this process's ends of its pipes until streams take them.
+    private sealed class SuspendedCommand(
+        SafeProcessHandle process,
+        int processId,
+        nint thread,
+        SafeFileHandle input,
+        SafeFileHandle output,
+        SafeFileHandle error)
+    {
+        private SafeFileHandle? _input = input;
+        private SafeFileHandle? _output = output;
+        private SafeFileHandle? _error = error;
+
+        public SafeProcessHandle Process { get; } = process;
+
+        public int ProcessId { get; } = processId;
+
+        public nint Thread { get; private set; } = thread;
+
+        public SafeFileHandle TakeInput() => Take(ref _input);
+
+        public SafeFileHandle TakeOutput() => Take(ref _output);
+
+        public SafeFileHandle TakeError() => Take(ref _error);
+
+        public void CloseThread()
+        {
+            if (Thread != 0)
+            {
+                Native.CloseHandle(Thread);
+                Thread = 0;
+            }
+        }
+
+        // A command that was never resumed has run none of its own code, so ending it undoes nothing.
+        public void Abandon()
+        {
+            Native.TerminateProcess(Process, 1);
+            CloseThread();
+            Process.Dispose();
+            _input?.Dispose();
+            _output?.Dispose();
+            _error?.Dispose();
+        }
+
+        private static SafeFileHandle Take(ref SafeFileHandle? handle)
+        {
+            SafeFileHandle taken = handle ?? throw new InvalidOperationException("The pipe end was already taken.");
+            handle = null;
+            return taken;
+        }
     }
 
     private sealed class SafeJobObjectHandle : SafeHandleZeroOrMinusOneIsInvalid
