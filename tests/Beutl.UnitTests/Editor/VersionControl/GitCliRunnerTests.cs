@@ -965,6 +965,56 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Preview_limit_keeps_unconfirmed_cleanup_quarantined()
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("This process regression uses a Unix shell.");
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "preview.pid");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment,
+            killProcessTree: static _ => { }, closeRedirectedStreams: static _ => { });
+        Task<GitCommandResult>? next = null;
+        try
+        {
+            var options = GitCommandOptions.Local with
+            {
+                MaxStdoutBytes = 3,
+                StopAfterStdoutLimit = true,
+                EnvironmentOverrides = new Dictionary<string, string?> { ["BEUTL_TEST_PROCESS_PID"] = pidPath },
+            };
+            GitCommandResult preview = await runner.RunAsync(Repository,
+                ["-c", "printf '%s' \"$$\" > \"$BEUTL_TEST_PROCESS_PID\"; printf abcdef; exec sleep 30"],
+                options, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(preview.StdoutTruncated, Is.True);
+            Assert.That(runner.HasActiveProcess, Is.True);
+            next = runner.RunAsync(Repository, ["-c", "exit 0"], GitCommandOptions.Local, CancellationToken.None);
+            Assert.That(next.IsCompleted, Is.False);
+        }
+        finally
+        {
+            await KillRecordedProcessAsync(pidPath);
+        }
+        await next!.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(runner.HasActiveProcess, Is.False);
+    }
+
+    [Test]
+    public async Task Preview_output_limit_stops_a_pipe_holding_process_and_allows_the_next_command()
+    {
+        var runner = CreateRunner(TimeSpan.FromSeconds(10));
+        var watch = Stopwatch.StartNew();
+        GitCommandResult result = await runner.RunAsync(Repository,
+            ["-c", "alias.preview=!printf abcdefgh; sleep 30", "preview"],
+            GitCommandOptions.Local with { MaxStdoutBytes = 5, StopAfterStdoutLimit = true }, CancellationToken.None);
+        await runner.RunAsync(Repository, ["--version"], GitCommandOptions.Local, CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Stdout, Is.EqualTo("abcde"));
+            Assert.That(result.StdoutTruncated, Is.True);
+            Assert.That(watch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(10)));
+            Assert.That(runner.HasActiveProcess, Is.False);
+        });
+    }
+
+    [Test]
     public async Task Stdout_byte_limit_drains_the_process_and_omits_partial_utf8_sequence()
     {
         string contents = string.Concat(Enumerable.Repeat("あ", 100_000));

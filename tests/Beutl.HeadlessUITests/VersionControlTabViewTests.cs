@@ -663,8 +663,9 @@ public class VersionControlTabViewTests
 
             ListBox changedFileList =
                 narrowChanges.FindControl<ListBox>("ChangedFileList")!;
-            ScrollViewer diffScrollViewer =
-                narrowChanges.FindControl<ScrollViewer>("DiffScrollViewer")!;
+            ItemsControl diffList = narrowChanges.FindControl<ItemsControl>("DiffList")!;
+            diffList.ApplyTemplate();
+            ScrollViewer diffScrollViewer = diffList.GetVisualDescendants().OfType<ScrollViewer>().Single();
             VersionControlFileChangeViewModel? changedFile = null;
             ListBoxItem? changedFileItem = null;
             await WaitUntilAsync(() =>

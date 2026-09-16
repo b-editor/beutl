@@ -226,6 +226,58 @@ public class TitleBarBranchViewModelTests
     }
 
     [Test]
+    public async Task Sequenced_notifications_reuse_status_and_reject_events_older_than_a_read()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("current", 0, 0, [], false) { NotificationSequence = 5 });
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new TitleBarBranchViewModel(
+            source, CreateGitAvailabilitySource(), Mock.Of<IProjectVersionControlCoordinator>(), action => action());
+        await viewModel.Initialization;
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            new WorkspaceStatus("stale", 0, 0, [], false) { NotificationSequence = 4 });
+        Assert.That(viewModel.DisplayText.Value, Is.EqualTo("current"));
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            new WorkspaceStatus("latest", 1, 0, [], false) { NotificationSequence = 6 });
+        Assert.That(viewModel.DisplayText.Value, Is.EqualTo("latest ↑1"));
+        service.Verify(x => x.GetStatusAsync(It.IsAny<CancellationToken>()), Times.Once);
+        service.Verify(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task Status_burst_coalesces_reads_and_defers_branch_list_until_flyout_opens()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new TitleBarBranchViewModel(
+            source, CreateGitAvailabilitySource(), Mock.Of<IProjectVersionControlCoordinator>(), action => action());
+        await viewModel.Initialization;
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<WorkspaceStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.SetupSequence(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .Returns(() => { started.TrySetResult(); return release.Task; })
+            .ReturnsAsync(new WorkspaceStatus("latest", 2, 0, [], false));
+        service.Raise(x => x.StatusChanged += null, service.Object, new WorkspaceStatus("main", 0, 0, [], false));
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        for (int i = 0; i < 20; i++)
+        {
+            service.Raise(x => x.StatusChanged += null, service.Object, new WorkspaceStatus("latest", 2, 0, [], false));
+        }
+
+        release.SetResult(new WorkspaceStatus("stale", 0, 0, [], false));
+        await viewModel.Initialization.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(viewModel.DisplayText.Value, Is.EqualTo("latest ↑2"));
+        service.Verify(x => x.GetStatusAsync(It.IsAny<CancellationToken>()), Times.Exactly(3));
+        service.Verify(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()), Times.Once);
+
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("latest", 2, 0, [], false));
+        await viewModel.PrepareFlyoutAsync();
+        service.Verify(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Test]
     public async Task Refresh_replaces_the_branch_list_with_current_repository_data()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();

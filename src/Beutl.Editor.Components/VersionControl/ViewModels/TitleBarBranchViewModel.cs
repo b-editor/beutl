@@ -3,6 +3,8 @@ using System.Globalization;
 using System.Reactive.Disposables;
 using Avalonia.Threading;
 using Beutl.Editor.VersionControl;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -19,6 +21,9 @@ internal sealed class TitleBarBranchViewModel : IDisposable
     private CancellationTokenSource? _serviceBindingCancellation;
     private int _serviceRevision;
     private int _statusRevision;
+    private long _lastStatusSequence;
+    private int _eventRefreshPending;
+    private int _eventRefreshScheduled;
     private bool _gitAvailable;
     private bool _coordinatorGitAvailable;
     private bool _disposed;
@@ -122,7 +127,10 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         await RefreshAsync(cancellationToken);
     }
 
-    internal async Task RefreshAsync(CancellationToken cancellationToken = default)
+    internal Task RefreshAsync(CancellationToken cancellationToken = default)
+        => RefreshAsync(refreshBranches: true, cancellationToken);
+
+    private async Task RefreshAsync(bool refreshBranches, CancellationToken cancellationToken)
     {
         if (_disposed)
         {
@@ -165,7 +173,8 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             await RefreshCoreAsync(
                 service,
                 _serviceRevision,
-                linkedCancellation.Token);
+                linkedCancellation.Token,
+                refreshBranches);
         }
     }
 
@@ -351,6 +360,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         DetachService();
         _service = service;
         ResetState();
+        _lastStatusSequence = 0;
         if (service is null)
         {
             return;
@@ -363,7 +373,8 @@ internal sealed class TitleBarBranchViewModel : IDisposable
     private async Task RefreshCoreAsync(
         IProjectVersionControlService service,
         int revision,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool refreshBranches = true)
     {
         GitAvailability availability;
         try
@@ -401,12 +412,15 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         }
 
         WorkspaceStatus status;
-        IReadOnlyList<BranchInfo> branches;
+        IReadOnlyList<BranchInfo>? branches = null;
         int statusRevision = Volatile.Read(ref _statusRevision);
         try
         {
             status = await service.GetStatusAsync(cancellationToken);
-            branches = await service.GetBranchesAsync(cancellationToken);
+            if (refreshBranches && statusRevision == Volatile.Read(ref _statusRevision))
+            {
+                branches = await service.GetBranchesAsync(cancellationToken);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -455,14 +469,20 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
     private void ApplyState(
         WorkspaceStatus status,
-        IReadOnlyList<BranchInfo> branches)
+        IReadOnlyList<BranchInfo>? branches)
     {
         string branchName = status.Branch
-                            ?? branches.FirstOrDefault(branch => branch.IsCurrent)?.Name
+                            ?? branches?.FirstOrDefault(branch => branch.IsCurrent)?.Name
                             ?? "—";
         _gitAvailable = true;
         IsVisible.Value = true;
         ApplyBranchSummary(branchName, status.Ahead, status.Behind);
+        _lastStatusSequence = Math.Max(_lastStatusSequence, status.NotificationSequence);
+
+        if (branches is null)
+        {
+            return;
+        }
 
         ClearBranches();
         foreach (BranchInfo branch in branches)
@@ -488,6 +508,13 @@ internal sealed class TitleBarBranchViewModel : IDisposable
                 return;
             }
 
+            if (status.NotificationSequence > 0 && status.NotificationSequence <= _lastStatusSequence)
+            {
+                return;
+            }
+
+            _lastStatusSequence = Math.Max(_lastStatusSequence, status.NotificationSequence);
+
             Interlocked.Increment(ref _statusRevision);
             string branchName = status.Branch ?? "—";
             IsVisible.Value =
@@ -495,12 +522,48 @@ internal sealed class TitleBarBranchViewModel : IDisposable
                 && _coordinatorGitAvailable
                 && eventService.Repository is not null;
             ApplyBranchSummary(branchName, status.Ahead, status.Behind);
+            if (status.NotificationSequence > 0 && _gitAvailable)
+            {
+                // Service reads and notifications share a sequence captured under its gate.
+                // Unlike legacy providers, they cannot leave a delayed event looking current.
+                return;
+            }
             // The event carries no ordering, so one raised before a branch change can arrive after
             // the refresh that already read the new branch. Applying it above keeps the widget
             // responsive; re-reading afterwards is what makes the state it settles on the current
             // one. The read discards itself if a later event supersedes it.
-            _ = RefreshAsync();
+            Volatile.Write(ref _eventRefreshPending, 1);
+            if (Interlocked.CompareExchange(ref _eventRefreshScheduled, 1, 0) == 0)
+            {
+                Initialization = RefreshStatusNotificationsAsync();
+            }
         });
+    }
+
+    private async Task RefreshStatusNotificationsAsync()
+    {
+        await Task.Yield();
+        while (true)
+        {
+            Interlocked.Exchange(ref _eventRefreshPending, 0);
+            try
+            {
+                // The flyout refreshes its list on opening. Background events only need the
+                // current branch summary; keep one final read when an event arrives during it.
+                await RefreshAsync(refreshBranches: false, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                Log.CreateLogger<TitleBarBranchViewModel>().LogWarning(ex, "Failed to refresh the branch summary.");
+            }
+
+            Volatile.Write(ref _eventRefreshScheduled, 0);
+            if (_disposed || Volatile.Read(ref _eventRefreshPending) == 0
+                || Interlocked.CompareExchange(ref _eventRefreshScheduled, 1, 0) != 0)
+            {
+                return;
+            }
+        }
     }
 
     private void OnGitAvailabilityPublished(bool available)

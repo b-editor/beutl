@@ -254,6 +254,14 @@ public sealed record FileChange(
     FileChangeStatus Status,
     string? OldPath = null);
 
+[Flags]
+public enum RepositoryChangeKind
+{
+    Worktree = 1,
+    Metadata = 2,
+    All = Worktree | Metadata,
+}
+
 public sealed record WorkspaceStatus(
     string? Branch,
     int Ahead,
@@ -263,6 +271,13 @@ public sealed record WorkspaceStatus(
     bool IsDetachedHead = false)
 {
     public bool IsClean => Changes.Count == 0;
+
+    // Unclassified providers retain full refresh behavior. Positive sequences order notifications
+    // within a service; direct reads carry the last captured sequence to reject delayed events.
+    // Zero denotes an unsequenced provider or a service that has not published a notification yet.
+    public RepositoryChangeKind ChangeKind { get; init; } = RepositoryChangeKind.All;
+    public long NotificationSequence { get; init; }
+    public string? HeadCommit { get; init; }
 }
 
 /// <summary>
