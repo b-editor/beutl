@@ -181,6 +181,28 @@ public class GraphicsContextFactory
         return installed is not null ? installed.Supports3DRendering : !s_failedToInitialize;
     }
 
+    /// <summary>Predicts the 3D extents the shared context can attach, from any thread.</summary>
+    /// <remarks>
+    /// The companion to <see cref="Predict3DRenderingSupport"/> for the extents a recording may read, with
+    /// the same rule about what is settled: a limit is reported only once a context exists to report one, and
+    /// before that the answer is <see cref="Device3DExtentBudget.Unreported"/>, so nothing is refused on a
+    /// guess about a device that has not been chosen yet. A context that cannot render 3D reports nothing
+    /// either, because it has no 3D limits to give and <see cref="Predict3DRenderingSupport"/> already
+    /// answers for it.
+    /// <para>
+    /// A request settles this once and <see cref="Requests.RenderNodeRecordingKey"/> carries it, so the
+    /// unreported answer a cold start records against is never reused once a device has answered: the first
+    /// request after the context exists carries a different budget and records again.
+    /// </para>
+    /// </remarks>
+    internal static Device3DExtentBudget Predict3DExtentBudget()
+    {
+        IGraphicsContext? installed = SharedContext;
+        return installed is null || !installed.Supports3DRendering
+            ? Device3DExtentBudget.Unreported
+            : Device3DExtentBudget.FromContext(installed);
+    }
+
     public static IGraphicsContext? GetOrCreateShared()
     {
         if (s_failedToInitialize)

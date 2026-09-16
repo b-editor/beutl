@@ -1045,8 +1045,10 @@ public sealed class DeviceBufferBudgetTests
     {
         var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
         context.SetupGet(c => c.MaxAttachmentDimension).Returns(maxAttachmentDimension);
-        // Every production backend renders 3D; the renderer reads this when it settles each request.
+        // Every production backend renders 3D; the renderer reads this, and the 3D extent limits beside it,
+        // when it settles each request. The cube limit is a real device's, so it constrains nothing here.
         context.SetupGet(c => c.Supports3DRendering).Returns(true);
+        context.SetupGet(c => c.MaxCubeFaceDimension).Returns(8192);
         return context;
     }
 

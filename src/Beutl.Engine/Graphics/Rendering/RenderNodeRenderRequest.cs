@@ -66,4 +66,15 @@ public sealed record RenderNodeRenderRequest
     /// can record the backend-less shape without disturbing the process-wide graphics state.
     /// </remarks>
     internal bool? Supports3DRendering { get; init; }
+
+    /// <summary>Gets the 3D extent limits to record against, or <see langword="null"/> to predict them.</summary>
+    /// <remarks>
+    /// <see langword="null"/> takes the answer from
+    /// <see cref="Backend.GraphicsContextFactory.Predict3DExtentBudget"/> when each request is created,
+    /// which is what every production request does. A stated value stands in for that prediction, so a test
+    /// can record against a device's limits without installing a device that has them.
+    /// <see cref="Backend.Device3DExtentBudget.Unreported"/> states that no limits are known, which refuses
+    /// nothing.
+    /// </remarks>
+    internal Backend.Device3DExtentBudget? Device3DExtentBudget { get; init; }
 }

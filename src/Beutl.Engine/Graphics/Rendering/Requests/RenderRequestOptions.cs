@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering.Cache;
+﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
@@ -15,7 +16,8 @@ internal sealed class RenderRequestOptions
         FusionMode fusionMode = FusionMode.Enabled,
         RenderRequestOwner? owner = null,
         NestedRenderTargetBinding? targetBinding = null,
-        bool supports3DRendering = true)
+        bool supports3DRendering = true,
+        Device3DExtentBudget device3DExtentBudget = default)
     {
         if (!Enum.IsDefined(intent))
         {
@@ -48,6 +50,7 @@ internal sealed class RenderRequestOptions
         OwnsOwner = owner is null;
         TargetBinding = targetBinding;
         Supports3DRendering = supports3DRendering;
+        Device3DExtentBudget = device3DExtentBudget;
         PlanIdentity = new RenderRequestPlanIdentity(
             Purpose,
             FusionMode,
@@ -86,6 +89,15 @@ internal sealed class RenderRequestOptions
     /// built directly defaults to <see langword="true"/>, which is the prediction before any backend exists.
     /// </remarks>
     public bool Supports3DRendering { get; }
+
+    /// <summary>The 3D extents this request may expect to allocate, or unreported when unknown.</summary>
+    /// <remarks>
+    /// Settled alongside <see cref="Supports3DRendering"/> and carried the same way, so a node that would
+    /// allocate a 3D surface can ask at record time whether the extents it needs are ones the device can
+    /// make, and answer for bounds, cardinality and hit testing with what the request can actually draw.
+    /// <see cref="Device3DExtentBudget.Unreported"/> refuses nothing; the allocation still decides.
+    /// </remarks>
+    public Device3DExtentBudget Device3DExtentBudget { get; }
 
     internal bool OwnsOwner { get; }
 
@@ -143,7 +155,8 @@ internal sealed class RenderRequestOptions
             FusionMode,
             Owner,
             targetBinding,
-            Supports3DRendering);
+            Supports3DRendering,
+            Device3DExtentBudget);
         nested.NestedPolicyParent = this;
         return nested;
     }
