@@ -792,6 +792,39 @@ public class NoMigrationRegressionTests
         Assert.That(gateAtElementWrite, Is.EqualTo("99.0.0"));
     }
 
+    // Resource inspection walks the live project through a context of its own and declines
+    // migration reports on purpose, so a transfer must stop at any owner that is not the serializer.
+    [Test]
+    public void A_context_outside_the_serializer_takes_no_migration_from_the_value_it_inspects()
+    {
+        var owner = new MigratingContainer { First = CreateMigrated(new MigratingLeaf("7.0.0")) };
+
+        using (ThreadLocalSerializationContext.Enter(new InspectingSerializationContext()))
+        {
+            CoreSerializer.SerializeToJsonObject(owner);
+        }
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+    }
+
+    [Test]
+    public void A_project_file_that_is_not_an_object_does_not_block_the_save_that_replaces_it()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        File.WriteAllText(project.Uri!.LocalPath, "[1, 2, 3]");
+
+        Assert.DoesNotThrow(() => CoreSerializer.StoreToUri(project, project.Uri));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                (string?)JsonNode.Parse(File.ReadAllText(project.Uri.LocalPath))!["minAppVersion"],
+                Is.EqualTo("9.0.0"));
+            Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
+        });
+    }
+
     [Test]
     public void A_malformed_project_file_does_not_block_the_save_that_replaces_it()
     {
@@ -1094,6 +1127,36 @@ public class NoMigrationRegressionTests
         {
             base.Deserialize(context);
             Value = context.GetValue<ICoreSerializable>(nameof(Value));
+        }
+    }
+
+    // Stands in for VersionControlSerializationGraph's context: it owns the walk, not the serializer.
+    private sealed class InspectingSerializationContext : ICoreSerializationContext
+    {
+        public CoreSerializationMode Mode => CoreSerializationMode.Write;
+
+        public Uri? BaseUri => null;
+
+        public Type OwnerType => typeof(object);
+
+        public void ReportPersistedContentMigration(string minAppVersion)
+        {
+        }
+
+        public void SetValue<T>(string name, T? value)
+        {
+        }
+
+        public T? GetValue<T>(string name) => default;
+
+        public bool Contains(string name) => false;
+
+        public void Populate(string name, ICoreSerializable obj)
+        {
+        }
+
+        public void Resolve(Guid id, Action<ICoreSerializable> callback)
+        {
         }
     }
 
