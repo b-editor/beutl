@@ -210,7 +210,7 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
                 Is.True,
                 "the 3D surface fits exactly, so the scene records");
             Assert.That(
-                RenderScaleUtilities.FitsBufferBudget(integralPhase.Size, budget),
+                BufferDimensionBudget.Named(budget).Fits(integralPhase.Size),
                 Is.True,
                 "on an integral phase the intermediate fits too, and the scene renders");
             Assert.That(
@@ -218,7 +218,7 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
                 Is.EqualTo((width + 1, height + 1)),
                 "a fractional phase covers one more device pixel on each axis");
             Assert.That(
-                RenderScaleUtilities.FitsBufferBudget(shifted.Size, budget),
+                BufferDimensionBudget.Named(budget).Fits(shifted.Size),
                 Is.False,
                 "which the pool refuses, dropping the preview value while the hit answer stays behind");
         });
