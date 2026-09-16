@@ -751,6 +751,21 @@ public class NoMigrationRegressionTests
         Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
     }
 
+    // A referenced object is written to a file of its own, which the save does while the owner is
+    // still being serialized, so its requirement has to be handed over before that write.
+    [Test]
+    public void A_referenced_object_deserialized_on_its_own_migrates_the_owner_that_names_it()
+    {
+        MigratingCoreObject referenced = CreateMigrated(new MigratingCoreObject("7.0.0"));
+        referenced.Uri = new Uri(Path.Combine(_tempDirectory, "referenced.json"));
+        var owner = new StandaloneValueOwner { Value = referenced };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
+    }
+
     [Test]
     public void A_standalone_value_type_kept_as_an_interface_box_migrates_its_owner()
     {
