@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Collections.Specialized;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Beutl.AgentHost;
 using Beutl.Configuration;
@@ -245,15 +246,36 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
     // disconnected network drive.
     private async Task ForgetDeletedFilesAsync(ViewConfig viewConfig, ProjectDiskDeletionTarget target)
     {
-        string[] recent = viewConfig.RecentFiles.Concat(viewConfig.RecentProjects).Distinct().ToArray();
-        Func<string, bool> exists = RecentFileExists;
-        string[] deleted = await Task.Run(() => recent
-            .Where(file => !exists(file) && WasDeleted(target, file))
-            .ToArray());
-        foreach (string file in deleted)
+        // The gate is free during the check, so a project can be opened or created at a deleted path
+        // meanwhile; an entry listed again since the check started is newer than its answer.
+        var listedAgain = new HashSet<string>(StringComparer.Ordinal);
+        void OnListChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
-            viewConfig.RecentFiles.Remove(file);
-            viewConfig.RecentProjects.Remove(file);
+            foreach (string file in e.NewItems?.OfType<string>() ?? [])
+            {
+                listedAgain.Add(file);
+            }
+        }
+
+        viewConfig.RecentFiles.CollectionChanged += OnListChanged;
+        viewConfig.RecentProjects.CollectionChanged += OnListChanged;
+        try
+        {
+            string[] recent = viewConfig.RecentFiles.Concat(viewConfig.RecentProjects).Distinct().ToArray();
+            Func<string, bool> exists = RecentFileExists;
+            string[] deleted = await Task.Run(() => recent
+                .Where(file => !exists(file) && WasDeleted(target, file))
+                .ToArray());
+            foreach (string file in deleted.Where(file => !listedAgain.Contains(file)))
+            {
+                viewConfig.RecentFiles.Remove(file);
+                viewConfig.RecentProjects.Remove(file);
+            }
+        }
+        finally
+        {
+            viewConfig.RecentFiles.CollectionChanged -= OnListChanged;
+            viewConfig.RecentProjects.CollectionChanged -= OnListChanged;
         }
     }
 

@@ -326,6 +326,61 @@ public class ProjectDiskDeletionTests
     }
 
     [AvaloniaTest]
+    public async Task Keeps_a_recent_entry_listed_again_while_the_check_runs()
+    {
+        await TestReset.ResetShellAsync();
+        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        (string projectFile, _) = await CreateClosedProjectAsync("recreated", NewWorkspace("recreated"));
+        var checkStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCheck = new ManualResetEventSlim();
+        var deletion = new ProjectDiskDeletion(TestShell.Project, TestShell.Editor)
+        {
+            ConfirmAsync = _ => Task.FromResult(FAContentDialogResult.Primary),
+            RecentFileExists = path =>
+            {
+                // Answers for the deleted project file before a new one appears at the same path.
+                bool exists = File.Exists(path);
+                if (path == projectFile)
+                {
+                    checkStarted.TrySetResult();
+                    releaseCheck.Wait(TimeSpan.FromSeconds(30));
+                }
+
+                return exists;
+            },
+        };
+        Task deleting = deletion.DeleteAsync(projectFile);
+        try
+        {
+            await checkStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            // A project is created again at the deleted path while the check still runs.
+            CreateFile(projectFile, "{}");
+            viewConfig.UpdateRecentFile(projectFile);
+            viewConfig.UpdateRecentProject(projectFile);
+        }
+        finally
+        {
+            releaseCheck.Set();
+            await deleting.WaitAsync(TimeSpan.FromSeconds(30));
+            releaseCheck.Dispose();
+        }
+
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewConfig.RecentProjects, Does.Contain(projectFile));
+                Assert.That(viewConfig.RecentFiles, Does.Contain(projectFile));
+            });
+        }
+        finally
+        {
+            viewConfig.RecentFiles.Remove(projectFile);
+            viewConfig.RecentProjects.Remove(projectFile);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task A_file_is_not_opened_while_a_deletion_holds_the_workspace()
     {
         await TestReset.ResetShellAsync();
