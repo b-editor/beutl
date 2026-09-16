@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Editors.GraphModelEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -14,11 +15,11 @@
              Background="Transparent"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid Margin="4,0">
+        <pe:PropertyEditorGrid Margin="4,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+                <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
@@ -45,9 +46,9 @@
             </Button>
 
             <local:PropertyEditorMenu Grid.Column="3" />
-        </Grid>
+        </pe:PropertyEditorGrid>
 
-        <controls:TreeLineDecorator Grid.Row="1" LineBrush="{DynamicResource TreeLineBrush}">
+        <controls:TreeLineDecorator Grid.Row="1" LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
             <ItemsControl Margin="-16,0,0,0" ItemsSource="{Binding NodeMembers}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>

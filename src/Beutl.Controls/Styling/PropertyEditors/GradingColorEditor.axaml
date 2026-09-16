@@ -19,7 +19,7 @@
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid ColumnDefinitions="2*,3*,Auto,Auto">
+                    <local:PropertyEditorGrid ColumnDefinitions="*,Auto,*,Auto">
                         <TextBlock Name="PART_HeaderTextBlock"
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
@@ -29,51 +29,56 @@
                                    ToolTip.Tip="{TemplateBinding Description}"
                                    TextTrimming="CharacterEllipsis" />
 
-                        <Button Name="PART_ColorPickerButton"
-                                Grid.Column="1"
-                                Margin="4,2"
-                                Padding="0"
-                                HorizontalAlignment="Right"
-                                HorizontalContentAlignment="Stretch"
-                                CornerRadius="{DynamicResource ControlCornerRadius}"
-                                IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Border MinWidth="23"
-                                        MinHeight="23"
-                                        Margin="8,6,4,6"
-                                        HorizontalAlignment="Left"
-                                        VerticalAlignment="Center"
-                                        Background="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource GradingColorBrushConv}}"
-                                        BorderBrush="{DynamicResource ColorPickerButtonOutline}"
-                                        BorderThickness="1"
-                                        CornerRadius="{DynamicResource ControlCornerRadius}" />
+                        <GridSplitter Grid.Column="1" Background="Transparent" />
 
-                                <icons:FluentIcon Grid.Column="1"
-                                                  Margin="4,6,8,6"
-                                                  HorizontalAlignment="Right"
-                                                  FontSize="18"
-                                                  Icon="ChevronDown" />
-                            </Grid>
-                        </Button>
+                        <Grid Grid.Column="2"
+                              MinWidth="120"
+                              Margin="4,2"
+                              ColumnDefinitions="*,Auto">
+                            <Button Name="PART_ColorPickerButton"
+                                    Padding="0"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    CornerRadius="{DynamicResource ControlCornerRadius}"
+                                    IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Border MinWidth="23"
+                                            MinHeight="23"
+                                            Margin="8,6,4,6"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Background="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource GradingColorBrushConv}}"
+                                            BorderBrush="{DynamicResource ColorPickerButtonOutline}"
+                                            BorderThickness="1"
+                                            CornerRadius="{DynamicResource ControlCornerRadius}" />
 
-                        <StackPanel Name="LeftRightButtons"
-                                    Grid.Column="2"
-                                    Margin="0,0,4,0"
-                                    Orientation="Horizontal">
-                            <Button Name="PART_LeftButton"
-                                    Classes="left"
-                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                                    <icons:FluentIcon Grid.Column="1"
+                                                      Margin="4,6,8,6"
+                                                      HorizontalAlignment="Right"
+                                                      FontSize="18"
+                                                      Icon="ChevronDown" />
+                                </Grid>
+                            </Button>
 
-                            <Button Name="PART_RightButton"
-                                    Classes="right"
-                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
-                        </StackPanel>
+                            <StackPanel Name="LeftRightButtons"
+                                        Grid.Column="1"
+                                        Margin="4,0,0,0"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
+                        </Grid>
 
                         <ContentPresenter Name="PART_MenuContentPresenter"
                                           Grid.Column="3"
                                           Content="{TemplateBinding MenuContent}"
                                           ContentTemplate="{TemplateBinding MenuContentTemplate}" />
-                    </Grid>
+                    </local:PropertyEditorGrid>
                 </Border>
             </ControlTemplate>
         </Setter>

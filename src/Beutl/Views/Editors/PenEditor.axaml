@@ -45,7 +45,7 @@
 
         <controls:TreeLineDecorator x:Name="content"
                                     Grid.Row="1"
-                                    LineBrush="{DynamicResource TreeLineBrush}">
+                                    LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
             <StackPanel>
                 <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 

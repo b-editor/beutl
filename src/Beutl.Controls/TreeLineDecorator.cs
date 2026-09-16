@@ -2,8 +2,8 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.VisualTree;
 
 namespace Beutl.Controls;
 
@@ -23,7 +23,7 @@ public class TreeLineDecorator : Decorator
 
     static TreeLineDecorator()
     {
-        AffectsRender<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty, LineBrushProperty, LineThicknessProperty);
+        AffectsRender<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty, LineBrushProperty, LineThicknessProperty, UseLayoutRoundingProperty);
         AffectsMeasure<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty);
         AffectsArrange<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty);
     }
@@ -60,12 +60,19 @@ public class TreeLineDecorator : Decorator
             return;
 
         double height = Bounds.Height;
-        double thickness = LineThickness;
+        double scale = LayoutHelper.GetLayoutScale(this);
+        double thickness = UseLayoutRounding
+            ? LayoutHelper.RoundLayoutValueUp(LineThickness, scale)
+            : LineThickness;
 
         // Draw vertical lines for each indent level
         for (int i = 0; i < IndentLevel; i++)
         {
             double x = (i * IndentWidth) + (IndentWidth / 2.0) - (thickness / 2.0);
+            // Like Separator, fill whole device pixels instead of spreading a
+            // one-pixel line across two columns at the indent's half-pixel edge.
+            if (UseLayoutRounding)
+                x = LayoutHelper.RoundLayoutValue(x, scale);
             var rect = new Rect(x, 0, thickness, height);
             context.FillRectangle(LineBrush, rect);
         }

@@ -21,11 +21,11 @@
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid>
+                    <local:PropertyEditorGrid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
@@ -49,7 +49,7 @@
                                           Grid.Column="3"
                                           Content="{TemplateBinding MenuContent}"
                                           ContentTemplate="{TemplateBinding MenuContentTemplate}" />
-                    </Grid>
+                    </local:PropertyEditorGrid>
                 </Border>
             </ControlTemplate>
         </Setter>

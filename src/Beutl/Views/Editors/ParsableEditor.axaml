@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Editors.ParsableEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -9,7 +10,7 @@
              x:CompileBindings="True"
              x:DataType="vm:IParsableEditorViewModel"
              mc:Ignorable="d">
-    <Grid ColumnDefinitions="2*,3*,Auto">
+    <pe:PropertyEditorGrid ColumnDefinitions="*,*,Auto" ValueColumn="1">
         <TextBlock Margin="8,10,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Top"
@@ -32,5 +33,5 @@
         </TextBox>
 
         <local:PropertyEditorMenu Grid.Column="2" />
-    </Grid>
+    </pe:PropertyEditorGrid>
 </UserControl>
