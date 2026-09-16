@@ -89,18 +89,6 @@ public sealed class AutoSaveService : IDisposable
                 _saveError.OnNext(ex);
             }
         }
-
-        // A value deserialized on its own and assigned to a saved object afterwards reports its
-        // requirement only while that object is written, so it cannot reach the preflight above.
-        try
-        {
-            CoreSerializer.PersistProjectMigrationMetadata(objects);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Could not persist project migration requirements raised while auto-saving.");
-            _saveError.OnNext(ex);
-        }
     }
 
     public static void CollectObjectsToSave(ChangeOperation operation, HashSet<CoreObject> objectsToSave)

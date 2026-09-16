@@ -18,8 +18,11 @@ public static class CoreSerializer
     // Complete this preflight for the whole save before replacing any migrated sidecar.
     internal static void PersistProjectMigrationMetadata(IEnumerable<CoreObject> objects)
     {
+        CoreObject[] pending = objects as CoreObject[] ?? objects.ToArray();
+        RaiseAttachedMigrations(pending);
+
         var projects = new HashSet<Project>();
-        foreach (CoreObject obj in objects)
+        foreach (CoreObject obj in pending)
         {
             if (obj is Project project)
                 projects.Add(project);
@@ -36,6 +39,65 @@ public static class CoreSerializer
                 && project.Items.Any(item => Project.GetRequiredMigrationVersion(item) is not null))
             {
                 StoreToUri(project, project.Uri, CoreSerializationMode.Write);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Raises the migration requirement of every value that reports one only while its owner is
+    /// written, so the preflight above still runs before the files carrying those values.
+    /// </summary>
+    /// <remarks>
+    /// A value deserialized on its own hands its requirement to its owner during serialization, and
+    /// waiting for the real write would put the compatibility gate behind the sidecars it guards.
+    /// Serializing to a discarded buffer first is the same discovery <c>SceneRecovery</c> performs,
+    /// and nothing reaches the disk: <see cref="CoreSerializationMode.Write"/> on its own leaves a
+    /// referenced object as a URI. The pass is skipped outright until such a value exists at all,
+    /// which is never in a session where nothing reported a standalone migration.
+    /// </remarks>
+    private static void RaiseAttachedMigrations(CoreObject[] objects)
+    {
+        if (AttachedContentMigrations.IsEmpty)
+        {
+            return;
+        }
+
+        var visited = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<(CoreObject Object, bool OwnsFile)>();
+        foreach (CoreObject obj in objects)
+        {
+            pending.Push((obj, true));
+        }
+
+        while (pending.TryPop(out (CoreObject Object, bool OwnsFile) current))
+        {
+            if (!visited.Add(current.Object))
+            {
+                continue;
+            }
+
+            // Only a root of this save and a descendant with a file of its own are written on their
+            // own; everything else is embedded in the nearest such ancestor and covered by its pass.
+            if (current.OwnsFile)
+            {
+                SerializeToJsonObject(
+                    current.Object,
+                    new CoreSerializerOptions
+                    {
+                        BaseUri = current.Object.Uri,
+                        Mode = CoreSerializationMode.Write,
+                    });
+            }
+
+            if (current.Object is IHierarchical hierarchical)
+            {
+                foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+                {
+                    if (child is CoreObject coreObject)
+                    {
+                        pending.Push((coreObject, coreObject.Uri is not null));
+                    }
+                }
             }
         }
     }

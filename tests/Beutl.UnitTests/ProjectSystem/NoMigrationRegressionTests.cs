@@ -635,6 +635,37 @@ public class NoMigrationRegressionTests
     }
 
     [Test]
+    public void AutoSave_persists_a_standalone_value_migration_before_writing_the_element()
+    {
+        var project = new Project { Uri = new Uri(Path.Combine(_tempDirectory, "project.bep")) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "scene.scene")) };
+        var element = new StandaloneValueElement
+        {
+            Uri = new Uri(Path.Combine(_tempDirectory, "element.belm")),
+            Value = CreateMigrated(new MigratingLeaf("9.0.0")),
+        };
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        var root = new VirtualProjectRoot();
+        root.AttachProject(project);
+        File.WriteAllText(project.Uri.LocalPath, "{\"minAppVersion\":\"1.0.0\"}");
+        File.WriteAllText(element.Uri.LocalPath, "original");
+        string? requiredVersionAtElementWrite = null;
+        element.BeforeSerialization = () => requiredVersionAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(project.Uri.LocalPath))!["minAppVersion"];
+        using var autoSave = new AutoSaveService();
+
+        autoSave.SaveObjects([element]);
+
+        Assert.Multiple(() =>
+        {
+            // The gate has to be on disk before the sidecar carrying the migrated value replaces it.
+            Assert.That(requiredVersionAtElementWrite, Is.EqualTo("9.0.0"));
+            Assert.That(File.ReadAllText(element.Uri.LocalPath), Is.Not.EqualTo("original"));
+        });
+    }
+
+    [Test]
     public void AutoSave_does_not_replace_sidecars_when_migration_preflight_fails()
     {
         string blockedPath = Path.Combine(_tempDirectory, "project.bep");
@@ -783,6 +814,26 @@ public class NoMigrationRegressionTests
         {
             RequiredVersion = context.GetValue<string>(nameof(RequiredVersion))!;
             context.ReportPersistedContentMigration(RequiredVersion);
+        }
+    }
+
+    private sealed class StandaloneValueElement : Element
+    {
+        public MigratingLeaf? Value { get; set; }
+
+        public Action? BeforeSerialization { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            BeforeSerialization?.Invoke();
+            base.Serialize(context);
+            context.SetValue(nameof(Value), Value);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            Value = context.GetValue<MigratingLeaf>(nameof(Value));
         }
     }
 
