@@ -887,21 +887,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                             logger, cancellationToken)
                             .ConfigureAwait(false);
 
-                        // NuGet reports a package it could not find, or a cancelled download, as a result
-                        // without a stream instead of throwing.
-                        if (downloadResult.PackageStream is not { } packageStream)
-                        {
-                            cancellationToken.ThrowIfCancellationRequested();
-                            throw new InvalidOperationException(
-                                $"'{packageToInstall.Id} {packageToInstall.Version}' could not be downloaded from '{source.PackageSource.Source}' ({downloadResult.Status}).");
-                        }
-
-                        // A package already in the global packages folder comes back without a source,
-                        // which NuGet treats the same as an empty one.
-                        await PackageExtractor.ExtractPackageAsync(
-                            downloadResult.PackageSource ?? string.Empty,
-                            packageStream,
-                            Helper.PackagePathResolver,
+                        await ExtractDownloadedPackageAsync(
+                            downloadResult,
+                            packageToInstall,
+                            source.PackageSource.Source,
                             packageExtractionContext,
                             cancellationToken)
                             .ConfigureAwait(false);
@@ -935,6 +924,47 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             {
                 _installingContexts.Remove(package);
             }
+        }
+    }
+
+    // NuGet reports a package it could not find, or a cancelled download, as a result with neither a
+    // stream nor a reader instead of throwing. A plugin-backed source hands over an available package
+    // as a reader without a stream.
+    internal static async Task ExtractDownloadedPackageAsync(
+        DownloadResourceResult downloadResult,
+        PackageIdentity package,
+        string sourceName,
+        PackageExtractionContext extractionContext,
+        CancellationToken cancellationToken)
+    {
+        // A package already in the global packages folder comes back without a source, which NuGet
+        // treats the same as an empty one.
+        string packageSource = downloadResult.PackageSource ?? string.Empty;
+        if (downloadResult.PackageStream is { } packageStream)
+        {
+            await PackageExtractor.ExtractPackageAsync(
+                packageSource,
+                packageStream,
+                Helper.PackagePathResolver,
+                extractionContext,
+                cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else if (downloadResult.PackageReader is { } packageReader)
+        {
+            await PackageExtractor.ExtractPackageAsync(
+                packageSource,
+                packageReader,
+                Helper.PackagePathResolver,
+                extractionContext,
+                cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new InvalidOperationException(
+                $"'{package.Id} {package.Version}' could not be downloaded from '{sourceName}' ({downloadResult.Status}).");
         }
     }
 
