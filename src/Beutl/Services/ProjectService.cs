@@ -266,11 +266,9 @@ public sealed class ProjectService
         return CreateProject(width, height, framerate, samplerate, name, location, beforeOpening: null);
     }
 
-    /// <param name="beforeOpening">
-    /// Runs once the project files are written and before the project opens, inside the same transition, so
-    /// the editor opens only after it completes. Its token is canceled when another project transition is
-    /// requested meanwhile; the project then opens without waiting for the rest of the step.
-    /// </param>
+    // beforeOpening runs once the project files are written and before the project opens, inside the same
+    // transition, so the editor opens only after it completes. Its token is canceled when another project
+    // transition is requested meanwhile; the project then opens without waiting for the rest of the step.
     internal async Task<Project?> CreateProject(
         int width,
         int height,
