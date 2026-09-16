@@ -188,8 +188,11 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
 
         try
         {
-            // Deleting a linked folder removes only the link, not the files the confirmation names.
-            if ((File.GetAttributes(folder) & FileAttributes.ReparsePoint) != 0
+            // A link is deleted as a link. A linked folder would keep the files the confirmation
+            // names, and a linked project file would leave its project behind while the rest of
+            // the folder went; the scan below skips links, so it would not see that file either.
+            if (IsLink(folder)
+                || IsLink(projectFile)
                 || protectedFolders.Any(path => FilePathComparison.IsSameOrDescendant(folder, path)))
             {
                 return false;
@@ -225,6 +228,11 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
             viewConfig.RecentFiles.Remove(file);
             viewConfig.RecentProjects.Remove(file);
         }
+    }
+
+    private static bool IsLink(string path)
+    {
+        return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
     }
 
     private static void ClearReadOnly(string path)

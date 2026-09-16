@@ -414,6 +414,36 @@ public class ProjectDiskDeletionTests
     }
 
     [Test]
+    public void Keeps_the_folder_around_a_linked_project_file()
+    {
+        string workspace = NewWorkspace("linked-file");
+        string realProject = CreateFile(Path.Combine(workspace, "real", "real.bep"), "{}");
+        string folder = Path.Combine(workspace, "shortcut");
+        string unrelated = CreateFile(Path.Combine(folder, "notes.txt"), "keep");
+        string projectFile = Path.Combine(folder, "shortcut.bep");
+        try
+        {
+            File.CreateSymbolicLink(projectFile, realProject);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Assert.Ignore($"Symbolic links cannot be created here: {ex.Message}");
+        }
+
+        ProjectDiskDeletionTarget? target = ProjectDiskDeletion.Resolve(projectFile, []);
+        Assert.That(target, Is.EqualTo(new ProjectDiskDeletionTarget(projectFile, projectFile, IsFolder: false)));
+
+        ProjectDiskDeletion.Delete(target!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(unrelated), Is.True);
+            Assert.That(File.Exists(realProject), Is.True);
+            Assert.That(Path.Exists(projectFile), Is.False);
+        });
+    }
+
+    [Test]
     public void Deletes_read_only_folders_and_files()
     {
         string workspace = NewWorkspace("read-only");
