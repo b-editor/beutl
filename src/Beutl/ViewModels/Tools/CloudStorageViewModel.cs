@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
+using Beutl.Api.Services;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Logging;
@@ -431,7 +432,15 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         ResetFolder(folder);
         if (TryGetCachedFolder(folder, out var cached))
         {
-            _clients.CommitForAuthenticatedUser(user, () => Apply(cached, false, null, cache: false), _lifetime.Token);
+            try
+            {
+                _clients.CommitForAuthenticatedUser(user, () => Apply(cached, false, null, cache: false), _lifetime.Token);
+            }
+            catch (AuthenticationRequiredException)
+            {
+                // Account notifications from another thread may still be queued on the UI thread.
+                ClearFolderCache();
+            }
             return Task.CompletedTask;
         }
         return LoadAsync();

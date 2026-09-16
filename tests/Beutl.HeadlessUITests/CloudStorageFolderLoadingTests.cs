@@ -17,6 +17,40 @@ namespace Beutl.HeadlessUITests;
 public sealed class CloudStorageFolderLoadingTests
 {
     [AvaloniaTest]
+    [TestCase(null)]
+    [TestCase("b")]
+    public async Task AccountInvalidationWhileReadingTheFolderCacheDiscardsTheListing(string? nextAccount)
+    {
+        Action? invalidate = null;
+        await using var scope = new StorageScope(() =>
+        {
+            var action = invalidate;
+            invalidate = null;
+            action?.Invoke();
+            return DateTimeOffset.UtcNow;
+        });
+        var vm = scope.ViewModel;
+        await scope.LoadFirstAsync(Response());
+        var navigate = vm.OpenFolderAsync(vm.Items[0]);
+        await WaitFor(() => scope.Handler.Requests.Count == 2);
+        scope.Handler.Requests[1].Complete(Response(folder: "folder & 日本", fileId: "child"));
+        await navigate;
+
+        // Invalidate after NavigateAsync's owner check, before it commits the cached root.
+        invalidate = () => SignInOnBackgroundThread(scope.Clients, nextAccount);
+        Assert.DoesNotThrowAsync(() => vm.NavigateToAsync(vm.Breadcrumbs[0]));
+        Assert.That(vm.Items, Is.Empty);
+        Assert.That(vm.Error.Value, Is.Null);
+        await WaitFor(() => nextAccount == null ? !vm.SignedIn.Value : scope.Handler.Requests.Count == 3);
+        if (nextAccount != null)
+        {
+            scope.Handler.Requests[2].Complete(Response(fileId: "account-b"));
+            await WaitFor(() => !vm.IsLoading.Value);
+            Assert.That(vm.Items.Last().Id, Is.EqualTo("account-b"));
+        }
+    }
+
+    [AvaloniaTest]
     public async Task RevisitingFoldersRestoresTheirListingAndUsageSynchronously()
     {
         await using var scope = new StorageScope();
