@@ -965,6 +965,60 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Completed_command_takes_precedence_over_a_preview_limit()
+    {
+        var limit = new TaskCompletionSource();
+        limit.SetResult();
+        var completion = new TaskCompletionSource();
+        completion.SetException(new GitOperationException(7, "preview failed"));
+        Assert.That(await GitCliRunner.WaitForPreviewLimitAsync(
+            completion.Task, limit.Task, CancellationToken.None), Is.False);
+        var error = Assert.ThrowsAsync<GitOperationException>(async () => await completion.Task);
+        Assert.That(error!.ExitCode, Is.EqualTo(7));
+    }
+
+    [TestCase(false, 5)]
+    [TestCase(true, 5)]
+    [TestCase(false, 0)]
+    [TestCase(true, 0)]
+    public async Task Preview_stops_at_the_exact_limit_without_waiting_for_more_output(bool bytes, int limit)
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("This process regression uses a Unix shell.");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
+        GitCommandResult result = await runner.RunAsync(Repository,
+            ["-c", limit == 0 ? "exec sleep 30" : "printf abcde; exec sleep 30"],
+            GitCommandOptions.Local with
+            {
+                MaxStdoutBytes = limit,
+                CaptureStdoutBytes = bytes,
+                StopAfterStdoutLimit = true,
+            }, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Stdout, Is.EqualTo(limit == 0 ? "" : "abcde"));
+            Assert.That(result.StdoutTruncated, Is.True);
+            if (bytes) Assert.That(result.StdoutBytes, Has.Length.EqualTo(limit));
+            Assert.That(runner.HasActiveProcess, Is.False);
+        });
+    }
+
+    [Test]
+    public void Failed_preview_preserves_the_exit_code_and_diagnostic()
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("This process regression uses a Unix shell.");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
+        var error = Assert.ThrowsAsync<GitOperationException>(async () => await runner.RunAsync(Repository,
+            ["-c", "printf abc; printf 'preview failed' >&2; exit 7"],
+            GitCommandOptions.Local with { MaxStdoutBytes = 10, StopAfterStdoutLimit = true },
+            CancellationToken.None));
+        Assert.Multiple(() =>
+        {
+            Assert.That(error!.ExitCode, Is.EqualTo(7));
+            Assert.That(error.Stderr, Does.Contain("preview failed"));
+        });
+    }
+
+    [Test]
     public async Task Preview_limit_keeps_unconfirmed_cleanup_quarantined()
     {
         if (OperatingSystem.IsWindows()) Assert.Ignore("This process regression uses a Unix shell.");

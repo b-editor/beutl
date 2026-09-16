@@ -324,9 +324,10 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             {
                 if (stopAfterStdoutLimit)
                 {
-                    await Task.WhenAny(completion, outputLimitReached.Task).WaitAsync(linkedCts.Token)
-                        .ConfigureAwait(false);
-                    if (outputLimitReached.Task.IsCompleted)
+                    bool limitWon = await WaitForPreviewLimitAsync(
+                        completion, outputLimitReached.Task, linkedCts.Token).ConfigureAwait(false);
+                    // Preserve the real exit code and stderr if the producer already exited.
+                    if (limitWon && !process.HasExited)
                     {
                         // Only read-only previews opt in. Stop the producer as well as the reader,
                         // and retain the cancellation path's quarantine until every pipe has closed.
@@ -984,6 +985,14 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         retainedLength += record.Length;
     }
 
+    internal static async Task<bool> WaitForPreviewLimitAsync(
+        Task completion, Task outputLimitReached, CancellationToken cancellationToken)
+    {
+        Task winner = await Task.WhenAny(completion, outputLimitReached)
+            .WaitAsync(cancellationToken).ConfigureAwait(false);
+        return winner == outputLimitReached && !completion.IsCompleted;
+    }
+
     internal static async Task<(string Output, bool Truncated)> ReadStandardOutputAsync(
         Stream stream,
         int? maxBytes,
@@ -1006,6 +1015,11 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         }
 
         int limit = maxBytes.Value;
+        if (limit == 0 && limitReached is not null)
+        {
+            limitReached();
+            return (string.Empty, true);
+        }
         var captured = new byte[limit];
         var buffer = new byte[8192];
         int capturedCount = 0;
@@ -1021,8 +1035,9 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             }
 
             truncated |= copyCount < count;
-            if (truncated && limitReached is not null)
+            if (capturedCount == limit && limitReached is not null)
             {
+                truncated = true;
                 limitReached();
                 break;
             }
@@ -1073,6 +1088,11 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         }
 
         int limit = maxBytes.Value;
+        if (limit == 0 && limitReached is not null)
+        {
+            limitReached();
+            return ([], true);
+        }
         var captured = new byte[limit];
         var buffer = new byte[8192];
         int capturedCount = 0;
@@ -1088,8 +1108,9 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             }
 
             truncated |= copyCount < count;
-            if (truncated && limitReached is not null)
+            if (capturedCount == limit && limitReached is not null)
             {
+                truncated = true;
                 limitReached();
                 break;
             }
