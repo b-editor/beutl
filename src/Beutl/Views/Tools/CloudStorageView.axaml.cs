@@ -164,11 +164,19 @@ public sealed partial class CloudStorageView : UserControl
 
     private async void OnItemDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (DataContext is CloudStorageViewModel vm
-            && e.Source is Visual source
+        if (e.Source is Visual source
             && source.FindAncestorOfType<ListBoxItem>(includeSelf: true)?.DataContext is CloudStorageItem item)
-            await vm.OpenFolderAsync(item);
+        {
+            e.Handled = true;
+            await ActivateStorageItemAsync(item);
+        }
     }
+
+    private Task ActivateStorageItemAsync(CloudStorageItem item) =>
+        item.Can("open") && DataContext is CloudStorageViewModel vm
+            && vm.CaptureActionContext([item]) is { } context
+                ? ExecuteStorageActionAsync("open", context)
+                : Task.CompletedTask;
 
     private async void OnItemsKeyDown(object? sender, KeyEventArgs e)
     {
@@ -178,11 +186,10 @@ public sealed partial class CloudStorageView : UserControl
             OnStorageContextRequested(sender, new ContextRequestedEventArgs { Source = e.Source });
             return;
         }
-        if (e.Key == Key.Enter && DataContext is CloudStorageViewModel vm
-            && sender is ListBox { SelectedItem: CloudStorageItem { IsFolder: true } item })
+        if (e.Key == Key.Enter && sender is ListBox { SelectedItem: CloudStorageItem item })
         {
             e.Handled = true;
-            await vm.OpenFolderAsync(item);
+            await ActivateStorageItemAsync(item);
         }
     }
 }
