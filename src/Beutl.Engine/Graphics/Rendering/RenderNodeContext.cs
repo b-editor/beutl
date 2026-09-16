@@ -52,6 +52,7 @@ public sealed class RenderNodeContext
     private readonly float _outputScale;
     private readonly float _maxWorkingScale;
     private readonly bool _supports3DRendering;
+    private readonly int _max3DAttachmentDimension;
 
     internal RenderNodeContext(NodeRecordingTransaction transaction)
     {
@@ -63,6 +64,7 @@ public sealed class RenderNodeContext
         _outputScale = transaction.Request.Options.OutputScale;
         _maxWorkingScale = transaction.Request.Options.MaxWorkingScale;
         _supports3DRendering = transaction.Request.Options.Supports3DRendering;
+        _max3DAttachmentDimension = transaction.Request.Options.Max3DAttachmentDimension;
     }
 
     /// <summary>Gets the non-null ordered fragment inputs borrowed by the current node transaction.</summary>
@@ -124,6 +126,22 @@ public sealed class RenderNodeContext
     public bool Supports3DRendering
     {
         get { VerifyActive(); return _supports3DRendering; }
+    }
+
+    /// <summary>
+    /// Gets the largest 3D attachment the current request may expect to allocate, or <c>0</c> when no device
+    /// has reported a limit.
+    /// </summary>
+    /// <remarks>
+    /// A node whose output exists only as a 3D attachment asks this while recording, because an extent past
+    /// the limit is refused rather than drawn: recording it anyway would publish bounds and a hit test for a
+    /// value the request goes on to drop, and a scene that is never drawn must not answer clicks. Like
+    /// <see cref="Supports3DRendering"/> this is request state settled before any node records, never a live
+    /// probe of the device, and <c>0</c> refuses nothing - the allocation still decides.
+    /// </remarks>
+    public int Max3DAttachmentDimension
+    {
+        get { VerifyActive(); return _max3DAttachmentDimension; }
     }
 
     /// <summary>Tries to calculate the union of all current input bounds from concrete recording metadata.</summary>

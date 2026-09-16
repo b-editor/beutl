@@ -130,6 +130,28 @@ public class GraphicsContextFactory
         return installed is not null ? installed.Supports3DRendering : !s_failedToInitialize;
     }
 
+    /// <summary>Predicts the largest 3D attachment the shared context can make, from any thread.</summary>
+    /// <remarks>
+    /// The companion to <see cref="Predict3DRenderingSupport"/> for the extent a recording may read, with the
+    /// same rule about what is settled: a limit is reported only once a context exists to report one, and
+    /// before that the answer is "unknown", so nothing is refused on a guess about a device that has not been
+    /// chosen yet. A context that cannot render 3D reports nothing either, because it has no 3D attachment
+    /// limit to give and <see cref="Predict3DRenderingSupport"/> already answers for it.
+    /// </remarks>
+    /// <returns>
+    /// The device's <see cref="IGraphicsContext.MaxAttachmentDimension"/>, or <c>0</c> when no context has
+    /// answered for one.
+    /// </returns>
+    internal static int Predict3DAttachmentBudget()
+    {
+        IGraphicsContext? installed = SharedContext;
+        if (installed is null || !installed.Supports3DRendering)
+            return 0;
+
+        int budget = installed.MaxAttachmentDimension;
+        return budget > 0 ? budget : 0;
+    }
+
     public static IGraphicsContext? GetOrCreateShared()
     {
         if (s_failedToInitialize)

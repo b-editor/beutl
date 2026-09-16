@@ -15,7 +15,8 @@ internal sealed class RenderRequestOptions
         FusionMode fusionMode = FusionMode.Enabled,
         RenderRequestOwner? owner = null,
         NestedRenderTargetBinding? targetBinding = null,
-        bool supports3DRendering = true)
+        bool supports3DRendering = true,
+        int max3DAttachmentDimension = 0)
     {
         if (!Enum.IsDefined(intent))
         {
@@ -34,6 +35,7 @@ internal sealed class RenderRequestOptions
 
         ValidateTargetDomain(targetDomain);
         ValidateRequestedRegion(requestedRegion);
+        ArgumentOutOfRangeException.ThrowIfNegative(max3DAttachmentDimension);
 
         Intent = intent;
         Purpose = purpose;
@@ -48,6 +50,7 @@ internal sealed class RenderRequestOptions
         OwnsOwner = owner is null;
         TargetBinding = targetBinding;
         Supports3DRendering = supports3DRendering;
+        Max3DAttachmentDimension = max3DAttachmentDimension;
         PlanIdentity = new RenderRequestPlanIdentity(
             Purpose,
             FusionMode,
@@ -86,6 +89,15 @@ internal sealed class RenderRequestOptions
     /// built directly defaults to <see langword="true"/>, which is the prediction before any backend exists.
     /// </remarks>
     public bool Supports3DRendering { get; }
+
+    /// <summary>The largest 3D attachment this request may expect to allocate, or <c>0</c> when unknown.</summary>
+    /// <remarks>
+    /// Settled alongside <see cref="Supports3DRendering"/> and carried the same way, so a node that would
+    /// allocate a 3D surface can ask at record time whether the extent it needs is one the device can make,
+    /// and answer for bounds, cardinality and hit testing with what the request can actually draw. <c>0</c>
+    /// means no device has reported a limit and nothing is refused on it; the allocation still decides.
+    /// </remarks>
+    public int Max3DAttachmentDimension { get; }
 
     internal bool OwnsOwner { get; }
 
@@ -143,7 +155,8 @@ internal sealed class RenderRequestOptions
             FusionMode,
             Owner,
             targetBinding,
-            Supports3DRendering);
+            Supports3DRendering,
+            Max3DAttachmentDimension);
         nested.NestedPolicyParent = this;
         return nested;
     }

@@ -47,11 +47,19 @@ public sealed class RenderNodeContextMetadataContractTests
         Assert.Multiple(() =>
         {
             Assert.That(probe.Supports3DRendering, Is.Not.Null, "the node must read the capability while recording");
+            Assert.That(
+                probe.Max3DAttachmentDimension,
+                Is.Not.Null,
+                "the node must read the device extent budget while recording");
             Assert.That(probe.RetainedContext, Is.Not.Null);
             Assert.That(
                 () => _ = probe.RetainedContext!.Supports3DRendering,
                 Throws.TypeOf<InvalidOperationException>(),
                 "a context kept past its transaction must not keep answering for a request that has ended");
+            Assert.That(
+                () => _ = probe.RetainedContext!.Max3DAttachmentDimension,
+                Throws.TypeOf<InvalidOperationException>(),
+                "the extent budget answers on the same terms as every other request value");
         });
     }
 
@@ -98,11 +106,14 @@ public sealed class RenderNodeContextMetadataContractTests
     {
         public bool? Supports3DRendering { get; private set; }
 
+        public int? Max3DAttachmentDimension { get; private set; }
+
         public RenderNodeContext? RetainedContext { get; private set; }
 
         public override void Process(RenderNodeContext context)
         {
             Supports3DRendering = context.Supports3DRendering;
+            Max3DAttachmentDimension = context.Max3DAttachmentDimension;
             RetainedContext = context;
             context.PassThrough();
         }

@@ -24,6 +24,7 @@ internal readonly record struct RenderNodeRecordingKey(
     FusionMode FusionMode,
     bool HasSeparateTargetBinding,
     bool Supports3DRendering,
+    int Max3DAttachmentDimension,
     bool TransactionCacheEnabled)
 {
     public static RenderNodeRecordingKey Create(
@@ -41,5 +42,6 @@ internal readonly record struct RenderNodeRecordingKey(
             options.FusionMode,
             options.TargetBinding is not null,
             options.Supports3DRendering,
+            options.Max3DAttachmentDimension,
             transactionCacheEnabled);
 }

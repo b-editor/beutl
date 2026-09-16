@@ -374,6 +374,9 @@ public sealed class NodeRecordingTransactionTests
             Assert.That(() => _ = committedContext.OutputScale, Throws.TypeOf<InvalidOperationException>());
             Assert.That(() => _ = committedContext.MaxWorkingScale, Throws.TypeOf<InvalidOperationException>());
             Assert.That(() => _ = committedContext.Supports3DRendering, Throws.TypeOf<InvalidOperationException>());
+            Assert.That(
+                () => _ = committedContext.Max3DAttachmentDimension,
+                Throws.TypeOf<InvalidOperationException>());
             Assert.That(() => _ = committedContext.IsRenderCacheEnabled, Throws.TypeOf<InvalidOperationException>());
             Assert.That(
                 () => committedContext.TryCalculateInputBounds(out _),

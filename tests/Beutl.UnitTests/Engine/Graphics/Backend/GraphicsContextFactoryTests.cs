@@ -72,6 +72,39 @@ public class GraphicsContextFactoryTests
         }
     }
 
+    // The extent budget is settled the same way: only a context that exists and can render 3D reports one,
+    // and every other state answers 0, which refuses nothing.
+    [TestCase(null, 0, 0, TestName = "Predict3DAttachmentBudget_BeforeAnyContext_IsUnreported")]
+    [TestCase(true, 8192, 8192, TestName = "Predict3DAttachmentBudget_UnderA3DCapableContext_IsTheDeviceLimit")]
+    [TestCase(false, 8192, 0, TestName = "Predict3DAttachmentBudget_UnderAContextWithout3D_IsUnreported")]
+    [TestCase(true, 0, 0, TestName = "Predict3DAttachmentBudget_WhenTheDeviceReportsNoLimit_IsUnreported")]
+    [TestCase(true, -1, 0, TestName = "Predict3DAttachmentBudget_WhenTheDeviceReportsANegativeLimit_IsUnreported")]
+    public void Predict3DAttachmentBudget_FollowsTheInstalledState(
+        bool? installedSupports3D,
+        int installedLimit,
+        int expected)
+    {
+        IGraphicsContext? installed = null;
+        if (installedSupports3D is { } supports3D)
+        {
+            var context = new Mock<IGraphicsContext>();
+            context.SetupGet(static c => c.Supports3DRendering).Returns(supports3D);
+            context.SetupGet(static c => c.MaxAttachmentDimension).Returns(installedLimit);
+            installed = context.Object;
+        }
+
+        InstalledGraphics previous = GraphicsContextFactory.ExchangeInstalledGraphics(
+            new InstalledGraphics(installed, null, null, FailedToInitialize: false));
+        try
+        {
+            Assert.That(GraphicsContextFactory.Predict3DAttachmentBudget(), Is.EqualTo(expected));
+        }
+        finally
+        {
+            GraphicsContextFactory.ExchangeInstalledGraphics(previous);
+        }
+    }
+
     [Test]
     public void GetAvailableDevices_ReturnsAtLeastOne()
     {

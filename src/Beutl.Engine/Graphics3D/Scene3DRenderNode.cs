@@ -78,6 +78,32 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             bounds,
             context.OutputScale,
             context.MaxWorkingScale).Value;
+        // The same question the allocation asks, asked while there is still somewhere to put the answer.
+        // Over the device's limit the 3D surface is refused, and a preview drops the value rather than
+        // failing; recording it anyway would publish bounds and a hit test for a value that is never drawn,
+        // and walking topmost-first that hit swallows the clicks meant for the 2D content beneath. Delivery
+        // keeps recording, because there the refusal is reported rather than dropped and must stay so.
+        // This asks at the density the recording declares. The executor may lower that density further to
+        // fit the 2D buffer budget, so the refusal errs towards dropping a scene that would have just fit,
+        // never towards recording one the allocation goes on to refuse - which is the direction that would
+        // put the hit test back out of step with what is drawn.
+        (int deviceWidth, int deviceHeight) = ResolveDeviceFootprint(bounds, workingScale);
+        if (context.Intent == RenderIntent.Preview
+            && !CanAttachSurface(context.Max3DAttachmentDimension, deviceWidth, deviceHeight))
+        {
+            if (context.Purpose == RenderRequestPurpose.Frame)
+            {
+                s_logger.LogWarning(
+                    "A {Width}x{Height} px 3D surface is not one this device can attach (limit {Budget} px, "
+                    + "0 meaning unreported); dropping the 3D value for this preview request.",
+                    deviceWidth,
+                    deviceHeight,
+                    context.Max3DAttachmentDimension);
+            }
+
+            return;
+        }
+
         Object3D.Resource[] objects = scene.Objects.Where(static item => item.IsEnabled).ToArray();
         Light3D.Resource[] lights = scene.Lights.Where(static item => item.IsEnabled).ToArray();
         Object3D.Resource? gizmoTarget = scene.GizmoTarget is { } targetId
@@ -247,8 +273,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             return;
 
         float density = session.WorkingScale;
-        int deviceWidth = (int)MathF.Ceiling((float)snapshot.Bounds.Width * density);
-        int deviceHeight = (int)MathF.Ceiling((float)snapshot.Bounds.Height * density);
+        (int deviceWidth, int deviceHeight) = ResolveDeviceFootprint(snapshot.Bounds, density);
         Renderer3D renderer = snapshot.Scene.Renderer ??= new Renderer3D(graphicsContext);
 
         if (renderer.Width != deviceWidth || renderer.Height != deviceHeight)
@@ -320,6 +345,37 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             surface.Flush(true, true);
         });
         session.Publish(output);
+    }
+
+    /// <summary>Whether a device with <paramref name="budget"/> can attach this scene's surface.</summary>
+    /// <remarks>
+    /// An axis of zero is an extent the allocation refuses as readily as one past the limit, and refusing it
+    /// here rather than letting <see cref="DeviceExtentLimits.CanAttach"/> report a caller error keeps every
+    /// unallocatable footprint one answer that a recording can act on.
+    /// </remarks>
+    private static bool CanAttachSurface(int budget, int deviceWidth, int deviceHeight)
+        => deviceWidth > 0
+           && deviceHeight > 0
+           && DeviceExtentLimits.CanAttach(budget, deviceWidth, deviceHeight);
+
+    /// <summary>The device extents a scene of <paramref name="bounds"/> asks for at <paramref name="density"/>.</summary>
+    /// <remarks>
+    /// One formula for both sides: <see cref="Process"/> decides whether the device can attach this, and
+    /// <see cref="RenderCore"/> allocates it. Two spellings of the same rounding would let a recording pass a
+    /// footprint the allocation then refuses, which is exactly the disagreement this answers for.
+    /// </remarks>
+    internal static (int Width, int Height) ResolveDeviceFootprint(Rect bounds, float density)
+        => (ToDeviceExtent(bounds.Width, density), ToDeviceExtent(bounds.Height, density));
+
+    // The working-scale clamp hands back an unclamped density when no candidate footprint fits, so an axis
+    // can still arrive past int range. Saturating keeps that an extent the device refuses rather than a
+    // negative one that would read as a caller error. An axis that rounds to zero is left at zero, which is
+    // the extent the allocation already refuses.
+    private static int ToDeviceExtent(double logicalExtent, float density)
+    {
+        double pixels = Math.Ceiling(logicalExtent * density);
+        if (pixels >= int.MaxValue) return int.MaxValue;
+        return pixels <= 0 ? 0 : (int)pixels;
     }
 
     internal static void ThrowIfDeliveryAllocationFailure(RenderIntent intent, Exception exception)
