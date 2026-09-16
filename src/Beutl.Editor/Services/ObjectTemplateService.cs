@@ -439,16 +439,16 @@ public sealed class ObjectTemplateService
                 for (int i = 0; i < _items.Count; i++)
                 {
                     ObjectTemplateItem item = _items[i];
-                    if (item.FilePath == null) continue;
+                    if (item.FilePath is not { } filePath) continue;
 
-                    diskPaths.TryMatch(item.FilePath, out string? currentCanonicalPath);
+                    diskPaths.TryMatch(filePath, out string? currentCanonicalPath);
                     if (currentCanonicalPath is not null
                         && diskPaths.TryGetPreferredPath(
                             currentCanonicalPath,
                             out string? preferredPath)
                         && preferredPath is not null
                         && !string.Equals(
-                            item.FilePath,
+                            filePath,
                             preferredPath,
                             StringComparison.Ordinal))
                     {
@@ -456,6 +456,7 @@ public sealed class ObjectTemplateService
                         if (preferred is not null)
                         {
                             _items[i] = item = preferred;
+                            filePath = preferredPath;
                             currentCanonicalPath = preferred.CanonicalFilePath;
                             _logger.LogInformation(
                                 "Reloaded template from preferred path: {FilePath}",
@@ -463,18 +464,18 @@ public sealed class ObjectTemplateService
                         }
                     }
 
-                    if (loadedPaths.ContainsKnown(item.FilePath, currentCanonicalPath))
+                    if (loadedPaths.ContainsKnown(filePath, currentCanonicalPath))
                     {
                         _items.RemoveAt(i--);
                         _logger.LogInformation(
                             "Removed duplicate template identity: {FilePath}",
-                            item.FilePath);
+                            filePath);
                         continue;
                     }
 
-                    loadedPaths.AddKnown(item.FilePath, currentCanonicalPath);
+                    loadedPaths.AddKnown(filePath, currentCanonicalPath);
 
-                    DateTime diskTime = GetLastWriteTimeOrDefault(item.FilePath);
+                    DateTime diskTime = GetLastWriteTimeOrDefault(filePath);
                     bool targetChanged = !string.Equals(
                         currentCanonicalPath,
                         item.CanonicalFilePath,
@@ -483,11 +484,11 @@ public sealed class ObjectTemplateService
                         && (diskTime == default || diskTime <= item.LastWriteTimeUtc))
                         continue;
 
-                    ObjectTemplateItem? reloaded = LoadFromFile(item.FilePath);
+                    ObjectTemplateItem? reloaded = LoadFromFile(filePath);
                     if (reloaded != null)
                     {
                         _items[i] = reloaded;
-                        _logger.LogInformation("Reloaded template (file changed): {FilePath}", item.FilePath);
+                        _logger.LogInformation("Reloaded template (file changed): {FilePath}", filePath);
                     }
                 }
 

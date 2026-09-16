@@ -22,6 +22,10 @@ namespace Beutl.Embedding.MediaFoundation.Decoding;
 namespace Beutl.Extensions.MediaFoundation.Decoding;
 #endif
 
+// NAudio.Wasapi supports only Windows. Like MFDecoder, this reader is reached only through the
+// decoder that MFDecodingExtension registers on Windows.
+#pragma warning disable CA1416 // プラットフォームの互換性を検証
+
 public class MFReader : MediaReader
 {
     private readonly ILogger _logger = Log.CreateLogger<MFReader>();

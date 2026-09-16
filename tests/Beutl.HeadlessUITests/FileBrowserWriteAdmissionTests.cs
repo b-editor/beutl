@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Diagnostics.CodeAnalysis;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
@@ -390,7 +391,7 @@ public sealed class FileBrowserWriteAdmissionTests
 
         public override FAIconSource? GetIcon() => null;
 
-        public override bool TryCreateEditor(CoreObject obj, out Control? editor)
+        public override bool TryCreateEditor(CoreObject obj, [NotNullWhen(true)] out Control? editor)
         {
             editor = null;
             return false;
@@ -399,7 +400,7 @@ public sealed class FileBrowserWriteAdmissionTests
         public override bool TryCreateContext(
             CoreObject obj,
             IEditorContextServices services,
-            out IEditorContext? context)
+            [NotNullWhen(true)] out IEditorContext? context)
         {
             context = new PluginEditorContext(obj);
             return true;

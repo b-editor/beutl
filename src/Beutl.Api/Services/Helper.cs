@@ -59,9 +59,11 @@ internal static class Helper
 
         foreach (SourceRepository sourceRepository in repositories)
         {
-            DependencyInfoResource dependencyInfoResource
+            DependencyInfoResource? dependencyInfoResource
                 = await sourceRepository.GetResourceAsync<DependencyInfoResource>(cancellationToken)
                     .ConfigureAwait(false);
+
+            if (dependencyInfoResource == null) continue;
 
             SourcePackageDependencyInfo dependencyInfo
                 = await dependencyInfoResource.ResolvePackage(

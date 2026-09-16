@@ -712,7 +712,7 @@ public sealed class PackageInstallerDisposeTests
             DisplayName = "Package Name",
             Description = "Description",
             ShortDescription = "Short description",
-            WebSite = null,
+            WebSite = "",
             Tags = [],
             LogoId = null,
             LogoUrl = null,

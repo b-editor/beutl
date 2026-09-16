@@ -3776,7 +3776,7 @@ public class VersionControlRestoreTests
                 await releaseWarning.Task.WaitAsync(TimeSpan.FromSeconds(5));
             };
 
-            opening = TestShell.Project.OpenProject(project.Uri.LocalPath);
+            opening = TestShell.Project.OpenProject(project.Uri!.LocalPath);
             await warningStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Task disposal = coordinator.DisposeAsync().AsTask();
