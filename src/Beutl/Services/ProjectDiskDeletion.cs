@@ -44,6 +44,9 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
     internal Func<FAContentDialog, Task<FAContentDialogResult>> ConfirmAsync { get; set; } =
         static dialog => dialog.ShowAsync();
 
+    // How the recent files are checked for existence; a test holds it to stand in for a slow share.
+    internal Func<string, bool> RecentFileExists { get; set; } = File.Exists;
+
     public async Task DeleteAsync(string projectFile)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
@@ -62,53 +65,65 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
             return;
         }
 
-        await projectService.RunExclusiveOfTransitionsAsync(async () =>
+        ProjectDiskDeletionTarget? attempted = null;
+        try
         {
-            // The confirmation can stay open for a while. Delete only what it named, and only while
-            // nothing has the project open.
-            ProjectDiskDeletionTarget? current = await Task.Run(() => Resolve(projectFile, protectedFolders));
-            if (current is null)
+            await projectService.RunExclusiveOfTransitionsAsync(async () =>
             {
-                NotificationService.ShowInformation(Strings.DeleteFromDisk, MessageStrings.FileDoesNotExist);
-                return;
-            }
+                // The confirmation can stay open for a while. Delete only what it named, and only
+                // while nothing has the project open.
+                ProjectDiskDeletionTarget? current = await Task.Run(() => Resolve(projectFile, protectedFolders));
+                if (current is null)
+                {
+                    NotificationService.ShowInformation(Strings.DeleteFromDisk, MessageStrings.FileDoesNotExist);
+                    return;
+                }
 
-            if (current != target)
-            {
-                NotificationService.ShowError(Strings.DeleteFromDisk, MessageStrings.OperationFailed);
-                return;
-            }
+                if (current != target)
+                {
+                    NotificationService.ShowError(Strings.DeleteFromDisk, MessageStrings.OperationFailed);
+                    return;
+                }
 
-            if (IsInUse(current))
-            {
-                return;
-            }
+                if (IsInUse(current))
+                {
+                    return;
+                }
 
-            // An export outlives the close of its project and keeps its output lease, so files no
-            // editor holds any more can still be read. Reserving the workspace refuses while an
-            // export, a save or a version-control operation runs, and holds new ones off meanwhile.
-            using IDisposable? workspace = editorService.TryBeginWorktreeMutation();
-            if (workspace is null)
-            {
-                NotificationService.ShowError(Strings.DeleteFromDisk, MessageStrings.ProjectBusyCannotDeleteFromDisk);
-                return;
-            }
+                // An export outlives the close of its project and keeps its output lease, so files no
+                // editor holds any more can still be read. Reserving the workspace refuses while an
+                // export, a save or a version-control operation runs, and holds new ones off meanwhile.
+                using IDisposable? workspace = editorService.TryBeginWorktreeMutation();
+                if (workspace is null)
+                {
+                    NotificationService.ShowError(
+                        Strings.DeleteFromDisk,
+                        MessageStrings.ProjectBusyCannotDeleteFromDisk);
+                    return;
+                }
 
-            try
+                attempted = current;
+                try
+                {
+                    await Task.Run(() => Delete(current));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    s_logger.LogError(ex, "Failed to delete a project from disk. Path: {Path}", current.Path);
+                    // Part of the folder may be left behind; the exception names what could not go.
+                    NotificationService.ShowError(Strings.DeleteFromDisk, ex.Message);
+                }
+            });
+        }
+        finally
+        {
+            // Checking the recent files can block on an unrelated one, as on a disconnected network
+            // drive, so it waits until the gate and the workspace are free again.
+            if (attempted is not null)
             {
-                await Task.Run(() => Delete(current));
+                await ForgetDeletedFilesAsync(GlobalConfiguration.Instance.ViewConfig, attempted);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                s_logger.LogError(ex, "Failed to delete a project from disk. Path: {Path}", current.Path);
-                // Part of the folder may be left behind; the exception names what could not go.
-                NotificationService.ShowError(Strings.DeleteFromDisk, ex.Message);
-            }
-            finally
-            {
-                await ForgetDeletedFilesAsync(GlobalConfiguration.Instance.ViewConfig, current);
-            }
-        });
+        }
     }
 
     // Returns null when the project file no longer exists.
@@ -228,11 +243,12 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
     // Drops the recent entries of what is gone: the project file and, with the folder, its scenes.
     // The lists are read and changed on the UI thread, but checking their files can block, as on a
     // disconnected network drive.
-    private static async Task ForgetDeletedFilesAsync(ViewConfig viewConfig, ProjectDiskDeletionTarget target)
+    private async Task ForgetDeletedFilesAsync(ViewConfig viewConfig, ProjectDiskDeletionTarget target)
     {
         string[] recent = viewConfig.RecentFiles.Concat(viewConfig.RecentProjects).Distinct().ToArray();
+        Func<string, bool> exists = RecentFileExists;
         string[] deleted = await Task.Run(() => recent
-            .Where(file => !File.Exists(file) && WasDeleted(target, file))
+            .Where(file => !exists(file) && WasDeleted(target, file))
             .ToArray());
         foreach (string file in deleted)
         {

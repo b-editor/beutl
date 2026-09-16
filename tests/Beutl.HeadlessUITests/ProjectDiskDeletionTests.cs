@@ -273,6 +273,58 @@ public class ProjectDiskDeletionTests
     }
 
     [AvaloniaTest]
+    public async Task A_slow_recent_file_does_not_hold_the_gate_or_the_workspace()
+    {
+        await TestReset.ResetShellAsync();
+        (string projectFile, string sceneFile) = await CreateClosedProjectAsync("slow-recent", NewWorkspace("slow-recent"));
+        var checkStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCheck = new ManualResetEventSlim();
+        var deletion = new ProjectDiskDeletion(TestShell.Project, TestShell.Editor)
+        {
+            ConfirmAsync = _ => Task.FromResult(FAContentDialogResult.Primary),
+            // Stands in for a recent file on a disconnected network share.
+            RecentFileExists = path =>
+            {
+                checkStarted.TrySetResult();
+                releaseCheck.Wait(TimeSpan.FromSeconds(30));
+                return File.Exists(path);
+            },
+        };
+        Task deleting = deletion.DeleteAsync(projectFile);
+        try
+        {
+            await checkStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            bool workspaceFree;
+            using (IDisposable? output = TestShell.Editor.TryBeginOutputOperation())
+            {
+                workspaceFree = output is not null;
+            }
+
+            Task change = TestShell.Project.RunExclusiveOfTransitionsAsync(() => Task.CompletedTask);
+            bool gateFree = await Task.WhenAny(change, Task.Delay(TimeSpan.FromSeconds(5))) == change;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(Directory.Exists(Path.GetDirectoryName(projectFile)), Is.False);
+                Assert.That(workspaceFree, Is.True, "The workspace must be free while recent files are checked.");
+                Assert.That(gateFree, Is.True, "The transition gate must be free while recent files are checked.");
+            });
+        }
+        finally
+        {
+            releaseCheck.Set();
+            await deleting.WaitAsync(TimeSpan.FromSeconds(30));
+            releaseCheck.Dispose();
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(GlobalConfiguration.Instance.ViewConfig.RecentFiles, Does.Not.Contain(projectFile));
+            Assert.That(GlobalConfiguration.Instance.ViewConfig.RecentFiles, Does.Not.Contain(sceneFile));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task A_file_is_not_opened_while_a_deletion_holds_the_workspace()
     {
         await TestReset.ResetShellAsync();
