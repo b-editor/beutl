@@ -29,6 +29,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
     private readonly VersionControlPreviewCache<string, IReadOnlyList<FileChange>> _fileCache;
     private readonly VersionControlPreviewCache<(string Sha, string Path), IReadOnlyList<VersionControlDiffLineViewModel>> _diffCache;
     private int _previewRevision;
+    private CancellationToken? _previewLoadToken;
+    private Task _displayedPreviewRefresh = Task.CompletedTask;
     private readonly CompositeDisposable _disposables = [];
     private readonly SemaphoreSlim _historyGate = new(1, 1);
     private readonly ReactivePropertySlim<bool> _showingDetail;
@@ -784,6 +786,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
         }
 
         IProjectVersionControlService service = _service;
+        _previewLoadToken = cancellationToken;
         try
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -809,6 +812,10 @@ internal sealed class VersionControlTabViewModel : IToolContext
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+        }
+        finally
+        {
+            if (_previewLoadToken == cancellationToken) _previewLoadToken = null;
         }
     }
 
@@ -843,6 +850,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
         }
 
         IProjectVersionControlService service = _service;
+        _previewLoadToken = cancellationToken;
         var cacheKey = (commit.Commit.Sha, file.Change.Path);
         try
         {
@@ -871,6 +879,10 @@ internal sealed class VersionControlTabViewModel : IToolContext
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+        }
+        finally
+        {
+            if (_previewLoadToken == cancellationToken) _previewLoadToken = null;
         }
     }
 
@@ -915,8 +927,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
         _serviceBindingCancellation?.Cancel();
         _serviceBindingCancellation?.Dispose();
 
-        _selectionCancellation?.Cancel();
-        _selectionCancellation?.Dispose();
+        CancelSelection();
         TryCancel(Volatile.Read(ref _remoteOperationCancellation));
         if (_observedPrimaryActionCommand is not null)
         {
@@ -1155,9 +1166,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
     {
         InvalidatePreviewCache();
         _statusRefreshCancellation?.Cancel();
-        _selectionCancellation?.Cancel();
-        _selectionCancellation?.Dispose();
-        _selectionCancellation = null;
+        CancelSelection();
         TryCancel(Volatile.Read(ref _remoteOperationCancellation));
 
         foreach (VersionControlCommitViewModel commit in Commits)
@@ -1577,9 +1586,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
 
             string? selectedSha = SelectedCommit.Value?.Commit.Sha;
             _historyIdentity = null;
-            _selectionCancellation?.Cancel();
-            _selectionCancellation?.Dispose();
-            _selectionCancellation = null;
+            CancelSelection();
             foreach (VersionControlCommitViewModel commit in Commits)
             {
                 commit.Dispose();
@@ -1795,7 +1802,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
                     status.Branch,
                     refreshHistory: !status.HasConflicts && !status.IsDetachedHead,
                     statusRefreshRevision,
-                    cancellationToken)));
+                    cancellationToken),
+                RefreshDisplayedPreviewAsync()));
         });
     }
 
@@ -1929,6 +1937,21 @@ internal sealed class VersionControlTabViewModel : IToolContext
         UpdatePrimaryAction();
     }
 
+    private Task RefreshDisplayedPreviewAsync()
+    {
+        if (_disposed) return Task.CompletedTask;
+        if (!_displayedPreviewRefresh.IsCompleted) return _displayedPreviewRefresh;
+        // An active selection already retries when the preview revision changes. Reuse an
+        // automatic reload across notifications without starting duplicate reads.
+        if (_previewLoadToken is not null) return Task.CompletedTask;
+
+        return _displayedPreviewRefresh = SelectedFile.Value is { } file
+            ? SelectFileAsync(file)
+            : SelectedCommit.Value is { } commit
+                ? SelectCommitAsync(commit)
+                : Task.CompletedTask;
+    }
+
     private void InvalidatePreviewCache()
     {
         _previewRevision++;
@@ -2011,10 +2034,19 @@ internal sealed class VersionControlTabViewModel : IToolContext
         }
     }
 
-    private CancellationToken ReplaceSelectionCancellation()
+    private void CancelSelection()
     {
         _selectionCancellation?.Cancel();
         _selectionCancellation?.Dispose();
+        _selectionCancellation = null;
+        // A new selection or repository state must not reuse an obsolete automatic reload.
+        _previewLoadToken = null;
+        _displayedPreviewRefresh = Task.CompletedTask;
+    }
+
+    private CancellationToken ReplaceSelectionCancellation()
+    {
+        CancelSelection();
         _selectionCancellation = new CancellationTokenSource();
         return _selectionCancellation.Token;
     }

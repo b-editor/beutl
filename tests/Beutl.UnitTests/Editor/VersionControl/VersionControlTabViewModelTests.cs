@@ -12,6 +12,240 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [TestFixture]
 public class VersionControlTabViewModelTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Metadata_change_reloads_a_completed_preview_and_preserves_selection(bool diff)
+    {
+        var (service, commit, file) = CreatePreviewService();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.OpenCommitDetailAsync(viewModel.Commits[0]);
+        if (diff) await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        var selectedCommit = viewModel.SelectedCommit.Value;
+        var selectedFile = viewModel.SelectedFile.Value;
+        var files = new TaskCompletionSource<IReadOnlyList<FileChange>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var text = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var currentFile = file with { Status = FileChangeStatus.Added };
+        if (diff)
+            service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).Returns(text.Task);
+        else
+            service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).Returns(files.Task);
+
+        RaisePreviewMetadata(service, commit, 1);
+        try
+        {
+            Assert.That(diff ? viewModel.DiffLines.Count : viewModel.ChangedFiles.Count, Is.Zero,
+                "Invalidated content must disappear while the replacement is loading.");
+        }
+        finally
+        {
+            files.TrySetResult([currentFile]);
+            text.TrySetResult("Binary files a/project.bep and b/project.bep differ");
+        }
+        await viewModel.Initialization;
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selectedCommit));
+            Assert.That(viewModel.ShowingDetail.Value, Is.True);
+            if (diff)
+            {
+                Assert.That(viewModel.SelectedFile.Value, Is.SameAs(selectedFile));
+                Assert.That(viewModel.DiffLines.Single().Text, Does.StartWith("Binary files"));
+            }
+            else
+            {
+                Assert.That(viewModel.ChangedFiles.Single().Change, Is.EqualTo(currentFile));
+            }
+        });
+    }
+
+    [Test]
+    public async Task Metadata_burst_shares_a_displayed_preview_reload_and_publishes_the_latest_result()
+    {
+        var (service, commit, file) = CreatePreviewService();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        var obsolete = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.SetupSequence(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()))
+            .Returns(obsolete.Task).ReturnsAsync("+latest");
+        RaisePreviewMetadata(service, commit, 1);
+        Task firstRefresh = viewModel.Initialization;
+        RaisePreviewMetadata(service, commit, 2);
+        RaisePreviewMetadata(service, commit, 3);
+        try
+        {
+            service.Verify(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()), Times.Exactly(2));
+            Assert.That(viewModel.Initialization.IsCompleted, Is.False);
+        }
+        finally
+        {
+            obsolete.TrySetResult("+obsolete");
+        }
+        await viewModel.Initialization;
+        await firstRefresh;
+        Assert.That(viewModel.DiffLines.Single().Text, Is.EqualTo("+latest"));
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        service.Verify(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()), Times.Exactly(3));
+    }
+
+    [Test]
+    public async Task A_new_selection_refresh_does_not_wait_for_an_obsolete_automatic_reload()
+    {
+        var (service, commit, file) = CreatePreviewService();
+        var other = new FileChange("other.bep", FileChangeStatus.Modified);
+        service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).ReturnsAsync([file, other]);
+        service.SetupSequence(x => x.GetDiffAsync(commit.Sha, other.Path, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("+other-before").ReturnsAsync("+other-after");
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        var obsolete = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).Returns(obsolete.Task);
+        RaisePreviewMetadata(service, commit, 1);
+        Task firstRefresh = viewModel.Initialization;
+        try
+        {
+            await viewModel.SelectFileAsync(viewModel.ChangedFiles[1]);
+            RaisePreviewMetadata(service, commit, 2);
+            await viewModel.Initialization.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.That(viewModel.DiffLines.Single().Text, Is.EqualTo("+other-after"));
+        }
+        finally
+        {
+            obsolete.TrySetResult("+obsolete");
+        }
+        await firstRefresh;
+        Assert.That(viewModel.DiffLines.Single().Text, Is.EqualTo("+other-after"));
+        Assert.That(viewModel.SelectedFile.Value?.Change.Path, Is.EqualTo(other.Path));
+    }
+
+    [Test]
+    public async Task Service_rebind_does_not_reuse_an_old_automatic_preview_reload()
+    {
+        var (oldService, commit, file) = CreatePreviewService();
+        var (service, _, _) = CreatePreviewService();
+        using var source = CreateServiceSource(oldService.Object);
+        using var viewModel = new VersionControlTabViewModel(Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(),
+            source, null, action => action());
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        var obsolete = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        oldService.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).Returns(obsolete.Task);
+        RaisePreviewMetadata(oldService, commit, 1);
+        Task oldRefresh = viewModel.Initialization;
+        try
+        {
+            source.Value = service.Object;
+            await viewModel.Initialization;
+            await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+            await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+            service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).ReturnsAsync("+new-service");
+            RaisePreviewMetadata(service, commit, 1);
+            await viewModel.Initialization.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        finally
+        {
+            obsolete.TrySetResult("+old-service");
+        }
+        await oldRefresh;
+        Assert.That(viewModel.DiffLines.Single().Text, Is.EqualTo("+new-service"));
+    }
+
+    [Test]
+    public async Task Removing_the_selected_commit_does_not_wait_for_its_old_automatic_reload()
+    {
+        var (service, commit, file) = CreatePreviewService();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        var obsolete = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).Returns(obsolete.Task);
+        RaisePreviewMetadata(service, commit, 1);
+        Task oldRefresh = viewModel.Initialization;
+        try
+        {
+            CommitInfo replacement = CreateCommit(2, SnapshotKind.Save);
+            service.Setup(x => x.GetHistoryAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([replacement]);
+            RaisePreviewMetadata(service, replacement, 2);
+            await viewModel.Initialization.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.That(viewModel.SelectedCommit.Value, Is.Null);
+        }
+        finally
+        {
+            obsolete.TrySetResult("+obsolete");
+        }
+        await oldRefresh;
+        Assert.That(viewModel.DiffLines, Is.Empty);
+    }
+
+    [Test]
+    public async Task A_failed_displayed_preview_reload_is_retried_on_the_next_metadata_change()
+    {
+        var (service, commit, file) = CreatePreviewService();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        service.SetupSequence(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new IOException("preview failed")).ReturnsAsync("+recovered");
+        RaisePreviewMetadata(service, commit, 1);
+        Assert.ThrowsAsync<IOException>(async () => await viewModel.Initialization);
+        Assert.That(viewModel.DiffLines, Is.Empty);
+        RaisePreviewMetadata(service, commit, 2);
+        await viewModel.Initialization;
+        Assert.That(viewModel.DiffLines.Single().Text, Is.EqualTo("+recovered"));
+    }
+
+    [Test]
+    public async Task Worktree_only_changes_do_not_reload_a_completed_preview()
+    {
+        var (service, commit, file) = CreatePreviewService();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            new WorkspaceStatus("main", 0, 0, [], false)
+            {
+                HeadCommit = commit.Sha,
+                NotificationSequence = 1,
+                ChangeKind = RepositoryChangeKind.Worktree,
+            });
+        await viewModel.Initialization;
+        service.Verify(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private static (Mock<IProjectVersionControlService> Service, CommitInfo Commit, FileChange File) CreatePreviewService()
+    {
+        var service = CreateServiceMock();
+        CommitInfo commit = CreateCommit(1, SnapshotKind.Save);
+        var file = new FileChange("project.bep", FileChangeStatus.Modified);
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("main", 0, 0, [], false) { HeadCommit = commit.Sha });
+        service.Setup(x => x.GetHistoryAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).ReturnsAsync([file]);
+        service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).ReturnsAsync("+before");
+        return (service, commit, file);
+    }
+
+    private static void RaisePreviewMetadata(Mock<IProjectVersionControlService> service, CommitInfo commit, long sequence)
+    {
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            new WorkspaceStatus("main", 0, 0, [], false)
+            {
+                HeadCommit = commit.Sha,
+                NotificationSequence = sequence,
+                ChangeKind = RepositoryChangeKind.Metadata,
+            });
+    }
+
     [Test]
     public async Task Initialization_keeps_a_newer_read_when_an_older_notification_arrives_before_it_is_applied()
     {

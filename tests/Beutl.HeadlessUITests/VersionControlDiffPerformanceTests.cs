@@ -19,6 +19,63 @@ public class VersionControlDiffPerformanceTests
     [AvaloniaTest]
     [TestCase(320)]
     [TestCase(900)]
+    public async Task Metadata_change_replaces_visible_diff_without_reselecting_the_file(int width)
+    {
+        string root = Path.GetTempPath();
+        var service = new Mock<IProjectVersionControlService>();
+        service.SetupGet(x => x.Repository).Returns(new RepositoryInfo(root, root));
+        service.Setup(x => x.GetAvailabilityAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GitAvailability(GitAvailabilityState.Installed, "git", new Version(2, 50), false));
+        var commit = new CommitInfo(new string('a', 40), "aaaaaaa", "preview", "Test", DateTimeOffset.UnixEpoch, SnapshotKind.Save);
+        var file = new FileChange("project.bep", FileChangeStatus.Modified);
+        var status = new WorkspaceStatus("main", 0, 0, [], false) { HeadCommit = commit.Sha };
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(status);
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        service.Setup(x => x.GetHistoryAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync([commit]);
+        service.Setup(x => x.GetCommitFilesAsync(commit.Sha, It.IsAny<CancellationToken>())).ReturnsAsync([file]);
+        service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).ReturnsAsync("+old-text");
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(), source, null, action => action());
+        await viewModel.Initialization;
+        var view = new VersionControlTabView { DataContext = viewModel };
+        var window = new Window { Width = width, Height = 600, Content = view };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            await viewModel.OpenCommitDetailAsync(viewModel.Commits[0]);
+            HeadlessTestHelpers.Render();
+            await viewModel.SelectFileAsync(viewModel.ChangedFiles[0]);
+            HeadlessTestHelpers.Render();
+            var selection = viewModel.SelectedFile.Value;
+            var changes = view.FindControl<VersionControlChangesView>(width == 320 ? "NarrowChangesView" : "WideChangesView")!;
+            var list = changes.FindControl<ItemsControl>("DiffList")!;
+            Assert.That(list.GetVisualDescendants().OfType<TextBlock>().Any(x => x.Text == "+old-text"), Is.True);
+
+            const string binaryDiff = "Binary files a/project.bep and b/project.bep differ";
+            service.Setup(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>())).ReturnsAsync(binaryDiff);
+            service.Raise(x => x.StatusChanged += null, service.Object,
+                status with { NotificationSequence = 1, ChangeKind = RepositoryChangeKind.Metadata });
+            await viewModel.Initialization;
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.SelectedFile.Value, Is.SameAs(selection));
+                Assert.That(viewModel.ShowingDetail.Value, Is.True);
+                Assert.That(list.GetVisualDescendants().OfType<TextBlock>().Any(x => x.Text == binaryDiff), Is.True);
+                Assert.That(list.GetVisualDescendants().OfType<TextBlock>().Any(x => x.Text == "+old-text"), Is.False);
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(320)]
+    [TestCase(900)]
     public async Task Large_diff_realizes_only_visible_rows_and_can_scroll_to_the_end(int width)
     {
         string root = Path.GetTempPath();
