@@ -732,6 +732,58 @@ public class NoMigrationRegressionTests
     }
 
     [Test]
+    public void The_migration_preflight_leaves_the_persisted_item_graph_alone()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        string path = project.Uri!.LocalPath;
+        File.WriteAllText(path, "{\"minAppVersion\":\"1.0.0\",\"items\":[\"already-there.scene\"]}");
+        JsonObject? gateAtElementWrite = null;
+        element.BeforeSerialization = () =>
+            gateAtElementWrite = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((string?)gateAtElementWrite?["minAppVersion"], Is.EqualTo("9.0.0"));
+            // The save that follows can still fail, and ProjectPersistence then rolls the in-memory
+            // item list back; the preflight must not have recorded a graph that never happened.
+            Assert.That(
+                gateAtElementWrite?["items"]?.ToJsonString(),
+                Is.EqualTo("[\"already-there.scene\"]"));
+        });
+    }
+
+    [Test]
+    public void The_migration_preflight_does_not_lower_a_gate_already_on_disk()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        string path = project.Uri!.LocalPath;
+        File.WriteAllText(path, "{\"minAppVersion\":\"99.0.0\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(path))!["minAppVersion"];
+
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        Assert.That(gateAtElementWrite, Is.EqualTo("99.0.0"));
+    }
+
+    [Test]
+    public void An_unreadable_persisted_gate_does_not_fail_the_save()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        project.RestoreVersionMetadata("not-a-version", "not-a-version");
+        File.WriteAllText(project.Uri!.LocalPath, "{\"minAppVersion\":\"not-a-version\"}");
+
+        Assert.DoesNotThrow(() => CoreSerializer.StoreToUri(project, project.Uri));
+        Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
+    }
+
+    [Test]
     public void A_standalone_value_shared_with_another_project_is_discovered_again()
     {
         MigratingLeaf leaf = CreateMigrated(new MigratingLeaf("9.0.0"));

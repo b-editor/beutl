@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using NuGet.Versioning;
 
 namespace Beutl.Serialization;
 
@@ -79,25 +80,126 @@ public static class CoreSerializer
 
     private static void WriteMigrationGate(Project project, Uri destination)
     {
-        if (project.Items.Any(item => Project.GetRequiredMigrationVersion(item) is not null))
+        string? required = null;
+        foreach (ProjectItem item in project.Items)
+        {
+            required = Project.GetMaximumMigrationVersion(
+                required,
+                Project.GetRequiredMigrationVersion(item));
+        }
+
+        if (required is null)
+        {
+            return;
+        }
+
+        project.MarkAsMigrated(required);
+        if (destination.Scheme != "file" || !TryRaiseGateInPlace(project, destination.LocalPath))
         {
             StoreToUri(project, destination, CoreSerializationMode.Write);
         }
     }
 
-    private static bool CoversMigration(Project project, string requiredVersion)
+    /// <summary>
+    /// Raises the version metadata of the project file already at <paramref name="path"/>, leaving
+    /// the graph it records alone, and reports whether it did.
+    /// </summary>
+    /// <remarks>
+    /// This preflight runs before the save it guards, and that save can still fail — after which
+    /// <c>ProjectPersistence</c> rolls the in-memory item list back. Re-serializing the current
+    /// graph here would leave the file recording a graph that never happened, pointing at sidecars
+    /// that were never written. A destination with no file yet has no graph to preserve and nothing
+    /// an older application could open, so the caller writes it the ordinary way.
+    /// </remarks>
+    private static bool TryRaiseGateInPlace(Project project, string path)
     {
-        string? covered = project.MinAppVersion;
-        foreach (ProjectItem item in project.Items)
+        if (!File.Exists(path))
         {
-            covered = Project.GetMaximumMigrationVersion(
-                covered,
-                Project.GetRequiredMigrationVersion(item));
+            return false;
         }
 
-        return ReferenceEquals(
-            Project.GetMaximumMigrationVersion(covered, requiredVersion),
-            covered);
+        JsonNode? node;
+        using (FileStream stream = File.OpenRead(path))
+        {
+            node = JsonNode.Parse(stream);
+        }
+
+        if (node is not JsonObject json)
+        {
+            return false;
+        }
+
+        // A gate already on disk is never lowered, the way Project.MarkAsMigrated treats the one it
+        // loaded: a Save As can name a file whose own constraint is higher than this project's.
+        string persisted = (string?)json["minAppVersion"] ?? Project.DefaultMinAppVersion;
+        json["minAppVersion"] = Project.GetMaximumVersion(persisted, project.MinAppVersion);
+        json["appVersion"] = project.AppVersion;
+
+        string temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (var stream = new FileStream(
+                       temporaryPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None))
+            using (var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions))
+            {
+                json.WriteTo(writer, JsonHelper.SerializerOptions);
+                writer.Flush();
+                stream.Flush(flushToDisk: true);
+            }
+
+            StorageWriteTransaction.MoveIntoPlace(
+                temporaryPath,
+                path,
+                overwrite: true,
+                isCompatibilityGate: true);
+        }
+        catch
+        {
+            try
+            {
+                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            }
+            catch
+            {
+                // 失敗しても元の例外は投げる
+            }
+
+            throw;
+        }
+
+        return true;
+    }
+
+    // Unparseable versions answer "covered" rather than throwing: an unknown persisted constraint is
+    // retained rather than weakened (see Project.MarkAsMigrated), so nothing this pass could
+    // discover would change the gate, and a save must not fail over a value it cannot read.
+    private static bool CoversMigration(Project project, string requiredVersion)
+    {
+        if (!NuGetVersion.TryParse(requiredVersion, out NuGetVersion? required)
+            || !NuGetVersion.TryParse(project.MinAppVersion, out NuGetVersion? gate))
+        {
+            return true;
+        }
+
+        if (VersionComparer.VersionRelease.Compare(gate, required) >= 0)
+        {
+            return true;
+        }
+
+        foreach (ProjectItem item in project.Items)
+        {
+            if (Project.GetRequiredMigrationVersion(item) is { } known
+                && NuGetVersion.TryParse(known, out NuGetVersion? knownVersion)
+                && VersionComparer.VersionRelease.Compare(knownVersion, required) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

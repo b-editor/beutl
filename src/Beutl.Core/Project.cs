@@ -181,7 +181,7 @@ public sealed class Project : Hierarchical
             : left;
     }
 
-    private static string GetMaximumVersion(string persistedVersion, string requiredVersion)
+    internal static string GetMaximumVersion(string persistedVersion, string requiredVersion)
     {
         // An unknown persisted constraint is retained so migration cannot weaken it.
         return NuGetVersion.TryParse(persistedVersion, out NuGetVersion? persisted)
