@@ -27,6 +27,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
     private bool _gitAvailable;
     private bool _coordinatorGitAvailable;
     private bool _disposed;
+    private bool _isFlyoutOpen;
 
     internal TitleBarBranchViewModel(
         IReadOnlyReactiveProperty<IProjectVersionControlService?> serviceSource,
@@ -124,8 +125,11 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             return;
         }
 
+        _isFlyoutOpen = true;
         await RefreshAsync(cancellationToken);
     }
+
+    internal void CloseFlyout() => _isFlyoutOpen = false;
 
     internal Task RefreshAsync(CancellationToken cancellationToken = default)
         => RefreshAsync(refreshBranches: true, cancellationToken);
@@ -544,13 +548,18 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             {
                 // Service reads and notifications share a sequence captured under its gate.
                 // Unlike legacy providers, they cannot leave a delayed event looking current.
+                if (_isFlyoutOpen && status.ChangeKind.HasFlag(RepositoryChangeKind.Metadata))
+                {
+                    QueueStatusRefresh(refreshBranches: true);
+                }
                 return;
             }
             // The event carries no ordering, so one raised before a branch change can arrive after
             // the refresh that already read the new branch. Applying it above keeps the widget
             // responsive; re-reading afterwards is what makes the state it settles on the current
             // one. The read discards itself if a later event supersedes it.
-            QueueStatusRefresh(refreshBranches: false);
+            QueueStatusRefresh(refreshBranches: _isFlyoutOpen
+                && status.ChangeKind.HasFlag(RepositoryChangeKind.Metadata));
         });
     }
 

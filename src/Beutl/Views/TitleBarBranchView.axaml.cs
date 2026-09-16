@@ -9,6 +9,8 @@ namespace Beutl.Views;
 
 public sealed partial class TitleBarBranchView : UserControl
 {
+    private TitleBarBranchViewModel? _flyoutViewModel;
+
     internal VersionControlPickerFlyout PromptFlyout { get; } = new();
 
     public TitleBarBranchView()
@@ -19,6 +21,7 @@ public sealed partial class TitleBarBranchView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        OnBranchFlyoutClosed(this, EventArgs.Empty);
         if (DataContext is TitleBarBranchViewModel viewModel)
         {
             viewModel.RequestNewBranchNameAsync = ShowNewBranchFlyoutAsync;
@@ -38,6 +41,7 @@ public sealed partial class TitleBarBranchView : UserControl
         {
             if (DataContext is TitleBarBranchViewModel viewModel)
             {
+                _flyoutViewModel = viewModel;
                 await viewModel.PrepareFlyoutAsync();
             }
         }
@@ -45,6 +49,12 @@ public sealed partial class TitleBarBranchView : UserControl
         {
             await ex.Handle();
         }
+    }
+
+    private void OnBranchFlyoutClosed(object? sender, EventArgs e)
+    {
+        _flyoutViewModel?.CloseFlyout();
+        _flyoutViewModel = null;
     }
 
     private async void OnBranchClick(object? sender, RoutedEventArgs e)

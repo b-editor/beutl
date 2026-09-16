@@ -135,6 +135,13 @@ public class VersionControlTabViewTests
                 Assert.That(currentMark.IsVisible, Is.True);
             });
 
+            RunGit(config.GitExecutablePath!, service.Repository!.RepoRoot, "branch", "created-while-open");
+            await WaitUntilAsync(() => viewModel.Branches.Any(branch => branch.Name == "created-while-open"));
+            Assert.That(branchButton.Flyout.IsOpen, Is.True);
+            RunGit(config.GitExecutablePath!, service.Repository!.RepoRoot, "branch", "-d", "created-while-open");
+            await WaitUntilAsync(() => viewModel.Branches.All(branch => branch.Name != "created-while-open"));
+            Assert.That(branchButton.Flyout.IsOpen, Is.True);
+
             Task<string?> branchNameTask = viewModel.RequestNewBranchNameAsync();
             HeadlessTestHelpers.Render();
 

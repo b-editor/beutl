@@ -9,6 +9,58 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [TestFixture]
 public class TitleBarBranchViewModelTests
 {
+    [TestCase(RepositoryChangeKind.Metadata)]
+    [TestCase(RepositoryChangeKind.All)]
+    public async Task Open_flyout_refreshes_external_branch_changes_after_preparation(RepositoryChangeKind kind)
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new TitleBarBranchViewModel(source, CreateGitAvailabilitySource(),
+            Mock.Of<IProjectVersionControlCoordinator>(), action => action());
+        await viewModel.Initialization;
+        await viewModel.PrepareFlyoutAsync();
+        var current = new WorkspaceStatus("main", 0, 0, [], false)
+        {
+            NotificationSequence = 1,
+            ChangeKind = kind,
+        };
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(current);
+        service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new BranchInfo("main", true, null), new BranchInfo("external", false, null)]);
+        service.Raise(x => x.StatusChanged += null, service.Object, current);
+        await viewModel.Initialization;
+        Assert.That(viewModel.Branches.Select(x => x.Name), Is.EqualTo(new[] { "main", "external" }));
+
+        current = current with { NotificationSequence = 2 };
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(current);
+        service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new BranchInfo("main", true, null)]);
+        service.Raise(x => x.StatusChanged += null, service.Object, current);
+        await viewModel.Initialization;
+        Assert.That(viewModel.Branches.Select(x => x.Name), Is.EqualTo(new[] { "main" }));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Closed_flyout_and_worktree_events_do_not_reread_branches(bool closeFlyout)
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new TitleBarBranchViewModel(source, CreateGitAvailabilitySource(),
+            Mock.Of<IProjectVersionControlCoordinator>(), action => action());
+        await viewModel.Initialization;
+        await viewModel.PrepareFlyoutAsync();
+        if (closeFlyout) viewModel.CloseFlyout();
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            new WorkspaceStatus("main", 0, 0, [], false)
+            {
+                NotificationSequence = 1,
+                ChangeKind = closeFlyout ? RepositoryChangeKind.Metadata : RepositoryChangeKind.Worktree,
+            });
+        await viewModel.Initialization;
+        service.Verify(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
     [Test]
     public async Task Newer_read_wins_over_an_older_event_delivered_before_its_queued_apply()
     {
