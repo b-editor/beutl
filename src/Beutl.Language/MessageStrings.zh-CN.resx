@@ -464,7 +464,7 @@
   <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
     <value>导出、保存或版本控制操作仍在使用项目文件。请等待其完成后重试。</value>
   </data>
-  <data name="WorkspaceBusyCannotOpenFile" xml:space="preserve">
-    <value>另一项操作正在更改项目文件。请等待其完成后再重新打开该文件。</value>
+  <data name="ProjectFilesBeingChanged" xml:space="preserve">
+    <value>另一项操作正在更改项目文件。请等待其完成后重试。</value>
   </data>
 </root>

@@ -463,7 +463,7 @@ Do you want to restart the application?</value>
   <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
     <value>An export, a save or a version control operation is still using project files. Wait for it to finish, then try again.</value>
   </data>
-  <data name="WorkspaceBusyCannotOpenFile" xml:space="preserve">
-    <value>Project files are being changed by another operation. Wait for it to finish, then open the file again.</value>
+  <data name="ProjectFilesBeingChanged" xml:space="preserve">
+    <value>Project files are being changed by another operation. Wait for it to finish, then try again.</value>
   </data>
 </root>

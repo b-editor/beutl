@@ -262,11 +262,11 @@ public partial class MenuBarViewModel
         // A worktree mutation, such as a branch switch or a project being deleted from disk, may be
         // replacing or removing this file. Reading it then could catch it half-gone, and a tab opened
         // on it, or the open project it would join, would keep a file that is about to disappear, so
-        // the read holds mutations off until the file is open.
-        using IDisposable? read = _editorService.TryBeginWorkspaceRead();
-        if (read is null)
+        // mutations are held off until the file is open.
+        using IDisposable? open = _editorService.TryBeginEditorFileOpen();
+        if (open is null)
         {
-            NotificationService.ShowWarning(Strings.File, MessageStrings.WorkspaceBusyCannotOpenFile);
+            NotificationService.ShowWarning(Strings.File, MessageStrings.ProjectFilesBeingChanged);
             return;
         }
 

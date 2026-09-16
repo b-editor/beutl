@@ -7,6 +7,7 @@ using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels.Dialogs;
 using Beutl.Views;
 using FluentAvalonia.UI.Controls;
 
@@ -438,7 +439,7 @@ public class ProjectDiskDeletionTests
                 Assert.That(TestShell.Editor.TabItems.Select(tab => tab.FilePath.Value), Does.Not.Contain(sceneFile));
                 Assert.That(
                     notifications.All.Select(notification => notification.Message),
-                    Does.Contain(MessageStrings.WorkspaceBusyCannotOpenFile));
+                    Does.Contain(MessageStrings.ProjectFilesBeingChanged));
             });
 
             deletion.Dispose();
@@ -491,6 +492,61 @@ public class ProjectDiskDeletionTests
         }
         finally
         {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_scene_is_not_created_while_a_deletion_holds_the_workspace()
+    {
+        await TestReset.ResetShellAsync();
+        string location = NewWorkspace("scene-during-delete");
+        string sceneFile = Path.Combine(location, "created", "created.scene");
+        var dialog = new CreateNewSceneViewModel(TestShell.Project, TestShell.Editor);
+        dialog.Location.Value = location;
+        dialog.Name.Value = "created";
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+        NotificationService.Handler = notifications;
+        IDisposable deletion = TestShell.Editor.TryBeginWorktreeMutation()!;
+        bool? mutationAdmittedDuringCreate = null;
+        void OnTabsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            using IDisposable? mutation = TestShell.Editor.TryBeginWorktreeMutation();
+            mutationAdmittedDuringCreate ??= mutation is not null;
+        }
+
+        var tabs = (INotifyCollectionChanged)TestShell.Editor.TabItems;
+        try
+        {
+            await dialog.Create.ExecuteAsync();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(Path.Exists(Path.GetDirectoryName(sceneFile)), Is.False);
+                Assert.That(TestShell.Editor.TabItems, Is.Empty);
+                Assert.That(
+                    notifications.All.Select(notification => notification.Message),
+                    Does.Contain(MessageStrings.ProjectFilesBeingChanged));
+            });
+
+            deletion.Dispose();
+            tabs.CollectionChanged += OnTabsChanged;
+            await dialog.Create.ExecuteAsync();
+            tabs.CollectionChanged -= OnTabsChanged;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.Exists(sceneFile), Is.True);
+                Assert.That(TestShell.Editor.TabItems.Select(tab => tab.FilePath.Value), Does.Contain(sceneFile));
+                Assert.That(mutationAdmittedDuringCreate, Is.False, "The creation must hold mutations off.");
+            });
+        }
+        finally
+        {
+            tabs.CollectionChanged -= OnTabsChanged;
+            deletion.Dispose();
+            NotificationService.Handler = previousHandler;
             await TestReset.ResetShellAsync();
         }
     }
