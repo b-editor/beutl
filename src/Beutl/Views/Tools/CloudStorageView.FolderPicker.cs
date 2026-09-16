@@ -30,6 +30,8 @@ public sealed partial class CloudStorageView
         var progress = new ProgressBar { Height = 2, IsIndeterminate = true };
         var home = new Button { Content = Strings.Home };
         var up = new Button { Content = Strings.CloudStorageUp };
+        var retry = new Button { Name = "StorageFolderRetry", Content = Strings.CloudStorageRetryLoadMore, IsVisible = false };
+        (string? Destination, bool Append) failedLoad = default;
         var list = new ListBox
         {
             Name = "StorageFolderDestinations",
@@ -54,7 +56,7 @@ public sealed partial class CloudStorageView
                 Width = 320,
                 Spacing = 8,
                 Children = { new TextBlock { Text = Strings.CloudStorageMoveDescription, TextWrapping = TextWrapping.Wrap },
-                    new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { home, up } }, location, progress, list, error },
+                    new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { home, up } }, location, progress, list, error, retry },
             },
         };
 
@@ -67,7 +69,12 @@ public sealed partial class CloudStorageView
             home.IsEnabled = up.IsEnabled = list.IsEnabled = false;
             dialog.IsPrimaryButtonEnabled = false;
             error.Text = "";
-            if (!append) choices.Clear();
+            retry.IsVisible = false;
+            if (!append)
+            {
+                choices.Clear();
+                nextCursor = null;
+            }
             try
             {
                 string? cursor = append ? nextCursor : null;
@@ -85,7 +92,12 @@ public sealed partial class CloudStorageView
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                if (!cancellation.IsCancellationRequested) error.Text = Strings.CloudStorageLoadFailed;
+                if (!cancellation.IsCancellationRequested)
+                {
+                    error.Text = Strings.CloudStorageLoadFailed;
+                    failedLoad = (destination, append);
+                    retry.IsVisible = true;
+                }
                 Debug.WriteLine(ex);
             }
             finally
@@ -105,6 +117,7 @@ public sealed partial class CloudStorageView
         }
         home.Click += async (_, _) => await LoadAsync(null);
         up.Click += async (_, _) => await LoadAsync(parent);
+        retry.Click += async (_, _) => await LoadAsync(failedLoad.Destination, failedLoad.Append);
         list.DoubleTapped += async (_, _) => await OpenSelectedAsync();
         list.AddHandler(KeyDownEvent, async (_, args) =>
         {
@@ -117,7 +130,7 @@ public sealed partial class CloudStorageView
             if (list.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll)
                 scroll.ScrollChanged += async (_, _) =>
                 {
-                    if (!loading && nextCursor != null && scroll.Viewport.Height > 0
+                    if (!loading && !retry.IsVisible && nextCursor != null && scroll.Viewport.Height > 0
                         && scroll.Extent.Height - scroll.Viewport.Height - scroll.Offset.Y < scroll.Viewport.Height / 2)
                         await LoadAsync(target, append: true);
                 };
