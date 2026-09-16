@@ -85,19 +85,25 @@ public partial class JsonSerializationContext(
     /// <see cref="AttachedContentMigrations"/>) because it may be assigned to a different owner
     /// after its own deserialization ended. Persisting it is the point at which that owner becomes
     /// known: each owning <see cref="CoreObject"/> takes the requirement over from here on, and the
-    /// project being written picks it up in this same save.
+    /// project being written picks it up in this same save. A <see cref="CoreObject"/> keeps its own
+    /// requirement, but only the hierarchy hands it on, so one reached through an ordinary
+    /// serialized property is carried here too.
     /// </remarks>
     internal static void TransferRetainedMigration(
         ICoreSerializable value,
         ICoreSerializationContext? owner)
     {
-        // A CoreObject already carries its own requirement through the ordinary walk.
-        if (owner is null || value is CoreObject || AttachedContentMigrations.IsEmpty)
+        if (owner is null)
         {
             return;
         }
 
-        if (AttachedContentMigrations.Get(value) is not { } requiredVersion)
+        string? requiredVersion = value is CoreObject migrated
+            ? migrated.RequiredMinAppVersionAfterMigration
+            : AttachedContentMigrations.IsEmpty
+                ? null
+                : AttachedContentMigrations.Get(value);
+        if (requiredVersion is null)
         {
             return;
         }

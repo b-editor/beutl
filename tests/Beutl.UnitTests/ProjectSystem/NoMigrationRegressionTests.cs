@@ -735,6 +735,22 @@ public class NoMigrationRegressionTests
         });
     }
 
+    // A CoreObject keeps its own requirement, but only the hierarchy hands it on: one embedded
+    // through an ordinary serialized property has to be carried to its owner explicitly.
+    [Test]
+    public void An_embedded_object_deserialized_on_its_own_migrates_the_owner_it_joins()
+    {
+        var owner = new StandaloneValueOwner
+        {
+            Value = CreateMigrated(new MigratingCoreObject("7.0.0")),
+        };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
+    }
+
     [Test]
     public void A_standalone_value_type_kept_as_an_interface_box_migrates_its_owner()
     {
@@ -1199,6 +1215,33 @@ public class NoMigrationRegressionTests
 
         public void Resolve(Guid id, Action<ICoreSerializable> callback)
         {
+        }
+    }
+
+    private sealed class MigratingCoreObject : CoreObject
+    {
+        public MigratingCoreObject()
+        {
+        }
+
+        public MigratingCoreObject(string requiredVersion)
+        {
+            RequiredVersion = requiredVersion;
+        }
+
+        public string RequiredVersion { get; set; } = null!;
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(RequiredVersion), RequiredVersion);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            RequiredVersion = context.GetValue<string>(nameof(RequiredVersion))!;
+            context.ReportPersistedContentMigration(RequiredVersion);
         }
     }
 
