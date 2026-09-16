@@ -1,10 +1,12 @@
 ﻿using System.Net;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Api.Clients;
+using Beutl.Language;
 using Beutl.Testing.Headless;
 using Beutl.Views.Tools;
 using static Beutl.HeadlessUITests.CloudStorageTests;
@@ -15,6 +17,62 @@ namespace Beutl.HeadlessUITests;
 [TestFixture, NonParallelizable]
 public sealed class CloudStorageFolderPickerTests
 {
+    [AvaloniaTest]
+    public async Task OptionalPageFailureDoesNotBlockMovingToTheValidatedDestination()
+    {
+        await using var scope = new StorageScope();
+        await scope.LoadFirstAsync(Response());
+        var vm = scope.ViewModel;
+        var navigation = vm.OpenFolderAsync(vm.Items[0]);
+        await WaitFor(() => scope.Handler.Requests.Count == 2);
+        scope.Handler.Requests[1].Complete(Response(folder: "folder & 日本"));
+        await navigation;
+        var view = new CloudStorageView { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 520 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var move = view.ExecuteStorageActionAsync("move", vm.CaptureActionContext([vm.Items.Single()])!);
+            await WaitFor(() => scope.Handler.Requests.Count == 3);
+            scope.Handler.Requests[2].Complete(Response(folder: "folder & 日本", empty: true));
+            var dialog = view.StorageDialog!;
+            var content = (StackPanel)dialog.Content!;
+            var home = content.Children.OfType<StackPanel>().Single().Children.OfType<Button>()
+                .Single(button => Equals(button.Content, Strings.Home));
+            await WaitFor(() => home.IsEnabled);
+            home.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitFor(() => scope.Handler.Requests.Count == 4);
+            scope.Handler.Requests[3].Complete(DestinationPage());
+            var list = content.Children.OfType<ListBox>().Single();
+            await WaitFor(() => list.Items.Count == 24 && dialog.IsPrimaryButtonEnabled);
+            HeadlessTestHelpers.Render();
+            list.GetVisualDescendants().OfType<ScrollViewer>().Single().ScrollToEnd();
+            HeadlessTestHelpers.Render();
+            await WaitFor(() => scope.Handler.Requests.Count == 5);
+            scope.Handler.Requests[4].Complete("{}", HttpStatusCode.ServiceUnavailable);
+            var retry = content.Children.OfType<Button>().Single(button => button.Name == "StorageFolderRetry");
+            await WaitFor(() => retry.IsVisible);
+            Assert.That(dialog.IsPrimaryButtonEnabled, Is.True, "An optional child page must not invalidate the root destination.");
+
+            dialog.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "PrimaryButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitFor(() => scope.Handler.Requests.Count == 6);
+            var request = scope.Handler.Requests[5];
+            Assert.That(request.Method, Is.EqualTo(HttpMethod.Post));
+            Assert.That(request.Uri.AbsolutePath, Is.EqualTo("/api/v3/storage/files/batch"));
+            using var body = JsonDocument.Parse(await request.ReadBodyAsync());
+            Assert.That(body.RootElement.GetProperty("parentId").ValueKind, Is.EqualTo(JsonValueKind.Null));
+            Assert.That(body.RootElement.GetProperty("ids").EnumerateArray().Select(id => id.GetString()), Is.EqualTo(new[] { "file" }));
+            request.Complete("{\"affected\":1}");
+            await WaitFor(() => scope.Handler.Requests.Count == 7);
+            scope.Handler.Requests[6].Complete(Response(folder: "folder & 日本", empty: true));
+            await move;
+            Assert.That(vm.ActionError.Value, Is.Null);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTest]
     public async Task FailedNextPageRetriesTheSameCursorAndPreservesLoadedChoices()
     {
@@ -29,15 +87,7 @@ public sealed class CloudStorageFolderPickerTests
             HeadlessTestHelpers.Render();
             var move = view.ExecuteStorageActionAsync("move", vm.CaptureActionContext([vm.Items[1]])!);
             await WaitFor(() => scope.Handler.Requests.Count == 2);
-            var response = JsonNode.Parse(Response(empty: true))!;
-            response["entries"] = new JsonArray(Enumerable.Range(0, 24).Select(index => (JsonNode)new JsonObject
-            {
-                ["id"] = $"folder-{index}",
-                ["kind"] = "folder",
-                ["name"] = $"Folder {index}",
-            }).ToArray());
-            response["nextCursor"] = "folders-next";
-            scope.Handler.Requests[1].Complete(response.ToJsonString());
+            scope.Handler.Requests[1].Complete(DestinationPage());
             var dialog = view.StorageDialog!;
             var content = (StackPanel)dialog.Content!;
             var list = content.Children.OfType<ListBox>().Single();
@@ -51,6 +101,7 @@ public sealed class CloudStorageFolderPickerTests
             var retry = content.Children.OfType<Button>().Single(x => x.Name == "StorageFolderRetry");
             await WaitFor(() => retry.IsVisible);
             Assert.That(list.Items, Has.Count.EqualTo(24));
+            Assert.That(dialog.IsPrimaryButtonEnabled, Is.False, "Pagination must not make the original folder a valid destination.");
             HeadlessTestHelpers.Render();
             Assert.That(scope.Handler.Requests, Has.Count.EqualTo(3));
 
@@ -65,6 +116,19 @@ public sealed class CloudStorageFolderPickerTests
             await move;
         }
         finally { window.Close(); }
+    }
+
+    private static string DestinationPage()
+    {
+        var response = JsonNode.Parse(Response(empty: true))!;
+        response["entries"] = new JsonArray(Enumerable.Range(0, 24).Select(index => (JsonNode)new JsonObject
+        {
+            ["id"] = $"folder-{index}",
+            ["kind"] = "folder",
+            ["name"] = $"Folder {index}",
+        }).ToArray());
+        response["nextCursor"] = "folders-next";
+        return response.ToJsonString();
     }
 
     [AvaloniaTest]

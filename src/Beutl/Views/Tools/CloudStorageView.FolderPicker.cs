@@ -67,11 +67,12 @@ public sealed partial class CloudStorageView
             int version = append ? generation : ++generation;
             progress.IsVisible = true;
             home.IsEnabled = up.IsEnabled = list.IsEnabled = false;
-            dialog.IsPrimaryButtonEnabled = false;
             error.Text = "";
             retry.IsVisible = false;
             if (!append)
             {
+                // Optional child pages leave the already validated destination usable.
+                dialog.IsPrimaryButtonEnabled = false;
                 choices.Clear();
                 nextCursor = null;
             }
