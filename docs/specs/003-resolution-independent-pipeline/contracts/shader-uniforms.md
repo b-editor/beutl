@@ -6,7 +6,7 @@
 
 Existing uniforms **keep their device-pixel meaning** = the size of the *scaled* target (`ceil(logicalBounds × w)`, where `w` is this effect's **working scale** — the supply-driven scale its `CustomFilterEffectContext` target is allocated at, FR-036); they are NOT redefined to logical. A new, explicitly-named **scale uniform** carries `w` so author code can scale absolute-pixel literals. **Scale-unaware shaders behave as `w = 1.0`** (device == logical) — fully backward compatible.
 
-> **`w` is the CLAMPED buffer density (FR-037(b)).** The `w` bound into `iScale` / `width` / `height` / `Width` / `Height` is the density the target buffer was actually **allocated** at — `ClampWorkingScaleToBufferBudget(bounds, WorkingScale)` — which drops **below** the nominal working scale when `ceil(bounds × WorkingScale)` would exceed the 16384-px GPU axis limit. On a very large target `iScale` and the resolution uniforms shrink to keep the buffer allocatable, always agreeing with the buffer the shader iterates. In the common (unclamped) case the bound equals the working scale.
+> **`w` is the CLAMPED buffer density (FR-037(b)).** The `w` bound into `iScale` / `width` / `height` / `Width` / `Height` is the density the target buffer was actually **allocated** at — `Budget.ClampWorkingScale(bounds, WorkingScale)` — which drops **below** the nominal working scale when `ceil(bounds × WorkingScale)` would exceed that budget's own axis limit, `Budget.MaxDimension`: the engine's 16384-px ceiling, or the device's attachment limit where that is smaller. On a very large target `iScale` and the resolution uniforms shrink to keep the buffer allocatable, always agreeing with the buffer the shader iterates. In the common (unclamped) case the bound equals the working scale.
 
 ## SKSL (`SKSLScriptEffect.cs:100-112`)
 
@@ -50,7 +50,7 @@ GLSL carries the working scale in a dedicated **`scale`** push constant, mirrori
 | `width`, `height` | target size, device px (× w) | `ceil(logicalBounds.W/H × w)` |
 | **`scale`** | working scale `w` | `w` (default `1.0`) |
 
-`scale` is the **clamped buffer density** — `ResolveTargetDensity(bounds)` = `ClampWorkingScaleToBufferBudget(bounds, WorkingScale)`, the density the `ceil(bounds × w)` device buffer is allocated at — so it agrees with the buffer the shader iterates, identical to the value SKSL binds to `iScale`. A GLSL author multiplies an absolute-pixel literal by `scale`, e.g. `float border = 10.0 * pc.scale;`, instead of recovering `w` from `Width`/`Height` — a shader cannot do that without the logical bounds, and the recovery breaks across clips and under scale animation.
+`scale` is the **clamped buffer density** — `ResolveTargetDensity(bounds)` = `Budget.ClampWorkingScale(bounds, WorkingScale)`, the density the `ceil(bounds × w)` device buffer is allocated at — so it agrees with the buffer the shader iterates, identical to the value SKSL binds to `iScale`. A GLSL author multiplies an absolute-pixel literal by `scale`, e.g. `float border = 10.0 * pc.scale;`, instead of recovering `w` from `Width`/`Height` — a shader cannot do that without the logical bounds, and the recovery breaks across clips and under scale animation.
 
 Migration rule for existing GLSL scripts: `pc.width` and `pc.height` are device-pixel target dimensions.
 The default `fragCoord` input is normalized, so reconstruct a shader-grid logical-pixel coordinate only

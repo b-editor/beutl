@@ -392,7 +392,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         {
             result = MathF.Min(
                 result,
-                RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, workingScale));
+                BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(bounds, workingScale));
         }
 
         return result;

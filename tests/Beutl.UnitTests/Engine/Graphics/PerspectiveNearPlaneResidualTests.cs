@@ -109,9 +109,9 @@ public sealed class PerspectiveNearPlaneResidualTests
 
         Rect belowCrossover = local.TransformToAABB(matrix, 0.03f);
 
-        float exactScale = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(rasterizerExact, 1f);
-        float declaredScale = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(declared, 2f);
-        float belowCrossoverScale = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(belowCrossover, 2f);
+        float exactScale = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(rasterizerExact, 1f);
+        float declaredScale = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(declared, 2f);
+        float belowCrossoverScale = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(belowCrossover, 2f);
         TestContext.WriteLine(
             $"exactWidth={rasterizerExact.Width} exactScale={exactScale} declaredScale={declaredScale} "
             + $"belowCrossoverScale={belowCrossoverScale}");

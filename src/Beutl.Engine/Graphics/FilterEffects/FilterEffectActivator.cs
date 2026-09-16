@@ -32,7 +32,7 @@ public sealed class FilterEffectActivator : IDisposable
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
     private readonly bool _useExecutorManagedCanvas;
     private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
-    private readonly int? _maxBufferDimension;
+    private readonly BufferDimensionBudget? _budget;
     private readonly Rect? _targetDomain;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
@@ -67,7 +67,7 @@ public sealed class FilterEffectActivator : IDisposable
             drawableBrushMaterializer,
             useExecutorManagedCanvas: false,
             renderTargetLeaseSession: null,
-            maxBufferDimension: null,
+            budget: null,
             targetDomain)
     {
     }
@@ -84,7 +84,7 @@ public sealed class FilterEffectActivator : IDisposable
         DrawableBrushMaterializer? drawableBrushMaterializer = null,
         bool useExecutorManagedCanvas = false,
         RenderTargetLeaseSession? renderTargetLeaseSession = null,
-        int? maxBufferDimension = null,
+        BufferDimensionBudget? budget = null,
         Rect? targetDomain = null)
         : this(
             targets,
@@ -100,7 +100,7 @@ public sealed class FilterEffectActivator : IDisposable
             drawableBrushMaterializer,
             useExecutorManagedCanvas,
             renderTargetLeaseSession,
-            maxBufferDimension,
+            budget,
             targetDomain)
     {
     }
@@ -118,7 +118,7 @@ public sealed class FilterEffectActivator : IDisposable
         DrawableBrushMaterializer? drawableBrushMaterializer = null,
         bool useExecutorManagedCanvas = false,
         RenderTargetLeaseSession? renderTargetLeaseSession = null,
-        int? maxBufferDimension = null,
+        BufferDimensionBudget? budget = null,
         Rect? targetDomain = null)
         : this(
             targets,
@@ -134,7 +134,7 @@ public sealed class FilterEffectActivator : IDisposable
             drawableBrushMaterializer,
             useExecutorManagedCanvas,
             renderTargetLeaseSession,
-            maxBufferDimension,
+            budget,
             targetDomain)
     {
     }
@@ -153,7 +153,7 @@ public sealed class FilterEffectActivator : IDisposable
         DrawableBrushMaterializer? drawableBrushMaterializer,
         bool useExecutorManagedCanvas,
         RenderTargetLeaseSession? renderTargetLeaseSession,
-        int? maxBufferDimension,
+        BufferDimensionBudget? budget,
         Rect? targetDomain)
     {
         ArgumentNullException.ThrowIfNull(targets);
@@ -162,15 +162,9 @@ public sealed class FilterEffectActivator : IDisposable
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "The render intent is invalid.");
         if (!Enum.IsDefined(purpose))
             throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "The render request purpose is invalid.");
-        if (maxBufferDimension is <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxBufferDimension),
-                maxBufferDimension,
-                "The maximum buffer dimension must be positive.");
-        }
+        BufferDimensionBudget.ThrowIfUninitialized(budget, nameof(budget));
 
-        _maxBufferDimension = maxBufferDimension;
+        _budget = budget;
         Builder = builder;
         CurrentTargets = targets;
         OutputScale = SanitizePositiveFinite(outputScale, nameof(outputScale));
@@ -207,14 +201,14 @@ public sealed class FilterEffectActivator : IDisposable
     public float MaxWorkingScale { get; }
 
     /// <summary>
-    /// Gets the largest device extent an allocation from this activator may have, on both axes.
+    /// Gets the budget an allocation from this activator is held to, on both axes.
     /// </summary>
     /// <remarks>
     /// Resolved per call rather than in the constructor: an activator can outlive the moment the graphics
     /// context first answers, and until it does the engine ceiling stands in for the device's own limit.
     /// </remarks>
-    public int MaxBufferDimension
-        => _maxBufferDimension ?? RenderScaleUtilities.ResolveMaxBufferDimension();
+    public BufferDimensionBudget Budget
+        => _budget ?? BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation);
 
     /// <summary>Gets the explicit preview or delivery classification for this execution.</summary>
     public RenderIntent Intent { get; }
@@ -346,22 +340,18 @@ public sealed class FilterEffectActivator : IDisposable
         Rect budgetBounds = imperativeSegmentBoundary
             ? new Rect(default, target.Bounds.Size)
             : ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
-        int budgetDimension = MaxBufferDimension;
+        BufferDimensionBudget budget = Budget;
         float fit = imperativeSegmentBoundary
-            ? RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
-                budgetBounds,
-                WorkingScale,
-                budgetDimension)
-            : RenderScaleUtilities.ClampWorkingScaleToExactDeviceBufferBudget(
+            ? budget.ClampWorkingScale(budgetBounds, WorkingScale)
+            : budget.ClampWorkingScaleToExactFootprint(
                 budgetBounds.Translate(target.DeviceGridOffset),
-                WorkingScale,
-                budgetDimension);
+                WorkingScale);
         if (fit >= WorkingScale)
             return;
 
         s_logger.LogWarning(
             "Working scale clamped {From} -> {To} to keep an effect buffer within the {Limit} px GPU axis limit (bounds {Bounds}).",
-            WorkingScale, fit, budgetDimension, budgetBounds);
+            WorkingScale, fit, budget.MaxDimension, budgetBounds);
         WorkingScale = fit;
     }
 
@@ -800,7 +790,7 @@ public sealed class FilterEffectActivator : IDisposable
             _drawableBrushMaterializer,
             _useExecutorManagedCanvas,
             _renderTargetLeaseSession,
-            _maxBufferDimension,
+            _budget,
             _targetDomain);
         custom.Accepts(customContext);
 

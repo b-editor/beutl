@@ -572,7 +572,7 @@ public class SourceEffectiveScaleFlowTests
             outputScale: 1,
             maxWorkingScale: 4);
 
-        Rect retainedBackingInputBounds = new(0, 0, RenderScaleUtilities.MaxBufferDimension, 1);
+        Rect retainedBackingInputBounds = new(0, 0, BufferDimensionBudget.EngineCeiling.MaxDimension, 1);
         Rect movedSemanticBounds = new(0.5f, 0, 1, 1);
         using var retainedBackingContext = new FilterEffectContext(retainedBackingInputBounds);
         retainedBackingContext.CustomEffect(
@@ -595,7 +595,7 @@ public class SourceEffectiveScaleFlowTests
         Rect retainedThenInflatedInputBounds = new(
             0,
             0,
-            RenderScaleUtilities.MaxBufferDimension - 4,
+            BufferDimensionBudget.EngineCeiling.MaxDimension - 4,
             1);
         Rect shrunkenSemanticBounds = new(0, 0, 1, 1);
         using var retainedThenInflatedContext = new FilterEffectContext(retainedThenInflatedInputBounds);
@@ -621,7 +621,7 @@ public class SourceEffectiveScaleFlowTests
         Rect negativeFractionalInputBounds = new(
             -0.25f,
             0,
-            RenderScaleUtilities.MaxBufferDimension,
+            BufferDimensionBudget.EngineCeiling.MaxDimension,
             1);
         Rect integerMovedSemanticBounds = new(0, 0, 1, 1);
         using var negativeFractionalContext = new FilterEffectContext(negativeFractionalInputBounds);
@@ -675,12 +675,12 @@ public class SourceEffectiveScaleFlowTests
                 "a transformed fractional allocation origin can add one device pixel at the axis limit");
             Assert.That(retainedBackingFootprints, Has.Some.Matches<Rect>(bounds =>
                     bounds.Position == movedSemanticBounds.Position
-                    && bounds.Width == RenderScaleUtilities.MaxBufferDimension),
+                    && bounds.Width == BufferDimensionBudget.EngineCeiling.MaxDimension),
                 "Custom may retain an input backing while moving or shrinking only its semantic bounds");
             Assert.That(retainedBackingScale.Value, Is.LessThan(1),
                 "a retained axis-limit backing moved to a fractional origin must reserve its extra device pixel");
             Assert.That(retainedThenInflatedFootprints, Has.Some.Matches<Rect>(bounds =>
-                    bounds.Width == RenderScaleUtilities.MaxBufferDimension + 2),
+                    bounds.Width == BufferDimensionBudget.EngineCeiling.MaxDimension + 2),
                 "a Skia operation after Custom must transform the retained physical backing, not only semantics");
             Assert.That(retainedThenInflatedScale.Value, Is.LessThan(1),
                 "the transformed retained backing must participate in the device-axis clamp");
@@ -854,9 +854,7 @@ public class SourceEffectiveScaleFlowTests
         var childBounds = new Rect(0, 0, 64, 1);
         var layerDomain = new Rect(0, 0, 10_000, 1);
         const float requestedDensity = 2;
-        float expectedDensity = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-            layerDomain,
-            requestedDensity);
+        float expectedDensity = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(layerDomain, requestedDensity);
         var observedWorkingScales = new List<float>();
         RenderNode source = ScaleRecordingTestHelper.Source(
             EffectiveScale.Unbounded,
@@ -921,9 +919,7 @@ public class SourceEffectiveScaleFlowTests
         using RenderNodeRasterization first = renderer.Rasterize();
         using RenderNodeRasterization second = renderer.Rasterize();
 
-        float expectedDensity = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-            layerDomain,
-            requestedDensity);
+        float expectedDensity = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(layerDomain, requestedDensity);
         PixelSize allocationSize = PixelRect.FromRect(layerDomain, expectedDensity).Size;
         Assert.Multiple(() =>
         {
@@ -962,7 +958,9 @@ public class SourceEffectiveScaleFlowTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(sourceDeviceBounds.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(
+                sourceDeviceBounds.Width,
+                Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(cold.IsEmpty, Is.False);
             Assert.That(warm.IsEmpty, Is.False);
             Assert.That(node.Cache.IsCached, Is.True);
@@ -978,9 +976,7 @@ public class SourceEffectiveScaleFlowTests
     {
         var bounds = new Rect(0, 0, 10_000, 1);
         EffectiveScale sourceScale = EffectiveScale.At(2);
-        float expectedDensity = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-            bounds,
-            sourceScale.Value);
+        float expectedDensity = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(bounds, sourceScale.Value);
         PixelRect sourceDeviceBounds = PixelRect.FromRect(bounds, sourceScale.Value);
         using RenderTarget source = new CpuRenderTarget(
             sourceDeviceBounds.Width,
@@ -1004,7 +1000,7 @@ public class SourceEffectiveScaleFlowTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(sourceDeviceBounds.Width, Is.GreaterThan(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(sourceDeviceBounds.Width, Is.GreaterThan(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(expectedDensity, Is.LessThan(sourceScale.Value));
             Assert.That(cold.IsEmpty, Is.False);
             Assert.That(warm.IsEmpty, Is.False);
@@ -1042,7 +1038,7 @@ public class SourceEffectiveScaleFlowTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(sourceDeviceBounds.Width, Is.GreaterThan(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(sourceDeviceBounds.Width, Is.GreaterThan(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(first.IsEmpty, Is.False);
             Assert.That(second.IsEmpty, Is.False);
             Assert.That(node.Cache.IsCached, Is.False);
@@ -1135,9 +1131,7 @@ public class SourceEffectiveScaleFlowTests
         float observedSourceScale = 0;
         Rect bounds = new(100, 20, 100, 10);
         Rect intermediateFootprint = new(0, 0, 20_000, 10);
-        float widthOnlyClamp = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-            intermediateFootprint,
-            2);
+        float widthOnlyClamp = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(intermediateFootprint, 2);
         s_effectItemCustomWorkingScale = 0;
         var effect = new WorkingScaleProbeEffect(context =>
         {
@@ -1175,7 +1169,7 @@ public class SourceEffectiveScaleFlowTests
         // The two are the same number only on a device that reaches the ceiling. Re-deriving the expected
         // density here would just restate the production formula against a footprint this fixture only
         // approximates, so what is pinned instead is the property the clamp exists for: the buffer fits.
-        int deviceBudget = RenderScaleUtilities.ResolveMaxBufferDimension();
+        int deviceBudget = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).MaxDimension;
         int itemBufferWidth = (int)MathF.Ceiling(
             intermediateFootprint.Width * s_effectItemCustomWorkingScale);
 
@@ -1194,7 +1188,7 @@ public class SourceEffectiveScaleFlowTests
                 itemBufferWidth,
                 Is.LessThanOrEqualTo(deviceBudget),
                 "the density the item ran at has to produce a buffer this device can attach");
-            if (deviceBudget >= RenderScaleUtilities.MaxBufferDimension)
+            if (deviceBudget >= BufferDimensionBudget.EngineCeiling.MaxDimension)
             {
                 Assert.That(
                     s_effectItemCustomWorkingScale,
@@ -1457,7 +1451,7 @@ public class SourceEffectiveScaleFlowTests
         Rect bounds = new(0, 0, 10_000, 1);
         EffectiveScale sourceScale = EffectiveScale.At(2);
         PixelRect sourceDeviceBounds = PixelRect.FromRect(bounds, sourceScale.Value);
-        float clampedScale = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, sourceScale.Value);
+        float clampedScale = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(bounds, sourceScale.Value);
         PixelRect clampedDeviceBounds = PixelRect.FromRect(bounds, clampedScale);
         using RenderTarget source = new CpuRenderTarget(sourceDeviceBounds.Width, sourceDeviceBounds.Height);
 

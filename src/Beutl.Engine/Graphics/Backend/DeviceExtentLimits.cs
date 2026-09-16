@@ -11,7 +11,7 @@ namespace Beutl.Graphics.Backend;
 /// assertion. Neither reaches a <c>catch</c>, so the extent has to be refused on the way in. Each resource
 /// kind answers to its own device limit, so the question is asked per kind rather than through one number.
 /// A limit of zero or less means the device did not answer, and the allocator is left to decide, as
-/// <see cref="Rendering.RenderScaleUtilities.ResolveMaxBufferDimension(IGraphicsContext?)"/> does for 2D.
+/// <see cref="Rendering.BufferDimensionBudget.ForDevice(IGraphicsContext?)"/> does for 2D.
 /// </remarks>
 internal static class DeviceExtentLimits
 {

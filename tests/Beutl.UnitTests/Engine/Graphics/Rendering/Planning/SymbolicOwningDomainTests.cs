@@ -56,7 +56,7 @@ public sealed class SymbolicOwningDomainTests
             .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
         RenderFragmentReference transform = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.TargetScope);
-        float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(domain, 2);
+        float expected = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(domain, 2);
 
         Assert.Multiple(() =>
         {
@@ -466,7 +466,7 @@ public sealed class SymbolicOwningDomainTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(deviceSize.Width, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(deviceSize.Width, Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(probe.CaptureCount, Is.EqualTo(1));
             Assert.That(probe.CapturedDeviceSize, Is.EqualTo(deviceSize));
             Assert.That(probe.CapturedDensity, Is.EqualTo(density));

@@ -616,7 +616,7 @@ internal static class DirectShaderRunPlanner
         float requestedDensity = fragment.EffectiveScale.IsUnbounded
             ? destination.Density
             : fragment.EffectiveScale.Value;
-        float density = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+        float density = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(
             outputBounds,
             requestedDensity);
         if (density != destination.Density)

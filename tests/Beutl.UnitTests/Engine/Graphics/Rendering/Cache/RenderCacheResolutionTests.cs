@@ -1077,16 +1077,15 @@ public sealed class RenderCacheResolutionTests
                 outputScale: 1,
                 maxWorkingScale: maxWorkingScale).Demands;
 
-        float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-            bounds,
-            MathF.Min(1_000_000, maxWorkingScale));
+        float expected = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(
+            bounds, MathF.Min(1_000_000, maxWorkingScale));
         PixelRect allocated = PixelRect.FromRect(bounds, demands[layer].Value);
         Assert.Multiple(() =>
         {
             Assert.That(demands[layer], Is.EqualTo(EffectiveScale.At(expected)));
             Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(expected)));
-            Assert.That(allocated.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
-            Assert.That(allocated.Height, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(allocated.Width, Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
+            Assert.That(allocated.Height, Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
         });
     }
 
@@ -1097,9 +1096,7 @@ public sealed class RenderCacheResolutionTests
         var layerDomain = new Rect(0, 0, 10_000, 1);
         var requestedRegion = new Rect(0, 0, 1, 1);
         const float outputScale = 2;
-        float expectedDensity = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-            layerDomain,
-            outputScale);
+        float expectedDensity = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(layerDomain, outputScale);
         RenderFragmentReference leaf = Pure(bounds: inputBounds);
         var layer = new RenderFragmentReference(
             RenderFragmentKind.Layer,

@@ -37,7 +37,7 @@ public sealed class SymbolicSupplyMappingTests
             outputScale: 2,
             targetDomain: targetDomain);
         Rect inputDomain = targetDomain.TransformToAABB(scale.Matrix.Invert());
-        float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(inputDomain, 2);
+        float expected = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(inputDomain, 2);
 
         Assert.Multiple(() =>
         {

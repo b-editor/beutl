@@ -19,63 +19,66 @@ public class RenderScaleFootprintBudgetTests
     [Test]
     public void ExactBufferBudget_DegenerateAxisWithFractionalOrigin_KeepsFootprintWithinBudget()
     {
-        var bounds = new Rect(0.5f, 0.5f, 0f, RenderScaleUtilities.MaxBufferDimension);
+        var bounds = new Rect(0.5f, 0.5f, 0f, BufferDimensionBudget.EngineCeiling.MaxDimension);
 
-        float clamped = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, 1f);
+        float clamped = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(bounds, 1f);
 
         Assert.That(
             PixelRect.FromRect(bounds, 1f).Height,
-            Is.GreaterThan(RenderScaleUtilities.MaxBufferDimension),
+            Is.GreaterThan(BufferDimensionBudget.EngineCeiling.MaxDimension),
             "the fixture must actually overflow at the requested scale");
         Assert.That(
             PixelRect.FromRect(bounds, clamped).Height,
-            Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
         Assert.That(clamped, Is.GreaterThan(0f).And.LessThanOrEqualTo(1f));
     }
 
     [Test]
     public void RasterApronBudget_DegenerateAxisWithFractionalOrigin_KeepsAproneFootprintWithinBudget()
     {
-        var bounds = new Rect(0.5f, 0.5f, 0f, RenderScaleUtilities.MaxBufferDimension - 2f);
+        var bounds = new Rect(0.5f, 0.5f, 0f, BufferDimensionBudget.EngineCeiling.MaxDimension - 2f);
 
-        float clamped = RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1f);
+        float clamped = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(bounds, 1f);
 
         Assert.That(
             RenderScaleUtilities.AddRasterApron(PixelRect.FromRect(bounds, 1f)).Height,
-            Is.GreaterThan(RenderScaleUtilities.MaxBufferDimension),
+            Is.GreaterThan(BufferDimensionBudget.EngineCeiling.MaxDimension),
             "the fixture must actually overflow at the requested scale");
         Assert.That(
             RenderScaleUtilities.AddRasterApron(PixelRect.FromRect(bounds, clamped)).Height,
-            Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
         Assert.That(clamped, Is.GreaterThan(0f).And.LessThanOrEqualTo(1f));
     }
 
     [Test]
     public void BufferBudget_FractionalOrigin_KeepsFootprintWithinBudget()
     {
-        var bounds = new Rect(0.5f, 0f, RenderScaleUtilities.MaxBufferDimension - 0.4f, 1f);
+        var bounds = new Rect(0.5f, 0f, BufferDimensionBudget.EngineCeiling.MaxDimension - 0.4f, 1f);
 
-        float clamped = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, 1f);
+        float clamped = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(bounds, 1f);
 
         Assert.That(
             PixelRect.FromRect(bounds, 1f).Width,
-            Is.GreaterThan(RenderScaleUtilities.MaxBufferDimension),
+            Is.GreaterThan(BufferDimensionBudget.EngineCeiling.MaxDimension),
             "the fixture must actually overflow at the requested scale");
         Assert.That(
             PixelRect.FromRect(bounds, clamped).Width,
-            Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
         Assert.That(clamped, Is.GreaterThan(0f).And.LessThanOrEqualTo(1f));
     }
 
     [Test]
     public void BufferBudget_NonPositiveMaxDimension_IsRejected()
     {
+        // Refused where the budget is named, so no clamp can be handed a dimension nothing fits.
+        Assert.That(() => BufferDimensionBudget.Named(0), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => BufferDimensionBudget.Named(-1), Throws.TypeOf<ArgumentOutOfRangeException>());
         Assert.That(
-            () => RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 100, 100), 2, 0),
-            Throws.TypeOf<ArgumentOutOfRangeException>());
+            () => default(BufferDimensionBudget).ClampWorkingScale(new Rect(0, 0, 100, 100), 2),
+            Throws.TypeOf<InvalidOperationException>());
         Assert.That(
-            () => RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 100, 100), 2, -1),
-            Throws.TypeOf<ArgumentOutOfRangeException>());
+            () => default(BufferDimensionBudget).MaxDimension,
+            Throws.TypeOf<InvalidOperationException>());
     }
 
     [Test]
@@ -89,19 +92,19 @@ public class RenderScaleFootprintBudgetTests
                     "coarse",
                     bounds,
                     requested,
-                    RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, requested),
+                    BufferDimensionBudget.EngineCeiling.ClampWorkingScale(bounds, requested),
                     apronPixels: 0);
                 AssertWithinBudget(
                     "exact",
                     bounds,
                     requested,
-                    RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, requested),
+                    BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(bounds, requested),
                     apronPixels: 0);
                 AssertWithinBudget(
                     "apron",
                     bounds,
                     requested,
-                    RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, requested),
+                    BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(bounds, requested),
                     apronPixels: 2);
             }
         }
@@ -116,11 +119,11 @@ public class RenderScaleFootprintBudgetTests
             PixelRect footprint = PixelRect.FromRect(bounds, clamped);
             Assert.That(
                 footprint.Width + apronPixels,
-                Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension),
+                Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
                 context);
             Assert.That(
                 footprint.Height + apronPixels,
-                Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension),
+                Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
                 context);
         }
     }

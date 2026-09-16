@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Reflection;
+using System.Runtime.InteropServices;
 
 using Beutl.Composition;
 using Beutl.Engine;
@@ -43,17 +44,14 @@ public sealed class DeviceBufferBudgetTests
     [Test]
     public void ClampToDeviceBudget_FitsTheNamedBudgetRatherThanTheEngineCeiling()
     {
-        float engineFit = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(s_overBudgetBounds, 2f);
-        float deviceFit = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
-            s_overBudgetBounds,
-            2f,
-            DeviceBudget);
+        float engineFit = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(s_overBudgetBounds, 2f);
+        float deviceFit = BufferDimensionBudget.Named(DeviceBudget).ClampWorkingScale(s_overBudgetBounds, 2f);
 
         Assert.Multiple(() =>
         {
             Assert.That(
                 PixelRect.FromRect(s_overBudgetBounds, engineFit).Width,
-                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
                 "the fixture must reach the engine ceiling, or the two budgets are indistinguishable");
             Assert.That(deviceFit, Is.LessThan(engineFit));
             Assert.That(
@@ -65,22 +63,19 @@ public sealed class DeviceBufferBudgetTests
     [Test]
     public void ClampToDeviceBudget_WithoutANamedBudgetUsesTheResolvedDeviceLimit()
     {
-        int resolved = RenderScaleUtilities.ResolveMaxBufferDimension();
+        int resolved = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).MaxDimension;
 
         Assert.Multiple(() =>
         {
-            Assert.That(resolved, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(resolved, Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(
-                RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(s_overBudgetBounds, 2f),
-                Is.EqualTo(RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-                    s_overBudgetBounds,
-                    2f,
-                    resolved)));
+                BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).ClampWorkingScale(s_overBudgetBounds, 2f),
+                Is.EqualTo(BufferDimensionBudget.Named(resolved).ClampWorkingScale(s_overBudgetBounds, 2f)));
         });
     }
 
     [Test]
-    public void ResolveMaxBufferDimension_AnswersForTheContextItIsAskedAbout()
+    public void ADeviceBudget_AnswersForTheContextItIsAskedAbout()
     {
         // GraphicsContextFactory.Shutdown is public, so the context that first answered can be replaced by
         // one that attaches less - and a limit remembered from the first would then ask that device for an
@@ -90,29 +85,29 @@ public sealed class DeviceBufferBudgetTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(RenderScaleUtilities.ResolveMaxBufferDimension(larger), Is.EqualTo(DeviceBudget));
+            Assert.That(BufferDimensionBudget.ForDevice(larger).MaxDimension, Is.EqualTo(DeviceBudget));
             Assert.That(
-                RenderScaleUtilities.ResolveMaxBufferDimension(smaller),
+                BufferDimensionBudget.ForDevice(smaller).MaxDimension,
                 Is.EqualTo(DeviceBudget / 2),
                 "a device that attaches less must not inherit the previous context's limit");
             Assert.That(
-                RenderScaleUtilities.ResolveMaxBufferDimension(larger),
+                BufferDimensionBudget.ForDevice(larger).MaxDimension,
                 Is.EqualTo(DeviceBudget),
                 "and a device that attaches more must not stay capped by it");
             Assert.That(
-                RenderScaleUtilities.ResolveMaxBufferDimension(null),
-                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                BufferDimensionBudget.ForDevice(null).MaxDimension,
+                Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
                 "with no context the engine ceiling is a placeholder, not a remembered answer");
         });
     }
 
     [Test]
-    public void ResolveMaxBufferDimension_NeverExceedsTheEngineCeiling()
+    public void ADeviceBudget_NeverExceedsTheEngineCeiling()
     {
-        int resolved = RenderScaleUtilities.ResolveMaxBufferDimension(
-            ContextAttaching(RenderScaleUtilities.MaxBufferDimension * 2));
+        IGraphicsContext pastTheCeiling = ContextAttaching(BufferDimensionBudget.EngineCeiling.MaxDimension * 2);
+        int resolved = BufferDimensionBudget.ForDevice(pastTheCeiling).MaxDimension;
 
-        Assert.That(resolved, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+        Assert.That(resolved, Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
     }
 
     [Test]
@@ -124,22 +119,20 @@ public sealed class DeviceBufferBudgetTests
             RenderIntent.Delivery,
             RenderRequestPurpose.Auxiliary,
             workingScale: 2f,
-            maxBufferDimension: DeviceBudget);
+            budget: BufferDimensionBudget.Named(DeviceBudget));
 
         float density = context.ResolveTargetDensity(s_overBudgetBounds);
 
         Assert.Multiple(() =>
         {
-            Assert.That(context.MaxBufferDimension, Is.EqualTo(DeviceBudget));
+            Assert.That(context.Budget.MaxDimension, Is.EqualTo(DeviceBudget));
             Assert.That(
                 CustomFilterEffectContext.DeviceBufferSize(s_overBudgetBounds, density).Width,
                 Is.LessThanOrEqualTo(DeviceBudget));
             Assert.That(
                 density,
-                Is.EqualTo(RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
-                    new Rect(default, s_overBudgetBounds.Size),
-                    2f,
-                    DeviceBudget)));
+                Is.EqualTo(BufferDimensionBudget.Named(DeviceBudget).ClampWorkingScale(
+                    new Rect(default, s_overBudgetBounds.Size), 2f)));
         });
     }
 
@@ -156,7 +149,7 @@ public sealed class DeviceBufferBudgetTests
             RenderRequestPurpose.Auxiliary,
             workingScale: 2f,
             renderTargetLeaseSession: session,
-            maxBufferDimension: DeviceBudget);
+            budget: BufferDimensionBudget.Named(DeviceBudget));
 
         using EffectTarget target = context.CreateTarget(s_overBudgetBounds);
 
@@ -175,7 +168,7 @@ public sealed class DeviceBufferBudgetTests
     }
 
     [Test]
-    public void MaxBufferDimension_DefaultsToWhatTheActiveDeviceCanAttach()
+    public void Budget_DefaultsToWhatTheActiveDeviceCanAttach()
     {
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
@@ -193,17 +186,107 @@ public sealed class DeviceBufferBudgetTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                context.MaxBufferDimension,
-                Is.EqualTo(RenderScaleUtilities.ResolveMaxBufferDimension()));
+                context.Budget.MaxDimension,
+                Is.EqualTo(BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).MaxDimension));
             Assert.That(
-                activator.MaxBufferDimension,
-                Is.EqualTo(RenderScaleUtilities.ResolveMaxBufferDimension()));
+                activator.Budget.MaxDimension,
+                Is.EqualTo(BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).MaxDimension));
         });
     }
 
     [Test]
     public void ANonPositiveBufferDimensionIsRejected()
     {
+        Assert.Multiple(() =>
+        {
+            // A budget is refused where it is named rather than at each type that takes one, so no
+            // allocation site can be handed a dimension nothing fits.
+            Assert.That(
+                () => BufferDimensionBudget.Named(0),
+                Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(
+                () => BufferDimensionBudget.Named(-1),
+                Throws.InstanceOf<ArgumentOutOfRangeException>());
+        });
+    }
+
+    [Test]
+    public void OneTypeAnswersEveryBufferDimensionQuestion()
+    {
+        // This replaced six public spellings of one concept, two of which shared the identifier
+        // MaxBufferDimension and answered different numbers - the engine ceiling and the device's own limit.
+        // Reading one from muscle memory where the other was meant is how an over-limit attachment reaches a
+        // driver that reports it as undefined behaviour rather than as a failed allocation, and it is how the
+        // CI failure that motivated this got in. A second public member naming the concept re-opens that.
+        string[] offenders = typeof(BufferDimensionBudget).Assembly
+            .GetExportedTypes()
+            .Where(type => type != typeof(BufferDimensionBudget) && type != typeof(BufferBudgetScope))
+            .SelectMany(type => type.GetMembers(
+                BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            .Where(member => member.Name.Contains("BufferDimension", StringComparison.Ordinal)
+                             || member.Name.Contains("BufferBudget", StringComparison.Ordinal))
+            .Select(member => $"{member.DeclaringType!.FullName}.{member.Name}")
+            .Distinct()
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.That(
+            offenders,
+            Is.Empty,
+            "a buffer-dimension budget is named by BufferDimensionBudget alone; a second public member "
+            + "naming one re-opens the collision this type consolidated away");
+    }
+
+    [Test]
+    public void ADefaultBudgetNamesNothingAndCannotBeMeasuredAgainst()
+    {
+        BufferDimensionBudget uninitialized = default;
+        var frame = new PixelSize(1920, 1080);
+
+        Assert.Multiple(() =>
+        {
+            // Reading the dimension is refused rather than answered with zero: a caller that compared its
+            // own extents against that number would report every size as over the limit, silently.
+            Assert.That(
+                () => uninitialized.MaxDimension,
+                Throws.InstanceOf<InvalidOperationException>());
+            Assert.That(
+                () => uninitialized.Fits(new PixelSize(1, 1)),
+                Throws.InstanceOf<InvalidOperationException>());
+            Assert.That(
+                () => uninitialized.ClampWorkingScale(new Rect(0, 0, 1, 1), 1f),
+                Throws.InstanceOf<InvalidOperationException>());
+            // The export and save-frame dialogs take a caller-supplied budget, so they are the two public
+            // boundaries a default one can actually reach.
+            Assert.That(
+                () => ExportSupersampling.FitsBufferLimit(frame, 1, uninitialized),
+                Throws.InstanceOf<InvalidOperationException>());
+            Assert.That(
+                () => SaveFrameScale.FitsBufferLimit(frame, 1f, uninitialized),
+                Throws.InstanceOf<InvalidOperationException>());
+            // ToString must stay readable, or a log line about a bad budget throws instead of reporting it.
+            Assert.That(uninitialized.ToString(), Does.Contain("uninitialized"));
+            Assert.That(
+                BufferDimensionBudget.Named(DeviceBudget).ToString(),
+                Does.Contain(DeviceBudget.ToString()));
+        });
+    }
+
+    [Test]
+    public void AnUndefinedScopeIsRefusedRatherThanResolvedAsAllocation()
+    {
+        // The two scopes are inverses, so falling through to either one for a value that names neither
+        // would hand the caller the opposite answer in exactly the situations the scope exists to tell
+        // apart. Enum.IsDefined is not free here - the switch has no default budget to fall back on.
+        Assert.That(
+            () => BufferDimensionBudget.Resolve((BufferBudgetScope)(-1)),
+            Throws.InstanceOf<ArgumentOutOfRangeException>());
+    }
+
+    [Test]
+    public void ADefaultBudgetIsRefusedWhereItIsAccepted_NotAtFirstUse()
+    {
+        var factory = new RecordingCpuTargetFactory();
         using var targets = new EffectTargets();
         using var builder = new SKImageFilterBuilder();
 
@@ -214,7 +297,7 @@ public sealed class DeviceBufferBudgetTests
                     targets,
                     RenderIntent.Delivery,
                     RenderRequestPurpose.Auxiliary,
-                    maxBufferDimension: 0),
+                    budget: default(BufferDimensionBudget)),
                 Throws.InstanceOf<ArgumentOutOfRangeException>());
             Assert.That(
                 () => new FilterEffectActivator(
@@ -226,25 +309,35 @@ public sealed class DeviceBufferBudgetTests
                     workingScale: 1f,
                     maxWorkingScale: float.PositiveInfinity,
                     deviceGridOffset: default,
-                    maxBufferDimension: -1),
+                    budget: default(BufferDimensionBudget)),
+                Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(
+                () => new RenderTargetPool(
+                    factory,
+                    new RenderTargetPoolOptions { Budget = default(BufferDimensionBudget) }),
                 Throws.InstanceOf<ArgumentOutOfRangeException>());
         });
     }
 
     [Test]
-    public void FitsBufferBudget_MeasuresBothAxesAgainstTheNamedBudget()
+    public void Fits_MeasuresBothAxesAgainstTheNamedBudget()
     {
         Assert.Multiple(() =>
         {
-            Assert.That(RenderScaleUtilities.FitsBufferBudget(new PixelSize(DeviceBudget, DeviceBudget), DeviceBudget), Is.True);
-            Assert.That(RenderScaleUtilities.FitsBufferBudget(new PixelSize(DeviceBudget + 1, 1), DeviceBudget), Is.False);
-            Assert.That(RenderScaleUtilities.FitsBufferBudget(new PixelSize(1, DeviceBudget + 1), DeviceBudget), Is.False);
             Assert.That(
-                RenderScaleUtilities.FitsBufferBudget(new PixelSize(RenderScaleUtilities.MaxBufferDimension, 1)),
-                Is.EqualTo(RenderScaleUtilities.ResolveMaxBufferDimension() >= RenderScaleUtilities.MaxBufferDimension),
+                BufferDimensionBudget.Named(DeviceBudget).Fits(new PixelSize(DeviceBudget, DeviceBudget)),
+                Is.True);
+            Assert.That(BufferDimensionBudget.Named(DeviceBudget).Fits(new PixelSize(DeviceBudget + 1, 1)), Is.False);
+            Assert.That(BufferDimensionBudget.Named(DeviceBudget).Fits(new PixelSize(1, DeviceBudget + 1)), Is.False);
+            Assert.That(
+                BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation)
+                    .Fits(new PixelSize(BufferDimensionBudget.EngineCeiling.MaxDimension, 1)),
+                Is.EqualTo(
+                    BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).MaxDimension
+                    >= BufferDimensionBudget.EngineCeiling.MaxDimension),
                 "without a named budget the active device's limit decides");
             Assert.That(
-                () => RenderScaleUtilities.FitsBufferBudget(new PixelSize(1, 1), 0),
+                () => BufferDimensionBudget.Named(0).Fits(new PixelSize(1, 1)),
                 Throws.InstanceOf<ArgumentOutOfRangeException>());
         });
     }
@@ -255,7 +348,7 @@ public sealed class DeviceBufferBudgetTests
         var factory = new RecordingCpuTargetFactory();
         using var registry = new RenderTargetPool(
             factory,
-            new RenderTargetPoolOptions { MaxBufferDimension = DeviceBudget });
+            new RenderTargetPoolOptions { Budget = BufferDimensionBudget.Named(DeviceBudget) });
         using RenderTargetLeaseSession preview = registry.BeginSession(RenderIntent.Preview);
 
         var overBudget = new PixelSize(DeviceBudget + 1, 1);
@@ -283,7 +376,7 @@ public sealed class DeviceBufferBudgetTests
         var factory = new RecordingCpuTargetFactory();
         using var registry = new RenderTargetPool(
             factory,
-            new RenderTargetPoolOptions { MaxBufferDimension = DeviceBudget });
+            new RenderTargetPoolOptions { Budget = BufferDimensionBudget.Named(DeviceBudget) });
         using RenderTargetLeaseSession delivery = registry.BeginSession(RenderIntent.Delivery);
 
         Assert.Multiple(() =>
@@ -308,7 +401,7 @@ public sealed class DeviceBufferBudgetTests
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using var registry = new RenderTargetPool(
             factory,
-            new RenderTargetPoolOptions { MaxBufferDimension = DeviceBudget });
+            new RenderTargetPoolOptions { Budget = BufferDimensionBudget.Named(DeviceBudget) });
         using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview, destination);
 
         Assert.DoesNotThrow(
@@ -340,7 +433,7 @@ public sealed class DeviceBufferBudgetTests
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Delivery);
         using var registry = new RenderTargetPool(
             factory,
-            new RenderTargetPoolOptions { MaxBufferDimension = DeviceBudget });
+            new RenderTargetPoolOptions { Budget = BufferDimensionBudget.Named(DeviceBudget) });
         using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Delivery, destination);
 
         InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
@@ -366,7 +459,7 @@ public sealed class DeviceBufferBudgetTests
         // allocator fills its requests. The probes run on the render dispatcher, the only place the pool's
         // own allocator attaches through that device at all - off it, it rasters and both answer the ceiling.
         IGraphicsContext device = ContextAttaching(DeviceBudget);
-        var atTheEngineCeiling = new PixelSize(RenderScaleUtilities.MaxBufferDimension, 2);
+        var atTheEngineCeiling = new PixelSize(BufferDimensionBudget.EngineCeiling.MaxDimension, 2);
         var factory = new RecordingCpuTargetFactory();
         using var callerAllocated = new RenderTargetPool(factory);
         using RenderTargetLeaseSession callerRequest = callerAllocated.BeginImplicitSession(RenderIntent.Preview, device);
@@ -391,7 +484,7 @@ public sealed class DeviceBufferBudgetTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(callerBudget, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(callerBudget, Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(callerRefuses, Is.False);
             Assert.That(
                 factory.Requests,
@@ -477,10 +570,10 @@ public sealed class DeviceBufferBudgetTests
             Assert.That(offRenderThread, Is.Null);
             Assert.That(onRenderThread, Is.SameAs(device));
             Assert.That(
-                RenderScaleUtilities.ResolveMaxBufferDimension(offRenderThread),
-                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+                BufferDimensionBudget.ForDevice(offRenderThread).MaxDimension,
+                Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(
-                RenderScaleUtilities.ResolveMaxBufferDimension(onRenderThread),
+                BufferDimensionBudget.ForDevice(onRenderThread).MaxDimension,
                 Is.EqualTo(DeviceBudget));
         });
     }
@@ -510,7 +603,7 @@ public sealed class DeviceBufferBudgetTests
             {
                 Assert.That(
                     budget,
-                    Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                    Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
                     "a CPU raster answers to the engine ceiling, not to a device it never reaches");
                 Assert.That(refuses, Is.False);
                 Assert.That(acquired, Is.True, "a valid CPU render must not be refused before it allocates");
@@ -524,7 +617,7 @@ public sealed class DeviceBufferBudgetTests
     {
         // Within the engine ceiling and past what a sub-ceiling device could attach, so the allocator's own
         // refusal is the only one left to report.
-        var declined = new PixelSize(RenderScaleUtilities.MaxBufferDimension, 1);
+        var declined = new PixelSize(BufferDimensionBudget.EngineCeiling.MaxDimension, 1);
         var factory = new DecliningTargetFactory();
         using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession delivery = registry.BeginSession(RenderIntent.Delivery);
@@ -671,10 +764,10 @@ public sealed class DeviceBufferBudgetTests
             bool saveFrameFitsCeiling,
             bool saveFrameFitsDevice) = WithInstalledDevice(device.Object, () =>
             RenderThread.Dispatcher.Invoke(() => (
-                ExportSupersampling.FitsBufferLimit(frame, 4, RenderScaleUtilities.MaxBufferDimension),
-                ExportSupersampling.FitsBufferLimit(frame, 4),
-                SaveFrameScale.FitsBufferLimit(frame, 4f, RenderScaleUtilities.MaxBufferDimension),
-                SaveFrameScale.FitsBufferLimit(frame, 4f))));
+                ExportSupersampling.FitsBufferLimit(frame, 4, BufferDimensionBudget.EngineCeiling),
+                ExportSupersampling.FitsBufferLimit(frame, 4, PredictedBudget()),
+                SaveFrameScale.FitsBufferLimit(frame, 4f, BufferDimensionBudget.EngineCeiling),
+                SaveFrameScale.FitsBufferLimit(frame, 4f, PredictedBudget()))));
 
         Assert.Multiple(() =>
         {
@@ -697,17 +790,17 @@ public sealed class DeviceBufferBudgetTests
 
         (int allocationLimit, int predicted, bool supersampleFits, bool saveFrameFits) =
             WithInstalledDevice(device.Object, () => (
-                RenderScaleUtilities.ResolveMaxBufferDimension(),
-                RenderScaleUtilities.PredictRenderThreadMaxBufferDimension(),
-                ExportSupersampling.FitsBufferLimit(frame, 4),
-                SaveFrameScale.FitsBufferLimit(frame, 4f)));
+                BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).MaxDimension,
+                BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction).MaxDimension,
+                ExportSupersampling.FitsBufferLimit(frame, 4, PredictedBudget()),
+                SaveFrameScale.FitsBufferLimit(frame, 4f, PredictedBudget())));
 
         Assert.Multiple(() =>
         {
             Assert.That(Dispatcher.Current, Is.Null, "the fixture must ask from where the dialogs ask");
             Assert.That(
                 allocationLimit,
-                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
                 "a buffer allocated here is rastered on the CPU, so the device must still not bound it");
             Assert.That(
                 predicted,
@@ -720,13 +813,14 @@ public sealed class DeviceBufferBudgetTests
     }
 
     [Test]
-    public void PredictRenderThreadMaxBufferDimension_AnswersWhatTheRenderThreadResolves()
+    public void APredictedBudget_AnswersWhatTheRenderThreadResolvesForItsOwnAllocation()
     {
         Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
 
         (int predictedOffIt, int resolvedOnIt) = WithInstalledDevice(device.Object, () => (
-            RenderScaleUtilities.PredictRenderThreadMaxBufferDimension(),
-            RenderThread.Dispatcher.Invoke(RenderScaleUtilities.ResolveMaxBufferDimension)));
+            BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction).MaxDimension,
+            RenderThread.Dispatcher.Invoke(
+                () => BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).MaxDimension)));
 
         Assert.Multiple(() =>
         {
@@ -741,26 +835,26 @@ public sealed class DeviceBufferBudgetTests
     }
 
     [Test]
-    public void PredictRenderThreadMaxBufferDimension_BoundsAnUnbuiltDeviceByTheEngineCeiling()
+    public void APredictedBudget_BoundsAnUnbuiltDeviceByTheEngineCeiling()
     {
-        Mock<IGraphicsContext> pastTheCeiling = MockAttaching(RenderScaleUtilities.MaxBufferDimension * 2);
+        Mock<IGraphicsContext> pastTheCeiling = MockAttaching(BufferDimensionBudget.EngineCeiling.MaxDimension * 2);
 
         int withoutADevice = WithInstalledDevice(
             device: null,
-            RenderScaleUtilities.PredictRenderThreadMaxBufferDimension);
+            () => PredictedBudget().MaxDimension);
         int withARoomierDevice = WithInstalledDevice(
             pastTheCeiling.Object,
-            RenderScaleUtilities.PredictRenderThreadMaxBufferDimension);
+            () => PredictedBudget().MaxDimension);
 
         Assert.Multiple(() =>
         {
             Assert.That(
                 withoutADevice,
-                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
                 "nothing is built to measure, so the answer is the bound every measurement satisfies");
             Assert.That(
                 withARoomierDevice,
-                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
                 "and a device that attaches more is still held to the engine's own ceiling");
             AssertNeverAttached(pastTheCeiling);
         });
@@ -778,7 +872,7 @@ public sealed class DeviceBufferBudgetTests
         {
             Assert.That(
                 underTheEngineCeiling,
-                Is.GreaterThan(DeviceBudget).And.LessThan(RenderScaleUtilities.MaxBufferDimension),
+                Is.GreaterThan(DeviceBudget).And.LessThan(BufferDimensionBudget.EngineCeiling.MaxDimension),
                 "the fixture must produce a union the engine ceiling admits and the device cannot attach");
             Assert.That(
                 onASubCeilingDevice,
@@ -791,9 +885,8 @@ public sealed class DeviceBufferBudgetTests
     [Test]
     public void ADeviceClampedEffectItem_IsNeverKeyedOnThePlannedDensity()
     {
-        float plannedDensity = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
-            s_overBudgetDomain,
-            1f);
+        float plannedDensity = BufferDimensionBudget.EngineCeiling
+            .ClampWorkingScaleToExactFootprint(s_overBudgetDomain, 1f);
         var effect = new DeviceClampedCustomEffect();
         var effectNode = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
@@ -941,6 +1034,10 @@ public sealed class DeviceBufferBudgetTests
         return factory.Requests.Max(static size => size.Width);
     }
 
+    /// <summary>The budget the export and save-frame dialogs pre-validate against.</summary>
+    private static BufferDimensionBudget PredictedBudget()
+        => BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction);
+
     private static IGraphicsContext ContextAttaching(int maxAttachmentDimension)
         => MockAttaching(maxAttachmentDimension).Object;
 
@@ -1051,10 +1148,8 @@ public sealed class DeviceBufferBudgetTests
                 0,
                 static (_, execution) => execution.ForEach((_, source) =>
                 {
-                    float density = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
-                        new Rect(default, source.Bounds.Size),
-                        execution.WorkingScale,
-                        DeviceBudget);
+                    float density = BufferDimensionBudget.Named(DeviceBudget).ClampWorkingScale(
+                        new Rect(default, source.Bounds.Size), execution.WorkingScale);
                     (int width, int height) = CustomFilterEffectContext.DeviceBufferSize(
                         source.Bounds,
                         density);

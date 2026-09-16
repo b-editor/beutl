@@ -73,14 +73,14 @@ internal sealed class RenderTargetPool : IDisposable
             throw new ArgumentOutOfRangeException(nameof(options), "The retained-byte limit cannot be negative.");
         if (options.MaximumIdleRequests < 0)
             throw new ArgumentOutOfRangeException(nameof(options), "The idle-request limit cannot be negative.");
-        if (options.MaxBufferDimension is <= 0)
-            throw new ArgumentOutOfRangeException(nameof(options), "The maximum buffer dimension must be positive.");
+        BufferDimensionBudget.ThrowIfUninitialized(options.Budget, nameof(options));
+
         _factory = factory;
         _options = new RenderTargetPoolOptions
         {
             MaximumRetainedBytes = options.MaximumRetainedBytes,
             MaximumIdleRequests = options.MaximumIdleRequests,
-            MaxBufferDimension = options.MaxBufferDimension,
+            Budget = options.Budget,
             AfterTargetRegistrationStep = options.AfterTargetRegistrationStep,
             BeforeLeaseRegistration = options.BeforeLeaseRegistration,
         };
@@ -304,8 +304,9 @@ internal sealed class RenderTargetPool : IDisposable
         PixelSize deviceSize,
         out int maxDimension)
     {
-        maxDimension = ResolveBufferBudget(request);
-        return !RenderScaleUtilities.FitsBufferBudget(deviceSize, maxDimension);
+        BufferDimensionBudget budget = ResolveBufferBudget(request);
+        maxDimension = budget.MaxDimension;
+        return !budget.Fits(deviceSize);
     }
 
     /// <summary>The largest extent <paramref name="request"/>'s allocator may be asked for.</summary>
@@ -314,14 +315,14 @@ internal sealed class RenderTargetPool : IDisposable
     /// pool's own allocator attaches through a shared context, and only from a dispatcher, so only then is
     /// it measured against one; anything else is bounded by the engine ceiling planning already clamped the
     /// density to, and its own allocator declines what it cannot make - <see cref="TryAcquire"/> reports
-    /// that as the same decline. A named <see cref="RenderTargetPoolOptions.MaxBufferDimension"/> overrides
-    /// both, because it states what this pool may attach whoever allocates it.
+    /// that as the same decline. A named <see cref="RenderTargetPoolOptions.Budget"/> overrides both,
+    /// because it states what this pool may attach regardless of which allocator makes the allocation.
     /// </remarks>
-    private int ResolveBufferBudget(RenderTargetLeaseSession request)
-        => _options.MaxBufferDimension
+    private BufferDimensionBudget ResolveBufferBudget(RenderTargetLeaseSession request)
+        => _options.Budget
            ?? (ResolveAttachmentContext(request) is { } context
-               ? RenderScaleUtilities.ResolveMaxBufferDimension(context)
-               : RenderScaleUtilities.MaxBufferDimension);
+               ? BufferDimensionBudget.ForDevice(context)
+               : BufferDimensionBudget.EngineCeiling);
 
     /// <summary>
     /// The shared context this pool's own allocator attaches <paramref name="request"/>'s targets to, or

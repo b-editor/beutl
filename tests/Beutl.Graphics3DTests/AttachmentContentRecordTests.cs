@@ -16,7 +16,9 @@ public sealed class AttachmentContentRecordTests
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            int budget = Beutl.Graphics.Rendering.RenderScaleUtilities.ResolveMaxBufferDimension();
+            int budget = Beutl.Graphics.Rendering.BufferDimensionBudget
+                .Resolve(Beutl.Graphics.Rendering.BufferBudgetScope.Allocation)
+                .MaxDimension;
 
             using (Assert.EnterMultipleScope())
             {
@@ -31,7 +33,7 @@ public sealed class AttachmentContentRecordTests
                 Assert.That(
                     budget,
                     Is.LessThanOrEqualTo(
-                        Beutl.Graphics.Rendering.RenderScaleUtilities.MaxBufferDimension),
+                        Beutl.Graphics.Rendering.BufferDimensionBudget.EngineCeiling.MaxDimension),
                     "nor the engine's own ceiling");
             }
         });

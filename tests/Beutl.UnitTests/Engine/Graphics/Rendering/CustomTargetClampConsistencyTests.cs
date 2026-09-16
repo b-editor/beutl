@@ -20,7 +20,7 @@ public class CustomTargetClampConsistencyTests
             RenderRequestPurpose.Auxiliary,
             outputScale: 1f,
             workingScale: workingScale,
-            maxBufferDimension: TestBufferDimension);
+            budget: BufferDimensionBudget.Named(TestBufferDimension));
 
     [Test]
     public void CreateTarget_WithinBudget_KeepsWorkingScale_AndOpenMatches()
@@ -78,10 +78,7 @@ public class CustomTargetClampConsistencyTests
             Assert.That(target.Scale.IsUnbounded, Is.False);
             Assert.That(target.Scale.Value, Is.LessThan(2f),
                 "CreateTarget did not clamp the density for an over-budget buffer");
-            float expectedFit = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
-                bounds,
-                2f,
-                TestBufferDimension);
+            float expectedFit = BufferDimensionBudget.Named(TestBufferDimension).ClampWorkingScale(bounds, 2f);
             Assert.That(target.Scale.Value, Is.EqualTo(expectedFit).Within(1e-4));
 
             // Open must tag the canvas with the clamped density.

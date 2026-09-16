@@ -172,7 +172,7 @@ public class Scene3DRenderNodeScaleTests
 
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         RecordedNestedRenderRequest nested = graph.NestedRequests.Single();
-        float expectedDensity = RenderScaleUtilities.MaxBufferDimension / 8192f;
+        float expectedDensity = BufferDimensionBudget.EngineCeiling.MaxDimension / 8192f;
 
         Assert.Multiple(() =>
         {
@@ -181,7 +181,7 @@ public class Scene3DRenderNodeScaleTests
             Assert.That(nested.Request.Options.MaxWorkingScale, Is.EqualTo(expectedDensity));
             Assert.That(
                 PixelRect.FromRect(nested.Request.Options.TargetDomain!.Value, expectedDensity).Width,
-                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+                Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
         });
     }
 

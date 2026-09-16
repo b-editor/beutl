@@ -109,7 +109,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
     public void Feature003BufferClampAndCacheIdentity_IncludeResolvedDensity()
     {
         var bounds = new Rect(0, 0, 10_000.25f, 20);
-        float clamped = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, 4);
+        float clamped = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(bounds, 4);
         RenderOutputCacheIdentity atOne = CreateCacheIdentity(bounds, density: 1);
         RenderOutputCacheIdentity atTwo = CreateCacheIdentity(bounds, density: 2);
         RenderOutputCacheIdentity atTwoAgain = CreateCacheIdentity(bounds, density: 2);
@@ -118,7 +118,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
         {
             Assert.That(clamped, Is.LessThan(4));
             Assert.That(Math.Ceiling(bounds.Width * clamped),
-                Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+                Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(atOne, Is.Not.EqualTo(atTwo),
                 "a density change must invalidate a materialized output cache entry");
             Assert.That(atTwo, Is.EqualTo(atTwoAgain),

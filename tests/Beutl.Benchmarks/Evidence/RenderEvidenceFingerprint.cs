@@ -49,9 +49,9 @@ public sealed record RenderEvidenceFingerprint
 
     /// <summary>The device's largest attachable-and-samplable square, in pixels.</summary>
     /// <remarks>
-    /// Feature 003's <c>ClampWorkingScaleToBufferBudget</c> reduces the working density at effect boundaries to
-    /// keep a buffer inside this limit, so two devices that disagree here can render the same scene at different
-    /// densities without any other fingerprint field changing.
+    /// Feature 003's per-buffer dimension clamp (now <c>BufferDimensionBudget.ClampWorkingScale</c>) reduces the
+    /// working density at effect boundaries to keep a buffer inside this limit, so two devices that disagree here
+    /// can render the same scene at different densities without any other fingerprint field changing.
     /// </remarks>
     public int MaxAttachmentDimension { get; init; }
 

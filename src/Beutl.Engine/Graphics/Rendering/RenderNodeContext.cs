@@ -461,7 +461,7 @@ public sealed class RenderNodeContext
                 [reference.EffectiveScale],
                 OutputScale,
                 MaxWorkingScale);
-            workingScale = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, workingScale);
+            workingScale = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(bounds, workingScale);
             scale = EffectiveScale.At(workingScale);
         }
         else
@@ -527,7 +527,7 @@ public sealed class RenderNodeContext
                 [reference.EffectiveScale],
                 OutputScale,
                 MaxWorkingScale);
-            workingScale = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, workingScale);
+            workingScale = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(bounds, workingScale);
             scale = EffectiveScale.At(workingScale);
         }
 

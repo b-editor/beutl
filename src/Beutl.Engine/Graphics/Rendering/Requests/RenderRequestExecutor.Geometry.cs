@@ -52,7 +52,7 @@ internal sealed partial class RenderRequestExecutor
                         continue;
 
                     float density = requestScale.Value;
-                    density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                    density = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                         outputBounds.Translate(_activeDeviceGridOffset),
                         density);
                     EffectiveScale outputScale = EffectiveScale.At(density);
@@ -270,7 +270,7 @@ internal sealed partial class RenderRequestExecutor
                         Thickness rasterOutset = fragment.Kind == RenderFragmentKind.OpaqueSource
                             ? description.Bounds.RasterOutset
                             : default;
-                        density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                        density = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                             outputBounds.Inflate(rasterOutset).Translate(_activeDeviceGridOffset),
                             density);
                         bool preserveRasterApron = description.HasDirectReplayMaterializationContract
@@ -280,7 +280,7 @@ internal sealed partial class RenderRequestExecutor
                             density);
                         if (preserveRasterApron)
                         {
-                            density = RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
+                            density = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(
                                 outputBounds.Inflate(rasterOutset).Translate(_activeDeviceGridOffset),
                                 density);
                         }
@@ -312,10 +312,10 @@ internal sealed partial class RenderRequestExecutor
                                         .Inflate(rasterOutset)
                                         .Translate(_activeDeviceGridOffset);
                                     outputDensity = preserveRasterApron
-                                        ? RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
+                                        ? BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(
                                             densityBounds,
                                             outputDensity)
-                                        : RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                                        : BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                                             densityBounds,
                                             outputDensity);
                                 }

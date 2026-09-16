@@ -90,7 +90,7 @@ public class DrawableTextureSourceDensityTests
         using var registry = new RenderTargetPool(new CpuTargetFactory());
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
         RenderTargetLease lease = session.Acquire(
-            new PixelSize(RenderScaleUtilities.MaxBufferDimension, 2));
+            new PixelSize(BufferDimensionBudget.EngineCeiling.MaxDimension, 2));
         using var binding = new NestedRenderTargetBinding();
         binding.Stage(
             lease,

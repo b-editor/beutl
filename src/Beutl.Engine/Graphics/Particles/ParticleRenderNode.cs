@@ -261,9 +261,9 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         // The pool refuses this layer against the device's attachment limit, not against the engine ceiling,
         // so a union between the two has to be clipped here or the pool drops the whole emitter. Predicted
         // rather than resolved: resolving builds a shared context, which Process may not do.
-        int maxBufferDimension = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
+        BufferDimensionBudget budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction);
         PixelRect footprint = PixelRect.FromRect(bounds, scale);
-        if (footprint.Width > maxBufferDimension || footprint.Height > maxBufferDimension)
+        if (!budget.Fits(footprint.Size))
         {
             return true;
         }
