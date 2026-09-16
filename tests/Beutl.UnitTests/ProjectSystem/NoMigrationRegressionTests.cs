@@ -779,9 +779,13 @@ public class NoMigrationRegressionTests
     [Test]
     public void The_migration_preflight_does_not_lower_a_gate_already_on_disk()
     {
-        (Project project, StandaloneValueElement element) =
-            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
-        string path = project.Uri!.LocalPath;
+        string path = Path.Combine(_tempDirectory, "project.bep");
+        var project = new Project { Uri = new Uri(path) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "scene.scene")) };
+        MigratedElement element = CreateMigrated(new MigratedElement("9.0.0"));
+        element.Uri = new Uri(Path.Combine(_tempDirectory, "element.belm"));
+        scene.Children.Add(element);
+        project.Items.Add(scene);
         File.WriteAllText(path, "{\"minAppVersion\":\"99.0.0\"}");
         string? gateAtElementWrite = null;
         element.BeforeSerialization = () => gateAtElementWrite =
@@ -790,6 +794,44 @@ public class NoMigrationRegressionTests
         CoreSerializer.StoreToUri(project, project.Uri);
 
         Assert.That(gateAtElementWrite, Is.EqualTo("99.0.0"));
+    }
+
+    // The gate that counts is the one in the file being written, not the constraint the project
+    // happens to hold in memory: a Save As can name a file that has never seen this requirement.
+    [Test]
+    public void A_save_to_a_lower_gated_file_is_discovered_even_when_memory_already_covers_it()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        project.RestoreVersionMetadata(BeutlApplication.Version, "9.0.0");
+        string destinationPath = Path.Combine(_tempDirectory, "elsewhere", "project.bep");
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        File.WriteAllText(destinationPath, "{\"minAppVersion\":\"1.0.0\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(destinationPath))!["minAppVersion"];
+
+        CoreSerializer.StoreToUri(project, new Uri(destinationPath));
+
+        Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
+    }
+
+    [Test]
+    public void A_project_file_whose_gate_is_not_a_string_does_not_block_the_save_that_replaces_it()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        File.WriteAllText(project.Uri!.LocalPath, "{\"minAppVersion\":9}");
+
+        Assert.DoesNotThrow(() => CoreSerializer.StoreToUri(project, project.Uri));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                (string?)JsonNode.Parse(File.ReadAllText(project.Uri.LocalPath))!["minAppVersion"],
+                Is.EqualTo("9.0.0"));
+            Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
+        });
     }
 
     // Resource inspection walks the live project through a context of its own and declines

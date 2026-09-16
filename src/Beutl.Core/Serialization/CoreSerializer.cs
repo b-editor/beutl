@@ -37,7 +37,9 @@ public static class CoreSerializer
             }
         }
 
-        RaiseAttachedMigrationsIfUncovered(pending, projects);
+        RaiseAttachedMigrationsIfUncovered(
+            pending,
+            projects.Select(project => (project, project.Uri)).ToArray());
 
         foreach (Project project in projects)
         {
@@ -54,7 +56,7 @@ public static class CoreSerializer
     /// </summary>
     private static void PersistProjectMigrationGate(Project project, Uri destination)
     {
-        RaiseAttachedMigrationsIfUncovered([project], [project]);
+        RaiseAttachedMigrationsIfUncovered([project], [(project, destination)]);
         WriteMigrationGate(project, destination);
     }
 
@@ -69,10 +71,10 @@ public static class CoreSerializer
     /// </remarks>
     private static void RaiseAttachedMigrationsIfUncovered(
         CoreObject[] pending,
-        IReadOnlyCollection<Project> projects)
+        IReadOnlyCollection<(Project Project, Uri? Destination)> guarded)
     {
         if (AttachedContentMigrations.HighestRetained is { } outstanding
-            && projects.Any(project => !CoversMigration(project, outstanding)))
+            && guarded.Any(entry => !CoversMigration(entry.Project, entry.Destination, outstanding)))
         {
             RaiseAttachedMigrations(pending);
         }
@@ -147,7 +149,21 @@ public static class CoreSerializer
 
         // A gate already on disk is never lowered, the way Project.MarkAsMigrated treats the one it
         // loaded: a Save As can name a file whose own constraint is higher than this project's.
-        string persisted = (string?)json["minAppVersion"] ?? Project.DefaultMinAppVersion;
+        string persisted;
+        switch (json["minAppVersion"])
+        {
+            case null:
+                persisted = Project.DefaultMinAppVersion;
+                break;
+            case JsonValue value when value.TryGetValue(out string? persistedGate):
+                persisted = persistedGate;
+                break;
+            default:
+                // A gate that is not a string is corruption no load could read either; leave the
+                // ordinary write to replace the file rather than patching around it.
+                return false;
+        }
+
         json["minAppVersion"] = Project.GetMaximumVersion(persisted, project.MinAppVersion);
         json["appVersion"] = project.AppVersion;
 
@@ -195,20 +211,34 @@ public static class CoreSerializer
         return true;
     }
 
-    // Unparseable versions answer "covered" rather than throwing: an unknown persisted constraint is
-    // retained rather than weakened (see Project.MarkAsMigrated), so nothing this pass could
-    // discover would change the gate, and a save must not fail over a value it cannot read.
-    private static bool CoversMigration(Project project, string requiredVersion)
+    /// <summary>
+    /// Whether the gate this save is about to make durable already covers
+    /// <paramref name="requiredVersion"/>, so that discovering it could not change what reaches the
+    /// disk ahead of the sidecars.
+    /// </summary>
+    /// <remarks>
+    /// The gate that counts is the one in the file being written, which a Save As can name somewhere
+    /// the project has never been, and which is what an older application reads if the save fails
+    /// part-way — not the constraint the project happens to hold in memory. An item that already
+    /// carries the requirement counts too, because the write below then takes it from there.
+    /// Unparseable versions answer "covered" rather than throwing: an unknown persisted constraint is
+    /// retained rather than weakened (see Project.MarkAsMigrated), so nothing this pass could
+    /// discover would change the gate, and a save must not fail over a value it cannot read.
+    /// </remarks>
+    private static bool CoversMigration(Project project, Uri? destination, string requiredVersion)
     {
-        if (!NuGetVersion.TryParse(requiredVersion, out NuGetVersion? required)
-            || !NuGetVersion.TryParse(project.MinAppVersion, out NuGetVersion? gate))
+        if (!NuGetVersion.TryParse(requiredVersion, out NuGetVersion? required))
         {
             return true;
         }
 
-        if (VersionComparer.VersionRelease.Compare(gate, required) >= 0)
+        if (destination is not null && ReadPersistedGate(destination) is { } persisted)
         {
-            return true;
+            if (!NuGetVersion.TryParse(persisted, out NuGetVersion? gate)
+                || VersionComparer.VersionRelease.Compare(gate, required) >= 0)
+            {
+                return true;
+            }
         }
 
         foreach (ProjectItem item in project.Items)
@@ -236,6 +266,42 @@ public static class CoreSerializer
     /// referenced object as a URI, and the caller runs this only while a gate about to be written
     /// does not already cover every requirement a live value carries.
     /// </remarks>
+    /// <summary>
+    /// The minimum application version the file at <paramref name="destination"/> advertises, or
+    /// <see langword="null"/> when it advertises none this can compare against.
+    /// </summary>
+    /// <remarks>
+    /// Only reading is attempted: a file that cannot be written is caught by the write itself, which
+    /// is what stops a save whose project location cannot hold the gate.
+    /// </remarks>
+    private static string? ReadPersistedGate(Uri destination)
+    {
+        if (destination.Scheme != "file")
+        {
+            return null;
+        }
+
+        string path = destination.LocalPath;
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            using FileStream stream = File.OpenRead(path);
+            return JsonNode.Parse(stream) is JsonObject json
+                   && json["minAppVersion"] is JsonValue value
+                   && value.TryGetValue(out string? persisted)
+                ? persisted
+                : null;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     private static void RaiseAttachedMigrations(CoreObject[] objects)
     {
         var visited = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
