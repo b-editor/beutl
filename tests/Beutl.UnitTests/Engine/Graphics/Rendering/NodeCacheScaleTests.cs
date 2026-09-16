@@ -126,9 +126,9 @@ public class NodeCacheScaleTests
     [Test]
     public void ApronedDirectReplayCache_ColdAndWarmUsePlannedClampedDensity()
     {
-        var bounds = new Rect(0, 0, RenderScaleUtilities.MaxBufferDimension, 1);
+        var bounds = new Rect(0, 0, BufferDimensionBudget.EngineCeiling.MaxDimension, 1);
         float expectedDensity =
-            RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1);
+            BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(bounds, 1);
         using var node = new RasterApronSourceNode(bounds);
         WarmForCapture(node);
         using var renderer = CreateFrameRenderer(
@@ -154,14 +154,14 @@ public class NodeCacheScaleTests
     [Test]
     public void BoundedValueReplayCache_PartialRoiUsesCompleteApronedDensity()
     {
-        var bounds = new Rect(0, 0, RenderScaleUtilities.MaxBufferDimension, 1);
+        var bounds = new Rect(0, 0, BufferDimensionBudget.EngineCeiling.MaxDimension, 1);
         var requestedRegion = new Rect(
             0,
             0,
-            RenderScaleUtilities.MaxBufferDimension / 2,
+            BufferDimensionBudget.EngineCeiling.MaxDimension / 2,
             1);
         float expectedDensity =
-            RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1);
+            BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(bounds, 1);
         using var node = new BoundedValueReplayNode(bounds);
         WarmForCapture(node);
         using var renderer = CreateFrameRenderer(

@@ -48,7 +48,7 @@ public sealed partial class DrawableTextureSource : TextureSource
         internal float ResolveDensity(float density)
         {
             float sanitizedDensity = RenderScaleUtilities.SanitizeOutputScale(density);
-            return RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
+            return BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).ClampWorkingScale(
                 TextureDomain,
                 sanitizedDensity);
         }

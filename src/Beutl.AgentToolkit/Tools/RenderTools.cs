@@ -2089,7 +2089,7 @@ public sealed class RenderTools(
         PixelSize frameSize = scene.FrameSize;
 
         // Validate against the allocator reached by StillRenderer or VideoExporter, not the engine ceiling.
-        int maxDimension = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
+        int maxDimension = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction).MaxDimension;
         double requestedWidth = GetRootDeviceExtent(frameSize.Width, normalizedScale);
         double requestedHeight = GetRootDeviceExtent(frameSize.Height, normalizedScale);
         if (requestedWidth <= maxDimension && requestedHeight <= maxDimension)

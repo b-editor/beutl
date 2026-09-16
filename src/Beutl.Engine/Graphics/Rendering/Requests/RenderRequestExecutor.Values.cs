@@ -239,10 +239,10 @@ internal sealed partial class RenderRequestExecutor
         {
             Rect alignedBounds = completeBounds.Translate(deviceGridOffset);
             float density = requiresRasterApron
-                ? RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
+                ? BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(
                     alignedBounds,
                     scale.Value)
-                : RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                : BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                     alignedBounds,
                     scale.Value);
             return EffectiveScale.At(density);

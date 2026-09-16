@@ -462,11 +462,11 @@ public sealed class RasterFootprintMetadataTests
             targets,
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
-            maxBufferDimension: RenderScaleUtilities.MaxBufferDimension);
+            budget: BufferDimensionBudget.EngineCeiling);
         var requestedBounds = new Rect(
             0,
             0,
-            RenderScaleUtilities.MaxBufferDimension,
+            BufferDimensionBudget.EngineCeiling.MaxDimension,
             1);
 
         float density = context.ResolveTargetDensity(requestedBounds);
@@ -477,8 +477,8 @@ public sealed class RasterFootprintMetadataTests
         Assert.Multiple(() =>
         {
             Assert.That(density, Is.EqualTo(1));
-            Assert.That(width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
-            Assert.That(height, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(width, Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
+            Assert.That(height, Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
         });
     }
 

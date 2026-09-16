@@ -195,7 +195,7 @@ public class ResolutionScaleTests
     public void ClampBudget_SmallBuffer_LeavesScaleUnchanged()
     {
         // Common case: a buffer within the GPU limit is untouched.
-        float w = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 1920, 1080), 2.0f);
+        float w = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(new Rect(0, 0, 1920, 1080), 2.0f);
         Assert.That(w, Is.EqualTo(2.0f));
     }
 
@@ -203,10 +203,10 @@ public class ResolutionScaleTests
     public void ClampBudget_AnisotropicOverAllocation_IsBounded()
     {
         // Anisotropic case: ceil(8640 * 4) = 34560 > 16384, must clamp so the larger axis fits.
-        float w = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 960, 8640), 4.0f);
+        float w = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(new Rect(0, 0, 960, 8640), 4.0f);
         Assert.That(w, Is.LessThan(4.0f), "anisotropic density must be clamped to fit the GPU buffer limit");
         // Hard guarantee: ceil(8640 * w) must be <= the limit.
-        Assert.That(Math.Ceiling(8640.0 * w), Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+        Assert.That(Math.Ceiling(8640.0 * w), Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
     }
 
     [Test]
@@ -218,9 +218,9 @@ public class ResolutionScaleTests
             foreach (float w in new[] { 1.7f, 3.3f, 4.0f, 7.9f, 12.5f })
             {
                 var bounds = new Rect(0, 0, axis, axis * 0.5f);
-                float clamped = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, w);
+                float clamped = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(bounds, w);
                 double allocatedAxis = Math.Ceiling((double)axis * clamped);
-                Assert.That(allocatedAxis, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension),
+                Assert.That(allocatedAxis, Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
                     $"axis={axis}, w={w}: allocated {allocatedAxis} px must fit the GPU limit exactly");
                 Assert.That(clamped, Is.LessThanOrEqualTo(w), "the clamp must never raise the scale");
             }
@@ -232,14 +232,14 @@ public class ResolutionScaleTests
     {
         var bounds = new Rect(-2_000_000_000f, 0, 4_000_000_000f, 1);
 
-        float clamped = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, 1);
+        float clamped = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(bounds, 1);
         PixelRect footprint = PixelRect.FromRect(bounds, clamped);
 
         Assert.Multiple(() =>
         {
             Assert.That(clamped, Is.GreaterThan(0).And.LessThan(1));
             Assert.That(footprint.Width, Is.GreaterThanOrEqualTo(0));
-            Assert.That(footprint.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(footprint.Width, Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
         });
     }
 
@@ -294,10 +294,10 @@ public class ResolutionScaleTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, 2f),
+                BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(bounds, 2f),
                 Is.GreaterThan(0f));
             Assert.That(
-                RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 2f),
+                BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(bounds, 2f),
                 Is.GreaterThan(0f));
         });
     }
@@ -306,9 +306,9 @@ public class ResolutionScaleTests
     public void ClampBudget_NeverIncreasesScale_AndGuardsNonFinite()
     {
         // The clamp only ever reduces; a degenerate w passes through without amplification.
-        Assert.That(RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 100, 100), 3.0f),
+        Assert.That(BufferDimensionBudget.EngineCeiling.ClampWorkingScale(new Rect(0, 0, 100, 100), 3.0f),
             Is.EqualTo(3.0f)); // fits => unchanged, never raised
-        Assert.That(RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 100, 100), float.NaN),
+        Assert.That(BufferDimensionBudget.EngineCeiling.ClampWorkingScale(new Rect(0, 0, 100, 100), float.NaN),
             Is.NaN);
     }
 
@@ -318,16 +318,18 @@ public class ResolutionScaleTests
         // The node-level clamp runs against pre-effect bounds, but effect inflation (blur/shadow) can
         // overflow the GPU limit, so Flush re-clamps against inflated bounds.
         var inputBounds = new Rect(0, 0, 4000, 4000);
-        float wAtInput = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(inputBounds, 3.0f);
+        float wAtInput = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(inputBounds, 3.0f);
         Assert.That(wAtInput, Is.EqualTo(3.0f), "input bounds fit at w=3 — the node-level clamp is inert");
 
         // A large blur inflates each side by 3*sigma; Flush allocates against inflated bounds.
         Rect inflated = inputBounds.Inflate(new Thickness(3 * 2000, 3 * 2000));
-        float wAtAllocation = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(inflated, 3.0f);
+        float wAtAllocation = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(inflated, 3.0f);
         Assert.That(wAtAllocation, Is.LessThan(wAtInput),
             "the re-clamp against post-inflation bounds must reduce w so the inflated buffer stays allocatable");
         double largestAxis = Math.Max(inflated.Width, inflated.Height);
-        Assert.That(Math.Ceiling(largestAxis * wAtAllocation), Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension),
+        Assert.That(
+            Math.Ceiling(largestAxis * wAtAllocation),
+            Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
             "post-inflation buffer must fit the GPU dimension limit after the allocation-site re-clamp");
     }
 

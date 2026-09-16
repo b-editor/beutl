@@ -82,7 +82,7 @@ public sealed class GpuPassFusionScaleRegionTests
         });
 
         RenderNodeMeasurement measurement = renderer.Measure();
-        float expected = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(completeBounds, 4);
+        float expected = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(completeBounds, 4);
 
         Assert.Multiple(() =>
         {
@@ -91,10 +91,10 @@ public sealed class GpuPassFusionScaleRegionTests
             Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(expected));
             Assert.That(
                 Math.Ceiling(completeBounds.Width * measurement.EffectiveScale.Value),
-                Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+                Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(
                 measurement.EffectiveScale.Value,
-                Is.LessThan(RenderScaleUtilities.ClampWorkingScaleToBufferBudget(requestedRegion, 4)),
+                Is.LessThan(BufferDimensionBudget.EngineCeiling.ClampWorkingScale(requestedRegion, 4)),
                 "a late ROI crop must not raise a density already clamped against complete bounds");
         });
     }

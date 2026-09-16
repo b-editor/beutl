@@ -21,21 +21,19 @@ public static class SaveFrameScale
         return ((long)Math.Ceiling(frameSize.Width * s), (long)Math.Ceiling(frameSize.Height * s));
     }
 
-    /// <summary>Whether the scaled surface fits the per-axis buffer limit on both axes.</summary>
-    /// <param name="maxDimension">
-    /// The limit to fit, or <see langword="null"/> for what the device the render will reach can attach.
-    /// </param>
+    /// <summary>Whether the scaled surface fits <paramref name="budget"/> on both axes.</summary>
+    /// <param name="budget">The budget to fit. Named by the caller rather than resolved here.</param>
     /// <remarks>
-    /// The default is the device's limit rather than the engine ceiling: a dialog that validates against the
-    /// ceiling enables a save the device then refuses mid-render. It is
-    /// <see cref="RenderScaleUtilities.PredictRenderThreadMaxBufferDimension"/> rather than
-    /// <see cref="RenderScaleUtilities.ResolveMaxBufferDimension()"/> because this is pre-validation: the
-    /// dialog asks from the UI thread, where an allocation would be CPU-rastered and the device therefore
-    /// bounds nothing, so the allocation limit there is the engine ceiling that admits the refused save.
+    /// A caller passes <see cref="BufferBudgetScope.Prediction"/> rather than
+    /// <see cref="BufferDimensionBudget.EngineCeiling"/>: a dialog that validates against the ceiling enables
+    /// a save the device then refuses mid-render. It is <see cref="BufferBudgetScope.Prediction"/> rather
+    /// than <see cref="BufferBudgetScope.Allocation"/> because this is pre-validation: the dialog asks from
+    /// the UI thread, where an allocation would be CPU-rastered and the device therefore bounds nothing, so
+    /// an allocation resolved there is the engine ceiling that admits the refused save.
     /// </remarks>
-    public static bool FitsBufferLimit(PixelSize frameSize, float scale, int? maxDimension = null)
+    public static bool FitsBufferLimit(PixelSize frameSize, float scale, BufferDimensionBudget budget)
     {
-        int limit = maxDimension ?? RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
+        int limit = budget.MaxDimension;
         (long width, long height) = GetRenderSize(frameSize, scale);
         return width <= limit && height <= limit;
     }

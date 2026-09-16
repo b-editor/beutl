@@ -58,21 +58,21 @@ public class SaveFrameScaleTests
     {
         Assert.That(
             SaveFrameScale.FitsBufferLimit(
-                new PixelSize(w, h), scale, RenderScaleUtilities.MaxBufferDimension),
+                new PixelSize(w, h), scale, BufferDimensionBudget.EngineCeiling),
             Is.EqualTo(expected));
     }
 
-    // Read through the same resolver the default uses. ResolveMaxBufferDimension answers the engine ceiling
+    // Read through the same scope the dialog passes. BufferBudgetScope.Allocation answers the engine ceiling
     // off the render dispatcher by design, so it would expect a limit this check never applies.
     [Test]
-    public void FitsBufferLimit_DefaultLimit_IsWhatTheDeviceCanAttach()
+    public void FitsBufferLimit_PredictedBudget_IsWhatTheDeviceCanAttach()
     {
-        int resolved = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
-        var atLimit = new PixelSize(resolved, 1080);
-        var overLimit = new PixelSize(resolved + 1, 1080);
+        BufferDimensionBudget predicted = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction);
+        var atLimit = new PixelSize(predicted.MaxDimension, 1080);
+        var overLimit = new PixelSize(predicted.MaxDimension + 1, 1080);
 
-        Assert.That(SaveFrameScale.FitsBufferLimit(atLimit, 1f), Is.True);
-        Assert.That(SaveFrameScale.FitsBufferLimit(overLimit, 1f), Is.False);
+        Assert.That(SaveFrameScale.FitsBufferLimit(atLimit, 1f, predicted), Is.True);
+        Assert.That(SaveFrameScale.FitsBufferLimit(overLimit, 1f, predicted), Is.False);
     }
 
     [Test]

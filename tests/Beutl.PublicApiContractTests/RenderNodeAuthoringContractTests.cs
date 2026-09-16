@@ -494,9 +494,7 @@ public sealed class RenderNodeAuthoringContractTests
         _ = Measure(node, outputScale: 1.5f, maxWorkingScale: 4);
 
         EffectiveScale[] inputs = [EffectiveScale.Unbounded, EffectiveScale.At(2), EffectiveScale.At(3)];
-        float clamped = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-            new Rect(0, 0, 20_000, 10),
-            2);
+        float clamped = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(new Rect(0, 0, 20_000, 10), 2);
 
         Assert.Multiple(() =>
         {
@@ -509,7 +507,9 @@ public sealed class RenderNodeAuthoringContractTests
                 RenderScaleUtilities.ResolveWorkingScale(inputs, outputScale: 1.5f, maxWorkingScale: 2.5f),
                 Is.EqualTo(2.5f));
             Assert.That(clamped, Is.GreaterThan(0).And.LessThan(1));
-            Assert.That(Math.Ceiling(20_000d * clamped), Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(
+                Math.Ceiling(20_000d * clamped),
+                Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
         });
 
         using var invalidNode = new DelegateNode(context =>

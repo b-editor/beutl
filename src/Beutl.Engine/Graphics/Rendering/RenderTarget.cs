@@ -142,8 +142,8 @@ public class RenderTarget : IDisposable
     /// Which allocation runs is decided by the calling thread. On the render thread the target attaches to
     /// the shared graphics context and is bounded by what that device can attach; on any other thread it is
     /// rastered on the CPU, which no device's limit bounds. A caller that wants the limit named rather than
-    /// a bare refusal measures against <see cref="RenderScaleUtilities.FitsBufferBudget"/> itself first, as
-    /// the renderer and the target pool do.
+    /// a bare refusal measures against <see cref="BufferDimensionBudget.Fits"/> itself first, as the renderer
+    /// and the target pool do.
     /// </remarks>
     /// <returns>
     /// The allocated target, or <see langword="null"/> where the extent, the device or the backend refused
@@ -173,10 +173,9 @@ public class RenderTarget : IDisposable
                 // builds a framebuffer past its own limit and answers success, MoltenVK aborts the process
                 // on a Metal assertion. Neither reaches the catch below, so the extent has to be refused
                 // before the allocator is asked. The budget is taken from this context rather than from
-                // ResolveMaxBufferDimension(), which would resolve a second one that may answer differently.
+                // BufferBudgetScope.Allocation, which would resolve a second one that may answer differently.
                 var deviceSize = new PixelSize(width, height);
-                int maxDimension = RenderScaleUtilities.ResolveMaxBufferDimension(context);
-                if (!RenderScaleUtilities.FitsBufferBudget(deviceSize, maxDimension))
+                if (!BufferDimensionBudget.ForDevice(context).Fits(deviceSize))
                     return null;
 
                 surface = CreateSharedSurface(context, width, height, out sharedTexture);

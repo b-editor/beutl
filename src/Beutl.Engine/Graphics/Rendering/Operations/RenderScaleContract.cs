@@ -321,7 +321,7 @@ public readonly struct RenderScaleContract
             resolved = MathF.Min(resolved, ceiling);
         }
 
-        resolved = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(outputBounds, resolved);
+        resolved = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(outputBounds, resolved);
         if (!float.IsFinite(resolved) || resolved <= 0)
         {
             throw new InvalidOperationException(

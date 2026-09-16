@@ -127,12 +127,12 @@ public sealed class RenderDescriptionAndExecutionContractTests
         var positiveOrigin = new Rect(
             0.25f,
             0,
-            RenderScaleUtilities.MaxBufferDimension,
+            BufferDimensionBudget.EngineCeiling.MaxDimension,
             1);
         var exactFitAtNegativeOrigin = new Rect(
             -0.5f,
             0,
-            RenderScaleUtilities.MaxBufferDimension - 0.5f,
+            BufferDimensionBudget.EngineCeiling.MaxDimension - 0.5f,
             1);
         EffectiveScale[] resolved =
         [
@@ -156,12 +156,12 @@ public sealed class RenderDescriptionAndExecutionContractTests
                 Assert.That(scale.Value, Is.LessThan(1));
                 Assert.That(
                     PixelRect.FromRect(positiveOrigin, scale.Value).Width,
-                    Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+                    Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             }
 
             Assert.That(
                 PixelRect.FromRect(exactFitAtNegativeOrigin, 1).Width,
-                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+                Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(
                 RenderScaleContract.MaterializeAtWorkingScale.Resolve(
                     [EffectiveScale.At(1)],

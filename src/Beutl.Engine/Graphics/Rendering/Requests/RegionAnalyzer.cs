@@ -871,7 +871,7 @@ internal sealed class RegionAnalyzer
             inputScales,
             options.OutputScale,
             options.MaxWorkingScale);
-        workingScale = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+        workingScale = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
             resolvedBounds,
             workingScale);
         return EffectiveScale.At(workingScale);

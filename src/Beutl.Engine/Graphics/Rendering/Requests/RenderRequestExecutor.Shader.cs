@@ -57,7 +57,7 @@ internal sealed partial class RenderRequestExecutor
                     float density = !fragment.EffectiveScale.IsUnbounded
                         ? fragment.EffectiveScale.Value
                         : inputRequestScale.Value;
-                    density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                    density = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                         outputBounds.Translate(_activeDeviceGridOffset),
                         density);
                     EffectiveScale outputScale = EffectiveScale.At(density);
@@ -164,7 +164,7 @@ internal sealed partial class RenderRequestExecutor
             }
 
             MaterializedRenderValue input = inputs[0];
-            float density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+            float density = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                 outputBounds.Translate(_activeDeviceGridOffset),
                 outputRequestScale.Value);
             MaterializedRenderValue output = CreateOwnedValue(
@@ -230,10 +230,10 @@ internal sealed partial class RenderRequestExecutor
             Rect physicalBounds = input.RasterBounds.Union(input.Bounds);
             Rect alignedPhysicalBounds = physicalBounds.Translate(input.DeviceGridOffset);
             float density = addRasterApron
-                ? RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
+                ? BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(
                     alignedPhysicalBounds,
                     input.EffectiveScale.Value)
-                : RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                : BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                     alignedPhysicalBounds,
                     input.EffectiveScale.Value);
             EffectiveScale normalizedScale = EffectiveScale.At(density);

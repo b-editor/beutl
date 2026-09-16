@@ -50,27 +50,29 @@ public class ExportSupersamplingTests
     {
         Assert.That(
             ExportSupersampling.FitsBufferLimit(
-                new PixelSize(w, h), factor, RenderScaleUtilities.MaxBufferDimension),
+                new PixelSize(w, h), factor, BufferDimensionBudget.EngineCeiling),
             Is.EqualTo(expected));
     }
 
-    // Read through the same resolver the default uses. ResolveMaxBufferDimension answers the engine ceiling
+    // Read through the same scope the dialog passes. BufferBudgetScope.Allocation answers the engine ceiling
     // off the render dispatcher by design, so it would expect a limit this check never applies.
     [Test]
-    public void FitsBufferLimit_DefaultLimit_IsWhatTheDeviceCanAttach()
+    public void FitsBufferLimit_PredictedBudget_IsWhatTheDeviceCanAttach()
     {
-        int resolved = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
-        var atLimit = new PixelSize(resolved, 1080);
-        var overLimit = new PixelSize(resolved + 1, 1080);
+        BufferDimensionBudget predicted = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction);
+        var atLimit = new PixelSize(predicted.MaxDimension, 1080);
+        var overLimit = new PixelSize(predicted.MaxDimension + 1, 1080);
 
-        Assert.That(ExportSupersampling.FitsBufferLimit(atLimit, 1), Is.True);
-        Assert.That(ExportSupersampling.FitsBufferLimit(overLimit, 1), Is.False);
+        Assert.That(ExportSupersampling.FitsBufferLimit(atLimit, 1, predicted), Is.True);
+        Assert.That(ExportSupersampling.FitsBufferLimit(overLimit, 1, predicted), Is.False);
     }
 
     [Test]
     public void FitsBufferLimit_CustomLimit_IsRespected()
     {
-        Assert.That(ExportSupersampling.FitsBufferLimit(new PixelSize(50, 50), 2, maxDimension: 100), Is.True);
-        Assert.That(ExportSupersampling.FitsBufferLimit(new PixelSize(51, 50), 2, maxDimension: 100), Is.False);
+        BufferDimensionBudget budget = BufferDimensionBudget.Named(100);
+
+        Assert.That(ExportSupersampling.FitsBufferLimit(new PixelSize(50, 50), 2, budget), Is.True);
+        Assert.That(ExportSupersampling.FitsBufferLimit(new PixelSize(51, 50), 2, budget), Is.False);
     }
 }

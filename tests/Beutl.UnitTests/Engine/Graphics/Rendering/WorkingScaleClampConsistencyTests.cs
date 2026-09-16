@@ -25,11 +25,11 @@ public class WorkingScaleClampConsistencyTests
         var bounds = new Rect(
             -0.5f,
             0,
-            RenderScaleUtilities.MaxBufferDimension - 0.5f,
+            BufferDimensionBudget.EngineCeiling.MaxDimension - 0.5f,
             1);
         PixelSize deviceSize = PixelRect.FromRect(bounds, 1).Size;
-        float coarse = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, 1);
-        float exact = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, 1);
+        float coarse = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(bounds, 1);
+        float exact = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(bounds, 1);
         EffectiveScale planned = FilterEffectWorkingScalePolicy.ResolveMaterialized(
             [EffectiveScale.At(1)],
             [bounds],
@@ -41,11 +41,11 @@ public class WorkingScaleClampConsistencyTests
             RenderIntent.Delivery,
             RenderRequestPurpose.Auxiliary,
             workingScale: 1,
-            maxBufferDimension: RenderScaleUtilities.MaxBufferDimension);
+            budget: BufferDimensionBudget.EngineCeiling);
 
         Assert.Multiple(() =>
         {
-            Assert.That(deviceSize.Width, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(deviceSize.Width, Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(coarse, Is.EqualTo(1));
             Assert.That(exact, Is.EqualTo(1));
             Assert.That(planned, Is.EqualTo(EffectiveScale.At(1)));
@@ -59,11 +59,11 @@ public class WorkingScaleClampConsistencyTests
         var bounds = new Rect(
             -0.5f,
             0,
-            RenderScaleUtilities.MaxBufferDimension,
+            BufferDimensionBudget.EngineCeiling.MaxDimension,
             1);
         PixelSize deviceSize = PixelRect.FromRect(bounds, 1).Size;
-        float coarse = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, 1);
-        float exact = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, 1);
+        float coarse = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(bounds, 1);
+        float exact = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(bounds, 1);
         EffectiveScale planned = FilterEffectWorkingScalePolicy.ResolveMaterialized(
             [EffectiveScale.At(1)],
             [bounds],
@@ -72,16 +72,16 @@ public class WorkingScaleClampConsistencyTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(deviceSize.Width, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension + 1));
+            Assert.That(deviceSize.Width, Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension + 1));
             Assert.That(coarse, Is.LessThan(1), "the estimate must account for the straddled pixel");
             Assert.That(exact, Is.LessThan(1));
             Assert.That(exact, Is.LessThanOrEqualTo(coarse));
             Assert.That(
                 PixelRect.FromRect(bounds, coarse).Width,
-                Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+                Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(
                 PixelRect.FromRect(bounds, exact).Width,
-                Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+                Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(planned.Value, Is.LessThan(1));
         });
     }
@@ -92,7 +92,7 @@ public class WorkingScaleClampConsistencyTests
         var bounds = new Rect(
             -0.5f,
             0,
-            RenderScaleUtilities.MaxBufferDimension - 0.5f,
+            BufferDimensionBudget.EngineCeiling.MaxDimension - 0.5f,
             1);
         using var owner = new RenderRequestOwner();
         using var request = new RenderRequest(new RenderRequestOptions(
@@ -119,7 +119,7 @@ public class WorkingScaleClampConsistencyTests
             Assert.That(RenderMaterializationDensityPolicy.Clamp(reference, 1), Is.EqualTo(1));
             Assert.That(
                 PixelRect.FromRect(reference.Bounds, 1).Width,
-                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+                Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
         });
     }
 
@@ -129,15 +129,15 @@ public class WorkingScaleClampConsistencyTests
         var bounds = new Rect(
             -0.5f,
             0,
-            RenderScaleUtilities.MaxBufferDimension - 2.5f,
+            BufferDimensionBudget.EngineCeiling.MaxDimension - 2.5f,
             1);
         PixelRect footprint = RenderScaleUtilities.AddRasterApron(PixelRect.FromRect(bounds, 1));
 
         Assert.Multiple(() =>
         {
-            Assert.That(footprint.Width, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(footprint.Width, Is.EqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
             Assert.That(
-                RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1),
+                BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(bounds, 1),
                 Is.EqualTo(1));
         });
     }
@@ -163,14 +163,12 @@ public class WorkingScaleClampConsistencyTests
                 workingScale: 8f,
                 maxWorkingScale: 8f,
                 deviceGridOffset: default,
-                maxBufferDimension: TestBufferDimension);
+                budget: BufferDimensionBudget.Named(TestBufferDimension));
 
             activator.Flush();
 
-            float expected = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
-                s_pathologicalBounds,
-                8f,
-                TestBufferDimension);
+            float expected = BufferDimensionBudget.Named(TestBufferDimension)
+                .ClampWorkingScale(s_pathologicalBounds, 8f);
             Assert.That(expected, Is.LessThan(8f), "the fixture must actually trigger the clamp");
             Assert.That(activator.WorkingScale, Is.EqualTo(expected));
             Assert.That(activator.CurrentTargets, Has.Count.EqualTo(1));
@@ -294,16 +292,14 @@ public class WorkingScaleClampConsistencyTests
                 RenderRequestPurpose.Auxiliary,
                 outputScale: 1f,
                 workingScale: 8f,
-                maxBufferDimension: TestBufferDimension);
+                budget: BufferDimensionBudget.Named(TestBufferDimension));
 
             using EffectTarget target = context.CreateTarget(s_pathologicalBounds);
 
             Assert.That(target.IsEmpty, Is.False,
                 "an oversized request must degrade density, not return an empty target");
-            float expected = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
-                s_pathologicalBounds,
-                8f,
-                TestBufferDimension);
+            float expected = BufferDimensionBudget.Named(TestBufferDimension)
+                .ClampWorkingScale(s_pathologicalBounds, 8f);
             Assert.That(target.Scale.Value, Is.EqualTo(expected));
             Assert.That(target.RenderTarget!.Width, Is.LessThanOrEqualTo(TestBufferDimension));
         });

@@ -16,7 +16,7 @@ public class CustomFilterEffectContext
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
     private readonly bool _useExecutorManagedCanvas;
     private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
-    private readonly int? _maxBufferDimension;
+    private readonly BufferDimensionBudget? _budget;
 
     internal CustomFilterEffectContext(
         EffectTargets targets,
@@ -29,22 +29,16 @@ public class CustomFilterEffectContext
         DrawableBrushMaterializer? drawableBrushMaterializer = null,
         bool useExecutorManagedCanvas = false,
         RenderTargetLeaseSession? renderTargetLeaseSession = null,
-        int? maxBufferDimension = null,
+        BufferDimensionBudget? budget = null,
         Rect? targetDomain = null)
     {
         if (!Enum.IsDefined(intent))
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "The render intent is invalid.");
         if (!Enum.IsDefined(purpose))
             throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "The render request purpose is invalid.");
-        if (maxBufferDimension is <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxBufferDimension),
-                maxBufferDimension,
-                "The maximum buffer dimension must be positive.");
-        }
+        BufferDimensionBudget.ThrowIfUninitialized(budget, nameof(budget));
 
-        _maxBufferDimension = maxBufferDimension;
+        _budget = budget;
         Targets = targets;
         _deviceGridOffset = deviceGridOffset
             ?? (targets.Count > 0 ? targets[0].DeviceGridOffset : default);
@@ -79,12 +73,12 @@ public class CustomFilterEffectContext
     /// </remarks>
     public Rect? TargetDomain { get; }
 
-    /// <summary>Gets the maximum allocation extent on either axis.</summary>
+    /// <summary>Gets the budget an allocation from this context is held to, on either axis.</summary>
     /// <remarks>
     /// Resolved per call because the graphics context may become available after this context is created.
     /// </remarks>
-    public int MaxBufferDimension
-        => _maxBufferDimension ?? RenderScaleUtilities.ResolveMaxBufferDimension();
+    public BufferDimensionBudget Budget
+        => _budget ?? BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation);
 
     /// <summary>Gets the effect-local to composition-device grid translation.</summary>
     public Vector DeviceGridOffset => _deviceGridOffset;
@@ -202,10 +196,7 @@ public class CustomFilterEffectContext
     /// after applying the effect-item per-buffer dimension clamp.
     /// </summary>
     public float ResolveTargetDensity(Rect bounds)
-        => RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
-            new Rect(default, bounds.Size),
-            WorkingScale,
-            MaxBufferDimension);
+        => Budget.ClampWorkingScale(new Rect(default, bounds.Size), WorkingScale);
 
     /// <summary>
     /// Creates a target for the requested logical bounds at the resolved working density.
@@ -225,15 +216,13 @@ public class CustomFilterEffectContext
         float w = requestedDensity;
         // Re-clamp at allocation site: bounds may exceed what node-level clamps saw, and planning's budget
         // is the engine ceiling rather than what this device can attach.
-        float fit = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
-            new Rect(default, bounds.Size),
-            w,
-            MaxBufferDimension);
+        BufferDimensionBudget budget = Budget;
+        float fit = budget.ClampWorkingScale(new Rect(default, bounds.Size), w);
         if (fit < w)
         {
             s_logger.LogWarning(
                 "CreateTarget clamped the working scale {From} -> {To} to keep the buffer within the {Limit} px GPU axis limit (bounds {Bounds}). Use the returned target's Scale for output device math, not context.WorkingScale.",
-                w, fit, MaxBufferDimension, bounds);
+                w, fit, budget.MaxDimension, bounds);
             w = fit;
         }
 
@@ -678,7 +667,7 @@ public class CustomFilterEffectContext
             _drawableBrushMaterializer,
             _useExecutorManagedCanvas,
             _renderTargetLeaseSession,
-            _maxBufferDimension,
+            _budget,
             TargetDomain);
     }
 }
