@@ -11,12 +11,14 @@ public partial class GitProcessTests
     private const int ErrorNoProcess = 3;
     private readonly List<string> _temporaryDirectories = [];
 
+    // These cover the posix_spawn implementation. A C library without the chdir action keeps Process,
+    // which owns no group.
     [SetUp]
-    public void RequireUnix()
+    public void RequireOwnedProcessGroups()
     {
-        if (OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows() || !UnixGitProcess.IsSupported)
         {
-            Assert.Ignore("These tests start a Unix shell.");
+            Assert.Ignore("These tests need posix_spawn with a process group of its own.");
         }
     }
 
@@ -132,21 +134,39 @@ public partial class GitProcessTests
         Assert.That(await WaitUntilGoneAsync(member), Is.True);
     }
 
-    // A runtime that started with SIGCHLD ignored reaps every child, taking the status with it.
+    // A runtime that started with SIGCHLD ignored reaps every child, taking the status with it. Later
+    // commands keep Process, which that runtime reaps in step with.
     [Test]
     public async Task Status_reaped_elsewhere_is_never_reported_as_collected()
     {
-        using GitProcess process = GitProcess.Start(CreateShell("exit 0"));
-        process.StandardInput.Close();
+        try
+        {
+            using GitProcess process = GitProcess.Start(CreateShell("exit 0"));
+            process.StandardInput.Close();
 
-        Assert.That(waitpid(process.Id, out _, 0), Is.EqualTo(process.Id));
-        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(waitpid(process.Id, out _, 0), Is.EqualTo(process.Id));
+            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.That(process.TryGetExitCode(out _), Is.False);
-        // The id may already belong to another process, so this must not signal it.
-        Assert.DoesNotThrow(process.Kill);
-        Assert.DoesNotThrowAsync(async () =>
-            await process.WaitForGroupExitAsync().WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.That(process.TryGetExitCode(out _), Is.False);
+            // The id may already belong to another process, so this must not signal it.
+            Assert.DoesNotThrow(process.Kill);
+            Assert.DoesNotThrowAsync(async () =>
+                await process.WaitForGroupExitAsync().WaitAsync(TimeSpan.FromSeconds(5)));
+
+            using GitProcess next = GitProcess.Start(CreateShell("printf next"));
+            string output = await DrainAsync(next);
+            Assert.Multiple(() =>
+            {
+                Assert.That(next, Is.InstanceOf<ManagedGitProcess>());
+                Assert.That(output, Is.EqualTo("next"));
+                Assert.That(next.TryGetExitCode(out int exitCode), Is.True);
+                Assert.That(exitCode, Is.Zero);
+            });
+        }
+        finally
+        {
+            UnixGitProcess.ResetChildrenReapedElsewhereForTesting();
+        }
     }
 
     [Test]

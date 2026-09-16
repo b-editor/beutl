@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.Pipes;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
@@ -34,6 +35,10 @@ internal sealed partial class UnixGitProcess : GitProcess
     private const int ErrorInvalidArgument = 22;
 
     private static readonly bool s_isSupported = ProbeSupport();
+    // Set once a child turns out to have been reaped by something else. The runtime reaps every child
+    // as soon as it exits when this process started with SIGCHLD ignored, so an id could be reused
+    // before it is signalled. Later commands then keep Process, which the runtime reaps in step with.
+    private static volatile bool s_childrenReapedElsewhere;
 
     private readonly object _sync = new();
     private readonly TaskCompletionSource _exited =
@@ -54,19 +59,29 @@ internal sealed partial class UnixGitProcess : GitProcess
 
     private UnixGitProcess(
         int pid,
-        bool ownsGroup,
+        SpawnedProcessState state,
         StreamWriter standardInput,
         StreamReader standardOutput,
         StreamReader standardError)
     {
         _pid = pid;
-        _ownsGroup = ownsGroup;
+        _ownsGroup = state == SpawnedProcessState.LeadsGroup;
+        _released = state == SpawnedProcessState.ReapedElsewhere;
         _standardInput = standardInput;
         _standardOutput = standardOutput;
         _standardError = standardError;
     }
 
-    internal static bool IsSupported => s_isSupported;
+    private enum SpawnedProcessState
+    {
+        LeadsGroup,
+        InCallerGroup,
+        ReapedElsewhere,
+    }
+
+    internal static bool IsSupported => s_isSupported && !s_childrenReapedElsewhere;
+
+    internal static void ResetChildrenReapedElsewhereForTesting() => s_childrenReapedElsewhere = false;
 
     public override int Id => _pid;
 
@@ -104,7 +119,7 @@ internal sealed partial class UnixGitProcess : GitProcess
             standardInput = CreatePipe(PipeDirection.Out, placeholders);
             standardOutput = CreatePipe(PipeDirection.In, placeholders);
             standardError = CreatePipe(PipeDirection.In, placeholders);
-            (int pid, bool ownsGroup) = Spawn(
+            (int pid, SpawnedProcessState state) = Spawn(
                 path,
                 workingDirectory,
                 arguments,
@@ -119,7 +134,7 @@ internal sealed partial class UnixGitProcess : GitProcess
             // The stream shapes Process gives a redirected child, so readers behave the same.
             var process = new UnixGitProcess(
                 pid,
-                ownsGroup,
+                state,
                 new StreamWriter(
                     standardInput,
                     startInfo.StandardInputEncoding ?? Encoding.Default,
@@ -308,9 +323,8 @@ internal sealed partial class UnixGitProcess : GitProcess
             _exitObserved = true;
             if (error != 0)
             {
-                // Reaped by something else, such as a runtime that started with SIGCHLD ignored and
-                // therefore reaps every child. The id may already be reused, and the status is lost.
-                _released = true;
+                // Reaped by something else, so the id may already be reused and the status is lost.
+                MarkReapedElsewhere();
             }
             else if (_killRequested)
             {
@@ -351,8 +365,14 @@ internal sealed partial class UnixGitProcess : GitProcess
         }
         else if (result < 0)
         {
-            _released = true;
+            MarkReapedElsewhere();
         }
+    }
+
+    private void MarkReapedElsewhere()
+    {
+        _released = true;
+        s_childrenReapedElsewhere = true;
     }
 
     private static AnonymousPipeServerStream CreatePipe(
@@ -376,7 +396,7 @@ internal sealed partial class UnixGitProcess : GitProcess
         }
     }
 
-    private static unsafe (int Pid, bool OwnsGroup) Spawn(
+    private static unsafe (int Pid, SpawnedProcessState State) Spawn(
         string path,
         string? workingDirectory,
         string[] arguments,
@@ -482,10 +502,7 @@ internal sealed partial class UnixGitProcess : GitProcess
                 path,
                 workingDirectory);
 
-            // A C library that ignored the session flag would leave the command in this process's
-            // group. Signal only the command then: the group of this process is never a target.
-            int processGroup = Native.getpgid(pid);
-            return (pid, processGroup < 0 || processGroup == pid);
+            return (pid, GetSpawnedProcessState(pid));
         }
         finally
         {
@@ -522,6 +539,51 @@ internal sealed partial class UnixGitProcess : GitProcess
         }
     }
 
+    // Only a confirmed group is signalled as one. A C library that ignored the session flag would leave
+    // the command in this process's group, which is never a target. A lookup that fails is confirmed
+    // through the child's own state instead: some kernels do not report the group of a child that has
+    // already exited, and a child reaped elsewhere no longer reserves its id at all.
+    private static unsafe SpawnedProcessState GetSpawnedProcessState(int pid)
+    {
+        int processGroup = Native.getpgid(pid);
+        if (processGroup == pid)
+        {
+            return SpawnedProcessState.LeadsGroup;
+        }
+
+        if (processGroup >= 0)
+        {
+            return SpawnedProcessState.InCallerGroup;
+        }
+
+        byte* information = stackalloc byte[SignalInformationStorageSize];
+        int error;
+        do
+        {
+            new Span<byte>(information, SignalInformationStorageSize).Clear();
+            error = Native.waitid(
+                IdTypeProcess,
+                (uint)pid,
+                information,
+                WaitExited | WaitNoHang | WaitNoWait) == 0
+                ? 0
+                : Marshal.GetLastPInvokeError();
+        }
+        while (error == ErrorInterrupted);
+
+        if (error != 0)
+        {
+            s_childrenReapedElsewhere = true;
+            return SpawnedProcessState.ReapedElsewhere;
+        }
+
+        // si_signo leads siginfo_t on every supported platform and stays zero unless the child is
+        // waitable, which here means an unreaped zombie that still reserves the group it was given.
+        return Unsafe.ReadUnaligned<int>(information) != 0
+            ? SpawnedProcessState.LeadsGroup
+            : SpawnedProcessState.InCallerGroup;
+    }
+
     private static void ThrowOnSpawnError(int error, string path, string? workingDirectory)
     {
         if (error != 0)
@@ -536,9 +598,10 @@ internal sealed partial class UnixGitProcess : GitProcess
             $"An error occurred trying to start process '{path}' with working directory "
             + $"'{workingDirectory ?? Environment.CurrentDirectory}'. {Marshal.GetPInvokeErrorMessage(error)}");
 
-    // A rooted name is used as given, as Process does. Any other name is searched for on PATH only,
-    // never beside the application or in the current directory, and the match is made absolute
-    // because the child would otherwise resolve it after its chdir.
+    // A rooted name is used as given, as Process does. Any other name is searched for on this process's
+    // PATH, which is also what Process and execvp search rather than the child's, skipping empty entries
+    // as Process does. Unlike Process it never looks beside the application or in the current directory,
+    // and the match is made absolute because the child would otherwise resolve it after its chdir.
     private static string ResolveExecutable(string fileName)
     {
         ArgumentException.ThrowIfNullOrEmpty(fileName);
@@ -672,8 +735,17 @@ internal sealed partial class UnixGitProcess : GitProcess
 
     private static class LinuxProcessGroup
     {
-        // Null when /proc cannot be listed, so the caller probes the group id instead. The group
-        // leader is expected to be a zombie and is skipped either way.
+        private enum MemberState
+        {
+            Gone,
+            Dead,
+            Live,
+        }
+
+        // Null when /proc cannot be listed, so the caller probes the group id instead. Membership comes
+        // from getpgid, which answers for any process in this namespace; only a member's state is read
+        // from /proc, and a state that cannot be read counts as live. The group leader is expected to be
+        // a zombie and is skipped either way.
         internal static bool? HasLiveMember(int processGroupId)
         {
             Span<byte> buffer = stackalloc byte[256];
@@ -687,9 +759,8 @@ internal sealed partial class UnixGitProcess : GitProcess
                             CultureInfo.InvariantCulture,
                             out int pid)
                         && pid != processGroupId
-                        && TryReadGroupAndState(directory, buffer, out int group, out byte state)
-                        && group == processGroupId
-                        && state is not ((byte)'Z' or (byte)'X' or (byte)'x'))
+                        && Native.getpgid(pid) == processGroupId
+                        && ReadMemberState(directory, buffer) == MemberState.Live)
                     {
                         return true;
                     }
@@ -703,56 +774,42 @@ internal sealed partial class UnixGitProcess : GitProcess
             return false;
         }
 
-        // /proc/<pid>/stat reads "pid (comm) state ppid pgrp ...". The command name may contain spaces
-        // and parentheses, but no field after it contains a parenthesis.
-        private static bool TryReadGroupAndState(
-            string directory,
-            Span<byte> buffer,
-            out int group,
-            out byte state)
+        // /proc/<pid>/stat reads "pid (comm) state ...". The command name may contain spaces and
+        // parentheses, but no field after it contains a parenthesis.
+        private static MemberState ReadMemberState(string directory, Span<byte> buffer)
         {
-            group = 0;
-            state = 0;
             int count;
             try
             {
                 using SafeFileHandle handle = File.OpenHandle(Path.Combine(directory, "stat"));
                 count = RandomAccess.Read(handle, buffer, 0);
             }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException
+                                       || (ex is IOException && ex.HResult == ErrorNoProcess))
+            {
+                // Reaped since getpgid answered.
+                return MemberState.Gone;
+            }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // The process exited while /proc was being listed.
-                return false;
+                return MemberState.Live;
             }
 
-            ReadOnlySpan<byte> fields = buffer[..count];
-            int nameEnd = fields.LastIndexOf((byte)')');
-            if (nameEnd < 0 || nameEnd + 2 >= fields.Length)
+            if (count == 0)
             {
-                return false;
+                return MemberState.Gone;
             }
 
-            fields = fields[(nameEnd + 2)..];
-            state = fields[0];
-            // Skip the state and the parent id.
-            for (int skipped = 0; skipped < 2; skipped++)
+            ReadOnlySpan<byte> stat = buffer[..count];
+            int nameEnd = stat.LastIndexOf((byte)')');
+            if (nameEnd < 0 || nameEnd + 2 >= stat.Length)
             {
-                int separator = fields.IndexOf((byte)' ');
-                if (separator < 0)
-                {
-                    return false;
-                }
-
-                fields = fields[(separator + 1)..];
+                return MemberState.Live;
             }
 
-            int end = fields.IndexOf((byte)' ');
-            return end > 0
-                   && int.TryParse(
-                       fields[..end],
-                       NumberStyles.AllowLeadingSign,
-                       CultureInfo.InvariantCulture,
-                       out group);
+            return stat[nameEnd + 2] is (byte)'Z' or (byte)'X' or (byte)'x'
+                ? MemberState.Dead
+                : MemberState.Live;
         }
     }
 }

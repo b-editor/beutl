@@ -6,8 +6,10 @@ using Microsoft.Win32.SafeHandles;
 
 namespace Beutl.Editor.VersionControl;
 
-// System.Diagnostics.Process, in a job object on Windows. Also the fallback for a Unix platform that
-// cannot start a session at launch, where descendants are reached only through the process tree.
+// System.Diagnostics.Process, in a job object on Windows. Without a job, Windows still owns the command's
+// descendants through the process tree, which the handle Process holds keeps walkable after the command
+// has exited. This is also the fallback for a Unix platform that cannot start a session at launch, where
+// descendants are reached through the tree only while the command is alive.
 internal sealed partial class ManagedGitProcess : GitProcess
 {
     private readonly Process _process;
@@ -76,9 +78,9 @@ internal sealed partial class ManagedGitProcess : GitProcess
     public override async Task WaitForGroupExitAsync()
     {
         await WaitForExitAsync().ConfigureAwait(false);
-        if (_job is not null)
+        if (OperatingSystem.IsWindows())
         {
-            await PollUntilAsync(IsJobGroupGone).ConfigureAwait(false);
+            await PollUntilAsync(_job is null ? IsProcessTreeGone : IsJobGroupGone).ConfigureAwait(false);
         }
     }
 
@@ -100,7 +102,8 @@ internal sealed partial class ManagedGitProcess : GitProcess
 
         try
         {
-            if (!_process.HasExited)
+            // On Windows the walk works from an exited command too; on Unix its id may already be reused.
+            if (OperatingSystem.IsWindows() || !_process.HasExited)
             {
                 _process.Kill(entireProcessTree: true);
             }
@@ -144,6 +147,24 @@ internal sealed partial class ManagedGitProcess : GitProcess
         return hasEarlyDescendant == false;
     }
 
+    // Without a job every live descendant is owned, and a process list that cannot be read leaves the
+    // tree unconfirmed.
+    private bool IsProcessTreeGone()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return true;
+        }
+
+        bool? hasDescendant = WindowsProcessTree.HasLiveDescendant(_process);
+        if (hasDescendant == true && _killRequested)
+        {
+            KillCore();
+        }
+
+        return hasDescendant == false;
+    }
+
     private static SafeJobObjectHandle? TryCreateJob()
     {
         if (!OperatingSystem.IsWindows())
@@ -158,8 +179,8 @@ internal sealed partial class ManagedGitProcess : GitProcess
             return null;
         }
 
-        // A descendant may still leave on purpose, as setsid lets it on Unix. Without this, starting
-        // a process with CREATE_BREAKAWAY_FROM_JOB would fail inside the command.
+        // A descendant may still leave on purpose, as setsid lets it on Unix. A job that cannot allow
+        // that is not used: starting a process with CREATE_BREAKAWAY_FROM_JOB would fail inside it.
         var limits = new JobObjectExtendedLimitInformation
         {
             BasicLimitInformation = new JobObjectBasicLimitInformation
@@ -167,13 +188,20 @@ internal sealed partial class ManagedGitProcess : GitProcess
                 LimitFlags = WindowsJobMethods.JobObjectLimitBreakawayOk,
             },
         };
+        bool configured;
         unsafe
         {
-            WindowsJobMethods.SetInformationJobObject(
+            configured = WindowsJobMethods.SetInformationJobObject(
                 job,
                 WindowsJobMethods.JobObjectExtendedLimitInformationClass,
                 &limits,
                 (uint)sizeof(JobObjectExtendedLimitInformation));
+        }
+
+        if (!configured)
+        {
+            job.Dispose();
+            return null;
         }
 
         return job;
@@ -182,7 +210,9 @@ internal sealed partial class ManagedGitProcess : GitProcess
     // Process cannot start a suspended process, so the command is already running when it joins the
     // job. Whatever it started meanwhile is moved in too, so that their own children are born inside.
     // One that cannot be moved stays owned through the tree: Kill ends it and IsJobGroupGone waits for
-    // it.
+    // it. A command that exited before it could join still leaves its descendants to adopt; a live
+    // command that cannot join is owned through the tree instead, because its later children would
+    // be born outside.
     private static bool TryAdopt(SafeJobObjectHandle job, Process process, out long ownedSince)
     {
         ownedSince = 0;
@@ -193,7 +223,8 @@ internal sealed partial class ManagedGitProcess : GitProcess
 
         try
         {
-            if (!WindowsJobMethods.AssignProcessToJobObject(job, process.SafeHandle))
+            if (!WindowsJobMethods.AssignProcessToJobObject(job, process.SafeHandle)
+                && !process.HasExited)
             {
                 return false;
             }
@@ -344,6 +375,13 @@ internal sealed partial class ManagedGitProcess : GitProcess
                     WindowsJobMethods.TerminateProcess(handle, 1);
                 }
             });
+        }
+
+        // Null when the process list cannot be read.
+        internal static bool? HasLiveDescendant(Process root)
+        {
+            bool found = false;
+            return TryVisitLiveDescendants(root, long.MaxValue, _ => found = true) ? found : null;
         }
 
         // Null when the process list cannot be read.

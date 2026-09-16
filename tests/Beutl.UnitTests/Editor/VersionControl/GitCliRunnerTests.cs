@@ -806,10 +806,7 @@ public class GitCliRunnerTests : RealGitTestRepository
     [TestCase(true)]
     public async Task Local_timeout_covers_pipe_drains_after_wrapper_exits(bool leavePipesOpen)
     {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("This live inherited-pipe regression uses the Unix process model.");
-        }
+        RequireOwnedProcessGroups();
 
         (GitCliRunner runner, Task<GitCommandResult> runTask, string pidPath) =
             StartExitedWrapperWithPipeHoldingDescendant(
@@ -855,10 +852,7 @@ public class GitCliRunnerTests : RealGitTestRepository
     [TestCase(true)]
     public async Task Caller_cancellation_covers_pipe_drains_after_wrapper_exits(bool leavePipesOpen)
     {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("This live inherited-pipe regression uses the Unix process model.");
-        }
+        RequireOwnedProcessGroups();
 
         using var cancellation = new CancellationTokenSource();
         (GitCliRunner runner, Task<GitCommandResult> runTask, string pidPath) =
@@ -908,10 +902,7 @@ public class GitCliRunnerTests : RealGitTestRepository
     [Test]
     public async Task Local_timeout_terminates_an_orphaned_descendant_that_holds_no_pipe()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("This live process-group regression uses the Unix process model.");
-        }
+        RequireOwnedProcessGroups();
 
         string pidPath = Path.Combine(CreateTemporaryDirectory(), "orphan.pid");
         var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(1), IsolatedGitEnvironment);
@@ -947,10 +938,7 @@ public class GitCliRunnerTests : RealGitTestRepository
     [Test]
     public async Task Completed_command_leaves_background_work_that_released_its_pipes()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("This live process-group regression uses the Unix process model.");
-        }
+        RequireOwnedProcessGroups();
 
         string pidPath = Path.Combine(CreateTemporaryDirectory(), "background.pid");
         var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
@@ -987,10 +975,7 @@ public class GitCliRunnerTests : RealGitTestRepository
     [Test]
     public async Task Group_member_that_survives_the_kill_keeps_the_runner_quarantined()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("This live process-group regression uses the Unix process model.");
-        }
+        RequireOwnedProcessGroups();
 
         string pidPath = Path.Combine(CreateTemporaryDirectory(), "survivor.pid");
         // Only the launched process is killed, as when a member cannot be signalled.
@@ -1051,10 +1036,7 @@ public class GitCliRunnerTests : RealGitTestRepository
     [Test]
     public async Task Descendant_that_leaves_the_group_is_detached_rather_than_owned()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("This live process-group regression uses the Unix process model.");
-        }
+        RequireOwnedProcessGroups();
 
         string? leaveGroup = File.Exists("/usr/bin/setsid") ? "/usr/bin/setsid"
             : File.Exists("/bin/setsid") ? "/bin/setsid"
@@ -1099,10 +1081,7 @@ public class GitCliRunnerTests : RealGitTestRepository
     [Test]
     public async Task Command_leads_a_process_group_of_its_own()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("Process groups are a Unix concept; Windows uses a job object.");
-        }
+        RequireOwnedProcessGroups();
 
         var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
 
@@ -2109,6 +2088,15 @@ public class GitCliRunnerTests : RealGitTestRepository
         }
 
         return null;
+    }
+
+    // Without the posix_spawn implementation a command keeps Process, which owns no group.
+    private static void RequireOwnedProcessGroups()
+    {
+        if (OperatingSystem.IsWindows() || !UnixGitProcess.IsSupported)
+        {
+            Assert.Ignore("This regression needs a process group owned from launch.");
+        }
     }
 
     // Records the process's start time, so a later check cannot mistake a process that reused the
