@@ -307,11 +307,16 @@ public static class CoreSerializer
         try
         {
             using FileStream stream = File.OpenRead(path);
-            return JsonNode.Parse(stream) is JsonObject json
-                   && json["minAppVersion"] is JsonValue value
-                   && value.TryGetValue(out string? persisted)
+            if (JsonNode.Parse(stream) is not JsonObject json)
+            {
+                return null;
+            }
+
+            // A project that records no gate still opens, at the oldest minimum Project.Deserialize
+            // assumes for it, so it is a gate to compare against rather than nothing.
+            return json["minAppVersion"] is JsonValue value && value.TryGetValue(out string? persisted)
                 ? persisted
-                : null;
+                : Project.DefaultMinAppVersion;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {

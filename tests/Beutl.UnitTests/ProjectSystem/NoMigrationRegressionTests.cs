@@ -766,6 +766,41 @@ public class NoMigrationRegressionTests
         Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
     }
 
+    // A converter reaches the referenced object without ever calling into CoreSerializer's root
+    // entry point, so the requirement has to be handed over there too.
+    [Test]
+    public void A_referenced_object_reached_through_a_converter_migrates_its_owner()
+    {
+        MigratingCoreObject referenced = CreateMigrated(new MigratingCoreObject("7.0.0"));
+        referenced.Uri = new Uri(Path.Combine(_tempDirectory, "referenced.json"));
+        var owner = new ReferenceHolderOwner { Holder = new ReferenceHolder(referenced) };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
+    }
+
+    // A project that records no gate still opens, at the oldest minimum Project.Deserialize assumes,
+    // so it is a destination to compare against rather than nothing.
+    [Test]
+    public void A_destination_recording_no_gate_still_receives_the_projects_constraint()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", new MigratingLeaf("9.0.0"));
+        project.RestoreVersionMetadata(BeutlApplication.Version, "9.0.0");
+        string destinationPath = Path.Combine(_tempDirectory, "elsewhere", "project.bep");
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        File.WriteAllText(destinationPath, "{\"Name\":\"legacy\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(destinationPath))!["minAppVersion"];
+
+        CoreSerializer.StoreToUri(project, new Uri(destinationPath));
+
+        Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
+    }
+
     [Test]
     public void A_standalone_value_type_kept_as_an_interface_box_migrates_its_owner()
     {
@@ -1251,6 +1286,21 @@ public class NoMigrationRegressionTests
 
         public void Resolve(Guid id, Action<ICoreSerializable> callback)
         {
+        }
+    }
+
+    // Not ICoreSerializable itself, so its ICoreSerializable member is written by
+    // CoreSerializableJsonConverter rather than by SerializeCoreSerializable.
+    private sealed record ReferenceHolder(ICoreSerializable? Inner);
+
+    private sealed class ReferenceHolderOwner : ProjectItem
+    {
+        public ReferenceHolder? Holder { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Holder), Holder);
         }
     }
 
