@@ -1,4 +1,5 @@
-﻿using Beutl.Extensions.MediaFoundation.Properties;
+﻿using System.Runtime.Versioning;
+using Beutl.Extensions.MediaFoundation.Properties;
 using Beutl.Media.Decoding;
 
 #if MF_BUILD_IN
@@ -7,6 +8,7 @@ namespace Beutl.Embedding.MediaFoundation.Decoding;
 namespace Beutl.Extensions.MediaFoundation.Decoding;
 #endif
 
+[SupportedOSPlatform("windows")]
 public sealed class MFDecoderInfo(MFDecodingExtension extension) : IDecoderInfo
 {
     public string Name => Strings.DecodingName;

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.Versioning;
 using Beutl.Extensibility;
 using Beutl.Extensions.MediaFoundation.Properties;
 using Beutl.Media.Decoding;
@@ -15,6 +16,8 @@ public sealed class MFDecodingExtension : DecodingExtension
 {
     public override MFDecodingSettings Settings { get; } = new MFDecodingSettings();
 
+    // The extension itself loads on any OS, but only registers this decoder on Windows.
+    [SupportedOSPlatform("windows")]
     public override IDecoderInfo GetDecoderInfo()
     {
         return new MFDecoderInfo(this);
