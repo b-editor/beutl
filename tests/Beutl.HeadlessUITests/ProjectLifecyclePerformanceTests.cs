@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Avalonia.Headless.NUnit;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;

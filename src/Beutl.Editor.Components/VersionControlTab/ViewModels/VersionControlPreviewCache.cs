@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Components.VersionControlTab.ViewModels;
+﻿namespace Beutl.Editor.Components.VersionControlTab.ViewModels;
 
 // Per-tab cache: immutable revisions can be revisited without spawning Git or parsing the same
 // preview again. Metadata notifications invalidate it; expiry also bounds unobserved config changes.
