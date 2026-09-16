@@ -72,6 +72,41 @@ public class PropertyEditorGridTests
     }
 
     [AvaloniaTest]
+    public void Disabling_an_attached_scope_restores_the_ordinary_layout()
+    {
+        var number = new NumberEditor<float> { Header = "Width", Value = 640 };
+        var alignment = new AlignmentXEditor { Header = "Alignment X" };
+        var scope = new StackPanel { Children = { number, alignment } };
+        PropertyEditorGrid.SetIsAlignmentScope(scope, true);
+        var window = new Window { Content = scope, Width = 760, Height = 300 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            Assert.That(GetGrid(number).ColumnDefinitions[0].Width.IsAbsolute, Is.True);
+            Assert.That(GetBox(alignment).HorizontalAlignment, Is.EqualTo(Avalonia.Layout.HorizontalAlignment.Left));
+
+            PropertyEditorGrid.SetIsAlignmentScope(scope, false);
+            HeadlessTestHelpers.Render(3);
+            AssertRestored();
+
+            // A disabled scope must no longer drive its previously aligned descendants.
+            PropertyEditorGrid.SetValueColumnRatio(scope, .7);
+            window.Width = 900;
+            HeadlessTestHelpers.Render(3);
+            AssertRestored();
+        }
+        finally { window.Close(); }
+
+        void AssertRestored()
+        {
+            Assert.That(GetGrid(number).ColumnDefinitions[0].Width.IsStar, Is.True);
+            Assert.That(GetGrid(alignment).ColumnDefinitions[0].Width.IsStar, Is.True);
+            Assert.That(GetBox(alignment).HorizontalAlignment, Is.EqualTo(Avalonia.Layout.HorizontalAlignment.Right));
+        }
+    }
+
+    [AvaloniaTest]
     public void Nested_inputs_follow_the_shared_splitter_and_keep_edits_during_resize()
     {
         var outer = new NumberEditor<float> { Header = "Width", Value = 640 };

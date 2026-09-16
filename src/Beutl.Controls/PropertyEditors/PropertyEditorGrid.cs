@@ -60,12 +60,17 @@ public sealed class PropertyEditorGrid : Grid
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        ReleaseAlignmentScope();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void ReleaseAlignmentScope()
+    {
         if (_scope != null)
             _scope.PropertyChanged -= OnScopePropertyChanged;
         _scope = null;
         _rightInset = double.NaN;
         RestoreHeaderWidth();
-        base.OnDetachedFromVisualTree(e);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -137,7 +142,12 @@ public sealed class PropertyEditorGrid : Grid
 
     private void OnScopePropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property == BoundsProperty || e.Property == ValueColumnRatioProperty)
+        if (e.Property == IsAlignmentScopeProperty && _scope != null && !GetIsAlignmentScope(_scope))
+        {
+            ReleaseAlignmentScope();
+            InvalidateMeasure();
+        }
+        else if (e.Property == BoundsProperty || e.Property == ValueColumnRatioProperty)
             InvalidateMeasure();
     }
 
