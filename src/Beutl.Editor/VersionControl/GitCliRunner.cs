@@ -292,13 +292,14 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                 throw new GitOperationException(-1, ex.Message);
             }
 
-            var outputLimitReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var outputLimitReached = new TaskCompletionSource<(string Output, byte[]? OutputBytes)>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
             Task<(string Output, byte[]? OutputBytes, bool Truncated)> stdoutTask =
                 CaptureStandardOutputAsync(
                 process.StandardOutput.BaseStream,
                 maxStdoutBytes,
                 captureStdoutBytes,
-                stopAfterStdoutLimit ? () => outputLimitReached.TrySetResult() : null);
+                stopAfterStdoutLimit ? output => outputLimitReached.TrySetResult(output) : null);
             Task<string> stderrTask = ReadStandardErrorAsync(
                 process.StandardError,
                 stderrProgress);
@@ -329,6 +330,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                     // Preserve the real exit code and stderr if the producer already exited.
                     if (limitWon && !process.HasExited)
                     {
+                        bool outputComplete = stdoutTask.IsCompletedSuccessfully && !stdoutTask.Result.Truncated;
                         // Only read-only previews opt in. Stop the producer as well as the reader,
                         // and retain the cancellation path's quarantine until every pipe has closed.
                         _killProcessTree(process);
@@ -348,8 +350,10 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                             throw new TimeoutException($"Git did not finish within {_localTimeout}.");
                         }
 
-                        var preview = await stdoutTask.ConfigureAwait(false);
-                        return new GitCommandResult(0, preview.Output, string.Empty, true, preview.OutputBytes);
+                        // The captured prefix is available even when an uncooperative process
+                        // keeps the EOF probe open and cleanup has to remain quarantined.
+                        var preview = await outputLimitReached.Task.ConfigureAwait(false);
+                        return new GitCommandResult(0, preview.Output, string.Empty, !outputComplete, preview.OutputBytes);
                     }
                 }
 
@@ -996,7 +1000,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
     internal static async Task<(string Output, bool Truncated)> ReadStandardOutputAsync(
         Stream stream,
         int? maxBytes,
-        Action? limitReached = null)
+        Action<string>? limitReached = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
         if (maxBytes is < 0)
@@ -1014,65 +1018,40 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             return (await reader.ReadToEndAsync().ConfigureAwait(false), false);
         }
 
-        int limit = maxBytes.Value;
-        if (limit == 0 && limitReached is not null)
-        {
-            limitReached();
-            return (string.Empty, true);
-        }
-        var captured = new byte[limit];
-        var buffer = new byte[8192];
-        int capturedCount = 0;
-        bool truncated = false;
-        int count;
-        while ((count = await stream.ReadAsync(buffer).ConfigureAwait(false)) > 0)
-        {
-            int copyCount = Math.Min(count, limit - capturedCount);
-            if (copyCount > 0)
-            {
-                buffer.AsSpan(0, copyCount).CopyTo(captured.AsSpan(capturedCount));
-                capturedCount += copyCount;
-            }
-
-            truncated |= copyCount < count;
-            if (capturedCount == limit && limitReached is not null)
-            {
-                truncated = true;
-                limitReached();
-                break;
-            }
-        }
-
-        int completeByteCount = GetCompleteUtf8PrefixLength(
-            captured.AsSpan(0, capturedCount));
-        return (
-            Encoding.UTF8.GetString(captured, 0, completeByteCount),
-            truncated);
+        (byte[] output, bool truncated) = await ReadStandardOutputBytesAsync(
+            stream, maxBytes, limitReached is null ? null : bytes => limitReached(DecodePreview(bytes)))
+            .ConfigureAwait(false);
+        return (DecodePreview(output), truncated);
     }
+
+    private static string DecodePreview(byte[] bytes)
+        => Encoding.UTF8.GetString(bytes, 0, GetCompleteUtf8PrefixLength(bytes));
 
     private static async Task<(string Output, byte[]? OutputBytes, bool Truncated)>
         CaptureStandardOutputAsync(
             Stream stream,
             int? maxBytes,
             bool captureBytes,
-            Action? limitReached = null)
+            Action<(string Output, byte[]? OutputBytes)>? limitReached = null)
     {
         if (!captureBytes)
         {
-            (string output, bool truncated) = await ReadStandardOutputAsync(stream, maxBytes, limitReached)
+            (string output, bool truncated) = await ReadStandardOutputAsync(
+                stream, maxBytes, limitReached is null ? null : text => limitReached((text, null)))
                 .ConfigureAwait(false);
             return (output, null, truncated);
         }
 
-        (byte[] outputBytes, bool outputTruncated) =
-            await ReadStandardOutputBytesAsync(stream, maxBytes, limitReached).ConfigureAwait(false);
+        (byte[] outputBytes, bool outputTruncated) = await ReadStandardOutputBytesAsync(
+            stream, maxBytes, limitReached is null ? null : bytes => limitReached((Encoding.UTF8.GetString(bytes), bytes)))
+            .ConfigureAwait(false);
         return (Encoding.UTF8.GetString(outputBytes), outputBytes, outputTruncated);
     }
 
     internal static async Task<(byte[] Output, bool Truncated)> ReadStandardOutputBytesAsync(
         Stream stream,
         int? maxBytes,
-        Action? limitReached = null)
+        Action<byte[]>? limitReached = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
         if (maxBytes is < 0)
@@ -1088,18 +1067,24 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         }
 
         int limit = maxBytes.Value;
-        if (limit == 0 && limitReached is not null)
-        {
-            limitReached();
-            return ([], true);
-        }
         var captured = new byte[limit];
         var buffer = new byte[8192];
         int capturedCount = 0;
         bool truncated = false;
-        int count;
-        while ((count = await stream.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+        bool signaled = false;
+        while (true)
         {
+            if (capturedCount == limit && limitReached is not null && !signaled)
+            {
+                signaled = true;
+                limitReached(captured);
+            }
+
+            // Notify the runner immediately at the limit, but distinguish EOF from omitted
+            // bytes. The runner can stop a stalled producer without awaiting this lookahead.
+            int count = await stream.ReadAsync(buffer.AsMemory(0, signaled ? 1 : buffer.Length))
+                .ConfigureAwait(false);
+            if (count == 0) break;
             int copyCount = Math.Min(count, limit - capturedCount);
             if (copyCount > 0)
             {
@@ -1108,10 +1093,9 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             }
 
             truncated |= copyCount < count;
-            if (capturedCount == limit && limitReached is not null)
+            if (truncated && limitReached is not null)
             {
-                truncated = true;
-                limitReached();
+                if (!signaled) limitReached(captured);
                 break;
             }
         }

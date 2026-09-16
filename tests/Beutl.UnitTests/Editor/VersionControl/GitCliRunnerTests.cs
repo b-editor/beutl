@@ -964,6 +964,44 @@ public class GitCliRunnerTests : RealGitTestRepository
         Assert.That(result.ExitCode, Is.Zero);
     }
 
+    [TestCase(false, 0, false)]
+    [TestCase(true, 0, false)]
+    [TestCase(false, 5, false)]
+    [TestCase(true, 5, false)]
+    [TestCase(false, 8192, false)]
+    [TestCase(true, 8192, false)]
+    [TestCase(false, 0, true)]
+    [TestCase(true, 0, true)]
+    [TestCase(false, 5, true)]
+    [TestCase(true, 5, true)]
+    [TestCase(false, 8192, true)]
+    [TestCase(true, 8192, true)]
+    public async Task Preview_marks_truncation_only_when_output_is_omitted(bool bytes, int limit, bool overflow)
+    {
+        using var stream = new MemoryStream(Enumerable.Repeat((byte)'a', limit + (overflow ? 1 : 0)).ToArray());
+        int signals = 0;
+        bool truncated;
+        int length;
+        if (bytes)
+        {
+            var output = await GitCliRunner.ReadStandardOutputBytesAsync(stream, limit, _ => signals++);
+            truncated = output.Truncated;
+            length = output.Output.Length;
+        }
+        else
+        {
+            var output = await GitCliRunner.ReadStandardOutputAsync(stream, limit, _ => signals++);
+            truncated = output.Truncated;
+            length = output.Output.Length;
+        }
+        Assert.Multiple(() =>
+        {
+            Assert.That(truncated, Is.EqualTo(overflow));
+            Assert.That(length, Is.EqualTo(limit));
+            Assert.That(signals, Is.EqualTo(1));
+        });
+    }
+
     [Test]
     public async Task Completed_command_takes_precedence_over_a_preview_limit()
     {
@@ -1035,7 +1073,7 @@ public class GitCliRunnerTests : RealGitTestRepository
                 EnvironmentOverrides = new Dictionary<string, string?> { ["BEUTL_TEST_PROCESS_PID"] = pidPath },
             };
             GitCommandResult preview = await runner.RunAsync(Repository,
-                ["-c", "printf '%s' \"$$\" > \"$BEUTL_TEST_PROCESS_PID\"; printf abcdef; exec sleep 30"],
+                ["-c", "printf '%s' \"$$\" > \"$BEUTL_TEST_PROCESS_PID\"; printf abc; exec sleep 30"],
                 options, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(preview.StdoutTruncated, Is.True);
             Assert.That(runner.HasActiveProcess, Is.True);
