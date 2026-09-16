@@ -10,6 +10,56 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 public class TitleBarBranchViewModelTests
 {
     [Test]
+    public async Task Newer_read_wins_over_an_older_event_delivered_before_its_queued_apply()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var posted = new List<Action>();
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new TitleBarBranchViewModel(source, CreateGitAvailabilitySource(),
+            Mock.Of<IProjectVersionControlCoordinator>(), posted.Add);
+        await viewModel.Initialization;
+        foreach (Action action in posted.ToArray()) action();
+        posted.Clear();
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("current", 0, 0, [], false) { NotificationSequence = 5 });
+        await viewModel.RefreshAsync();
+        service.Raise(x => x.StatusChanged += null, service.Object,
+            new WorkspaceStatus("stale", 0, 0, [], false) { NotificationSequence = 4 });
+        Assert.That(posted.Count, Is.EqualTo(2));
+        posted[1]();
+        posted[0]();
+        Assert.That(viewModel.DisplayText.Value, Is.EqualTo("current"));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Flyout_retries_when_a_sequenced_event_supersedes_its_status_or_branches(bool blockBranches)
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new TitleBarBranchViewModel(source, CreateGitAvailabilitySource(),
+            Mock.Of<IProjectVersionControlCoordinator>(), action => action());
+        await viewModel.Initialization;
+        var statusRead = new TaskCompletionSource<WorkspaceStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var branchRead = new TaskCompletionSource<IReadOnlyList<BranchInfo>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var current = new WorkspaceStatus("new", 0, 0, [], false) { NotificationSequence = 6 };
+        var old = new WorkspaceStatus("old", 0, 0, [], false) { NotificationSequence = 5 };
+        service.SetupSequence(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .Returns(blockBranches ? Task.FromResult(old) : statusRead.Task)
+            .ReturnsAsync(current);
+        service.SetupSequence(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
+            .Returns(blockBranches ? branchRead.Task : Task.FromResult<IReadOnlyList<BranchInfo>>([new("new", true, null)]))
+            .ReturnsAsync([new BranchInfo("new", true, null)]);
+        Task refresh = viewModel.PrepareFlyoutAsync();
+        service.Raise(x => x.StatusChanged += null, service.Object, current);
+        statusRead.TrySetResult(old);
+        branchRead.TrySetResult([new BranchInfo("old", true, null)]);
+        await refresh;
+        await viewModel.Initialization.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(viewModel.Branches.Select(x => x.Name), Is.EqualTo(new[] { "new" }));
+    }
+
+    [Test]
     public void Linked_binding_cancellation_handles_a_disposed_source()
     {
         var source = new CancellationTokenSource();

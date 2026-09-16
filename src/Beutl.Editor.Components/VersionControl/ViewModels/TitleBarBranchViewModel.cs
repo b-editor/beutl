@@ -417,7 +417,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         try
         {
             status = await service.GetStatusAsync(cancellationToken);
-            if (refreshBranches && statusRevision == Volatile.Read(ref _statusRevision))
+            if (refreshBranches && IsCurrentStatusRead(status, statusRevision))
             {
                 branches = await service.GetBranchesAsync(cancellationToken);
             }
@@ -431,20 +431,38 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             return;
         }
 
-        if (!IsCurrentService(service, revision, cancellationToken)
-            || statusRevision != Volatile.Read(ref _statusRevision))
+        if (!IsCurrentService(service, revision, cancellationToken))
         {
+            return;
+        }
+        if (!IsCurrentStatusRead(status, statusRevision))
+        {
+            if (refreshBranches) QueueStatusRefresh(refreshBranches: true);
             return;
         }
 
         _postToUi(() =>
         {
-            if (IsCurrentService(service, revision, cancellationToken)
-                && statusRevision == Volatile.Read(ref _statusRevision))
+            if (!IsCurrentService(service, revision, cancellationToken))
+            {
+                return;
+            }
+            if (IsCurrentStatusRead(status, statusRevision))
             {
                 ApplyState(status, branches);
             }
+            else if (refreshBranches)
+            {
+                QueueStatusRefresh(refreshBranches: true);
+            }
         });
+    }
+
+    private bool IsCurrentStatusRead(WorkspaceStatus status, int revision)
+    {
+        return status.NotificationSequence > 0 && _lastStatusSequence > 0
+            ? status.NotificationSequence >= _lastStatusSequence
+            : revision == Volatile.Read(ref _statusRevision);
     }
 
     private bool IsCurrentService(
@@ -532,12 +550,17 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             // the refresh that already read the new branch. Applying it above keeps the widget
             // responsive; re-reading afterwards is what makes the state it settles on the current
             // one. The read discards itself if a later event supersedes it.
-            Volatile.Write(ref _eventRefreshPending, 1);
-            if (Interlocked.CompareExchange(ref _eventRefreshScheduled, 1, 0) == 0)
-            {
-                Initialization = RefreshStatusNotificationsAsync();
-            }
+            QueueStatusRefresh(refreshBranches: false);
         });
+    }
+
+    private void QueueStatusRefresh(bool refreshBranches)
+    {
+        Interlocked.Or(ref _eventRefreshPending, refreshBranches ? 3 : 1);
+        if (Interlocked.CompareExchange(ref _eventRefreshScheduled, 1, 0) == 0)
+        {
+            Initialization = RefreshStatusNotificationsAsync();
+        }
     }
 
     private async Task RefreshStatusNotificationsAsync()
@@ -545,12 +568,11 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         await Task.Yield();
         while (true)
         {
-            Interlocked.Exchange(ref _eventRefreshPending, 0);
+            int pending = Interlocked.Exchange(ref _eventRefreshPending, 0);
             try
             {
-                // The flyout refreshes its list on opening. Background events only need the
-                // current branch summary; keep one final read when an event arrives during it.
-                await RefreshAsync(refreshBranches: false, CancellationToken.None);
+                // Retry the branch list too when a notification superseded a flyout read.
+                await RefreshAsync(refreshBranches: (pending & 2) != 0, CancellationToken.None);
             }
             catch (Exception ex)
             {

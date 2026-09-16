@@ -56,6 +56,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
     private long _lastStatusSequence;
     private string? _lastStatusHead;
     private bool _pendingRecoveryRefreshFailed;
+    private bool _metadataRefreshFailed;
     private int _pendingRecoveryQueryRevision;
     private int _nextHistoryOffset;
     private int _aheadCount;
@@ -802,7 +803,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
-        if (cancellationToken.IsCancellationRequested)
+        if (cancellationToken.IsCancellationRequested || previewRevision != _previewRevision)
         {
             return;
         }
@@ -864,7 +865,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
-        if (cancellationToken.IsCancellationRequested)
+        if (cancellationToken.IsCancellationRequested || previewRevision != _previewRevision)
         {
             return;
         }
@@ -873,12 +874,9 @@ internal sealed class VersionControlTabViewModel : IToolContext
         {
             IReadOnlyList<VersionControlDiffLineViewModel> lines = await Task.Run(
                 () => VersionControlDiffLineViewModel.Parse(diff, cancellationToken), cancellationToken);
-            if (!cancellationToken.IsCancellationRequested)
+            if (!cancellationToken.IsCancellationRequested && previewRevision == _previewRevision)
             {
-                if (previewRevision == _previewRevision)
-                {
-                    _diffCache.Add(cacheKey, lines, lines.Sum(static line => 48L + 2L * line.Text.Length));
-                }
+                _diffCache.Add(cacheKey, lines, lines.Sum(static line => 48L + 2L * line.Text.Length));
                 DiffLines.AddRange(lines);
             }
         }
@@ -1189,6 +1187,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
         _lastStatusSequence = 0;
         _lastStatusHead = null;
         _pendingRecoveryRefreshFailed = false;
+        _metadataRefreshFailed = false;
         _hasMoreHistory = false;
         _aheadCount = 0;
         _behindCount = 0;
@@ -1290,13 +1289,22 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
-        if (!IsCurrentService(service, revision, cancellationToken)
-            || !IsCurrentStatusRefresh(
-                service,
-                statusRefreshRevision,
-                cancellationToken))
+        if (!IsCurrentService(service, revision, cancellationToken))
         {
             return;
+        }
+
+        if (!IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
+        {
+            // A delayed older notification must not invalidate a newer sequenced read.
+            if (status.NotificationSequence <= 0 || _lastStatusSequence <= 0
+                || status.NotificationSequence < _lastStatusSequence)
+            {
+                return;
+            }
+
+            statusRefreshRevision = Interlocked.Increment(ref _statusRefreshRevision);
+            _statusRefreshCancellation?.Cancel();
         }
 
         ApplyStatus(status);
@@ -1331,12 +1339,24 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 status.Branch,
                 statusRefreshRevision,
                 cancellationToken);
+            if (IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
+            {
+                _metadataRefreshFailed = false;
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
         }
         catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
         {
+        }
+        catch
+        {
+            if (IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
+            {
+                _metadataRefreshFailed = true;
+            }
+            throw;
         }
     }
 
@@ -1762,7 +1782,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
             }
 
             bool worktreeOnly = status.NotificationSequence > 0
-                && !_pendingRecoveryRefreshFailed && !Initialization.IsFaulted && !Initialization.IsCanceled
+                && !_pendingRecoveryRefreshFailed && !_metadataRefreshFailed
                 && status.ChangeKind == RepositoryChangeKind.Worktree
                 && status.HeadCommit is not null && status.HeadCommit == _lastStatusHead
                 && _historyIdentity is { } identity && identity.Branch == status.Branch
@@ -1842,12 +1862,24 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 branch,
                 statusRefreshRevision,
                 cancellationToken);
+            if (IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
+            {
+                _metadataRefreshFailed = false;
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
         }
         catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
         {
+        }
+        catch
+        {
+            if (IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
+            {
+                _metadataRefreshFailed = true;
+            }
+            throw;
         }
     }
 
