@@ -781,6 +781,28 @@ public class NoMigrationRegressionTests
         Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
     }
 
+    // A gate that cannot be established is not the same as one that is not there: the save must not
+    // walk past it and start replacing the content it guards.
+    [Test]
+    public void A_destination_whose_gate_cannot_be_read_stops_the_save()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", new MigratingLeaf("9.0.0"));
+        project.RestoreVersionMetadata(BeutlApplication.Version, "9.0.0");
+        string destinationPath = Path.Combine(_tempDirectory, "elsewhere", "project.bep");
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        File.WriteAllText(destinationPath, "{\"minAppVersion\":\"1.0.0\"}");
+        File.WriteAllText(element.Uri!.LocalPath, "original element");
+
+        using (new FileStream(destinationPath, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            Assert.Throws<IOException>(() =>
+                CoreSerializer.StoreToUri(project, new Uri(destinationPath)));
+        }
+
+        Assert.That(File.ReadAllText(element.Uri.LocalPath), Is.EqualTo("original element"));
+    }
+
     // A project that records no gate still opens, at the oldest minimum Project.Deserialize assumes,
     // so it is a destination to compare against rather than nothing.
     [Test]

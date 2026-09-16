@@ -249,7 +249,7 @@ public static class CoreSerializer
             return true;
         }
 
-        if (destination is not null && ReadPersistedGate(destination) is { } persisted)
+        if (destination is not null && ReadGateForComparison(destination) is { } persisted)
         {
             if (!NuGetVersion.TryParse(persisted, out NuGetVersion? gate)
                 || VersionComparer.VersionRelease.Compare(gate, required) >= 0)
@@ -288,8 +288,10 @@ public static class CoreSerializer
     /// <see langword="null"/> when it advertises none this can compare against.
     /// </summary>
     /// <remarks>
-    /// Only reading is attempted: a file that cannot be written is caught by the write itself, which
-    /// is what stops a save whose project location cannot hold the gate.
+    /// Nothing there, and bytes that are not a project object at all, answer <see langword="null"/>:
+    /// neither is something an older application opens. A file that exists but cannot be read is not
+    /// that case and throws, because a save must not walk past a gate it could not establish. Only
+    /// reading is attempted; a file that cannot be written is caught by the write itself.
     /// </remarks>
     private static string? ReadPersistedGate(Uri destination)
     {
@@ -304,21 +306,38 @@ public static class CoreSerializer
             return null;
         }
 
+        JsonNode? node;
         try
         {
             using FileStream stream = File.OpenRead(path);
-            if (JsonNode.Parse(stream) is not JsonObject json)
-            {
-                return null;
-            }
-
-            // A project that records no gate still opens, at the oldest minimum Project.Deserialize
-            // assumes for it, so it is a gate to compare against rather than nothing.
-            return json["minAppVersion"] is JsonValue value && value.TryGetValue(out string? persisted)
-                ? persisted
-                : Project.DefaultMinAppVersion;
+            node = JsonNode.Parse(stream);
         }
-        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        if (node is not JsonObject json)
+        {
+            return null;
+        }
+
+        // A project that records no gate still opens, at the oldest minimum Project.Deserialize
+        // assumes for it, so it is a gate to compare against rather than nothing.
+        return json["minAppVersion"] is JsonValue value && value.TryGetValue(out string? persisted)
+            ? persisted
+            : Project.DefaultMinAppVersion;
+    }
+
+    // Deciding whether to do more work must not be what fails a save: an unreadable destination
+    // answers "not covered" here, and WriteMigrationGate is where that same read reports it.
+    private static string? ReadGateForComparison(Uri destination)
+    {
+        try
+        {
+            return ReadPersistedGate(destination);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return null;
         }
