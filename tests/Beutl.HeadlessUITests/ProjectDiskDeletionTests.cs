@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Collections.Specialized;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
@@ -358,6 +359,46 @@ public class ProjectDiskDeletionTests
         {
             deletion.Dispose();
             NotificationService.Handler = previousHandler;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_file_open_holds_off_a_worktree_mutation_until_it_is_done()
+    {
+        await TestReset.ResetShellAsync();
+        (_, string sceneFile) = await CreateClosedProjectAsync("read-lease", NewWorkspace("read-lease"));
+        bool? mutationAdmittedDuringOpen = null;
+        // The tab is added from inside the open, after the file was read.
+        void OnTabsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            using IDisposable? mutation = TestShell.Editor.TryBeginWorktreeMutation();
+            mutationAdmittedDuringOpen ??= mutation is not null;
+        }
+
+        var tabs = (INotifyCollectionChanged)TestShell.Editor.TabItems;
+        tabs.CollectionChanged += OnTabsChanged;
+        try
+        {
+            TestShell.MainViewModel.MenuBar.OpenFileCore(sceneFile);
+            HeadlessTestHelpers.Settle();
+        }
+        finally
+        {
+            tabs.CollectionChanged -= OnTabsChanged;
+        }
+
+        try
+        {
+            using IDisposable? afterOpen = TestShell.Editor.TryBeginWorktreeMutation();
+            Assert.Multiple(() =>
+            {
+                Assert.That(mutationAdmittedDuringOpen, Is.False);
+                Assert.That(afterOpen, Is.Not.Null, "The open must release the workspace when it is done.");
+            });
+        }
+        finally
+        {
             await TestReset.ResetShellAsync();
         }
     }

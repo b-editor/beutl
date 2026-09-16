@@ -114,6 +114,7 @@ public sealed class EditorService
     private TaskCompletionSource? _worktreeMutationCompletion;
     private int _activeOutputOperations;
     private int _activeProjectFileWrites;
+    private int _activeWorkspaceReads;
     private bool _worktreeMutationActive;
 
     public EditorService(ExtensionProvider extensionProvider)
@@ -202,6 +203,22 @@ public sealed class EditorService
     IDisposable? IOutputOperationLeaseProvider.TryBeginOutputOperation()
     {
         return TryBeginOutputOperation();
+    }
+
+    // Keeps a worktree mutation from starting while files are read into an editor, and fails while
+    // one runs. Reads may overlap each other, outputs and project-file writes.
+    internal IDisposable? TryBeginWorkspaceRead()
+    {
+        lock (_workspaceOperationSync)
+        {
+            if (_worktreeMutationActive)
+            {
+                return null;
+            }
+
+            _activeWorkspaceReads++;
+            return new WorkspaceOperationLease(this, WorkspaceOperationKind.Read);
+        }
     }
 
     internal IDisposable BeginObservedOutputOperation(IEditorContext? context = null)
@@ -393,7 +410,8 @@ public sealed class EditorService
 
             if (!_worktreeMutationActive
                 && _activeOutputOperations == 0
-                && _activeProjectFileWrites == 0)
+                && _activeProjectFileWrites == 0
+                && _activeWorkspaceReads == 0)
             {
                 _worktreeMutationActive = true;
                 _worktreeMutationCompletion = new TaskCompletionSource(
@@ -506,6 +524,9 @@ public sealed class EditorService
                 case WorkspaceOperationKind.ProjectFileWrite when _activeProjectFileWrites > 0:
                     _activeProjectFileWrites--;
                     releaseProjectFileWrite = true;
+                    break;
+                case WorkspaceOperationKind.Read when _activeWorkspaceReads > 0:
+                    _activeWorkspaceReads--;
                     break;
                 case WorkspaceOperationKind.WorktreeMutation:
                     _worktreeMutationActive = false;
@@ -669,5 +690,6 @@ public sealed class EditorService
         Output,
         ProjectFileWrite,
         WorktreeMutation,
+        Read,
     }
 }

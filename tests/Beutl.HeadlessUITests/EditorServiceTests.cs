@@ -37,6 +37,30 @@ public sealed class EditorServiceTests
     }
 
     [Test]
+    public async Task Workspace_reads_and_worktree_mutations_are_mutually_exclusive()
+    {
+        var editorService = new EditorService(new ExtensionProvider());
+        using (IDisposable read = editorService.TryBeginWorkspaceRead()!)
+        using (IDisposable second = editorService.TryBeginWorkspaceRead()!)
+        using (IDisposable output = editorService.TryBeginOutputOperation()!)
+        using (IProjectFileWriteLease fileWrite = await editorService.BeginProjectFileWriteAsync(
+                   CancellationToken.None))
+        {
+            Assert.That(editorService.TryBeginWorktreeMutation(), Is.Null);
+            read.Dispose();
+            Assert.That(editorService.TryBeginWorktreeMutation(), Is.Null, "Every read must end first.");
+        }
+
+        using (IDisposable worktreeMutation = editorService.TryBeginWorktreeMutation()!)
+        {
+            Assert.That(editorService.TryBeginWorkspaceRead(), Is.Null);
+        }
+
+        using IDisposable afterMutation = editorService.TryBeginWorkspaceRead()!;
+        Assert.That(afterMutation, Is.Not.Null);
+    }
+
+    [Test]
     public async Task Project_file_write_leases_are_serialized()
     {
         var editorService = new EditorService(new ExtensionProvider());
