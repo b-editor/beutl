@@ -25,7 +25,10 @@
 /// The ambient is what the scene's transform scopes declare, and a scope that places its own replay by writing
 /// the destination matrix instead - which is what <see cref="RenderScopeTransformSpace.AmbientTarget"/> names -
 /// contributes nothing to it, because there is no matrix to compose. A composition nested under such a scope
-/// therefore composes against the scene's declared transforms alone.
+/// therefore composes against the scene's declared transforms alone. Measurement and execution still agree
+/// there, since the resolved matrix composes with whatever the canvas carries and the graph composes through
+/// that scope's own declared bounds; what the operator should mean across it is
+/// https://github.com/b-editor/beutl/issues/2423.
 /// </para>
 /// </remarks>
 internal readonly record struct RenderScopeAmbientTransform(
