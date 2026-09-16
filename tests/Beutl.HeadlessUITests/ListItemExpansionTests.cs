@@ -10,6 +10,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
@@ -137,6 +138,23 @@ public class ListItemExpansionTests
             Assert.That(filterRows[0].FindControl<Panel>("content")!.IsVisible, Is.True);
             Assert.That(GripBackground(filterHeader), Is.EqualTo(closedBackground));
             Assert.That(GripBackground(transformHeader), Is.EqualTo(closedTransformBackground));
+            Assert.That(view.FindControl<ScrollViewer>("scrollViewer")!.HorizontalScrollBarVisibility,
+                Is.EqualTo(ScrollBarVisibility.Disabled));
+            if (width >= 640)
+            {
+                var numbers = view.GetVisualDescendants().OfType<NumberEditor<float>>()
+                    .Where(editor => editor.IsEffectivelyVisible).ToArray();
+                Assert.That(numbers.Length, Is.GreaterThanOrEqualTo(4));
+                Assert.That(numbers.Any(editor => editor.GetVisualAncestors().Contains(transformRows[0])), Is.True);
+                foreach (var editor in numbers)
+                {
+                    var grid = editor.GetVisualDescendants().OfType<PropertyEditorGrid>().Single();
+                    Assert.That(grid.ColumnDefinitions[0].Width.IsAbsolute, Is.True, editor.Header);
+                    var input = editor.GetVisualDescendants().OfType<TextBox>().Single();
+                    Assert.That(input.TranslatePoint(default, view)!.Value.X,
+                        Is.EqualTo(view.Bounds.Width / 2).Within(1), editor.Header);
+                }
+            }
             Capture("expanded");
 
             Click(Title(filterHeader));
