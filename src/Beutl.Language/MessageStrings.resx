@@ -460,4 +460,7 @@ Do you want to restart the application?</value>
   <data name="ProjectInUseCannotDeleteFromDisk" xml:space="preserve">
     <value>This project or its files are open in Beutl. Close them before deleting the project from disk.</value>
   </data>
+  <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
+    <value>An export, a save or a version control operation is still using project files. Wait for it to finish, then try again.</value>
+  </data>
 </root>

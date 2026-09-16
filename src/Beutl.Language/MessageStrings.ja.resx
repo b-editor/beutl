@@ -455,4 +455,7 @@
   <data name="ProjectInUseCannotDeleteFromDisk" xml:space="preserve">
     <value>このプロジェクトまたはそのファイルが Beutl で開かれています。ディスクから削除する前に閉じてください。</value>
   </data>
+  <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
+    <value>書き出し、保存、またはバージョン管理の操作がプロジェクトのファイルを使用中です。完了してからもう一度お試しください。</value>
+  </data>
 </root>

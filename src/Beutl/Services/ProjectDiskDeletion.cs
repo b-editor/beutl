@@ -73,6 +73,16 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
                 return;
             }
 
+            // An export outlives the close of its project and keeps its output lease, so files no
+            // editor holds any more can still be read. Reserving the workspace refuses while an
+            // export, a save or a version-control operation runs, and holds new ones off meanwhile.
+            using IDisposable? workspace = editorService.TryBeginWorktreeMutation();
+            if (workspace is null)
+            {
+                NotificationService.ShowError(Strings.DeleteFromDisk, MessageStrings.ProjectBusyCannotDeleteFromDisk);
+                return;
+            }
+
             try
             {
                 await Task.Run(() => Delete(current));

@@ -232,6 +232,47 @@ public class ProjectDiskDeletionTests
     }
 
     [AvaloniaTest]
+    public async Task Refuses_while_an_export_that_outlived_its_project_holds_the_workspace()
+    {
+        await TestReset.ResetShellAsync();
+        (string projectFile, _) = await CreateClosedProjectAsync("exported", NewWorkspace("exporting"));
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+        NotificationService.Handler = notifications;
+        // A running export keeps its output lease after the project it renders is closed.
+        IDisposable export = TestShell.Editor.TryBeginOutputOperation()!;
+        try
+        {
+            var shown = new List<FAContentDialog>();
+            await CreateDeletion(shown).DeleteAsync(projectFile);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(shown, Has.Count.EqualTo(1));
+                Assert.That(File.Exists(projectFile), Is.True);
+                Assert.That(
+                    notifications.All.Select(notification => notification.Message),
+                    Does.Contain(MessageStrings.ProjectBusyCannotDeleteFromDisk));
+            });
+
+            export.Dispose();
+            await CreateDeletion(shown).DeleteAsync(projectFile);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.Exists(projectFile), Is.False);
+                // The reservation ends with the deletion.
+                Assert.That(TestShell.Editor.IsWorktreeMutationActive, Is.False);
+            });
+        }
+        finally
+        {
+            export.Dispose();
+            NotificationService.Handler = previousHandler;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Reports_a_project_file_that_is_already_gone()
     {
         INotificationServiceHandler previousHandler = NotificationService.Handler;

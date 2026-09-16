@@ -461,4 +461,7 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="ProjectInUseCannotDeleteFromDisk" xml:space="preserve">
     <value>Este proyecto o sus archivos están abiertos en Beutl. Ciérralos antes de eliminar el proyecto del disco.</value>
   </data>
+  <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
+    <value>Una exportación, un guardado o una operación de control de versiones todavía está usando archivos del proyecto. Espera a que termine e inténtalo de nuevo.</value>
+  </data>
 </root>
