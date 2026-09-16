@@ -103,7 +103,7 @@
                                     Converter={x:Static ObjectConverters.IsNotNull}}" />
 
 
-            <controls:TreeLineDecorator LineBrush="{DynamicResource TreeLineBrush}">
+            <controls:TreeLineDecorator LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
                 <ItemsControl Margin="-16,0,0,0"
                               DataContext="{Binding Group.Value}"
                               ItemsSource="{Binding Items}">

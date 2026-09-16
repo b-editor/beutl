@@ -8,7 +8,6 @@
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
 
     <pe:GradingColorBrushConverter x:Key="GradingColorBrushConv" />
-    <SolidColorBrush x:Key="TreeLineBrush" Color="{DynamicResource TextFillColorTertiary}" Opacity="0.3" />
     <Design.PreviewWith>
         <Border Width="300">
             <ToggleButton Margin="8,4"
@@ -101,31 +100,6 @@
             <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundDisabled}" />
         </Style>
 
-        <Style Selector="^:checked">
-            <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundChecked}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushChecked}" />
-                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundChecked}" />
-            </Style>
-
-            <Style Selector="^:pointerover /template/ ContentPresenter#TagContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedPointerOver}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedPointerOver}" />
-                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedPointerOver}" />
-            </Style>
-
-            <Style Selector="^:pressed /template/ ContentPresenter#TagContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedPressed}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedPressed}" />
-                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedPressed}" />
-            </Style>
-
-            <Style Selector="^:disabled /template/ ContentPresenter#TagContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedDisabled}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedDisabled}" />
-                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedDisabled}" />
-            </Style>
-        </Style>
     </ControlTheme>
 
     <ControlTheme x:Key="PropertyEditorLeftRightButton"

@@ -98,7 +98,7 @@
                        IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}"
                        Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
-            <controls:TreeLineDecorator LineBrush="{DynamicResource TreeLineBrush}">
+            <controls:TreeLineDecorator LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
                 <local:PropertiesEditor Padding="0"
                                         DataContext="{Binding Properties.Value}"
                                         IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
