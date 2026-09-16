@@ -14,6 +14,130 @@ namespace Beutl.HeadlessUITests;
 public class PropertyEditorGridTests
 {
     [AvaloniaTest]
+    [TestCase(760, 0, 120, 1d)]
+    [TestCase(760, 3, 120, 1d)]
+    [TestCase(1040, 0, 120, 1d)]
+    [TestCase(1040, 3, 120, 1d)]
+    [TestCase(760, 3, 180, 1.25d)]
+    [TestCase(1040, 3, 180, 1.25d)]
+    public void Rightmost_shared_splitter_preserves_nested_values_and_trailing_controls(int width, int keyFrames, int minimum, double scale)
+    {
+        var outer = new NumberEditor<float> { Header = "Width", Value = 640 };
+        var nested = new NumberEditor<float> { Header = "Opacity", Value = 75 };
+        var color = new ColorEditor { Header = "Color" };
+        var alignment = new AlignmentXEditor { Header = "Alignment X" };
+        var vector = new Vector2Editor<float> { Header = "Scale", FirstValue = 120, SecondValue = 80 };
+        PropertyEditor[] nestedEditors = [nested, color, alignment, vector];
+        foreach (var editor in nestedEditors)
+        {
+            editor.KeyFrameCount = keyFrames;
+            editor.MenuContent = new Border { Width = 24, Height = 24 };
+        }
+        outer.MenuContent = new Border { Width = 24, Height = 24 };
+        var rows = new StackPanel { Margin = new Thickness(0, 0, 48, 0) };
+        foreach (var editor in nestedEditors) rows.Children.Add(editor);
+        var scope = new StackPanel
+        {
+            Children = { outer, new TreeLineDecorator { Child = new TreeLineDecorator { Child = rows } } }
+        };
+        PropertyEditorGrid.SetIsAlignmentScope(scope, true);
+        var window = new Window { Content = scope, Width = width, Height = 600 };
+        try
+        {
+            window.Show();
+            window.SetRenderScaling(scale);
+            HeadlessTestHelpers.Render(3);
+            GetBox(nested).MinWidth = minimum;
+            HeadlessTestHelpers.Render(3);
+            MoveSplitterToMaximum(window, outer);
+            AssertValuesFit(scope, [outer, .. nestedEditors]);
+            double rightmost = GetBox(outer).TranslatePoint(default, scope)!.Value.X;
+            Assert.That(rightmost, Is.GreaterThan(width / 2));
+
+            MoveSplitterToMaximum(window, outer);
+            Assert.That(GetBox(outer).TranslatePoint(default, scope)!.Value.X, Is.EqualTo(rightmost).Within(1));
+            AssertValuesFit(scope, [outer, .. nestedEditors]);
+
+            var splitter = outer.GetVisualDescendants().OfType<GridSplitter>().Single();
+            splitter.KeyboardIncrement = 30;
+            window.KeyPress(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
+            window.KeyRelease(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(GetBox(outer).TranslatePoint(default, scope)!.Value.X, Is.LessThan(rightmost));
+            AssertValuesFit(scope, [outer, .. nestedEditors]);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Right_edge_is_reclamped_when_a_nested_row_appears_or_the_scope_shrinks(bool reveal)
+    {
+        var outer = new NumberEditor<float> { Header = "Width", Value = 640 };
+        var nested = new NumberEditor<float>
+        {
+            Header = "Opacity",
+            Value = 75,
+            KeyFrameCount = 3,
+            MenuContent = new Border { Width = 24, Height = 24 }
+        };
+        var branch = new TreeLineDecorator
+        {
+            IsVisible = !reveal,
+            Child = new StackPanel { Margin = new Thickness(0, 0, 48, 0), Children = { nested } }
+        };
+        var scope = new StackPanel { Children = { outer, branch } };
+        PropertyEditorGrid.SetIsAlignmentScope(scope, true);
+        var window = new Window { Content = scope, Width = 1040, Height = 300 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            MoveSplitterToMaximum(window, outer);
+            double ratio = PropertyEditorGrid.GetValueColumnRatio(scope);
+            if (reveal) branch.IsVisible = true;
+            else window.Width = 640;
+            HeadlessTestHelpers.Render(3);
+            AssertValuesFit(scope, [outer, nested]);
+            Assert.That(PropertyEditorGrid.GetValueColumnRatio(scope), Is.LessThan(ratio));
+        }
+        finally { window.Close(); }
+    }
+
+    private static void MoveSplitterToMaximum(Window window, PropertyEditor editor)
+    {
+        var splitter = editor.GetVisualDescendants().OfType<GridSplitter>().Single();
+        Assert.That(splitter.Focus(), Is.True);
+        splitter.KeyboardIncrement = window.Width;
+        window.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
+        window.KeyRelease(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
+        HeadlessTestHelpers.Render(3);
+    }
+
+    private static void AssertValuesFit(Control scope, PropertyEditor[] editors)
+    {
+        double left = GetBox(editors[0]).TranslatePoint(default, scope)!.Value.X;
+        foreach (var editor in editors)
+        {
+            PropertyEditorGrid grid = GetGrid(editor);
+            Assert.That(grid.ColumnDefinitions[0].Width.IsAbsolute, Is.True, editor.Header);
+            Assert.That(GetBox(editor).TranslatePoint(default, scope)!.Value.X, Is.EqualTo(left).Within(1), editor.Header);
+            foreach (Control child in grid.Children.Where(c => c.IsVisible && Grid.GetRow(c) == 0 && Grid.GetColumn(c) >= grid.ValueColumn))
+            {
+                Assert.That(child.Bounds.Width, Is.GreaterThanOrEqualTo(child.MinWidth - 1), editor.Header);
+                Assert.That(child.Bounds.Right + child.Margin.Right, Is.LessThanOrEqualTo(grid.Bounds.Width + 1), editor.Header);
+            }
+            foreach (Control input in editor.GetVisualDescendants().OfType<Control>()
+                         .Where(c => c.IsEffectivelyVisible && c is TextBox or Button))
+            {
+                double right = input.TranslatePoint(default, grid)!.Value.X + input.Bounds.Width;
+                Assert.That(right, Is.LessThanOrEqualTo(grid.Bounds.Width + 1), editor.Header);
+            }
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public void Revealing_a_deeper_row_reclamps_the_shared_splitter(bool addAfterLayout)

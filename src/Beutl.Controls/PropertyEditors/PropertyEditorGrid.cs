@@ -2,6 +2,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
+using Avalonia.Layout;
 using Avalonia.VisualTree;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -32,6 +33,8 @@ public sealed class PropertyEditorGrid : Grid
     private GridLength _originalHeaderWidth;
     private double _rightInset = double.NaN;
     private double _precedingWidth;
+    private double _minimumValueSpace;
+    private bool _canAlign;
     private bool _settingWidth;
     private bool _reclampPending;
 
@@ -79,6 +82,7 @@ public sealed class PropertyEditorGrid : Grid
         if (_scope != null)
             _scope.PropertyChanged -= OnScopePropertyChanged;
         _scope = null;
+        _canAlign = false;
         _rightInset = double.NaN;
         RestoreHeaderWidth();
     }
@@ -99,9 +103,10 @@ public sealed class PropertyEditorGrid : Grid
     protected override Size MeasureOverride(Size availableSize)
     {
         CancelPendingReclamp();
-        if (_scope is { Bounds.Width: >= MinimumScopeWidth }
+        _canAlign = _scope is { Bounds.Width: >= MinimumScopeWidth }
             && double.IsFinite(availableSize.Width)
-            && HasInlineValue())
+            && HasInlineValue();
+        if (_canAlign && _scope != null)
         {
             // Only the splitter columns lie between the label and value. Measure their
             // margins as well so different templates share the actual Box edge.
@@ -116,11 +121,12 @@ public sealed class PropertyEditorGrid : Grid
                 }
                 _precedingWidth += width;
             }
+            _minimumValueSpace = MeasureMinimumValueSpace(availableSize.Height);
 
             double bandWidth = _scope.Bounds.Width * (1 - GetValueColumnRatio(_scope))
                 - (double.IsNaN(_rightInset) ? 0 : _rightInset);
             double labelWidth = availableSize.Width - bandWidth - _precedingWidth - InputInset;
-            if (labelWidth >= MinimumHeaderWidth - LayoutTolerance)
+            if (labelWidth >= MinimumHeaderWidth - LayoutTolerance && bandWidth >= _minimumValueSpace - LayoutTolerance)
             {
                 if (_alignedHeader != ColumnDefinitions[0])
                 {
@@ -153,6 +159,43 @@ public sealed class PropertyEditorGrid : Grid
         => ValueColumn > 0 && ValueColumn < ColumnDefinitions.Count
             && Children.Any(child => child.IsVisible && GetColumn(child) == ValueColumn && GetRow(child) == 0);
 
+    private double MeasureMinimumValueSpace(double availableHeight)
+    {
+        double result = 0;
+        for (int column = ValueColumn; column < ColumnDefinitions.Count; column++)
+        {
+            ColumnDefinition definition = ColumnDefinitions[column];
+            double width = Math.Max(definition.MinWidth, definition.Width.IsAbsolute ? definition.Width.Value : 0);
+            foreach (Control child in Children.Where(child => child.IsVisible && GetRow(child) == 0
+                         && GetColumn(child) == column && GetColumnSpan(child) == 1))
+            {
+                child.Measure(new Size(double.PositiveInfinity, availableHeight));
+                double required = child.DesiredSize.Width;
+                // Editable values can scroll/truncate their contents. Respect their
+                // declared minimum instead of reserving the entire current text.
+                if (column == ValueColumn && (child.MinWidth > 0 || double.IsFinite(child.Width) || child is TextBox))
+                {
+                    double minimum = Math.Max(child.MinWidth, double.IsFinite(child.Width) ? child.Width : 0);
+                    if (child is TextBox textBox)
+                        minimum = Math.Max(minimum, textBox.Padding.Left + textBox.Padding.Right
+                            + textBox.BorderThickness.Left + textBox.BorderThickness.Right);
+                    Thickness margin = child.Margin;
+                    if (child.UseLayoutRounding)
+                    {
+                        double scale = LayoutHelper.GetLayoutScale(child);
+                        minimum = LayoutHelper.RoundLayoutValueUp(minimum, scale);
+                        margin = LayoutHelper.RoundLayoutThickness(margin, scale);
+                    }
+                    required = minimum + margin.Left + margin.Right;
+                }
+                width = Math.Max(width, required);
+            }
+            result += width;
+        }
+        // The shared position is the input's edge, after its leading inset.
+        return Math.Max(0, result - InputInset);
+    }
+
     private void CancelPendingReclamp()
     {
         if (!_reclampPending) return;
@@ -163,14 +206,34 @@ public sealed class PropertyEditorGrid : Grid
     private void ReclampAfterLayout(object? sender, EventArgs e)
     {
         CancelPendingReclamp();
-        if (_scope is { Bounds.Width: >= MinimumScopeWidth } && IsEffectivelyVisible && HasInlineValue()
-            && this.TranslatePoint(default, _scope) is { } origin)
+        if (_scope is { Bounds.Width: >= MinimumScopeWidth } && _canAlign && IsEffectivelyVisible)
         {
-            double minimumRatio = (origin.X + MinimumHeaderWidth + _precedingWidth + InputInset) / _scope.Bounds.Width;
-            // Leave rows that cannot fit even the label in their proportional layout.
-            if (minimumRatio <= 1 && minimumRatio > GetValueColumnRatio(_scope))
-                SetValueColumnRatio(_scope, minimumRatio);
+            double position = GetValueColumnRatio(_scope) * _scope.Bounds.Width;
+            double clamped = ClampSharedPosition(position);
+            if (Math.Abs(clamped - position) > LayoutTolerance)
+                SetValueColumnRatio(_scope, clamped / _scope.Bounds.Width);
         }
+    }
+
+    private double ClampSharedPosition(double position)
+    {
+        if (_scope == null) return position;
+        double minimum = 0;
+        double maximum = _scope.Bounds.Width;
+        foreach (var grid in _scope.GetVisualDescendants().OfType<PropertyEditorGrid>())
+        {
+            if (grid._scope == _scope && grid._canAlign && grid.IsEffectivelyVisible && grid.Bounds.Width > 0
+                && grid.TranslatePoint(default, _scope) is { } origin)
+            {
+                minimum = Math.Max(minimum, origin.X + MinimumHeaderWidth + grid._precedingWidth + InputInset);
+                maximum = Math.Min(maximum, origin.X + grid.Bounds.Width - grid._minimumValueSpace);
+            }
+        }
+        // Incompatible rows keep their proportional fallback; do not alternate
+        // between a minimum and maximum that cannot both be satisfied.
+        return minimum <= maximum
+            ? Math.Clamp(position, minimum, maximum)
+            : GetValueColumnRatio(_scope) * _scope.Bounds.Width;
     }
 
     protected override Size ArrangeOverride(Size finalSize)
@@ -207,18 +270,7 @@ public sealed class PropertyEditorGrid : Grid
             // input position, rather than having the next measure undo the drag.
             double left = _scope.Bounds.Width - _rightInset - Bounds.Width;
             double position = left + _alignedHeader.Width.Value + _precedingWidth + InputInset;
-            // The deepest participating row determines how far left the shared
-            // splitter can move without dropping any row out of alignment.
-            foreach (var grid in _scope.GetVisualDescendants().OfType<PropertyEditorGrid>())
-            {
-                if (grid._scope == _scope && grid._alignedHeader != null && grid.IsEffectivelyVisible
-                    && !double.IsNaN(grid._rightInset))
-                {
-                    double gridLeft = _scope.Bounds.Width - grid._rightInset - grid.Bounds.Width;
-                    position = Math.Max(position, gridLeft + MinimumHeaderWidth + grid._precedingWidth + InputInset);
-                }
-            }
-            SetValueColumnRatio(_scope, Math.Clamp(position / _scope.Bounds.Width, 0, 1));
+            SetValueColumnRatio(_scope, ClampSharedPosition(position) / _scope.Bounds.Width);
         }
     }
 
