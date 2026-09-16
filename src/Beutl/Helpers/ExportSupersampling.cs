@@ -18,6 +18,9 @@ public static class ExportSupersampling
 
     /// <summary>Whether the supersampled surface fits <paramref name="budget"/> on both axes.</summary>
     /// <param name="budget">The budget to fit. Named by the caller rather than resolved here.</param>
+    /// <exception cref="InvalidOperationException">
+    /// <paramref name="budget"/> is <see langword="default"/> and names nothing to fit.
+    /// </exception>
     /// <remarks>
     /// A caller passes <see cref="BufferBudgetScope.Prediction"/> rather than
     /// <see cref="BufferDimensionBudget.EngineCeiling"/>: a warning taken against the ceiling clears an

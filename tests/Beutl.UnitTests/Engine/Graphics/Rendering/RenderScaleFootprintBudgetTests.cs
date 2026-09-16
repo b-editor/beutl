@@ -76,6 +76,9 @@ public class RenderScaleFootprintBudgetTests
         Assert.That(
             () => default(BufferDimensionBudget).ClampWorkingScale(new Rect(0, 0, 100, 100), 2),
             Throws.TypeOf<InvalidOperationException>());
+        Assert.That(
+            () => default(BufferDimensionBudget).MaxDimension,
+            Throws.TypeOf<InvalidOperationException>());
     }
 
     [Test]

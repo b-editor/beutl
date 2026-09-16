@@ -22,13 +22,25 @@ public readonly record struct BufferDimensionBudget
     /// <summary>The pixels a raster apron adds to each axis, one per side.</summary>
     private const int RasterApronPixels = 2;
 
-    private BufferDimensionBudget(int maxDimension) => MaxDimension = maxDimension;
+    private readonly int _maxDimension;
 
-    /// <summary>
-    /// Gets the largest device extent an allocation may have on either axis, or zero for a
-    /// <see langword="default"/> budget, which names nothing and cannot be measured against.
-    /// </summary>
-    public int MaxDimension { get; }
+    private BufferDimensionBudget(int maxDimension) => _maxDimension = maxDimension;
+
+    /// <summary>Gets the largest device extent an allocation may have on either axis.</summary>
+    /// <remarks>
+    /// A <see langword="default"/> budget names nothing, and reading a dimension from one is refused rather
+    /// than answered with zero: a caller that compares its own extents against that number would report every
+    /// size as over the limit, silently, which is the one failure a budget exists to make loud.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">This is a <see langword="default"/> budget.</exception>
+    public int MaxDimension
+    {
+        get
+        {
+            ThrowIfUninitialized();
+            return _maxDimension;
+        }
+    }
 
     /// <summary>
     /// Gets the engine's own ceiling, device-independent, which is what planning measures against.
@@ -104,7 +116,7 @@ public readonly record struct BufferDimensionBudget
     /// </remarks>
     internal static void ThrowIfUninitialized(BufferDimensionBudget? budget, string paramName)
     {
-        if (budget is { MaxDimension: <= 0 })
+        if (budget is { _maxDimension: <= 0 })
         {
             throw new ArgumentOutOfRangeException(
                 paramName, budget, "The buffer budget must name a positive dimension.");
@@ -121,7 +133,7 @@ public readonly record struct BufferDimensionBudget
     public bool Fits(PixelSize deviceSize)
     {
         ThrowIfUninitialized();
-        return deviceSize.Width <= MaxDimension && deviceSize.Height <= MaxDimension;
+        return deviceSize.Width <= _maxDimension && deviceSize.Height <= _maxDimension;
     }
 
     /// <summary>
@@ -145,7 +157,7 @@ public readonly record struct BufferDimensionBudget
         if (!float.IsFinite(workingScale) || workingScale <= 0f)
             return workingScale;
 
-        return FitScaleToDeviceFootprint(logicalBounds, workingScale, MaxDimension, apronPixels: 0);
+        return FitScaleToDeviceFootprint(logicalBounds, workingScale, _maxDimension, apronPixels: 0);
     }
 
     /// <summary>
@@ -172,12 +184,12 @@ public readonly record struct BufferDimensionBudget
             return workingScale;
 
         if (HasFiniteBounds(logicalBounds)
-            && FitsDeviceFootprint(logicalBounds, workingScale, MaxDimension, apronPixels))
+            && FitsDeviceFootprint(logicalBounds, workingScale, _maxDimension, apronPixels))
         {
             return workingScale;
         }
 
-        return FitScaleToDeviceFootprint(logicalBounds, workingScale, MaxDimension, apronPixels);
+        return FitScaleToDeviceFootprint(logicalBounds, workingScale, _maxDimension, apronPixels);
     }
 
     private static float FitScaleToDeviceFootprint(
@@ -259,9 +271,15 @@ public readonly record struct BufferDimensionBudget
             && float.IsFinite(bounds.Width)
             && float.IsFinite(bounds.Height);
 
+    /// <summary>Renders the budget without reading <see cref="MaxDimension"/>, which a default one refuses.</summary>
+    public override string ToString()
+        => _maxDimension > 0
+            ? $"BufferDimensionBudget {{ MaxDimension = {_maxDimension} }}"
+            : "BufferDimensionBudget { uninitialized }";
+
     private void ThrowIfUninitialized()
     {
-        if (MaxDimension <= 0)
+        if (_maxDimension <= 0)
         {
             throw new InvalidOperationException(
                 "default(BufferDimensionBudget) names no budget; use EngineCeiling, ForDevice, Named or Resolve.");

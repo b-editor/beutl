@@ -241,16 +241,34 @@ public sealed class DeviceBufferBudgetTests
     public void ADefaultBudgetNamesNothingAndCannotBeMeasuredAgainst()
     {
         BufferDimensionBudget uninitialized = default;
+        var frame = new PixelSize(1920, 1080);
 
         Assert.Multiple(() =>
         {
-            Assert.That(uninitialized.MaxDimension, Is.Zero);
+            // Reading the dimension is refused rather than answered with zero: a caller that compared its
+            // own extents against that number would report every size as over the limit, silently.
+            Assert.That(
+                () => uninitialized.MaxDimension,
+                Throws.InstanceOf<InvalidOperationException>());
             Assert.That(
                 () => uninitialized.Fits(new PixelSize(1, 1)),
                 Throws.InstanceOf<InvalidOperationException>());
             Assert.That(
                 () => uninitialized.ClampWorkingScale(new Rect(0, 0, 1, 1), 1f),
                 Throws.InstanceOf<InvalidOperationException>());
+            // The export and save-frame dialogs take a caller-supplied budget, so they are the two public
+            // boundaries a default one can actually reach.
+            Assert.That(
+                () => ExportSupersampling.FitsBufferLimit(frame, 1, uninitialized),
+                Throws.InstanceOf<InvalidOperationException>());
+            Assert.That(
+                () => SaveFrameScale.FitsBufferLimit(frame, 1f, uninitialized),
+                Throws.InstanceOf<InvalidOperationException>());
+            // ToString must stay readable, or a log line about a bad budget throws instead of reporting it.
+            Assert.That(uninitialized.ToString(), Does.Contain("uninitialized"));
+            Assert.That(
+                BufferDimensionBudget.Named(DeviceBudget).ToString(),
+                Does.Contain(DeviceBudget.ToString()));
         });
     }
 
