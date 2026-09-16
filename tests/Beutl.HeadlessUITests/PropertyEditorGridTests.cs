@@ -14,6 +14,64 @@ namespace Beutl.HeadlessUITests;
 public class PropertyEditorGridTests
 {
     [AvaloniaTest]
+    [TestCase(760, false)]
+    [TestCase(760, true)]
+    [TestCase(1040, false)]
+    [TestCase(1040, true)]
+    public void Splitter_keeps_rows_aligned_at_the_minimum_label_width_and_can_move_back(int width, bool moveNested)
+    {
+        var outer = new NumberEditor<float> { Header = "Width", Value = 640 };
+        var nested = new NumberEditor<float> { Header = "Opacity", Value = 75, KeyFrameCount = 3 };
+        var scope = new StackPanel
+        {
+            Children = { outer, new TreeLineDecorator { Child = new TreeLineDecorator { Child = nested } } }
+        };
+        PropertyEditorGrid.SetIsAlignmentScope(scope, true);
+        var window = new Window { Content = scope, Width = width, Height = 300 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var splitter = (moveNested ? nested : outer).GetVisualDescendants().OfType<GridSplitter>().Single();
+            Assert.That(splitter.Focus(), Is.True);
+            splitter.KeyboardIncrement = width;
+            Move(Key.Left, PhysicalKey.ArrowLeft);
+            double minimum = GetBox(outer).TranslatePoint(default, scope)!.Value.X;
+            Assert.That(minimum, Is.LessThan(width / 2));
+            AssertAligned();
+
+            // Repeated movement against the limit must not disconnect any row.
+            Move(Key.Left, PhysicalKey.ArrowLeft);
+            Assert.That(GetBox(outer).TranslatePoint(default, scope)!.Value.X, Is.EqualTo(minimum).Within(1));
+            AssertAligned();
+
+            splitter.KeyboardIncrement = 30;
+            Move(Key.Right, PhysicalKey.ArrowRight);
+            Assert.That(GetBox(outer).TranslatePoint(default, scope)!.Value.X, Is.GreaterThan(minimum));
+            AssertAligned();
+        }
+        finally { window.Close(); }
+
+        void Move(Key key, PhysicalKey physicalKey)
+        {
+            window.KeyPress(key, RawInputModifiers.None, physicalKey, null);
+            window.KeyRelease(key, RawInputModifiers.None, physicalKey, null);
+            HeadlessTestHelpers.Render(3);
+        }
+
+        void AssertAligned()
+        {
+            foreach (var editor in new[] { outer, nested })
+            {
+                Assert.That(GetGrid(editor).ColumnDefinitions[0].Width.IsAbsolute, Is.True);
+                Assert.That(GetGrid(editor).ColumnDefinitions[0].ActualWidth, Is.GreaterThanOrEqualTo(80));
+                Assert.That(GetBox(editor).TranslatePoint(default, scope)!.Value.X,
+                    Is.EqualTo(GetBox(outer).TranslatePoint(default, scope)!.Value.X).Within(1));
+            }
+        }
+    }
+
+    [AvaloniaTest]
     public void Nested_inputs_follow_the_shared_splitter_and_keep_edits_during_resize()
     {
         var outer = new NumberEditor<float> { Header = "Width", Value = 640 };

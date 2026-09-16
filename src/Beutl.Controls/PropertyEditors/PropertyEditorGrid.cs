@@ -24,6 +24,7 @@ public sealed class PropertyEditorGrid : Grid
         AvaloniaProperty.Register<PropertyEditorGrid, int>(nameof(ValueColumn), 2);
 
     private const double MinimumScopeWidth = 640;
+    private const double MinimumHeaderWidth = 80;
     private const double InputInset = 4;
     private Control? _scope;
     private ColumnDefinition? _alignedHeader;
@@ -91,7 +92,7 @@ public sealed class PropertyEditorGrid : Grid
             double bandWidth = _scope.Bounds.Width * (1 - GetValueColumnRatio(_scope))
                 - (double.IsNaN(_rightInset) ? 0 : _rightInset);
             double labelWidth = availableSize.Width - bandWidth - _precedingWidth - InputInset;
-            if (labelWidth >= 80)
+            if (labelWidth >= MinimumHeaderWidth)
             {
                 if (_alignedHeader != ColumnDefinitions[0])
                 {
@@ -150,6 +151,17 @@ public sealed class PropertyEditorGrid : Grid
             // input position, rather than having the next measure undo the drag.
             double left = _scope.Bounds.Width - _rightInset - Bounds.Width;
             double position = left + _alignedHeader.Width.Value + _precedingWidth + InputInset;
+            // The deepest participating row determines how far left the shared
+            // splitter can move without dropping any row out of alignment.
+            foreach (var grid in _scope.GetVisualDescendants().OfType<PropertyEditorGrid>())
+            {
+                if (grid._scope == _scope && grid._alignedHeader != null && grid.IsEffectivelyVisible
+                    && !double.IsNaN(grid._rightInset))
+                {
+                    double gridLeft = _scope.Bounds.Width - grid._rightInset - grid.Bounds.Width;
+                    position = Math.Max(position, gridLeft + MinimumHeaderWidth + grid._precedingWidth + InputInset);
+                }
+            }
             SetValueColumnRatio(_scope, Math.Clamp(position / _scope.Bounds.Width, 0, 1));
         }
     }
