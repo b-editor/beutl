@@ -88,28 +88,34 @@ public sealed class FileBrowserStorageTests
     [AvaloniaTest]
     public void HidingServicesUpdatesEveryBrowserAndPreservesLocalLocation()
     {
-        var config = new ViewConfig();
-        var provider = new TestProvider("test", "Test storage");
-        using var first = Create(config, provider);
-        using var second = Create(config, provider);
-        string directory = Path.GetTempPath();
-        first.RootPath.Value = directory;
-        first.OpenStorage(provider);
-        second.OpenStorage(provider);
-        config.ShowStorageServices = false;
-        Assert.That(provider.Browsers.All(x => x.Disposed), Is.True);
-        foreach (var vm in new[] { first, second })
+        // Visibility changes do not depend on the contents of the host's shared temp directory.
+        string directory = Path.Combine(Path.GetTempPath(), $"beutl-storage-visibility-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
         {
-            Assert.That(vm.ShowStorageServices.Value, Is.False);
-            Assert.That(vm.IsStorageView.Value, Is.False);
-            Assert.That(vm.StorageBrowser.Value, Is.Null);
-            vm.OpenStorage(provider);
-            Assert.That(vm.StorageBrowser.Value, Is.Null);
+            var config = new ViewConfig();
+            var provider = new TestProvider("test", "Test storage");
+            using var first = Create(config, provider);
+            using var second = Create(config, provider);
+            first.RootPath.Value = directory;
+            first.OpenStorage(provider);
+            second.OpenStorage(provider);
+            config.ShowStorageServices = false;
+            Assert.That(provider.Browsers.All(x => x.Disposed), Is.True);
+            foreach (var vm in new[] { first, second })
+            {
+                Assert.That(vm.ShowStorageServices.Value, Is.False);
+                Assert.That(vm.IsStorageView.Value, Is.False);
+                Assert.That(vm.StorageBrowser.Value, Is.Null);
+                vm.OpenStorage(provider);
+                Assert.That(vm.StorageBrowser.Value, Is.Null);
+            }
+            Assert.That(first.RootPath.Value, Is.EqualTo(directory));
+            config.ShowStorageServices = true;
+            Assert.That(first.ShowStorageServices.Value, Is.True);
+            Assert.That(provider.Browsers, Has.Count.EqualTo(2), "Re-enabling must not connect.");
         }
-        Assert.That(first.RootPath.Value, Is.EqualTo(directory));
-        config.ShowStorageServices = true;
-        Assert.That(first.ShowStorageServices.Value, Is.True);
-        Assert.That(provider.Browsers, Has.Count.EqualTo(2), "Re-enabling must not connect.");
+        finally { Directory.Delete(directory, recursive: true); }
     }
 
     [AvaloniaTest]
@@ -269,10 +275,8 @@ public sealed class FileBrowserStorageTests
             var point = root.TranslatePoint(new Point(root.Bounds.Width / 2, root.Bounds.Height / 2), window)!.Value;
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
-            await WaitFor(() => handler.Requests.Count == 3);
-            Assert.That(handler.Requests[2].Uri.Query, Does.Not.Contain("folder="));
-            handler.Requests[2].Complete(Response());
-            await WaitFor(() => !browser.IsLoading.Value);
+            await WaitFor(() => browser.Breadcrumbs.Count == 1 && !browser.IsLoading.Value);
+            Assert.That(handler.Requests, Has.Count.EqualTo(2), "Returning to a recently visited folder should use its cache.");
             Assert.That(browser.Breadcrumbs, Has.Count.EqualTo(1));
         }
         finally { window.Close(); }

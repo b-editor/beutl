@@ -14,6 +14,8 @@
             <Border Padding="4"
                     Background="Transparent"
                     CornerRadius="{DynamicResource ControlCornerRadius}"
+                    PointerEntered="OnItemPointerEntered"
+                    PointerExited="OnItemPointerExited"
                     ToolTip.Tip="{Binding ToolTip}">
                 <files:FileBrowserItemView Icon="{Binding Icon}"
                                            IsIconView="True"
@@ -23,9 +25,49 @@
         <DataTemplate x:Key="StorageListTemplate" x:DataType="vm:CloudStorageItem">
             <Border Padding="4,2"
                     Background="Transparent"
+                    PointerEntered="OnItemPointerEntered"
+                    PointerExited="OnItemPointerExited"
                     ToolTip.Tip="{Binding ToolTip}">
                 <files:FileBrowserItemView Icon="{Binding Icon}" ItemName="{Binding Name}" />
             </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="LoadingIconTemplate" x:DataType="x:Int32">
+            <Grid Width="92" Height="128">
+                <StackPanel Margin="0,14,0,0"
+                            HorizontalAlignment="Center"
+                            Spacing="12">
+                    <Border Width="48"
+                            Height="48"
+                            Background="{DynamicResource TextFillColorTertiaryBrush}"
+                            CornerRadius="8" />
+                    <StackPanel Spacing="6">
+                        <Border Width="64"
+                                Height="8"
+                                Background="{DynamicResource TextFillColorTertiaryBrush}"
+                                CornerRadius="4" />
+                        <Border Width="42"
+                                Height="8"
+                                Background="{DynamicResource TextFillColorTertiaryBrush}"
+                                CornerRadius="4" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="LoadingListTemplate" x:DataType="x:Int32">
+            <Grid Height="30"
+                  Margin="8,0"
+                  ColumnDefinitions="24,8,*">
+                <Border Width="20"
+                        Height="20"
+                        Background="{DynamicResource TextFillColorTertiaryBrush}"
+                        CornerRadius="4" />
+                <Border Grid.Column="2"
+                        Width="160"
+                        Height="8"
+                        HorizontalAlignment="Left"
+                        Background="{DynamicResource TextFillColorTertiaryBrush}"
+                        CornerRadius="4" />
+            </Grid>
         </DataTemplate>
     </UserControl.Resources>
     <UserControl.Styles>
@@ -50,6 +92,17 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
         </Style>
+        <Style Selector="ItemsControl#LoadingSkeleton">
+            <Setter Property="ItemTemplate" Value="{StaticResource LoadingListTemplate}" />
+        </Style>
+        <Style Selector="ItemsControl#LoadingSkeleton.icons">
+            <Setter Property="ItemTemplate" Value="{StaticResource LoadingIconTemplate}" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </Setter>
+        </Style>
     </UserControl.Styles>
     <UserControl.KeyBindings>
         <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
@@ -73,9 +126,13 @@
             </StackPanel>
         </ScrollViewer>
         <Grid IsVisible="{Binding SignedIn.Value}" RowDefinitions="Auto,Auto,*,Auto">
-            <ProgressBar Height="2"
-                         IsIndeterminate="True"
-                         IsVisible="{Binding IsLoading.Value}" />
+            <Border Height="2">
+                <ProgressBar x:Name="LoadingProgress"
+                             Height="2"
+                             AutomationProperties.Name="{x:Static lang:Strings.CloudStorage}"
+                             IsIndeterminate="True"
+                             IsVisible="{Binding IsLoadingVisible.Value}" />
+            </Border>
             <TextBlock x:Name="ErrorText"
                        Grid.Row="1"
                        Margin="8,4"
@@ -87,9 +144,19 @@
                      Grid.Row="2"
                      Classes.icons="{Binding ViewMode.Value, Converter={x:Static fileVm:FileBrowserViewModeConverters.IsIcon}}"
                      DoubleTapped="OnItemDoubleTapped"
+                     GotFocus="OnItemFocused"
                      ItemsSource="{Binding Items}"
-                     KeyDown="OnItemsKeyDown"
+                     LostFocus="OnItemLostFocus"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+            <ItemsControl x:Name="LoadingSkeleton"
+                          Grid.Row="2"
+                          AutomationProperties.AccessibilityView="Raw"
+                          Classes.icons="{Binding ViewMode.Value, Converter={x:Static fileVm:FileBrowserViewModeConverters.IsIcon}}"
+                          ClipToBounds="True"
+                          IsHitTestVisible="False"
+                          IsVisible="{Binding ShowPlaceholders.Value}"
+                          ItemsSource="{x:Static local:CloudStorageView.LoadingPlaceholders}"
+                          Opacity="0.35" />
             <TextBlock x:Name="EmptyState"
                        Grid.Row="2"
                        MaxWidth="320"
@@ -100,10 +167,13 @@
                        TextAlignment="Center"
                        TextWrapping="Wrap" />
             <StackPanel Grid.Row="3" Spacing="4">
-                <ProgressBar Height="2"
-                             AutomationProperties.Name="{x:Static lang:Strings.CloudStorageLoadingMore}"
-                             IsIndeterminate="True"
-                             IsVisible="{Binding IsLoadingMore.Value}" />
+                <Border Height="2">
+                    <ProgressBar x:Name="LoadingMoreProgress"
+                                 Height="2"
+                                 AutomationProperties.Name="{x:Static lang:Strings.CloudStorageLoadingMore}"
+                                 IsIndeterminate="True"
+                                 IsVisible="{Binding IsLoadingMoreVisible.Value}" />
+                </Border>
                 <Grid Margin="8,4"
                       ColumnDefinitions="*,Auto"
                       ColumnSpacing="8"

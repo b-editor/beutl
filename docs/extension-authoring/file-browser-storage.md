@@ -58,11 +58,23 @@ data, file names, or an active remote connection. Restoring a layout starts loca
 persistence, view recreation, and cancellation. `CloudStorageTests` covers the Beutl adapter's
 authentication and listing behavior.
 
-The Beutl browser retrieves additional pages near the end of the viewport and appends them without
-resetting the scroll position. It also fills an underfilled viewport. Requests run one at a time;
-refresh, folder changes, and account changes cancel pending work and restart at the first
+The Beutl browser retrieves additional pages about one viewport before the end and appends them without
+resetting the scroll position. It also fills an underfilled viewport. Page requests run one at a time;
+refresh, folder changes, and account changes cancel pending listing requests and restart at the first
 page. Overlapping file IDs are deduplicated. Append failures retain loaded files and wait for an
 explicit retry. The API's page numbers stay internal to the adapter; the UI has no page controls.
 `CloudStorageIncrementalTests` covers these paths in both list and icon modes.
 The icon panel virtualizes fixed-size tiles inside the existing `ListBox`, retaining selection and
 keyboard navigation while limiting realized controls to viewport rows and a small scroll buffer.
+
+Recently visited folders and folders prefetched after a short pointer/focus dwell are kept in an
+in-memory cache for 30 seconds, limited to eight entries with least-recently-used eviction. Navigation
+restores a fresh cached first page immediately or reuses an in-flight prefetch. Only one speculative folder
+request runs at a time, and failures are silent until an explicit navigation requests that folder.
+Account changes, disabling storage, and closing the browser clear the cache and cancel pending work.
+
+Refreshing keeps the current listing and usage visible until a replacement succeeds. Folder changes
+acknowledge the new breadcrumb immediately. Loading indicators appear only after 200 ms; an uncached
+folder shows bounded placeholders in the current icon/list mode. Reserved indicator space prevents
+the list from shifting as feedback appears. `CloudStorageFolderLoadingTests` covers cache reuse,
+expiry, eviction, speculative failures, request promotion, and account isolation.

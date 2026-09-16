@@ -6,6 +6,8 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.LogicalTree;
+using Avalonia.Media.Imaging;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Services;
@@ -81,6 +83,8 @@ public sealed class CloudStorageIncrementalTests
         await WaitFor(() => scope.Handler.Requests.Count == 3);
         Assert.That(scope.Handler.Requests[1].Token.IsCancellationRequested, Is.True);
         Assert.That(vm.Items, Is.Empty);
+        Assert.That(vm.Breadcrumbs.Last().FolderId, Is.EqualTo(folder.Id), "Navigation should acknowledge the destination immediately.");
+        Assert.That(vm.HasUsage.Value, Is.False);
         Assert.That(vm.IsLoadingMore.Value, Is.False);
         Assert.That(scope.Handler.Requests[2].Uri.Query, Does.Contain("page=1"));
         scope.Handler.Requests[2].Complete(Response(folder: folder.Id, fileId: "current"));
@@ -170,7 +174,7 @@ public sealed class CloudStorageIncrementalTests
     [AvaloniaTest]
     [TestCase(FileBrowserViewMode.Icon)]
     [TestCase(FileBrowserViewMode.List)]
-    public async Task ScrollingAppendsOnlyNearTheEndAndKeepsScrollPosition(FileBrowserViewMode mode)
+    public async Task ScrollingPrefetchesBeforeTheEndAndKeepsScrollPosition(FileBrowserViewMode mode)
     {
         await using var scope = new StorageScope();
         var vm = scope.ViewModel;
@@ -185,11 +189,16 @@ public sealed class CloudStorageIncrementalTests
             Assert.That(scope.Handler.Requests, Has.Count.EqualTo(1), "Opening a filled viewport must not drain all pages.");
             var scroll = view.FindControl<ListBox>("StorageItems")!.GetVisualDescendants().OfType<ScrollViewer>().Single();
             Assert.That(scroll.Extent.Height, Is.GreaterThan(scroll.Viewport.Height));
-            scroll.Offset = new Vector(0, scroll.Extent.Height - scroll.Viewport.Height);
+            scroll.Offset = new Vector(0, scroll.Extent.Height - scroll.Viewport.Height * 1.75);
             HeadlessTestHelpers.Render();
             await WaitFor(() => scope.Handler.Requests.Count == 2);
             double position = scroll.Offset.Y;
             Assert.That(vm.Items, Has.Count.EqualTo(25));
+            Assert.That(scroll.Extent.Height - scroll.Viewport.Height - position,
+                Is.GreaterThan(scroll.Viewport.Height * 0.5), "Fetch while there are still files ahead of the viewport.");
+            await WaitFor(() => vm.IsLoadingMoreVisible.Value);
+            HeadlessTestHelpers.Render();
+            Assert.That(scroll.Offset.Y, Is.EqualTo(position).Within(1), "Loading feedback must not shift the viewport.");
             scope.Handler.Requests[1].Complete(Response(page: 2, pageCount: 3, fileCount: 24));
             await WaitFor(() => !vm.IsLoadingMore.Value);
             HeadlessTestHelpers.Render();
@@ -284,6 +293,148 @@ public sealed class CloudStorageIncrementalTests
     }
 
     [AvaloniaTest]
+    [TestCase(FileBrowserViewMode.Icon)]
+    [TestCase(FileBrowserViewMode.List)]
+    public async Task RefreshKeepsVisibleContentUsageAndScrollWhileWaiting(FileBrowserViewMode mode)
+    {
+        await using var scope = new StorageScope();
+        var vm = scope.ViewModel;
+        vm.ViewMode.Value = mode;
+        await scope.LoadFirstAsync(Response(fileCount: 24));
+        var view = new CloudStorageView { DataContext = vm };
+        var window = new Window { Content = view, Width = 320, Height = 320 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var list = view.FindControl<ListBox>("StorageItems")!;
+            var scroll = list.GetVisualDescendants().OfType<ScrollViewer>().Single();
+            list.SelectedIndex = 1;
+            scroll.Offset = new Vector(0, 50);
+            HeadlessTestHelpers.Render();
+            var items = vm.Items.ToArray();
+            string usage = vm.UsageText.Value;
+            var bounds = list.Bounds;
+            double position = scroll.Offset.Y;
+            var refresh = vm.LoadAsync();
+            await WaitFor(() => scope.Handler.Requests.Count == 2 && vm.IsLoadingVisible.Value);
+            HeadlessTestHelpers.Render();
+            Assert.That(vm.Items.ToArray(), Is.EqualTo(items));
+            Assert.That(vm.UsageText.Value, Is.EqualTo(usage));
+            Assert.That(vm.ShowPlaceholders.Value, Is.False);
+            Assert.That(list.SelectedItem, Is.SameAs(items[1]));
+            Assert.That(list.Bounds, Is.EqualTo(bounds));
+            Assert.That(scroll.Offset.Y, Is.EqualTo(position).Within(1));
+            scope.Handler.Requests[1].Complete(Response(fileId: "refreshed"));
+            await refresh;
+            Assert.That(vm.Items.Select(x => x.Id), Is.EqualTo(new[] { "folder & 日本", "refreshed" }));
+            Assert.That(vm.IsLoadingVisible.Value, Is.False);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    public async Task FailedRefreshKeepsTheLastListingAndDoesNotAutomaticallyLoadAnotherPage()
+    {
+        await using var scope = new StorageScope();
+        var vm = scope.ViewModel;
+        await scope.LoadFirstAsync(Response(pageCount: 2, fileCount: 24));
+        var items = vm.Items.ToArray();
+        string usage = vm.UsageText.Value;
+        var refresh = vm.LoadAsync();
+        await WaitFor(() => scope.Handler.Requests.Count == 2);
+        var view = new CloudStorageView { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 520 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            scope.Handler.Requests[1].Complete("{}", HttpStatusCode.InternalServerError);
+            await refresh;
+            HeadlessTestHelpers.Render();
+            await vm.LoadMoreAsync();
+            Assert.That(vm.Error.Value, Is.Not.Null);
+            Assert.That(vm.Items.ToArray(), Is.EqualTo(items));
+            Assert.That(vm.UsageText.Value, Is.EqualTo(usage));
+            Assert.That(vm.IsLoadingVisible.Value, Is.False);
+            Assert.That(scope.Handler.Requests, Has.Count.EqualTo(2));
+            refresh = vm.LoadAsync();
+            await WaitFor(() => scope.Handler.Requests.Count == 3);
+            scope.Handler.Requests[2].Complete(Response(empty: true));
+            await refresh;
+            Assert.That(vm.Items, Is.Empty);
+            Assert.That(vm.IsEmpty.Value, Is.True);
+            Assert.That(vm.Error.Value, Is.Null);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(FileBrowserViewMode.Icon, false)]
+    [TestCase(FileBrowserViewMode.List, false)]
+    [TestCase(FileBrowserViewMode.Icon, true)]
+    [TestCase(FileBrowserViewMode.List, true)]
+    public async Task SlowInitialLoadShowsBoundedNonInteractivePlaceholders(FileBrowserViewMode mode, bool light)
+    {
+        await using var scope = new StorageScope();
+        var vm = scope.ViewModel;
+        vm.ViewMode.Value = mode;
+        var view = new CloudStorageView { DataContext = vm };
+        var window = new Window
+        {
+            Content = view,
+            Width = 320,
+            Height = 520,
+            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark,
+        };
+        try
+        {
+            window.Show();
+            await WaitFor(() => scope.Handler.Requests.Count == 1 && vm.ShowPlaceholders.Value);
+            HeadlessTestHelpers.Render();
+            var skeleton = view.FindControl<ItemsControl>("LoadingSkeleton")!;
+            Assert.That(skeleton.IsEffectivelyVisible, Is.True);
+            Assert.That(skeleton.IsHitTestVisible, Is.False);
+            Assert.That(skeleton.Items, Has.Count.EqualTo(24));
+            Assert.That(view.FindControl<ListBox>("StorageItems")!.GetRealizedContainers(), Is.Empty);
+            Assert.That(view.FindControl<TextBlock>("EmptyState")!.IsEffectivelyVisible, Is.False);
+            if (Environment.GetEnvironmentVariable("BEUTL_STORAGE_CAPTURE") is { Length: > 0 } path)
+            {
+                Directory.CreateDirectory(path);
+                using var image = window.CaptureRenderedFrame();
+                image?.Save(Path.Combine(path, $"loading-{mode}-{light}.png"), PngBitmapEncoderOptions.Default);
+            }
+            scope.Handler.Requests[0].Complete(Response(empty: true));
+            await WaitFor(() => !vm.IsLoading.Value);
+            HeadlessTestHelpers.Render();
+            Assert.That(skeleton.IsEffectivelyVisible, Is.False);
+            Assert.That(view.FindControl<TextBlock>("EmptyState")!.IsEffectivelyVisible, Is.True);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    public async Task CompletedAndCancelledRequestsCannotShowDelayedLoadingFeedback()
+    {
+        await using var scope = new StorageScope();
+        var vm = scope.ViewModel;
+        await scope.LoadFirstAsync(Response());
+        await Task.Delay(250);
+        Assert.That(vm.IsLoadingVisible.Value, Is.False);
+        Assert.That(vm.ShowPlaceholders.Value, Is.False);
+        var refresh = vm.LoadAsync();
+        await WaitFor(() => scope.Handler.Requests.Count == 2);
+        SignIn(scope.Clients, null);
+        await Task.Delay(250);
+        Assert.That(vm.IsLoadingVisible.Value, Is.False);
+        Assert.That(vm.IsLoadingMoreVisible.Value, Is.False);
+        Assert.That(vm.ShowPlaceholders.Value, Is.False);
+        Assert.That(vm.Items, Is.Empty);
+        scope.Handler.Requests[1].Complete(Response());
+        await refresh;
+    }
+
+    [AvaloniaTest]
     public async Task UnderfilledViewportLoadsMoreButFailureWaitsForExplicitRetry()
     {
         await using var scope = new StorageScope();
@@ -318,19 +469,19 @@ public sealed class CloudStorageIncrementalTests
         finally { window.Close(); }
     }
 
-    private sealed class StorageScope : IAsyncDisposable
+    internal sealed class StorageScope : IAsyncDisposable
     {
         public Handler Handler { get; } = new();
         private readonly HttpClient _http;
         public BeutlApiApplication Clients { get; }
         public CloudStorageViewModel ViewModel { get; }
 
-        public StorageScope()
+        public StorageScope(Func<DateTimeOffset>? utcNow = null)
         {
             _http = new HttpClient(Handler);
             Clients = new BeutlApiApplication(_http, new ExtensionProvider());
             SignIn(Clients, "a");
-            ViewModel = new(Clients, () => throw new InvalidOperationException("Not used by this test"));
+            ViewModel = new(Clients, () => throw new InvalidOperationException("Not used by this test"), utcNow);
         }
 
         public async Task LoadFirstAsync(string response)
