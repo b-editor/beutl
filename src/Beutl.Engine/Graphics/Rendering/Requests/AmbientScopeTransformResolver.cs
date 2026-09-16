@@ -25,14 +25,16 @@ internal static class AmbientScopeTransformResolver
     {
         ArgumentNullException.ThrowIfNull(roots);
         var visited = new HashSet<VisitedAmbient>();
+        var resolved = new Dictionary<RenderFragmentReference, Matrix>(ReferenceEqualityComparer.Instance);
         foreach (RenderFragmentReference root in roots)
-            Visit(root, Matrix.Identity, visited);
+            Visit(root, Matrix.Identity, visited, resolved);
     }
 
     private static void Visit(
         RenderFragmentReference reference,
         Matrix ambient,
-        HashSet<VisitedAmbient> visited)
+        HashSet<VisitedAmbient> visited,
+        Dictionary<RenderFragmentReference, Matrix> resolved)
     {
         // A fragment reachable twice under one ambient resolves to one answer, and a shared fragment reached
         // under two of them has to be walked under both: what its own descendants compose against differs.
@@ -46,6 +48,17 @@ internal static class AmbientScopeTransformResolver
             Matrix effective = declaration.Resolve(ambient);
             if (declaration.DependsOnAmbient)
             {
+                // Recording bars a fragment over such a scope from fan-out, which is what leaves one ambient
+                // per scope to resolve. The fragment holds one description, so a second one would overwrite
+                // the first silently rather than stop.
+                if (resolved.TryGetValue(reference, out Matrix previous) && previous != ambient)
+                {
+                    throw new InvalidOperationException(
+                        "A scope whose transform is defined against the ambient transform was reached under "
+                        + "two different ambients, so one description would have to answer for both.");
+                }
+
+                resolved[reference] = ambient;
                 reference.ApplyResolvedPayload(new TargetScopeRenderFragmentPayload(
                     RenderScopeAmbientTransform.CreateScope(
                         declaration,
@@ -57,7 +70,7 @@ internal static class AmbientScopeTransformResolver
         }
 
         foreach (RenderFragmentReference input in reference.Inputs)
-            Visit(input, inputAmbient, visited);
+            Visit(input, inputAmbient, visited, resolved);
     }
 
     private readonly record struct VisitedAmbient(RenderFragmentReference Reference, Matrix Ambient)

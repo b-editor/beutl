@@ -194,6 +194,35 @@ public sealed class AmbientTransformScopeTests
         });
     }
 
+    /// <remarks>
+    /// One fragment holds one description, so a scope that resolves to a different matrix per ambient has an
+    /// answer only while it has one consuming path. Recording says so where the mistake is made rather than
+    /// letting the second consumer silently take the first one's matrix, and the bar is carried up the graph:
+    /// the scope here is shared through two opacity fragments, neither of which is itself ambient-resolved.
+    /// </remarks>
+    [Test]
+    public void AnAmbientCompositionCannotBeFannedOutToTwoConsumers()
+    {
+        using RenderNode subtree = BuildChain([(s_shift, TransformOperator.Set)], new MarkNode());
+        using var root = new FanOutNode(subtree);
+        using var renderer = CreateRenderer(root);
+
+        Assert.That(
+            () => renderer.Measure(),
+            Throws.InvalidOperationException.With.Message.Contains(
+                "cannot be consumed or published more than once"));
+    }
+
+    [Test]
+    public void APrependCompositionStillFansOutToTwoConsumers()
+    {
+        using RenderNode subtree = BuildChain([(s_shift, TransformOperator.Prepend)], new MarkNode());
+        using var root = new FanOutNode(subtree);
+        using var renderer = CreateRenderer(root);
+
+        Assert.That(() => renderer.Measure(), Throws.Nothing);
+    }
+
     /// <summary>The composition an <see cref="ImmediateCanvas"/> builds for the same pushes at density 1.</summary>
     private static Matrix Compose((Matrix Matrix, TransformOperator Operator)[] pushes)
     {
@@ -268,6 +297,17 @@ public sealed class AmbientTransformScopeTests
         };
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node) => new(node, Request(s_domain));
+
+    /// <summary>Publishes one recorded subtree through two consumers, which is what fan-out is.</summary>
+    private sealed class FanOutNode(RenderNode subtree) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle inner = context.RecordSubtree(subtree)[0];
+            context.Publish(context.Opacity(inner, 0.5f));
+            context.Publish(context.Opacity(inner, 0.25f));
+        }
+    }
 
     private sealed class MarkNode : RenderNode
     {

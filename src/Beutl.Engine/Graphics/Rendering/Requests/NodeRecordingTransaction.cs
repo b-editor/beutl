@@ -747,6 +747,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
             // its commit, so _fragments is in creation order. Nothing recorded earlier can make a later entry
             // reachable, which is what lets one backward sweep settle reachability and fan-out together.
             bool fanOutViolation = false;
+            bool ambientFanOutViolation = false;
             for (int index = _fragments.Count - 1; index >= 0; index--)
             {
                 RenderFragmentReference reference = _fragments[index].Reference;
@@ -759,7 +760,10 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
 
                     // Only a fragment barred from fan-out can fail the check, so the rest never enter the set.
                     if (!input.AllowsFanOut && !fanOutRestricted.Add(input))
+                    {
                         fanOutViolation = true;
+                        ambientFanOutViolation |= input.HasAmbientScopeDependency;
+                    }
                 }
             }
 
@@ -770,7 +774,20 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
             foreach (RenderFragmentReference publication in _publications)
             {
                 if (!publication.AllowsFanOut && !fanOutRestricted.Add(publication))
+                {
                     fanOutViolation = true;
+                    ambientFanOutViolation |= publication.HasAmbientScopeDependency;
+                }
+            }
+
+            if (ambientFanOutViolation)
+            {
+                throw new InvalidOperationException(
+                    "A render fragment holding a scope whose transform is defined against the ambient "
+                    + "transform - TransformOperator.Append or TransformOperator.Set - cannot be consumed or "
+                    + "published more than once. Such a scope resolves to one matrix per ambient, and one "
+                    + "description cannot answer for two of them. Record the subtree once per consumer, or "
+                    + "express the scope with TransformOperator.Prepend, which needs no ambient.");
             }
 
             if (fanOutViolation)

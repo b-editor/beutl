@@ -63,6 +63,9 @@ internal sealed class RenderFragmentReference
         HasSymbolicBoundsDependency = hasDirectSymbolicBoundsDependency
             || boundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain
             || Inputs.Any(static input => input.HasSymbolicBoundsDependency);
+        HasAmbientScopeDependency =
+            payload is TargetScopeRenderFragmentPayload { Description.AmbientTransform.DependsOnAmbient: true }
+            || Inputs.Any(static input => input.HasAmbientScopeDependency);
         Payload = payload;
         PotentiallyWritesTarget = ComputePotentiallyWritesTarget();
         HasSymbolicTargetWrite = ComputeHasSymbolicTargetWrite();
@@ -155,7 +158,22 @@ internal sealed class RenderFragmentReference
 
     public RenderFragmentId? Id { get; private set; }
 
-    public bool AllowsFanOut => CanBeUsedAsValueInput;
+    /// <summary>
+    /// Whether a scope below this fragment reads the ambient transform its consumer contributes.
+    /// </summary>
+    /// <remarks>
+    /// Such a scope resolves to one matrix per ambient, and a fragment holds one description, so the answer
+    /// exists only while the fragment has one consuming path. This is what <see cref="AllowsFanOut"/> holds it
+    /// to, which is why the property is carried up rather than read off the payload.
+    /// </remarks>
+    internal bool HasAmbientScopeDependency { get; }
+
+    /// <remarks>
+    /// A fragment over an ambient-resolved scope is barred as well as a target effect: fanning one out would
+    /// ask one description to answer for two ambients, and the second consumer would silently take the first
+    /// one's matrix.
+    /// </remarks>
+    public bool AllowsFanOut => CanBeUsedAsValueInput && !HasAmbientScopeDependency;
 
     internal void AssignId(RenderFragmentId id)
     {
