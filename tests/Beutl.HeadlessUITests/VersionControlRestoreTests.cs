@@ -8225,6 +8225,211 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    [TestCase(true, TestName = "New_project_interrupted_after_its_first_version_opens_tracked")]
+    [TestCase(false, TestName = "New_project_interrupted_before_its_first_version_opens_untracked")]
+    public async Task New_project_interrupted_after_attaching_its_repository_opens_as_reopening_finds_it(
+        bool hasFirstVersion)
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                $"version-control-new-project-interrupted-{hasFirstVersion}");
+            Directory.CreateDirectory(location);
+            string projectRoot = Path.Combine(location, "interrupted");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backends = new List<PullCycleTestBackend>();
+            var projectService = new ProjectService();
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                new VersionControlConfig { AutoCommitOnClose = false },
+                installationLocator: null,
+                serviceFactory: candidate =>
+                {
+                    PullCycleTestBackend backend = backends.Count == 0
+                        // Initialization attaches the repository it creates and then fails.
+                        ? new PullCycleTestBackend(null, discoveredRepository: null, tip)
+                        {
+                            InitializeFailureAfterAttach = new IOException("simulated initial commit failure"),
+                        }
+                        : new PullCycleTestBackend(
+                            candidate,
+                            new RepositoryInfo(projectRoot, projectRoot),
+                            tip)
+                        {
+                            HasCheckedOutCommit = hasFirstVersion,
+                            HasVersionTrackingOptIn = false,
+                        };
+                    backends.Add(backend);
+                    return backend;
+                });
+            int prompts = 0;
+            coordinator.ConfirmAdoptExistingRepositoryAsync = (_, _) =>
+            {
+                Interlocked.Increment(ref prompts);
+                return Task.FromResult(true);
+            };
+            coordinator.ConfirmUseEnclosingRepositoryAsync = (_, _) =>
+            {
+                Interlocked.Increment(ref prompts);
+                return Task.FromResult(true);
+            };
+
+            Exception? initializationFailure = null;
+            Project? project;
+            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject(
+                             _ => Task.FromResult<GitIdentity?>(null)))
+            {
+                project = await projectService.CreateProject(
+                    640,
+                    480,
+                    30,
+                    44100,
+                    "interrupted",
+                    location,
+                    async (created, cancellationToken) =>
+                    {
+                        try
+                        {
+                            await setup.InitializeAsync(created, cancellationToken);
+                        }
+                        catch (IOException ex)
+                        {
+                            initializationFailure = ex;
+                        }
+                    });
+            }
+
+            Assert.That(project, Is.Not.Null);
+            await WaitUntilAsync(() => backends.Count >= 2
+                                       && backends[0].DisposeCalls == 1
+                                       && coordinator.CurrentService is not null
+                                       && coordinator.IsTracked.Value == hasFirstVersion);
+            // A save snapshot waits for the activation to finish deciding how the project is tracked.
+            await coordinator.NotifySavedAsync();
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(initializationFailure, Is.Not.Null);
+                Assert.That(backends[0].DisposeCalls, Is.EqualTo(1));
+                Assert.That(backends[1].HasCheckedOutCommitCalls, Is.EqualTo(1));
+                Assert.That(prompts, Is.Zero);
+                Assert.That(coordinator.IsTracked.Value, Is.EqualTo(hasFirstVersion));
+                if (hasFirstVersion)
+                {
+                    // Tracking resumes on the repository initialization created, as reopening would.
+                    Assert.That(backends, Has.Count.EqualTo(3));
+                    Assert.That(coordinator.CurrentService, Is.SameAs(backends[2]));
+                    Assert.That(backends[2].Repository?.ProjectRoot, Is.EqualTo(projectRoot));
+                    Assert.That(backends[2].EnsureHygieneCalls, Is.EqualTo(1));
+                }
+                else
+                {
+                    // Without a first version, it stays untracked and initialization is offered again.
+                    Assert.That(backends, Has.Count.EqualTo(2));
+                    Assert.That(coordinator.CurrentService, Is.SameAs(backends[1]));
+                }
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task New_project_whose_reserved_path_step_fails_still_opens_with_its_first_version()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-new-project-reserved-path-failure");
+            Directory.CreateDirectory(location);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backends = new List<PullCycleTestBackend>();
+            var projectService = new ProjectService();
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                new VersionControlConfig { AutoCommitOnClose = false },
+                installationLocator: null,
+                serviceFactory: candidate =>
+                {
+                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, tip)
+                    {
+                        TrackedReservedPaths = [".beutl/state.tmp"],
+                    };
+                    backends.Add(backend);
+                    return backend;
+                });
+            coordinator.ConfirmUntrackReservedPathsAsync = (_, _) =>
+                Task.FromException<bool>(new IOException("simulated confirmation failure"));
+
+            Exception? initializationFailure = null;
+            Project? project;
+            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject(
+                             _ => Task.FromResult<GitIdentity?>(null)))
+            {
+                project = await projectService.CreateProject(
+                    640,
+                    480,
+                    30,
+                    44100,
+                    "reserved-path-failure",
+                    location,
+                    async (created, cancellationToken) =>
+                    {
+                        try
+                        {
+                            await setup.InitializeAsync(created, cancellationToken);
+                        }
+                        catch (IOException ex)
+                        {
+                            initializationFailure = ex;
+                        }
+                    });
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(project, Is.Not.Null);
+                Assert.That(initializationFailure, Is.Not.Null);
+                Assert.That(backends, Has.Count.EqualTo(1));
+                Assert.That(coordinator.CurrentService, Is.SameAs(backends[0]));
+                Assert.That(coordinator.IsTracked.Value, Is.True);
+                Assert.That(backends[0].DisposeCalls, Is.Zero);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task New_project_backend_is_retired_when_the_project_does_not_open()
     {
         await TestReset.ResetShellAsync();
@@ -12286,6 +12491,9 @@ public class VersionControlRestoreTests
 
         public bool RequireIdentityForInitialization { get; init; }
 
+        // Thrown once initialization has attached the repository, as a failed initial commit would.
+        public Exception? InitializeFailureAfterAttach { get; init; }
+
         public bool RequireIdentityForCommit { get; init; }
 
         public int InitializeCalls { get; private set; }
@@ -12655,6 +12863,10 @@ public class VersionControlRestoreTests
             }
 
             Repository = options.TargetRepository;
+            if (InitializeFailureAfterAttach is not null)
+            {
+                throw InitializeFailureAfterAttach;
+            }
         }
 
         public async Task<CommitResult> CommitAllAsync(
