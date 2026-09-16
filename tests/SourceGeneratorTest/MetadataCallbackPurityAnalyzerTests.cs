@@ -5123,6 +5123,138 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AStaticLambdaWhoseQueryOperatorAnOverrideReplacesReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual float Select(Func<float, float> selector) => 0f;
+            }
+
+            internal sealed class OffsetWidths : Widths
+            {
+                public override float Select(Func<float, float> selector)
+                {
+                    _ = Settings.Offset;
+                    return 0f;
+                }
+            }
+            """,
+            """
+            Widths items = new OffsetWidths();
+            width += from item in items select item + 1f;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the query bound its Select against the type the local is declared as, but the local carries an "
+            + "instance of exactly one type and the override is the body that runs");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseQueryOperatorAnOverrideReplacesWithAPureOne_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual float Select(Func<float, float> selector)
+                {
+                    _ = Settings.Offset;
+                    return 0f;
+                }
+            }
+
+            internal sealed class PlainWidths : Widths
+            {
+                public override float Select(Func<float, float> selector) => 0f;
+            }
+            """,
+            """
+            Widths items = new PlainWidths();
+            width += from item in items select item + 1f;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "reading the base body here would report a read that runs in no program the author ships, "
+            + "which is the same reason the override is read when the override is the impure one");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseQueryOperatorRunsOnAReceiverItDidNotMake_IsReportedAsBound()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual float Select(Func<float, float> selector)
+                {
+                    _ = Settings.Offset;
+                    return 0f;
+                }
+            }
+
+            internal sealed class PlainWidths : Widths
+            {
+                public override float Select(Func<float, float> selector) => 0f;
+            }
+
+            internal static class Source
+            {
+                public static Widths Make() => new PlainWidths();
+            }
+            """,
+            """
+            Widths items = Source.Make();
+            width += from item in items select item + 1f;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a source whose making this rule was not shown leaves the operator as the binder bound it, "
+            + "which is the declaration the query names");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseNestedQueryOperatorAnOverrideReplacesReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual Widths Where(Func<float, bool> predicate) => this;
+
+                public virtual float Select(Func<float, float> selector) => 0f;
+            }
+
+            internal sealed class OffsetWidths : Widths
+            {
+                public override Widths Where(Func<float, bool> predicate)
+                {
+                    _ = Settings.Offset;
+                    return this;
+                }
+            }
+            """,
+            """
+            Widths seeds = new OffsetWidths();
+            width += from item in (from seed in seeds where seed > 0f select seed)
+                     select item + 1f;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a query written inside another is read as the expression it is, so its own first operator is "
+            + "resolved against its own source rather than against the source of the query around it");
+    }
+
+    [Test]
     public void AStaticLambdaQueryingAPureSource_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
