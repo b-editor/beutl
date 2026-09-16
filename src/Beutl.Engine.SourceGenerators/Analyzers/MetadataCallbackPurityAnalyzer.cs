@@ -850,6 +850,32 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // A query clause spells no method at all: every clause is rewritten into a call on what the clause
+        // before it produced, and the compiler picks that call off the source's own type by the query
+        // pattern. A clause can run two of them - an explicitly typed from runs a Cast before the operator
+        // the clause itself is - so both of the binder's answers are followed.
+        if (node is QueryClauseSyntax clause)
+        {
+            QueryClauseInfo chosen = model.GetQueryClauseInfo(clause, context.CancellationToken);
+            FollowQueryOperator(context, chosen.CastInfo.Symbol, clause, depth, walked, report);
+            FollowQueryOperator(context, chosen.OperationInfo.Symbol, clause, depth, walked, report);
+            return;
+        }
+
+        // A select or a group names the value it produces rather than the Select or GroupBy producing it,
+        // and an ordering names the key rather than the OrderBy or ThenBy the key is handed to.
+        if (node is SelectOrGroupClauseSyntax or OrderingSyntax)
+        {
+            FollowQueryOperator(
+                context,
+                model.GetSymbolInfo(node, context.CancellationToken).Symbol,
+                node,
+                depth,
+                walked,
+                report);
+            return;
+        }
+
         if (node is not (BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax
             or PrimaryConstructorBaseTypeSyntax or CastExpressionSyntax or BinaryExpressionSyntax
             or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax or AssignmentExpressionSyntax))
@@ -1091,6 +1117,37 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 walked,
                 report);
         }
+    }
+
+    /// <summary>Follows the query-pattern operator a clause is rewritten into.</summary>
+    /// <remarks>
+    /// The binder has already applied every rule a query is allowed to pick its operators by - an instance
+    /// method, an extension one, a generic one whose arguments it inferred - so the method is read off its
+    /// answer rather than resolved a second time here. A clause the compiler removes rather than rewrites,
+    /// the identity <c>select</c> of a query that has any other clause, answers with nothing and is
+    /// followed nowhere, which is correct: no such call runs. A LINQ-to-objects query answers with
+    /// <c>Enumerable</c>'s methods, which have no source here and stop the walk as any other such callee
+    /// does.
+    /// </remarks>
+    private static void FollowQueryOperator(
+        SyntaxNodeAnalysisContext context,
+        ISymbol? chosen,
+        SyntaxNode node,
+        int depth,
+        Dictionary<ISymbol, int> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (chosen is not IMethodSymbol rewritten)
+            return;
+
+        FollowCall(
+            context,
+            rewritten,
+            node,
+            RunsAStaticMethod(rewritten) ? "static method" : "method",
+            depth,
+            walked,
+            report);
     }
 
     /// <summary>Follows the members a <c>foreach</c> runs on the enumerator it makes.</summary>
