@@ -719,14 +719,15 @@ internal sealed class VersionControlCoordinator :
         // The close can wait on Git for a while, first for work already running and then for the close
         // snapshot, and the editor cannot be used meanwhile. The editor area shows the close instead of an
         // editor that looks usable, until the close completes or is aborted.
-        IDisposable? closingPresentation = HasVersionControlWorkToFinish()
-            ? _editorService.BeginLifecycleActivity(ProjectLifecycleActivity.ClosingProject)
-            : null;
+        IDisposable? closingPresentation = null;
         bool completionRegistered = false;
         try
         {
             NonTransactionalCloseBarrier? closeBarrier =
-                await TryBeginNonTransactionalCloseBarrierAsync(cancellationToken)
+                await TryBeginNonTransactionalCloseBarrierAsync(
+                        () => closingPresentation = _editorService.BeginLifecycleActivity(
+                            ProjectLifecycleActivity.ClosingProject),
+                        cancellationToken)
                     .ConfigureAwait(false);
             if (closeBarrier is null)
             {
@@ -3206,16 +3207,13 @@ internal sealed class VersionControlCoordinator :
 
     // Whether closing the open project waits on version control: an operation still running, an
     // activation still deciding how the project is tracked, or a tracked backend to retire.
-    private bool HasVersionControlWorkToFinish()
+    private bool HasVersionControlWorkToFinishLocked()
     {
-        lock (_stateGate)
-        {
-            return !_disposed
-                   && _projectService.CurrentProject.Value is not null
-                   && (_operationUsers > 0
-                       || _activation is not null
-                       || _state.OwnedService?.Repository is not null);
-        }
+        return !_disposed
+               && _projectService.CurrentProject.Value is not null
+               && (_operationUsers > 0
+                   || _activation is not null
+                   || _state.OwnedService?.Repository is not null);
     }
 
     private bool IsInternalVersionControlTransition()
@@ -3777,8 +3775,13 @@ internal sealed class VersionControlCoordinator :
         }
     }
 
+    // versionControlWorkPending runs once the barrier stops new operations, and only when the close then
+    // waits on version control. Deciding under the same lock means no operation can start unnoticed
+    // between the decision and the wait it causes.
     private async Task<NonTransactionalCloseBarrier?>
-        TryBeginNonTransactionalCloseBarrierAsync(CancellationToken cancellationToken)
+        TryBeginNonTransactionalCloseBarrierAsync(
+            Action versionControlWorkPending,
+            CancellationToken cancellationToken)
     {
         lock (_stateGate)
         {
@@ -3804,6 +3807,7 @@ internal sealed class VersionControlCoordinator :
 
             Task operationsQuiesced;
             bool disposed;
+            bool workPending = false;
             lock (_stateGate)
             {
                 disposed = _disposed;
@@ -3816,6 +3820,7 @@ internal sealed class VersionControlCoordinator :
                     operationsQuiesced = _operationUsers == 0
                         ? Task.CompletedTask
                         : (_operationsQuiesced ??= CreateCompletionSource()).Task;
+                    workPending = HasVersionControlWorkToFinishLocked();
                     barrierEntered = true;
                 }
                 else
@@ -3829,6 +3834,11 @@ internal sealed class VersionControlCoordinator :
                 closeCancellation.Dispose();
                 FinishNonTransactionalCloseBarrierWaiter(gateEntered);
                 return null;
+            }
+
+            if (workPending)
+            {
+                versionControlWorkPending();
             }
 
             Exception? cancellationFailure = null;

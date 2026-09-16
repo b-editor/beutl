@@ -8801,6 +8801,102 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Closing_while_version_control_work_runs_shows_the_close_until_that_work_ends()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var identityRequested = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        // Ignores cancellation, so the close has to wait for the operation to finish.
+        var identity = new TaskCompletionSource<GitIdentity?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<bool>? initialization = null;
+        Task<bool>? close = null;
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-close-waits-for-operation");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(null, discoveredRepository: null, tip)
+            {
+                RequireIdentityForInitialization = true,
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+            editorService.TabItems.Add(new EditorTabItem(
+                new PassiveEditorContext(project, new PassiveSaveCommands())));
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig
+                {
+                    AutoCommitOnSave = true,
+                    AutoCommitOnClose = true,
+                },
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            // A save snapshot waits for the activation to finish deciding that nothing is tracked.
+            await coordinator.NotifySavedAsync();
+            HeadlessTestHelpers.Settle();
+            Assert.That(
+                editorService.LifecycleActivity.Value,
+                Is.EqualTo(ProjectLifecycleActivity.None));
+
+            initialization = coordinator.InitializeCurrentProjectAsync(
+                project,
+                _ =>
+                {
+                    identityRequested.TrySetResult();
+                    return identity.Task;
+                });
+            await identityRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            close = TestShell.Project.TryCloseProjectAsync(
+                project,
+                ProjectService.ProjectCloseIntent.SaveChanges);
+            await WaitUntilAsync(() =>
+                editorService.LifecycleActivity.Value == ProjectLifecycleActivity.ClosingProject);
+            Assert.That(close.IsCompleted, Is.False);
+
+            identity.TrySetResult(null);
+            Assert.That(await initialization.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+            Assert.That(await close.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(
+                    editorService.LifecycleActivity.Value,
+                    Is.EqualTo(ProjectLifecycleActivity.None));
+            });
+        }
+        finally
+        {
+            identity.TrySetResult(null);
+            if (initialization is not null)
+            {
+                await initialization.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            if (close is not null)
+            {
+                await close.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Closing_an_untracked_project_keeps_the_editor_area_as_is()
     {
         await TestReset.ResetShellAsync();
