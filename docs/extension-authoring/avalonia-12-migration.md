@@ -6,11 +6,12 @@ FluentAvalonia 2 SDK must be rebuilt before they can run in the upgraded host.
 
 ## Icon contracts
 
-Both public extension methods now return
+These public extension methods return
 `FluentAvalonia.UI.Controls.FAIconSource?`:
 
 - `EditorExtension.GetIcon()` (abstract)
 - `ToolWindowExtension.GetIcon()` (virtual)
+- `ToolTabExtension.GetIcon()` (virtual)
 
 Their previous return type was `FluentAvalonia.UI.Controls.IconSource?`.
 The return type is part of the CLR method signature. An existing binary's

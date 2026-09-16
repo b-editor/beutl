@@ -1,12 +1,19 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless.NUnit;
+using Avalonia.VisualTree;
+using Beutl.Editor.Components.LibraryTab;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
+using Beutl.Views;
+using Dock.Avalonia.Controls;
+using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -93,6 +100,90 @@ public class ToolTabHeaderTests
         });
     }
 
+    [AvaloniaTest]
+    public void The_dockable_icon_comes_from_its_extension()
+    {
+        var withIcon = new FakeToolContext("icon", IconToolExtension.Instance);
+        using var iconDockable = new BeutlToolDockable(withIcon, null!);
+        var withoutIcon = new FakeToolContext("plain");
+        using var plainDockable = new BeutlToolDockable(withoutIcon, null!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((iconDockable.Icon as FASymbolIconSource)?.Symbol, Is.EqualTo(FASymbol.Accept));
+            // FakeToolExtension leaves GetIcon at its default.
+            Assert.That(plainDockable.Icon, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task The_tab_strip_draws_the_extension_icon_left_of_the_title()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-header-icon");
+
+        var view = new EditView { DataContext = editor };
+        var window = new Window { Content = view, Width = 900, Height = 700 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            ToolTabStripItem libraryTab = FindTab(view, dockable => dockable.ToolContext.Extension is LibraryTabExtension);
+            var libraryDockable = (BeutlToolDockable)libraryTab.DataContext!;
+            FAIconSourceElement icon = FindIcon(libraryTab);
+            TextBlock title = libraryTab.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(text => text.Name == "PART_TabTitle");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(libraryDockable.Icon, Is.Not.Null);
+                Assert.That(icon.IconSource, Is.SameAs(libraryDockable.Icon));
+                Assert.That(icon.IsVisible, Is.True);
+                Assert.That(icon.Bounds.Width, Is.EqualTo(icon.FindResource("DockIconSizeNormal")));
+                Assert.That(
+                    icon.TranslatePoint(new Point(icon.Bounds.Width, 0), libraryTab)!.Value.X,
+                    Is.LessThanOrEqualTo(title.TranslatePoint(default, libraryTab)!.Value.X));
+            });
+
+            // A tool without an icon keeps its title against the tab's left edge.
+            var withoutIcon = new FakeToolContext("no icon");
+            Assert.That(editor.OpenToolTab(withoutIcon), Is.True);
+            HeadlessTestHelpers.Render();
+
+            FAIconSourceElement plainIcon = FindIcon(FindTab(view, dockable => ReferenceEquals(dockable.ToolContext, withoutIcon)));
+            Assert.Multiple(() =>
+            {
+                Assert.That(plainIcon.IsVisible, Is.False);
+                Assert.That(plainIcon.Bounds.Width, Is.EqualTo(0));
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private static ToolTabStripItem FindTab(Visual root, Func<BeutlToolDockable, bool> predicate)
+    {
+        return root.GetVisualDescendants()
+            .OfType<ToolTabStripItem>()
+            .Single(item => item.DataContext is BeutlToolDockable dockable && predicate(dockable));
+    }
+
+    private static FAIconSourceElement FindIcon(ToolTabStripItem tab)
+    {
+        return tab.GetVisualDescendants()
+            .OfType<ContentPresenter>()
+            .Single(presenter => presenter.Name == "PART_IconPresenter")
+            .GetVisualDescendants()
+            .OfType<FAIconSourceElement>()
+            .Single();
+    }
+
     private sealed class FakeToolContext(string header, ToolTabExtension? extension = null) : IToolContext
     {
         public ReactivePropertySlim<string> HeaderSource { get; } = new(header);
@@ -131,6 +222,37 @@ public class ToolTabHeaderTests
         public override string DisplayName => "Blank header tool tab";
 
         public override string? Header => "   ";
+
+        public override bool TryCreateContent(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out Control? control)
+        {
+            control = new Border();
+            return true;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IToolContext? context)
+        {
+            context = new FakeToolContext(string.Empty, Instance);
+            return true;
+        }
+    }
+
+    private sealed class IconToolExtension : ToolTabExtension
+    {
+        public static readonly IconToolExtension Instance = new();
+
+        public override bool CanMultiple => true;
+
+        public override string Name => "IconToolTab";
+
+        public override string DisplayName => "Icon tool tab";
+
+        public override string? Header => "Icon tool tab";
+
+        public override FAIconSource? GetIcon() => new FASymbolIconSource { Symbol = FASymbol.Accept };
 
         public override bool TryCreateContent(
             IEditorContext editorContext,

@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 
 using Beutl.Extensibility;
+using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
 
 namespace PackageSample;
@@ -20,6 +21,8 @@ public sealed class SampleToolTabExtension : ToolTabExtension
     public override string DisplayName => "Sample tab";
 
     public override string Header => "Sample tab";
+
+    public override FAIconSource? GetIcon() => new FASymbolIconSource { Symbol = FASymbol.Accept };
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

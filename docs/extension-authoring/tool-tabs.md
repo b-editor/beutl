@@ -13,6 +13,7 @@ The extension defines:
 
 - `CanMultiple`: whether more than one context may be open.
 - `Header`: the add-tab menu label; `null` hides the tool from that menu.
+- `GetIcon`: the icon drawn left of the tab title; `null` leaves the tab text-only.
 - `DefaultAnchor`: the initial `Left`, `Right`, `Bottom`, or `Player` dock.
 - `DefaultOrder`: ordering among tools with the same anchor.
 - `OpenByDefault`: whether a new editor opens the tool automatically.

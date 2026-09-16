@@ -5,6 +5,9 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
+using FluentAvalonia.UI.Controls;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -28,6 +31,11 @@ public sealed class AiWorkspaceTabExtension : ToolTabExtension
     public override bool OpenByDefault => false;
 
     public override int DefaultOrder => 90;
+
+    public override FAIconSource? GetIcon()
+    {
+        return new FluentIconSource { Icon = Icon.Sparkle };
+    }
 
     public override bool TryCreateContent(
         IEditorContext editorContext,

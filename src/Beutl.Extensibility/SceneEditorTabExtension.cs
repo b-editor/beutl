@@ -45,6 +45,16 @@ public abstract class ToolTabExtension : ViewExtension
 
     public virtual bool OpenByDefault => false;
 
+    /// <summary>Gets the icon shown at the left of the tool's dock tab, or <see langword="null"/> for none.</summary>
+    /// <remarks>
+    /// Called once per opened tab, so the returned icon source belongs to that tab alone.
+    /// Uses FluentAvalonia 3's icon source contract: the Avalonia 12 host requires extensions to be
+    /// rebuilt against the matching Beutl SDK, and overrides compiled with FluentAvalonia 2's
+    /// IconSource return type are not binary compatible.
+    /// See docs/extension-authoring/avalonia-12-migration.md for the migration steps.
+    /// </remarks>
+    public virtual FAIconSource? GetIcon() => null;
+
     public abstract bool TryCreateContent(
         IEditorContext editorContext,
         [NotNullWhen(true)] out Control? control);

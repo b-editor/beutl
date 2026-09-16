@@ -4,6 +4,9 @@ using Avalonia.Controls;
 
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
+using FluentAvalonia.UI.Controls;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
@@ -23,6 +26,11 @@ public sealed class WebBrowserTabExtension : ToolTabExtension
     public override bool ReuseContentAcrossActivation => true;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
+
+    public override FAIconSource? GetIcon()
+    {
+        return new FluentIconSource { Icon = Icon.Globe };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

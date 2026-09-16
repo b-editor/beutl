@@ -3,6 +3,9 @@ using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
+using FluentAvalonia.UI.Controls;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -24,6 +27,11 @@ public sealed class TimelineTabExtension : ToolTabExtension
     public override bool OpenByDefault => true;
 
     public override int DefaultOrder => 0;
+
+    public override FAIconSource? GetIcon()
+    {
+        return new FluentIconSource { Icon = Icon.GlanceHorizontal };
+    }
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [

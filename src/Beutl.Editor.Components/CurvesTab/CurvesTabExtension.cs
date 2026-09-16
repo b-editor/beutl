@@ -4,6 +4,9 @@ using Avalonia.Controls;
 
 using Beutl.Editor.Components.CurvesTab.ViewModels;
 using Beutl.Editor.Components.CurvesTab.Views;
+using FluentAvalonia.UI.Controls;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.CurvesTab;
 
@@ -19,6 +22,11 @@ public sealed class CurvesTabExtension : ToolTabExtension
     public override string DisplayName => Strings.Curves;
 
     public override string Header => Strings.Curves;
+
+    public override FAIconSource? GetIcon()
+    {
+        return new FluentIconSource { Icon = Icon.Edit };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

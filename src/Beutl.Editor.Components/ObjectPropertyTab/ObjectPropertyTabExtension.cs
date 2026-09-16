@@ -4,6 +4,9 @@ using Avalonia.Controls;
 
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Components.ObjectPropertyTab.Views;
+using FluentAvalonia.UI.Controls;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.ObjectPropertyTab;
 
@@ -23,6 +26,11 @@ public sealed class ObjectPropertyTabExtension : ToolTabExtension
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
 
     public override int DefaultOrder => 2;
+
+    public override FAIconSource? GetIcon()
+    {
+        return new FluentIconSource { Icon = Icon.WrenchScrewdriver };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

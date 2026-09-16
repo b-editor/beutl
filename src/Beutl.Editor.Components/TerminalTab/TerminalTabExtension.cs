@@ -4,6 +4,9 @@ using Avalonia.Controls;
 
 using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Editor.Components.TerminalTab.Views;
+using FluentAvalonia.UI.Controls;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.TerminalTab;
 
@@ -23,6 +26,11 @@ public sealed class TerminalTabExtension : ToolTabExtension
     public override bool ReuseContentAcrossActivation => true;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
+
+    public override FAIconSource? GetIcon()
+    {
+        return new FluentIconSource { Icon = Icon.WindowConsole };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
