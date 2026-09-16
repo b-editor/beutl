@@ -1,14 +1,14 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using Beutl.Editor.VersionControl;
+using static Beutl.UnitTests.Editor.VersionControl.UnixProcessTestMethods;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
-public partial class GitProcessTests
+public class GitProcessTests
 {
-    private const int ErrorNoProcess = 3;
+    private const int ErrorNoEntry = 2;
     private readonly List<string> _temporaryDirectories = [];
 
     // These cover the posix_spawn implementation. A C library without the chdir action keeps Process,
@@ -106,6 +106,32 @@ public partial class GitProcessTests
     }
 
     [Test]
+    public void Command_missing_from_the_path_fails_to_start()
+    {
+        var startInfo = new ProcessStartInfo($"beutl-missing-command-{Guid.NewGuid():N}")
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+
+        Win32Exception? exception = Assert.Throws<Win32Exception>(() => GitProcess.Start(startInfo));
+
+        Assert.That(exception!.NativeErrorCode, Is.EqualTo(ErrorNoEntry));
+    }
+
+    [Test]
+    public void Null_character_in_an_argument_is_rejected_before_anything_starts()
+    {
+        string marker = Path.Combine(CreateTemporaryDirectory(), "started");
+        ProcessStartInfo startInfo = CreateShell("printf started > \"$1\"", argument: marker);
+        startInfo.ArgumentList.Add("before\0after");
+
+        Assert.Throws<ArgumentException>(() => GitProcess.Start(startInfo));
+        Assert.That(File.Exists(marker), Is.False);
+    }
+
+    [Test]
     public async Task Command_ended_by_a_signal_reports_the_shell_exit_code()
     {
         using GitProcess process = GitProcess.Start(CreateShell("kill -KILL $$"));
@@ -144,7 +170,7 @@ public partial class GitProcessTests
             using GitProcess process = GitProcess.Start(CreateShell("exit 0"));
             process.StandardInput.Close();
 
-            Assert.That(waitpid(process.Id, out _, 0), Is.EqualTo(process.Id));
+            Assert.That(Reap(process.Id), Is.EqualTo(process.Id));
             await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.That(process.TryGetExitCode(out _), Is.False);
@@ -264,12 +290,4 @@ public partial class GitProcessTests
         return true;
     }
 
-    private static bool IsSignalable(int pid)
-        => kill(pid, 0) == 0 || Marshal.GetLastPInvokeError() != ErrorNoProcess;
-
-    [LibraryImport("libc", SetLastError = true)]
-    private static partial int kill(int pid, int signal);
-
-    [LibraryImport("libc", SetLastError = true)]
-    private static partial int waitpid(int pid, out int status, int options);
 }

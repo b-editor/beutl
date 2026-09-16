@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -12,6 +13,7 @@ namespace Beutl.Editor.VersionControl;
 // system's process list names every process, including one this process may not open, so a descendant
 // that cannot be inspected is still counted.
 [SupportedOSPlatform("windows")]
+[ExcludeFromCodeCoverage(Justification = WindowsInterop.CoverageJustification)]
 internal static unsafe partial class WindowsProcessTree
 {
     private const int SystemProcessInformationClass = 5;
@@ -68,34 +70,11 @@ internal static unsafe partial class WindowsProcessTree
                     continue;
                 }
 
-                if (status != 0)
-                {
-                    return false;
-                }
-
-                // One listing taken at one moment, so every id, parent id and creation time agree.
-                uint offset = 0;
-                while (true)
-                {
-                    SystemProcessInformation information =
-                        Unsafe.ReadUnaligned<SystemProcessInformation>(buffer + offset);
-                    entries.Add(new ProcessTreeEntry(
-                        (int)information.UniqueProcessId,
-                        (int)information.InheritedFromUniqueProcessId,
-                        information.CreateTime,
-                        // A process that has exited but is still referenced is listed without threads.
-                        IsAlive: information.NumberOfThreads > 0));
-                    if (information.NextEntryOffset == 0)
-                    {
-                        return true;
-                    }
-
-                    offset += information.NextEntryOffset;
-                    if (offset + (uint)sizeof(SystemProcessInformation) > (uint)length)
-                    {
-                        return false;
-                    }
-                }
+                // As for Process, a negative status is a failure and any other is a listing.
+                return status >= 0
+                       && SystemProcessListing.TryRead(
+                           new ReadOnlySpan<byte>(buffer, (int)Math.Min(required, (uint)length)),
+                           entries);
             }
             finally
             {
@@ -126,10 +105,52 @@ internal static unsafe partial class WindowsProcessTree
     }
 }
 
+// Reads the entries of a SYSTEM_PROCESS_INFORMATION listing, which is taken at one moment, so every id,
+// parent id and creation time in it agree. Kept apart from the call that fills it, so it is checked on
+// every platform.
+internal static class SystemProcessListing
+{
+    internal static bool TryRead(ReadOnlySpan<byte> listing, List<ProcessTreeEntry> entries)
+    {
+        int entrySize = Unsafe.SizeOf<SystemProcessInformation>();
+        int offset = 0;
+        while (listing.Length - offset >= entrySize)
+        {
+            SystemProcessInformation information =
+                MemoryMarshal.Read<SystemProcessInformation>(listing[offset..]);
+            entries.Add(new ProcessTreeEntry(
+                (int)information.UniqueProcessId,
+                (int)information.InheritedFromUniqueProcessId,
+                information.CreateTime,
+                // A process that has exited but is still referenced is listed without threads.
+                IsAlive: information.NumberOfThreads > 0));
+            if (information.NextEntryOffset == 0)
+            {
+                return true;
+            }
+
+            if (information.NextEntryOffset > (uint)(listing.Length - offset))
+            {
+                return false;
+            }
+
+            offset += (int)information.NextEntryOffset;
+        }
+
+        return false;
+    }
+}
+
 // Structures for the Windows process and job calls. They are plain data, so their layout is checked on
 // every platform.
 internal static class WindowsInterop
 {
+    // The native Windows calls cannot run on the Linux machines that measure coverage. What can run
+    // anywhere (the command line, the environment block, the listing and the tree search) is kept outside
+    // the excluded types and tested on every platform.
+    internal const string CoverageJustification =
+        "Windows-only native process and job calls; coverage is measured on Linux.";
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct SecurityAttributes
     {

@@ -19,6 +19,7 @@ namespace Beutl.Editor.VersionControl;
 // A command that cannot join a job is still owned through the process tree: the handle kept here holds
 // its id reserved after it exits, so its children are still found by their parent id.
 [SupportedOSPlatform("windows")]
+[ExcludeFromCodeCoverage(Justification = CoverageJustification)]
 internal sealed partial class WindowsGitProcess : GitProcess
 {
     private const int StreamBufferSize = 4096;

@@ -1080,6 +1080,48 @@ public class GitCliRunnerTests : RealGitTestRepository
         }
     }
 
+    // A runtime that started with SIGCHLD ignored reaps every child, taking the status with it.
+    [Test]
+    public async Task Exit_status_reaped_elsewhere_is_reported_as_a_failure()
+    {
+        RequireOwnedProcessGroups();
+
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "reaped.pid");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
+        try
+        {
+            Task<GitCommandResult> runTask = runner.RunAsync(
+                Repository,
+                ["-c", "printf '%s' \"$$\" > \"$BEUTL_TEST_PROCESS_PID\"; sleep 0.2; exit 0"],
+                WithRecordedProcessPath(pidPath),
+                CancellationToken.None);
+            int? processId = await WaitForRecordedProcessIdAsync(pidPath);
+            Assert.That(processId, Is.Not.Null);
+            // The runner only reaps once the command has exited and its pipes have closed, so a reaper
+            // already waiting gets there first.
+            if (await Task.Run(() => UnixProcessTestMethods.Reap(processId!.Value)) != processId)
+            {
+                Assert.Inconclusive("The runner collected the exit status before the test could.");
+            }
+
+            GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
+                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Multiple(() =>
+            {
+                Assert.That(exception!.ExitCode, Is.EqualTo(GitCliRunner.UncollectedExitCode));
+                Assert.That(exception.Stderr, Does.Contain("could not be collected"));
+                Assert.That(runner.HasActiveProcess, Is.False);
+            });
+        }
+        finally
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                UnixGitProcess.ResetChildrenReapedElsewhereForTesting();
+            }
+        }
+    }
+
     [Test]
     public async Task Command_leads_a_process_group_of_its_own()
     {

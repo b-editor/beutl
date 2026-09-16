@@ -81,6 +81,40 @@ public class ProcessTreeWalkTests
     }
 
     [Test]
+    public void Listing_is_read_entry_by_entry_until_the_last_one()
+    {
+        int size = Unsafe.SizeOf<WindowsInterop.SystemProcessInformation>();
+        // Entries carry variable data after the fixed part, so the next one starts past it.
+        byte[] listing = new byte[(size * 2) + 16];
+        Write(listing, 0, nextEntryOffset: size + 16, threads: 3, createTime: 110, id: 11, parentId: RootId);
+        Write(listing, size + 16, nextEntryOffset: 0, threads: 0, createTime: 120, id: 12, parentId: 11);
+        var entries = new List<ProcessTreeEntry>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SystemProcessListing.TryRead(listing, entries), Is.True);
+            Assert.That(entries, Is.EqualTo(new[] { Entry(11, RootId, 110), Entry(12, 11, 120, alive: false) }));
+        });
+    }
+
+    [Test]
+    public void Listing_that_runs_past_its_end_is_not_read()
+    {
+        int size = Unsafe.SizeOf<WindowsInterop.SystemProcessInformation>();
+        byte[] pointsPastTheEnd = new byte[size];
+        Write(pointsPastTheEnd, 0, nextEntryOffset: size * 2, threads: 1, createTime: 110, id: 11, parentId: RootId);
+        byte[] endsInsideAnEntry = new byte[size + 8];
+        Write(endsInsideAnEntry, 0, nextEntryOffset: size, threads: 1, createTime: 110, id: 11, parentId: RootId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SystemProcessListing.TryRead(pointsPastTheEnd, []), Is.False);
+            Assert.That(SystemProcessListing.TryRead(endsInsideAnEntry, []), Is.False);
+            Assert.That(SystemProcessListing.TryRead(new byte[size - 1], []), Is.False);
+        });
+    }
+
+    [Test]
     public void Windows_interop_structures_match_their_native_layout()
     {
         if (IntPtr.Size != 8)
@@ -105,6 +139,26 @@ public class ProcessTreeWalkTests
                 OffsetOf(nameof(WindowsInterop.SystemProcessInformation.InheritedFromUniqueProcessId)),
                 Is.EqualTo(88));
         });
+    }
+
+    private static void Write(
+        byte[] listing,
+        int offset,
+        int nextEntryOffset,
+        int threads,
+        long createTime,
+        int id,
+        int parentId)
+    {
+        var information = new WindowsInterop.SystemProcessInformation
+        {
+            NextEntryOffset = (uint)nextEntryOffset,
+            NumberOfThreads = (uint)threads,
+            CreateTime = createTime,
+            UniqueProcessId = id,
+            InheritedFromUniqueProcessId = parentId,
+        };
+        MemoryMarshal.Write(listing.AsSpan(offset), in information);
     }
 
     private static int OffsetOf(string field)
