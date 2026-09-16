@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
+using Beutl.Services.StartupTasks;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
@@ -113,6 +114,23 @@ public class ToolTabHeaderTests
             Assert.That((iconDockable.Icon as FASymbolIconSource)?.Symbol, Is.EqualTo(FASymbol.Accept));
             // FakeToolExtension leaves GetIcon at its default.
             Assert.That(plainDockable.Icon, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
+    public void Every_built_in_tool_tab_supplies_an_icon()
+    {
+        ToolTabExtension[] extensions = LoadPrimitiveExtensionTask.PrimitiveExtensions
+            .OfType<ToolTabExtension>()
+            .ToArray();
+
+        Assert.That(extensions, Is.Not.Empty);
+        Assert.Multiple(() =>
+        {
+            foreach (ToolTabExtension extension in extensions)
+            {
+                Assert.That(extension.GetIcon(), Is.Not.Null, $"{extension.Name} should show an icon on its tab.");
+            }
         });
     }
 
