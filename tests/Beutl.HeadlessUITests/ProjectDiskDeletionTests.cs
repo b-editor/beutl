@@ -491,12 +491,17 @@ public class ProjectDiskDeletionTests
         {
             Task closing = TestShell.Project.CloseProjectAsync();
             await closingStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            // Requested while the close is still running, before the change below.
+            // Requested while the close is still running, before the change below. Which of the two
+            // runs first is not fixed, only that neither runs inside the other.
             Task opening = TestShell.Project.OpenProject(nextProject);
+            bool? openedBeforeChange = null;
+            bool? openedDuringChange = null;
             Task change = TestShell.Project.RunExclusiveOfTransitionsAsync(async () =>
             {
+                openedBeforeChange = opening.IsCompleted;
                 changeStarted.TrySetResult();
                 await releaseChange.Task;
+                openedDuringChange = opening.IsCompleted != openedBeforeChange;
             });
             await Task.Delay(100);
             HeadlessTestHelpers.Settle();
@@ -504,19 +509,19 @@ public class ProjectDiskDeletionTests
 
             releaseClosing.TrySetResult();
             await closing.WaitAsync(TimeSpan.FromSeconds(5));
-            await changeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await changeStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            // Give the open every chance to run while the change still holds the gate.
             await Task.Delay(100);
             HeadlessTestHelpers.Settle();
-            Assert.Multiple(() =>
-            {
-                Assert.That(opening.IsCompleted, Is.False, "The open must wait for the change.");
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
-            });
 
             releaseChange.TrySetResult();
             await change.WaitAsync(TimeSpan.FromSeconds(5));
             await opening.WaitAsync(TimeSpan.FromSeconds(10));
-            Assert.That(TestShell.Project.CurrentProject.Value?.Uri?.LocalPath, Is.EqualTo(nextProject));
+            Assert.Multiple(() =>
+            {
+                Assert.That(openedDuringChange, Is.False, "The open must not run inside the change.");
+                Assert.That(TestShell.Project.CurrentProject.Value?.Uri?.LocalPath, Is.EqualTo(nextProject));
+            });
         }
         finally
         {
@@ -524,6 +529,70 @@ public class ProjectDiskDeletionTests
             releaseClosing.TrySetResult();
             releaseChange.TrySetResult();
             TestShell.Project.Closing -= blockingClosing;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Deletion_waits_outside_the_gate_for_an_open_preflight_under_way()
+    {
+        await TestReset.ResetShellAsync();
+        (string nextProject, _) = await CreateClosedProjectAsync("inspected", NewWorkspace("preflight"));
+        var preflightStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePreflight = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool preflightFinished = false;
+        bool? changeSawPreflightFinished = null;
+        Func<ProjectService.ProjectOpenAttempt, CancellationToken, Task<ProjectService.ProjectOpenPreparation?>>
+            preflight = async (attempt, _) =>
+            {
+                if (attempt.ProjectFile != nextProject)
+                {
+                    return null;
+                }
+
+                preflightStarted.TrySetResult();
+                await releasePreflight.Task;
+                // Like a pull recovery for the open project, the inspection takes the gate itself;
+                // a change that held the gate while waiting for it would never finish.
+                using var deadlock = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                await using (await TestShell.Project.BeginVersionControlTransitionAsync(
+                                 this,
+                                 deadlock.Token,
+                                 attempt))
+                {
+                }
+
+                preflightFinished = true;
+                return null;
+            };
+        TestShell.Project.OpeningPreflight += preflight;
+        try
+        {
+            Task opening = TestShell.Project.OpenProject(nextProject);
+            await preflightStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Task change = TestShell.Project.RunExclusiveOfTransitionsAsync(() =>
+            {
+                changeSawPreflightFinished = preflightFinished;
+                return Task.CompletedTask;
+            });
+            await Task.Delay(100);
+            HeadlessTestHelpers.Settle();
+            Assert.That(changeSawPreflightFinished, Is.Null, "The change must wait for the preflight.");
+
+            releasePreflight.TrySetResult();
+            await change.WaitAsync(TimeSpan.FromSeconds(15));
+            await opening.WaitAsync(TimeSpan.FromSeconds(15));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(changeSawPreflightFinished, Is.True);
+                Assert.That(TestShell.Project.CurrentProject.Value?.Uri?.LocalPath, Is.EqualTo(nextProject));
+            });
+        }
+        finally
+        {
+            releasePreflight.TrySetResult();
+            TestShell.Project.OpeningPreflight -= preflight;
             await TestReset.ResetShellAsync();
         }
     }

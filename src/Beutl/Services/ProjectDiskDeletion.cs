@@ -296,6 +296,8 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
     {
         try
         {
+            // Only what this deletion removes counts: every file under the folder, or the project
+            // file alone, whose scenes stay on disk and may stay open.
             if (!editorService.IsFileInUse(target.Path, target.IsFolder))
             {
                 return false;

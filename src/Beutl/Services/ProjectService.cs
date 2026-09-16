@@ -25,10 +25,13 @@ public sealed class ProjectService
     private readonly SemaphoreSlim _transitionGate = new(1, 1);
     private readonly object _openAttemptSync = new();
     private readonly object _transitionSync = new();
+    private readonly object _openPreflightSync = new();
     private ProjectOpenAttempt? _currentOpenAttempt;
     private ProjectTransitionContext? _currentTransition;
+    private TaskCompletionSource? _openPreflightsDrained;
     private long _nextOpenAttemptId;
     private long _nextTransitionId;
+    private int _runningOpenPreflights;
 
     public ProjectService()
     {
@@ -126,6 +129,10 @@ public sealed class ProjectService
             {
                 return;
             }
+            finally
+            {
+                EndOpenPreflight();
+            }
 
             // A missing file is worth a transition only when a preparation can bring it back: an
             // interrupted pull leaves it missing and its recovery is one of these preparations.
@@ -185,10 +192,59 @@ public sealed class ProjectService
         try
         {
             attempt.CancellationToken.ThrowIfCancellationRequested();
+            // Counted under the gate, so RunExclusiveOfTransitionsAsync cannot hold the gate for its
+            // change while this open's preflight is still to run.
+            BeginOpenPreflight();
         }
         finally
         {
             _transitionGate.Release();
+        }
+    }
+
+    private void BeginOpenPreflight()
+    {
+        lock (_openPreflightSync)
+        {
+            _runningOpenPreflights++;
+        }
+    }
+
+    private void EndOpenPreflight()
+    {
+        TaskCompletionSource? drained = null;
+        lock (_openPreflightSync)
+        {
+            if (--_runningOpenPreflights == 0)
+            {
+                drained = _openPreflightsDrained;
+                _openPreflightsDrained = null;
+            }
+        }
+
+        drained?.TrySetResult();
+    }
+
+    private Task WaitForOpenPreflightsAsync()
+    {
+        lock (_openPreflightSync)
+        {
+            if (_runningOpenPreflights == 0)
+            {
+                return Task.CompletedTask;
+            }
+
+            _openPreflightsDrained ??= new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            return _openPreflightsDrained.Task;
+        }
+    }
+
+    private bool HasRunningOpenPreflight()
+    {
+        lock (_openPreflightSync)
+        {
+            return _runningOpenPreflights > 0;
         }
     }
 
@@ -296,7 +352,21 @@ public sealed class ProjectService
     internal async Task RunExclusiveOfTransitionsAsync(Func<Task> action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        await _transitionGate.WaitAsync();
+        while (true)
+        {
+            // An open inspects its project between two waits for the gate, and the inspection can
+            // take the gate itself, so it is waited for without holding the gate. Once the gate is
+            // held and none is running, none can start until the change is done.
+            await WaitForOpenPreflightsAsync();
+            await _transitionGate.WaitAsync();
+            if (!HasRunningOpenPreflight())
+            {
+                break;
+            }
+
+            _transitionGate.Release();
+        }
+
         await using ProjectTransitionScope transition = EnterTransition(
             ProjectTransitionPurpose.Normal,
             new ProjectFileChange());
