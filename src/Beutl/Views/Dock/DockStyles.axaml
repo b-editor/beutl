@@ -5,7 +5,8 @@
         xmlns:dmc="using:Dock.Model.Controls"
         xmlns:icons="using:FluentIcons.Avalonia.Fluent"
         xmlns:lang="using:Beutl.Language"
-        xmlns:local="using:Beutl.Views.Dock">
+        xmlns:local="using:Beutl.Views.Dock"
+        xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Styles.Resources>
         <!--  The default Fluent theme hides PART_ItemsPresenter on :singleitem; keep the lone tab visible so it can be dragged to another zone.  -->
         <ControlTheme x:Key="{x:Type ToolTabStrip}"
@@ -29,7 +30,26 @@
 
             <Setter Property="IconTemplate">
                 <DataTemplate DataType="core:IDockable">
-                    <Panel />
+                    <!--
+                        Fills PART_IconPresenter, which the tab strip lays out immediately left of the
+                        header. Dockables that expose no icon collapse it so the title keeps the tab's
+                        left edge; the fallback also covers dockables without the property at all.
+
+                        The Viewbox is what sizes the icon: a glyph source draws at its own FontSize
+                        (20 by default) and an icon element has no FontSize to override it, so bounds
+                        alone would leave the glyph overflowing this slot. Scaling also keeps whatever
+                        an extension hands us — glyph, path or bitmap — inside the tab.
+                    -->
+                    <Viewbox Width="{DynamicResource DockToolTabIconSize}"
+                             Height="{DynamicResource DockToolTabIconSize}"
+                             Margin="{DynamicResource DockToolTabIconMargin}"
+                             VerticalAlignment="Center"
+                             IsVisible="{Binding Icon,
+                                                 Converter={x:Static ObjectConverters.IsNotNull},
+                                                 FallbackValue=False}"
+                             Stretch="Uniform">
+                        <ui:FAIconSourceElement IconSource="{Binding Icon}" />
+                    </Viewbox>
                 </DataTemplate>
             </Setter>
 
@@ -272,13 +292,13 @@
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0,0,0,2" />
 
-        <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter">
+        <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter, ^ /template/ ContentPresenter#PART_IconPresenter">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
         </Style>
 
         <Style Selector="^:pointerover">
             <Setter Property="Background" Value="{DynamicResource DockTabHoverBackgroundBrush}" />
-            <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter">
+            <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter, ^ /template/ ContentPresenter#PART_IconPresenter">
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimary}" />
             </Style>
         </Style>
@@ -287,7 +307,7 @@
             <Setter Property="Background" Value="{DynamicResource DockSurfacePanelBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
             <Setter Property="BorderThickness" Value="0,0,0,2" />
-            <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter">
+            <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter, ^ /template/ ContentPresenter#PART_IconPresenter">
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
             </Style>
         </Style>
@@ -295,7 +315,7 @@
         <Style Selector="^:selected:pointerover">
             <Setter Property="Background" Value="{DynamicResource DockTabHoverBackgroundBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
-            <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter">
+            <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter, ^ /template/ ContentPresenter#PART_IconPresenter">
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimary}" />
             </Style>
         </Style>
@@ -346,7 +366,8 @@
 
     <!--  When the ToolControl has focus-within, selected tab label stays bright  -->
     <Style
-        Selector="ToolControl:focus-within ToolTabStripItem:selected /template/ ContentPresenter#PART_HeaderPresenter">
+        Selector="ToolControl:focus-within ToolTabStripItem:selected /template/ ContentPresenter#PART_HeaderPresenter,
+                  ToolControl:focus-within ToolTabStripItem:selected /template/ ContentPresenter#PART_IconPresenter">
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimary}" />
     </Style>
 

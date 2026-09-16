@@ -4,6 +4,9 @@ using Avalonia.Controls;
 
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Components.FileBrowserTab.Views;
+using FluentAvalonia.UI.Controls;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.FileBrowserTab;
 
@@ -25,6 +28,11 @@ public sealed class FileBrowserTabExtension : ToolTabExtension
     public override bool OpenByDefault => true;
 
     public override int DefaultOrder => 1;
+
+    public override FAIconSource? GetIcon()
+    {
+        return new FluentIconSource { Icon = Icon.Folder };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

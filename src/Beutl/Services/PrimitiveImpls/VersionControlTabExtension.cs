@@ -3,7 +3,10 @@ using Avalonia.Controls;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.Components.VersionControlTab.Views;
 using Beutl.Editor.VersionControl;
+using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -25,6 +28,11 @@ public sealed class VersionControlTabExtension : ToolTabExtension
     public override int DefaultOrder => 110;
 
     public override bool OpenByDefault => false;
+
+    public override FAIconSource? GetIcon()
+    {
+        return new FluentIconSource { Icon = Icon.BranchFork };
+    }
 
     public override bool TryCreateContent(
         IEditorContext editorContext,

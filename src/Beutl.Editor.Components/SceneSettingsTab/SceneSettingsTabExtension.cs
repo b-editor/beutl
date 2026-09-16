@@ -4,6 +4,9 @@ using Avalonia.Controls;
 
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.SceneSettingsTab.Views;
+using FluentAvalonia.UI.Controls;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.SceneSettingsTab;
 
@@ -21,6 +24,11 @@ public sealed class SceneSettingsTabExtension : ToolTabExtension
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
 
     public override int DefaultOrder => 3;
+
+    public override FAIconSource? GetIcon()
+    {
+        return new FluentIconSource { Icon = Icon.PlaySettings };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
