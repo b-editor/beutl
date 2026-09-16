@@ -121,6 +121,10 @@ internal sealed partial class GitInstallationLocator
                 // A caller owns only its wait. Cancel the probe once nobody needs its result.
                 try { flight.Cancellation.Cancel(); }
                 catch (ObjectDisposedException) { }
+                // The last owner also joins probe cleanup so coordinator disposal cannot
+                // finish while its discovery is still shutting down.
+                try { await flight.Completion.Task.ConfigureAwait(false); }
+                catch (Exception) { }
             }
         }
     }

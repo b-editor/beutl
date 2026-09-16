@@ -4989,12 +4989,13 @@ public class VersionControlRestoreTests
         try
         {
             Task<GitAvailability> explicitProbe = coordinator.GetAvailabilityAsync();
-            await probe.TwoProbesStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await probe.ProbeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(probe.StartCount, Is.EqualTo(1), "Availability callers share one discovery.");
 
             Task disposal = coordinator.DisposeAsync().AsTask();
-            await probe.TwoProbesCancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await probe.ProbeCancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(disposal.IsCompleted, Is.False);
-            probe.ReleaseCancelledProbes.TrySetResult();
+            probe.ReleaseCancelledProbe.TrySetResult();
             await disposal.WaitAsync(TimeSpan.FromSeconds(5));
 
             OperationCanceledException? cancellation = null;
@@ -5013,15 +5014,15 @@ public class VersionControlRestoreTests
             Assert.Multiple(() =>
             {
                 Assert.That(cancellation, Is.Not.Null);
-                Assert.That(probe.CancellationCount, Is.EqualTo(2));
-                Assert.That(probe.CompletionCount, Is.EqualTo(2));
+                Assert.That(probe.CancellationCount, Is.EqualTo(1));
+                Assert.That(probe.CompletionCount, Is.EqualTo(1));
                 Assert.That(servicePublications, Is.EqualTo(publicationsAfterDisposal));
                 Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
             });
         }
         finally
         {
-            probe.ReleaseCancelledProbes.TrySetResult();
+            probe.ReleaseCancelledProbe.TrySetResult();
             await coordinator.DisposeAsync();
         }
     }
@@ -11297,14 +11298,16 @@ public class VersionControlRestoreTests
         private int _cancellationCount;
         private int _completionCount;
 
-        public TaskCompletionSource TwoProbesStarted { get; } = new(
+        public TaskCompletionSource ProbeStarted { get; } = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public TaskCompletionSource TwoProbesCancelled { get; } = new(
+        public TaskCompletionSource ProbeCancelled { get; } = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public TaskCompletionSource ReleaseCancelledProbes { get; } = new(
+        public TaskCompletionSource ReleaseCancelledProbe { get; } = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int StartCount => Volatile.Read(ref _startCount);
 
         public int CancellationCount => Volatile.Read(ref _cancellationCount);
 
@@ -11314,10 +11317,8 @@ public class VersionControlRestoreTests
             string executableName,
             CancellationToken cancellationToken)
         {
-            if (Interlocked.Increment(ref _startCount) == 2)
-            {
-                TwoProbesStarted.TrySetResult();
-            }
+            Interlocked.Increment(ref _startCount);
+            ProbeStarted.TrySetResult();
 
             try
             {
@@ -11326,12 +11327,10 @@ public class VersionControlRestoreTests
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                if (Interlocked.Increment(ref _cancellationCount) == 2)
-                {
-                    TwoProbesCancelled.TrySetResult();
-                }
+                Interlocked.Increment(ref _cancellationCount);
+                ProbeCancelled.TrySetResult();
 
-                await ReleaseCancelledProbes.Task;
+                await ReleaseCancelledProbe.Task;
                 Interlocked.Increment(ref _completionCount);
                 throw;
             }

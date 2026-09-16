@@ -51,7 +51,7 @@ public class GitInstallationLocatorTests
         string path = Path.GetFullPath("custom/git");
         var oldRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var newRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var oldFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var oldCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         CancellationToken oldToken = default;
         int versions = 0;
         var probe = CreateInstalledProbe(path);
@@ -61,8 +61,8 @@ public class GitInstallationLocatorTests
             if (++versions == 1)
             {
                 oldToken = token;
+                using var registration = token.Register(() => oldCancelled.TrySetResult());
                 await oldRelease.Task; // Simulate a provider that completes late after cancellation.
-                oldFinished.SetResult();
             }
             else
             {
@@ -73,11 +73,19 @@ public class GitInstallationLocatorTests
         using var cancellation = new CancellationTokenSource();
         Task<GitAvailability> abandoned = locator.LocateAsync(cancellation.Token);
         cancellation.Cancel();
-        Assert.ThrowsAsync<OperationCanceledException>(async () => await abandoned);
+        await oldCancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(oldToken.IsCancellationRequested, Is.True);
         Task<GitAvailability> replacement = locator.LocateAsync();
-        oldRelease.SetResult();
-        await oldFinished.Task;
+        try
+        {
+            Assert.ThrowsAsync<TimeoutException>(async () =>
+                await abandoned.WaitAsync(TimeSpan.FromMilliseconds(100)));
+        }
+        finally
+        {
+            oldRelease.TrySetResult();
+        }
+        Assert.ThrowsAsync<OperationCanceledException>(async () => await abandoned);
         Task<GitAvailability> shared = locator.LocateAsync();
         Assert.That(shared.IsCompleted, Is.False);
         newRelease.SetResult();
