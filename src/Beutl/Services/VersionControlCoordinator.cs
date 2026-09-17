@@ -370,9 +370,9 @@ internal sealed class VersionControlCoordinator :
             }
             catch (GitIdentityRequiredException)
             {
-                // InitializeWithEditorSuspensionAsync has released the editor before this prompt.
-                // The user can keep editing while entering an identity; the retry re-saves those
-                // edits after acquiring a fresh suspension.
+                // InitializeWithEditorSuspensionAsync has released the editor and hidden the progress
+                // view over it before this prompt. The user can keep editing while entering an identity;
+                // the retry re-saves those edits after acquiring a fresh suspension.
                 GitIdentity? identity = await requestIdentityAsync(operationCancellation);
                 if (identity is null)
                 {
@@ -668,7 +668,11 @@ internal sealed class VersionControlCoordinator :
         IDisposable? editorSuspension = null;
         try
         {
-            editorSuspension = await SuspendEditorsAsync(cancellationToken);
+            // The editor area shows the initialization for exactly as long as the editors are suspended,
+            // so it is also hidden whenever the caller releases them to ask for an identity.
+            editorSuspension = await SuspendEditorsBehindActivityAsync(
+                ProjectLifecycleActivity.EnablingVersionControl,
+                cancellationToken);
 
             // The initial revision has to record what the user sees, so in-memory edits reach disk
             // first. Keep the outer suspension through InitializeAsync: its Git hooks can await
@@ -823,6 +827,35 @@ internal sealed class VersionControlCoordinator :
             () => _editorService.SuspendEditors(),
             DispatcherPriority.Normal,
             cancellationToken);
+    }
+
+    // Shows the activity and suspends the editors in one dispatcher job, and the returned handle undoes both
+    // in the reverse order. Beginning the activity off the UI thread would publish it only after the editors
+    // are disabled, and a render in between would show them disabled without it.
+    private async Task<IDisposable> SuspendEditorsBehindActivityAsync(
+        ProjectLifecycleActivity activity,
+        CancellationToken cancellationToken)
+    {
+        if (_dispatcher.CheckAccess())
+        {
+            return Suspend();
+        }
+
+        return await _dispatcher.InvokeAsync(Suspend, DispatcherPriority.Normal, cancellationToken);
+
+        IDisposable Suspend()
+        {
+            IDisposable presentation = _editorService.BeginLifecycleActivity(activity);
+            try
+            {
+                return new PresentedEditorSuspension(_editorService.SuspendEditors(), presentation);
+            }
+            catch
+            {
+                presentation.Dispose();
+                throw;
+            }
+        }
     }
 
     private async Task ReleaseEditorSuspensionAsync(IDisposable? suspension)
@@ -7462,6 +7495,24 @@ internal sealed class VersionControlCoordinator :
             }
 
             return ValueTask.CompletedTask;
+        }
+    }
+
+    // Enables the editors again before hiding the activity that covers them.
+    private sealed class PresentedEditorSuspension(
+        IDisposable suspension,
+        IDisposable presentation) : IDisposable
+    {
+        public void Dispose()
+        {
+            try
+            {
+                suspension.Dispose();
+            }
+            finally
+            {
+                presentation.Dispose();
+            }
         }
     }
 

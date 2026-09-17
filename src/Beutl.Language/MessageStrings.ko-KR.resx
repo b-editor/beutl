@@ -205,6 +205,13 @@
     <value>프로젝트를 닫기 전에 버전 관리 작업을 마무리하는 중입니다.
 프로젝트가 크면 시간이 걸릴 수 있습니다.</value>
   </data>
+  <data name="EnablingVersionControl" xml:space="preserve">
+    <value>버전 관리를 활성화하는 중</value>
+  </data>
+  <data name="EnablingVersionControlMessage" xml:space="preserve">
+    <value>프로젝트를 저장하고 첫 번째 버전을 기록하는 중입니다.
+완료되면 계속 편집할 수 있습니다.</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>파일을 저장하는 동안 예외가 발생했습니다.</value>
   </data>

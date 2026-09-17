@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Reactive.Linq;
 using Avalonia.Headless.NUnit;
 using Beutl.Configuration;
 using Beutl.Editor.Models;
@@ -547,6 +548,90 @@ public class VersionControlSaveTests
             await TestReset.ResetShellAsync();
             config.GitExecutablePath = oldGitPath;
             config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Enabling_version_control_disables_the_open_editor_only_behind_the_progress_view()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        var editorStates = new List<(bool Enabled, ProjectLifecycleActivity Activity)>();
+        IDisposable? subscription = null;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.UseLfsWhenAvailable = false;
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-enable-progress");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "enable-progress",
+                location))!;
+            HeadlessTestHelpers.Settle();
+            IEditorContext editor = TestShell.Editor.TabItems.Single().Context.Value;
+            subscription = editor.IsEnabled
+                .Skip(1)
+                .Subscribe(enabled => editorStates.Add((enabled, TestShell.Editor.LifecycleActivity.Value)));
+            var identityRequests = new List<(bool EditorEnabled, ProjectLifecycleActivity Activity)>();
+
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                project,
+                _ =>
+                {
+                    identityRequests.Add((editor.IsEnabled.Value, TestShell.Editor.LifecycleActivity.Value));
+                    return Task.FromResult<GitIdentity?>(new GitIdentity(
+                        "Beutl Headless Test",
+                        "headless@example.invalid"));
+                });
+            HeadlessTestHelpers.Settle();
+
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            int commits = await CountCommitsAsync(gitPath, projectRoot);
+            string status = await RunGitAsync(gitPath, projectRoot, "status", "--porcelain");
+            Assert.Multiple(() =>
+            {
+                Assert.That(initialized, Is.True);
+                Assert.That(commits, Is.EqualTo(1));
+                Assert.That(status.Trim(), Is.Empty);
+                Assert.That(TestShell.VersionControl.IsTracked.Value, Is.True);
+                // The identity is asked for while the editor is usable and in view.
+                Assert.That(
+                    identityRequests,
+                    Is.EqualTo(new[] { (true, ProjectLifecycleActivity.None) }));
+                // Both attempts, before and after the identity prompt, disable the editor only behind the
+                // progress view.
+                Assert.That(
+                    editorStates,
+                    Is.EqualTo(new[]
+                    {
+                        (false, ProjectLifecycleActivity.EnablingVersionControl),
+                        (true, ProjectLifecycleActivity.EnablingVersionControl),
+                        (false, ProjectLifecycleActivity.EnablingVersionControl),
+                        (true, ProjectLifecycleActivity.EnablingVersionControl),
+                    }));
+                Assert.That(editor.IsEnabled.Value, Is.True);
+                Assert.That(
+                    TestShell.Editor.LifecycleActivity.Value,
+                    Is.EqualTo(ProjectLifecycleActivity.None));
+            });
+        }
+        finally
+        {
+            subscription?.Dispose();
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
             config.UseLfsWhenAvailable = oldUseLfs;
         }
     }

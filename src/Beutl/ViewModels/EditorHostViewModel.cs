@@ -46,6 +46,9 @@ public class EditorHostViewModel
             ProjectLifecycleActivity.ClosingProject => new ProjectLifecycleProgress(
                 MessageStrings.ClosingProject,
                 MessageStrings.ClosingProjectWithVersionControlMessage),
+            ProjectLifecycleActivity.EnablingVersionControl => new ProjectLifecycleProgress(
+                MessageStrings.EnablingVersionControl,
+                MessageStrings.EnablingVersionControlMessage),
             _ => null,
         };
     }

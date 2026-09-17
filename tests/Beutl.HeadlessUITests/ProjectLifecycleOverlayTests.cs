@@ -97,6 +97,62 @@ public sealed class ProjectLifecycleOverlayTests
     }
 
     [AvaloniaTest]
+    public async Task Enabling_version_control_shows_its_own_progress_in_place_of_the_editor_area()
+    {
+        await TestReset.ResetShellAsync();
+        var mainView = new MainView { DataContext = TestShell.MainViewModel };
+        var window = new Window { Width = 1000, Height = 700 };
+        IDisposable? enabling = null;
+        try
+        {
+            window.Show();
+            window.Content = mainView;
+            HeadlessTestHelpers.Render();
+            Border overlay = mainView.FindControl<Border>("ProjectLifecycleOverlay")!;
+            TextBlock title = mainView.FindControl<TextBlock>("ProjectLifecycleTitle")!;
+            TextBlock message = mainView.FindControl<TextBlock>("ProjectLifecycleMessage")!;
+            // Enabling needs an open project, but the test app cannot show an editor (EditorHostView needs the real
+            // app), so the hidden editor host is checked alongside the start page.
+            EditorHostView editorHost = mainView.GetVisualDescendants()
+                .OfType<EditorHostView>()
+                .Single();
+            EditorHostFallback fallback = mainView.GetVisualDescendants()
+                .OfType<EditorHostFallback>()
+                .Single();
+            Assert.That(editorHost.IsEnabled, Is.True);
+
+            enabling = TestShell.Editor.BeginLifecycleActivity(ProjectLifecycleActivity.EnablingVersionControl);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(overlay.IsEffectivelyVisible, Is.True);
+                Assert.That(title.Text, Is.EqualTo(MessageStrings.EnablingVersionControl));
+                Assert.That(message.Text, Is.EqualTo(MessageStrings.EnablingVersionControlMessage));
+                Assert.That(editorHost.IsEnabled, Is.False);
+                Assert.That(fallback.IsEffectivelyEnabled, Is.False);
+            });
+
+            enabling.Dispose();
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(overlay.IsVisible, Is.False);
+                Assert.That(editorHost.IsEnabled, Is.True);
+                Assert.That(fallback.IsEffectivelyEnabled, Is.True);
+            });
+        }
+        finally
+        {
+            enabling?.Dispose();
+            window.Close();
+            mainView.DataContext = null;
+            HeadlessTestHelpers.Settle();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public void Lifecycle_activity_can_end_from_a_worker_thread()
     {
         var editorService = new EditorService(new Beutl.Api.Services.ExtensionProvider());

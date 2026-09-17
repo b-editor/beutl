@@ -13,4 +13,10 @@ internal enum ProjectLifecycleActivity
 
     /// <summary>A version-controlled project is saving and recording its version before it closes.</summary>
     ClosingProject,
+
+    /// <summary>
+    /// Version control is being enabled for the open project, which is saved and has its first version
+    /// recorded while its editors are suspended.
+    /// </summary>
+    EnablingVersionControl,
 }

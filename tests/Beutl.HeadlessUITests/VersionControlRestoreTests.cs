@@ -1477,6 +1477,555 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task InitializeCurrentProject_shows_its_progress_in_place_of_the_editors_while_they_are_suspended()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var initializeStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseInitialize = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-initialize-progress");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(
+                repository: null,
+                discoveredRepository: null,
+                tip)
+            {
+                InitializeStarted = initializeStarted,
+                InitializeRelease = releaseInitialize.Task,
+            };
+            var commands = new PassiveSaveCommands();
+            var context = new PassiveEditorContext(project, commands);
+            var editorService = new EditorService(new ExtensionProvider());
+            editorService.TabItems.Add(new EditorTabItem(context));
+            using var presentation = new EditorPresentationRecorder(editorService, context);
+            ProjectLifecycleActivity activityWhileSaving = ProjectLifecycleActivity.None;
+            commands.Saving = () => activityWhileSaving = editorService.LifecycleActivity.Value;
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
+                project,
+                _ => Task.FromResult<GitIdentity?>(null));
+            await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(initialization.IsCompleted, Is.False);
+                Assert.That(
+                    activityWhileSaving,
+                    Is.EqualTo(ProjectLifecycleActivity.EnablingVersionControl));
+                Assert.That(
+                    editorService.LifecycleActivity.Value,
+                    Is.EqualTo(ProjectLifecycleActivity.EnablingVersionControl));
+                Assert.That(context.IsEnabled.Value, Is.False);
+            });
+
+            releaseInitialize.TrySetResult();
+            Assert.That(
+                await initialization.WaitAsync(TimeSpan.FromSeconds(5)),
+                Is.True);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(context.IsEnabled.Value, Is.True);
+                Assert.That(
+                    presentation.Activities,
+                    Is.EqualTo(new[]
+                    {
+                        ProjectLifecycleActivity.None,
+                        ProjectLifecycleActivity.EnablingVersionControl,
+                        ProjectLifecycleActivity.None,
+                    }));
+                // The progress view appears before the editor is disabled, and goes only after it is enabled.
+                Assert.That(
+                    presentation.EditorStates,
+                    Is.EqualTo(new[]
+                    {
+                        (false, ProjectLifecycleActivity.EnablingVersionControl),
+                        (true, ProjectLifecycleActivity.EnablingVersionControl),
+                    }));
+            });
+        }
+        finally
+        {
+            releaseInitialize.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task InitializeCurrentProject_hides_its_progress_while_asking_for_an_identity()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var retryStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRetry = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-initialize-identity-progress");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(
+                repository: null,
+                discoveredRepository: null,
+                tip)
+            {
+                RequireIdentityForInitialization = true,
+                InitializeStarted = retryStarted,
+                InitializeRelease = releaseRetry.Task,
+            };
+            var context = new PassiveEditorContext(project, new PassiveSaveCommands());
+            var editorService = new EditorService(new ExtensionProvider());
+            editorService.TabItems.Add(new EditorTabItem(context));
+            using var presentation = new EditorPresentationRecorder(editorService, context);
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            ProjectLifecycleActivity? activityWhileAsking = null;
+            bool? editorEnabledWhileAsking = null;
+            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
+                project,
+                _ =>
+                {
+                    activityWhileAsking = editorService.LifecycleActivity.Value;
+                    editorEnabledWhileAsking = context.IsEnabled.Value;
+                    return Task.FromResult<GitIdentity?>(
+                        new GitIdentity("Identity Retry", "identity-retry@example.invalid"));
+                });
+            await retryStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                // The user can keep editing, in a visible editor, while entering an identity.
+                Assert.That(activityWhileAsking, Is.EqualTo(ProjectLifecycleActivity.None));
+                Assert.That(editorEnabledWhileAsking, Is.True);
+                Assert.That(
+                    editorService.LifecycleActivity.Value,
+                    Is.EqualTo(ProjectLifecycleActivity.EnablingVersionControl));
+                Assert.That(context.IsEnabled.Value, Is.False);
+            });
+
+            releaseRetry.TrySetResult();
+            Assert.That(
+                await initialization.WaitAsync(TimeSpan.FromSeconds(5)),
+                Is.True);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    presentation.Activities,
+                    Is.EqualTo(new[]
+                    {
+                        ProjectLifecycleActivity.None,
+                        ProjectLifecycleActivity.EnablingVersionControl,
+                        ProjectLifecycleActivity.None,
+                        ProjectLifecycleActivity.EnablingVersionControl,
+                        ProjectLifecycleActivity.None,
+                    }));
+                Assert.That(
+                    presentation.EditorStates,
+                    Is.EqualTo(new[]
+                    {
+                        (false, ProjectLifecycleActivity.EnablingVersionControl),
+                        (true, ProjectLifecycleActivity.EnablingVersionControl),
+                        (false, ProjectLifecycleActivity.EnablingVersionControl),
+                        (true, ProjectLifecycleActivity.EnablingVersionControl),
+                    }));
+            });
+        }
+        finally
+        {
+            releaseRetry.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task InitializeCurrentProject_hides_its_progress_when_the_project_cannot_be_saved()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-initialize-progress-save-failure");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(
+                repository: null,
+                discoveredRepository: null,
+                tip);
+            var commands = new FailedSaveCommands();
+            var context = new FailedSaveEditorContext(project, commands);
+            var editorService = new EditorService(new ExtensionProvider());
+            editorService.TabItems.Add(new EditorTabItem(context));
+            using var presentation = new EditorPresentationRecorder(editorService, context);
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool initialized = await coordinator.InitializeCurrentProjectAsync(
+                project,
+                _ => Task.FromResult<GitIdentity?>(null));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(initialized, Is.False);
+                Assert.That(commands.SaveCalls, Is.EqualTo(1));
+                Assert.That(backend.InitializeCalls, Is.Zero);
+                Assert.That(context.IsEnabled.Value, Is.True);
+                Assert.That(
+                    presentation.Activities,
+                    Is.EqualTo(new[]
+                    {
+                        ProjectLifecycleActivity.None,
+                        ProjectLifecycleActivity.EnablingVersionControl,
+                        ProjectLifecycleActivity.None,
+                    }));
+                Assert.That(
+                    presentation.EditorStates,
+                    Is.EqualTo(new[]
+                    {
+                        (false, ProjectLifecycleActivity.EnablingVersionControl),
+                        (true, ProjectLifecycleActivity.EnablingVersionControl),
+                    }));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task InitializeCurrentProject_hides_its_progress_when_the_initial_commit_fails()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-initialize-progress-commit-failure");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(
+                repository: null,
+                discoveredRepository: null,
+                tip)
+            {
+                InitializeFailureAfterAttach = new InvalidOperationException("The initial commit failed."),
+            };
+            var context = new PassiveEditorContext(project, new PassiveSaveCommands());
+            var editorService = new EditorService(new ExtensionProvider());
+            editorService.TabItems.Add(new EditorTabItem(context));
+            using var presentation = new EditorPresentationRecorder(editorService, context);
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            // Awaited rather than asserted through a blocking Throws constraint: initialization saves the
+            // open project first, and that save resumes on the dispatcher.
+            InvalidOperationException? failure = null;
+            try
+            {
+                await coordinator.InitializeCurrentProjectAsync(
+                    project,
+                    _ => Task.FromResult<GitIdentity?>(null));
+            }
+            catch (InvalidOperationException ex)
+            {
+                failure = ex;
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(failure?.Message, Is.EqualTo("The initial commit failed."));
+                Assert.That(backend.InitializeCalls, Is.EqualTo(1));
+                Assert.That(context.IsEnabled.Value, Is.True);
+                Assert.That(
+                    presentation.Activities,
+                    Is.EqualTo(new[]
+                    {
+                        ProjectLifecycleActivity.None,
+                        ProjectLifecycleActivity.EnablingVersionControl,
+                        ProjectLifecycleActivity.None,
+                    }));
+                Assert.That(
+                    presentation.EditorStates,
+                    Is.EqualTo(new[]
+                    {
+                        (false, ProjectLifecycleActivity.EnablingVersionControl),
+                        (true, ProjectLifecycleActivity.EnablingVersionControl),
+                    }));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task InitializeCurrentProject_from_a_worker_thread_shows_its_progress_before_suspending_the_editors()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var initializeStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseInitialize = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var discoveryStarted = new ManualResetEventSlim();
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-initialize-progress-worker");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(
+                repository: null,
+                discoveredRepository: null,
+                tip)
+            {
+                InitializeStarted = initializeStarted,
+                InitializeRelease = releaseInitialize.Task,
+            };
+            var context = new PassiveEditorContext(project, new PassiveSaveCommands());
+            var editorService = new EditorService(new ExtensionProvider());
+            editorService.TabItems.Add(new EditorTabItem(context));
+            using var presentation = new EditorPresentationRecorder(editorService, context);
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            backend.DiscoverRepositoryOverride = _ =>
+            {
+                discoveryStarted.Set();
+                return null;
+            };
+
+            Task<bool> initialization = Task.Run(() => coordinator.InitializeCurrentProjectAsync(
+                project,
+                _ => Task.FromResult<GitIdentity?>(null)));
+            // Holds the UI thread while the worker queues its dispatcher work, so that work then runs in
+            // priority order instead of each job as soon as it is queued.
+            Assert.That(discoveryStarted.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            Thread.Sleep(TimeSpan.FromMilliseconds(100));
+            await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(
+                presentation.EditorStates,
+                Is.EqualTo(new[] { (false, ProjectLifecycleActivity.EnablingVersionControl) }));
+
+            releaseInitialize.TrySetResult();
+            Assert.That(
+                await initialization.WaitAsync(TimeSpan.FromSeconds(5)),
+                Is.True);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(context.IsEnabled.Value, Is.True);
+                Assert.That(
+                    presentation.Activities,
+                    Is.EqualTo(new[]
+                    {
+                        ProjectLifecycleActivity.None,
+                        ProjectLifecycleActivity.EnablingVersionControl,
+                        ProjectLifecycleActivity.None,
+                    }));
+                Assert.That(
+                    presentation.EditorStates,
+                    Is.EqualTo(new[]
+                    {
+                        (false, ProjectLifecycleActivity.EnablingVersionControl),
+                        (true, ProjectLifecycleActivity.EnablingVersionControl),
+                    }));
+            });
+        }
+        finally
+        {
+            releaseInitialize.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Closing_during_the_initial_commit_replaces_its_progress_with_the_close()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var initializeStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        // Never released: the close has to cancel the initial commit.
+        var releaseInitialize = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<bool>? initialization = null;
+        Task<bool>? close = null;
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-initialize-progress-close");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(
+                repository: null,
+                discoveredRepository: null,
+                tip)
+            {
+                InitializeStarted = initializeStarted,
+                InitializeRelease = releaseInitialize.Task,
+            };
+            var context = new PassiveEditorContext(project, new PassiveSaveCommands());
+            var editorService = new EditorService(new ExtensionProvider());
+            editorService.TabItems.Add(new EditorTabItem(context));
+            using var presentation = new EditorPresentationRecorder(editorService, context);
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig { AutoCommitOnClose = true },
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            initialization = coordinator.InitializeCurrentProjectAsync(
+                project,
+                _ => Task.FromResult<GitIdentity?>(null));
+            await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            close = TestShell.Project.TryCloseProjectAsync(
+                project,
+                ProjectService.ProjectCloseIntent.SaveChanges);
+            Assert.That(await close.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+            HeadlessTestHelpers.Settle();
+
+            OperationCanceledException? cancellation = null;
+            try
+            {
+                await initialization.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (OperationCanceledException ex)
+            {
+                cancellation = ex;
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(cancellation, Is.Not.Null);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(
+                    presentation.Activities,
+                    Is.EqualTo(new[]
+                    {
+                        ProjectLifecycleActivity.None,
+                        ProjectLifecycleActivity.EnablingVersionControl,
+                        ProjectLifecycleActivity.ClosingProject,
+                        ProjectLifecycleActivity.None,
+                    }));
+                // The editor is enabled again when the cancelled commit releases it, still behind a progress view.
+                Assert.That(
+                    presentation.EditorStates.Select(state => state.Enabled),
+                    Is.EqualTo(new[] { false, true }));
+                Assert.That(
+                    presentation.EditorStates.Select(state => state.Activity),
+                    Has.None.EqualTo(ProjectLifecycleActivity.None));
+            });
+        }
+        finally
+        {
+            releaseInitialize.TrySetResult();
+            if (initialization is not null)
+            {
+                try
+                {
+                    await initialization.WaitAsync(TimeSpan.FromSeconds(5));
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+
+            if (close is not null)
+            {
+                await close.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task InitializeCurrentProject_releases_editors_for_identity_and_resuspends_the_retry()
     {
         await TestReset.ResetShellAsync();
@@ -12317,6 +12866,32 @@ public class VersionControlRestoreTests
         public bool FileExists(string path) => false;
 
         public string? GetEnvironmentVariable(string name) => null;
+    }
+
+    // Records each activity shown in place of the editor area, and the activity shown whenever the editor is
+    // disabled or enabled.
+    private sealed class EditorPresentationRecorder : IDisposable
+    {
+        private readonly IDisposable _activitySubscription;
+        private readonly IDisposable _editorSubscription;
+
+        public EditorPresentationRecorder(EditorService editorService, IEditorContext context)
+        {
+            _activitySubscription = editorService.LifecycleActivity.Subscribe(Activities.Add);
+            _editorSubscription = context.IsEnabled
+                .Skip(1)
+                .Subscribe(enabled => EditorStates.Add((enabled, editorService.LifecycleActivity.Value)));
+        }
+
+        public List<ProjectLifecycleActivity> Activities { get; } = [];
+
+        public List<(bool Enabled, ProjectLifecycleActivity Activity)> EditorStates { get; } = [];
+
+        public void Dispose()
+        {
+            _activitySubscription.Dispose();
+            _editorSubscription.Dispose();
+        }
     }
 
     private sealed class PassiveEditorContext(
