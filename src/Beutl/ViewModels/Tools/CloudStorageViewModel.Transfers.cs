@@ -8,6 +8,7 @@ using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Refit;
@@ -115,8 +116,27 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
         => TransferAsync(context, async token =>
         {
             var visited = new HashSet<Uri>();
+            var created = new UploadRollbackState();
             int count = 0;
-            foreach (var item in items) await UploadItem(item, destination);
+            try
+            {
+                foreach (var item in items) await UploadItem(item, destination);
+            }
+            catch (Exception ex)
+            {
+                bool cleaned = await RollBackUploadAsync(context, created);
+                if (!cleaned)
+                {
+                    if (IsTransferCurrent(context))
+                    {
+                        string? message = ActionError.Value ?? (ex is OperationCanceledException ? null : ActionErrorMessage(ex));
+                        ActionError.Value = string.IsNullOrEmpty(message) ? Strings.CloudStorageUploadRollbackIncomplete
+                            : message + Environment.NewLine + Strings.CloudStorageUploadRollbackIncomplete;
+                    }
+                    else NotificationService.ShowWarning(Strings.CloudStorage, Strings.CloudStorageUploadRollbackIncomplete);
+                }
+                throw;
+            }
 
             async Task UploadItem(IStorageItem item, string? parent)
             {
@@ -128,8 +148,11 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
                 {
                     if (!visited.Add(folder.Path) || folder.TryGetLocalPath() is { } path && File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
                         throw new InvalidDataException("Linked or cyclic folders cannot be uploaded.");
-                    var created = await _clients.SendAuthenticatedAsync((auth, ct) => _clients.Storage.CreateFolder(auth, new { name = item.Name, parentId = parent }, ct), token, context.User);
-                    string id = created.Value.Id ?? throw new InvalidDataException("Missing folder id.");
+                    created.UnconfirmedWrites++;
+                    var result = await _clients.SendAuthenticatedAsync((auth, ct) => _clients.Storage.CreateFolder(auth, new { name = item.Name, parentId = parent }, ct), token, context.User);
+                    string id = result.Value.Id ?? throw new InvalidDataException("Missing folder id.");
+                    created.Folders.Add(id);
+                    created.UnconfirmedWrites--;
                     await foreach (var child in folder.GetItemsAsync().WithCancellation(token))
                     {
                         using (child) await UploadItem(child, id);
@@ -137,15 +160,70 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
                 }
                 else if (item is IStorageFile file)
                 {
-                    await UploadFileAsync(context, file, parent, token);
+                    await UploadFileAsync(context, file, parent, created, token);
                 }
             }
         }, refresh: true);
 
-    private async Task UploadFileAsync(StorageActionContext context, IStorageFile file, string? parent, CancellationToken token)
+    private sealed class UploadRollbackState
+    {
+        public List<string> Files { get; } = [];
+        public List<string> Folders { get; } = [];
+        public int UnconfirmedWrites { get; set; }
+    }
+
+    private async Task<bool> RollBackUploadAsync(StorageActionContext context, UploadRollbackState created)
+    {
+        if (created.Files.Count == 0 && created.Folders.Count == 0 && created.UnconfirmedWrites == 0) return true;
+        if (!CanCleanUpload(context)) return false;
+        if (!_disposed)
+        {
+            TransferText.Value = Strings.CloudStorageRollingBackUpload;
+            TransferIndeterminate.Value = true;
+        }
+        using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        bool cleaned = created.UnconfirmedWrites == 0;
+        foreach (string[] ids in created.Files.Distinct(StringComparer.Ordinal).Chunk(200))
+        {
+            if (!CanCleanUpload(context) || cleanup.IsCancellationRequested) return false;
+            try
+            {
+                var result = await _clients.SendAuthenticatedAsync((auth, ct) => _clients.Storage.FileBatch(auth, new { operation = "delete", ids }, ct), cleanup.Token, context.User);
+                cleaned &= result.Value.Affected == ids.Length;
+            }
+            catch (ApiException ex) when (ex.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Conflict)
+            {
+                // A missing or in-use file rejects the batch. Clean the other known
+                // files independently without treating the entire batch as deleted.
+                foreach (string id in ids)
+                {
+                    if (!CanCleanUpload(context) || cleanup.IsCancellationRequested) return false;
+                    try { await _clients.SendAuthenticatedAsync(async (auth, ct) => { await _clients.Storage.DeleteFile(auth, id, ct); return true; }, cleanup.Token, context.User); }
+                    catch (ApiException missing) when (missing.StatusCode == HttpStatusCode.NotFound) { }
+                    catch (Exception error) { cleaned = false; _logger.LogWarning(error, "Could not remove an uploaded file during rollback."); }
+                }
+            }
+            catch (Exception ex) { cleaned = false; _logger.LogWarning(ex, "Could not roll back uploaded files."); }
+        }
+        foreach (string id in created.Folders.AsEnumerable().Reverse())
+        {
+            if (!CanCleanUpload(context) || cleanup.IsCancellationRequested) return false;
+            try { await _clients.SendAuthenticatedAsync((auth, ct) => _clients.Storage.DeleteEmptyFolder(auth, id, ct), cleanup.Token, context.User); }
+            catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound) { }
+            catch (Exception ex) { cleaned = false; _logger.LogWarning(ex, "Could not remove an empty upload folder during rollback."); }
+        }
+        return cleaned;
+    }
+
+    // Closing the browser cancels the upload, but cleanup still belongs to the
+    // captured account. Never use a replacement account to remove these IDs.
+    private bool CanCleanUpload(StorageActionContext context) => ReferenceEquals(_clients.AuthenticatedUser.Value, context.User);
+
+    private async Task UploadFileAsync(StorageActionContext context, IStorageFile file, string? parent, UploadRollbackState created, CancellationToken token)
     {
         TransferProgress.Value = 0;
         await using var source = await file.OpenReadAsync();
+        token.ThrowIfCancellationRequested();
         string? spool = null;
         Stream input = source;
         try
@@ -195,22 +273,18 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
                     TransferProgress.Value = 100.0 * sent / length;
                 }
                 if (await input.ReadAsync(buffer.AsMemory(0, 1), token) != 0) throw new IOException("The upload source changed.");
+                created.UnconfirmedWrites++;
                 var result = await RetryTransferAsync(() => _clients.SendAuthenticatedAsync((auth, ct) => _clients.Storage.CompleteUpload(auth, uploadId, new { parts }, ct), token, context.User), token);
                 complete = true;
                 string id = result.Value.Id ?? throw new InvalidDataException("Missing uploaded file id.");
+                created.Files.Add(id);
+                created.UnconfirmedWrites--;
                 if (parent != null)
-                {
-                    try { await _clients.SendAuthenticatedAsync(async (auth, ct) => { await _clients.Storage.UpdateFile(auth, id, new { parentId = parent }, ct); return true; }, token, context.User); }
-                    catch
-                    {
-                        if (IsTransferCurrent(context)) ActionError.Value = string.Format(Strings.CloudStorageUploadMoveFailed, file.Name);
-                        throw;
-                    }
-                }
+                    await _clients.SendAuthenticatedAsync(async (auth, ct) => { await _clients.Storage.UpdateFile(auth, id, new { parentId = parent }, ct); return true; }, token, context.User);
             }
             finally
             {
-                if (!complete && IsTransferCurrent(context))
+                if (!complete && CanCleanUpload(context))
                 {
                     using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(10));
                     try { await _clients.SendAuthenticatedAsync(async (auth, ct) => { await _clients.Storage.CancelUpload(auth, uploadId, ct); return true; }, cleanup.Token, context.User); }

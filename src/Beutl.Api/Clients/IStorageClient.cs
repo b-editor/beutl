@@ -43,6 +43,9 @@ internal interface IStorageClient
     [Delete("/api/v3/storage/folders/{id}?recursive=true")]
     Task<StorageMutationResponse> DeleteFolderTree([Header("Authorization")] string authorization, string id, CancellationToken cancellationToken);
 
+    [Delete("/api/v3/storage/folders/{id}?recursive=false")]
+    Task<StorageMutationResponse> DeleteEmptyFolder([Header("Authorization")] string authorization, string id, CancellationToken cancellationToken);
+
     [Post("/api/v3/storage/files/batch")]
     Task<StorageMutationResponse> FileBatch([Header("Authorization")] string authorization, [Body] object body, CancellationToken cancellationToken);
 }

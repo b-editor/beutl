@@ -2994,6 +2994,12 @@ when history recording is enabled.</value>
   <data name="CloudStorageUploadMoveFailed" xml:space="preserve">
     <value>{0} was uploaded, but could not be moved to the destination folder. It is available at the storage root.</value>
   </data>
+  <data name="CloudStorageRollingBackUpload" xml:space="preserve">
+    <value>Removing items created by the interrupted upload…</value>
+  </data>
+  <data name="CloudStorageUploadRollbackIncomplete" xml:space="preserve">
+    <value>Some uploaded items may remain because cleanup could not be completed. Check storage in the original account.</value>
+  </data>
   <data name="CloudStoragePreparingDrag" xml:space="preserve">
     <value>Preparing {0} for dragging…</value>
   </data>
