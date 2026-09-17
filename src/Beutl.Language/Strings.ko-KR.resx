@@ -1627,4 +1627,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="TimeAgoDaysFormat" xml:space="preserve">
     <value>{0}일 전</value>
   </data>
+  <data name="DeleteFromDisk" xml:space="preserve">
+    <value>디스크에서 완전히 삭제</value>
+  </data>
 </root>

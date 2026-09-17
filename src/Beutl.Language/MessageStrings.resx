@@ -465,4 +465,19 @@ Do you want to restart the application?</value>
   <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
     <value>Discard unusable result</value>
   </data>
+  <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
+    <value>Permanently delete this project's folder and everything in it? This cannot be undone.</value>
+  </data>
+  <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
+    <value>This project is not in a folder of its own, so only the project file will be deleted; its scenes and other files stay on disk. Permanently delete the project file? This cannot be undone.</value>
+  </data>
+  <data name="ProjectInUseCannotDeleteFromDisk" xml:space="preserve">
+    <value>This project or its files are open in Beutl. Close them before deleting the project from disk.</value>
+  </data>
+  <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
+    <value>An export, a save or a version control operation is still using project files. Wait for it to finish, then try again.</value>
+  </data>
+  <data name="ProjectFilesBeingChanged" xml:space="preserve">
+    <value>Project files are being changed by another operation. Wait for it to finish, then try again.</value>
+  </data>
 </root>

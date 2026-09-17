@@ -2863,4 +2863,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="BrowserIgnorePageDownloads" xml:space="preserve">
     <value>ページを再読み込みするまでダウンロード要求を無視</value>
   </data>
+  <data name="DeleteFromDisk" xml:space="preserve">
+    <value>ディスクから完全に削除</value>
+  </data>
 </root>

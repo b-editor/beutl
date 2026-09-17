@@ -1627,4 +1627,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="TimeAgoDaysFormat" xml:space="preserve">
     <value>{0} 天前</value>
   </data>
+  <data name="DeleteFromDisk" xml:space="preserve">
+    <value>从磁盘彻底删除</value>
+  </data>
 </root>

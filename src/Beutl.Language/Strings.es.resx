@@ -1627,4 +1627,7 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="TimeAgoDaysFormat" xml:space="preserve">
     <value>hace {0} d</value>
   </data>
+  <data name="DeleteFromDisk" xml:space="preserve">
+    <value>Eliminar del disco</value>
+  </data>
 </root>

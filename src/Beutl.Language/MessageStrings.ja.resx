@@ -460,4 +460,19 @@
   <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
     <value>受理できない結果を破棄</value>
   </data>
+  <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
+    <value>このプロジェクトのフォルダーと、その中のすべてのファイルを完全に削除しますか？この操作は元に戻せません。</value>
+  </data>
+  <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
+    <value>このプロジェクトは専用のフォルダーにないため、プロジェクトファイルだけを削除します。シーンなどのファイルはディスクに残ります。プロジェクトファイルを完全に削除しますか？この操作は元に戻せません。</value>
+  </data>
+  <data name="ProjectInUseCannotDeleteFromDisk" xml:space="preserve">
+    <value>このプロジェクトまたはそのファイルが Beutl で開かれています。ディスクから削除する前に閉じてください。</value>
+  </data>
+  <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
+    <value>書き出し、保存、またはバージョン管理の操作がプロジェクトのファイルを使用中です。完了してからもう一度お試しください。</value>
+  </data>
+  <data name="ProjectFilesBeingChanged" xml:space="preserve">
+    <value>別の操作でプロジェクトのファイルを変更中です。完了してからもう一度お試しください。</value>
+  </data>
 </root>

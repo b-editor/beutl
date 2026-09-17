@@ -2868,4 +2868,7 @@ when history recording is enabled.</value>
   <data name="BrowserIgnorePageDownloads" xml:space="preserve">
     <value>Ignore download requests until this page is reloaded</value>
   </data>
+  <data name="DeleteFromDisk" xml:space="preserve">
+    <value>Delete from Disk</value>
+  </data>
 </root>

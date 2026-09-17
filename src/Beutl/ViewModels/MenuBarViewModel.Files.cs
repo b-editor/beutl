@@ -259,6 +259,17 @@ public partial class MenuBarViewModel
 
     internal void OpenFileCore(string file)
     {
+        // A worktree mutation, such as a branch switch or a project being deleted from disk, may be
+        // replacing or removing this file. Reading it then could catch it half-gone, and a tab opened
+        // on it, or the open project it would join, would keep a file that is about to disappear, so
+        // mutations are held off until the file is open.
+        using IDisposable? open = _editorService.TryBeginEditorFileOpen();
+        if (open is null)
+        {
+            NotificationService.ShowWarning(Strings.File, MessageStrings.ProjectFilesBeingChanged);
+            return;
+        }
+
         try
         {
             Project? project = _projectService.CurrentProject.Value;

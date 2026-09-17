@@ -466,4 +466,19 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
     <value>Descartar resultado no utilizable</value>
   </data>
+  <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
+    <value>¿Eliminar permanentemente la carpeta de este proyecto y todo su contenido? Esta acción no se puede deshacer.</value>
+  </data>
+  <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
+    <value>Este proyecto no está en una carpeta propia, así que solo se eliminará el archivo del proyecto; sus escenas y demás archivos permanecerán en el disco. ¿Eliminar permanentemente el archivo del proyecto? Esta acción no se puede deshacer.</value>
+  </data>
+  <data name="ProjectInUseCannotDeleteFromDisk" xml:space="preserve">
+    <value>Este proyecto o sus archivos están abiertos en Beutl. Ciérralos antes de eliminar el proyecto del disco.</value>
+  </data>
+  <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
+    <value>Una exportación, un guardado o una operación de control de versiones todavía está usando archivos del proyecto. Espera a que termine e inténtalo de nuevo.</value>
+  </data>
+  <data name="ProjectFilesBeingChanged" xml:space="preserve">
+    <value>Otra operación está modificando archivos del proyecto. Espera a que termine e inténtalo de nuevo.</value>
+  </data>
 </root>
