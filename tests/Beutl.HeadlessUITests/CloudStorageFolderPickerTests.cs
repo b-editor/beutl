@@ -18,6 +18,72 @@ namespace Beutl.HeadlessUITests;
 public sealed class CloudStorageFolderPickerTests
 {
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ChangedAppendDestinationRestartsAtTheResolvedRootWithoutStaleChoices(bool retryReload)
+    {
+        await using var scope = new StorageScope();
+        await scope.LoadFirstAsync(Response());
+        var vm = scope.ViewModel;
+        var navigation = vm.OpenFolderAsync(vm.Items[0]);
+        await WaitFor(() => scope.Handler.Requests.Count == 2);
+        scope.Handler.Requests[1].Complete(Response(folder: "folder & 日本"));
+        await navigation;
+        var view = new CloudStorageView { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 520 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var move = view.ExecuteStorageActionAsync("move", vm.CaptureActionContext([vm.Items.Single()])!);
+            await WaitFor(() => scope.Handler.Requests.Count == 3);
+            var page = JsonNode.Parse(DestinationPage())!;
+            page["parentId"] = "folder & 日本";
+            page["path"] = JsonNode.Parse(Response(folder: "folder & 日本"))!["path"]!.DeepClone();
+            scope.Handler.Requests[2].Complete(page.ToJsonString());
+            var dialog = view.StorageDialog!;
+            var content = (StackPanel)dialog.Content!;
+            var list = content.Children.OfType<ListBox>().Single();
+            await WaitFor(() => list.Items.Count == 24 && list.IsEnabled);
+            HeadlessTestHelpers.Render();
+            list.GetVisualDescendants().OfType<ScrollViewer>().Single().ScrollToEnd();
+            HeadlessTestHelpers.Render();
+            await WaitFor(() => scope.Handler.Requests.Count == 4);
+            Assert.That(scope.Handler.Requests[3].Uri.Query, Does.Contain("cursor=folders-next"));
+            scope.Handler.Requests[3].Complete(Response());
+            await WaitFor(() => scope.Handler.Requests.Count == 5 || list.IsEnabled);
+            Assert.That(scope.Handler.Requests, Has.Count.EqualTo(5), "A different ParentId must restart pagination.");
+            Assert.That(list.Items, Is.Empty);
+            Assert.That(dialog.IsPrimaryButtonEnabled, Is.False);
+            Assert.That(scope.Handler.Requests[4].Uri.Query, Does.Not.Contain("parentId").And.Not.Contain("cursor"));
+
+            int requestIndex = 4;
+            if (retryReload)
+            {
+                scope.Handler.Requests[4].Complete("{}", HttpStatusCode.ServiceUnavailable);
+                var retry = content.Children.OfType<Button>().Single(button => button.Name == "StorageFolderRetry");
+                await WaitFor(() => retry.IsVisible);
+                Assert.That(list.Items, Is.Empty);
+                Assert.That(dialog.IsPrimaryButtonEnabled, Is.False);
+                retry.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await WaitFor(() => scope.Handler.Requests.Count == 6);
+                Assert.That(scope.Handler.Requests[5].Uri, Is.EqualTo(scope.Handler.Requests[4].Uri));
+                requestIndex = 5;
+            }
+            var fresh = JsonNode.Parse(Response(empty: true))!;
+            fresh["entries"] = new JsonArray(new JsonObject { ["id"] = "fresh-root", ["name"] = "Fresh root", ["kind"] = "folder" });
+            scope.Handler.Requests[requestIndex].Complete(fresh.ToJsonString());
+            await WaitFor(() => list.IsEnabled && list.Items.Count == 1);
+            Assert.That(list.Items.OfType<StorageEntryResponse>().Single().Id, Is.EqualTo("fresh-root"));
+            Assert.That(dialog.IsPrimaryButtonEnabled, Is.True);
+            Assert.That(content.Children.OfType<TextBlock>().Any(text => text.Text == Strings.CloudStorage), Is.True);
+            dialog.Hide();
+            await move;
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
     public async Task OptionalPageFailureDoesNotBlockMovingToTheValidatedDestination()
     {
         await using var scope = new StorageScope();

@@ -60,6 +60,13 @@ public sealed partial class CloudStorageView
             },
         };
 
+        void SetLocation(StorageResponse response)
+        {
+            target = response.ParentId;
+            parent = response.Path.LastOrDefault()?.ParentId;
+            location.Text = string.Join(" / ", new[] { Strings.CloudStorage }.Concat(response.Path.Select(x => x.Name)));
+        }
+
         async Task LoadAsync(string? destination, bool append = false)
         {
             if (loading || cancellation.IsCancellationRequested) return;
@@ -81,9 +88,21 @@ public sealed partial class CloudStorageView
                 string? cursor = append ? nextCursor : null;
                 var response = await vm.GetFolderChoicesAsync(context, destination, cursor, cancellation.Token);
                 if (response == null || cancellation.IsCancellationRequested || version != generation) return;
-                target = response.ParentId;
-                parent = response.Path.LastOrDefault()?.ParentId;
-                location.Text = string.Join(" / ", new[] { Strings.CloudStorage }.Concat(response.Path.Select(x => x.Name)));
+                if (append && response.ParentId != destination)
+                {
+                    // The old cursor and children belong to a different folder. Restart
+                    // from the resolved location, including when the reload needs a retry.
+                    destination = response.ParentId;
+                    append = false;
+                    version = ++generation;
+                    cursor = nextCursor = null;
+                    choices.Clear();
+                    dialog.IsPrimaryButtonEnabled = false;
+                    SetLocation(response);
+                    response = await vm.GetFolderChoicesAsync(context, destination, null, cancellation.Token);
+                    if (response == null || cancellation.IsCancellationRequested || version != generation) return;
+                }
+                SetLocation(response);
                 foreach (var folder in response.Entries.Where(x => x.Kind == "folder"))
                     if (choices.All(x => x.Id != folder.Id)) choices.Add(folder);
                 nextCursor = response.NextCursor != cursor ? response.NextCursor : null;
