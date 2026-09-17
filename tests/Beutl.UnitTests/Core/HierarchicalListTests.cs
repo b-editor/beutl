@@ -92,6 +92,30 @@ public class HierarchicalListTests
     }
 
     [Test]
+    public void ReplaceAll_KeepsParentOfChildrenInBothLists()
+    {
+        var parent = new TestNode();
+        var list = new HierarchicalList<IHierarchical>(parent);
+        var removedChild = new TestNode();
+        var keptChild = new TestNode();
+        var addedChild = new TestNode();
+        list.AddRange(new IHierarchical[] { removedChild, keptChild });
+
+        list.Replace([keptChild, addedChild]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(list, Is.EqualTo(new IHierarchical[] { keptChild, addedChild }));
+            Assert.That(((IHierarchical)removedChild).HierarchicalParent, Is.Null);
+            Assert.That(((IHierarchical)keptChild).HierarchicalParent, Is.SameAs(parent));
+            Assert.That(((IHierarchical)addedChild).HierarchicalParent, Is.SameAs(parent));
+            Assert.That(
+                ((IHierarchical)parent).HierarchicalChildren,
+                Is.EquivalentTo(new IHierarchical[] { keptChild, addedChild }));
+        });
+    }
+
+    [Test]
     public void DefaultConstructor_AttachedDetachedNotInvokedAutomatically()
     {
         // 親なしコンストラクタはイベント購読を行わない
