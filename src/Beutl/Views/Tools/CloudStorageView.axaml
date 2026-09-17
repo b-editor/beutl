@@ -195,8 +195,12 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.Details}" />
                             <Button Grid.Column="1"
+                                    AutomationProperties.Name="{x:Static lang:Strings.Close}"
                                     Click="OnCloseStorageDetails"
-                                    Content="{x:Static lang:Strings.Close}" />
+                                    Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                    ToolTip.Tip="{x:Static lang:Strings.Close}">
+                                <icons:FluentIcon FontSize="16" Icon="Dismiss" />
+                            </Button>
                         </Grid>
                         <ContentControl Grid.Row="1" Content="{Binding DetailsItem.Value}">
                             <ContentControl.ContentTemplate>
