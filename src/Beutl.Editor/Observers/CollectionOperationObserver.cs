@@ -227,50 +227,36 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
         }
     }
 
+    // The Enqueue methods below run only for a notification that DescribesChange accepted, so the items the
+    // notification needs are there.
     private void EnqueueAdds(NotifyCollectionChangedEventArgs e)
     {
-        if (e.NewItems == null)
-        {
-            return;
-        }
-
-        int index = e.NewStartingIndex;
         var operation = new InsertCollectionRangeOperation<T>
         {
             SequenceNumber = _sequenceNumberGenerator.GetNext(),
             Object = _owner,
             PropertyPath = _propertyPath,
-            Items = e.NewItems.Cast<T>().ToArray(),
-            Index = index
+            Items = e.NewItems!.Cast<T>().ToArray(),
+            Index = e.NewStartingIndex
         };
         _operations.OnNext(operation);
     }
 
     private void EnqueueRemoveRange(NotifyCollectionChangedEventArgs e)
     {
-        if (e.OldItems == null)
-        {
-            return;
-        }
-
         var operation = new RemoveCollectionRangeOperation<T>
         {
             SequenceNumber = _sequenceNumberGenerator.GetNext(),
             Object = _owner,
             PropertyPath = _propertyPath,
             Index = e.OldStartingIndex,
-            Items = e.OldItems.Cast<T>().ToArray()
+            Items = e.OldItems!.Cast<T>().ToArray()
         };
         _operations.OnNext(operation);
     }
 
     private void EnqueueMove(NotifyCollectionChangedEventArgs e)
     {
-        if (e.OldItems == null)
-        {
-            return;
-        }
-
         var operation = new MoveCollectionRangeOperation<T>
         {
             SequenceNumber = _sequenceNumberGenerator.GetNext(),
@@ -278,39 +264,32 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
             PropertyPath = _propertyPath,
             OldIndex = e.OldStartingIndex,
             NewIndex = e.NewStartingIndex,
-            Count = e.OldItems.Count
+            Count = e.OldItems!.Count
         };
         _operations.OnNext(operation);
     }
 
     private void EnqueueReplace(NotifyCollectionChangedEventArgs e)
     {
-        if (e.OldItems != null)
+        var removeOperation = new RemoveCollectionRangeOperation<T>
         {
-            var operation = new RemoveCollectionRangeOperation<T>
-            {
-                SequenceNumber = _sequenceNumberGenerator.GetNext(),
-                Object = _owner,
-                PropertyPath = _propertyPath,
-                Index = e.OldStartingIndex,
-                Items = e.OldItems.Cast<T>().ToArray()
-            };
-            _operations.OnNext(operation);
-        }
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
+            Object = _owner,
+            PropertyPath = _propertyPath,
+            Index = e.OldStartingIndex,
+            Items = e.OldItems!.Cast<T>().ToArray()
+        };
+        _operations.OnNext(removeOperation);
 
-        if (e.NewItems != null)
+        var insertOperation = new InsertCollectionRangeOperation<T>
         {
-            int index = e.NewStartingIndex;
-            var operation = new InsertCollectionRangeOperation<T>
-            {
-                SequenceNumber = _sequenceNumberGenerator.GetNext(),
-                Object = _owner,
-                PropertyPath = _propertyPath,
-                Items = e.NewItems.Cast<T>().ToArray(),
-                Index = index
-            };
-            _operations.OnNext(operation);
-        }
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
+            Object = _owner,
+            PropertyPath = _propertyPath,
+            Items = e.NewItems!.Cast<T>().ToArray(),
+            Index = e.NewStartingIndex
+        };
+        _operations.OnNext(insertOperation);
     }
 
     // A Reset, or a notification that does not describe the change, is recorded as the removal of every item
