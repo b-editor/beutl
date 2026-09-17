@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Reactive.Linq;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls.Presenters;
@@ -429,6 +430,102 @@ public class AiSubtitleTemplateTests
                     },
                     position: new Beutl.Graphics.Point(140, context.DefaultPosition.Y)),
             ];
+        }
+    }
+
+    // A registry can hold no template: before anything is registered, and once it has been disposed.
+    [AvaloniaTest]
+    public async Task ShownTool_OffersNoTemplateWhileNoneIsRegistered()
+    {
+        await TestReset.ResetShellAsync();
+        var clients = TestShell.MainViewModel._beutlClients;
+        await using var codecs = new CaptionCodecRegistry();
+        var templates = new CaptionTemplateRegistry();
+        await using var catalog = new CaptionCatalog(codecs, templates);
+        byte[] png;
+        using (var bitmap = new Beutl.Media.Bitmap(2, 2))
+        using (var stream = new MemoryStream())
+        {
+            Assert.That(bitmap.Save(stream, EncodedImageFormat.Png), Is.True);
+            png = stream.ToArray();
+        }
+        var viewModel = new AiSubtitleDialogViewModel(
+            clients.GetResource<IAiEntitlementService>(),
+            clients.GetResource<IAiOperationAvailabilityService>(),
+            clients.GetResource<IAiModelCatalogService>(),
+            new Beutl.Services.AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
+            clients.GetResource<IAiTranscriptionService>(),
+            clients.GetResource<IAiCaptionTranslationService>(),
+            catalog,
+            CaptionDraftStoreProvider.Current,
+            Observable.Return<CaptionDraftScope?>(null));
+        viewModel.TemplatePreviewRenderer = (_, _, _) => Task.FromResult<byte[]?>(png);
+        viewModel.SelectedSubtitlePageIndex.Value = 1;
+        viewModel.ResultSegments.Value =
+        [
+            new AiTranscriptionSegment { Start = 0, End = 2, Text = "Cue" },
+        ];
+        var view = new AiSubtitleView { DataContext = viewModel };
+        var window = new AvaloniaWindow { Content = view, Width = 460, Height = 640 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            AvaloniaComboBox picker = view.GetVisualDescendants()
+                .OfType<AvaloniaComboBox>()
+                .Single(comboBox => comboBox.Name == "CaptionTemplateComboBox");
+            AssertNoTemplate("before a template is registered");
+
+            CaptionTemplateRegistrationSet template = CreateTemplate(
+                new CaptionTemplateId("beutl.tests.only-template"),
+                new CaptionTemplateProviderId("beutl.tests"),
+                "Only template",
+                new PreviewCaptionFactory(),
+                DefaultCaptionPlacementPolicy.Instance);
+            templates.Register(template.DescriptorRegistration);
+            templates.Register(template.ElementFactoryRegistration);
+            templates.Register(template.PlacementPolicyRegistration);
+            HeadlessTestHelpers.Render();
+            CaptionTemplateDescriptor registered = viewModel.CaptionTemplates.Single();
+            for (int attempt = 0;
+                 attempt < 30 && viewModel.TemplatePreviewImage.Value is null;
+                 attempt++)
+            {
+                await Task.Delay(100);
+                HeadlessTestHelpers.Settle();
+            }
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.SelectedCaptionTemplate.Value, Is.EqualTo(registered));
+                Assert.That(picker.SelectedItem, Is.EqualTo(registered));
+                Assert.That(viewModel.CanAddToScene.Value, Is.True);
+                Assert.That(viewModel.TemplatePreviewImage.Value, Is.Not.Null);
+            }
+
+            ValueTask disposal = templates.DisposeAsync();
+            HeadlessTestHelpers.Render();
+            AssertNoTemplate("after the registry was disposed");
+            await disposal.AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+            void AssertNoTemplate(string step)
+            {
+                using (Assert.EnterMultipleScope())
+                {
+                    Assert.That(viewModel.CaptionTemplates, Is.Empty, step);
+                    Assert.That(viewModel.SelectedCaptionTemplate.Value, Is.Null, step);
+                    Assert.That(picker.SelectedItem, Is.Null, step);
+                    Assert.That(viewModel.CanAddToScene.Value, Is.False, step);
+                    Assert.That(viewModel.TemplatePreviewImage.Value, Is.Null, step);
+                }
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            await templates.DisposeAsync();
         }
     }
 

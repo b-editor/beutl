@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using Avalonia.Threading;
+using Beutl.Animation;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Audio;
@@ -38,6 +39,10 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     private readonly EditViewModel? _editViewModel;
     private readonly ICaptionCodecProvider _captionCodecs;
     private readonly ICaptionTemplateProvider _captionTemplates;
+    private readonly ICoreReadOnlyList<CaptionTemplateDescriptor> _registeredCaptionTemplates;
+    private readonly CoreList<CaptionTemplateDescriptor> _captionTemplateChoices;
+    private CaptionTemplateId? _chosenCaptionTemplateId;
+    private long _captionTemplateRevision;
     private readonly CaptionDocumentSerializer _captionSerializer;
     private readonly ICaptionDraftStore _captionDraftStore;
     private readonly IObservable<CaptionDraftScope?> _captionDraftScopes;
@@ -111,10 +116,21 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
             InvalidatePartialResultResume();
         }).DisposeWith(_disposables);
 
-        CaptionTemplates = captionCatalog.Templates.Templates;
-        SelectedCaptionTemplate = new ReactivePropertySlim<CaptionTemplateDescriptor>(CaptionTemplates[0])
+        // The picker gets its own copy of the registry's list, so this view model decides when the
+        // picker sees a swap; see OfferCaptionTemplates.
+        _registeredCaptionTemplates = captionCatalog.Templates.Templates;
+        _registeredCaptionTemplates.CollectionChanged += OnCaptionTemplatesChanged;
+        _captionTemplateChoices = new CoreList<CaptionTemplateDescriptor>(_registeredCaptionTemplates);
+        CaptionTemplates = _captionTemplateChoices;
+        SelectedCaptionTemplate = new ReactivePropertySlim<CaptionTemplateDescriptor?>(
+                ChooseCaptionTemplate(_captionTemplateChoices, preferredId: null))
             .DisposeWith(_disposables);
-        CaptionTemplates.CollectionChanged += OnCaptionTemplatesChanged;
+        // Kept apart from the selection, which is empty during a swap and while no template exists.
+        SelectedCaptionTemplate.Subscribe(template =>
+        {
+            if (template is not null)
+                _chosenCaptionTemplateId = template.Id;
+        }).DisposeWith(_disposables);
 
         IsTranscribing = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
@@ -164,6 +180,9 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         StopRequest.Subscribe(() => _requestCts?.Cancel()).DisposeWith(_disposables);
 
         CanAddToScene = HasValidCues
+            .CombineLatest(
+                SelectedCaptionTemplate,
+                (hasValidCues, template) => hasValidCues && template is not null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -186,9 +205,17 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 
     public ReactivePropertySlim<AudioSourceItem?> SelectedAudioSource { get; }
 
+    /// <summary>
+    /// The templates the picker offers: this tool's copy of the registry's list, updated on the
+    /// UI thread.
+    /// </summary>
     public ICoreReadOnlyList<CaptionTemplateDescriptor> CaptionTemplates { get; }
 
-    public ReactivePropertySlim<CaptionTemplateDescriptor> SelectedCaptionTemplate { get; }
+    /// <summary>
+    /// The template captions are added with. Null while no template is registered, and while the
+    /// template list is being swapped.
+    /// </summary>
+    public ReactivePropertySlim<CaptionTemplateDescriptor?> SelectedCaptionTemplate { get; }
 
     public ReactivePropertySlim<bool> IsTranscribing { get; }
 
@@ -265,7 +292,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                 _lifetimeCts.Cancel,
                 () =>
                 {
-                    CaptionTemplates.CollectionChanged -= OnCaptionTemplatesChanged;
+                    _registeredCaptionTemplates.CollectionChanged -= OnCaptionTemplatesChanged;
                     DisposeCaptionEditing();
                     AudioSources.Dispose();
                     SelectedAudioSource.Dispose();
@@ -557,6 +584,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         if (operation is null)
             return;
         if (_editViewModel == null
+            || SelectedCaptionTemplate.Value is not { } template
             || !TryBuildCaptionDocument(out CaptionDocument? document, out _)
             || document is null)
         {
@@ -570,7 +598,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                 _editViewModel.GetRequiredService<IElementAdder>(),
                 document,
                 _captionTemplates,
-                SelectedCaptionTemplate.Value.Id,
+                template.Id,
                 operation.CancellationToken);
 
             if (result.IsSuccess)
@@ -604,12 +632,58 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         if (_disposed)
             return;
 
-        CaptionTemplateDescriptor? selected = CaptionTemplates
-            .FirstOrDefault(template => template.Id == SelectedCaptionTemplate.Value.Id);
-        SelectedCaptionTemplate.Value = selected
-            ?? CaptionTemplates.FirstOrDefault(template => template.Id == CaptionTemplateIds.DefaultText)
-            ?? CaptionTemplates[0];
+        // The registry raises this while it holds its mutation lock, which a package load can take
+        // on a worker thread. The copy is taken here, and the revision lets the UI thread skip a
+        // copy that a later swap has superseded.
+        CaptionTemplateDescriptor[] templates = [.. _registeredCaptionTemplates];
+        long revision = Interlocked.Increment(ref _captionTemplateRevision);
+        if (Dispatcher.UIThread.CheckAccess())
+            OfferCaptionTemplates(templates, revision);
+        else
+            Dispatcher.UIThread.Post(() => OfferCaptionTemplates(templates, revision));
     }
+
+    private void OfferCaptionTemplates(CaptionTemplateDescriptor[] templates, long revision)
+    {
+        if (_disposed
+            || revision != Interlocked.Read(ref _captionTemplateRevision)
+            || _captionTemplateChoices.SequenceEqual(templates))
+        {
+            return;
+        }
+
+        // The picker keeps its selection as an index into this list, which a swap invalidates.
+        // Depending on how the swap is notified, the picker drops that index, not always saying
+        // so, or writes null back while it handles the swap. Clearing the selection first leaves
+        // it nothing to drop, and the remembered template is chosen once the picker is done, so
+        // the selection never changes while the picker is handling the swap.
+        try
+        {
+            SelectedCaptionTemplate.Value = null;
+            try
+            {
+                _captionTemplateChoices.Replace(templates);
+            }
+            finally
+            {
+                SelectedCaptionTemplate.Value =
+                    ChooseCaptionTemplate(_captionTemplateChoices, _chosenCaptionTemplateId);
+            }
+        }
+        catch (Exception ex)
+        {
+            // The registry ignores an exception from its notification, and one from a dispatcher
+            // job would reach the unhandled exception handler.
+            _logger.LogError(ex, "Failed to offer the updated caption templates.");
+        }
+    }
+
+    private static CaptionTemplateDescriptor? ChooseCaptionTemplate(
+        IEnumerable<CaptionTemplateDescriptor> templates,
+        CaptionTemplateId? preferredId)
+        => templates.FirstOrDefault(template => template.Id == preferredId)
+            ?? templates.FirstOrDefault(template => template.Id == CaptionTemplateIds.DefaultText)
+            ?? templates.FirstOrDefault();
 
     // This private adapter keeps the partial implementation cohesive while the public API exposes
     // transcription and translation as independent capabilities.

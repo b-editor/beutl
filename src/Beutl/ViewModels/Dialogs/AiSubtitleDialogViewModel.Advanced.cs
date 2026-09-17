@@ -3592,7 +3592,9 @@ public sealed partial class AiSubtitleDialogViewModel
         }
 
         CancelTemplatePreview(previous);
-        if (!operation.TryPublish(() => ReplaceTemplatePreviewImage(null)))
+        if (!operation.TryPublish(() => ReplaceTemplatePreviewImage(null))
+            // Nothing is selected while the template list is being swapped or is empty.
+            || SelectedCaptionTemplate.Value is not { } template)
         {
             lock (_templatePreviewGate)
             {
@@ -3603,7 +3605,7 @@ public sealed partial class AiSubtitleDialogViewModel
             cts.Dispose();
             return;
         }
-        CaptionTemplateId templateId = SelectedCaptionTemplate.Value.Id;
+        CaptionTemplateId templateId = template.Id;
         Beutl.Media.PixelSize frameSize = _editViewModel is { } editor
             ? new Beutl.Media.PixelSize(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height)
             : new Beutl.Media.PixelSize(1920, 1080);
