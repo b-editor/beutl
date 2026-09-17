@@ -8,7 +8,7 @@ public sealed record StorageDragEntry(string Id, string Name, bool IsFolder);
 // In-process only: native applications receive ordinary local file URLs, never account data.
 public sealed record StorageDragData(string ProviderId, object AccountIdentity,
     IReadOnlyList<StorageDragEntry> Entries, IReadOnlyList<string> LocalPaths,
-    Func<bool> IsCurrent, Func<string?, Task<bool>> MoveAsync)
+    Func<bool> IsCurrent, Func<string?, Task<bool>> MoveAsync, IFileBrowserStorageBrowser? SourceBrowser = null)
 {
     public static readonly DataFormat<StorageDragData> Format = DataFormat.CreateInProcessFormat<StorageDragData>("Beutl.StorageDrag");
 

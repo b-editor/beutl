@@ -31,6 +31,39 @@ public sealed class CloudStorageDragDropTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task StorageDropsRefreshTheSourceOnceAndRefreshADifferentTargetBrowser(bool differentBrowser)
+    {
+        await using var scope = new StorageScope();
+        await scope.LoadFirstAsync(Response());
+        var source = scope.ViewModel;
+        using var second = differentBrowser ? new Beutl.ViewModels.Tools.CloudStorageViewModel(scope.Clients, () => throw new InvalidOperationException()) : null;
+        var target = second ?? source;
+        if (second != null)
+        {
+            await WaitFor(() => scope.Handler.Requests.Count == 2);
+            scope.Handler.Requests[1].Complete(Response());
+            await WaitFor(() => !second.IsLoading.Value);
+        }
+        int before = scope.Handler.Requests.Count;
+        var context = source.CaptureActionContext([source.Items[1]])!;
+        using var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("beutl", context.User,
+            [new("file", "video.mp4", false)], [], () => source.IsActionCurrent(context), destination => source.MoveDroppedEntriesAsync(context, destination), source)));
+        var drop = target.DropAsync(data, "folder & 日本");
+        await WaitFor(() => scope.Handler.Requests.Count == before + 1);
+        scope.Handler.Requests[before].Complete("{\"affected\":1}");
+        await WaitFor(() => scope.Handler.Requests.Count == before + 2);
+        scope.Handler.Requests[before + 1].Complete(Response());
+        await WaitFor(() => drop.IsCompleted || scope.Handler.Requests.Count == before + 3);
+        if (scope.Handler.Requests.Count == before + 3) scope.Handler.Requests[before + 2].Complete(differentBrowser ? Response() : "{}", differentBrowser ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable);
+        await drop;
+        Assert.That(scope.Handler.Requests, Has.Count.EqualTo(before + (differentBrowser ? 3 : 2)));
+        Assert.That(target.Error.Value, Is.Null);
+    }
+
+    [AvaloniaTest]
     public async Task DroppingAFolderUploadsItsHierarchyIntoTheHoveredFolder()
     {
         await using var scope = new StorageScope();

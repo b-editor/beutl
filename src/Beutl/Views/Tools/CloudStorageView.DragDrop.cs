@@ -148,7 +148,7 @@ public sealed partial class CloudStorageView
             if (!_attached || !ReferenceEquals(_storageDrag, context) || !vm.IsActionCurrent(context)) return;
             data.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("beutl", context.User,
                 context.Items.Select(x => new StorageDragEntry(x.Id, x.Name, x.IsFolder)).ToArray(), paths,
-                () => vm.IsActionCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination))));
+                () => vm.IsActionCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination), vm)));
             _nativeDrag = true;
             trigger.Pointer.Capture(null);
             var effect = DragStarter != null ? await DragStarter(trigger, data) : await DragDrop.DoDragDropAsync(trigger, data, DragDropEffects.Copy);

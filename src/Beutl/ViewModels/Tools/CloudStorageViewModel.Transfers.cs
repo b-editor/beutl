@@ -37,7 +37,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
         if (!CanDrop(data, destination)) return;
         if (data.TryGetValue(StorageDragData.Format) is { } source)
         {
-            if (await source.MoveAsync(destination) && !_disposed) await LoadAsync();
+            if (await source.MoveAsync(destination) && !_disposed && !ReferenceEquals(source.SourceBrowser, this)) await LoadAsync();
         }
         else if (CaptureActionContext([]) is { } context)
         {
