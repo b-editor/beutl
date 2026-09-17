@@ -21,6 +21,7 @@ namespace Beutl.ViewModels.Tools;
 
 internal sealed record CloudStorageItem(string Id, string Name, bool IsFolder, string Details, Icon Icon = Icon.Document, StorageEntryResponse? Entry = null, string Location = "")
 {
+    public StorageItemActivity Activity { get; } = new();
     public string SizeText => CloudStorageViewModel.FormatBytes(Entry?.Size ?? 0);
     public string VisibilityText => CloudStorageViewModel.VisibilityLabel(Entry?.Visibility ?? "");
     public string CreatedText => Entry?.CreatedAt.ToLocalTime().ToString("g") ?? "";
@@ -412,8 +413,12 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         foreach (var item in path) _breadcrumbs.Add(item);
     }
 
-    internal Task OpenFolderAsync(CloudStorageItem? item) => item is { IsFolder: true }
-        && Items.Contains(item) ? NavigateAsync(item.Id) : Task.CompletedTask;
+    internal async Task OpenFolderAsync(CloudStorageItem? item)
+    {
+        if (item is not { IsFolder: true } || !Items.Contains(item)) return;
+        using var activity = item.Activity.Begin();
+        await NavigateAsync(item.Id);
+    }
 
     public Task NavigateToAsync(FileBrowserStorageBreadcrumb breadcrumb) => Breadcrumbs.Contains(breadcrumb)
         ? NavigateAsync(breadcrumb.FolderId) : Task.CompletedTask;
@@ -518,6 +523,8 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         UsagePercent.Dispose();
         Error.Dispose();
         IsBusy.Dispose();
+        ShowBackgroundProgress.Dispose();
+        HasItemProgress.Dispose();
         ActionError.Dispose();
         DetailsItem.Dispose();
         IsTransferring.Dispose();

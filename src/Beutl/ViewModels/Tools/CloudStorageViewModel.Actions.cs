@@ -14,6 +14,7 @@ internal sealed partial class CloudStorageViewModel
 {
     private CancellationTokenSource? _mutation;
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
+    public ReactivePropertySlim<bool> ShowBackgroundProgress { get; } = new();
     public ReactivePropertySlim<string?> ActionError { get; } = new();
     public ReactivePropertySlim<CloudStorageItem?> DetailsItem { get; } = new();
 
@@ -74,16 +75,18 @@ internal sealed partial class CloudStorageViewModel
                 await _clients.Storage.DeleteFolderTree(authorization, folder.Id, token));
         var ids = context.Items.Where(item => !item.IsFolder && item.Can("delete")).Select(x => x.Id).ToArray();
         if (ids.Length is 0 or > 200) return Task.FromResult(false);
-        return MutateAsync(context, async (authorization, token) =>
+        return MutateAsync(context with { Items = context.Items.Where(item => !item.IsFolder && item.Can("delete")).ToArray() }, async (authorization, token) =>
             await _clients.Storage.FileBatch(authorization, new { operation = "delete", ids }, token));
     }
 
     private async Task<bool> MutateAsync(StorageActionContext context, Func<string, CancellationToken, Task> send)
     {
         if (!IsActionCurrent(context)) return false;
+        using var progress = new StorageItemOperation(context.Items);
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         _mutation = operation;
         IsBusy.Value = true;
+        ShowBackgroundProgress.Value = !progress.HasItems;
         ActionError.Value = null;
         _load?.Cancel();
         _load = null;
@@ -111,7 +114,7 @@ internal sealed partial class CloudStorageViewModel
             if (ReferenceEquals(_mutation, operation))
             {
                 _mutation = null;
-                if (!_disposed) IsBusy.Value = false;
+                if (!_disposed) IsBusy.Value = ShowBackgroundProgress.Value = false;
             }
         }
         // Refresh even after an unsuccessful response: a connection can fail after the server
@@ -124,6 +127,7 @@ internal sealed partial class CloudStorageViewModel
     internal async Task<StorageFolderDetailsResponse?> GetFolderDetailsAsync(StorageActionContext context, string id)
     {
         if (!IsActionCurrent(context)) return null;
+        using var progress = new StorageItemOperation(context.Items);
         var result = await _clients.SendAuthenticatedAsync((authorization, token) => _clients.Storage.GetFolder(authorization, id, token), _lifetime.Token, context.User);
         return IsActionCurrent(context) ? result.Value : null;
     }
@@ -139,6 +143,7 @@ internal sealed partial class CloudStorageViewModel
     internal async Task<Uri?> GetContentUriAsync(StorageActionContext context, bool publicOnly = false)
     {
         if (!IsActionCurrent(context) || context.Items is not [var item] || item.IsFolder) return null;
+        using var progress = new StorageItemOperation(context.Items);
         var result = await _clients.SendAuthenticatedAsync((authorization, token) => _clients.Storage.GetFile(authorization, item.Id, token), _lifetime.Token, context.User);
         if (publicOnly && !result.Value.Actions.Contains("copyLink", StringComparer.Ordinal)) return null;
         return IsActionCurrent(context) && Uri.TryCreate(result.Value.ContentUrl, UriKind.Absolute, out var uri)
@@ -148,18 +153,19 @@ internal sealed partial class CloudStorageViewModel
     internal async Task<bool> DownloadAsync(StorageActionContext context, Stream destination, CancellationToken cancellationToken)
     {
         if (!IsActionCurrent(context) || context.Items is not [var item] || !item.Can("download")) return false;
-        using var operation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, cancellationToken);
-        await _clients.SendAuthenticatedAsync(async (authorization, token) =>
+        return await TransferAsync(context, async (token, progress) =>
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/storage/files/{Uri.EscapeDataString(item.Id)}/content");
-            request.Headers.Authorization = AuthenticationHeaderValue.Parse(authorization);
-            using var response = await _clients.HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
-            response.EnsureSuccessStatusCode();
-            await using var source = await response.Content.ReadAsStreamAsync(token);
-            await source.CopyToAsync(destination, token);
-            return true;
-        }, operation.Token, context.User);
-        return IsActionCurrent(context);
+            TransferText.Value = $"{Strings.CloudStorageDownloading}: {item.Name}";
+            await _clients.SendAuthenticatedAsync(async (authorization, ct) =>
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/storage/files/{Uri.EscapeDataString(item.Id)}/content");
+                request.Headers.Authorization = AuthenticationHeaderValue.Parse(authorization);
+                using var response = await _clients.HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+                response.EnsureSuccessStatusCode();
+                await CopyDownloadAsync(response.Content, destination, item.Entry?.Size, value => progress.Report(item, value), ct);
+                return true;
+            }, token, context.User);
+        }, refresh: false, cancellationToken);
     }
 
     internal void ReportActionError(Exception exception) => ActionError.Value = ActionErrorMessage(exception);
@@ -199,6 +205,7 @@ internal sealed partial class CloudStorageViewModel
         _mutation?.Cancel();
         _mutation = null;
         IsBusy.Value = false;
+        ShowBackgroundProgress.Value = HasItemProgress.Value = false;
         ActionError.Value = null;
         DetailsItem.Value = null;
     }

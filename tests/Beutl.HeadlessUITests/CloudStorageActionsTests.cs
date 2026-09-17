@@ -164,6 +164,9 @@ public sealed class CloudStorageActionsTests
         };
         await WaitFor(() => scope.Handler.Requests.Count == 2);
         var request = scope.Handler.Requests[1];
+        Assert.That(context.Items[0].Activity.IsActive.Value, Is.True);
+        Assert.That(context.Items[0].Activity.IsIndeterminate.Value, Is.True);
+        Assert.That(vm.Items.Except(context.Items).All(item => !item.Activity.IsActive.Value), Is.True);
         Assert.That(request.Method.Method, Is.EqualTo(method));
         Assert.That(request.Uri.AbsolutePath, Is.EqualTo(path));
         Assert.That(request.Authorization, Is.EqualTo("Bearer token-a"));
@@ -174,6 +177,7 @@ public sealed class CloudStorageActionsTests
         Assert.That(await operation, Is.True);
         Assert.That(vm.Items.Last().Id, Is.EqualTo("updated"));
         Assert.That(vm.IsBusy.Value, Is.False);
+        Assert.That(context.Items[0].Activity.IsActive.Value, Is.False);
     }
 
     [AvaloniaTest]
@@ -194,6 +198,8 @@ public sealed class CloudStorageActionsTests
         };
         await WaitFor(() => scope.Handler.Requests.Count == 2);
         var request = scope.Handler.Requests[1];
+        Assert.That(context.Items[0].Activity.IsActive.Value, Is.True);
+        Assert.That(context.Items[0].Activity.IsIndeterminate.Value, Is.True);
         Assert.That(request.Method.Method, Is.EqualTo(method));
         Assert.That(Uri.UnescapeDataString(request.Uri.AbsolutePath), Is.EqualTo("/api/v3/storage/folders/folder & 日本"));
         if (action == "delete") Assert.That(request.Uri.Query, Does.Contain("recursive=true"));
@@ -207,6 +213,7 @@ public sealed class CloudStorageActionsTests
         await WaitFor(() => scope.Handler.Requests.Count == 3);
         scope.Handler.Requests[2].Complete(Response(empty: true));
         Assert.That(await operation, Is.True);
+        Assert.That(context.Items[0].Activity.IsActive.Value, Is.False);
     }
 
     [AvaloniaTest]

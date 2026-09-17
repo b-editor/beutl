@@ -72,19 +72,23 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
             new { entries = context.Items.Select(x => new { id = x.Id, kind = x.IsFolder ? "folder" : "file" }).ToArray(), parentId = destination }, token));
     }
 
-    private async Task<bool> TransferAsync(StorageActionContext context, Func<CancellationToken, Task> run, bool refresh)
+    public ReactivePropertySlim<bool> HasItemProgress { get; } = new();
+
+    private async Task<bool> TransferAsync(StorageActionContext context, Func<CancellationToken, StorageItemOperation, Task> run, bool refresh, CancellationToken cancellationToken = default)
     {
         if (!IsActionCurrent(context)) return false;
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        using var progress = new StorageItemOperation(context.Items);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, cancellationToken);
         _transfer = cancellation;
         IsBusy.Value = IsTransferring.Value = true;
+        HasItemProgress.Value = progress.HasItems;
         ActionError.Value = null;
         TransferProgress.Value = 0;
         TransferIndeterminate.Value = false;
         bool success = false;
         try
         {
-            await run(cancellation.Token);
+            await run(cancellation.Token, progress);
             success = IsTransferCurrent(context) && !cancellation.IsCancellationRequested;
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
@@ -101,7 +105,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
             if (ReferenceEquals(_transfer, cancellation))
             {
                 _transfer = null;
-                if (!_disposed) IsBusy.Value = IsTransferring.Value = false;
+                if (!_disposed) IsBusy.Value = IsTransferring.Value = HasItemProgress.Value = false;
             }
         }
         if (refresh && IsTransferCurrent(context))
@@ -113,7 +117,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
     }
 
     internal Task<bool> UploadStorageItemsAsync(StorageActionContext context, IReadOnlyList<IStorageItem> items, string? destination)
-        => TransferAsync(context, async token =>
+        => TransferAsync(context with { Items = Items.Where(item => item.IsFolder && item.Id == destination).ToArray() }, async (token, _) =>
         {
             var visited = new HashSet<Uri>();
             var created = new UploadRollbackState();
@@ -314,16 +318,16 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
     {
         if (Directory.Exists(directory) || File.Exists(directory)) throw new IOException("The export staging directory already exists.");
         var paths = new List<string>();
-        bool success = await TransferAsync(context, async token =>
+        bool success = await TransferAsync(context, async (token, progress) =>
         {
             TransferIndeterminate.Value = true;
             if (OperatingSystem.IsWindows()) Directory.CreateDirectory(directory);
             else Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             var folders = new HashSet<string>(StringComparer.Ordinal);
             foreach (var item in context.Items)
-                paths.Add(await ExportItem(item.Id, item.Name, item.IsFolder, directory));
+                paths.Add(await ExportItem(item.Id, item.Name, item.IsFolder, directory, item));
 
-            async Task<string> ExportItem(string id, string name, bool folder, string parent)
+            async Task<string> ExportItem(string id, string name, bool folder, string parent, CloudStorageItem? visibleItem = null)
             {
                 token.ThrowIfCancellationRequested();
                 if (!IsTransferCurrent(context)) throw new OperationCanceledException(token);
@@ -360,8 +364,8 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
                         request.Headers.Authorization = AuthenticationHeaderValue.Parse(auth);
                         using var response = await _clients.HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
                         response.EnsureSuccessStatusCode();
-                        await using var source = await response.Content.ReadAsStreamAsync(ct);
-                        await source.CopyToAsync(output, ct);
+                        await CopyDownloadAsync(response.Content, output, visibleItem?.Entry?.Size,
+                            value => { if (visibleItem != null) progress.Report(visibleItem, value); }, ct);
                         return true;
                     }, token, context.User);
                 }
@@ -373,6 +377,36 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
         catch (IOException ex) { _logger.LogWarning(ex, "Could not remove an incomplete storage download."); }
         catch (UnauthorizedAccessException ex) { _logger.LogWarning(ex, "Could not remove an incomplete storage download."); }
         return null;
+    }
+
+    private static async Task CopyDownloadAsync(HttpContent content, Stream destination, long? expectedLength, Action<double?> report, CancellationToken token)
+    {
+        long? length = content.Headers.ContentLength ?? expectedLength;
+        double? previous = length > 0 ? 0 : null;
+        report(previous);
+        await using var source = await content.ReadAsStreamAsync(token);
+        byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(81920);
+        try
+        {
+            long copied = 0;
+            int read;
+            while ((read = await source.ReadAsync(buffer.AsMemory(), token)) != 0)
+            {
+                await destination.WriteAsync(buffer.AsMemory(0, read), token);
+                copied += read;
+                if (length is > 0)
+                {
+                    double value = Math.Min(100, 100.0 * copied / length.Value);
+                    if (value - previous.GetValueOrDefault() >= 0.5 || value == 100)
+                    {
+                        report(value);
+                        previous = value;
+                    }
+                }
+            }
+            report(100);
+        }
+        finally { System.Buffers.ArrayPool<byte>.Shared.Return(buffer); }
     }
 
     internal static string SafeTransferName(string name)

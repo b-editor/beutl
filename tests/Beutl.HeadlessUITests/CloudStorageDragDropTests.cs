@@ -86,6 +86,8 @@ public sealed class CloudStorageDragDropTests
             Assert.That(over.DragEffects, Is.EqualTo(DragDropEffects.Copy));
             view.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, data, view, point, KeyModifiers.None));
             await WaitFor(() => scope.Handler.Requests.Count == 2);
+            Assert.That(scope.ViewModel.Items[0].Activity.IsActive.Value, Is.True);
+            Assert.That(scope.ViewModel.Items[1].Activity.IsActive.Value, Is.False);
             using var creation = JsonDocument.Parse(await scope.Handler.Requests[1].ReadBodyAsync());
             Assert.That(creation.RootElement.GetProperty("parentId").GetString(), Is.EqualTo("folder & 日本"));
             scope.Handler.Requests[1].Complete("{\"id\":\"created-folder\"}", HttpStatusCode.Created);

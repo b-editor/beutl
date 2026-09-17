@@ -15,6 +15,12 @@ public sealed partial class FileBrowserItemView : UserControl
         AvaloniaProperty.Register<FileBrowserItemView, IImage?>(nameof(Thumbnail));
     public static readonly StyledProperty<bool> IsIconViewProperty =
         AvaloniaProperty.Register<FileBrowserItemView, bool>(nameof(IsIconView));
+    public static readonly StyledProperty<bool> IsProcessingProperty =
+        AvaloniaProperty.Register<FileBrowserItemView, bool>(nameof(IsProcessing));
+    public static readonly StyledProperty<bool> IsProgressIndeterminateProperty =
+        AvaloniaProperty.Register<FileBrowserItemView, bool>(nameof(IsProgressIndeterminate), true);
+    public static readonly StyledProperty<double> ProgressValueProperty =
+        AvaloniaProperty.Register<FileBrowserItemView, double>(nameof(ProgressValue));
 
     public FileBrowserItemView() => InitializeComponent();
 
@@ -22,4 +28,7 @@ public sealed partial class FileBrowserItemView : UserControl
     public Icon Icon { get => GetValue(IconProperty); set => SetValue(IconProperty, value); }
     public IImage? Thumbnail { get => GetValue(ThumbnailProperty); set => SetValue(ThumbnailProperty, value); }
     public bool IsIconView { get => GetValue(IsIconViewProperty); set => SetValue(IsIconViewProperty, value); }
+    public bool IsProcessing { get => GetValue(IsProcessingProperty); set => SetValue(IsProcessingProperty, value); }
+    public bool IsProgressIndeterminate { get => GetValue(IsProgressIndeterminateProperty); set => SetValue(IsProgressIndeterminateProperty, value); }
+    public double ProgressValue { get => GetValue(ProgressValueProperty); set => SetValue(ProgressValueProperty, value); }
 }

@@ -22,6 +22,7 @@ public sealed partial class CloudStorageView
 {
     private ContextMenu? _storageMenu;
     private FAContentDialog? _storageDialog;
+    private CancellationTokenSource? _downloadCancellation;
     internal ContextMenu? StorageMenu => _storageMenu;
     internal FAContentDialog? StorageDialog => _storageDialog;
     internal Func<string, string, bool, Task<string?>>? NamePrompt { get; set; }
@@ -31,6 +32,7 @@ public sealed partial class CloudStorageView
 
     private void CloseStorageInteractions()
     {
+        _downloadCancellation?.Cancel();
         _storageMenu?.Close();
         _storageMenu = null;
         _storageDialog?.Hide();
@@ -244,15 +246,8 @@ public sealed partial class CloudStorageView
         vm.ActionError.Value = null;
         string temporary = Path.Combine(Path.GetDirectoryName(local)!, $".beutl-download-{Guid.NewGuid():N}.tmp");
         using var cancellation = new CancellationTokenSource();
-        var dialog = new FAContentDialog
-        {
-            Title = Strings.CloudStorageDownloading,
-            CloseButtonText = Strings.Cancel,
-            Content = new StackPanel { Spacing = 12, Children = { new TextBlock { Text = item.Name, TextWrapping = TextWrapping.Wrap }, new ProgressBar { IsIndeterminate = true } } },
-        };
-        bool finished = false;
-        dialog.Closed += (_, _) => { if (!finished) cancellation.Cancel(); };
-        var shown = ShowStorageDialogAsync(dialog);
+        _downloadCancellation = cancellation;
+        using var activity = item.Activity.Begin();
         try
         {
             bool downloaded;
@@ -263,9 +258,7 @@ public sealed partial class CloudStorageView
         }
         finally
         {
-            finished = true;
-            dialog.Hide();
-            await shown;
+            if (ReferenceEquals(_downloadCancellation, cancellation)) _downloadCancellation = null;
             if (File.Exists(temporary)) File.Delete(temporary);
         }
     }

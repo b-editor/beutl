@@ -19,7 +19,10 @@
                     ToolTip.Tip="{Binding ToolTip}">
                 <files:FileBrowserItemView Icon="{Binding Icon}"
                                            IsIconView="True"
-                                           ItemName="{Binding Name}" />
+                                           IsProcessing="{Binding Activity.IsActive.Value}"
+                                           IsProgressIndeterminate="{Binding Activity.IsIndeterminate.Value}"
+                                           ItemName="{Binding Name}"
+                                           ProgressValue="{Binding Activity.Progress.Value}" />
             </Border>
         </DataTemplate>
         <DataTemplate x:Key="StorageListTemplate" x:DataType="vm:CloudStorageItem">
@@ -28,7 +31,11 @@
                     PointerEntered="OnItemPointerEntered"
                     PointerExited="OnItemPointerExited"
                     ToolTip.Tip="{Binding ToolTip}">
-                <files:FileBrowserItemView Icon="{Binding Icon}" ItemName="{Binding Name}" />
+                <files:FileBrowserItemView Icon="{Binding Icon}"
+                                           IsProcessing="{Binding Activity.IsActive.Value}"
+                                           IsProgressIndeterminate="{Binding Activity.IsIndeterminate.Value}"
+                                           ItemName="{Binding Name}"
+                                           ProgressValue="{Binding Activity.Progress.Value}" />
             </Border>
         </DataTemplate>
         <DataTemplate x:Key="LoadingIconTemplate" x:DataType="x:Int32">
@@ -184,7 +191,7 @@
                            TextWrapping="Wrap" />
                 <ProgressBar Height="2"
                              IsIndeterminate="True"
-                             IsVisible="{Binding IsBusy.Value}" />
+                             IsVisible="{Binding ShowBackgroundProgress.Value}" />
                 <Border Margin="8"
                         Padding="8"
                         BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
@@ -263,6 +270,7 @@
                             Spacing="4">
                     <TextBlock Text="{Binding TransferText.Value}" TextWrapping="Wrap" />
                     <ProgressBar IsIndeterminate="{Binding TransferIndeterminate.Value}"
+                                 IsVisible="{Binding !HasItemProgress.Value}"
                                  Maximum="100"
                                  Minimum="0"
                                  Value="{Binding TransferProgress.Value}" />

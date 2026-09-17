@@ -46,6 +46,7 @@ public sealed class CloudStorageDownloadTests
     [TestCase("success")]
     [TestCase("cancel")]
     [TestCase("failure")]
+    [TestCase("detach")]
     public async Task LocalDestinationIsReplacedOnlyAfterASuccessfulDownload(string outcome)
     {
         await using var scope = new StorageScope();
@@ -63,11 +64,17 @@ public sealed class CloudStorageDownloadTests
             window.Show();
             HeadlessTestHelpers.Render();
             var operation = view.ExecuteStorageActionAsync("download", scope.ViewModel.CaptureActionContext([scope.ViewModel.Items[1]])!);
-            await WaitFor(() => scope.Handler.Requests.Count == 2 && view.StorageDialog != null);
+            await WaitFor(() => scope.Handler.Requests.Count == 2 && scope.ViewModel.Items[1].Activity.IsActive.Value);
+            Assert.That(view.StorageDialog, Is.Null, "Download progress belongs on the file icon.");
             Assert.That(await File.ReadAllTextAsync(path), Is.EqualTo("existing content"));
             if (outcome == "cancel")
             {
-                view.StorageDialog!.Hide();
+                scope.ViewModel.CancelTransfer.Execute();
+                await WaitFor(() => scope.Handler.Requests[1].Token.IsCancellationRequested);
+            }
+            if (outcome == "detach")
+            {
+                window.Close();
                 await WaitFor(() => scope.Handler.Requests[1].Token.IsCancellationRequested);
             }
             if (outcome == "failure")
@@ -79,6 +86,7 @@ public sealed class CloudStorageDownloadTests
             }
             else scope.Handler.Requests[1].Complete("new content");
             await operation;
+            Assert.That(scope.ViewModel.Items[1].Activity.IsActive.Value, Is.False);
 
             Assert.That(await File.ReadAllTextAsync(path), Is.EqualTo(outcome == "success" ? "new content" : "existing content"));
             Assert.That(Directory.GetFiles(directory), Is.EqualTo(new[] { path }), "Temporary downloads must be cleaned up.");
