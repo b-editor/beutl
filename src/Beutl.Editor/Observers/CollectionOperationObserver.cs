@@ -50,8 +50,14 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
 
     public IObservable<ChangeOperation> Operations => _operations;
 
+    // A list can hold the same object more than once, and one publisher tracks every occurrence of it.
     private void InitializeChildPublishers(ICoreObject obj)
     {
+        if (_childPublishers.ContainsKey(obj))
+        {
+            return;
+        }
+
         var childPublisher = new CoreObjectOperationObserver(
             _operations,
             obj,
@@ -63,6 +69,12 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
 
     private void DisposeChildPublisher(ICoreObject obj)
     {
+        // Another occurrence of the object may still be in the list.
+        if (obj is T item && _snapshot.Contains(item))
+        {
+            return;
+        }
+
         if (_childPublishers.Remove(obj, out CoreObjectOperationObserver? childPublisher))
         {
             childPublisher.Dispose();
@@ -220,10 +232,7 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
 
         foreach (CoreObject item in _snapshot.OfType<CoreObject>())
         {
-            if (!_childPublishers.ContainsKey(item))
-            {
-                InitializeChildPublishers(item);
-            }
+            InitializeChildPublishers(item);
         }
     }
 

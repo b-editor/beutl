@@ -707,6 +707,60 @@ public class CollectionOperationObserverTests
     }
 
     [Test]
+    public void DuplicateItem_ShouldBeTrackedWhileTheListHoldsIt()
+    {
+        // Arrange
+        var owner = new TestOwnerCoreObject();
+        var item = new TestItemCoreObject();
+        var list = new CoreList<TestItemCoreObject> { item };
+        var receivedOperations = new List<ChangeOperation>();
+        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
+
+        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
+            testObserver, list, owner, "Items", _sequenceGenerator);
+
+        // Act & Assert - the same item twice in the list is tracked once
+        list.Add(item);
+        receivedOperations.Clear();
+        item.Title = "in the list twice";
+        Assert.That(receivedOperations, Has.Count.EqualTo(1));
+
+        // One occurrence removed: the item is still in the list
+        list.RemoveAt(1);
+        receivedOperations.Clear();
+        item.Title = "in the list once";
+        Assert.That(receivedOperations, Has.Count.EqualTo(1));
+
+        // The last occurrence removed
+        list.RemoveAt(0);
+        receivedOperations.Clear();
+        item.Title = "not in the list";
+        Assert.That(receivedOperations, Is.Empty);
+    }
+
+    [Test]
+    public void Reset_WithDuplicateItem_ShouldTrackItOnce()
+    {
+        // Arrange
+        var owner = new TestOwnerCoreObject();
+        var item = new TestItemCoreObject();
+        var list = new ManuallyNotifyingCollection<TestItemCoreObject>([]);
+        var receivedOperations = new List<ChangeOperation>();
+        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
+
+        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
+            testObserver, list, owner, "Items", _sequenceGenerator);
+
+        // Act
+        list.ResetTo([item, item]);
+        receivedOperations.Clear();
+        item.Title = "in the list twice";
+
+        // Assert
+        Assert.That(receivedOperations, Has.Count.EqualTo(1));
+    }
+
+    [Test]
     public void AddWithoutIndex_ShouldBeRecordedFromTheList()
     {
         // Arrange
