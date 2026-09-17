@@ -150,16 +150,118 @@ public class ProjectDiskDeletionTests
     {
         await TestReset.ResetShellAsync();
         (string projectFile, _) = await CreateClosedProjectAsync("kept", NewWorkspace("cancelled"));
-        var shown = new List<FAContentDialog>();
-
-        await CreateDeletion(shown, FAContentDialogResult.None).DeleteAsync(projectFile);
+        // The instance the start page uses.
+        ProjectDiskDeletion deletion = TestShell.MainViewModel.ProjectDiskDeletion;
+        Func<FAContentDialog, Task<FAContentDialogResult>> previousConfirm = deletion.ConfirmAsync;
+        int shown = 0;
+        deletion.ConfirmAsync = _ =>
+        {
+            shown++;
+            return Task.FromResult(FAContentDialogResult.None);
+        };
+        try
+        {
+            await deletion.DeleteAsync(projectFile);
+        }
+        finally
+        {
+            deletion.ConfirmAsync = previousConfirm;
+        }
 
         Assert.Multiple(() =>
         {
-            Assert.That(shown, Has.Count.EqualTo(1));
+            Assert.That(shown, Is.EqualTo(1));
             Assert.That(File.Exists(projectFile), Is.True);
             Assert.That(GlobalConfiguration.Instance.ViewConfig.RecentProjects, Does.Contain(projectFile));
         });
+    }
+
+    [AvaloniaTest]
+    public async Task Reports_a_failed_deletion_and_forgets_what_is_already_gone()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Keeping a folder from being removed takes an ACL change on Windows.");
+            return;
+        }
+
+        await TestReset.ResetShellAsync();
+        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        string workspace = NewWorkspace("undeletable");
+        (string projectFile, _) = await CreateClosedProjectAsync("stuck", workspace);
+        string folder = Path.GetDirectoryName(projectFile)!;
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+        NotificationService.Handler = notifications;
+        // What is inside the folder can go, but not the folder itself.
+        File.SetUnixFileMode(workspace, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            try
+            {
+                File.WriteAllText(Path.Combine(workspace, "probe"), string.Empty);
+                Assert.Ignore("This process can write to a folder it has no permission to write to.");
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            await CreateDeletion([]).DeleteAsync(projectFile);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.Exists(projectFile), Is.False);
+                Assert.That(Directory.Exists(folder), Is.True);
+                Assert.That(
+                    notifications.All.Where(notification => notification.Type == NotificationType.Error)
+                        .Select(notification => notification.Title),
+                    Does.Contain(Strings.DeleteFromDisk));
+                Assert.That(viewConfig.RecentProjects, Does.Not.Contain(projectFile));
+            });
+        }
+        finally
+        {
+            File.SetUnixFileMode(
+                workspace,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            NotificationService.Handler = previousHandler;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Keeps_the_folder_when_the_project_file_vanished_during_the_confirmation()
+    {
+        await TestReset.ResetShellAsync();
+        (string projectFile, string sceneFile) = await CreateClosedProjectAsync("vanished", NewWorkspace("vanished"));
+        var deletion = new ProjectDiskDeletion(TestShell.Project, TestShell.Editor)
+        {
+            ConfirmAsync = _ =>
+            {
+                File.Delete(projectFile);
+                return Task.FromResult(FAContentDialogResult.Primary);
+            },
+        };
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+        NotificationService.Handler = notifications;
+        try
+        {
+            await deletion.DeleteAsync(projectFile);
+
+            Assert.Multiple(() =>
+            {
+                // Without its project file the folder can no longer be shown to be the project's own.
+                Assert.That(File.Exists(sceneFile), Is.True);
+                Assert.That(
+                    notifications.All.Select(notification => notification.Message),
+                    Does.Contain(MessageStrings.FileDoesNotExist));
+                Assert.That(GlobalConfiguration.Instance.ViewConfig.RecentProjects, Does.Not.Contain(projectFile));
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousHandler;
+        }
     }
 
     [AvaloniaTest]
