@@ -41,8 +41,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     private readonly ICaptionTemplateProvider _captionTemplates;
     private readonly ICoreReadOnlyList<CaptionTemplateDescriptor> _registeredCaptionTemplates;
     private readonly CoreList<CaptionTemplateDescriptor> _captionTemplateChoices;
+    private CaptionTemplateDescriptor[]? _latestCaptionTemplates;
     private CaptionTemplateId? _chosenCaptionTemplateId;
-    private long _captionTemplateRevision;
     private readonly CaptionDocumentSerializer _captionSerializer;
     private readonly ICaptionDraftStore _captionDraftStore;
     private readonly IObservable<CaptionDraftScope?> _captionDraftScopes;
@@ -116,8 +116,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
             InvalidatePartialResultResume();
         }).DisposeWith(_disposables);
 
-        // The picker gets its own copy of the registry's list, so this view model decides when the
-        // picker sees a swap; see OfferCaptionTemplates.
+        // The picker gets its own copy of the registry's list, so this view model decides when and
+        // how the picker sees a swap; see OfferLatestCaptionTemplates.
         _registeredCaptionTemplates = captionCatalog.Templates.Templates;
         _registeredCaptionTemplates.CollectionChanged += OnCaptionTemplatesChanged;
         _captionTemplateChoices = new CoreList<CaptionTemplateDescriptor>(_registeredCaptionTemplates);
@@ -125,7 +125,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         SelectedCaptionTemplate = new ReactivePropertySlim<CaptionTemplateDescriptor?>(
                 ChooseCaptionTemplate(_captionTemplateChoices, preferredId: null))
             .DisposeWith(_disposables);
-        // Kept apart from the selection, which is empty during a swap and while no template exists.
+        // Kept apart from the selection, which is empty while no template exists and for a moment
+        // after the picker has dropped a removed template.
         SelectedCaptionTemplate.Subscribe(template =>
         {
             if (template is not null)
@@ -212,8 +213,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     public ICoreReadOnlyList<CaptionTemplateDescriptor> CaptionTemplates { get; }
 
     /// <summary>
-    /// The template captions are added with. Null while no template is registered, and while the
-    /// template list is being swapped.
+    /// The template captions are added with. Null while no template is registered, and for a moment
+    /// while a removed template is being replaced.
     /// </summary>
     public ReactivePropertySlim<CaptionTemplateDescriptor?> SelectedCaptionTemplate { get; }
 
@@ -583,8 +584,14 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
         if (operation is null)
             return;
+        // A swap on a worker thread may not have reached the picker yet, so the chosen template may
+        // already be gone. Catch up first, and add nothing if that changed the choice: the person
+        // then sees the template the picker falls back to before anything is added with it.
+        CaptionTemplateId? chosenId = SelectedCaptionTemplate.Value?.Id;
+        OfferLatestCaptionTemplates();
         if (_editViewModel == null
             || SelectedCaptionTemplate.Value is not { } template
+            || template.Id != chosenId
             || !TryBuildCaptionDocument(out CaptionDocument? document, out _)
             || document is null)
         {
@@ -633,39 +640,36 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
             return;
 
         // The registry raises this while it holds its mutation lock, which a package load can take
-        // on a worker thread. The copy is taken here, and the revision lets the UI thread skip a
-        // copy that a later swap has superseded.
+        // on a worker thread. So the list is copied here, and the UI thread always offers the
+        // latest copy: a job that runs late cannot bring back an older list.
         CaptionTemplateDescriptor[] templates = [.. _registeredCaptionTemplates];
-        long revision = Interlocked.Increment(ref _captionTemplateRevision);
+        Volatile.Write(ref _latestCaptionTemplates, templates);
         if (Dispatcher.UIThread.CheckAccess())
-            OfferCaptionTemplates(templates, revision);
+            OfferLatestCaptionTemplates();
         else
-            Dispatcher.UIThread.Post(() => OfferCaptionTemplates(templates, revision));
+            Dispatcher.UIThread.Post(OfferLatestCaptionTemplates);
     }
 
-    private void OfferCaptionTemplates(CaptionTemplateDescriptor[] templates, long revision)
+    // Runs on the UI thread.
+    private void OfferLatestCaptionTemplates()
     {
         if (_disposed
-            || revision != Interlocked.Read(ref _captionTemplateRevision)
+            || Volatile.Read(ref _latestCaptionTemplates) is not { } templates
             || _captionTemplateChoices.SequenceEqual(templates))
         {
             return;
         }
 
-        // The picker keeps its selection as an index into this list, which a swap invalidates.
-        // Depending on how the swap is notified, the picker drops that index, not always saying
-        // so, or writes null back while it handles the swap. Clearing the selection first leaves
-        // it nothing to drop, and the remembered template is chosen once the picker is done, so
-        // the selection never changes while the picker is handling the swap.
         try
         {
-            SelectedCaptionTemplate.Value = null;
             try
             {
-                _captionTemplateChoices.Replace(templates);
+                UpdateCaptionTemplateChoices(templates);
             }
             finally
             {
+                // The picker drops its selection when the chosen template is removed or moved, and
+                // without a picker the selection still holds a removed template.
                 SelectedCaptionTemplate.Value =
                     ChooseCaptionTemplate(_captionTemplateChoices, _chosenCaptionTemplateId);
             }
@@ -676,6 +680,37 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
             // job would reach the unhandled exception handler.
             _logger.LogError(ex, "Failed to offer the updated caption templates.");
         }
+    }
+
+    // The picker keeps its selection as an index into this list. Replacing the whole list would
+    // drop that index even for a template that stays, so the list is changed one template at a
+    // time: the picker then only shifts the index of a template that stays, and drops it only for
+    // a template that is removed or moved.
+    private void UpdateCaptionTemplateChoices(CaptionTemplateDescriptor[] templates)
+    {
+        for (int i = _captionTemplateChoices.Count - 1; i >= 0; i--)
+        {
+            if (!templates.Contains(_captionTemplateChoices[i]))
+                _captionTemplateChoices.RemoveAt(i);
+        }
+
+        // Every template left is also in templates, so the list only needs the new templates
+        // inserted and the ones whose position changed moved.
+        for (int i = 0; i < templates.Length; i++)
+        {
+            if (i < _captionTemplateChoices.Count && _captionTemplateChoices[i] == templates[i])
+                continue;
+
+            int current = _captionTemplateChoices.IndexOf(templates[i]);
+            if (current > i)
+                _captionTemplateChoices.Move(current, i);
+            else
+                _captionTemplateChoices.Insert(i, templates[i]);
+        }
+
+        // Only reached by duplicates, which the registry does not produce.
+        while (_captionTemplateChoices.Count > templates.Length)
+            _captionTemplateChoices.RemoveAt(_captionTemplateChoices.Count - 1);
     }
 
     private static CaptionTemplateDescriptor? ChooseCaptionTemplate(

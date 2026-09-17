@@ -39,6 +39,7 @@ public class AiSubtitleTemplateTests
     private const int SavedTemplatePackageId = -42_101;
     private const int CustomTemplatePackageId = -42_102;
     private const int PreviewTemplatePackageId = -42_103;
+    private const int RemovedTemplatePackageId = -42_104;
 
     private static string NewWorkspace(string name)
     {
@@ -958,6 +959,58 @@ public class AiSubtitleTemplateTests
             Assert.That(
                 elements.Select(element => element.Objects.OfType<TextBlock>().Single().Text.CurrentValue),
                 Is.EqualTo(new[] { "Hello", "Hello translation" }));
+        }
+    }
+
+    // A package can be unloaded on a worker thread. Until that reaches the UI thread, Add to scene is
+    // still enabled with the template the package took away.
+    [AvaloniaTest]
+    public async Task AddToScene_AddsNothingWithATemplateAWorkerThreadRemoved()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("ai-subtitle-removed-template");
+        CaptionTemplateRegistrationSet template = CreateTemplate(
+            new CaptionTemplateId("beutl.tests.removed"),
+            new CaptionTemplateProviderId("beutl.tests"),
+            "Removed",
+            new BilingualCaptionFactory(),
+            DefaultCaptionPlacementPolicy.Instance);
+        TestShell.Extensions.AddExtensions(
+            RemovedTemplatePackageId,
+            CreateTemplateExtensions(template));
+        try
+        {
+            using AiSubtitleDialogViewModel viewModel =
+                TestShell.MainViewModel.CreateAiSubtitleToolViewModel(editor);
+            viewModel.SelectedCaptionTemplate.Value = viewModel.CaptionTemplates
+                .Single(descriptor => descriptor.Id == template.DescriptorRegistration.Descriptor.Id);
+            viewModel.ResultSegments.Value =
+            [
+                new AiTranscriptionSegment { Start = 0, End = 2, Text = "Hello" },
+            ];
+            HeadlessTestHelpers.Settle();
+
+            // Waiting keeps the UI thread from running the removal's dispatcher job before the command.
+            Assert.That(
+                Task.Run(() => TestShell.Extensions.RemoveExtensions(RemovedTemplatePackageId))
+                    .Wait(TimeSpan.FromSeconds(10)),
+                Is.True);
+            Assert.That(viewModel.CanAddToScene.Value, Is.True);
+            await viewModel.AddToScene.ExecuteAsync();
+            HeadlessTestHelpers.Settle();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(editor.Scene.Children, Is.Empty);
+                Assert.That(viewModel.Error.Value, Is.Null);
+                Assert.That(
+                    viewModel.SelectedCaptionTemplate.Value?.Id,
+                    Is.EqualTo(CaptionTemplateIds.DefaultText));
+            }
+        }
+        finally
+        {
+            TestShell.Extensions.RemoveExtensions(RemovedTemplatePackageId);
         }
     }
 
