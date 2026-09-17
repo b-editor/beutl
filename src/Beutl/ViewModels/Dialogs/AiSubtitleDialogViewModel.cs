@@ -694,23 +694,20 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                 _captionTemplateChoices.RemoveAt(i);
         }
 
-        // Every template left is also in templates, so the list only needs the new templates
-        // inserted and the ones whose position changed moved.
+        // Every template left is also in templates, and the registry lists each one once, so the
+        // list only needs the new templates inserted and the ones whose position changed moved.
         for (int i = 0; i < templates.Length; i++)
         {
             if (i < _captionTemplateChoices.Count && _captionTemplateChoices[i] == templates[i])
                 continue;
 
+            // Never before i: the positions before it already hold the other templates.
             int current = _captionTemplateChoices.IndexOf(templates[i]);
             if (current > i)
                 _captionTemplateChoices.Move(current, i);
             else
                 _captionTemplateChoices.Insert(i, templates[i]);
         }
-
-        // Only reached by duplicates, which the registry does not produce.
-        while (_captionTemplateChoices.Count > templates.Length)
-            _captionTemplateChoices.RemoveAt(_captionTemplateChoices.Count - 1);
     }
 
     private static CaptionTemplateDescriptor? ChooseCaptionTemplate(
