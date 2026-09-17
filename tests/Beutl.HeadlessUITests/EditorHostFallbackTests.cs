@@ -2,14 +2,16 @@
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
+using Beutl.Collections;
+using Beutl.Configuration;
 using Beutl.Testing.Headless;
 using Beutl.Views;
 
 namespace Beutl.HeadlessUITests;
 
-// Guards the responsive width of EditorHostFallback's "recently used" panel. It must cap at its 600px
-// MaxWidth on wide windows but shrink below that on narrow / high-DPI ones, rather than holding a fixed
-// 600px width that clips. Asserts arranged layout bounds only (no pixel readback): frame capture of an
+// Guards EditorHostFallback's "recently used" panel. Its width must cap at its 600px MaxWidth on wide
+// windows but shrink below that on narrow / high-DPI ones, rather than holding a fixed 600px width that
+// clips. The width checks assert arranged layout bounds only (no pixel readback): frame capture of an
 // inflated shell view crashes the headless host on software Vulkan.
 [TestFixture]
 public class EditorHostFallbackTests
@@ -88,6 +90,62 @@ public class EditorHostFallbackTests
         }
         finally
         {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    // RecentFiles.Replace used to raise one Replace event whose old and new item counts differ, which the
+    // view's DynamicData pipeline cannot apply: replacing two items with none threw
+    // IndexOutOfRangeException, and other lengths threw or left the list out of sync.
+    [AvaloniaTest]
+    public void Recent_list_follows_whole_list_replacements()
+    {
+        CoreList<string> recentFiles = GlobalConfiguration.Instance.ViewConfig.RecentFiles;
+        string[] original = [.. recentFiles];
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-recent-files");
+        string a = Path.Combine(directory, "a.txt");
+        string b = Path.Combine(directory, "b.txt");
+        string c = Path.Combine(directory, "c.txt");
+        var view = new EditorHostFallback();
+        var window = new Window { Content = view, Width = 1200, Height = 800 };
+
+        try
+        {
+            window.Show();
+            ListBox recentList = view.GetVisualDescendants()
+                .OfType<ListBox>()
+                .First(x => x.Name == "recentList");
+            // Show files as well as projects.
+            view.GetVisualDescendants()
+                .OfType<ComboBox>()
+                .First(x => x.Name == "FilterComboBox")
+                .SelectedIndex = 0;
+
+            void AssertShows(params string[] expected)
+            {
+                HeadlessTestHelpers.Render();
+                Assert.That(
+                    recentList.Items.Cast<FileInfo>().Select(x => x.FullName),
+                    Is.EquivalentTo(expected));
+            }
+
+            recentFiles.Clear();
+            recentFiles.AddRange(new[] { a, b });
+            AssertShows(a, b);
+
+            recentFiles.Replace(Array.Empty<string>());
+            AssertShows();
+
+            recentFiles.Replace([a, b, c]);
+            AssertShows(a, b, c);
+
+            recentFiles.Replace([c]);
+            AssertShows(c);
+        }
+        finally
+        {
+            recentFiles.Replace(original);
             window.Close();
             HeadlessTestHelpers.Settle();
         }

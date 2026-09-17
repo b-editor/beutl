@@ -188,32 +188,48 @@ public class CoreList<T> : ICoreList<T>
         }
     }
 
+    // The swap is notified the way Clear is. A list with ResetBehavior.Reset raises one Reset once the new
+    // items are in place. A list with ResetBehavior.Remove, which lists whose observers need the individual
+    // items (such as history recording) use, raises a Remove of the old items and then an Add of the new ones.
+    // A single Replace is never raised, because its old and new item counts could differ: DynamicData's
+    // ToObservableChangeSet applies only NewItems[0] of a Replace (and throws when it is empty), and
+    // Avalonia's VirtualizingStackPanel does not shift the containers after the replaced range.
     public virtual void Replace(IList<T> source)
     {
-        Span<T> span = CollectionsMarshal.AsSpan(Inner);
-        T[] oldItems = Count > 0 ? span.ToArray() : [];
-        if (!oldItems.SequenceEqual(source))
+        ArgumentNullException.ThrowIfNull(source);
+
+        // Copied first so that handlers raised below cannot change what gets inserted.
+        T[] newItems = [.. source];
+        if (CollectionsMarshal.AsSpan(Inner).SequenceEqual(newItems))
         {
-            Inner.Clear();
-            foreach (T? item in oldItems)
+            return;
+        }
+
+        T[] oldItems = [.. Inner];
+        bool reset = ResetBehavior == ResetBehavior.Reset;
+        Inner.Clear();
+        try
+        {
+            foreach (T item in oldItems)
             {
                 Detached?.Invoke(item);
             }
 
-            Inner.AddRange(source);
-            span = CollectionsMarshal.AsSpan(Inner);
-
-            foreach (T? item in span)
+            if (!reset && oldItems.Length > 0)
             {
-                Attached?.Invoke(item);
+                PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
+                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
+                    NotifyCollectionChangedAction.Remove,
+                    oldItems,
+                    0));
+                NotifyCountChanged();
             }
-
-            PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-                NotifyCollectionChangedAction.Replace,
-                (IList)source,
-                oldItems,
-                0));
+        }
+        finally
+        {
+            // Runs even if a handler above throws, so the list still ends up holding the new items and
+            // subscribers hear about them, as when the items were swapped before anything was raised.
+            InsertReplacement(newItems, reset);
         }
     }
 
@@ -681,6 +697,33 @@ public class CoreList<T> : ICoreList<T>
         }
 
         NotifyCountChanged();
+    }
+
+    private void InsertReplacement(T[] items, bool reset)
+    {
+        // Inserted at 0 rather than appended so the list matches the Add notification
+        // even if a handler has added items in the meantime.
+        Inner.InsertRange(0, items);
+        foreach (T item in items)
+        {
+            Attached?.Invoke(item);
+        }
+
+        if (reset)
+        {
+            PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
+            CollectionChanged?.Invoke(this, s_resetCollectionChanged);
+            NotifyCountChanged();
+        }
+        else if (items.Length > 0)
+        {
+            PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Add,
+                items,
+                0));
+            NotifyCountChanged();
+        }
     }
 
     public struct Enumerator(List<T> inner) : IEnumerator<T>
