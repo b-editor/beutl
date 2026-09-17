@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Buffers;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Reactive;
 using Beutl.Collections;
@@ -637,7 +638,76 @@ public class CollectionOperationObserverTests
     }
 
     [Test]
-    public void Reset_AfterAddWithoutIndex_ShouldPublishCurrentItems()
+    public void AddRangeOfSpan_ShouldTrackOnlyTheItemsInTheList([Values] bool suppressed)
+    {
+        // Arrange
+        var owner = new TestOwnerCoreObject();
+        var existing = new TestItemCoreObject();
+        var added = new TestItemCoreObject();
+        var stale = new TestItemCoreObject();
+        var list = new CoreList<TestItemCoreObject> { existing };
+        var receivedOperations = new List<ChangeOperation>();
+        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
+
+        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
+            testObserver, list, owner, "Items", _sequenceGenerator);
+
+        // AddRange(ReadOnlySpan<T>) notifies the array it rents from the shared pool, which is longer than the
+        // items it adds. The array returned last on this thread is rented next, so the notification also lists
+        // a stale item and an item that is already in the list.
+        TestItemCoreObject[] pooled = ArrayPool<TestItemCoreObject>.Shared.Rent(1);
+        Array.Clear(pooled);
+        pooled[1] = stale;
+        pooled[2] = existing;
+        ArrayPool<TestItemCoreObject>.Shared.Return(pooled);
+        ReadOnlySpan<TestItemCoreObject> addedItems = [added];
+
+        // Act
+        using (suppressed ? PublishingSuppression.Enter() : null)
+        {
+            list.AddRange(addedItems);
+        }
+
+        receivedOperations.Clear();
+        stale.Title = "stale";
+        existing.Title = "existing";
+        added.Title = "added";
+
+        // Assert - each item in the list is tracked once, and the stale item is not tracked
+        Assert.That(
+            receivedOperations.Cast<UpdatePropertyValueOperation<string>>().Select(op => op.Object),
+            Is.EqualTo(new[] { existing, added }));
+    }
+
+    [Test]
+    public void AddRangeOfSpan_UndoRedo_RestoresTheList()
+    {
+        // Arrange
+        var owner = new TestOwnerCoreObject();
+        var existing = new TestItemCoreObject { Title = "existing" };
+        var added = new TestItemCoreObject { Title = "added" };
+        owner.Items.Add(existing);
+
+        using var history = new HistoryManager(owner, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(null, owner, _sequenceGenerator);
+        using IDisposable subscription = history.Subscribe(operationObserver);
+
+        // Act & Assert - the notification lists more items than were added, so the change is recorded
+        // from the list instead
+        ReadOnlySpan<TestItemCoreObject> addedItems = [added];
+        owner.Items.AddRange(addedItems);
+        history.Commit("add range");
+        Assert.That(owner.Items, Is.EqualTo(new[] { existing, added }));
+
+        Assert.That(history.Undo(), Is.True);
+        Assert.That(owner.Items, Is.EqualTo(new[] { existing }));
+
+        Assert.That(history.Redo(), Is.True);
+        Assert.That(owner.Items, Is.EqualTo(new[] { existing, added }));
+    }
+
+    [Test]
+    public void AddWithoutIndex_ShouldBeRecordedFromTheList()
     {
         // Arrange
         var owner = new TestOwnerCoreObject();
@@ -649,16 +719,21 @@ public class CollectionOperationObserverTests
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
+
+        // Act - the notification does not say where the item went
         list.AddWithoutIndex(added);
-        receivedOperations.Clear();
 
-        // Act
-        list.ResetTo([]);
-
-        // Assert
-        Assert.That(receivedOperations, Has.Count.EqualTo(1));
-        var operation = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
-        Assert.That(operation.Items, Is.EqualTo(new[] { added, existing }));
+        // Assert - recorded as the change of the whole list
+        Assert.That(receivedOperations, Has.Count.EqualTo(2));
+        var remove = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
+        var insert = (InsertCollectionRangeOperation<TestItemCoreObject>)receivedOperations[1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(remove.Index, Is.Zero);
+            Assert.That(remove.Items, Is.EqualTo(new[] { existing }));
+            Assert.That(insert.Index, Is.Zero);
+            Assert.That(insert.Items, Is.EqualTo(new[] { added, existing }));
+        });
     }
 
     [Test]

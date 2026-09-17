@@ -10,8 +10,8 @@ namespace Beutl.Editor.Observers;
 public sealed class CollectionOperationObserver<T> : IOperationObserver
 {
     private readonly IList<T> _list;
-    // The list's items as of the last notification. A Reset notification carries no items,
-    // so this is the only record of what a Reset removed.
+    // The list's items as of the last notification. A Reset carries no items, and another notification may not
+    // describe the change exactly, so this is the only reliable record of what the list held before it.
     private readonly List<T> _snapshot = [];
     private readonly CoreObject _owner;
     private readonly string _propertyPath;
@@ -88,13 +88,26 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        T[] resetItems = e.Action == NotifyCollectionChangedAction.Reset ? _snapshot.ToArray() : [];
+        // A Reset carries no items, and a notification that does not describe the change cannot be applied
+        // item by item: CoreList.AddRange(ReadOnlySpan<T>) notifies its pooled array, which is longer than the
+        // items it added and can hold stale ones. Both are handled by comparing the snapshot with the list.
+        bool describesChange = DescribesChange(e);
+        T[] oldItems = describesChange ? [] : _snapshot.ToArray();
 
         // The snapshot and the child publishers follow every change, including one made while publishing
         // is suppressed (KeyFrameAnimation re-sorts its key frames that way). Otherwise a later Reset would
         // report stale items, and re-adding an item whose publisher was kept would throw.
-        UpdateSnapshot(e);
-        UpdateChildPublishers(e);
+        if (describesChange)
+        {
+            ApplyToSnapshot(e);
+            ApplyToChildPublishers(e);
+        }
+        else
+        {
+            _snapshot.Clear();
+            _snapshot.AddRange(_list);
+            MatchChildPublishersToSnapshot();
+        }
 
         // Suppress publishing during remote operation application to prevent echo-back
         if (PublishingSuppression.IsSuppressed)
@@ -102,7 +115,7 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
             return;
         }
 
-        switch (e.Action)
+        switch (describesChange ? e.Action : NotifyCollectionChangedAction.Reset)
         {
             case NotifyCollectionChangedAction.Add:
                 EnqueueAdds(e);
@@ -117,90 +130,100 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
                 EnqueueReplace(e);
                 break;
             case NotifyCollectionChangedAction.Reset:
-                EnqueueReset(resetItems);
+                EnqueueReset(oldItems);
                 break;
         }
     }
 
-    private void UpdateSnapshot(NotifyCollectionChangedEventArgs e)
+    // Whether the notification can be applied to the snapshot item by item:
+    // its indexes fit, and the result is as long as the list.
+    private bool DescribesChange(NotifyCollectionChangedEventArgs e)
     {
-        bool updated = e.Action switch
+        int count = _snapshot.Count;
+        int oldCount = e.OldItems?.Count ?? 0;
+        int newCount = e.NewItems?.Count ?? 0;
+        return e.Action switch
         {
-            NotifyCollectionChangedAction.Add => TryInsertIntoSnapshot(e.NewStartingIndex, e.NewItems),
-            NotifyCollectionChangedAction.Remove => TryRemoveFromSnapshot(e.OldStartingIndex, e.OldItems),
-            NotifyCollectionChangedAction.Move or NotifyCollectionChangedAction.Replace =>
-                TryRemoveFromSnapshot(e.OldStartingIndex, e.OldItems)
-                && TryInsertIntoSnapshot(e.NewStartingIndex, e.NewItems),
+            NotifyCollectionChangedAction.Add =>
+                e.NewItems != null
+                && IsInRange(e.NewStartingIndex, count)
+                && count + newCount == _list.Count,
+            NotifyCollectionChangedAction.Remove =>
+                e.OldItems != null
+                && IsInRange(e.OldStartingIndex, count - oldCount)
+                && count - oldCount == _list.Count,
+            NotifyCollectionChangedAction.Replace =>
+                e.OldItems != null
+                && e.NewItems != null
+                && IsInRange(e.OldStartingIndex, count - oldCount)
+                && IsInRange(e.NewStartingIndex, count - oldCount)
+                && count - oldCount + newCount == _list.Count,
+            NotifyCollectionChangedAction.Move =>
+                e.OldItems != null
+                && IsInRange(e.OldStartingIndex, count - oldCount)
+                && IsInRange(e.NewStartingIndex, count - oldCount)
+                && count == _list.Count,
             _ => false
         };
 
-        // Copy the list after a Reset, and after a notification that does not match the change.
-        // For example, CoreList.AddRange(ReadOnlySpan<T>) reports its pooled array,
-        // which can be longer than the items it added.
-        if (!updated || _snapshot.Count != _list.Count)
-        {
-            _snapshot.Clear();
-            _snapshot.AddRange(_list);
-        }
+        static bool IsInRange(int index, int max) => index >= 0 && index <= max;
     }
 
-    private bool TryInsertIntoSnapshot(int index, IList? items)
-    {
-        if (items == null || index < 0 || index > _snapshot.Count)
-        {
-            return false;
-        }
-
-        _snapshot.InsertRange(index, items.Cast<T>());
-        return true;
-    }
-
-    private bool TryRemoveFromSnapshot(int index, IList? items)
-    {
-        if (items == null || index < 0 || index > _snapshot.Count - items.Count)
-        {
-            return false;
-        }
-
-        _snapshot.RemoveRange(index, items.Count);
-        return true;
-    }
-
-    private void UpdateChildPublishers(NotifyCollectionChangedEventArgs e)
+    private void ApplyToSnapshot(NotifyCollectionChangedEventArgs e)
     {
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:
+                _snapshot.InsertRange(e.NewStartingIndex, e.NewItems!.Cast<T>());
+                break;
             case NotifyCollectionChangedAction.Remove:
+                _snapshot.RemoveRange(e.OldStartingIndex, e.OldItems!.Count);
+                break;
             case NotifyCollectionChangedAction.Replace:
-                foreach (CoreObject oldItem in e.OldItems?.OfType<CoreObject>() ?? [])
-                {
-                    DisposeChildPublisher(oldItem);
-                }
-
-                foreach (CoreObject newItem in e.NewItems?.OfType<CoreObject>() ?? [])
-                {
-                    InitializeChildPublishers(newItem);
-                }
-
+                _snapshot.RemoveRange(e.OldStartingIndex, e.OldItems!.Count);
+                _snapshot.InsertRange(e.NewStartingIndex, e.NewItems!.Cast<T>());
                 break;
-            case NotifyCollectionChangedAction.Reset:
-                // Match the publishers to the list again, keeping those of the items that are still in it.
-                var items = new HashSet<ICoreObject>(_snapshot.OfType<CoreObject>());
-                foreach (ICoreObject staleItem in _childPublishers.Keys.Where(key => !items.Contains(key)).ToArray())
-                {
-                    DisposeChildPublisher(staleItem);
-                }
-
-                foreach (CoreObject item in _snapshot.OfType<CoreObject>())
-                {
-                    if (!_childPublishers.ContainsKey(item))
-                    {
-                        InitializeChildPublishers(item);
-                    }
-                }
-
+            case NotifyCollectionChangedAction.Move:
+                List<T> movedItems = _snapshot.GetRange(e.OldStartingIndex, e.OldItems!.Count);
+                _snapshot.RemoveRange(e.OldStartingIndex, movedItems.Count);
+                _snapshot.InsertRange(e.NewStartingIndex, movedItems);
                 break;
+        }
+    }
+
+    private void ApplyToChildPublishers(NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Move)
+        {
+            return;
+        }
+
+        foreach (CoreObject oldItem in e.OldItems?.OfType<CoreObject>() ?? [])
+        {
+            DisposeChildPublisher(oldItem);
+        }
+
+        foreach (CoreObject newItem in e.NewItems?.OfType<CoreObject>() ?? [])
+        {
+            InitializeChildPublishers(newItem);
+        }
+    }
+
+    // Keeps the publishers of the items that are still in the list.
+    private void MatchChildPublishersToSnapshot()
+    {
+        var items = new HashSet<ICoreObject>(_snapshot.OfType<CoreObject>());
+        foreach (ICoreObject staleItem in _childPublishers.Keys.Where(key => !items.Contains(key)).ToArray())
+        {
+            DisposeChildPublisher(staleItem);
+        }
+
+        foreach (CoreObject item in _snapshot.OfType<CoreObject>())
+        {
+            if (!_childPublishers.ContainsKey(item))
+            {
+                InitializeChildPublishers(item);
+            }
         }
     }
 
@@ -290,8 +313,9 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
         }
     }
 
-    // A Reset is recorded as the removal of every item the list held, followed by the insertion of every item
-    // it holds now. For Clear and Replace, these are the operations a list with ResetBehavior.Remove records.
+    // A Reset, or a notification that does not describe the change, is recorded as the removal of every item
+    // the list held, followed by the insertion of every item it holds now. For Clear and Replace, these are
+    // the operations a list with ResetBehavior.Remove records.
     private void EnqueueReset(T[] oldItems)
     {
         T[] newItems = [.. _snapshot];
