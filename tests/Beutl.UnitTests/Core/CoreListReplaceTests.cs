@@ -39,6 +39,31 @@ public class CoreListReplaceTests
         return changes;
     }
 
+    // Follows the list the way a typical subscriber does, applying each notification in turn.
+    private static List<string> Mirror(CoreList<string> list)
+    {
+        var mirror = new List<string>(list);
+        list.CollectionChanged += (_, e) =>
+        {
+            switch (e.Action)
+            {
+                case NotifyCollectionChangedAction.Add:
+                    mirror.InsertRange(e.NewStartingIndex, e.NewItems!.Cast<string>());
+                    break;
+                case NotifyCollectionChangedAction.Remove:
+                    mirror.RemoveRange(e.OldStartingIndex, e.OldItems!.Count);
+                    break;
+                case NotifyCollectionChangedAction.Reset:
+                    mirror.Clear();
+                    mirror.AddRange(list);
+                    break;
+                default:
+                    throw new AssertionException($"Unexpected {e.Action} notification.");
+            }
+        };
+        return mirror;
+    }
+
     [Test]
     public void Replace_OnResetList_RaisesOneResetAfterSwapping()
     {
@@ -201,29 +226,55 @@ public class CoreListReplaceTests
         Assert.That(list, Is.EqualTo(new[] { "x", "y" }));
     }
 
-    [Test]
-    public void Replace_OnRemoveList_WhenRemoveHandlerThrows_StillAddsTheNewItems()
+    public enum FailingHandler
     {
-        CoreList<string> list = CreateList(ResetBehavior.Remove, "a", "b");
-        var attached = new List<string>();
-        var added = new List<string>();
-        list.Attached += attached.Add;
-        list.CollectionChanged += (_, e) =>
+        Detached,
+        Attached,
+        PropertyChanged,
+        CollectionChanged,
+    }
+
+    // The failing handler is subscribed first, so every other handler runs after it.
+    [Test]
+    public void Replace_WhenAHandlerThrows_StillNotifiesEveryOtherHandler(
+        [Values] ResetBehavior behavior, [Values] FailingHandler failing)
+    {
+        CoreList<string> list = CreateList(behavior, "a", "b");
+        var failure = new InvalidOperationException("Handler failed.");
+        switch (failing)
         {
-            if (e.Action == NotifyCollectionChangedAction.Remove)
-            {
-                throw new InvalidOperationException("Remove handler failed.");
-            }
+            case FailingHandler.Detached:
+                list.Detached += _ => throw failure;
+                break;
+            case FailingHandler.Attached:
+                list.Attached += _ => throw failure;
+                break;
+            case FailingHandler.PropertyChanged:
+                list.PropertyChanged += (_, _) => throw failure;
+                break;
+            case FailingHandler.CollectionChanged:
+                list.CollectionChanged += (_, _) => throw failure;
+                break;
+        }
 
-            added.AddRange(e.NewItems!.Cast<string>());
-        };
+        var detached = new List<string>();
+        var attached = new List<string>();
+        var properties = new List<string?>();
+        list.Detached += detached.Add;
+        list.Attached += attached.Add;
+        list.PropertyChanged += (_, e) => properties.Add(e.PropertyName);
+        List<string> mirror = Mirror(list);
 
-        Assert.Throws<InvalidOperationException>(() => list.Replace(["x", "y"]));
+        var exception = Assert.Throws<InvalidOperationException>(() => list.Replace(["x", "y", "z"]));
+
         Assert.Multiple(() =>
         {
-            Assert.That(list, Is.EqualTo(new[] { "x", "y" }));
-            Assert.That(attached, Is.EqualTo(new[] { "x", "y" }));
-            Assert.That(added, Is.EqualTo(new[] { "x", "y" }));
+            Assert.That(exception, Is.SameAs(failure));
+            Assert.That(list, Is.EqualTo(new[] { "x", "y", "z" }));
+            Assert.That(detached, Is.EqualTo(new[] { "a", "b" }));
+            Assert.That(attached, Is.EqualTo(new[] { "x", "y", "z" }));
+            Assert.That(properties, Does.Contain(nameof(CoreList<string>.Count)));
+            Assert.That(mirror, Is.EqualTo(list));
         });
     }
 

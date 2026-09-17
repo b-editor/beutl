@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 
 namespace Beutl.Collections;
@@ -207,30 +208,36 @@ public class CoreList<T> : ICoreList<T>
 
         T[] oldItems = [.. Inner];
         bool reset = ResetBehavior == ResetBehavior.Reset;
-        Inner.Clear();
-        try
-        {
-            foreach (T item in oldItems)
-            {
-                Detached?.Invoke(item);
-            }
+        // Each handler is called on its own and the first failure is rethrown once the swap is done.
+        // A throwing handler must neither leave the list empty nor hide a notification from the handlers
+        // after it: one that saw the Add without the Remove would keep the old items next to the new ones.
+        ExceptionDispatchInfo? failure = null;
 
-            if (!reset && oldItems.Length > 0)
-            {
-                PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
-                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-                    NotifyCollectionChangedAction.Remove,
-                    oldItems,
-                    0));
-                NotifyCountChanged();
-            }
-        }
-        finally
+        Inner.Clear();
+        InvokeEach(attached: false, oldItems, ref failure);
+        if (!reset && oldItems.Length > 0)
         {
-            // Runs even if a handler above throws, so the list still ends up holding the new items and
-            // subscribers hear about them, as when the items were swapped before anything was raised.
-            InsertReplacement(newItems, reset);
+            RaiseEach(
+                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, oldItems, 0),
+                ref failure);
         }
+
+        // Inserted at 0 rather than appended so the list matches the Add notification
+        // even if a handler has added items in the meantime.
+        Inner.InsertRange(0, newItems);
+        InvokeEach(attached: true, newItems, ref failure);
+        if (reset)
+        {
+            RaiseEach(s_resetCollectionChanged, ref failure);
+        }
+        else if (newItems.Length > 0)
+        {
+            RaiseEach(
+                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, newItems, 0),
+                ref failure);
+        }
+
+        failure?.Throw();
     }
 
     public bool Contains(T item)
@@ -699,30 +706,55 @@ public class CoreList<T> : ICoreList<T>
         NotifyCountChanged();
     }
 
-    private void InsertReplacement(T[] items, bool reset)
+    // The helpers below call every handler even if one throws, keeping the first failure for Replace.
+    private void InvokeEach(bool attached, T[] items, ref ExceptionDispatchInfo? failure)
     {
-        // Inserted at 0 rather than appended so the list matches the Add notification
-        // even if a handler has added items in the meantime.
-        Inner.InsertRange(0, items);
         foreach (T item in items)
         {
-            Attached?.Invoke(item);
+            foreach (Action<T> handler in Delegate.EnumerateInvocationList(attached ? Attached : Detached))
+            {
+                try
+                {
+                    handler(item);
+                }
+                catch (Exception ex)
+                {
+                    failure ??= ExceptionDispatchInfo.Capture(ex);
+                }
+            }
+        }
+    }
+
+    private void RaiseEach(NotifyCollectionChangedEventArgs e, ref ExceptionDispatchInfo? failure)
+    {
+        RaiseEach(s_indexerPropertyChanged, ref failure);
+        foreach (NotifyCollectionChangedEventHandler handler in Delegate.EnumerateInvocationList(CollectionChanged))
+        {
+            try
+            {
+                handler(this, e);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ExceptionDispatchInfo.Capture(ex);
+            }
         }
 
-        if (reset)
+        RaiseEach(s_countPropertyChanged, ref failure);
+    }
+
+    private void RaiseEach(PropertyChangedEventArgs e, ref ExceptionDispatchInfo? failure)
+    {
+        foreach (PropertyChangedEventHandler handler in Delegate.EnumerateInvocationList(PropertyChanged))
         {
-            PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
-            CollectionChanged?.Invoke(this, s_resetCollectionChanged);
-            NotifyCountChanged();
-        }
-        else if (items.Length > 0)
-        {
-            PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-                NotifyCollectionChangedAction.Add,
-                items,
-                0));
-            NotifyCountChanged();
+            try
+            {
+                handler(this, e);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ExceptionDispatchInfo.Capture(ex);
+            }
         }
     }
 
