@@ -1821,6 +1821,86 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task InitializeCurrentProject_hides_its_progress_when_the_editors_cannot_be_suspended()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-initialize-progress-suspension-failure");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(
+                repository: null,
+                discoveredRepository: null,
+                tip);
+            var commands = new PassiveSaveCommands();
+            var context = new PassiveEditorContext(project, commands);
+            var editorService = new EditorService(new ExtensionProvider());
+            editorService.TabItems.Add(new EditorTabItem(context));
+            using var presentation = new EditorPresentationRecorder(editorService, context);
+            // An editor that cannot be disabled makes the suspension itself fail.
+            using IDisposable refusal = context.IsEnabled.Subscribe(enabled =>
+            {
+                if (!enabled)
+                {
+                    throw new InvalidOperationException("The editor cannot be disabled.");
+                }
+            });
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            AggregateException? failure = null;
+            try
+            {
+                await coordinator.InitializeCurrentProjectAsync(
+                    project,
+                    _ => Task.FromResult<GitIdentity?>(null));
+            }
+            catch (AggregateException ex)
+            {
+                failure = ex;
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    failure?.InnerExceptions.Select(ex => ex.Message),
+                    Is.EqualTo(new[] { "The editor cannot be disabled." }));
+                Assert.That(commands.SaveCalls, Is.Zero);
+                Assert.That(backend.InitializeCalls, Is.Zero);
+                Assert.That(context.IsEnabled.Value, Is.True);
+                // The progress view does not outlive the failed suspension, or it would cover the editor for good.
+                Assert.That(
+                    presentation.Activities,
+                    Is.EqualTo(new[]
+                    {
+                        ProjectLifecycleActivity.None,
+                        ProjectLifecycleActivity.EnablingVersionControl,
+                        ProjectLifecycleActivity.None,
+                    }));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task InitializeCurrentProject_from_a_worker_thread_shows_its_progress_before_suspending_the_editors()
     {
         await TestReset.ResetShellAsync();
