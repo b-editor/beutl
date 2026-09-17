@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Editor.Components.FileBrowserTab.Views;
 using Beutl.ViewModels.Tools;
 
 namespace Beutl.Views.Tools;
@@ -18,6 +19,7 @@ public sealed partial class CloudStorageView
     private bool _preparingDrag;
     private bool _nativeDrag;
     private ListBoxItem? _dropHighlight;
+    private FileBrowserStorageBreadcrumb? _breadcrumbDrop;
     internal Func<PointerPressedEventArgs, IDataTransfer, Task<DragDropEffects>>? DragStarter { get; set; }
 
     private void InitializeStorageDragDrop()
@@ -50,6 +52,16 @@ public sealed partial class CloudStorageView
         _dropHighlight?.Classes.Remove("storage-drop-target");
         _dropHighlight = container;
         _dropHighlight?.Classes.Add("storage-drop-target");
+    }
+
+    private FileBrowserStorageBreadcrumb? StorageBreadcrumbAt(Point point, CloudStorageViewModel vm)
+    {
+        var host = this.FindAncestorOfType<FileBrowserTabView>();
+        return host?.GetVisualDescendants().OfType<Control>()
+            .Where(control => control.IsEffectivelyVisible
+                && control.DataContext is FileBrowserStorageBreadcrumb breadcrumb && vm.Breadcrumbs.Contains(breadcrumb)
+                && this.TranslatePoint(point, control) is { } local && new Rect(control.Bounds.Size).Contains(local))
+            .Select(control => (FileBrowserStorageBreadcrumb)control.DataContext!).FirstOrDefault();
     }
 
     private string? StorageDropDestination(Point point, CloudStorageViewModel vm) =>
@@ -99,6 +111,7 @@ public sealed partial class CloudStorageView
             e.Pointer.Capture(this);
         }
         e.Handled = true;
+        _breadcrumbDrop = null;
         if (new Rect(Bounds.Size).Contains(point))
         {
             var target = StorageItemAt(point);
@@ -107,6 +120,23 @@ public sealed partial class CloudStorageView
             HighlightDrop(allowed ? target : null);
             Cursor = new Cursor(allowed ? StandardCursorType.DragMove : StandardCursorType.No);
         }
+        else if (StorageBreadcrumbAt(point, vm) is { } breadcrumb)
+        {
+            // Breadcrumbs are in the host toolbar, outside the storage view.
+            // Keep this an in-process move; no file content is needed.
+            bool allowed = breadcrumb.FolderId != _storageDrag.FolderId
+                && _storageDrag.Items.All(item => item.Can("move") && (!item.IsFolder || item.Id != breadcrumb.FolderId));
+            _breadcrumbDrop = allowed ? breadcrumb : null;
+            HighlightDrop(null);
+            Cursor = new Cursor(allowed ? StandardCursorType.DragMove : StandardCursorType.No);
+        }
+        else if (this.FindAncestorOfType<FileBrowserTabView>() is { } host
+            && this.TranslatePoint(point, host) is { } hostPoint && new Rect(host.Bounds.Size).Contains(hostPoint))
+        {
+            // Crossing toolbar padding on the way to a breadcrumb is still an internal drag.
+            HighlightDrop(null);
+            Cursor = new Cursor(StandardCursorType.No);
+        }
         else await BeginExternalStorageDragAsync(vm, _storageDrag, _storagePress);
     }
 
@@ -114,8 +144,8 @@ public sealed partial class CloudStorageView
     {
         if (_nativeDrag) return;
         var context = _storageDrag;
-        string? target = _dropHighlight?.DataContext is CloudStorageItem folder ? folder.Id : null;
-        bool move = context != null && _dropHighlight != null && !_preparingDrag;
+        string? target = _breadcrumbDrop != null ? _breadcrumbDrop.FolderId : _dropHighlight?.DataContext is CloudStorageItem folder ? folder.Id : null;
+        bool move = context != null && (_breadcrumbDrop != null || _dropHighlight != null) && !_preparingDrag;
         ResetStorageDrag();
         if (move && DataContext is CloudStorageViewModel vm)
         {
@@ -175,6 +205,7 @@ public sealed partial class CloudStorageView
         _storagePress = null;
         _storagePressedItem = null;
         _storageDrag = null;
+        _breadcrumbDrop = null;
         HighlightDrop(null);
         Cursor = null;
     }

@@ -300,6 +300,63 @@ public sealed class FileBrowserStorageTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DraggingMoveOnlyItemsToTheRootBreadcrumbDoesNotExportThem(bool isFolder)
+    {
+        using var handler = new Handler();
+        using var http = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
+        SignIn(clients, "a");
+        var provider = BeutlProvider(clients);
+        using var vm = Create(provider);
+        vm.OpenStorage(provider);
+        var browser = (CloudStorageViewModel)vm.StorageBrowser.Value!;
+        await WaitFor(() => handler.Requests.Count == 1);
+        handler.Requests[0].Complete(Response());
+        await WaitFor(() => !browser.IsLoading.Value);
+        var navigation = browser.OpenFolderAsync(browser.Items[0]);
+        await WaitFor(() => handler.Requests.Count == 2);
+        var response = JsonNode.Parse(Response(folder: "folder & 日本"))!;
+        response["entries"]![0]!["actions"] = new JsonArray("move");
+        response["entries"]![0]!["kind"] = isFolder ? "folder" : "file";
+        handler.Requests[1].Complete(response.ToJsonString());
+        await navigation;
+        var view = new FileBrowserTabView { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 520 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var storageView = view.GetVisualDescendants().OfType<CloudStorageView>().Single();
+            var list = storageView.FindControl<ListBox>("StorageItems")!;
+            var itemPoint = list.ContainerFromIndex(0)!.TranslatePoint(new Point(20, 20), window)!.Value;
+            var root = view.GetVisualDescendants().OfType<TextBlock>().Single(x => x.IsEffectivelyVisible && x.Text == Strings.CloudStorage);
+            var rootPoint = root.TranslatePoint(new Point(root.Bounds.Width / 2, root.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(itemPoint, MouseButton.Left);
+            var toolbarGap = storageView.TranslatePoint(new Point(storageView.Bounds.Width - 2, -1), window)!.Value;
+            window.MouseMove(toolbarGap, RawInputModifiers.LeftMouseButton);
+            Assert.That(handler.Requests, Has.Count.EqualTo(2), "Crossing toolbar padding must not start an export.");
+            window.MouseMove(rootPoint, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(rootPoint, MouseButton.Left);
+            await WaitFor(() => handler.Requests.Count == 3);
+            Assert.That(handler.Requests[2].Method, Is.EqualTo(HttpMethod.Post));
+            Assert.That(handler.Requests[2].Uri.AbsolutePath, Is.EqualTo("/api/v3/storage/entries/move"));
+            var move = JsonNode.Parse(await handler.Requests[2].ReadBodyAsync())!;
+            Assert.That(move["parentId"], Is.Null);
+            Assert.That(move["entries"]![0]!["id"]!.GetValue<string>(), Is.EqualTo("file"));
+            handler.Requests[2].Complete("{\"affected\":1}");
+            await WaitFor(() => handler.Requests.Count == 4);
+            handler.Requests[3].Complete(Response(folder: "folder & 日本", empty: true));
+            await WaitFor(() => !browser.IsLoading.Value);
+            Assert.That(handler.Requests, Has.Count.EqualTo(4));
+            Assert.That(browser.ActionError.Value, Is.Null);
+            Assert.That(browser.IsTransferring.Value, Is.False);
+        }
+        finally { window.Close(); }
+    }
+
     private static FileBrowserTabViewModel Create(params IFileBrowserStorageProvider[] providers) =>
         new(new Mock<IEditorContext>().Object, new(providers));
 
