@@ -205,6 +205,13 @@ El editor se abrirá cuando termine.</value>
     <value>Terminando el trabajo de control de versiones antes de cerrar el proyecto.
 Puede tardar un poco en proyectos grandes.</value>
   </data>
+  <data name="EnablingVersionControl" xml:space="preserve">
+    <value>Activando el control de versiones</value>
+  </data>
+  <data name="EnablingVersionControlMessage" xml:space="preserve">
+    <value>Guardando el proyecto y registrando la primera versión.
+Podrás seguir editando cuando termine.</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>Se produjo una excepción al guardar el archivo.</value>
   </data>

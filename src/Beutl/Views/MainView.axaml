@@ -339,8 +339,8 @@
                                   IsEnabled="{Binding !#ProjectLifecycleOverlay.IsVisible}"
                                   IsVisible="{Binding EditorHost.SelectedTabItem.Value.Context.Value, Converter={x:Static ObjectConverters.IsNull}}" />
 
-        <!-- Covers the editor area while a project is created or closed with Git, so an editor that is
-             waiting on Git never looks usable. -->
+        <!-- Covers the editor area while a project is created or closed with Git, or starts being tracked
+             with Git, so an editor that is waiting on Git never looks usable. -->
         <Border x:Name="ProjectLifecycleOverlay"
                 Grid.Row="2"
                 Background="{DynamicResource MainWindowBackground}"

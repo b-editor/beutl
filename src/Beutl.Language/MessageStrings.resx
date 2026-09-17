@@ -205,6 +205,13 @@ The editor opens when this finishes.</value>
     <value>Finishing version control work before the project closes.
 This can take a while for a large project.</value>
   </data>
+  <data name="EnablingVersionControl" xml:space="preserve">
+    <value>Enabling version control</value>
+  </data>
+  <data name="EnablingVersionControlMessage" xml:space="preserve">
+    <value>Saving the project and recording the first version.
+You can keep editing when this finishes.</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>An exception occurred while saving the file.</value>
   </data>

@@ -200,6 +200,13 @@
     <value>プロジェクトを閉じる前に、バージョン管理の処理を完了しています。
 プロジェクトが大きい場合は時間がかかることがあります。</value>
   </data>
+  <data name="EnablingVersionControl" xml:space="preserve">
+    <value>バージョン管理を有効化しています</value>
+  </data>
+  <data name="EnablingVersionControlMessage" xml:space="preserve">
+    <value>プロジェクトを保存し、最初のバージョンを記録しています。
+完了すると編集を続けられます。</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>ファイルの保存中に例外が発生しました。</value>
   </data>

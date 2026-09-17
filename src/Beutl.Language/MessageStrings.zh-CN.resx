@@ -205,6 +205,13 @@
     <value>正在完成版本控制操作，然后关闭项目。
 大型项目可能需要一些时间。</value>
   </data>
+  <data name="EnablingVersionControl" xml:space="preserve">
+    <value>正在启用版本控制</value>
+  </data>
+  <data name="EnablingVersionControlMessage" xml:space="preserve">
+    <value>正在保存项目并记录第一个版本。
+完成后即可继续编辑。</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>保存文件时发生异常。</value>
   </data>
