@@ -330,6 +330,7 @@ public class CreateNewProjectDialogTests
                 Assert.That(viewModel.IsGitAvailable.Value, Is.True);
                 Assert.That(viewModel.TrackHistory.Value, Is.True);
                 Assert.That(Volatile.Read(ref initializationRequests), Is.Zero);
+                Assert.That(initializer.BeginCalls, Is.Zero);
             });
         }
         finally
@@ -394,10 +395,18 @@ public class CreateNewProjectDialogTests
     }
 
     [AvaloniaTest]
-    public async Task Version_control_initialization_receives_the_project_created_by_the_command()
+    public async Task Version_control_initializes_the_created_project_before_its_editor_opens()
     {
         await TestReset.ResetShellAsync();
         Project? initializationTarget = null;
+        Project? openProjectDuringInitialization = null;
+        int tabsDuringInitialization = -1;
+        bool projectFileWrittenBeforeInitialization = false;
+        var initializationEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseInitialization = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Task? createTask = null;
         try
         {
             var initializer = new TestVersionControlInitializer(
@@ -406,10 +415,15 @@ public class CreateNewProjectDialogTests
                     "git",
                     new Version(2, 50, 0),
                     LfsInstalled: false)),
-                (project, _, _) =>
+                async (project, _, _) =>
                 {
                     initializationTarget = project;
-                    return Task.FromResult(true);
+                    openProjectDuringInitialization = TestShell.Project.CurrentProject.Value;
+                    tabsDuringInitialization = TestShell.Editor.TabItems.Count;
+                    projectFileWrittenBeforeInitialization = File.Exists(project.Uri!.LocalPath);
+                    initializationEntered.TrySetResult();
+                    await releaseInitialization.Task;
+                    return true;
                 });
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
@@ -426,13 +440,45 @@ public class CreateNewProjectDialogTests
             viewModel.TrackHistory.Value = true;
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
 
-            await viewModel.Create.ExecuteAsync();
+            createTask = viewModel.Create.ExecuteAsync();
+            await initializationEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(openProjectDuringInitialization, Is.Null);
+                Assert.That(tabsDuringInitialization, Is.Zero);
+                Assert.That(projectFileWrittenBeforeInitialization, Is.True);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(TestShell.Editor.TabItems, Is.Empty);
+                Assert.That(createTask.IsCompleted, Is.False);
+            });
 
-            Assert.That(initializationTarget, Is.SameAs(TestShell.Project.CurrentProject.Value));
+            releaseInitialization.TrySetResult();
+            await createTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(initializationTarget, Is.Not.Null);
+                Assert.That(initializationTarget, Is.SameAs(TestShell.Project.CurrentProject.Value));
+                Assert.That(TestShell.Editor.TabItems, Has.Count.EqualTo(1));
+                Assert.That(initializer.BeginCalls, Is.EqualTo(1));
+                Assert.That(initializer.DisposeCalls, Is.EqualTo(1));
+            });
         }
         finally
         {
-            await TestReset.ResetShellAsync();
+            releaseInitialization.TrySetResult();
+            try
+            {
+                if (createTask is not null)
+                {
+                    await createTask.WaitAsync(TimeSpan.FromSeconds(10));
+                }
+            }
+            finally
+            {
+                await TestReset.ResetShellAsync();
+            }
         }
     }
 
@@ -485,6 +531,8 @@ public class CreateNewProjectDialogTests
                 Assert.That(Volatile.Read(ref initializationRequests), Is.EqualTo(1));
                 Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
                 Assert.That(notification.Message, Is.EqualTo("simulated Git initialization failure"));
+                Assert.That(TestShell.Editor.TabItems, Has.Count.EqualTo(1));
+                Assert.That(initializer.DisposeCalls, Is.EqualTo(1));
             });
         }
         finally
@@ -519,21 +567,60 @@ public class CreateNewProjectDialogTests
             Project,
             Func<CancellationToken, Task<GitIdentity?>>,
             CancellationToken,
-            Task<bool>> initializeCurrentProjectAsync)
+            Task<bool>> initializeNewProjectAsync)
         : IProjectVersionControlInitializer
     {
+        private readonly Func<
+            Project,
+            Func<CancellationToken, Task<GitIdentity?>>,
+            CancellationToken,
+            Task<bool>> _initializeNewProjectAsync = initializeNewProjectAsync;
+        private int _beginCalls;
+        private int _disposeCalls;
+
+        public int BeginCalls => Volatile.Read(ref _beginCalls);
+
+        public int DisposeCalls => Volatile.Read(ref _disposeCalls);
+
         public Task<GitAvailability> GetAvailabilityAsync(
             CancellationToken cancellationToken)
         {
             return getAvailabilityAsync(cancellationToken);
         }
 
+        // The dialog records the first version before the project opens, so it never initializes the
+        // open project.
         public Task<bool> InitializeCurrentProjectAsync(
             Project project,
             Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync,
             CancellationToken cancellationToken)
         {
-            return initializeCurrentProjectAsync(project, requestIdentityAsync, cancellationToken);
+            throw new InvalidOperationException(
+                "The new-project dialog must not initialize the open project.");
+        }
+
+        public INewProjectVersionControlSetup BeginNewProject(
+            Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync)
+        {
+            Interlocked.Increment(ref _beginCalls);
+            return new Setup(this, requestIdentityAsync);
+        }
+
+        private sealed class Setup(
+            TestVersionControlInitializer owner,
+            Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync)
+            : INewProjectVersionControlSetup
+        {
+            public Task<bool> InitializeAsync(Project project, CancellationToken cancellationToken)
+            {
+                return owner._initializeNewProjectAsync(project, requestIdentityAsync, cancellationToken);
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                Interlocked.Increment(ref owner._disposeCalls);
+                return ValueTask.CompletedTask;
+            }
         }
     }
 

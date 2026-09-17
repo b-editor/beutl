@@ -181,6 +181,7 @@ public sealed class ProjectService
 
     private async Task WaitForExistingTransitionAsync(ProjectOpenAttempt attempt)
     {
+        CancelCreationPreparationExcept(attempt);
         await _transitionGate.WaitAsync(attempt.CancellationToken);
         try
         {
@@ -260,11 +261,27 @@ public sealed class ProjectService
         }
     }
 
-    public async Task<Project?> CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
+    public Task<Project?> CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
     {
+        return CreateProject(width, height, framerate, samplerate, name, location, beforeOpening: null);
+    }
+
+    // beforeOpening runs once the project files are written and before the project opens, inside the same
+    // transition, so the editor opens only after it completes. Its token is canceled when another project
+    // transition is requested meanwhile; the project then opens without waiting for the rest of the step.
+    internal async Task<Project?> CreateProject(
+        int width,
+        int height,
+        int framerate,
+        int samplerate,
+        string name,
+        string location,
+        Func<Project, CancellationToken, Task>? beforeOpening)
+    {
+        var creation = new ProjectCreation();
         await using ProjectTransitionScope transition = await BeginTransitionAsync(
             ProjectTransitionPurpose.Normal,
-            new ProjectCreation(),
+            creation,
             CancellationToken.None);
         return await CreateProjectCoreAsync(
             width,
@@ -273,6 +290,8 @@ public sealed class ProjectService
             samplerate,
             name,
             location,
+            beforeOpening,
+            creation.PreparationCancellation,
             transition.Context);
     }
 
@@ -297,6 +316,7 @@ public sealed class ProjectService
     {
         object openAttemptOwner = preservedOpenAttempt ?? owner;
         CancelPendingOpenAttemptExcept(openAttemptOwner);
+        CancelCreationPreparationExcept(owner);
         await _transitionGate.WaitAsync(cancellationToken);
         CancelPendingOpenAttemptExcept(openAttemptOwner);
         if (cancellationToken.IsCancellationRequested)
@@ -379,6 +399,31 @@ public sealed class ProjectService
         if (!ReferenceEquals(attempt, owner))
         {
             CancelOpenAttempt(attempt);
+        }
+    }
+
+    // A creation that still prepares its project, such as recording the first version, stops waiting for
+    // Git or the user once another transition is requested, as the close of an open project would stop it.
+    private void CancelCreationPreparationExcept(object owner)
+    {
+        ProjectCreation? creation;
+        lock (_transitionSync)
+        {
+            creation = _currentTransition?.Owner as ProjectCreation;
+        }
+
+        if (creation is null || ReferenceEquals(creation, owner))
+        {
+            return;
+        }
+
+        try
+        {
+            creation.CancelPreparation();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "A project-creation cancellation callback failed.");
         }
     }
 
@@ -554,6 +599,8 @@ public sealed class ProjectService
         int samplerate,
         string name,
         string location,
+        Func<Project, CancellationToken, Task>? beforeOpening,
+        CancellationToken preparationCancellation,
         ProjectTransitionContext transition)
     {
         VerifyTransition(transition);
@@ -600,6 +647,19 @@ public sealed class ProjectService
                         _logger.LogWarning(deleteEx, "Failed to delete orphaned scene file: {Uri}", scene.Uri);
                     }
                 });
+
+            if (beforeOpening is not null)
+            {
+                try
+                {
+                    await beforeOpening(project, preparationCancellation);
+                }
+                catch (OperationCanceledException) when (preparationCancellation.IsCancellationRequested)
+                {
+                    // The request that canceled the step is waiting for this transition; the project
+                    // it created still opens for that request to act on.
+                }
+            }
 
             PublishProjectChange((New: project, null));
             await ActivateProjectAsync(project);
@@ -889,6 +949,16 @@ public sealed class ProjectService
     // Owns the transition that creates a project, so observers can tell a new project from an opened one.
     internal sealed class ProjectCreation
     {
+        private readonly CancellationTokenSource _preparationCancellation = new();
+
+        // Canceled when another transition is requested while this creation still prepares its project,
+        // so a step that waits on Git or on the user does not hold that request back.
+        internal CancellationToken PreparationCancellation => _preparationCancellation.Token;
+
+        internal void CancelPreparation()
+        {
+            _preparationCancellation.Cancel();
+        }
     }
 
     internal sealed class ProjectOpenAttempt
