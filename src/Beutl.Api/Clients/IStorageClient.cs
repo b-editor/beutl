@@ -4,6 +4,17 @@ namespace Beutl.Api.Clients;
 
 internal interface IStorageClient
 {
+    [Post("/api/v3/storage/uploads")]
+    Task<StorageUploadResponse> StartUpload([Header("Authorization")] string authorization, [Body] object body, CancellationToken cancellationToken);
+
+    [Post("/api/v3/storage/uploads/{id}/complete")]
+    Task<StorageMutationResponse> CompleteUpload([Header("Authorization")] string authorization, string id, [Body] object body, CancellationToken cancellationToken);
+
+    [Delete("/api/v3/storage/uploads/{id}")]
+    Task CancelUpload([Header("Authorization")] string authorization, string id, CancellationToken cancellationToken);
+
+    [Post("/api/v3/storage/entries/move")]
+    Task<StorageMutationResponse> MoveEntries([Header("Authorization")] string authorization, [Body] object body, CancellationToken cancellationToken);
     [Get("/api/v3/storage/entries")]
     Task<StorageResponse> GetEntries([Header("Authorization")] string authorization,
         CancellationToken cancellationToken, string? parentId = null, string? cursor = null, string? kind = null, int limit = 50);

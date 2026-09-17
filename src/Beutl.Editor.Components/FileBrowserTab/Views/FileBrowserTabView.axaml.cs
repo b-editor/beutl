@@ -8,8 +8,10 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
+using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Views;
@@ -240,6 +242,15 @@ public partial class FileBrowserTabView : UserControl
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
+        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } source && !source.IsCurrent())
+        { e.DragEffects = DragDropEffects.None; return; }
+        if (ViewModel?.IsStorageView.Value == true)
+        {
+            var breadcrumb = (e.Source as Visual)?.FindAncestorOfType<Control>(includeSelf: true)?.DataContext as FileBrowserStorageBreadcrumb;
+            e.DragEffects = breadcrumb != null && ViewModel.StorageBrowser.Value is IFileBrowserStorageDropTarget target && target.CanDrop(e.DataTransfer, breadcrumb.FolderId)
+                ? DragDropEffects.Copy : DragDropEffects.None;
+            return;
+        }
         if (ViewModel?.IsStorageView.Value == true || !e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.None;
@@ -258,8 +269,21 @@ public partial class FileBrowserTabView : UserControl
         }
     }
 
-    private void OnDrop(object? sender, DragEventArgs e)
+    private async void OnDrop(object? sender, DragEventArgs e)
     {
+        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } source && !source.IsCurrent()) return;
+        if (ViewModel?.IsStorageView.Value == true)
+        {
+            var breadcrumb = (e.Source as Visual)?.FindAncestorOfType<Control>(includeSelf: true)?.DataContext as FileBrowserStorageBreadcrumb;
+            if (breadcrumb != null && ViewModel.StorageBrowser.Value is IFileBrowserStorageDropTarget target)
+            {
+                e.Handled = true;
+                try { await target.DropAsync(e.DataTransfer, breadcrumb.FolderId); }
+                catch (OperationCanceledException) { }
+                catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
+            }
+            return;
+        }
         if (!e.DataTransfer.Contains(DataFormat.File) || ViewModel == null || ViewModel.IsStorageView.Value)
             return;
 

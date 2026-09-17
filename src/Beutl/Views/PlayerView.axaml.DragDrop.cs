@@ -1,8 +1,10 @@
 ﻿using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -30,6 +32,30 @@ public partial class PlayerView
         double scaleX = image.Bounds.Size.Width / scene.FrameSize.Width;
         Point scaledPosition = (position / scaleX).ToBtlPoint();
         Point centeredPosition = scaledPosition - new Point(scene.FrameSize.Width / 2f, scene.FrameSize.Height / 2f);
+
+        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } storage)
+        {
+            e.Handled = true;
+            using var fileWrite = HostProjectFileWriteAdmission.Resolve(editViewModel)?.TryBeginProjectFileWrite();
+            if (fileWrite == null)
+            {
+                NotificationService.ShowWarning(Strings.CloudStorage, Strings.FileBrowser_WorkspaceBusy);
+                return;
+            }
+            try
+            {
+                foreach (string path in await storage.ImportToSceneAsync(scene))
+                {
+                    int layer = scene.Children.Select(element => element.ZIndex).DefaultIfEmpty(-1).Max() + 1;
+                    await AddElement(editViewModel, new ElementDescription(frame, TimeSpan.FromSeconds(5), layer,
+                        new ElementSource.File(path), Position: centeredPosition));
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (ObjectDisposedException) { }
+            catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
+            return;
+        }
 
         bool containsFe = e.DataTransfer.Contains(BeutlDataFormats.FilterEffect);
         bool containsTra = e.DataTransfer.Contains(BeutlDataFormats.Transform);

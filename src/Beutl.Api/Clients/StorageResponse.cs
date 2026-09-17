@@ -48,6 +48,19 @@ internal sealed record StorageMutationResponse
     [JsonPropertyName("deletedFolders")] public int DeletedFolders { get; init; }
 }
 
+internal sealed record StorageUploadResponse
+{
+    [JsonPropertyName("id")] public required string Id { get; init; }
+    [JsonPropertyName("partSize")] public required int PartSize { get; init; }
+    [JsonPropertyName("partCount")] public required int PartCount { get; init; }
+}
+
+internal sealed record StorageUploadPartResponse
+{
+    [JsonPropertyName("partNumber")] public required int PartNumber { get; init; }
+    [JsonPropertyName("etag")] public required string Etag { get; init; }
+}
+
 internal sealed record StorageUsageResponse
 {
     [JsonPropertyName("plan")] public required string? Plan { get; init; }

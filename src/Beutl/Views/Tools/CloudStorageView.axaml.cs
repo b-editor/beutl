@@ -23,6 +23,7 @@ public sealed partial class CloudStorageView : UserControl
     public CloudStorageView()
     {
         InitializeComponent();
+        InitializeStorageDragDrop();
         // Handle activation before the focused item consumes Enter for selection.
         StorageItems.AddHandler(KeyDownEvent, OnItemsKeyDown, RoutingStrategies.Tunnel);
         StorageItems.TemplateApplied += (_, e) =>
@@ -43,6 +44,7 @@ public sealed partial class CloudStorageView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _attached = false;
+        ResetStorageDrag();
         CancelPrefetchIntent();
         CloseStorageInteractions();
         _subscriptions.Dispose();
@@ -53,6 +55,7 @@ public sealed partial class CloudStorageView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        ResetStorageDrag();
         CloseStorageInteractions();
         CancelPrefetchIntent();
         if (_attached) SubscribeToListing();

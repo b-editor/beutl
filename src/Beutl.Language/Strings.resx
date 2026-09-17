@@ -2982,6 +2982,21 @@ when history recording is enabled.</value>
   <data name="CloudStorageDownloading" xml:space="preserve">
     <value>Downloading…</value>
   </data>
+  <data name="CloudStorageUploading" xml:space="preserve">
+    <value>Uploading {0}…</value>
+  </data>
+  <data name="CloudStorageEmptyUpload" xml:space="preserve">
+    <value>Empty files cannot be uploaded to this storage service.</value>
+  </data>
+  <data name="CloudStorageQuotaExceeded" xml:space="preserve">
+    <value>The storage capacity or file count limit has been reached.</value>
+  </data>
+  <data name="CloudStorageUploadMoveFailed" xml:space="preserve">
+    <value>{0} was uploaded, but could not be moved to the destination folder. It is available at the storage root.</value>
+  </data>
+  <data name="CloudStoragePreparingDrag" xml:space="preserve">
+    <value>Preparing {0} for dragging…</value>
+  </data>
   <data name="CloudStorageDownloadLocalDestinationRequired" xml:space="preserve">
     <value>This location does not support safe file replacement. Choose a local folder for this download.</value>
   </data>

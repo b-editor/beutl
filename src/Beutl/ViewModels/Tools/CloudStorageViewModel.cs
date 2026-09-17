@@ -58,6 +58,8 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         _clients = clients;
         _createSettings = createSettings;
         _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
+        CancelTransfer.Subscribe(() => _transfer?.Cancel()).DisposeWith(_disposables);
+        CancelTransfer.DisposeWith(_disposables);
         Breadcrumbs = new(_breadcrumbs);
         ShowPlaceholders = IsLoadingVisible.CombineLatest(HasListing, (loading, loaded) => loading && !loaded)
             .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
@@ -518,5 +520,9 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         IsBusy.Dispose();
         ActionError.Dispose();
         DetailsItem.Dispose();
+        IsTransferring.Dispose();
+        TransferText.Dispose();
+        TransferProgress.Dispose();
+        TransferIndeterminate.Dispose();
     }
 }

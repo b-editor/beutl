@@ -2977,6 +2977,21 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="CloudStorageDownloading" xml:space="preserve">
     <value>ダウンロード中…</value>
   </data>
+  <data name="CloudStorageUploading" xml:space="preserve">
+    <value>{0} をアップロード中…</value>
+  </data>
+  <data name="CloudStorageEmptyUpload" xml:space="preserve">
+    <value>このストレージには空のファイルをアップロードできません。</value>
+  </data>
+  <data name="CloudStorageQuotaExceeded" xml:space="preserve">
+    <value>ストレージの容量またはファイル数の上限に達しました。</value>
+  </data>
+  <data name="CloudStorageUploadMoveFailed" xml:space="preserve">
+    <value>{0} はアップロードされましたが、移動先のフォルダーへ移動できませんでした。ストレージのルートに保存されています。</value>
+  </data>
+  <data name="CloudStoragePreparingDrag" xml:space="preserve">
+    <value>{0} をドラッグする準備中…</value>
+  </data>
   <data name="CloudStorageDownloadLocalDestinationRequired" xml:space="preserve">
     <value>この保存先ではファイルを安全に置き換えられません。ダウンロード先にローカルフォルダーを選択してください。</value>
   </data>

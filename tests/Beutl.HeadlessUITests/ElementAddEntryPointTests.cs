@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Models;
@@ -151,7 +152,9 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
-    public async Task TimelineView_TemplateFileDrop_AddsCompleteTemplateAndScrollsToDropTarget()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task TimelineView_TemplateFileDrop_AddsCompleteTemplateAndScrollsToDropTarget(bool fromStorage)
     {
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
@@ -173,6 +176,8 @@ public class ElementAddEntryPointTests
             using var transfer = new DataTransfer();
             transfer.Add(DataTransferItem.CreateFile(storageFile));
             var dropPoint = new AvaPoint(180, timeline.CalculateLayerTop(3) + 5);
+            if (fromStorage)
+                transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], [templatePath], () => true, _ => Task.FromResult(false))));
             int expectedLayer = timeline.ToLayerNumber(dropPoint.Y);
             var args = new DragEventArgs(
                 DragDrop.DropEvent,
@@ -204,7 +209,9 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
-    public async Task PlayerView_ImageFileDrop_RoutesThroughTimelineAndScrollsToAddedElement()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task PlayerView_ImageFileDrop_RoutesThroughTimelineAndScrollsToAddedElement(bool fromStorage)
     {
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
@@ -237,6 +244,8 @@ public class ElementAddEntryPointTests
             using var transfer = new DataTransfer();
             transfer.Add(DataTransferItem.CreateFile(storageFile));
             var imageCenter = new AvaPoint(view.image.Bounds.Width / 2, view.image.Bounds.Height / 2);
+            if (fromStorage)
+                transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], [imagePath], () => true, _ => Task.FromResult(false))));
             var args = new DragEventArgs(
                 DragDrop.DropEvent,
                 transfer,
@@ -244,6 +253,8 @@ public class ElementAddEntryPointTests
                 imageCenter,
                 KeyModifiers.None);
             Element created = await RaiseDropAndWaitForElement(editor.Scene, framePanel, args);
+            if (fromStorage)
+                Assert.That(Directory.GetFiles(Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "resources", "storage"), "*.png", SearchOption.AllDirectories), Has.Length.EqualTo(1));
             HeadlessTestHelpers.Settle();
             using (Assert.EnterMultipleScope())
             {

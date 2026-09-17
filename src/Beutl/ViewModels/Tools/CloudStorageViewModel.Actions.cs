@@ -182,6 +182,7 @@ internal sealed partial class CloudStorageViewModel
                     "storageInvalidMove" => Strings.CloudStorageInvalidMove,
                     "storageFileNotFound" or "storageFolderNotFound" => Strings.CloudStorageItemNotFound,
                     "invalidRequestBody" => Strings.CloudStorageInvalidRequest,
+                    "insufficientStorageSpace" or "tooManyFiles" => Strings.CloudStorageQuotaExceeded,
                     _ => Strings.CloudStorageActionFailed,
                 };
             }
@@ -192,6 +193,9 @@ internal sealed partial class CloudStorageViewModel
 
     private void CancelActions()
     {
+        _transfer?.Cancel();
+        _transfer = null;
+        IsTransferring.Value = false;
         _mutation?.Cancel();
         _mutation = null;
         IsBusy.Value = false;

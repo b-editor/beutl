@@ -12,12 +12,14 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Controls;
+using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.Views;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
@@ -526,6 +528,36 @@ public sealed partial class TimelineTabView : UserControl
         viewModel.ClickedFrame = pt.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedPosition = pt;
+
+        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } storage)
+        {
+            e.Handled = true;
+            TimeSpan dropFrame = viewModel.ClickedFrame;
+            int dropLayer = viewModel.CalculateClickedLayer();
+            using var fileWrite = HostProjectFileWriteAdmission.Resolve(viewModel.EditorContext)?.TryBeginProjectFileWrite();
+            if (fileWrite == null)
+            {
+                NotificationService.ShowWarning(Strings.CloudStorage, Strings.FileBrowser_WorkspaceBusy);
+                return;
+            }
+            try
+            {
+                var paths = await storage.ImportToSceneAsync(scene);
+                foreach (string path in paths)
+                {
+                    if (string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase)
+                        && ObjectTemplateService.Instance.TryLoadFromFile(path) is { } storageTemplate)
+                        await viewModel.AddElement.ExecuteAsync(ElementTemplateResolver.CreateDescription(storageTemplate, dropFrame, dropLayer));
+                    else
+                        await viewModel.AddElement.ExecuteAsync(new ElementDescription(dropFrame, TimeSpan.FromSeconds(5),
+                            dropLayer, new ElementSource.File(path)));
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (ObjectDisposedException) { }
+            catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
+            return;
+        }
 
         // テンプレート経路（優先）
         ObjectTemplateItem? template = null;

@@ -71,6 +71,9 @@
         </DataTemplate>
     </UserControl.Resources>
     <UserControl.Styles>
+        <Style Selector="ListBox#StorageItems ListBoxItem.storage-drop-target">
+            <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListAccentLowBrush}" />
+        </Style>
         <Style Selector="MenuItem.storage-destructive">
             <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
         </Style>
@@ -251,6 +254,16 @@
                             Command="{Binding RetryLoadMore}"
                             Content="{x:Static lang:Strings.CloudStorageRetryLoadMore}" />
                 </Grid>
+                <StackPanel Margin="8,4"
+                            IsVisible="{Binding IsTransferring.Value}"
+                            Spacing="4">
+                    <TextBlock Text="{Binding TransferText.Value}" TextWrapping="Wrap" />
+                    <ProgressBar IsIndeterminate="{Binding TransferIndeterminate.Value}"
+                                 Maximum="100"
+                                 Minimum="0"
+                                 Value="{Binding TransferProgress.Value}" />
+                    <Button Command="{Binding CancelTransfer}" Content="{x:Static lang:Strings.Cancel}" />
+                </StackPanel>
                 <StackPanel Margin="8,4"
                             IsVisible="{Binding HasUsage.Value}"
                             Spacing="4">
