@@ -188,6 +188,72 @@ public sealed class FullDocumentApplyTests
         Assert.That(session.Scene.Groups, Is.Empty);
     }
 
+    // Applying a document rebuilds Scene.Groups: it clears the list, then adds each desired group.
+    // Scene.Groups is a plain CoreList, so the Clear is notified as a Reset.
+    [Test]
+    public void Undoing_an_agent_edit_restores_the_scene_groups_it_replaced()
+    {
+        Scene scene = CreateSceneWithGroup(out Element[] elements, out ImmutableHashSet<Guid> group);
+        using var session = TestEditingSession.Create(scene);
+        var reconciler = new Reconciler();
+
+        JsonObject desired = session.Documents.Read(scene);
+        desired["Groups"] = new JsonArray($"{elements[0].Id}:{elements[2].Id}");
+
+        reconciler.Apply(session, desired);
+        Assert.That(scene.Groups, Has.Count.EqualTo(1));
+        Assert.That(scene.Groups[0], Is.EquivalentTo(new[] { elements[0].Id, elements[2].Id }));
+
+        Assert.That(session.History.Undo(), Is.True);
+        Assert.That(scene.Groups, Has.Count.EqualTo(1));
+        Assert.That(scene.Groups[0], Is.SameAs(group));
+
+        Assert.That(session.History.Redo(), Is.True);
+        Assert.That(scene.Groups, Has.Count.EqualTo(1));
+        Assert.That(scene.Groups[0], Is.EquivalentTo(new[] { elements[0].Id, elements[2].Id }));
+    }
+
+    [Test]
+    public void Undoing_an_agent_edit_restores_the_scene_groups_it_cleared()
+    {
+        Scene scene = CreateSceneWithGroup(out _, out ImmutableHashSet<Guid> group);
+        using var session = TestEditingSession.Create(scene);
+        var reconciler = new Reconciler();
+
+        JsonObject desired = session.Documents.Read(scene);
+        desired.Remove("Groups");
+
+        reconciler.Apply(session, desired);
+        Assert.That(scene.Groups, Is.Empty);
+
+        Assert.That(session.History.Undo(), Is.True);
+        Assert.That(scene.Groups, Has.Count.EqualTo(1));
+        Assert.That(scene.Groups[0], Is.SameAs(group));
+    }
+
+    private static Scene CreateSceneWithGroup(out Element[] elements, out ImmutableHashSet<Guid> group)
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        elements =
+        [
+            .. Enumerable.Range(0, 3).Select(i => new Element
+            {
+                Length = TimeSpan.FromSeconds(1),
+                Uri = new Uri(Path.Combine(dir, $"element{i}.belm"))
+            })
+        ];
+        foreach (Element element in elements)
+        {
+            scene.Children.Add(element);
+        }
+
+        group = ImmutableHashSet.Create(elements[0].Id, elements[1].Id);
+        scene.Groups.Add(group);
+        return scene;
+    }
+
     [Test]
     public void Mid_reconcile_failure_rolls_back_prior_live_mutations()
     {

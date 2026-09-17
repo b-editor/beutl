@@ -612,12 +612,13 @@ public class HistoryManagerIntegrationTests
     }
 
     [Test]
-    public void CollectionClear_ShouldBeRecorded_AndUndoable()
+    public void CollectionClear_ShouldBeRecorded_AndUndoable([Values] ResetBehavior resetBehavior)
     {
         // Arrange
         var modelWithList = new TestModelWithList();
-        // Set ResetBehavior to Remove so Clear() generates Remove operations instead of Reset
-        modelWithList.Items.ResetBehavior = ResetBehavior.Remove;
+        // With ResetBehavior.Remove, Clear() notifies the removed items. With ResetBehavior.Reset
+        // (the default), it notifies a Reset without them. Both must be recorded.
+        modelWithList.Items.ResetBehavior = resetBehavior;
         modelWithList.Items.Add(new TestItem { Value = "Item1" });
         modelWithList.Items.Add(new TestItem { Value = "Item2" });
         modelWithList.Items.Add(new TestItem { Value = "Item3" });
@@ -633,8 +634,73 @@ public class HistoryManagerIntegrationTests
         Assert.That(modelWithList.Items.Count, Is.EqualTo(0));
 
         // Undo
-        _historyManager.Undo();
-        Assert.That(modelWithList.Items.Count, Is.EqualTo(3));
+        Assert.That(_historyManager.Undo(), Is.True);
+        Assert.That(modelWithList.Items.Select(item => item.Value), Is.EqualTo(new[] { "Item1", "Item2", "Item3" }));
+
+        // Redo
+        Assert.That(_historyManager.Redo(), Is.True);
+        Assert.That(modelWithList.Items, Is.Empty);
+    }
+
+    [Test]
+    public void CollectionClearThenAdd_InOneTransaction_ShouldBeUndoable([Values] ResetBehavior resetBehavior)
+    {
+        // Arrange - the agent's document applier rebuilds Scene.Groups this way
+        var modelWithList = new TestModelWithList();
+        modelWithList.Items.ResetBehavior = resetBehavior;
+        var item1 = new TestItem { Value = "Item1" };
+        var item2 = new TestItem { Value = "Item2" };
+        var item3 = new TestItem { Value = "Item3" };
+        modelWithList.Items.Add(item1);
+        modelWithList.Items.Add(item2);
+
+        using var listObserver = new CoreObjectOperationObserver(null, modelWithList, _sequenceGenerator);
+        _historyManager.Subscribe(listObserver);
+
+        // Act - Item2 is cleared and added back
+        _historyManager.ExecuteInTransaction(() =>
+        {
+            modelWithList.Items.Clear();
+            modelWithList.Items.Add(item2);
+            modelWithList.Items.Add(item3);
+        }, "Rebuild items");
+
+        // Assert
+        Assert.That(modelWithList.Items, Is.EqualTo(new[] { item2, item3 }));
+
+        // Undo
+        Assert.That(_historyManager.Undo(), Is.True);
+        Assert.That(modelWithList.Items, Is.EqualTo(new[] { item1, item2 }));
+
+        // Redo
+        Assert.That(_historyManager.Redo(), Is.True);
+        Assert.That(modelWithList.Items, Is.EqualTo(new[] { item2, item3 }));
+    }
+
+    [Test]
+    public void CollectionClearThenAdd_ThatFails_ShouldBeRolledBack([Values] ResetBehavior resetBehavior)
+    {
+        // Arrange
+        var modelWithList = new TestModelWithList();
+        modelWithList.Items.ResetBehavior = resetBehavior;
+        var item1 = new TestItem { Value = "Item1" };
+        var item2 = new TestItem { Value = "Item2" };
+        modelWithList.Items.Add(item1);
+        modelWithList.Items.Add(item2);
+
+        using var listObserver = new CoreObjectOperationObserver(null, modelWithList, _sequenceGenerator);
+        _historyManager.Subscribe(listObserver);
+
+        // Act
+        Assert.Throws<InvalidOperationException>(() => _historyManager.ExecuteInTransaction(() =>
+        {
+            modelWithList.Items.Clear();
+            modelWithList.Items.Add(new TestItem { Value = "Item3" });
+            throw new InvalidOperationException("Injected failure.");
+        }, "Rebuild items"));
+
+        // Assert - the rollback reverts the Clear as well as the Add
+        Assert.That(modelWithList.Items, Is.EqualTo(new[] { item1, item2 }));
     }
 
     [Test]
