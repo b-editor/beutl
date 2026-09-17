@@ -558,6 +558,7 @@ public sealed partial class TimelineTabView : UserControl
                             dropLayer, new ElementSource.File(path)));
                         if (result.IsSuccess) import.Retain(path);
                     }
+                    if (result.IsSuccess) dropLayer = checked(result.Elements.Max(element => element.ZIndex) + 1);
                 }
             }
             catch (OperationCanceledException) { }

@@ -413,6 +413,43 @@ public class ElementAddEntryPointTests
         finally { window.Close(); HeadlessTestHelpers.Settle(); }
     }
 
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task TimelineStorageDropAdvancesPastAllAddedLayers(bool companions, bool rejectFirst)
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene("storage-drop-layers");
+        var handler = new LayeredFileSourceHandler(companions);
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        await using var registration = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(handler, ElementSourceHandlerRegistrationMode.Replace));
+        string[] sources = rejectFirst
+            ? [CreatePngFile(editor, "rejected.png"), CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")]
+            : [CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")];
+        using var notifications = new NotificationCapture();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel panel = view.FindControl<Panel>("TimelinePanel")!;
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], sources, () => true, _ => Task.FromResult(false))));
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, panel, new AvaPoint(180, 5), KeyModifiers.None);
+            panel.RaiseEvent(args);
+            int count = companions ? 4 : 2;
+            await WaitUntilAsync(() => editor.Scene.Children.Count == count);
+            HeadlessTestHelpers.Settle();
+            Assert.That(editor.Scene.Children.Select(element => element.ZIndex).Order(), Is.EqualTo(Enumerable.Range(0, count)));
+            Assert.That(editor.Scene.Children.All(element => element.Start == timeline.ClickedFrame), Is.True);
+            Assert.That(handler.RequestedLayers, Is.EqualTo(rejectFirst ? new[] { 0, 0, 2 } : new[] { 0, companions ? 2 : 1 }));
+            Assert.That(notifications.Notifications, Has.Count.EqualTo(rejectFirst ? 1 : 0));
+        }
+        finally { window.Close(); HeadlessTestHelpers.Settle(); }
+    }
+
     [Test]
     public async Task PlayerDropContainsEditorLifecycleCancellation()
     {
@@ -575,6 +612,34 @@ public class ElementAddEntryPointTests
             IReadOnlyList<ElementDescription> descriptions,
             CancellationToken cancellationToken)
             => ValueTask.FromException<ElementAddResult>(failure);
+    }
+
+    private sealed class LayeredFileSourceHandler(bool companions) : IElementSourceHandler
+    {
+        public Type SourceType => typeof(ElementSource.File);
+
+        public List<int> RequestedLayers { get; } = [];
+
+        public ValueTask<ElementSourcePreflightResult> PreflightAsync(ElementSourcePreflightContext context, CancellationToken cancellationToken)
+        {
+            int layer = context.Description.Layer;
+            RequestedLayers.Add(layer);
+            if (Path.GetFileName(((ElementSource.File)context.Description.Source).FileName) == "rejected.png")
+                return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(new UnsupportedElementSourceFailure(SourceType)));
+            return ValueTask.FromResult(ElementSourcePreflightResult.Ready(new Preflight(), companions ? [layer, layer + 1] : [layer]));
+        }
+
+        public ValueTask<ElementSourceMaterializationResult> MaterializeAsync(ElementSourceMaterializationContext context, IElementSourcePreflight preflight, CancellationToken cancellationToken)
+        {
+            Element Create(int layer) => new() { Start = context.Description.Start, Length = context.Description.Length!.Value, ZIndex = layer };
+            int layer = context.Description.Layer;
+            return ValueTask.FromResult(ElementSourceMaterializationResult.Materialized(new ElementMaterialization(Create(layer), companions ? [Create(layer + 1)] : [])));
+        }
+
+        private sealed class Preflight : IElementSourcePreflight
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
     }
 
     private sealed class BlockingFileSourceHandler : IElementSourceHandler
