@@ -28,7 +28,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
     {
         if (CaptureActionContext([]) == null) return false;
         if (data.TryGetValue(StorageDragData.Format) is { } source)
-            return source.ProviderId == "beutl" && ReferenceEquals(source.AccountIdentity, _owner) && source.IsCurrent()
+            return source.PendingLocalPaths == null && source.ProviderId == "beutl" && ReferenceEquals(source.AccountIdentity, _owner) && source.IsCurrent()
                 && source.Entries.All(x => !x.IsFolder || x.Id != destination);
         return data.Contains(DataFormat.File);
     }

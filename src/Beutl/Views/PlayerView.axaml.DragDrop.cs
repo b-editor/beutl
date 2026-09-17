@@ -206,6 +206,11 @@ public partial class PlayerView
 
     private void OnFrameDragOver(object? sender, DragEventArgs e)
     {
+        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } storage)
+        {
+            e.DragEffects = storage.IsCurrent() ? DragDropEffects.Copy : DragDropEffects.None;
+            return;
+        }
         if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(BeutlDataFormats.FilterEffect)
             || e.DataTransfer.Contains(BeutlDataFormats.Transform)

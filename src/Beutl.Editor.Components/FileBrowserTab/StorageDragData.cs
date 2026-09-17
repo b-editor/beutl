@@ -12,16 +12,21 @@ public sealed record StorageDragData(string ProviderId, object AccountIdentity,
 {
     public static readonly DataFormat<StorageDragData> Format = DataFormat.CreateInProcessFormat<StorageDragData>("Beutl.StorageDrag");
 
+    public Task<IReadOnlyList<string>>? PendingLocalPaths { get; init; }
+
     public async Task<StorageSceneImport> ImportToSceneAsync(Scene scene, CancellationToken cancellationToken = default)
     {
         if (!IsCurrent()) return new StorageSceneImport(null, [], new Dictionary<string, string>());
         string directory = Path.Combine(scene.Uri?.LocalPath is { } scenePath ? Path.GetDirectoryName(scenePath)! : Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "unsaved", scene.Id.ToString("N")), "resources", "storage", Guid.NewGuid().ToString("N"));
+        var localPaths = PendingLocalPaths != null ? await PendingLocalPaths.WaitAsync(cancellationToken) : LocalPaths;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsCurrent()) throw new OperationCanceledException();
         Directory.CreateDirectory(directory);
         var imported = new List<string>();
         var groups = new Dictionary<string, string>();
         try
         {
-            foreach (string root in LocalPaths)
+            foreach (string root in localPaths)
             {
                 bool isFolder = Directory.Exists(root);
                 string group = Path.Combine(directory, Path.GetFileName(root));

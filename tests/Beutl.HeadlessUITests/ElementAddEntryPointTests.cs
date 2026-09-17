@@ -3,8 +3,10 @@ using System.Collections.Specialized;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -21,6 +23,7 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using Beutl.Views.Tools;
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.HeadlessUITests;
@@ -446,6 +449,76 @@ public class ElementAddEntryPointTests
             Assert.That(editor.Scene.Children.All(element => element.Start == timeline.ClickedFrame), Is.True);
             Assert.That(handler.RequestedLayers, Is.EqualTo(rejectFirst ? new[] { 0, 0, 2 } : new[] { 0, companions ? 2 : 1 }));
             Assert.That(notifications.Notifications, Has.Count.EqualTo(rejectFirst ? 1 : 0));
+        }
+        finally { window.Close(); HeadlessTestHelpers.Settle(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, "success")]
+    [TestCase(true, "success")]
+    [TestCase(false, "cancel")]
+    [TestCase(true, "cancel")]
+    [TestCase(false, "signout")]
+    [TestCase(true, "signout")]
+    public async Task StorageGestureReleasedBeforeDownloadCompletesImportsAtTheOriginalDropPosition(bool playerTarget, string outcome)
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene($"storage-pending-drop-{playerTarget}-{outcome}");
+        await using var scope = new CloudStorageIncrementalTests.StorageScope();
+        await scope.LoadFirstAsync(CloudStorageTests.Response(name: "dropped.bin"));
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        await using var registration = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(new LayeredFileSourceHandler(false), ElementSourceHandlerRegistrationMode.Replace));
+        var source = new CloudStorageView { DataContext = scope.ViewModel };
+        source.DragStarter = (_, _) => throw new AssertionException("A released pointer must not start a native drag.");
+        Control target = playerTarget ? new PlayerView { DataContext = editor.Player } : new TimelineTabView { DataContext = timeline };
+        editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(4);
+        if (target is PlayerView player)
+        {
+            editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height));
+            player.image.Width = editor.Scene.FrameSize.Width;
+            player.image.Height = editor.Scene.FrameSize.Height;
+        }
+        var layout = new Grid { ColumnDefinitions = new ColumnDefinitions("300,*") };
+        Grid.SetColumn(target, 1);
+        layout.Children.Add(source);
+        layout.Children.Add(target);
+        var window = new Window { Content = layout, Width = 1200, Height = 700 };
+        using var notifications = new NotificationCapture();
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var list = source.FindControl<ListBox>("StorageItems")!;
+            AvaPoint start = list.ContainerFromIndex(1)!.TranslatePoint(new AvaPoint(20, 20), window)!.Value;
+            Control surface = target is PlayerView preview ? preview.image : target.FindControl<Panel>("TimelinePanel")!;
+            AvaPoint end = surface.TranslatePoint(new AvaPoint(80, 5), window)!.Value;
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+            await WaitUntilAsync(() => scope.Handler.Requests.Count == 2);
+            window.MouseUp(end, MouseButton.Left);
+            Assert.That(scope.Handler.Requests[1].Token.IsCancellationRequested, Is.False);
+            Assert.That(editor.Scene.Children, Is.Empty);
+            TimeSpan droppedFrame = playerTarget ? editor.Player.CurrentFrame.Value : timeline.ClickedFrame;
+            timeline.ClickedFrame = editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(99);
+            if (outcome == "cancel") scope.ViewModel.CancelTransfer.Execute();
+            if (outcome == "signout") CloudStorageTests.SignIn(scope.Clients, null);
+            scope.Handler.Requests[1].Complete("exported");
+            string storage = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "resources", "storage");
+            if (outcome == "success")
+            {
+                await WaitUntilAsync(() => editor.Scene.Children.Count == 1);
+                Assert.That(editor.Scene.Children[0].Start, Is.EqualTo(droppedFrame));
+                Assert.That(File.ReadAllText(Directory.GetFiles(storage, "*.bin", SearchOption.AllDirectories).Single()), Is.EqualTo("exported"));
+            }
+            else
+            {
+                await WaitUntilAsync(() => !scope.ViewModel.IsTransferring.Value);
+                HeadlessTestHelpers.Settle();
+                Assert.That(editor.Scene.Children, Is.Empty);
+                Assert.That(Directory.Exists(storage), Is.False);
+            }
+            Assert.That(notifications.Notifications, Is.Empty);
+            Assert.That(scope.ViewModel.ActionError.Value, Is.Null);
         }
         finally { window.Close(); HeadlessTestHelpers.Settle(); }
     }

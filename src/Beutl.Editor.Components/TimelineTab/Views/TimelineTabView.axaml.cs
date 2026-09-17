@@ -616,6 +616,11 @@ public sealed partial class TimelineTabView : UserControl
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
+        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } storage)
+        {
+            e.DragEffects = storage.IsCurrent() ? DragDropEffects.Copy : DragDropEffects.None;
+            return;
+        }
         if (e.DataTransfer.Contains(BeutlDataFormats.ObjectTemplate)
             || e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(DataFormat.File))

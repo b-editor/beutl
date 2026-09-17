@@ -346,9 +346,11 @@ public sealed class CloudStorageDragDropTests
             return file.Object;
         });
         string? retained = null;
+        DataFormat[][]? formats = null;
         var view = new CloudStorageView { DataContext = scope.ViewModel };
         view.DragStarter = (_, data) =>
         {
+            formats = data.Items.Select(item => item.Formats.ToArray()).ToArray();
             retained = data.TryGetFile()!.TryGetLocalPath();
             Assert.That(File.ReadAllText(retained!), Is.EqualTo("exported"));
             Assert.That(data.TryGetValue(StorageDragData.Format)?.IsCurrent(), Is.True);
@@ -368,6 +370,9 @@ public sealed class CloudStorageDragDropTests
             scope.Handler.Requests[1].Complete("exported");
             await WaitFor(() => retained != null);
             Assert.That(File.Exists(retained), Is.True);
+            Assert.That(formats, Has.Length.EqualTo(1));
+            Assert.That(formats![0], Does.Contain(DataFormat.File));
+            Assert.That(formats[0], Does.Contain(StorageDragData.Format));
         }
         finally
         {

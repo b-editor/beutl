@@ -18,6 +18,8 @@ public sealed partial class CloudStorageView
     private StorageActionContext? _storageDrag;
     private bool _preparingDrag;
     private bool _nativeDrag;
+    private StorageDragData? _pendingDragData;
+    private bool _releasedToApplication;
     private ListBoxItem? _dropHighlight;
     private FileBrowserStorageBreadcrumb? _breadcrumbDrop;
     internal Func<PointerPressedEventArgs, IDataTransfer, Task<DragDropEffects>>? DragStarter { get; set; }
@@ -142,7 +144,15 @@ public sealed partial class CloudStorageView
 
     private async void OnStoragePointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_nativeDrag) return;
+        if (_nativeDrag || _releasedToApplication) return;
+        if (_preparingDrag && TryDropWhilePreparing(e))
+        {
+            e.Handled = true;
+            _storagePress?.Pointer.Capture(null);
+            HighlightDrop(null);
+            Cursor = null;
+            return;
+        }
         var context = _storageDrag;
         string? target = _breadcrumbDrop != null ? _breadcrumbDrop.FolderId : _dropHighlight?.DataContext is CloudStorageItem folder ? folder.Id : null;
         bool move = context != null && (_breadcrumbDrop != null || _dropHighlight != null) && !_preparingDrag;
@@ -155,10 +165,35 @@ public sealed partial class CloudStorageView
         }
     }
 
+    private bool TryDropWhilePreparing(PointerReleasedEventArgs e)
+    {
+        if (_releasedToApplication || _pendingDragData is not { } pending || !pending.IsCurrent()
+            || TopLevel.GetTopLevel(this) is not { } root
+            || root.InputHitTest(e.GetPosition(root)) is not Interactive target
+            || !DragDrop.GetAllowDrop(target)) return false;
+        using var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(StorageDragData.Format, pending));
+        var over = new DragEventArgs(DragDrop.DragOverEvent, data, target, e.GetPosition(target), e.KeyModifiers);
+        target.RaiseEvent(over);
+        if (over.DragEffects != DragDropEffects.Copy) return false;
+
+        // Deliver the drop now so the receiving editor captures its scene, frame and layer.
+        // It can await the file bytes without requiring the user to keep holding the mouse.
+        _releasedToApplication = true;
+        target.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, data, target, e.GetPosition(target), e.KeyModifiers)
+        { DragEffects = DragDropEffects.Copy });
+        return true;
+    }
+
     private async Task BeginExternalStorageDragAsync(CloudStorageViewModel vm, StorageActionContext context, PointerPressedEventArgs trigger)
     {
         if (context.Items.Any(item => !item.IsFolder && !item.Can("download"))) { ResetStorageDrag(); return; }
         _preparingDrag = true;
+        var prepared = new TaskCompletionSource<IReadOnlyList<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingDragData = new StorageDragData("beutl", context.User,
+            context.Items.Select(x => new StorageDragEntry(x.Id, x.Name, x.IsFolder)).ToArray(), [],
+            () => vm.IsTransferCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination), vm)
+        { PendingLocalPaths = prepared.Task };
         string directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "storage", "downloads", Guid.NewGuid().ToString("N"));
         bool retained = false;
         var handles = new List<IStorageItem>();
@@ -166,6 +201,12 @@ public sealed partial class CloudStorageView
         {
             var paths = await vm.ExportStorageItemsAsync(context, directory);
             if (paths == null || !_attached || !ReferenceEquals(_storageDrag, context) || !vm.IsActionCurrent(context)) return;
+            prepared.TrySetResult(paths);
+            if (_releasedToApplication)
+            {
+                retained = true;
+                return;
+            }
             if (TopLevel.GetTopLevel(this)?.StorageProvider is not { } provider) return;
             using var data = new DataTransfer();
             foreach (string path in paths)
@@ -176,9 +217,17 @@ public sealed partial class CloudStorageView
                 data.Add(DataTransferItem.CreateFile(item));
             }
             if (!_attached || !ReferenceEquals(_storageDrag, context) || !vm.IsActionCurrent(context)) return;
-            data.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("beutl", context.User,
+            if (_releasedToApplication)
+            {
+                retained = true;
+                return;
+            }
+            if (data.Items.Count == 0) return;
+            // Keep metadata on a file item: an in-process-only item has no writable native
+            // pasteboard formats and cannot be used as a macOS dragging item.
+            data.Items[0].Set(StorageDragData.Format, new StorageDragData("beutl", context.User,
                 context.Items.Select(x => new StorageDragEntry(x.Id, x.Name, x.IsFolder)).ToArray(), paths,
-                () => vm.IsActionCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination), vm)));
+                () => vm.IsActionCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination), vm));
             _nativeDrag = true;
             trigger.Pointer.Capture(null);
             var effect = DragStarter != null ? await DragStarter(trigger, data) : await DragDrop.DoDragDropAsync(trigger, data, DragDropEffects.Copy);
@@ -189,11 +238,16 @@ public sealed partial class CloudStorageView
         catch (Exception ex) { if (vm.IsTransferCurrent(context)) vm.ReportActionError(ex); }
         finally
         {
+            prepared.TrySetCanceled();
+            // The editor may already be reading the files if release occurred while resolving native handles.
+            retained |= _releasedToApplication && prepared.Task.IsCompletedSuccessfully;
             foreach (var handle in handles) handle.Dispose();
             try { if (!retained && Directory.Exists(directory)) Directory.Delete(directory, true); }
             catch (IOException ex) { if (vm.IsTransferCurrent(context)) vm.ReportActionError(ex); }
             catch (UnauthorizedAccessException ex) { if (vm.IsTransferCurrent(context)) vm.ReportActionError(ex); }
             _preparingDrag = _nativeDrag = false;
+            _pendingDragData = null;
+            _releasedToApplication = false;
             ResetStorageDrag();
         }
     }
