@@ -44,11 +44,13 @@ public partial class PlayerView
             }
             try
             {
-                foreach (string path in await storage.ImportToSceneAsync(scene))
+                using var import = await storage.ImportToSceneAsync(scene);
+                foreach (string path in import.Paths)
                 {
                     int layer = scene.Children.Select(element => element.ZIndex).DefaultIfEmpty(-1).Max() + 1;
-                    await AddElement(editViewModel, new ElementDescription(frame, TimeSpan.FromSeconds(5), layer,
+                    ElementAddResult? result = await AddElement(editViewModel, new ElementDescription(frame, TimeSpan.FromSeconds(5), layer,
                         new ElementSource.File(path), Position: centeredPosition));
+                    if (result is { IsSuccess: true }) import.Retain(path);
                 }
             }
             catch (OperationCanceledException) { }
@@ -145,13 +147,13 @@ public partial class PlayerView
         }
     }
 
-    internal async Task AddElement(EditViewModel editViewModel, ElementDescription description)
+    internal async Task<ElementAddResult?> AddElement(EditViewModel editViewModel, ElementDescription description)
     {
         if (editViewModel.FindToolTab<TimelineTabViewModel>() is { } timeline)
         {
             try
             {
-                await timeline.AddElement.ExecuteAsync(description);
+                return await timeline.AddElementWithResultAsync(description);
             }
             catch (OperationCanceledException)
             {
@@ -159,21 +161,21 @@ public partial class PlayerView
             catch (ObjectDisposedException)
             {
             }
-            return;
+            return null;
         }
 
         ElementAddResult? result = await AddPlayerDropAsync(
             editViewModel.GetRequiredService<IElementAdder>(),
             description);
         if (result is null)
-            return;
+            return null;
         if (result.IsSuccess)
-            return;
+            return result;
 
         if (result.Failure is LockedElementLayerFailure)
         {
             NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
-            return;
+            return result;
         }
 
         _logger.LogError(
@@ -181,6 +183,7 @@ public partial class PlayerView
             "Failed to add a player drop: {FailureId}",
             result.Failure?.Id);
         NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+        return result;
     }
 
     internal static async Task<ElementAddResult?> AddPlayerDropAsync(

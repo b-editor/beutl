@@ -360,6 +360,59 @@ public class ElementAddEntryPointTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase("timeline", "locked")]
+    [TestCase("timeline", "unsupported")]
+    [TestCase("timeline", "partial")]
+    [TestCase("player", "locked")]
+    [TestCase("player", "unsupported")]
+    [TestCase("player", "partial")]
+    [TestCase("player-without-timeline", "locked")]
+    [TestCase("player-without-timeline", "unsupported")]
+    [TestCase("player-without-timeline", "partial")]
+    public async Task StorageDropReleasesRejectedCopiesAndRetainsAcceptedResources(string target, string outcome)
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene($"storage-{target}-{outcome}");
+        string image = CreatePngFile(editor, "accepted.png");
+        string unsupported = Path.ChangeExtension(image, ".drop-test");
+        await File.WriteAllTextAsync(unsupported, "unsupported");
+        if (outcome == "locked")
+            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = 0, IsLocked = true });
+        if (target == "player-without-timeline") editor.CloseToolTab(timeline);
+        using var notifications = new NotificationCapture();
+        var view = target == "timeline" ? (Control)new TimelineTabView { DataContext = timeline } : new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        try
+        {
+            if (view is PlayerView player)
+            {
+                editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height));
+                player.image.Width = editor.Scene.FrameSize.Width;
+                player.image.Height = editor.Scene.FrameSize.Height;
+            }
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel panel = view.FindControl<Panel>(target == "timeline" ? "TimelinePanel" : "framePanel")!;
+            using var transfer = new DataTransfer();
+            string[] sources = outcome == "partial" ? [image, unsupported] : [outcome == "locked" ? image : unsupported];
+            transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], sources, () => true, _ => Task.FromResult(false))));
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, panel, new AvaPoint(10, 5), KeyModifiers.None);
+            panel.RaiseEvent(args);
+            await WaitUntilAsync(() => notifications.Notifications.Count == 1);
+            HeadlessTestHelpers.Settle();
+
+            string storage = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "resources", "storage");
+            string[] copies = Directory.GetFiles(storage, "*", SearchOption.AllDirectories);
+            Assert.That(args.Handled, Is.True);
+            Assert.That(editor.Scene.Children, Has.Count.EqualTo(outcome == "partial" ? 1 : 0));
+            Assert.That(copies.Select(Path.GetFileName), Is.EqualTo(outcome == "partial" ? new[] { "accepted.png" } : Array.Empty<string>()));
+            if (outcome != "partial") Assert.That(Directory.GetDirectories(storage), Is.Empty);
+            Assert.That(sources.All(File.Exists), Is.True, "The original drag downloads remain untouched.");
+        }
+        finally { window.Close(); HeadlessTestHelpers.Settle(); }
+    }
+
     [Test]
     public async Task PlayerDropContainsEditorLifecycleCancellation()
     {

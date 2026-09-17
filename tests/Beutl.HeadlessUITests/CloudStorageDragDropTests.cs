@@ -249,14 +249,46 @@ public sealed class CloudStorageDragDropTests
             Assert.That(await File.ReadAllTextAsync(paths[0]), Is.EqualTo("content"));
             var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.beutl")) };
             var data = new StorageDragData("beutl", context.User, [new("file", "clip.bin", false)], paths, () => vm.IsActionCurrent(context), _ => Task.FromResult(false));
-            var imported = await data.ImportToSceneAsync(scene);
+            using var imported = await data.ImportToSceneAsync(scene);
+            imported.Retain(imported.Paths.Single());
             Directory.Delete(downloads, true);
-            Assert.That(await File.ReadAllTextAsync(imported.Single()), Is.EqualTo("content"));
-            Assert.That(imported.Single(), Does.Contain(Path.Combine("resources", "storage")));
+            Assert.That(await File.ReadAllTextAsync(imported.Paths.Single()), Is.EqualTo("content"));
+            Assert.That(imported.Paths.Single(), Does.Contain(Path.Combine("resources", "storage")));
             SignIn(scope.Clients, null);
-            Assert.That(await data.ImportToSceneAsync(scene), Is.Empty);
+            using var staleImport = await data.ImportToSceneAsync(scene);
+            Assert.That(staleImport.Paths, Is.Empty);
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Test]
+    public async Task AcceptedFolderResourcesSurviveWhileRejectedSelectionsAreRemoved()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "beutl-storage-import-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(root, "downloads", "folder");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            File.WriteAllText(Path.Combine(folder, "accepted.png"), "image");
+            File.WriteAllText(Path.Combine(folder, "dependency.bin"), "dependency");
+            string rejected = Path.Combine(root, "downloads", "rejected.bin");
+            File.WriteAllText(rejected, "rejected");
+            var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.beutl")) };
+            var data = new StorageDragData("test", new object(), [], [folder, rejected], () => true, _ => Task.FromResult(false));
+            string accepted;
+            string rejectedCopy;
+            using (var import = await data.ImportToSceneAsync(scene))
+            {
+                accepted = import.Paths.Single(path => Path.GetFileName(path) == "accepted.png");
+                rejectedCopy = import.Paths.Single(path => Path.GetFileName(path) == "rejected.bin");
+                import.Retain(accepted);
+            }
+            Assert.That(File.Exists(accepted), Is.True);
+            Assert.That(File.Exists(Path.Combine(Path.GetDirectoryName(accepted)!, "dependency.bin")), Is.True);
+            Assert.That(File.Exists(rejectedCopy), Is.False);
+            Assert.That(File.Exists(rejected), Is.True);
+        }
+        finally { Directory.Delete(root, true); }
     }
 
     [AvaloniaTest]

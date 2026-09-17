@@ -542,15 +542,22 @@ public sealed partial class TimelineTabView : UserControl
             }
             try
             {
-                var paths = await storage.ImportToSceneAsync(scene);
-                foreach (string path in paths)
+                using var import = await storage.ImportToSceneAsync(scene);
+                foreach (string path in import.Paths)
                 {
+                    ElementAddResult result;
                     if (string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase)
                         && ObjectTemplateService.Instance.TryLoadFromFile(path) is { } storageTemplate)
-                        await viewModel.AddElement.ExecuteAsync(ElementTemplateResolver.CreateDescription(storageTemplate, dropFrame, dropLayer));
+                    {
+                        result = await viewModel.AddElementWithResultAsync(ElementTemplateResolver.CreateDescription(storageTemplate, dropFrame, dropLayer));
+                        if (result.IsSuccess) import.RetainAll();
+                    }
                     else
-                        await viewModel.AddElement.ExecuteAsync(new ElementDescription(dropFrame, TimeSpan.FromSeconds(5),
+                    {
+                        result = await viewModel.AddElementWithResultAsync(new ElementDescription(dropFrame, TimeSpan.FromSeconds(5),
                             dropLayer, new ElementSource.File(path)));
+                        if (result.IsSuccess) import.Retain(path);
+                    }
                 }
             }
             catch (OperationCanceledException) { }
