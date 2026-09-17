@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -636,18 +635,9 @@ public class CoreList<T> : ICoreList<T>
         PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         if (CollectionChanged != null)
         {
-            T[] array = ArrayPool<T>.Shared.Rent(t.Length);
-            t.CopyTo(array.AsSpan());
-
-            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, array, index);
-            try
-            {
-                CollectionChanged(this, e);
-            }
-            finally
-            {
-                ArrayPool<T>.Shared.Return(array);
-            }
+            // Handlers may keep NewItems, so it gets an array of its own holding exactly t's items.
+            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, t.ToArray(), index);
+            CollectionChanged(this, e);
         }
 
         NotifyCountChanged();
