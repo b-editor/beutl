@@ -75,11 +75,6 @@ public class ColorEditor : PropertyEditor
         _flyout.Hide();
 
         Color color = Value;
-        if (color.A == 0)
-        {
-            // 初期値や旧データの Alpha=0 は分かりにくいため、RGBを維持したまま不透明表示にする
-            color = Color.FromArgb(255, color.R, color.G, color.B);
-        }
         _flyout.ColorPicker.Color = color;
 
         _flyout.Placement = PlacementMode.Bottom;
@@ -95,8 +90,7 @@ public class ColorEditor : PropertyEditor
 
         _flyoutActive = true;
 
-        if (IsLivePreviewEnabled)
-            _oldValue = _value;
+        _oldValue = _value;
     }
 
     private void OnColorPickerColorChanged(SimpleColorPicker sender, (Color2 OldValue, Color2 NewValue) args)
