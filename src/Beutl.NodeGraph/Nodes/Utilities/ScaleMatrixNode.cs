@@ -10,6 +10,9 @@ public partial class ScaleMatrixNode : MatrixNode
         Scale = AddInput<float>("Scale");
         ScaleX = AddInput<float>("ScaleX");
         ScaleY = AddInput<float>("ScaleY");
+        Scale.Property?.SetValue(1);
+        ScaleX.Property?.SetValue(1);
+        ScaleY.Property?.SetValue(1);
     }
 
     public InputPort<float> Scale { get; }

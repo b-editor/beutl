@@ -9,6 +9,7 @@ public partial class RandomSingleNode : GraphNode
         Value = AddOutput<float>("Value");
         Maximum = AddInput<float>("Maximum");
         Minimum = AddInput<float>("Minimum");
+        Maximum.Property?.SetValue(1);
     }
 
     public OutputPort<float> Value { get; }
@@ -34,6 +35,7 @@ public partial class RandomDoubleNode : GraphNode
         Value = AddOutput<double>("Value");
         Maximum = AddInput<double>("Maximum");
         Minimum = AddInput<double>("Minimum");
+        Maximum.Property?.SetValue(1);
     }
 
     public OutputPort<double> Value { get; }
@@ -59,6 +61,7 @@ public partial class RandomInt32Node : GraphNode
         Value = AddOutput<int>("Value");
         Maximum = AddInput<int>("Maximum");
         Minimum = AddInput<int>("Minimum");
+        Maximum.Property?.SetValue(100);
     }
 
     public OutputPort<int> Value { get; }
@@ -83,6 +86,7 @@ public partial class RandomInt64Node : GraphNode
         Value = AddOutput<long>("Value");
         Maximum = AddInput<long>("Maximum");
         Minimum = AddInput<long>("Minimum");
+        Maximum.Property?.SetValue(100);
     }
 
     public OutputPort<long> Value { get; }
