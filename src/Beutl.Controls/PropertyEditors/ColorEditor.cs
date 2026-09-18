@@ -26,8 +26,8 @@ public class ColorEditor : PropertyEditor
     private bool _flyoutActive;
     private Button _button;
 
-    private Color _oldValue;
-    private Color _value;
+    private Color _oldValue = Colors.White;
+    private Color _value = Colors.White;
 
     public Color Value
     {
@@ -75,6 +75,11 @@ public class ColorEditor : PropertyEditor
         _flyout.Hide();
 
         Color color = Value;
+        if (color.A == 0)
+        {
+            // 初期値や旧データの Alpha=0 は分かりにくいため、RGBを維持したまま不透明表示にする
+            color = Color.FromArgb(255, color.R, color.G, color.B);
+        }
         _flyout.ColorPicker.Color = color;
 
         _flyout.Placement = PlacementMode.Bottom;

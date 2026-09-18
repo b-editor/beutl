@@ -53,7 +53,7 @@ public class PenAndGradientStopTests
         Assert.Multiple(() =>
         {
             Assert.That(stop.Offset.CurrentValue, Is.EqualTo(0f));
-            Assert.That(stop.Color.CurrentValue, Is.EqualTo(default(Color)));
+            Assert.That(stop.Color.CurrentValue, Is.EqualTo(Colors.White));
         });
     }
 

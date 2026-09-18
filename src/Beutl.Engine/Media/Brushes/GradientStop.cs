@@ -32,5 +32,5 @@ public sealed partial class GradientStop : EngineObject
     public IProperty<float> Offset { get; } = Property.Create<float>();
 
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> Color { get; } = Property.Create<Color>();
+    public IProperty<Color> Color { get; } = Property.Create(Colors.White);
 }

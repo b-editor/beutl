@@ -21,7 +21,7 @@ public partial class InnerShadow : FilterEffect
     public IProperty<Size> Sigma { get; } = Property.CreateAnimatable(Size.Empty);
 
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.Transparent);
+    public IProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.White);
 
     [Display(Name = nameof(GraphicsStrings.ShadowOnly), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
