@@ -186,6 +186,9 @@ public sealed partial class CloudStorageView
         _releasedToApplication = true;
         target.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, data, target, e.GetPosition(target), e.KeyModifiers)
         { DragEffects = DragDropEffects.Copy });
+        if (pending.Consumption is { IsClaimed: true, Completion.IsCompleted: true }
+            && pending.PendingLocalPaths is { IsCompleted: false } && DataContext is CloudStorageViewModel vm)
+            vm.CancelTransfer.Execute();
         return true;
     }
 
@@ -193,11 +196,12 @@ public sealed partial class CloudStorageView
     {
         if (context.Items.Any(item => !item.IsFolder && !item.Can("download"))) { ResetStorageDrag(); return; }
         _preparingDrag = true;
+        var consumption = new StorageDragConsumption();
         var prepared = new TaskCompletionSource<IReadOnlyList<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingDragData = new StorageDragData("beutl", context.User,
             context.Items.Select(x => new StorageDragEntry(x.Id, x.Name, x.IsFolder)).ToArray(), [],
             () => vm.IsTransferCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination), vm)
-        { PendingLocalPaths = prepared.Task, CanMoveTo = destination => destination != context.FolderId };
+        { PendingLocalPaths = prepared.Task, CanMoveTo = destination => destination != context.FolderId, Consumption = consumption };
         string directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "storage", "downloads", Guid.NewGuid().ToString("N"));
         bool retained = false;
         var handles = new List<IStorageItem>();
@@ -208,7 +212,6 @@ public sealed partial class CloudStorageView
             prepared.TrySetResult(paths);
             if (_releasedToApplication)
             {
-                retained = true;
                 return;
             }
             if (TopLevel.GetTopLevel(this)?.StorageProvider is not { } provider) return;
@@ -223,7 +226,6 @@ public sealed partial class CloudStorageView
             if (!_attached || !ReferenceEquals(_storageDrag, context) || !vm.IsActionCurrent(context)) return;
             if (_releasedToApplication)
             {
-                retained = true;
                 return;
             }
             if (data.Items.Count == 0) return;
@@ -232,7 +234,7 @@ public sealed partial class CloudStorageView
             data.Items[0].Set(StorageDragData.Format, new StorageDragData("beutl", context.User,
                 context.Items.Select(x => new StorageDragEntry(x.Id, x.Name, x.IsFolder)).ToArray(), paths,
                 () => vm.IsActionCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination), vm)
-            { CanMoveTo = destination => destination != context.FolderId });
+            { CanMoveTo = destination => destination != context.FolderId, Consumption = consumption });
             _nativeDrag = true;
             trigger.Pointer.Capture(null);
             var effect = DragStarter != null ? await DragStarter(trigger, data) : await DragDrop.DoDragDropAsync(trigger, data, DragDropEffects.Copy);
@@ -244,8 +246,12 @@ public sealed partial class CloudStorageView
         finally
         {
             prepared.TrySetCanceled();
-            // The editor may already be reading the files if release occurred while resolving native handles.
-            retained |= _releasedToApplication && prepared.Task.IsCompletedSuccessfully;
+            if (consumption.IsClaimed)
+            {
+                // The native drag callback can finish before an async editor drop finishes reading.
+                await consumption.Completion;
+                retained = false;
+            }
             foreach (var handle in handles) handle.Dispose();
             try { if (!retained && Directory.Exists(directory)) Directory.Delete(directory, true); }
             catch (IOException ex) { if (vm.IsTransferCurrent(context)) vm.ReportActionError(ex); }

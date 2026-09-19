@@ -25,6 +25,8 @@ public partial class PlayerView
     // Todo: Refactor
     private async void OnFrameDrop(object? sender, DragEventArgs e)
     {
+        var storage = e.DataTransfer.TryGetValue(StorageDragData.Format);
+        using var consumption = storage?.Consumption?.Claim();
         if (DataContext is not PlayerViewModel { Scene: { } scene, EditViewModel: { } editViewModel } viewModel) return;
         TimeSpan frame = viewModel.CurrentFrame.Value;
 
@@ -33,7 +35,7 @@ public partial class PlayerView
         Point scaledPosition = (position / scaleX).ToBtlPoint();
         Point centeredPosition = scaledPosition - new Point(scene.FrameSize.Width / 2f, scene.FrameSize.Height / 2f);
 
-        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } storage)
+        if (storage != null)
         {
             e.Handled = true;
             using var fileWrite = HostProjectFileWriteAdmission.Resolve(editViewModel)?.TryBeginProjectFileWrite();

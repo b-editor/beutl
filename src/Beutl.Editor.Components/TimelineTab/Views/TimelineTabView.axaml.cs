@@ -519,6 +519,8 @@ public sealed partial class TimelineTabView : UserControl
     // ドロップされた
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
+        var storage = e.DataTransfer.TryGetValue(StorageDragData.Format);
+        using var consumption = storage?.Consumption?.Claim();
         if (ViewModel == null) return;
         TimelinePanel.Cursor = Cursors.Arrow;
         TimelineTabViewModel viewModel = ViewModel;
@@ -529,7 +531,7 @@ public sealed partial class TimelineTabView : UserControl
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedPosition = pt;
 
-        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } storage)
+        if (storage != null)
         {
             e.Handled = true;
             TimeSpan dropFrame = viewModel.ClickedFrame;

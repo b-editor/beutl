@@ -14,6 +14,7 @@ public sealed record StorageDragData(string ProviderId, object AccountIdentity,
 
     public Task<IReadOnlyList<string>>? PendingLocalPaths { get; init; }
     public Func<string?, bool>? CanMoveTo { get; init; }
+    public StorageDragConsumption? Consumption { get; init; }
 
     public async Task<StorageSceneImport> ImportToSceneAsync(Scene scene, CancellationToken cancellationToken = default)
     {
@@ -52,6 +53,29 @@ public sealed record StorageDragData(string ProviderId, object AccountIdentity,
             Directory.Delete(directory, true);
             throw;
         }
+    }
+}
+
+// Scene drop handlers claim synchronously, before their first await or an admission rejection.
+// The source may remove staging files only after the returned lease has been disposed.
+public sealed class StorageDragConsumption
+{
+    private readonly TaskCompletionSource _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _claimed;
+
+    public bool IsClaimed => Volatile.Read(ref _claimed) != 0;
+    public Task Completion => _completion.Task;
+
+    public IDisposable Claim()
+    {
+        if (Interlocked.Exchange(ref _claimed, 1) != 0)
+            throw new InvalidOperationException("This storage drop already has a consumer.");
+        return new Lease(this);
+    }
+
+    private sealed class Lease(StorageDragConsumption owner) : IDisposable
+    {
+        public void Dispose() => owner._completion.TrySetResult();
     }
 }
 

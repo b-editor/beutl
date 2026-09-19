@@ -454,22 +454,29 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
-    [TestCase(false, "success")]
-    [TestCase(true, "success")]
-    [TestCase(false, "cancel")]
-    [TestCase(true, "cancel")]
-    [TestCase(false, "signout")]
-    [TestCase(true, "signout")]
-    public async Task StorageGestureReleasedBeforeDownloadCompletesImportsAtTheOriginalDropPosition(bool playerTarget, string outcome)
+    [TestCase(false, "success", false)]
+    [TestCase(true, "success", false)]
+    [TestCase(false, "cancel", false)]
+    [TestCase(true, "cancel", false)]
+    [TestCase(false, "signout", false)]
+    [TestCase(true, "signout", false)]
+    [TestCase(false, "busy", false)]
+    [TestCase(true, "busy", false)]
+    [TestCase(false, "unsupported", false)]
+    [TestCase(true, "unsupported", false)]
+    [TestCase(false, "success", true)]
+    [TestCase(true, "success", true)]
+    [TestCase(false, "busy", true)]
+    [TestCase(true, "busy", true)]
+    public async Task StorageEditorDropsCleanStagingAfterSuccessOrRejection(bool playerTarget, string outcome, bool nativeReady)
     {
         await TestReset.ResetShellAsync();
-        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene($"storage-pending-drop-{playerTarget}-{outcome}");
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene($"storage-pending-drop-{playerTarget}-{outcome}-{nativeReady}");
         await using var scope = new CloudStorageIncrementalTests.StorageScope();
-        await scope.LoadFirstAsync(CloudStorageTests.Response(name: "dropped.bin"));
+        await scope.LoadFirstAsync(CloudStorageTests.Response(name: outcome == "unsupported" ? "rejected.png" : "dropped.bin"));
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await using var registration = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(new LayeredFileSourceHandler(false), ElementSourceHandlerRegistrationMode.Replace));
         var source = new CloudStorageView { DataContext = scope.ViewModel };
-        source.DragStarter = (_, _) => throw new AssertionException("A released pointer must not start a native drag.");
         Control target = playerTarget ? new PlayerView { DataContext = editor.Player } : new TimelineTabView { DataContext = timeline };
         editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(4);
         if (target is PlayerView player)
@@ -484,6 +491,10 @@ public class ElementAddEntryPointTests
         layout.Children.Add(target);
         var window = new Window { Content = layout, Width = 1200, Height = 700 };
         using var notifications = new NotificationCapture();
+        string downloads = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "storage", "downloads");
+        string[] originalDownloads = Directory.Exists(downloads) ? Directory.GetDirectories(downloads) : [];
+        using var reservation = outcome == "busy" ? TestShell.Editor.TryBeginWorktreeMutation() : null;
+        if (outcome == "busy") Assert.That(reservation, Is.Not.Null);
         try
         {
             window.Show();
@@ -492,14 +503,30 @@ public class ElementAddEntryPointTests
             AvaPoint start = list.ContainerFromIndex(1)!.TranslatePoint(new AvaPoint(20, 20), window)!.Value;
             Control surface = target is PlayerView preview ? preview.image : target.FindControl<Panel>("TimelinePanel")!;
             AvaPoint end = surface.TranslatePoint(new AvaPoint(80, 5), window)!.Value;
+            TimeSpan droppedFrame = default;
+            void CaptureDropPosition()
+            {
+                droppedFrame = playerTarget ? editor.Player.CurrentFrame.Value : timeline.ClickedFrame;
+                timeline.ClickedFrame = editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(99);
+            }
+            source.DragStarter = (_, data) =>
+            {
+                Assert.That(nativeReady, Is.True, "A released pointer must not start a native drag.");
+                surface.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, data, surface, new AvaPoint(80, 5), KeyModifiers.None)
+                { DragEffects = DragDropEffects.Copy });
+                CaptureDropPosition();
+                return Task.FromResult(DragDropEffects.Copy);
+            };
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(end, RawInputModifiers.LeftMouseButton);
             await WaitUntilAsync(() => scope.Handler.Requests.Count == 2);
-            window.MouseUp(end, MouseButton.Left);
-            Assert.That(scope.Handler.Requests[1].Token.IsCancellationRequested, Is.False);
+            if (!nativeReady)
+            {
+                window.MouseUp(end, MouseButton.Left);
+                CaptureDropPosition();
+            }
+            Assert.That(scope.Handler.Requests[1].Token.IsCancellationRequested, Is.EqualTo(outcome == "busy" && !nativeReady));
             Assert.That(editor.Scene.Children, Is.Empty);
-            TimeSpan droppedFrame = playerTarget ? editor.Player.CurrentFrame.Value : timeline.ClickedFrame;
-            timeline.ClickedFrame = editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(99);
             if (outcome == "cancel") scope.ViewModel.CancelTransfer.Execute();
             if (outcome == "signout") CloudStorageTests.SignIn(scope.Clients, null);
             scope.Handler.Requests[1].Complete("exported");
@@ -513,14 +540,16 @@ public class ElementAddEntryPointTests
             else
             {
                 await WaitUntilAsync(() => !scope.ViewModel.IsTransferring.Value);
+                if (outcome is "busy" or "unsupported") await WaitUntilAsync(() => notifications.Notifications.Count == 1);
                 HeadlessTestHelpers.Settle();
                 Assert.That(editor.Scene.Children, Is.Empty);
-                Assert.That(Directory.Exists(storage), Is.False);
+                Assert.That(!Directory.Exists(storage) || !Directory.EnumerateFileSystemEntries(storage).Any(), Is.True);
             }
-            Assert.That(notifications.Notifications, Is.Empty);
+            await WaitUntilAsync(() => !Directory.Exists(downloads) || !Directory.GetDirectories(downloads).Except(originalDownloads).Any());
+            Assert.That(notifications.Notifications, Has.Count.EqualTo(outcome is "busy" or "unsupported" ? 1 : 0));
             Assert.That(scope.ViewModel.ActionError.Value, Is.Null);
         }
-        finally { window.Close(); HeadlessTestHelpers.Settle(); }
+        finally { window.MouseUp(new AvaPoint(0, 0), MouseButton.Left); window.Close(); HeadlessTestHelpers.Settle(); }
     }
 
     [Test]
