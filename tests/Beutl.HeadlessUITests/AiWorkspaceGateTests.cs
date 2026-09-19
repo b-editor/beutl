@@ -687,6 +687,73 @@ public sealed class AiWorkspaceGateTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task RefreshTimeout_OpensRetryGate()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-timeout");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
+        // An HTTP timeout surfaces as cancellation without cancelling our token.
+        var entitlements = new StubEntitlementService
+        {
+            Failure = new TaskCanceledException("The request timed out."),
+        };
+        var plans = new StubPlanCoordinator();
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            signIn: null,
+            entitlements);
+
+        await WaitUntilAsync(() => workspace.GateRefreshFailed.Value);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(workspace.IsGateOpen.Value, Is.True);
+            Assert.That(workspace.SignInError.Value, Is.EqualTo(MessageStrings.UnexpectedError));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Dispose_CancelsInitialLoadSilently()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-dispose-load");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
+        var entitlements = new StubEntitlementService();
+        var plans = new StubPlanCoordinator();
+        var releaseRefresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        entitlements.RefreshHandler = async cancellationToken =>
+        {
+            await releaseRefresh.Task;
+            cancellationToken.ThrowIfCancellationRequested();
+            return CreateEntitlements(canUseAi: true);
+        };
+        var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            signIn: null,
+            entitlements);
+        await WaitUntilAsync(() => entitlements.RefreshCount == 1);
+
+        await workspace.DisposeAsync();
+        releaseRefresh.TrySetResult();
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(workspace.GateRefreshFailed.Value, Is.False);
+            Assert.That(workspace.SignInError.Value, Is.Null);
+        }
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         for (int attempt = 0; attempt < 100 && !condition(); attempt++)

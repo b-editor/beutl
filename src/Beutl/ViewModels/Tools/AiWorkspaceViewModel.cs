@@ -386,8 +386,13 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             await RefreshGateEntitlementsAsync();
             RefreshGateModels();
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
+        }
+        catch (OperationCanceledException ex)
+        {
+            // HTTP timeouts surface as cancellation without cancelling our token.
+            PublishRefreshTimeout(ex, "AI workspace initial entitlement load failed.");
         }
         catch (ApiException ex)
         {
@@ -424,8 +429,13 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             await RefreshGateEntitlementsAsync();
             RefreshGateModels();
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
+        }
+        catch (OperationCanceledException ex)
+        {
+            // HTTP timeouts surface as cancellation without cancelling our token.
+            PublishRefreshTimeout(ex, "AI workspace entitlement refresh failed.");
         }
         catch (ApiException ex)
         {
@@ -437,6 +447,16 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             _logger.LogError(ex, "AI workspace entitlement refresh failed.");
             PublishGateFailure(MessageStrings.UnexpectedError);
         }
+    }
+
+    private void PublishRefreshTimeout(OperationCanceledException ex, string message)
+    {
+        // Session teardown after sign-out is covered by the sign-in gate, so only a
+        // signed-in account with no snapshot turns a timeout into the retry gate.
+        if (!IsSignedIn.Value)
+            return;
+        _logger.LogError(ex, "{Message}", message);
+        PublishGateFailure(MessageStrings.UnexpectedError);
     }
 
     private async Task RefreshGateEntitlementsAsync()
