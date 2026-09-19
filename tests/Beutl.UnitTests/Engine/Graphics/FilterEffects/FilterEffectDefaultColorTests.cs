@@ -1,4 +1,4 @@
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
