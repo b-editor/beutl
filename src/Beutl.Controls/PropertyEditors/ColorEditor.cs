@@ -26,8 +26,8 @@ public class ColorEditor : PropertyEditor
     private bool _flyoutActive;
     private Button _button;
 
-    private Color _oldValue;
-    private Color _value;
+    private Color _oldValue = Colors.White;
+    private Color _value = Colors.White;
 
     public Color Value
     {
@@ -90,8 +90,7 @@ public class ColorEditor : PropertyEditor
 
         _flyoutActive = true;
 
-        if (IsLivePreviewEnabled)
-            _oldValue = _value;
+        _oldValue = _value;
     }
 
     private void OnColorPickerColorChanged(SimpleColorPicker sender, (Color2 OldValue, Color2 NewValue) args)

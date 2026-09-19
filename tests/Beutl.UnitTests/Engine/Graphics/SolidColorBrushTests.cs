@@ -10,7 +10,7 @@ public class SolidColorBrushTests
         var brush = new SolidColorBrush();
         Assert.Multiple(() =>
         {
-            Assert.That(brush.Color.CurrentValue, Is.EqualTo(default(Color)));
+            Assert.That(brush.Color.CurrentValue, Is.EqualTo(Colors.White));
             Assert.That(brush.Opacity.CurrentValue, Is.EqualTo(100f));
         });
     }
