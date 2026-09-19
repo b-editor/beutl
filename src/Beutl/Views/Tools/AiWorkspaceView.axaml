@@ -5,8 +5,10 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:dialogs="using:Beutl.ViewModels.Dialogs"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
              d:DesignHeight="640"
              d:DesignWidth="380"
@@ -60,6 +62,111 @@
             </TabStrip>
         </controls:ToolTabBar>
 
-        <ContentControl Grid.Row="1" Content="{CompiledBinding ActiveContent.Value}" />
+        <ContentControl Grid.Row="1"
+                        Content="{CompiledBinding ActiveContent.Value}"
+                        IsVisible="{CompiledBinding !IsGateOpen.Value}" />
+
+        <!--  Signed out or without a plan there is nothing to run yet, so the
+              content reads like the browser's blank page or an untracked
+              project: one centered panel instead of a disabled form. The
+              section strip stays so pages remain reachable.  -->
+        <ScrollViewer Grid.Row="1"
+                      HorizontalContentAlignment="Stretch"
+                      Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                      HorizontalScrollBarVisibility="Disabled"
+                      IsVisible="{CompiledBinding IsGateOpen.Value}">
+            <Border x:Name="AiGatePanel"
+                    Margin="24"
+                    Padding="8,24"
+                    VerticalAlignment="Center"
+                    IsVisible="{CompiledBinding IsGateOpen.Value}">
+                <StackPanel MaxWidth="320"
+                            HorizontalAlignment="Center"
+                            Spacing="24">
+                    <Border Width="64"
+                            Height="64"
+                            HorizontalAlignment="Center"
+                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                            CornerRadius="20">
+                        <icons:FluentIcon HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          FontSize="30"
+                                          Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                          Icon="Sparkle" />
+                    </Border>
+                    <StackPanel Spacing="10">
+                        <TextBlock FontSize="20"
+                                   FontWeight="Normal"
+                                   Text="{x:Static lang:Strings.Ai}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <TextBlock x:Name="AiGateDescription"
+                                   FontSize="13"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   LineHeight="22"
+                                   Text="{x:Static lang:Strings.AiProRequired}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button x:Name="AiGateSignInButton"
+                            HorizontalAlignment="Center"
+                            AutomationProperties.Name="{x:Static lang:SettingsStrings.SignIn}"
+                            Command="{CompiledBinding SignIn}"
+                            IsVisible="{CompiledBinding ShowSignInAction.Value}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <icons:FluentIcon VerticalAlignment="Center"
+                                              FontSize="16"
+                                              Icon="Person"
+                                              IsVisible="{CompiledBinding !IsSigningIn.Value}" />
+                            <ui:FAProgressRing x:Name="AiGateSignInProgress"
+                                               Width="16"
+                                               Height="16"
+                                               IsIndeterminate="True"
+                                               IsVisible="{CompiledBinding IsSigningIn.Value}" />
+                            <TextBlock x:Name="AiGateSignInLabel"
+                                       Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       Text="{x:Static lang:SettingsStrings.SignIn}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                    </Button>
+                    <Button x:Name="AiGatePlanButton"
+                            HorizontalAlignment="Center"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiJoinPro}"
+                            Command="{CompiledBinding OpenAiPlan}"
+                            Content="{x:Static lang:Strings.AiJoinPro}"
+                            IsVisible="{CompiledBinding RequiresPlan.Value}" />
+                    <Button x:Name="AiGateRetryButton"
+                            HorizontalAlignment="Center"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_Retry}"
+                            Command="{CompiledBinding RetryGateLoad}"
+                            IsVisible="{CompiledBinding GateRefreshFailed.Value}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <icons:FluentIcon VerticalAlignment="Center"
+                                              FontSize="16"
+                                              Icon="ArrowSync"
+                                              IsVisible="{CompiledBinding !IsSigningIn.Value}" />
+                            <ui:FAProgressRing Width="16"
+                                               Height="16"
+                                               IsIndeterminate="True"
+                                               IsVisible="{CompiledBinding IsSigningIn.Value}" />
+                            <TextBlock Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       Text="{x:Static lang:Strings.AiJobCenter_Retry}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                    </Button>
+                    <TextBlock AutomationProperties.LiveSetting="Assertive"
+                               AutomationProperties.Name="{CompiledBinding SignInError.Value}"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               IsVisible="{CompiledBinding SignInError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                               Text="{CompiledBinding SignInError.Value}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
     </Grid>
 </UserControl>

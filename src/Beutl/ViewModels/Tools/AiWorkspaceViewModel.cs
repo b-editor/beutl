@@ -1,8 +1,15 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reactive.Linq;
+using System.Text.Json.Nodes;
+using Beutl.Api.Objects;
+using Beutl.Api.Services;
+using Beutl.Logging;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Dialogs;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using Refit;
 using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.ViewModels.Tools;
@@ -115,18 +122,32 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     private readonly CompositeDisposable _disposables = [];
     private readonly EditViewModel _editViewModel;
     private readonly AiWorkspaceSectionViewModel[] _sections;
+    private readonly IAiPlanCoordinator? _aiPlanCoordinator;
+    private readonly Func<CancellationToken, Task>? _signIn;
+    private readonly IAiEntitlementService? _entitlementService;
+    private readonly LifetimeCancellationSource _lifetimeCts = new();
+    private readonly ILogger _logger = Log.CreateLogger<AiWorkspaceViewModel>();
     private readonly object _disposeGate = new();
     private Task? _disposeTask;
     private bool _disposed;
+    private AuthenticatedUser? _gateAccount;
 
     internal AiWorkspaceViewModel(
         EditViewModel editViewModel,
-        Func<AiWorkspaceSection, IAsyncDisposable> createPage)
+        Func<AiWorkspaceSection, IAsyncDisposable> createPage,
+        IObservable<AiEntitlements?>? entitlements = null,
+        IObservable<AuthenticatedUser?>? authenticatedUser = null,
+        IAiPlanCoordinator? aiPlanCoordinator = null,
+        Func<CancellationToken, Task>? signIn = null,
+        IAiEntitlementService? entitlementService = null)
     {
         ArgumentNullException.ThrowIfNull(editViewModel);
         ArgumentNullException.ThrowIfNull(createPage);
 
         _editViewModel = editViewModel;
+        _aiPlanCoordinator = aiPlanCoordinator;
+        _signIn = signIn;
+        _entitlementService = entitlementService;
 
         // Making comes first and the history reads back over it, so the pages run
         // in that order rather than in the order the menu lists them.
@@ -167,8 +188,413 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .ToReadOnlyReactivePropertySlim(Strings.Ai)
             .DisposeWith(_disposables);
 
+        // Without the production observables (headless tests build pages
+        // directly) the gate stays closed so the pages remain visible.
+        IObservable<AiEntitlements?>? entitlementSnapshots =
+            _entitlementService?.Entitlements ?? entitlements;
+        IObservable<bool> signedIn = authenticatedUser is null
+            ? Observable.Return(true)
+            : authenticatedUser.Select(user => user is not null);
+        IObservable<bool> snapshotAvailable = entitlementSnapshots is null
+            ? Observable.Return(true)
+            : entitlementSnapshots.Select(snapshot => snapshot is not null);
+        IObservable<bool> aiUsable = entitlementSnapshots is null
+            ? Observable.Return(true)
+            : entitlementSnapshots.Select(snapshot => snapshot?.CanUseAi == true);
+
+        IsSignedIn = signedIn
+            .ToReadOnlyReactivePropertySlim(true)
+            .DisposeWith(_disposables);
+        HasEntitlementsSnapshot = snapshotAvailable
+            .ToReadOnlyReactivePropertySlim(true)
+            .DisposeWith(_disposables);
+        CanUseAi = aiUsable
+            .ToReadOnlyReactivePropertySlim(true)
+            .DisposeWith(_disposables);
+
+        // Signed out takes precedence: without a user there are no
+        // entitlements to read a plan from. A signed-in account that has not
+        // produced a snapshot yet is still loading, so the pages stay visible
+        // rather than flashing a gate that a retry would immediately close.
+        RequiresSignIn = IsSignedIn
+            .Select(signed => !signed)
+            .ToReadOnlyReactivePropertySlim(false)
+            .DisposeWith(_disposables);
+        RequiresPlan = IsSignedIn
+            .CombineLatest(HasEntitlementsSnapshot, CanUseAi,
+                (signed, hasSnapshot, canUse) => signed && hasSnapshot && !canUse)
+            .ToReadOnlyReactivePropertySlim(false)
+            .DisposeWith(_disposables);
+        IsSigningIn = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
+        SignInError = new ReactivePropertySlim<string?>()
+            .DisposeWith(_disposables);
+        GateRefreshFailed = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
+        // A fresh snapshot or account change supersedes any earlier gate failure:
+        // without this, a failed refresh for a previous account keeps the gate
+        // open with a stale error after the new account's entitlements arrive.
+        // The raw authentication stream is observed rather than IsSignedIn because
+        // switching accounts never flips that boolean.
+        HasEntitlementsSnapshot
+            .Where(hasSnapshot => hasSnapshot)
+            .Subscribe(_ => ClearGateFailure())
+            .DisposeWith(_disposables);
+        authenticatedUser?
+            .Subscribe(user =>
+            {
+                Volatile.Write(ref _gateAccount, user);
+                ClearGateFailure();
+            })
+            .DisposeWith(_disposables);
+        // Signing in through Account Settings, or switching accounts, clears the
+        // snapshot without any page retrying its one-shot load, so pull fresh
+        // entitlements here. SignInCore covers the workspace-initiated flow itself.
+        authenticatedUser?
+            .Skip(1)
+            .Subscribe(OnAuthenticatedUserChanged)
+            .DisposeWith(_disposables);
+        ShowSignInAction = RequiresSignIn
+            .CombineLatest(
+                IsSigningIn,
+                GateRefreshFailed,
+                (signInRequired, signingIn, refreshFailed) => (signInRequired || signingIn) && !refreshFailed)
+            .ToReadOnlyReactivePropertySlim(false)
+            .DisposeWith(_disposables);
+        IsGateOpen = RequiresSignIn
+            .CombineLatest(RequiresPlan, (signInRequired, planRequired) => signInRequired || planRequired)
+            .CombineLatest(IsSigningIn, (gateOpen, signingIn) => gateOpen || signingIn)
+            .CombineLatest(GateRefreshFailed, (gateOpen, refreshFailed) => gateOpen || refreshFailed)
+            .ToReadOnlyReactivePropertySlim(false)
+            .DisposeWith(_disposables);
+
+        OpenAiPlan = new ReactiveCommand()
+            .DisposeWith(_disposables);
+        OpenAiPlan.Subscribe(OpenAiPlanCore)
+            .DisposeWith(_disposables);
+        SignIn = new AsyncReactiveCommand(IsSigningIn.Select(signing => !signing))
+            .WithSubscribe(SignInCore)
+            .DisposeWith(_disposables);
+        RetryGateLoad = new AsyncReactiveCommand(IsSigningIn.Select(signing => !signing))
+            .WithSubscribe(RetryGateLoadCore)
+            .DisposeWith(_disposables);
+
+        // An authenticated user opening the tab without a cached snapshot depends on
+        // the pages' one-shot loads, which swallow failures and accept null results.
+        // Pull once here so a failed initial load surfaces the retry gate instead of
+        // a permanently disabled form. Genuine loading keeps the content visible.
+        // This deliberately duplicates the first page's concurrent refresh when the
+        // cache is cold: the service serializes the two calls and applies them in
+        // order, while sharing that in-flight load would couple the tab to every
+        // page's private retry state.
+        if (authenticatedUser is not null && _entitlementService is not null)
+            _ = RefreshInitialGateLoadAsync();
+
         AiWorkspaceSectionViewModel Section(AiWorkspaceSection id, string displayName, Icon icon)
             => new(id, displayName, icon, () => createPage(id));
+    }
+
+    private void OpenAiPlanCore()
+    {
+        try
+        {
+            _aiPlanCoordinator?.OpenAiPlan();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open the AI plan page.");
+        }
+    }
+
+    private async Task SignInCore()
+    {
+        if (_signIn is null || IsSigningIn.Value)
+            return;
+        AuthenticatedUser? account = Volatile.Read(ref _gateAccount);
+        IsSigningIn.Value = true;
+        SignInError.Value = null;
+        GateRefreshFailed.Value = false;
+        try
+        {
+            await _signIn(_lifetimeCts.Token);
+            // The sign-in itself changes the account from null to the new user, so
+            // only changes after this point count as superseding this operation.
+            account = Volatile.Read(ref _gateAccount);
+            // The entitlement store clears its snapshot when the user changes, and a
+            // page created while signed out never retried its one-shot load, so pull
+            // fresh entitlements here. Otherwise the gate closes on sign-in alone and
+            // a signed-in account without a plan is shown the usable form.
+            await RefreshGateEntitlementsAsync();
+            RefreshGateModels();
+        }
+        catch (OperationCanceledException ex)
+        {
+            // Timeouts surface as cancellation; a changed account means this session
+            // was superseded and the post-flight recheck owns the new account.
+            if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
+                return;
+            _logger.LogError(ex, "AI workspace sign-in failed.");
+            PublishGateFailure(MessageStrings.UnexpectedError, account);
+        }
+        catch (AuthenticationRequiredException) when (IsSuperseded(account))
+        {
+            // SendAuthenticatedAsync converts a superseded session's cancellation
+            // into this exception; the post-flight recheck owns the new account.
+        }
+        catch (ApiException ex)
+        {
+            _logger.LogError(ex, "AI workspace sign-in failed.");
+            PublishGateFailure(MessageStrings.ApiErrorOccurred, account);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AI workspace sign-in failed.");
+            PublishGateFailure(MessageStrings.UnexpectedError, account);
+        }
+        finally
+        {
+            ClearSigningIn();
+            RefreshAfterFlightIfNeeded();
+        }
+    }
+
+    private async Task RetryGateLoadCore()
+    {
+        if (IsSigningIn.Value)
+            return;
+        if (!IsSignedIn.Value)
+        {
+            await SignInCore();
+            return;
+        }
+
+        AuthenticatedUser? account = Volatile.Read(ref _gateAccount);
+        IsSigningIn.Value = true;
+        SignInError.Value = null;
+        try
+        {
+            await RefreshGateEntitlementsAsync();
+            RefreshGateModels();
+            // Cleared only on success so the retry control and its progress ring
+            // stay visible for the duration of the refresh.
+            GateRefreshFailed.Value = false;
+        }
+        catch (OperationCanceledException ex)
+        {
+            if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
+                return;
+            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
+            PublishGateFailure(MessageStrings.UnexpectedError, account);
+        }
+        catch (AuthenticationRequiredException) when (IsSuperseded(account))
+        {
+            // SendAuthenticatedAsync converts a superseded session's cancellation
+            // into this exception; the post-flight recheck owns the new account.
+        }
+        catch (ApiException ex)
+        {
+            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
+            PublishGateFailure(MessageStrings.ApiErrorOccurred, account);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
+            PublishGateFailure(MessageStrings.UnexpectedError, account);
+        }
+        finally
+        {
+            ClearSigningIn();
+            RefreshAfterFlightIfNeeded();
+        }
+    }
+
+    private void OnAuthenticatedUserChanged(AuthenticatedUser? user)
+        => _ = RefreshOnAccountChangeAsync();
+
+    private async Task RefreshInitialGateLoadAsync()
+    {
+        if (!IsSignedIn.Value || HasEntitlementsSnapshot.Value)
+            return;
+        AuthenticatedUser? account = Volatile.Read(ref _gateAccount);
+        try
+        {
+            await RefreshGateEntitlementsAsync();
+            RefreshGateModels();
+        }
+        catch (OperationCanceledException ex)
+        {
+            if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
+                return;
+            // HTTP timeouts surface as cancellation without cancelling our token.
+            PublishRefreshTimeout(ex, "AI workspace initial entitlement load failed.", account);
+        }
+        catch (AuthenticationRequiredException) when (IsSuperseded(account))
+        {
+            // SendAuthenticatedAsync converts a superseded session's cancellation
+            // into this exception; the post-flight recheck owns the new account.
+        }
+        catch (ApiException ex)
+        {
+            _logger.LogError(ex, "AI workspace initial entitlement load failed.");
+            PublishGateFailure(MessageStrings.ApiErrorOccurred, account);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AI workspace initial entitlement load failed.");
+            PublishGateFailure(MessageStrings.UnexpectedError, account);
+        }
+    }
+
+    // An account change that lands while sign-in or a retry is awaiting the server
+    // is dropped by the guard above, and the superseded request is cancelled by the
+    // API application's session handling. Recheck after every flight so the current
+    // account always gets a refresh instead of an unloaded gate.
+    private void RefreshAfterFlightIfNeeded()
+    {
+        if (Volatile.Read(ref _disposed)
+            || !IsSignedIn.Value
+            || HasEntitlementsSnapshot.Value
+            || GateRefreshFailed.Value)
+            return;
+        _ = RefreshOnAccountChangeAsync();
+    }
+
+    private async Task RefreshOnAccountChangeAsync()
+    {
+        if (_entitlementService is null || IsSigningIn.Value)
+            return;
+        AuthenticatedUser? account = Volatile.Read(ref _gateAccount);
+        try
+        {
+            await RefreshGateEntitlementsAsync();
+            RefreshGateModels();
+        }
+        catch (OperationCanceledException ex)
+        {
+            if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
+                return;
+            // HTTP timeouts surface as cancellation without cancelling our token.
+            PublishRefreshTimeout(ex, "AI workspace entitlement refresh failed.", account);
+        }
+        catch (AuthenticationRequiredException) when (IsSuperseded(account))
+        {
+            // SendAuthenticatedAsync converts a superseded session's cancellation
+            // into this exception; a fresh load for the new account is already
+            // running or rechecked, so this carries no failure.
+        }
+        catch (ApiException ex)
+        {
+            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
+            PublishGateFailure(MessageStrings.ApiErrorOccurred, account);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
+            PublishGateFailure(MessageStrings.UnexpectedError, account);
+        }
+    }
+
+    private void PublishRefreshTimeout(
+        OperationCanceledException ex,
+        string message,
+        AuthenticatedUser? account)
+    {
+        // Session teardown after sign-out is covered by the sign-in gate, so only a
+        // signed-in account with no snapshot turns a timeout into the retry gate.
+        if (!IsSignedIn.Value)
+            return;
+        _logger.LogError(ex, "{Message}", message);
+        PublishGateFailure(MessageStrings.UnexpectedError, account);
+    }
+
+    // An account change mid-flight cancels the superseded session without touching
+    // the workspace lifetime: swallowing that cancellation must not publish a
+    // failure for the replacement account.
+    private bool IsSuperseded(AuthenticatedUser? account)
+        => !ReferenceEquals(account, Volatile.Read(ref _gateAccount));
+
+    private async Task RefreshGateEntitlementsAsync()
+    {
+        if (_entitlementService is null)
+            return;
+        AiEntitlements? snapshot = await _entitlementService.RefreshAsync(_lifetimeCts.Token);
+        // A 401 answers without throwing and publishes no snapshot: without this
+        // check the gate would close onto controls of unknown eligibility.
+        if (snapshot is null && IsSignedIn.Value && !HasEntitlementsSnapshot.Value)
+            throw new AiException("The AI entitlement refresh returned no snapshot.");
+    }
+
+    // A page created while signed out already loaded an empty model catalog, so
+    // offer the new account's models once its entitlements are known. Otherwise a
+    // request could go out naming the server default instead of a chosen model.
+    private void RefreshGateModels()
+    {
+        try
+        {
+            (ActiveContent.Value as IAiModelListConsumer)?.RefreshModels();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh AI models after updating entitlements.");
+        }
+    }
+
+    // Called when the app returns from the plan website. A 401 there answers
+    // without throwing and publishes no snapshot, so a null result must keep the
+    // gate open with a retry instead of closing onto unknown eligibility.
+    // Generation pages already refresh their own models on the same event, so
+    // only Jobs asks the workspace to do it.
+    internal void NotifyPlanReturnRefreshed(bool refreshModels)
+    {
+        if (IsSignedIn.Value && !HasEntitlementsSnapshot.Value)
+            PublishGateFailure(MessageStrings.UnexpectedError, Volatile.Read(ref _gateAccount));
+        if (refreshModels)
+            RefreshGateModels();
+    }
+
+    // A failed refresh leaves a signed-in account with no snapshot, which on its
+    // own would close the gate onto controls of unknown eligibility. Keep the
+    // gate open with the error and a retry instead. A failure while still signed
+    // out needs no flag: the sign-in gate is already open. Failures from a
+    // superseded account are ignored: the post-flight recheck owns the new one.
+    private void PublishGateFailure(string message, AuthenticatedUser? account)
+    {
+        if (Volatile.Read(ref _disposed) || IsSuperseded(account))
+            return;
+        try
+        {
+            SignInError.Value = message;
+            GateRefreshFailed.Value = IsSignedIn.Value && !HasEntitlementsSnapshot.Value;
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private void ClearGateFailure()
+    {
+        if (Volatile.Read(ref _disposed))
+            return;
+        try
+        {
+            GateRefreshFailed.Value = false;
+            SignInError.Value = null;
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private void ClearSigningIn()
+    {
+        try
+        {
+            if (!Volatile.Read(ref _disposed))
+                IsSigningIn.Value = false;
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     public ToolTabExtension Extension => AiWorkspaceTabExtension.Instance;
@@ -182,6 +608,34 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     internal ReactivePropertySlim<AiWorkspaceSectionViewModel?> SelectedSection { get; }
 
     public ReadOnlyReactivePropertySlim<object?> ActiveContent { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsSignedIn { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> HasEntitlementsSnapshot { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanUseAi { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> RequiresSignIn { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> RequiresPlan { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsGateOpen { get; }
+
+    public ReactivePropertySlim<bool> IsSigningIn { get; }
+
+    public ReactivePropertySlim<string?> SignInError { get; }
+
+    public ReactivePropertySlim<bool> GateRefreshFailed { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> ShowSignInAction { get; }
+
+    public ReactiveCommand OpenAiPlan { get; }
+
+    public AsyncReactiveCommand SignIn { get; }
+
+    public AsyncReactiveCommand RetryGateLoad { get; }
+
+    internal IAiPlanCoordinator? AiPlanCoordinator => _aiPlanCoordinator;
 
     /// <summary>
     /// Brings a page to the front of this tab and hands back its view model,
@@ -261,6 +715,9 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
 
     private async Task DisposeCoreAsync()
     {
+        // Cancel a pending browser sign-in or entitlement refresh first so neither
+        // outlives the tab nor touches the reactive properties below after disposal.
+        _lifetimeCts.Dispose();
         _disposables.Dispose();
         IsSelected.Dispose();
         Task[] disposals = _sections
