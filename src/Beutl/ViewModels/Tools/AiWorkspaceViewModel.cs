@@ -230,6 +230,18 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .DisposeWith(_disposables);
         GateRefreshFailed = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
+        // A fresh snapshot or account change supersedes any earlier gate failure:
+        // without this, a failed refresh for a previous account keeps the gate
+        // open with a stale error after the new account's entitlements arrive.
+        // The raw authentication stream is observed rather than IsSignedIn because
+        // switching accounts never flips that boolean.
+        HasEntitlementsSnapshot
+            .Where(hasSnapshot => hasSnapshot)
+            .Subscribe(_ => ClearGateFailure())
+            .DisposeWith(_disposables);
+        authenticatedUser?
+            .Subscribe(_ => ClearGateFailure())
+            .DisposeWith(_disposables);
         IsGateOpen = RequiresSignIn
             .CombineLatest(RequiresPlan, (signInRequired, planRequired) => signInRequired || planRequired)
             .CombineLatest(IsSigningIn, (gateOpen, signingIn) => gateOpen || signingIn)
@@ -347,6 +359,12 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     {
         SignInError.Value = message;
         GateRefreshFailed.Value = IsSignedIn.Value && !HasEntitlementsSnapshot.Value;
+    }
+
+    private void ClearGateFailure()
+    {
+        GateRefreshFailed.Value = false;
+        SignInError.Value = null;
     }
 
     private void ClearSigningIn()

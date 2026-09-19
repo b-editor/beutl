@@ -257,6 +257,63 @@ public sealed class AiWorkspaceGateTests
     }
 
     [AvaloniaTest]
+    public async Task StaleFailure_ClearedByNewSnapshotAndAccountChange()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-stale-failure");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
+        var entitlements = new StubEntitlementService
+        {
+            Failure = new InvalidOperationException("entitlements unavailable"),
+        };
+        var plans = new StubPlanCoordinator();
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            _ =>
+            {
+                auth.Value = CreateUser("user-a");
+                return Task.CompletedTask;
+            },
+            entitlements);
+
+        await workspace.SignIn.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+        Assert.That(workspace.GateRefreshFailed.Value, Is.True);
+
+        // The new account's snapshot supersedes the stale failure even though no
+        // retry ran: the gate must follow the fresh snapshot.
+        entitlements.PublishSnapshot(CreateEntitlements(canUseAi: true));
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(workspace.GateRefreshFailed.Value, Is.False);
+            Assert.That(workspace.SignInError.Value, Is.Null);
+            Assert.That(workspace.IsGateOpen.Value, Is.False);
+        }
+
+        // Switching accounts also drops a stale failure instead of carrying it over.
+        entitlements.Failure = new InvalidOperationException("entitlements unavailable");
+        entitlements.PublishSnapshot(null);
+        await workspace.RetryGateLoad.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+        Assert.That(workspace.GateRefreshFailed.Value, Is.True);
+
+        auth.Value = CreateUser("user-b");
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(workspace.GateRefreshFailed.Value, Is.False);
+            Assert.That(workspace.SignInError.Value, Is.Null);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task OpenAiPlan_NeverEscapesCoordinatorFailures()
     {
         await TestReset.ResetShellAsync();
@@ -333,6 +390,8 @@ public sealed class AiWorkspaceGateTests
         public AiEntitlements? RefreshResult { get; set; }
 
         public Exception? Failure { get; set; }
+
+        public void PublishSnapshot(AiEntitlements? snapshot) => _state.Value = snapshot;
 
         public Task<AiEntitlements?> RefreshAsync(CancellationToken cancellationToken)
         {
