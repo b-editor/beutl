@@ -1,10 +1,24 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using Beutl.Collections;
+using DynamicData;
+using DynamicData.Binding;
 
 namespace Beutl.UnitTests.Core;
 
 public class CoreListTests
 {
+    // How InsertXyz reaches InsertRange(int, ReadOnlySpan<T>). Collection-expression arguments bind to the
+    // span overloads, so list.AddRange(["x", "y"]) takes this path as well.
+    public enum SpanRangeCall
+    {
+        AddRangeSpan,
+        AddRangeCollectionExpression,
+        InsertRangeSpan,
+        InsertRangeCollectionExpression,
+    }
+
     [Test]
     public void Add_RaisesAddCollectionChangedAndCountProperty()
     {
@@ -229,5 +243,133 @@ public class CoreListTests
             Assert.That(list.IsFixedSize, Is.False);
             Assert.That(list.IsReadOnly, Is.False);
         });
+    }
+
+    [TestCase(SpanRangeCall.AddRangeSpan, 3, new[] { "a", "b", "c", "x", "y", "z" })]
+    [TestCase(SpanRangeCall.AddRangeCollectionExpression, 3, new[] { "a", "b", "c", "x", "y", "z" })]
+    [TestCase(SpanRangeCall.InsertRangeSpan, 1, new[] { "a", "x", "y", "z", "b", "c" })]
+    [TestCase(SpanRangeCall.InsertRangeCollectionExpression, 1, new[] { "a", "x", "y", "z", "b", "c" })]
+    public void SpanRange_RaisesAddWithExactlyTheInsertedItems(SpanRangeCall call, int index, string[] expected)
+    {
+        var list = new SpanRangeRecordingList { "a", "b", "c" };
+        var args = new List<NotifyCollectionChangedEventArgs>();
+        list.CollectionChanged += (_, e) => args.Add(e);
+
+        InsertXyz(list, call);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(list.SpanRangeCalls, Is.EqualTo(1));
+            Assert.That(list, Is.EqualTo(expected));
+            Assert.That(args, Has.Count.EqualTo(1));
+            Assert.That(args[0].Action, Is.EqualTo(NotifyCollectionChangedAction.Add));
+            Assert.That(args[0].NewStartingIndex, Is.EqualTo(index));
+            Assert.That(args[0].NewItems, Has.Count.EqualTo(3));
+            Assert.That(args[0].NewItems, Is.EqualTo(new[] { "x", "y", "z" }));
+        });
+    }
+
+    [Test]
+    public void SpanRange_KeepsEarlierNewItemsIntact([Values] SpanRangeCall call)
+    {
+        var list = new SpanRangeRecordingList { "a", "b", "c" };
+        var newItems = new List<IList?>();
+        list.CollectionChanged += (_, e) => newItems.Add(e.NewItems);
+
+        InsertXyz(list, call);
+        // Same length but different items, so a buffer shared between the two notifications shows up.
+        list.AddRange(["p", "q", "r"]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(list.SpanRangeCalls, Is.EqualTo(2));
+            Assert.That(newItems, Has.Count.EqualTo(2));
+            Assert.That(newItems[0], Is.EqualTo(new[] { "x", "y", "z" }));
+            Assert.That(newItems[1], Is.EqualTo(new[] { "p", "q", "r" }));
+        });
+    }
+
+    [Test]
+    public void SpanRange_RaisesAttachedAndPropertyChanged(
+        [Values] SpanRangeCall call,
+        [Values] bool withCollectionChangedHandler)
+    {
+        var list = new SpanRangeRecordingList { "a", "b", "c" };
+        var attached = new List<string>();
+        var properties = new List<string?>();
+        list.Attached += attached.Add;
+        list.PropertyChanged += (_, e) => properties.Add(e.PropertyName);
+        if (withCollectionChangedHandler)
+        {
+            list.CollectionChanged += (_, _) => { };
+        }
+
+        InsertXyz(list, call);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(list.SpanRangeCalls, Is.EqualTo(1));
+            Assert.That(attached, Is.EqualTo(new[] { "x", "y", "z" }));
+            Assert.That(properties, Is.EqualTo(new[] { "Item[]", nameof(CoreList<string>.Count) }));
+        });
+    }
+
+    [Test]
+    public void SpanRange_KeepsDynamicDataMirrorEqualToTheList([Values] SpanRangeCall call)
+    {
+        var list = new SpanRangeRecordingList { "a", "b", "c" };
+        using IDisposable subscription = list
+            .ToObservableChangeSet<CoreList<string>, string>()
+            .Bind(out ReadOnlyObservableCollection<string> mirror)
+            .Subscribe();
+
+        InsertXyz(list, call);
+        Assert.That(mirror, Is.EqualTo(list));
+
+        InsertXyz(list, call);
+        list.InsertRange(0, ["p"]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(list.SpanRangeCalls, Is.EqualTo(3));
+            Assert.That(list, Has.Count.EqualTo(10));
+            Assert.That(mirror, Is.EqualTo(list));
+        });
+    }
+
+    // Inserts x, y and z through the span overload, at the end (AddRange) or at index 1 (InsertRange).
+    private static void InsertXyz(CoreList<string> list, SpanRangeCall call)
+    {
+        // A slice, so that the span is shorter than the array behind it.
+        ReadOnlySpan<string> xyz = new[] { "w", "x", "y", "z", "v" }.AsSpan(1, 3);
+        switch (call)
+        {
+            case SpanRangeCall.AddRangeSpan:
+                list.AddRange(xyz);
+                break;
+            case SpanRangeCall.AddRangeCollectionExpression:
+                list.AddRange(["x", "y", "z"]);
+                break;
+            case SpanRangeCall.InsertRangeSpan:
+                list.InsertRange(1, xyz);
+                break;
+            case SpanRangeCall.InsertRangeCollectionExpression:
+                list.InsertRange(1, ["x", "y", "z"]);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(call), call, null);
+        }
+    }
+
+    // Counts calls to the span overload, which AddRange(ReadOnlySpan<T>) also goes through, so each test can
+    // show that its insertions took that path.
+    private sealed class SpanRangeRecordingList : CoreList<string>
+    {
+        public int SpanRangeCalls { get; private set; }
+
+        public override void InsertRange(int index, ReadOnlySpan<string> items)
+        {
+            SpanRangeCalls++;
+            base.InsertRange(index, items);
+        }
     }
 }
