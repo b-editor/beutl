@@ -754,6 +754,35 @@ public sealed class AiWorkspaceGateTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task SignInTimeout_ShowsError()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-sign-in-timeout");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
+        var entitlements = new StubEntitlementService();
+        var plans = new StubPlanCoordinator();
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            _ => Task.FromException(new TaskCanceledException("The request timed out.")),
+            entitlements);
+
+        await workspace.SignIn.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(workspace.RequiresSignIn.Value, Is.True);
+            Assert.That(workspace.SignInError.Value, Is.EqualTo(MessageStrings.UnexpectedError));
+            Assert.That(workspace.IsSigningIn.Value, Is.False);
+            Assert.That(workspace.IsGateOpen.Value, Is.True);
+        }
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         for (int attempt = 0; attempt < 100 && !condition(); attempt++)

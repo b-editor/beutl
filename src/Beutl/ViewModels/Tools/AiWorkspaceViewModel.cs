@@ -130,6 +130,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     private readonly object _disposeGate = new();
     private Task? _disposeTask;
     private bool _disposed;
+    private AuthenticatedUser? _gateAccount;
 
     internal AiWorkspaceViewModel(
         EditViewModel editViewModel,
@@ -240,7 +241,11 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .Subscribe(_ => ClearGateFailure())
             .DisposeWith(_disposables);
         authenticatedUser?
-            .Subscribe(_ => ClearGateFailure())
+            .Subscribe(user =>
+            {
+                Volatile.Write(ref _gateAccount, user);
+                ClearGateFailure();
+            })
             .DisposeWith(_disposables);
         // Signing in through Account Settings, or switching accounts, clears the
         // snapshot without any page retrying its one-shot load, so pull fresh
@@ -278,6 +283,10 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         // the pages' one-shot loads, which swallow failures and accept null results.
         // Pull once here so a failed initial load surfaces the retry gate instead of
         // a permanently disabled form. Genuine loading keeps the content visible.
+        // This deliberately duplicates the first page's concurrent refresh when the
+        // cache is cold: the service serializes the two calls and applies them in
+        // order, while sharing that in-flight load would couple the tab to every
+        // page's private retry state.
         if (authenticatedUser is not null && _entitlementService is not null)
             _ = RefreshInitialGateLoadAsync();
 
@@ -301,6 +310,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     {
         if (_signIn is null || IsSigningIn.Value)
             return;
+        AuthenticatedUser? account = Volatile.Read(ref _gateAccount);
         IsSigningIn.Value = true;
         SignInError.Value = null;
         GateRefreshFailed.Value = false;
@@ -314,8 +324,14 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             await RefreshGateEntitlementsAsync();
             RefreshGateModels();
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
+            // Timeouts surface as cancellation; a changed account means this session
+            // was superseded and the post-flight recheck owns the new account.
+            if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
+                return;
+            _logger.LogError(ex, "AI workspace sign-in failed.");
+            PublishGateFailure(MessageStrings.UnexpectedError);
         }
         catch (ApiException ex)
         {
@@ -344,6 +360,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             return;
         }
 
+        AuthenticatedUser? account = Volatile.Read(ref _gateAccount);
         IsSigningIn.Value = true;
         SignInError.Value = null;
         try
@@ -354,8 +371,12 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             // stay visible for the duration of the refresh.
             GateRefreshFailed.Value = false;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
+            if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
+                return;
+            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
+            PublishGateFailure(MessageStrings.UnexpectedError);
         }
         catch (ApiException ex)
         {
@@ -381,16 +402,16 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     {
         if (!IsSignedIn.Value || HasEntitlementsSnapshot.Value)
             return;
+        AuthenticatedUser? account = Volatile.Read(ref _gateAccount);
         try
         {
             await RefreshGateEntitlementsAsync();
             RefreshGateModels();
         }
-        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
-        {
-        }
         catch (OperationCanceledException ex)
         {
+            if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
+                return;
             // HTTP timeouts surface as cancellation without cancelling our token.
             PublishRefreshTimeout(ex, "AI workspace initial entitlement load failed.");
         }
@@ -424,16 +445,16 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     {
         if (_entitlementService is null || IsSigningIn.Value)
             return;
+        AuthenticatedUser? account = Volatile.Read(ref _gateAccount);
         try
         {
             await RefreshGateEntitlementsAsync();
             RefreshGateModels();
         }
-        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
-        {
-        }
         catch (OperationCanceledException ex)
         {
+            if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
+                return;
             // HTTP timeouts surface as cancellation without cancelling our token.
             PublishRefreshTimeout(ex, "AI workspace entitlement refresh failed.");
         }
@@ -458,6 +479,12 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         _logger.LogError(ex, "{Message}", message);
         PublishGateFailure(MessageStrings.UnexpectedError);
     }
+
+    // An account change mid-flight cancels the superseded session without touching
+    // the workspace lifetime: swallowing that cancellation must not publish a
+    // failure for the replacement account.
+    private bool IsSuperseded(AuthenticatedUser? account)
+        => !ReferenceEquals(account, Volatile.Read(ref _gateAccount));
 
     private async Task RefreshGateEntitlementsAsync()
     {
