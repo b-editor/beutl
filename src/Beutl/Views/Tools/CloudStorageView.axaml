@@ -265,17 +265,15 @@
                             Command="{Binding RetryLoadMore}"
                             Content="{x:Static lang:Strings.CloudStorageRetryLoadMore}" />
                 </Grid>
-                <StackPanel Margin="8,4"
-                            IsVisible="{Binding IsTransferring.Value}"
-                            Spacing="4">
-                    <TextBlock Text="{Binding TransferText.Value}" TextWrapping="Wrap" />
-                    <ProgressBar IsIndeterminate="{Binding TransferIndeterminate.Value}"
+                <Panel IsVisible="{Binding IsTransferring.Value}">
+                    <ProgressBar Height="2"
+                                 Margin="8,4"
+                                 IsIndeterminate="{Binding TransferIndeterminate.Value}"
                                  IsVisible="{Binding !HasItemProgress.Value}"
                                  Maximum="100"
                                  Minimum="0"
                                  Value="{Binding TransferProgress.Value}" />
-                    <Button Command="{Binding CancelTransfer}" Content="{x:Static lang:Strings.Cancel}" />
-                </StackPanel>
+                </Panel>
                 <StackPanel Margin="8,4"
                             IsVisible="{Binding HasUsage.Value}"
                             Spacing="4">

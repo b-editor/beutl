@@ -8,6 +8,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -333,6 +334,102 @@ public sealed class CloudStorageDragDropTests
         scope.Handler.Requests[1].Complete("cancelled");
         Assert.That(await export, Is.Null);
         Assert.That(Directory.Exists(root), Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task ReturningAPreparingDragToItsSourceCancelsWithoutFooterControls()
+    {
+        await using var scope = new StorageScope();
+        await scope.LoadFirstAsync(Response(name: "clip.bin"));
+        var vm = scope.ViewModel;
+        var item = vm.Items[1];
+        var view = new CloudStorageView { DataContext = vm };
+        int nativeStarts = 0;
+        view.DragStarter = (_, _) => { nativeStarts++; return Task.FromResult(DragDropEffects.Copy); };
+        var window = new Window { Content = view, Width = 640, Height = 520 };
+        string directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "storage", "downloads");
+        string[] original = Directory.Exists(directory) ? Directory.GetDirectories(directory) : [];
+        try
+        {
+            window.Show(); HeadlessTestHelpers.Render();
+            var list = view.FindControl<ListBox>("StorageItems")!;
+            var point = list.ContainerFromIndex(1)!.TranslatePoint(new Point(20, 20), window)!.Value;
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseMove(new Point(700, 40), RawInputModifiers.LeftMouseButton);
+            await WaitFor(() => scope.Handler.Requests.Count == 2);
+            Assert.That(item.Activity.IsActive.Value, Is.True);
+            Assert.That(view.GetVisualDescendants().OfType<Button>().Any(button => ReferenceEquals(button.Command, vm.CancelTransfer)), Is.False);
+            Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text?.Contains("clip.bin", StringComparison.Ordinal) == true && text.Text != "clip.bin"), Is.False);
+            window.MouseMove(point, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(point, MouseButton.Left);
+            Assert.That(scope.Handler.Requests[1].Token.IsCancellationRequested, Is.True);
+            scope.Handler.Requests[1].Complete("late response");
+            await WaitFor(() => !vm.IsTransferring.Value && !item.Activity.IsActive.Value);
+            Assert.That(nativeStarts, Is.Zero);
+            Assert.That(scope.Handler.Requests, Has.Count.EqualTo(2));
+            Assert.That(Directory.GetDirectories(directory).Except(original), Is.Empty);
+            Assert.That(vm.ActionError.Value, Is.Null);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ReturningAReadyDragToItsOriginalFolderRejectsTheDropAndDeletesDownloads(bool nested)
+    {
+        await using var scope = new StorageScope();
+        await scope.LoadFirstAsync(Response(name: "clip.bin", folder: nested ? "parent" : null));
+        var vm = scope.ViewModel;
+        var view = new CloudStorageView { DataContext = vm };
+        var provider = new Mock<IStorageProvider>();
+        provider.Setup(x => x.TryGetFileFromPathAsync(It.IsAny<Uri>())).ReturnsAsync((Uri uri) =>
+        {
+            var file = new Mock<IStorageFile>();
+            file.SetupGet(x => x.Path).Returns(uri);
+            return file.Object;
+        });
+        var window = new Window { Content = view, Width = 640, Height = 520 };
+        TestStorageProviderFactory.SetProvider(window, provider.Object);
+        string? download = null;
+        Point point = default;
+        DragDropEffects overEffect = DragDropEffects.Copy, dropEffect = DragDropEffects.Copy;
+        view.DragStarter = (_, data) =>
+        {
+            download = data.TryGetFile()!.TryGetLocalPath();
+            var over = new DragEventArgs(DragDrop.DragOverEvent, data, view, point, KeyModifiers.None) { DragEffects = DragDropEffects.Copy };
+            view.RaiseEvent(over);
+            overEffect = over.DragEffects;
+            // Also reject a drop delivered after the last drag-over event.
+            var drop = new DragEventArgs(DragDrop.DropEvent, data, view, point, KeyModifiers.None) { DragEffects = DragDropEffects.Copy };
+            view.RaiseEvent(drop);
+            dropEffect = drop.DragEffects;
+            return Task.FromResult(overEffect);
+        };
+        try
+        {
+            window.Show(); HeadlessTestHelpers.Render();
+            var list = view.FindControl<ListBox>("StorageItems")!;
+            var container = list.ContainerFromIndex(nested ? 0 : 1)!;
+            point = container.TranslatePoint(new Point(20, 20), view)!.Value;
+            var press = container.TranslatePoint(new Point(20, 20), window)!.Value;
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(new Point(700, 40), RawInputModifiers.LeftMouseButton);
+            await WaitFor(() => scope.Handler.Requests.Count == 2);
+            scope.Handler.Requests[1].Complete("exported");
+            await WaitFor(() => download != null);
+            Assert.That(overEffect, Is.EqualTo(DragDropEffects.None));
+            Assert.That(dropEffect, Is.EqualTo(DragDropEffects.None));
+            await WaitFor(() => !Directory.Exists(Path.GetDirectoryName(download!)!));
+            Assert.That(scope.Handler.Requests, Has.Count.EqualTo(2));
+            Assert.That(vm.ActionError.Value, Is.Null);
+        }
+        finally
+        {
+            window.MouseUp(new Point(700, 40), MouseButton.Left);
+            window.Close();
+            if (download != null && Directory.Exists(Path.GetDirectoryName(download))) Directory.Delete(Path.GetDirectoryName(download)!, true);
+        }
     }
 
     [AvaloniaTest]

@@ -19,7 +19,6 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
 {
     private CancellationTokenSource? _transfer;
     public ReactivePropertySlim<bool> IsTransferring { get; } = new();
-    public ReactivePropertySlim<string> TransferText { get; } = new("");
     public ReactivePropertySlim<double> TransferProgress { get; } = new();
     public ReactivePropertySlim<bool> TransferIndeterminate { get; } = new();
     public ReactiveCommand CancelTransfer { get; } = new();
@@ -29,6 +28,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
         if (CaptureActionContext([]) == null) return false;
         if (data.TryGetValue(StorageDragData.Format) is { } source)
             return source.PendingLocalPaths == null && source.ProviderId == "beutl" && ReferenceEquals(source.AccountIdentity, _owner) && source.IsCurrent()
+                && source.CanMoveTo?.Invoke(destination) != false
                 && source.Entries.All(x => !x.IsFolder || x.Id != destination);
         return data.Contains(DataFormat.File);
     }
@@ -147,7 +147,6 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
                 token.ThrowIfCancellationRequested();
                 if (!IsTransferCurrent(context)) throw new OperationCanceledException(token);
                 if (++count > 10000 || !IsValidName(item.Name)) throw new InvalidDataException("Invalid storage upload tree.");
-                TransferText.Value = string.Format(Strings.CloudStorageUploading, item.Name);
                 if (item is IStorageFolder folder)
                 {
                     if (!visited.Add(folder.Path) || folder.TryGetLocalPath() is { } path && File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
@@ -182,7 +181,6 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
         if (!CanCleanUpload(context)) return false;
         if (!_disposed)
         {
-            TransferText.Value = Strings.CloudStorageRollingBackUpload;
             TransferIndeterminate.Value = true;
         }
         using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -335,7 +333,6 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
                 string path = Path.Combine(parent, safe);
                 for (int i = 1; File.Exists(path) || Directory.Exists(path); i++)
                     path = Path.Combine(parent, $"{Path.GetFileNameWithoutExtension(safe)} ({i}){Path.GetExtension(safe)}");
-                TransferText.Value = string.Format(Strings.CloudStoragePreparingDrag, name);
                 if (folder)
                 {
                     if (!folders.Add(id)) throw new InvalidDataException("Cyclic storage hierarchy.");

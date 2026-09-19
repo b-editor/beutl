@@ -2,6 +2,7 @@
 using System.Text;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Beutl.Testing.Headless;
 using Beutl.Views.Tools;
@@ -69,7 +70,7 @@ public sealed class CloudStorageDownloadTests
             Assert.That(await File.ReadAllTextAsync(path), Is.EqualTo("existing content"));
             if (outcome == "cancel")
             {
-                scope.ViewModel.CancelTransfer.Execute();
+                view.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
                 await WaitFor(() => scope.Handler.Requests[1].Token.IsCancellationRequested);
             }
             if (outcome == "detach")

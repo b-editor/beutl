@@ -37,6 +37,8 @@ public sealed partial class CloudStorageView
         {
             if (e.Key == Key.Escape && _storageDrag != null && !_nativeDrag)
             { ResetStorageDrag(); e.Handled = true; }
+            else if (e.Key == Key.Escape && !_nativeDrag && DataContext is CloudStorageViewModel { IsTransferring.Value: true } vm)
+            { vm.CancelTransfer.Execute(); e.Handled = true; }
         }, RoutingStrategies.Tunnel);
     }
 
@@ -83,8 +85,10 @@ public sealed partial class CloudStorageView
     {
         e.Handled = true;
         HighlightDrop(null);
-        if (DataContext is not CloudStorageViewModel vm) return;
-        try { await vm.DropAsync(e.DataTransfer, StorageDropDestination(e.GetPosition(this), vm)); }
+        if (DataContext is not CloudStorageViewModel vm) { e.DragEffects = DragDropEffects.None; return; }
+        string? destination = StorageDropDestination(e.GetPosition(this), vm);
+        if (!vm.CanDrop(e.DataTransfer, destination)) { e.DragEffects = DragDropEffects.None; return; }
+        try { await vm.DropAsync(e.DataTransfer, destination); }
         catch (Exception ex) { vm.ReportActionError(ex); }
     }
 
@@ -193,7 +197,7 @@ public sealed partial class CloudStorageView
         _pendingDragData = new StorageDragData("beutl", context.User,
             context.Items.Select(x => new StorageDragEntry(x.Id, x.Name, x.IsFolder)).ToArray(), [],
             () => vm.IsTransferCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination), vm)
-        { PendingLocalPaths = prepared.Task };
+        { PendingLocalPaths = prepared.Task, CanMoveTo = destination => destination != context.FolderId };
         string directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "storage", "downloads", Guid.NewGuid().ToString("N"));
         bool retained = false;
         var handles = new List<IStorageItem>();
@@ -227,7 +231,8 @@ public sealed partial class CloudStorageView
             // pasteboard formats and cannot be used as a macOS dragging item.
             data.Items[0].Set(StorageDragData.Format, new StorageDragData("beutl", context.User,
                 context.Items.Select(x => new StorageDragEntry(x.Id, x.Name, x.IsFolder)).ToArray(), paths,
-                () => vm.IsActionCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination), vm));
+                () => vm.IsActionCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination), vm)
+            { CanMoveTo = destination => destination != context.FolderId });
             _nativeDrag = true;
             trigger.Pointer.Capture(null);
             var effect = DragStarter != null ? await DragStarter(trigger, data) : await DragDrop.DoDragDropAsync(trigger, data, DragDropEffects.Copy);

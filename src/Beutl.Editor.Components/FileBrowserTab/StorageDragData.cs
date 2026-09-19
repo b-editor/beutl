@@ -13,6 +13,7 @@ public sealed record StorageDragData(string ProviderId, object AccountIdentity,
     public static readonly DataFormat<StorageDragData> Format = DataFormat.CreateInProcessFormat<StorageDragData>("Beutl.StorageDrag");
 
     public Task<IReadOnlyList<string>>? PendingLocalPaths { get; init; }
+    public Func<string?, bool>? CanMoveTo { get; init; }
 
     public async Task<StorageSceneImport> ImportToSceneAsync(Scene scene, CancellationToken cancellationToken = default)
     {

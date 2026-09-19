@@ -271,13 +271,15 @@ public partial class FileBrowserTabView : UserControl
 
     private async void OnDrop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } source && !source.IsCurrent()) return;
+        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } source && !source.IsCurrent())
+        { e.DragEffects = DragDropEffects.None; return; }
         if (ViewModel?.IsStorageView.Value == true)
         {
             var breadcrumb = (e.Source as Visual)?.FindAncestorOfType<Control>(includeSelf: true)?.DataContext as FileBrowserStorageBreadcrumb;
             if (breadcrumb != null && ViewModel.StorageBrowser.Value is IFileBrowserStorageDropTarget target)
             {
                 e.Handled = true;
+                if (!target.CanDrop(e.DataTransfer, breadcrumb.FolderId)) { e.DragEffects = DragDropEffects.None; return; }
                 try { await target.DropAsync(e.DataTransfer, breadcrumb.FolderId); }
                 catch (OperationCanceledException) { }
                 catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }

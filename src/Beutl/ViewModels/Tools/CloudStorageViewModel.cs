@@ -528,7 +528,6 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         ActionError.Dispose();
         DetailsItem.Dispose();
         IsTransferring.Dispose();
-        TransferText.Dispose();
         TransferProgress.Dispose();
         TransferIndeterminate.Dispose();
     }

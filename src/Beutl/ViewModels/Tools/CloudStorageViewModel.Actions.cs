@@ -155,7 +155,6 @@ internal sealed partial class CloudStorageViewModel
         if (!IsActionCurrent(context) || context.Items is not [var item] || !item.Can("download")) return false;
         return await TransferAsync(context, async (token, progress) =>
         {
-            TransferText.Value = $"{Strings.CloudStorageDownloading}: {item.Name}";
             await _clients.SendAuthenticatedAsync(async (authorization, ct) =>
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/storage/files/{Uri.EscapeDataString(item.Id)}/content");
