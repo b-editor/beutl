@@ -137,6 +137,13 @@
                             Command="{CompiledBinding OpenAiPlan}"
                             Content="{x:Static lang:Strings.AiJoinPro}"
                             IsVisible="{CompiledBinding RequiresPlan.Value}" />
+                    <TextBlock AutomationProperties.LiveSetting="Assertive"
+                               AutomationProperties.Name="{CompiledBinding SignInError.Value}"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               IsVisible="{CompiledBinding SignInError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                               Text="{CompiledBinding SignInError.Value}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </ScrollViewer>

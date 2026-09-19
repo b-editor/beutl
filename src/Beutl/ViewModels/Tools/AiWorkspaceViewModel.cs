@@ -9,6 +9,7 @@ using Beutl.ViewModels.Dialogs;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using Refit;
 using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.ViewModels.Tools;
@@ -123,6 +124,8 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     private readonly AiWorkspaceSectionViewModel[] _sections;
     private readonly IAiPlanCoordinator? _aiPlanCoordinator;
     private readonly Func<CancellationToken, Task>? _signIn;
+    private readonly IAiEntitlementService? _entitlementService;
+    private readonly LifetimeCancellationSource _lifetimeCts = new();
     private readonly ILogger _logger = Log.CreateLogger<AiWorkspaceViewModel>();
     private readonly object _disposeGate = new();
     private Task? _disposeTask;
@@ -134,7 +137,8 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         IObservable<AiEntitlements?>? entitlements = null,
         IObservable<AuthenticatedUser?>? authenticatedUser = null,
         IAiPlanCoordinator? aiPlanCoordinator = null,
-        Func<CancellationToken, Task>? signIn = null)
+        Func<CancellationToken, Task>? signIn = null,
+        IAiEntitlementService? entitlementService = null)
     {
         ArgumentNullException.ThrowIfNull(editViewModel);
         ArgumentNullException.ThrowIfNull(createPage);
@@ -142,6 +146,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         _editViewModel = editViewModel;
         _aiPlanCoordinator = aiPlanCoordinator;
         _signIn = signIn;
+        _entitlementService = entitlementService;
 
         // Making comes first and the history reads back over it, so the pages run
         // in that order rather than in the order the menu lists them.
@@ -184,15 +189,17 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
 
         // Without the production observables (headless tests build pages
         // directly) the gate stays closed so the pages remain visible.
+        IObservable<AiEntitlements?>? entitlementSnapshots =
+            _entitlementService?.Entitlements ?? entitlements;
         IObservable<bool> signedIn = authenticatedUser is null
             ? Observable.Return(true)
             : authenticatedUser.Select(user => user is not null);
-        IObservable<bool> snapshotAvailable = entitlements is null
+        IObservable<bool> snapshotAvailable = entitlementSnapshots is null
             ? Observable.Return(true)
-            : entitlements.Select(snapshot => snapshot is not null);
-        IObservable<bool> aiUsable = entitlements is null
+            : entitlementSnapshots.Select(snapshot => snapshot is not null);
+        IObservable<bool> aiUsable = entitlementSnapshots is null
             ? Observable.Return(true)
-            : entitlements.Select(snapshot => snapshot?.CanUseAi == true);
+            : entitlementSnapshots.Select(snapshot => snapshot?.CanUseAi == true);
 
         IsSignedIn = signedIn
             .ToReadOnlyReactivePropertySlim(true)
@@ -217,16 +224,19 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
                 (signed, hasSnapshot, canUse) => signed && hasSnapshot && !canUse)
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_disposables);
+        IsSigningIn = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
+        SignInError = new ReactivePropertySlim<string?>()
+            .DisposeWith(_disposables);
         IsGateOpen = RequiresSignIn
             .CombineLatest(RequiresPlan, (signInRequired, planRequired) => signInRequired || planRequired)
+            .CombineLatest(IsSigningIn, (gateOpen, signingIn) => gateOpen || signingIn)
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_disposables);
 
-        IsSigningIn = new ReactivePropertySlim<bool>(false)
-            .DisposeWith(_disposables);
         OpenAiPlan = new ReactiveCommand()
             .DisposeWith(_disposables);
-        OpenAiPlan.Subscribe(() => _aiPlanCoordinator?.OpenAiPlan())
+        OpenAiPlan.Subscribe(OpenAiPlanCore)
             .DisposeWith(_disposables);
         SignIn = new AsyncReactiveCommand(IsSigningIn.Select(signing => !signing))
             .WithSubscribe(SignInCore)
@@ -236,25 +246,57 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             => new(id, displayName, icon, () => createPage(id));
     }
 
+    private void OpenAiPlanCore()
+    {
+        try
+        {
+            _aiPlanCoordinator?.OpenAiPlan();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open the AI plan page.");
+        }
+    }
+
     private async Task SignInCore()
     {
         if (_signIn is null || IsSigningIn.Value)
             return;
         IsSigningIn.Value = true;
+        SignInError.Value = null;
         try
         {
-            await _signIn(CancellationToken.None);
+            await _signIn(_lifetimeCts.Token);
+            // The entitlement store clears its snapshot when the user changes, and a
+            // page created while signed out never retried its one-shot load, so pull
+            // fresh entitlements here. Otherwise the gate closes on sign-in alone and
+            // a signed-in account without a plan is shown the usable form.
+            if (_entitlementService is not null)
+                await _entitlementService.RefreshAsync(_lifetimeCts.Token);
         }
         catch (OperationCanceledException)
         {
         }
+        catch (ApiException ex)
+        {
+            _logger.LogError(ex, "AI workspace sign-in failed.");
+            SignInError.Value = MessageStrings.ApiErrorOccurred;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "AI workspace sign-in failed.");
+            SignInError.Value = MessageStrings.UnexpectedError;
         }
         finally
         {
-            IsSigningIn.Value = false;
+            try
+            {
+                if (!Volatile.Read(ref _disposed))
+                    IsSigningIn.Value = false;
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
     }
 
@@ -283,6 +325,8 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     public ReadOnlyReactivePropertySlim<bool> IsGateOpen { get; }
 
     public ReactivePropertySlim<bool> IsSigningIn { get; }
+
+    public ReactivePropertySlim<string?> SignInError { get; }
 
     public ReactiveCommand OpenAiPlan { get; }
 
@@ -366,6 +410,9 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
 
     private async Task DisposeCoreAsync()
     {
+        // Cancel a pending browser sign-in or entitlement refresh first so neither
+        // outlives the tab nor touches the reactive properties below after disposal.
+        _lifetimeCts.Dispose();
         _disposables.Dispose();
         IsSelected.Dispose();
         Task[] disposals = _sections
