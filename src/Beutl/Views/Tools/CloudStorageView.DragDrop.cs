@@ -248,7 +248,7 @@ public sealed partial class CloudStorageView
             prepared.TrySetCanceled();
             if (consumption.IsClaimed)
             {
-                // The native drag callback can finish before an async editor drop finishes reading.
+                // The native drag callback can finish before an in-process drop finishes processing.
                 await consumption.Completion;
                 retained = false;
             }

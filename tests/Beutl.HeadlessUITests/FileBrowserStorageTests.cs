@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Net;
+using System.Text.Json.Nodes;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
@@ -8,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api;
@@ -355,6 +357,77 @@ public sealed class FileBrowserStorageTests
             Assert.That(browser.IsTransferring.Value, Is.False);
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task NativeStorageMovesReleaseStagingAfterFolderOrBreadcrumbDrops(bool breadcrumb, bool failure)
+    {
+        using var handler = new Handler();
+        using var http = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
+        SignIn(clients, "a");
+        var provider = BeutlProvider(clients);
+        using var vm = Create(provider);
+        vm.OpenStorage(provider);
+        var browser = (CloudStorageViewModel)vm.StorageBrowser.Value!;
+        string? sourceFolder = breadcrumb ? "folder & 日本" : null;
+        await WaitFor(() => handler.Requests.Count == 1);
+        handler.Requests[0].Complete(Response(name: "clip.bin", folder: sourceFolder));
+        await WaitFor(() => !browser.IsLoading.Value);
+        var view = new FileBrowserTabView { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 520 };
+        string? staging = null;
+        StorageDragConsumption? consumption = null;
+        try
+        {
+            window.Show(); HeadlessTestHelpers.Render();
+            var storageView = view.GetVisualDescendants().OfType<CloudStorageView>().Single();
+            var list = storageView.FindControl<ListBox>("StorageItems")!;
+            var press = list.ContainerFromIndex(breadcrumb ? 0 : 1)!.TranslatePoint(new Point(20, 20), window)!.Value;
+            Control target = breadcrumb
+                ? view.GetVisualDescendants().OfType<TextBlock>().Single(x => x.IsEffectivelyVisible && x.Text == Strings.CloudStorage)
+                : storageView;
+            var dropPoint = breadcrumb ? new Point(target.Bounds.Width / 2, target.Bounds.Height / 2)
+                : list.ContainerFromIndex(0)!.TranslatePoint(new Point(20, 20), target)!.Value;
+            storageView.DragStarter = (_, data) =>
+            {
+                staging = Path.GetDirectoryName(data.TryGetFile()!.TryGetLocalPath()!)!;
+                consumption = data.TryGetValue(StorageDragData.Format)!.Consumption;
+                target.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, data, target, dropPoint, KeyModifiers.None)
+                { DragEffects = DragDropEffects.Copy });
+                return Task.FromResult(DragDropEffects.Copy);
+            };
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(new Point(700, 40), RawInputModifiers.LeftMouseButton);
+            await WaitFor(() => handler.Requests.Count == 2);
+            handler.Requests[1].Complete("exported");
+            await WaitFor(() => handler.Requests.Count == 3 && consumption != null);
+            Assert.That(consumption!.IsClaimed, Is.True);
+            Assert.That(consumption.Completion.IsCompleted, Is.False);
+            Assert.That(Directory.Exists(staging), Is.True);
+            var move = JsonNode.Parse(await handler.Requests[2].ReadBodyAsync())!;
+            Assert.That(move["parentId"]?.GetValue<string>(), Is.EqualTo(breadcrumb ? null : "folder & 日本"));
+            handler.Requests[2].Complete(failure ? "{\"error_code\":\"storageInvalidMove\"}" : "{\"affected\":1}", failure ? HttpStatusCode.Conflict : HttpStatusCode.OK);
+            await WaitFor(() => handler.Requests.Count == 4);
+            handler.Requests[3].Complete(Response(folder: sourceFolder, empty: !failure));
+            await consumption.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+            await WaitFor(() => !Directory.Exists(staging));
+            Assert.That(handler.Requests, Has.Count.EqualTo(4));
+            Assert.That(browser.ActionError.Value != null, Is.EqualTo(failure));
+        }
+        finally
+        {
+            window.MouseUp(new Point(700, 40), MouseButton.Left);
+            window.Close();
+            vm.Dispose();
+            foreach (var request in handler.Requests.Where(x => !x.Completion.Task.IsCompleted)) request.Complete(Response(empty: true));
+            if (consumption is { IsClaimed: true }) await consumption.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+            if (staging != null && Directory.Exists(staging)) Directory.Delete(staging, true);
+        }
     }
 
     private static FileBrowserTabViewModel Create(params IFileBrowserStorageProvider[] providers) =>

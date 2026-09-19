@@ -56,7 +56,7 @@ public sealed record StorageDragData(string ProviderId, object AccountIdentity,
     }
 }
 
-// Scene drop handlers claim synchronously, before their first await or an admission rejection.
+// Drop handlers that do not retain staging paths claim before awaiting or rejecting the drop.
 // The source may remove staging files only after the returned lease has been disposed.
 public sealed class StorageDragConsumption
 {
