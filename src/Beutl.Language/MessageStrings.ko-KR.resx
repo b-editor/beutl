@@ -191,6 +191,27 @@
     <value>'{0}'을(를) 여는 중입니다.
 잠시 기다려 주세요.</value>
   </data>
+  <data name="CreatingProject" xml:space="preserve">
+    <value>프로젝트를 만드는 중</value>
+  </data>
+  <data name="CreatingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>버전 관리를 설정하고 첫 번째 버전을 기록하는 중입니다.
+완료되면 편집기가 열립니다.</value>
+  </data>
+  <data name="ClosingProject" xml:space="preserve">
+    <value>프로젝트를 닫는 중</value>
+  </data>
+  <data name="ClosingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>프로젝트를 닫기 전에 버전 관리 작업을 마무리하는 중입니다.
+프로젝트가 크면 시간이 걸릴 수 있습니다.</value>
+  </data>
+  <data name="EnablingVersionControl" xml:space="preserve">
+    <value>버전 관리를 활성화하는 중</value>
+  </data>
+  <data name="EnablingVersionControlMessage" xml:space="preserve">
+    <value>프로젝트를 저장하고 첫 번째 버전을 기록하는 중입니다.
+완료되면 계속 편집할 수 있습니다.</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>파일을 저장하는 동안 예외가 발생했습니다.</value>
   </data>
@@ -451,5 +472,20 @@
   </data>
   <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
     <value>사용할 수 없는 결과 삭제</value>
+  </data>
+  <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
+    <value>이 프로젝트의 폴더와 그 안의 모든 파일을 영구적으로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</value>
+  </data>
+  <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
+    <value>이 프로젝트는 전용 폴더에 있지 않으므로 프로젝트 파일만 삭제됩니다. 장면 및 기타 파일은 디스크에 남습니다. 프로젝트 파일을 영구적으로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</value>
+  </data>
+  <data name="ProjectInUseCannotDeleteFromDisk" xml:space="preserve">
+    <value>이 프로젝트 또는 해당 파일이 Beutl에서 열려 있습니다. 디스크에서 프로젝트를 삭제하기 전에 닫으세요.</value>
+  </data>
+  <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
+    <value>내보내기, 저장 또는 버전 관리 작업이 아직 프로젝트 파일을 사용하고 있습니다. 완료될 때까지 기다린 후 다시 시도하세요.</value>
+  </data>
+  <data name="ProjectFilesBeingChanged" xml:space="preserve">
+    <value>다른 작업이 프로젝트 파일을 변경하고 있습니다. 완료된 후 다시 시도하세요.</value>
   </data>
 </root>

@@ -112,9 +112,13 @@ public sealed class EditorService
         = new(ReferenceEqualityComparer.Instance);
     private readonly SemaphoreSlim _projectFileWriteGate = new(1, 1);
     private readonly IProjectFileWriteAdmission _projectFileWriteAdmission;
+    private readonly ReactivePropertySlim<ProjectLifecycleActivity> _lifecycleActivity = new();
+    private readonly object _lifecycleActivitySync = new();
+    private readonly List<LifecycleActivityLease> _lifecycleActivities = [];
     private TaskCompletionSource? _worktreeMutationCompletion;
     private int _activeOutputOperations;
     private int _activeProjectFileWrites;
+    private int _activeEditorFileOpens;
     private bool _worktreeMutationActive;
 
     public EditorService(ExtensionProvider extensionProvider)
@@ -136,6 +140,7 @@ public sealed class EditorService
         _tabItems = new() { ResetBehavior = ResetBehavior.Remove };
         ProjectVersionControlService = _projectVersionControlService
             .ToReadOnlyReactivePropertySlim();
+        LifecycleActivity = _lifecycleActivity.ToReadOnlyReactivePropertySlim();
         _projectFileWriteAdmission = new ProjectFileWriteAdmission(this);
         HostProjectFileWriteAdmission.RegisterHost(this);
     }
@@ -186,6 +191,70 @@ public sealed class EditorService
         _projectVersionControlService.Value = service;
     }
 
+    /// <summary>
+    /// The slow project work shown in place of the editor area, or
+    /// <see cref="ProjectLifecycleActivity.None"/> while the editor area is available.
+    /// </summary>
+    internal IReadOnlyReactiveProperty<ProjectLifecycleActivity> LifecycleActivity { get; }
+
+    /// <summary>
+    /// Shows <paramref name="activity"/> in place of the editor area until the returned handle is disposed.
+    /// </summary>
+    /// <remarks>
+    /// Activities can overlap, as when creating a project first closes the open one, so the most recent
+    /// activity still running is shown. The handle can be disposed from any thread.
+    /// </remarks>
+    internal IDisposable BeginLifecycleActivity(ProjectLifecycleActivity activity)
+    {
+        if (activity == ProjectLifecycleActivity.None)
+        {
+            throw new ArgumentOutOfRangeException(nameof(activity));
+        }
+
+        var lease = new LifecycleActivityLease(this, activity);
+        lock (_lifecycleActivitySync)
+        {
+            _lifecycleActivities.Add(lease);
+        }
+
+        PublishLifecycleActivity();
+        return lease;
+    }
+
+    private void EndLifecycleActivity(LifecycleActivityLease lease)
+    {
+        lock (_lifecycleActivitySync)
+        {
+            _lifecycleActivities.Remove(lease);
+        }
+
+        PublishLifecycleActivity();
+    }
+
+    private void PublishLifecycleActivity()
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            _lifecycleActivity.Value = GetCurrentLifecycleActivity();
+        }
+        else
+        {
+            // The posted update reads the list when it runs, so updates arriving out of order still settle
+            // on the current activity.
+            Dispatcher.UIThread.Post(() => _lifecycleActivity.Value = GetCurrentLifecycleActivity());
+        }
+    }
+
+    private ProjectLifecycleActivity GetCurrentLifecycleActivity()
+    {
+        lock (_lifecycleActivitySync)
+        {
+            return _lifecycleActivities.Count > 0
+                ? _lifecycleActivities[^1].Activity
+                : ProjectLifecycleActivity.None;
+        }
+    }
+
     internal IDisposable? TryBeginOutputOperation()
     {
         lock (_workspaceOperationSync)
@@ -203,6 +272,22 @@ public sealed class EditorService
     IDisposable? IOutputOperationLeaseProvider.TryBeginOutputOperation()
     {
         return TryBeginOutputOperation();
+    }
+
+    // Keeps a worktree mutation from starting while a file is opened in an editor, or created and
+    // opened, and fails while one runs. Opens may overlap each other, outputs and project-file writes.
+    internal IDisposable? TryBeginEditorFileOpen()
+    {
+        lock (_workspaceOperationSync)
+        {
+            if (_worktreeMutationActive)
+            {
+                return null;
+            }
+
+            _activeEditorFileOpens++;
+            return new WorkspaceOperationLease(this, WorkspaceOperationKind.EditorFileOpen);
+        }
     }
 
     internal IDisposable BeginObservedOutputOperation(IEditorContext? context = null)
@@ -394,7 +479,8 @@ public sealed class EditorService
 
             if (!_worktreeMutationActive
                 && _activeOutputOperations == 0
-                && _activeProjectFileWrites == 0)
+                && _activeProjectFileWrites == 0
+                && _activeEditorFileOpens == 0)
             {
                 _worktreeMutationActive = true;
                 _worktreeMutationCompletion = new TaskCompletionSource(
@@ -507,6 +593,9 @@ public sealed class EditorService
                 case WorkspaceOperationKind.ProjectFileWrite when _activeProjectFileWrites > 0:
                     _activeProjectFileWrites--;
                     releaseProjectFileWrite = true;
+                    break;
+                case WorkspaceOperationKind.EditorFileOpen when _activeEditorFileOpens > 0:
+                    _activeEditorFileOpens--;
                     break;
                 case WorkspaceOperationKind.WorktreeMutation:
                     _worktreeMutationActive = false;
@@ -626,6 +715,23 @@ public sealed class EditorService
         }
     }
 
+    private sealed class LifecycleActivityLease(
+        EditorService owner,
+        ProjectLifecycleActivity activity) : IDisposable
+    {
+        private int _disposed;
+
+        public ProjectLifecycleActivity Activity => activity;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                owner.EndLifecycleActivity(this);
+            }
+        }
+    }
+
     private sealed class EditorContextSuspensionLease(
         EditorService owner,
         IEditorContext context) : IDisposable
@@ -670,5 +776,6 @@ public sealed class EditorService
         Output,
         ProjectFileWrite,
         WorktreeMutation,
+        EditorFileOpen,
     }
 }

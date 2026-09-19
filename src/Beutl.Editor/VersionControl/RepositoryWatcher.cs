@@ -1,5 +1,10 @@
 ﻿namespace Beutl.Editor.VersionControl;
 
+internal sealed class RepositoryChangedEventArgs(RepositoryChangeKind kind) : EventArgs
+{
+    public RepositoryChangeKind Kind { get; } = kind;
+}
+
 internal sealed class RepositoryWatcher : IDisposable
 {
     private static readonly string[] AncestorRuleFileNames = [".gitignore", ".gitattributes"];
@@ -17,6 +22,7 @@ internal sealed class RepositoryWatcher : IDisposable
     private readonly List<FileSystemWatcher> _watchers = [];
     private string[] _requiredTemporaryPaths = [];
     private long? _debounceWindowStartedTimestamp;
+    private RepositoryChangeKind _pendingKind;
     private bool _disposed;
 
     internal RepositoryWatcher(RepositoryInfo repository, TimeProvider? timeProvider = null)
@@ -267,14 +273,18 @@ internal sealed class RepositoryWatcher : IDisposable
             : null;
     }
 
-    internal void NotifyPathChanged(string path)
+    internal void NotifyPathChanged(string path, RepositoryChangeKind kind = RepositoryChangeKind.Worktree)
     {
         if (ShouldExcludeWatchedPath(path))
         {
             return;
         }
 
-        ScheduleChanged();
+        string name = Path.GetFileName(path);
+        ScheduleChanged(name.Equals(".gitattributes", StringComparison.OrdinalIgnoreCase)
+                        || name.Equals(".gitignore", StringComparison.OrdinalIgnoreCase)
+                        || Directory.Exists(path)
+            ? RepositoryChangeKind.All : kind);
     }
 
     internal void NotifyPathRenamed(string oldPath, string newPath)
@@ -606,7 +616,8 @@ internal sealed class RepositoryWatcher : IDisposable
         }
         else
         {
-            NotifyPathChanged(e.FullPath);
+            NotifyPathChanged(e.FullPath, e.ChangeType == WatcherChangeTypes.Changed
+                ? RepositoryChangeKind.Worktree : RepositoryChangeKind.All);
         }
     }
 
@@ -686,7 +697,7 @@ internal sealed class RepositoryWatcher : IDisposable
         return VersionControlPathComparison.AreSameCanonicalPath(left, right);
     }
 
-    private void ScheduleChanged()
+    private void ScheduleChanged(RepositoryChangeKind kind = RepositoryChangeKind.All)
     {
         lock (_sync)
         {
@@ -696,6 +707,7 @@ internal sealed class RepositoryWatcher : IDisposable
             }
 
             long now = _timeProvider.GetTimestamp();
+            _pendingKind |= kind;
             _debounceWindowStartedTimestamp ??= now;
             TimeSpan elapsed = _timeProvider.GetElapsedTime(
                 _debounceWindowStartedTimestamp.Value,
@@ -712,6 +724,7 @@ internal sealed class RepositoryWatcher : IDisposable
 
     private void QueueChanged()
     {
+        RepositoryChangeKind kind;
         lock (_sync)
         {
             if (_disposed)
@@ -720,15 +733,17 @@ internal sealed class RepositoryWatcher : IDisposable
             }
 
             _debounceWindowStartedTimestamp = null;
+            kind = _pendingKind;
+            _pendingKind = 0;
         }
 
         ThreadPool.UnsafeQueueUserWorkItem(
-            static state => ((RepositoryWatcher)state!).RaiseChanged(),
-            this,
+            static state => state.Watcher.RaiseChanged(state.Kind),
+            (Watcher: this, Kind: kind),
             preferLocal: false);
     }
 
-    private void RaiseChanged()
+    private void RaiseChanged(RepositoryChangeKind kind)
     {
         lock (_sync)
         {
@@ -738,6 +753,6 @@ internal sealed class RepositoryWatcher : IDisposable
             }
         }
 
-        Changed?.Invoke(this, EventArgs.Empty);
+        Changed?.Invoke(this, new RepositoryChangedEventArgs(kind));
     }
 }

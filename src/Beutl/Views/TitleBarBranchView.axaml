@@ -24,7 +24,8 @@
             ToolTip.Tip="{Binding AheadBehindText.Value}">
         <Button.Flyout>
             <Flyout FlyoutPresenterTheme="{StaticResource CompactFlyoutPresenterTheme}"
-                    Opening="OnBranchFlyoutOpening">
+                    Opening="OnBranchFlyoutOpening"
+                    Closed="OnBranchFlyoutClosed">
                 <StackPanel MaxWidth="320" Spacing="4">
                     <Border Padding="16,4">
                         <StackPanel Spacing="4">

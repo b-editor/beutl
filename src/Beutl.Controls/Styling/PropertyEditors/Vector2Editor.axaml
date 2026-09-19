@@ -133,20 +133,48 @@
         <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Border Padding="{TemplateBinding Padding}"
+                <Border Container.Name="MultiValueEditor"
+                        Container.Sizing="Width"
+                        Padding="{TemplateBinding Padding}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,*">
+                    <Border.Styles>
+                        <Style Selector="local|PropertyEditorGrid.multi-value-layout > TextBlock#PART_HeaderTextBlock">
+                            <Setter Property="Grid.ColumnSpan" Value="2" />
+                        </Style>
+                        <Style Selector="local|PropertyEditorGrid.multi-value-layout > DataValidationErrors">
+                            <Setter Property="Grid.Row" Value="1" />
+                            <Setter Property="Grid.ColumnSpan" Value="3" />
+                        </Style>
+                        <Style Selector="local|PropertyEditorGrid.multi-value-layout > ContentPresenter">
+                            <Setter Property="Grid.Row" Value="1" />
+                        </Style>
+                        <ContainerQuery Name="MultiValueEditor" Query="min-width:400">
+                            <Style Selector="local|PropertyEditorGrid.multi-value-layout > TextBlock#PART_HeaderTextBlock">
+                                <Setter Property="Grid.ColumnSpan" Value="1" />
+                            </Style>
+                            <Style Selector="local|PropertyEditorGrid.multi-value-layout > DataValidationErrors">
+                                <Setter Property="Grid.Row" Value="0" />
+                                <Setter Property="Grid.Column" Value="1" />
+                                <Setter Property="Grid.ColumnSpan" Value="1" />
+                            </Style>
+                            <Style Selector="local|PropertyEditorGrid.multi-value-layout > ContentPresenter">
+                                <Setter Property="Grid.Row" Value="0" />
+                            </Style>
+                        </ContainerQuery>
+                    </Border.Styles>
+                    <local:PropertyEditorGrid Classes="multi-value-layout" ColumnDefinitions="*,*,Auto,Auto" RowDefinitions="Auto,Auto" ValueColumn="1">
                         <TextBlock Name="PART_HeaderTextBlock"
                                    Grid.Row="0"
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    ToolTip.Tip="{TemplateBinding Description}"
-                                   Text="{TemplateBinding Header}" />
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis" />
 
-                        <DataValidationErrors Grid.Row="2">
+                        <DataValidationErrors>
                             <Grid ColumnDefinitions="Auto,*,1,Auto,*">
                                 <Border Name="PART_BackgroundBorder"
                                         Grid.ColumnSpan="5"
@@ -187,6 +215,7 @@
                         </DataValidationErrors>
 
                         <StackPanel Name="LeftRightButtons"
+                                    Grid.Column="2"
                                     Margin="0,0,4,0"
                                     HorizontalAlignment="Right"
                                     Orientation="Horizontal">
@@ -199,11 +228,10 @@
                                     Theme="{StaticResource PropertyEditorLeftRightButton}" />
                         </StackPanel>
 
-                        <ContentPresenter Grid.Row="2"
-                                          Grid.Column="1"
+                        <ContentPresenter Grid.Column="3"
                                           Content="{TemplateBinding MenuContent}"
                                           ContentTemplate="{TemplateBinding MenuContentTemplate}" />
-                    </Grid>
+                    </local:PropertyEditorGrid>
                 </Border>
             </ControlTemplate>
         </Setter>
@@ -328,11 +356,11 @@
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{TemplateBinding CornerRadius}">
-                        <Grid>
+                        <local:PropertyEditorGrid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
@@ -386,7 +414,7 @@
                                               Grid.Column="3"
                                               Content="{TemplateBinding MenuContent}"
                                               ContentTemplate="{TemplateBinding MenuContentTemplate}" />
-                        </Grid>
+                        </local:PropertyEditorGrid>
                     </Border>
                 </ControlTemplate>
             </Setter>

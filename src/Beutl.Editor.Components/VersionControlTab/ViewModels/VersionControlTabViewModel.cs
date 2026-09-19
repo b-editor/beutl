@@ -4,6 +4,7 @@ using System.Reactive.Disposables;
 using System.Resources;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
+using Avalonia.Collections;
 using Avalonia.Threading;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
@@ -25,6 +26,11 @@ internal sealed class VersionControlTabViewModel : IToolContext
     private readonly IProjectVersionControlCoordinator? _versionControlCoordinator;
     private readonly Action<Action> _postToUi;
     private readonly VersionControlRelativeTimeFormatter _relativeTimeFormatter;
+    private readonly VersionControlPreviewCache<string, IReadOnlyList<FileChange>> _fileCache;
+    private readonly VersionControlPreviewCache<(string Sha, string Path), IReadOnlyList<VersionControlDiffLineViewModel>> _diffCache;
+    private int _previewRevision;
+    private CancellationToken? _previewLoadToken;
+    private Task _displayedPreviewRefresh = Task.CompletedTask;
     private readonly CompositeDisposable _disposables = [];
     private readonly SemaphoreSlim _historyGate = new(1, 1);
     private readonly ReactivePropertySlim<bool> _showingDetail;
@@ -37,6 +43,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
     private IProjectVersionControlService? _service;
     private IRepositoryLockRecoveryService? _lockRecoveryService;
     private CancellationTokenSource? _serviceBindingCancellation;
+    private CancellationTokenSource? _statusRefreshCancellation;
     private CancellationTokenSource? _selectionCancellation;
     private CancellationTokenSource? _remoteOperationCancellation;
     private int _remoteOperationUserCancellation;
@@ -48,6 +55,10 @@ internal sealed class VersionControlTabViewModel : IToolContext
         CompletedCompletion();
     private int _serviceRevision;
     private int _statusRefreshRevision;
+    private long _lastStatusSequence;
+    private string? _lastStatusHead;
+    private bool _pendingRecoveryRefreshFailed;
+    private bool _metadataRefreshFailed;
     private int _pendingRecoveryQueryRevision;
     private int _nextHistoryOffset;
     private int _aheadCount;
@@ -111,6 +122,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
         _relativeTimeFormatter = new VersionControlRelativeTimeFormatter(
             timeProvider ?? TimeProvider.System,
             culture ?? CultureInfo.CurrentUICulture);
+        _fileCache = new(32, 2 * 1024 * 1024, timeProvider ?? TimeProvider.System);
+        _diffCache = new(16, 8 * 1024 * 1024, timeProvider ?? TimeProvider.System);
 
         IsTracked = new ReactivePropertySlim<bool>(service?.Repository is not null)
             .DisposeWith(_disposables);
@@ -387,7 +400,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
 
     public ObservableCollection<VersionControlFileChangeViewModel> ChangedFiles { get; } = [];
 
-    public ObservableCollection<VersionControlDiffLineViewModel> DiffLines { get; } = [];
+    public AvaloniaList<VersionControlDiffLineViewModel> DiffLines { get; } = [];
 
     public ReactivePropertySlim<VersionControlCommitViewModel?> SelectedCommit { get; }
 
@@ -772,26 +785,37 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
-        IReadOnlyList<FileChange> files;
+        IProjectVersionControlService service = _service;
+        _previewLoadToken = cancellationToken;
         try
         {
-            files = await _service.GetCommitFilesAsync(
-                commit.Commit.Sha,
-                cancellationToken);
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                int previewRevision = _previewRevision;
+                if (!_fileCache.TryGet(commit.Commit.Sha, out var files))
+                {
+                    files = await service.GetCommitFilesAsync(commit.Commit.Sha, cancellationToken);
+                    if (cancellationToken.IsCancellationRequested) return;
+                    // Keep the same selection alive, but retry against the latest metadata.
+                    if (previewRevision != _previewRevision) continue;
+                    files = files.ToArray();
+                    _fileCache.Add(commit.Commit.Sha, files,
+                        files.Sum(static item => 64L + 2L * (item.Path.Length + (item.OldPath?.Length ?? 0))));
+                }
+
+                foreach (FileChange file in files)
+                {
+                    ChangedFiles.Add(new VersionControlFileChangeViewModel(file));
+                }
+                return;
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return;
         }
-
-        if (cancellationToken.IsCancellationRequested)
+        finally
         {
-            return;
-        }
-
-        foreach (FileChange file in files)
-        {
-            ChangedFiles.Add(new VersionControlFileChangeViewModel(file));
+            if (_previewLoadToken == cancellationToken) _previewLoadToken = null;
         }
     }
 
@@ -825,27 +849,40 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
-        string diff;
+        IProjectVersionControlService service = _service;
+        _previewLoadToken = cancellationToken;
+        var cacheKey = (commit.Commit.Sha, file.Change.Path);
         try
         {
-            diff = await _service.GetDiffAsync(
-                commit.Commit.Sha,
-                file.Change.Path,
-                cancellationToken);
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                int previewRevision = _previewRevision;
+                if (_diffCache.TryGet(cacheKey, out var cachedLines))
+                {
+                    DiffLines.AddRange(cachedLines);
+                    return;
+                }
+
+                string diff = await service.GetDiffAsync(commit.Commit.Sha, file.Change.Path, cancellationToken);
+                if (cancellationToken.IsCancellationRequested) return;
+                if (previewRevision != _previewRevision) continue;
+
+                IReadOnlyList<VersionControlDiffLineViewModel> lines = await Task.Run(
+                    () => VersionControlDiffLineViewModel.Parse(diff, cancellationToken), cancellationToken);
+                if (cancellationToken.IsCancellationRequested) return;
+                if (previewRevision != _previewRevision) continue;
+
+                _diffCache.Add(cacheKey, lines, lines.Sum(static line => 48L + 2L * line.Text.Length));
+                DiffLines.AddRange(lines);
+                return;
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return;
         }
-
-        if (cancellationToken.IsCancellationRequested)
+        finally
         {
-            return;
-        }
-
-        foreach (VersionControlDiffLineViewModel line in VersionControlDiffLineViewModel.Parse(diff))
-        {
-            DiffLines.Add(line);
+            if (_previewLoadToken == cancellationToken) _previewLoadToken = null;
         }
     }
 
@@ -886,11 +923,11 @@ internal sealed class VersionControlTabViewModel : IToolContext
         }
 
         DetachServiceEvents();
+        _statusRefreshCancellation?.Cancel();
         _serviceBindingCancellation?.Cancel();
         _serviceBindingCancellation?.Dispose();
 
-        _selectionCancellation?.Cancel();
-        _selectionCancellation?.Dispose();
+        CancelSelection();
         TryCancel(Volatile.Read(ref _remoteOperationCancellation));
         if (_observedPrimaryActionCommand is not null)
         {
@@ -1127,9 +1164,9 @@ internal sealed class VersionControlTabViewModel : IToolContext
 
     private void ResetRepositoryState()
     {
-        _selectionCancellation?.Cancel();
-        _selectionCancellation?.Dispose();
-        _selectionCancellation = null;
+        InvalidatePreviewCache();
+        _statusRefreshCancellation?.Cancel();
+        CancelSelection();
         TryCancel(Volatile.Read(ref _remoteOperationCancellation));
 
         foreach (VersionControlCommitViewModel commit in Commits)
@@ -1145,6 +1182,10 @@ internal sealed class VersionControlTabViewModel : IToolContext
         _showingDetail.Value = false;
         _nextHistoryOffset = 0;
         _historyIdentity = null;
+        _lastStatusSequence = 0;
+        _lastStatusHead = null;
+        _pendingRecoveryRefreshFailed = false;
+        _metadataRefreshFailed = false;
         _hasMoreHistory = false;
         _aheadCount = 0;
         _behindCount = 0;
@@ -1231,12 +1272,6 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
-        await RefreshPendingPullRecoveryAsync(service, revision, cancellationToken);
-        if (!IsCurrentService(service, revision, cancellationToken))
-        {
-            return;
-        }
-
         int statusRefreshRevision = Volatile.Read(ref _statusRefreshRevision);
         WorkspaceStatus status;
         try
@@ -1252,18 +1287,35 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
-        if (!IsCurrentService(service, revision, cancellationToken)
-            || !IsCurrentStatusRefresh(
-                service,
-                statusRefreshRevision,
-                cancellationToken))
+        if (!IsCurrentService(service, revision, cancellationToken))
         {
             return;
+        }
+
+        if (!IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
+        {
+            // A delayed older notification must not invalidate a newer sequenced read.
+            if (status.NotificationSequence <= 0 || _lastStatusSequence <= 0
+                || status.NotificationSequence < _lastStatusSequence)
+            {
+                return;
+            }
+
+            statusRefreshRevision = Interlocked.Increment(ref _statusRefreshRevision);
+            _statusRefreshCancellation?.Cancel();
         }
 
         ApplyStatus(status);
         try
         {
+            // Read metadata after the status sequence we adopt. Otherwise a queued notification
+            // already covered by that sequence could be ignored while recovery data is older.
+            await RefreshPendingPullRecoveryAsync(service, revision, cancellationToken);
+            if (!IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
+            {
+                return;
+            }
+
             // Remote commands stay available through a conflict, so the remotes are read even when
             // the history of the blocked worktree is not.
             await RefreshRemotesAsync(
@@ -1285,12 +1337,24 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 status.Branch,
                 statusRefreshRevision,
                 cancellationToken);
+            if (IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
+            {
+                _metadataRefreshFailed = false;
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
         }
         catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
         {
+        }
+        catch
+        {
+            if (IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
+            {
+                _metadataRefreshFailed = true;
+            }
+            throw;
         }
     }
 
@@ -1305,6 +1369,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
+        bool refreshed = false;
         try
         {
             IReadOnlyList<ProjectRecoveryInfo> recoveries =
@@ -1322,6 +1387,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 .FirstOrDefault();
             _pendingRecoveryId = recovery?.Id;
             HasPendingPullRecovery.Value = recovery is not null;
+            refreshed = true;
         }
         catch (OperationCanceledException)
         {
@@ -1334,6 +1400,14 @@ internal sealed class VersionControlTabViewModel : IToolContext
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to refresh pending pull recovery state.");
+        }
+        finally
+        {
+            if (queryRevision == Volatile.Read(ref _pendingRecoveryQueryRevision)
+                && !cancellationToken.IsCancellationRequested)
+            {
+                _pendingRecoveryRefreshFailed = !refreshed;
+            }
         }
     }
 
@@ -1512,9 +1586,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
 
             string? selectedSha = SelectedCommit.Value?.Commit.Sha;
             _historyIdentity = null;
-            _selectionCancellation?.Cancel();
-            _selectionCancellation?.Dispose();
-            _selectionCancellation = null;
+            CancelSelection();
             foreach (VersionControlCommitViewModel commit in Commits)
             {
                 commit.Dispose();
@@ -1700,26 +1772,64 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 return;
             }
 
+            if (status.NotificationSequence > 0 && status.NotificationSequence <= _lastStatusSequence)
+            {
+                return;
+            }
+
+            bool worktreeOnly = status.NotificationSequence > 0
+                && !_pendingRecoveryRefreshFailed && !_metadataRefreshFailed
+                && status.ChangeKind == RepositoryChangeKind.Worktree
+                && status.HeadCommit is not null && status.HeadCommit == _lastStatusHead
+                && _historyIdentity is { } identity && identity.Branch == status.Branch
+                && !HasBlockingGuidance.Value && !status.HasConflicts && !status.IsDetachedHead;
+            if (worktreeOnly)
+            {
+                // Do not supersede an in-flight metadata refresh with a worktree-only update.
+                ApplyStatus(status);
+                return;
+            }
+
+            InvalidatePreviewCache();
+
             int statusRefreshRevision =
                 Interlocked.Increment(ref _statusRefreshRevision);
             ApplyStatus(status);
-            CancellationToken cancellationToken =
-                _serviceBindingCancellation?.Token ?? CancellationToken.None;
-            Task pendingRecoveryRefresh = RefreshPendingPullRecoveryAsync(
-                eventService,
-                _serviceRevision,
-                cancellationToken);
-            Task statusRefresh = RefreshAfterStatusChangedAsync(
-                eventService,
-                status.Branch,
-                refreshHistory: !status.HasConflicts && !status.IsDetachedHead,
-                statusRefreshRevision,
-                cancellationToken);
-
-            Initialization = Task.WhenAll(
-                pendingRecoveryRefresh,
-                statusRefresh);
+            Initialization = RunLatestStatusRefreshAsync(cancellationToken => Task.WhenAll(
+                RefreshPendingPullRecoveryAsync(eventService, _serviceRevision, cancellationToken),
+                RefreshAfterStatusChangedAsync(
+                    eventService,
+                    status.Branch,
+                    refreshHistory: !status.HasConflicts && !status.IsDetachedHead,
+                    statusRefreshRevision,
+                    cancellationToken),
+                RefreshDisplayedPreviewAsync()));
         });
+    }
+
+    private async Task RunLatestStatusRefreshAsync(Func<CancellationToken, Task> refresh)
+    {
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            _serviceBindingCancellation?.Token ?? CancellationToken.None);
+        CancellationTokenSource? previous = _statusRefreshCancellation;
+        _statusRefreshCancellation = cancellation;
+        previous?.Cancel();
+        try
+        {
+            // Revision checks still reject late results from providers that ignore cancellation.
+            // Cooperative providers also remove obsolete reads from the service operation queue.
+            await refresh(cancellation.Token);
+        }
+        finally
+        {
+            if (ReferenceEquals(_statusRefreshCancellation, cancellation))
+            {
+                _statusRefreshCancellation = null;
+            }
+
+            // Keep the source alive until its reads finish registering cancellation callbacks.
+            cancellation.Dispose();
+        }
     }
 
     private async Task RefreshAfterStatusChangedAsync(
@@ -1749,12 +1859,24 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 branch,
                 statusRefreshRevision,
                 cancellationToken);
+            if (IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
+            {
+                _metadataRefreshFailed = false;
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
         }
         catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
         {
+        }
+        catch
+        {
+            if (IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
+            {
+                _metadataRefreshFailed = true;
+            }
+            throw;
         }
     }
 
@@ -1779,6 +1901,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
 
     private void ApplyStatus(WorkspaceStatus status)
     {
+        _lastStatusSequence = Math.Max(_lastStatusSequence, status.NotificationSequence);
+        _lastStatusHead = status.HeadCommit;
         IsTracked.Value = _service?.Repository is not null;
         IsConflicted.Value = status.HasConflicts;
         IsDetachedHead.Value = status.IsDetachedHead;
@@ -1811,6 +1935,28 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 Strings.VersionControl_DirtySummaryFormat,
                 status.Changes.Count);
         UpdatePrimaryAction();
+    }
+
+    private Task RefreshDisplayedPreviewAsync()
+    {
+        if (_disposed) return Task.CompletedTask;
+        if (!_displayedPreviewRefresh.IsCompleted) return _displayedPreviewRefresh;
+        // An active selection already retries when the preview revision changes. Reuse an
+        // automatic reload across notifications without starting duplicate reads.
+        if (_previewLoadToken is not null) return Task.CompletedTask;
+
+        return _displayedPreviewRefresh = SelectedFile.Value is { } file
+            ? SelectFileAsync(file)
+            : SelectedCommit.Value is { } commit
+                ? SelectCommitAsync(commit)
+                : Task.CompletedTask;
+    }
+
+    private void InvalidatePreviewCache()
+    {
+        _previewRevision++;
+        _fileCache.Clear();
+        _diffCache.Clear();
     }
 
     private void UpdatePrimaryAction()
@@ -1888,10 +2034,19 @@ internal sealed class VersionControlTabViewModel : IToolContext
         }
     }
 
-    private CancellationToken ReplaceSelectionCancellation()
+    private void CancelSelection()
     {
         _selectionCancellation?.Cancel();
         _selectionCancellation?.Dispose();
+        _selectionCancellation = null;
+        // A new selection or repository state must not reuse an obsolete automatic reload.
+        _previewLoadToken = null;
+        _displayedPreviewRefresh = Task.CompletedTask;
+    }
+
+    private CancellationToken ReplaceSelectionCancellation()
+    {
+        CancelSelection();
         _selectionCancellation = new CancellationTokenSource();
         return _selectionCancellation.Token;
     }
@@ -2406,13 +2561,28 @@ internal sealed record VersionControlDiffLineViewModel(
 
     public bool IsHeader => Kind == VersionControlDiffLineKind.Header;
 
-    public static IReadOnlyList<VersionControlDiffLineViewModel> Parse(string diff)
+    public static IReadOnlyList<VersionControlDiffLineViewModel> Parse(
+        string diff, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(diff);
         bool inHunk = false;
         var lines = new List<VersionControlDiffLineViewModel>();
-        foreach (string line in diff.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        int start = 0;
+        while (start <= diff.Length)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            int end = diff.IndexOf('\n', start);
+            bool last = end < 0;
+            if (last)
+            {
+                end = diff.Length;
+            }
+            int length = end - start;
+            if (!last && length > 0 && diff[end - 1] == '\r')
+            {
+                length--;
+            }
+            string line = diff.Substring(start, length);
             if (line.StartsWith("diff ", StringComparison.Ordinal))
             {
                 inHunk = false;
@@ -2423,9 +2593,14 @@ internal sealed record VersionControlDiffLineViewModel(
             }
 
             lines.Add(new VersionControlDiffLineViewModel(line, GetKind(line, inHunk)));
+            if (last)
+            {
+                break;
+            }
+            start = end + 1;
         }
 
-        return lines.ToArray();
+        return lines;
     }
 
     private static VersionControlDiffLineKind GetKind(string line, bool inHunk)

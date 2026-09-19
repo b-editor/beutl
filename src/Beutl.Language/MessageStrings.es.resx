@@ -191,6 +191,27 @@ porque el nuevo nombre entra en conflicto con una carpeta existente.</value>
     <value>Abriendo '{0}'.
 Espera un momento.</value>
   </data>
+  <data name="CreatingProject" xml:space="preserve">
+    <value>Creando el proyecto</value>
+  </data>
+  <data name="CreatingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>Configurando el control de versiones y registrando la primera versión.
+El editor se abrirá cuando termine.</value>
+  </data>
+  <data name="ClosingProject" xml:space="preserve">
+    <value>Cerrando el proyecto</value>
+  </data>
+  <data name="ClosingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>Terminando el trabajo de control de versiones antes de cerrar el proyecto.
+Puede tardar un poco en proyectos grandes.</value>
+  </data>
+  <data name="EnablingVersionControl" xml:space="preserve">
+    <value>Activando el control de versiones</value>
+  </data>
+  <data name="EnablingVersionControlMessage" xml:space="preserve">
+    <value>Guardando el proyecto y registrando la primera versión.
+Podrás seguir editando cuando termine.</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>Se produjo una excepción al guardar el archivo.</value>
   </data>
@@ -451,5 +472,20 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   </data>
   <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
     <value>Descartar resultado no utilizable</value>
+  </data>
+  <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
+    <value>¿Eliminar permanentemente la carpeta de este proyecto y todo su contenido? Esta acción no se puede deshacer.</value>
+  </data>
+  <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
+    <value>Este proyecto no está en una carpeta propia, así que solo se eliminará el archivo del proyecto; sus escenas y demás archivos permanecerán en el disco. ¿Eliminar permanentemente el archivo del proyecto? Esta acción no se puede deshacer.</value>
+  </data>
+  <data name="ProjectInUseCannotDeleteFromDisk" xml:space="preserve">
+    <value>Este proyecto o sus archivos están abiertos en Beutl. Ciérralos antes de eliminar el proyecto del disco.</value>
+  </data>
+  <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
+    <value>Una exportación, un guardado o una operación de control de versiones todavía está usando archivos del proyecto. Espera a que termine e inténtalo de nuevo.</value>
+  </data>
+  <data name="ProjectFilesBeingChanged" xml:space="preserve">
+    <value>Otra operación está modificando archivos del proyecto. Espera a que termine e inténtalo de nuevo.</value>
   </data>
 </root>

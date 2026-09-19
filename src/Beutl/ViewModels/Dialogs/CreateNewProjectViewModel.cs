@@ -107,30 +107,54 @@ public sealed class CreateNewProjectViewModel
             // finish while the project is being written, but that must not silently opt the user in.
             bool initializeVersionControl = IsGitAvailable.Value && TrackHistory.Value;
 
-            // CreateProject surfaces failures to the user itself, so no fallback notification here.
-            Project? project = await _projectService.CreateProject(
-                Size.Value.Width, Size.Value.Height,
-                FrameRate.Value, SampleRate.Value,
-                Name.Value,
-                Location.Value);
-            if (project is not null
-                && initializeVersionControl
+            // The first version is recorded before the project opens, so the editor never appears while
+            // it still has to wait for Git.
+            INewProjectVersionControlSetup? versionControl =
+                initializeVersionControl
                 && _versionControlInitializer is not null
-                && _requestIdentityAsync is not null)
+                && _requestIdentityAsync is not null
+                    ? _versionControlInitializer.BeginNewProject(_requestIdentityAsync)
+                    : null;
+            try
             {
-                try
+                // CreateProject surfaces failures to the user itself, so no fallback notification here.
+                await _projectService.CreateProject(
+                    Size.Value.Width, Size.Value.Height,
+                    FrameRate.Value, SampleRate.Value,
+                    Name.Value,
+                    Location.Value,
+                    versionControl is null
+                        ? null
+                        : (project, cancellationToken) => InitializeVersionControlAsync(
+                            versionControl,
+                            project,
+                            cancellationToken));
+            }
+            finally
+            {
+                if (versionControl is not null)
                 {
-                    await _versionControlInitializer.InitializeCurrentProjectAsync(
-                        project,
-                        _requestIdentityAsync,
-                        CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    await ex.Handle();
+                    await versionControl.DisposeAsync();
                 }
             }
         });
+    }
+
+    // A failed or canceled initialization still opens the project, untracked, so the user keeps what they
+    // created.
+    private static async Task InitializeVersionControlAsync(
+        INewProjectVersionControlSetup versionControl,
+        Project project,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await versionControl.InitializeAsync(project, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
     }
 
     public ReactiveProperty<PixelSize> Size { get; } = new(new PixelSize(1920, 1080));

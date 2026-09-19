@@ -29,6 +29,10 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
         var parentContext = ThreadLocalSerializationContext.Current;
         if (value is CoreObject { Uri: not null } coreObj && parentContext != null)
         {
+            // Hand the requirement over before the file is written, as SerializeCoreSerializable
+            // does: this branch returns without ever reaching SerializeToJsonObject.
+            JsonSerializationContext.TransferRetainedMigration(value, parentContext);
+
             if (parentContext.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
             {
                 CoreSerializer.StoreToUri(value, coreObj.Uri,

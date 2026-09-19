@@ -25,6 +25,32 @@ public class EditorHostViewModel
         _editorService = editorService;
         _projectService.Closing += OnProjectClosingAsync;
         _projectService.Opened += OnProjectOpenedAsync;
+        LifecycleProgress = _editorService.LifecycleActivity
+            .Select(CreateLifecycleProgress)
+            .ToReadOnlyReactivePropertySlim();
+    }
+
+    /// <summary>
+    /// The progress shown in place of the editor area while slow project work runs, or
+    /// <see langword="null"/> while the editor area is available.
+    /// </summary>
+    internal IReadOnlyReactiveProperty<ProjectLifecycleProgress?> LifecycleProgress { get; }
+
+    private static ProjectLifecycleProgress? CreateLifecycleProgress(ProjectLifecycleActivity activity)
+    {
+        return activity switch
+        {
+            ProjectLifecycleActivity.CreatingProject => new ProjectLifecycleProgress(
+                MessageStrings.CreatingProject,
+                MessageStrings.CreatingProjectWithVersionControlMessage),
+            ProjectLifecycleActivity.ClosingProject => new ProjectLifecycleProgress(
+                MessageStrings.ClosingProject,
+                MessageStrings.ClosingProjectWithVersionControlMessage),
+            ProjectLifecycleActivity.EnablingVersionControl => new ProjectLifecycleProgress(
+                MessageStrings.EnablingVersionControl,
+                MessageStrings.EnablingVersionControlMessage),
+            _ => null,
+        };
     }
 
     private Task OnProjectClosingAsync(
@@ -64,6 +90,8 @@ public class EditorHostViewModel
     }
 
     private sealed record ClosedProjectSelection(CoreObject? SelectedObject);
+
+    internal sealed record ProjectLifecycleProgress(string Title, string Message);
 
     private async Task DispatchProjectChangeAsync(Project? @new, Project? old)
     {

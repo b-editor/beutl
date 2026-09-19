@@ -1132,6 +1132,10 @@ internal sealed class GitCliVersionControlService :
     private int _lifetimeState;
     private int _resourcesDisposed;
     private int _statusNotificationDrainScheduled;
+    private int _watcherRefreshPending;
+    private int _watcherRefreshScheduled;
+    private long _statusNotificationSequence;
+    private int _watcherRefreshInvalidated;
 
     public GitCliVersionControlService(
         GitInstallationLocator installationLocator,
@@ -1600,7 +1604,10 @@ internal sealed class GitCliVersionControlService :
     {
         ThrowIfDisposed();
         return RunSerializedAsync(
-            () => GetStatusCoreAsync(cancellationToken),
+            async () => (await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false)) with
+            {
+                NotificationSequence = Volatile.Read(ref _statusNotificationSequence),
+            },
             cancellationToken);
     }
 
@@ -1917,6 +1924,7 @@ internal sealed class GitCliVersionControlService :
     internal static WorkspaceStatus ParseStatus(string output)
     {
         string? branch = null;
+        string? headCommit = null;
         bool isDetachedHead = false;
         int ahead = 0;
         int behind = 0;
@@ -1927,7 +1935,12 @@ internal sealed class GitCliVersionControlService :
         for (int index = 0; index < records.Count; index++)
         {
             string record = records[index];
-            if (record.StartsWith("# branch.head ", StringComparison.Ordinal))
+            if (record.StartsWith("# branch.oid ", StringComparison.Ordinal))
+            {
+                string oid = record["# branch.oid ".Length..];
+                headCommit = oid == "(initial)" ? null : oid;
+            }
+            else if (record.StartsWith("# branch.head ", StringComparison.Ordinal))
             {
                 string head = record["# branch.head ".Length..];
                 isDetachedHead = head == "(detached)";
@@ -1985,7 +1998,10 @@ internal sealed class GitCliVersionControlService :
             }
         }
 
-        return new WorkspaceStatus(branch, ahead, behind, changes, hasConflicts, isDetachedHead);
+        return new WorkspaceStatus(branch, ahead, behind, changes, hasConflicts, isDetachedHead)
+        {
+            HeadCommit = headCommit,
+        };
     }
 
     internal static IReadOnlyList<CommitInfo> ParseHistory(string output)
@@ -6777,10 +6793,14 @@ internal sealed class GitCliVersionControlService :
         // answers for an unrelated branch whenever the two names differ.
         string? upstream = await TryGetUpstreamRefAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
-        string originBranchRef =
-            upstream is not null && upstream.StartsWith(OriginRefPrefix, StringComparison.Ordinal)
-                ? upstream
-                : $"{OriginRefPrefix}{status.Branch}";
+        if (upstream is not null && upstream.StartsWith(OriginRefPrefix, StringComparison.Ordinal))
+        {
+            // Porcelain status already counted against this upstream. Avoid starting two more
+            // processes and walking the same history again on every background refresh.
+            return status;
+        }
+
+        string originBranchRef = $"{OriginRefPrefix}{status.Branch}";
         if (!await RefExistsAsync(repository, runner, originBranchRef, cancellationToken)
                 .ConfigureAwait(false))
         {
@@ -6868,6 +6888,7 @@ internal sealed class GitCliVersionControlService :
             "status",
             "--porcelain=v2",
             "--branch",
+            "--ahead-behind",
             "--untracked-files=all",
             "-z",
             "--",
@@ -6986,16 +7007,37 @@ internal sealed class GitCliVersionControlService :
     private async Task<IReadOnlyList<BranchInfo>> GetBranchesCoreAsync(
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<BranchInfo> localBranches = await GetLocalBranchesCoreAsync(cancellationToken)
-            .ConfigureAwait(false);
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         GitCommandResult result = await runner.RunAsync(
             repository,
-            ["for-each-ref", "--format=%(refname)%00%(symref)", OriginRefPrefix],
+            ["for-each-ref", "--format=%(refname)%00%(HEAD)%00%(upstream:lstrip=2)%00%(symref)",
+                "refs/heads/", OriginRefPrefix],
             GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
-        return [.. localBranches, .. ParseOriginOnlyBranches(result.Stdout, localBranches)];
+        var locals = new List<BranchInfo>();
+        var remotes = new List<string>();
+        foreach (string record in result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string[] fields = record.TrimEnd('\r').Split('\0');
+            if (fields.Length != 4)
+            {
+                continue;
+            }
+            if (fields[0].StartsWith("refs/heads/", StringComparison.Ordinal))
+            {
+                locals.Add(new BranchInfo(fields[0]["refs/heads/".Length..], fields[1].Trim() == "*",
+                    string.IsNullOrEmpty(fields[2]) ? null : fields[2]));
+            }
+            else if (fields[0].StartsWith(OriginRefPrefix, StringComparison.Ordinal) && fields[3].Length == 0)
+            {
+                remotes.Add(fields[0][OriginRefPrefix.Length..]);
+            }
+        }
+
+        var localNames = locals.Select(static branch => branch.Name).ToHashSet(StringComparer.Ordinal);
+        return [.. locals, .. remotes.Where(name => name.Length > 0 && !localNames.Contains(name))
+            .Select(static name => new BranchInfo(name, false, null, IsRemote: true))];
     }
 
     private async Task<IReadOnlyList<BranchInfo>> GetLocalBranchesCoreAsync(
@@ -13340,10 +13382,15 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private async Task QueueStatusChangedCoreAsync(CancellationToken cancellationToken)
+    private async Task QueueStatusChangedCoreAsync(
+        CancellationToken cancellationToken, RepositoryChangeKind changeKind = RepositoryChangeKind.All)
     {
         WorkspaceStatus status = await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false);
-        QueueStatusChanged(status);
+        QueueStatusChanged(status with
+        {
+            ChangeKind = changeKind,
+            NotificationSequence = Interlocked.Increment(ref _statusNotificationSequence),
+        });
     }
 
     private async Task TryQueueStatusChangedCoreAsync()
@@ -13567,7 +13614,14 @@ internal sealed class GitCliVersionControlService :
 
     private void OnRepositoryChanged(object? sender, EventArgs e)
     {
-        if (!IsDisposed)
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        RepositoryChangeKind kind = e is RepositoryChangedEventArgs change ? change.Kind : RepositoryChangeKind.All;
+        Interlocked.Or(ref _watcherRefreshPending, (int)kind);
+        if (Interlocked.CompareExchange(ref _watcherRefreshScheduled, 1, 0) == 0)
         {
             _ = RefreshStatusFromWatcherAsync();
         }
@@ -13690,21 +13744,45 @@ internal sealed class GitCliVersionControlService :
 
     private async Task RefreshStatusFromWatcherAsync()
     {
-        try
+        while (true)
         {
-            await RunSerializedAsync(
-                    () => QueueStatusChangedCoreAsync(CancellationToken.None),
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-        }
-        catch (Exception) when (IsDisposed)
-        {
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(
-                ex,
-                "Failed to refresh version-control status after a repository change.");
+            try
+            {
+                await RunSerializedAsync(
+                        () =>
+                        {
+                            // Consume changes only after acquiring the gate: events accumulated
+                            // behind a save/pull need one read. Events during this read need another.
+                            var kind = (RepositoryChangeKind)Interlocked.Exchange(ref _watcherRefreshPending, 0);
+                            if (Interlocked.Exchange(ref _watcherRefreshInvalidated, 0) != 0)
+                            {
+                                kind = RepositoryChangeKind.All;
+                            }
+                            return QueueStatusChangedCoreAsync(CancellationToken.None, kind);
+                        },
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception) when (IsDisposed)
+            {
+            }
+            catch (Exception ex)
+            {
+                Volatile.Write(ref _watcherRefreshInvalidated, 1);
+                LogWarningBestEffort(
+                    ex,
+                    "Failed to refresh version-control status after a repository change.");
+            }
+
+            // Release between reads so user operations can acquire the gate. If a change races
+            // this handoff, either this loop or the event handler schedules the next read.
+            Volatile.Write(ref _watcherRefreshScheduled, 0);
+            if (IsDisposed
+                || Volatile.Read(ref _watcherRefreshPending) == 0
+                || Interlocked.CompareExchange(ref _watcherRefreshScheduled, 1, 0) != 0)
+            {
+                return;
+            }
         }
     }
 

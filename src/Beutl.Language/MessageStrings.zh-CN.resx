@@ -191,6 +191,27 @@
     <value>正在打开“{0}”。
 请稍候。</value>
   </data>
+  <data name="CreatingProject" xml:space="preserve">
+    <value>正在创建项目</value>
+  </data>
+  <data name="CreatingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>正在设置版本控制并记录第一个版本。
+完成后将打开编辑器。</value>
+  </data>
+  <data name="ClosingProject" xml:space="preserve">
+    <value>正在关闭项目</value>
+  </data>
+  <data name="ClosingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>正在完成版本控制操作，然后关闭项目。
+大型项目可能需要一些时间。</value>
+  </data>
+  <data name="EnablingVersionControl" xml:space="preserve">
+    <value>正在启用版本控制</value>
+  </data>
+  <data name="EnablingVersionControlMessage" xml:space="preserve">
+    <value>正在保存项目并记录第一个版本。
+完成后即可继续编辑。</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>保存文件时发生异常。</value>
   </data>
@@ -451,5 +472,20 @@
   </data>
   <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
     <value>丢弃不可用结果</value>
+  </data>
+  <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
+    <value>是否永久删除此项目的文件夹及其中的所有内容？此操作无法撤销。</value>
+  </data>
+  <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
+    <value>此项目不在专用文件夹中，因此只会删除项目文件，其场景和其他文件将保留在磁盘上。是否永久删除该项目文件？此操作无法撤销。</value>
+  </data>
+  <data name="ProjectInUseCannotDeleteFromDisk" xml:space="preserve">
+    <value>此项目或其文件已在 Beutl 中打开。请先将其关闭，再从磁盘删除该项目。</value>
+  </data>
+  <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
+    <value>导出、保存或版本控制操作仍在使用项目文件。请等待其完成后重试。</value>
+  </data>
+  <data name="ProjectFilesBeingChanged" xml:space="preserve">
+    <value>另一项操作正在更改项目文件。请等待其完成后重试。</value>
   </data>
 </root>

@@ -468,7 +468,7 @@
     <value>Library</value>
   </data>
   <data name="FileBrowser" xml:space="preserve">
-    <value>File Browser</value>
+    <value>Files</value>
   </data>
   <data name="FileBrowser_WorkspaceBusy" xml:space="preserve">
     <value>The project files are busy with another operation. Wait for it to finish, then try again.</value>
@@ -1186,7 +1186,7 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Website</value>
   </data>
   <data name="WebBrowser" xml:space="preserve">
-    <value>Web Browser</value>
+    <value>Browser</value>
   </data>
   <data name="WebAddress" xml:space="preserve">
     <value>Search or enter URL</value>
@@ -3011,5 +3011,8 @@ when history recording is enabled.</value>
   </data>
   <data name="CloudStorageCreatedAt" xml:space="preserve">
     <value>Created</value>
+  </data>
+  <data name="DeleteFromDisk" xml:space="preserve">
+    <value>Delete from Disk</value>
   </data>
 </root>

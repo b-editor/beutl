@@ -462,7 +462,7 @@
     <value>Biblioteca</value>
   </data>
   <data name="FileBrowser" xml:space="preserve">
-    <value>Explorador de archivos</value>
+    <value>Archivos</value>
   </data>
   <data name="ListView" xml:space="preserve">
     <value>Vista de lista</value>
@@ -1167,6 +1167,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Website" xml:space="preserve">
     <value>Sitio web</value>
   </data>
+  <data name="WebBrowser" xml:space="preserve">
+    <value>Navegador</value>
+  </data>
   <data name="DisplayMode" xml:space="preserve">
     <value>Modo de visualización</value>
   </data>
@@ -1626,5 +1629,8 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="TimeAgoDaysFormat" xml:space="preserve">
     <value>hace {0} d</value>
+  </data>
+  <data name="DeleteFromDisk" xml:space="preserve">
+    <value>Eliminar del disco</value>
   </data>
 </root>

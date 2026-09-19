@@ -181,7 +181,7 @@ public sealed class Project : Hierarchical
             : left;
     }
 
-    private static string GetMaximumVersion(string persistedVersion, string requiredVersion)
+    internal static string GetMaximumVersion(string persistedVersion, string requiredVersion)
     {
         // An unknown persisted constraint is retained so migration cannot weaken it.
         return NuGetVersion.TryParse(persistedVersion, out NuGetVersion? persisted)
@@ -198,6 +198,26 @@ public sealed class Project : Hierarchical
             PropagateItemMigration(item);
         }
 
+        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");
+        activity?.SetTag("itemsCount", Items.Count);
+
+        base.Serialize(context);
+
+        // Written twice on purpose. The first call reserves the two slots so they keep their place
+        // in the file; the second carries a migration that only surfaced meanwhile, because a value
+        // deserialized on its own and assigned to an item afterwards reports its requirement while
+        // that item is being written rather than while it was itself being read.
+        WriteVersionMetadata(context, activity);
+
+        context.SetValue("items", Items);
+
+        context.SetValue("variables", Variables);
+
+        WriteVersionMetadata(context, activity);
+    }
+
+    private void WriteVersionMetadata(ICoreSerializationContext context, Activity? activity)
+    {
         string appVersion;
         string minAppVersion;
         lock (_versionMetadataSync)
@@ -206,18 +226,10 @@ public sealed class Project : Hierarchical
             minAppVersion = MinAppVersion;
         }
 
-        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");
-        activity?.SetTag("appVersion", appVersion);
-        activity?.SetTag("minAppVersion", minAppVersion);
-        activity?.SetTag("itemsCount", Items.Count);
-
-        base.Serialize(context);
-
         context.SetValue("appVersion", appVersion);
         context.SetValue("minAppVersion", minAppVersion);
 
-        context.SetValue("items", Items);
-
-        context.SetValue("variables", Variables);
+        activity?.SetTag("appVersion", appVersion);
+        activity?.SetTag("minAppVersion", minAppVersion);
     }
 }

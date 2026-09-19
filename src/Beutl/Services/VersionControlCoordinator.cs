@@ -81,6 +81,9 @@ internal sealed class VersionControlCoordinator :
     private CancellationTokenSource? _operationEpochCancellation = new();
     private CancellationTokenSource? _projectServiceEpochCancellation = new();
     private PendingRecoveryOfferContext? _pendingRecoveryOffer;
+    // A project created with tracking gets its repository before it opens. The initialized backend
+    // waits here until the activation of that same creation adopts it.
+    private PreparedNewProject? _preparedNewProject;
     private PendingOpeningRepositoryDecision? _pendingOpeningRepositoryDecision;
     private RepositoryAdoptionRequest? _pendingRepositoryAdoption;
     private CancellationTokenSource? _configurationActivationCancellation;
@@ -367,9 +370,9 @@ internal sealed class VersionControlCoordinator :
             }
             catch (GitIdentityRequiredException)
             {
-                // InitializeWithEditorSuspensionAsync has released the editor before this prompt.
-                // The user can keep editing while entering an identity; the retry re-saves those
-                // edits after acquiring a fresh suspension.
+                // InitializeWithEditorSuspensionAsync has released the editor and hidden the progress
+                // view over it before this prompt. The user can keep editing while entering an identity;
+                // the retry re-saves those edits after acquiring a fresh suspension.
                 GitIdentity? identity = await requestIdentityAsync(operationCancellation);
                 if (identity is null)
                 {
@@ -430,6 +433,232 @@ internal sealed class VersionControlCoordinator :
         return true;
     }
 
+    public INewProjectVersionControlSetup BeginNewProject(
+        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync)
+    {
+        ArgumentNullException.ThrowIfNull(requestIdentityAsync);
+        lock (_stateGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+        }
+
+        return new NewProjectSetup(
+            this,
+            requestIdentityAsync,
+            _editorService.BeginLifecycleActivity(ProjectLifecycleActivity.CreatingProject));
+    }
+
+    private async Task<bool> InitializeNewProjectAsync(
+        NewProjectSetup setup,
+        Project project,
+        CancellationToken cancellationToken)
+    {
+        using NonTransactionalOperationLease operation =
+            await BeginNonTransactionalOperationAsync(cancellationToken);
+        CancellationToken operationCancellation = operation.CancellationToken;
+
+        // Only the creation that wrote the project can hand it a repository, and only before the project
+        // opens: from then on, the activation decides how the open project is tracked.
+        if (_projectService.CurrentTransition is not
+            {
+                Purpose: ProjectTransitionPurpose.Normal,
+                Owner: ProjectService.ProjectCreation,
+            } transition)
+        {
+            throw new InvalidOperationException(
+                "A new project can only be initialized while it is being created.");
+        }
+
+        if (_projectService.CurrentProject.Value is not null)
+        {
+            throw new InvalidOperationException(
+                "A new project has to be initialized before it opens.");
+        }
+
+        string projectRoot = GetProjectRoot(project);
+        IProjectVersionControlBackend service = CreateNewProjectBackend(GetProjectFile(project));
+        bool prepared = false;
+        try
+        {
+            RepositoryInfo? targetRepository = await SelectRepositoryForInitializationAsync(
+                service,
+                projectRoot,
+                operationCancellation);
+            if (targetRepository is null)
+            {
+                return false;
+            }
+
+            var options = new InitOptions(targetRepository, _config.UseLfsWhenAvailable);
+            // Nothing can edit a project that is not open, but an export or a write that outlived the
+            // previous project still has to finish before the first revision is staged.
+            using IDisposable? initializationMutation = TryBeginWorktreeMutation();
+            if (initializationMutation is null)
+            {
+                return false;
+            }
+
+            bool initialized = false;
+            try
+            {
+                try
+                {
+                    try
+                    {
+                        await service.InitializeAsync(options, operationCancellation);
+                    }
+                    catch (GitIdentityRequiredException)
+                    {
+                        GitIdentity? identity = await setup.RequestIdentityAsync(operationCancellation);
+                        if (identity is null)
+                        {
+                            return false;
+                        }
+
+                        operationCancellation.ThrowIfCancellationRequested();
+                        await service.InitializeAsync(
+                            options with { Identity = identity },
+                            operationCancellation);
+                    }
+
+                    initialized = true;
+                }
+                catch (VersionControlConflictedException ex)
+                {
+                    PublishNotification(() =>
+                        NotificationService.ShowWarning(Strings.VersionControl, ex.Guidance));
+                    return false;
+                }
+            }
+            finally
+            {
+                // Initialization can stop after it created or attached the repository, possibly with the
+                // first version already recorded. The project then opens as reopening it would find it,
+                // rather than untracked whatever is on disk.
+                if (!initialized && service.Repository is not null)
+                {
+                    TryPrepareNewProject(setup, transition, project, service: null, targetRepository);
+                }
+            }
+
+            // The first version is recorded, so the project opens tracked even if the step below fails.
+            prepared = service.Repository is not null
+                       && TryPrepareNewProject(setup, transition, project, service, repository: null);
+            if (!prepared)
+            {
+                return false;
+            }
+
+            // An enclosing repository can already track Beutl's temporary files, and whether to stop
+            // sharing them is the user's call, as when tracking is enabled for an open project.
+            IReadOnlyList<string> reservedPaths = await service.GetTrackedReservedPathsAsync(
+                operationCancellation);
+            if (reservedPaths.Count > 0
+                && await ConfirmUntrackReservedPathsAsync(reservedPaths, operationCancellation))
+            {
+                await service.UntrackReservedPathsAsync(reservedPaths, operationCancellation);
+            }
+
+            return true;
+        }
+        finally
+        {
+            if (!prepared)
+            {
+                DiscardNewProjectBackend(service);
+            }
+        }
+    }
+
+    private IProjectVersionControlBackend CreateNewProjectBackend(string projectFile)
+    {
+        return _serviceFactory?.Invoke(null)
+               ?? new GitCliVersionControlService(
+                   _installationLocator,
+                   repository: null,
+                   () => _projectService.CurrentProject.Value is null,
+                   PresentPolicyNoticeAsync,
+                   projectFile,
+                   RequestIdentityForSnapshotAsync);
+    }
+
+    private bool TryPrepareNewProject(
+        NewProjectSetup setup,
+        ProjectTransitionContext transition,
+        Project project,
+        IProjectVersionControlBackend? service,
+        RepositoryInfo? repository)
+    {
+        PreparedNewProject? stale = null;
+        lock (_stateGate)
+        {
+            if (_disposed
+                || setup.IsDisposed
+                || !ReferenceEquals(_projectService.CurrentTransition, transition)
+                || _projectService.CurrentProject.Value is not null)
+            {
+                return false;
+            }
+
+            if (_preparedNewProject is { } existing)
+            {
+                if (ReferenceEquals(existing.Transition, transition))
+                {
+                    return false;
+                }
+
+                // A creation that ended without disposing its setup can no longer open its project.
+                stale = existing;
+            }
+
+            _preparedNewProject = new PreparedNewProject(setup, transition, project, service, repository);
+        }
+
+        if (stale?.Service is { } staleService)
+        {
+            DiscardNewProjectBackend(staleService);
+        }
+
+        return true;
+    }
+
+    // Called with _stateGate held, once the activation of the new project is sure to start.
+    private PreparedNewProject? TakePreparedNewProjectLocked(Project project)
+    {
+        if (_preparedNewProject is not { } prepared
+            || !ReferenceEquals(prepared.Project, project)
+            || !ReferenceEquals(prepared.Transition, _projectService.CurrentTransition))
+        {
+            return null;
+        }
+
+        _preparedNewProject = null;
+        return prepared;
+    }
+
+    private void ReleasePreparedNewProject(NewProjectSetup setup)
+    {
+        IProjectVersionControlBackend? discarded = null;
+        lock (_stateGate)
+        {
+            if (_preparedNewProject is { } prepared && ReferenceEquals(prepared.Setup, setup))
+            {
+                _preparedNewProject = null;
+                discarded = prepared.Service;
+            }
+        }
+
+        if (discarded is not null)
+        {
+            DiscardNewProjectBackend(discarded);
+        }
+    }
+
+    private void DiscardNewProjectBackend(IProjectVersionControlBackend service)
+    {
+        RetireService(new ServiceRetirement(service, Task.CompletedTask));
+    }
+
     private async Task<bool> InitializeWithEditorSuspensionAsync(
         IProjectVersionControlBackend service,
         InitOptions options,
@@ -439,7 +668,11 @@ internal sealed class VersionControlCoordinator :
         IDisposable? editorSuspension = null;
         try
         {
-            editorSuspension = await SuspendEditorsAsync(cancellationToken);
+            // The editor area shows the initialization for exactly as long as the editors are suspended,
+            // so it is also hidden whenever the caller releases them to ask for an identity.
+            editorSuspension = await SuspendEditorsBehindActivityAsync(
+                ProjectLifecycleActivity.EnablingVersionControl,
+                cancellationToken);
 
             // The initial revision has to record what the user sees, so in-memory edits reach disk
             // first. Keep the outer suspension through InitializeAsync: its Git hooks can await
@@ -487,69 +720,93 @@ internal sealed class VersionControlCoordinator :
         }
 
         CancelPendingPullRecoveryOffer();
-        NonTransactionalCloseBarrier? closeBarrier =
-            await TryBeginNonTransactionalCloseBarrierAsync(cancellationToken)
-                .ConfigureAwait(false);
-        if (closeBarrier is null)
-        {
-            return;
-        }
-
-        // An inline decision must not keep the project close waiting for activation.
-        PendingRepositoryAdoption?.Respond(false);
-        AdvanceProjectServiceEpoch();
-
+        // The close can wait on Git for a while, first for work already running and then for the close
+        // snapshot, and the editor cannot be used meanwhile. The editor area shows the close instead of an
+        // editor that looks usable, until the close completes or is aborted.
+        IDisposable? closingPresentation = null;
         bool completionRegistered = false;
-        IDisposable? editorSuspension = null;
         try
         {
-            if (closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges
-                && _config.AutoCommitOnClose
-                && GetOwnedBackend()?.Repository is not null
-                && _projectService.CurrentProject.Value is not null)
+            NonTransactionalCloseBarrier? closeBarrier =
+                await TryBeginNonTransactionalCloseBarrierAsync(
+                        () => closingPresentation = _editorService.BeginLifecycleActivity(
+                            ProjectLifecycleActivity.ClosingProject),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            if (closeBarrier is null)
             {
-                editorSuspension = await SuspendEditorsAsync(cancellationToken);
+                return;
             }
 
-            lock (_stateGate)
-            {
-                _preparedCloseBarriers.Add(closeContext, closeBarrier);
-            }
+            // An inline decision must not keep the project close waiting for activation.
+            PendingRepositoryAdoption?.Respond(false);
+            AdvanceProjectServiceEpoch();
 
-            closeContext.RegisterCompletion(
-                async projectClosed =>
+            IDisposable? editorSuspension = null;
+            try
+            {
+                if (closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges
+                    && _config.AutoCommitOnClose
+                    && GetOwnedBackend()?.Repository is not null
+                    && _projectService.CurrentProject.Value is not null)
                 {
+                    editorSuspension = await SuspendEditorsAsync(cancellationToken);
+                }
+
+                lock (_stateGate)
+                {
+                    _preparedCloseBarriers.Add(closeContext, closeBarrier);
+                }
+
+                closeContext.RegisterCompletion(
+                    async projectClosed =>
+                    {
+                        try
+                        {
+                            await ReleaseEditorSuspensionAsync(editorSuspension);
+                        }
+                        finally
+                        {
+                            try
+                            {
+                                await CompletePreparedCloseBarrierAsync(
+                                    closeContext,
+                                    closeBarrier,
+                                    projectClosed);
+                            }
+                            finally
+                            {
+                                closingPresentation?.Dispose();
+                            }
+                        }
+                    });
+                completionRegistered = true;
+            }
+            finally
+            {
+                if (!completionRegistered)
+                {
+                    lock (_stateGate)
+                    {
+                        _preparedCloseBarriers.Remove(closeContext);
+                    }
+
                     try
                     {
                         await ReleaseEditorSuspensionAsync(editorSuspension);
                     }
                     finally
                     {
-                        await CompletePreparedCloseBarrierAsync(
-                            closeContext,
-                            closeBarrier,
-                            projectClosed);
+                        await closeBarrier.CompleteAsync(projectClosed: false).ConfigureAwait(false);
                     }
-                });
-            completionRegistered = true;
+                }
+            }
         }
         finally
         {
             if (!completionRegistered)
             {
-                lock (_stateGate)
-                {
-                    _preparedCloseBarriers.Remove(closeContext);
-                }
-
-                try
-                {
-                    await ReleaseEditorSuspensionAsync(editorSuspension);
-                }
-                finally
-                {
-                    await closeBarrier.CompleteAsync(projectClosed: false).ConfigureAwait(false);
-                }
+                closingPresentation?.Dispose();
             }
         }
 
@@ -570,6 +827,35 @@ internal sealed class VersionControlCoordinator :
             () => _editorService.SuspendEditors(),
             DispatcherPriority.Normal,
             cancellationToken);
+    }
+
+    // Shows the activity and suspends the editors in one dispatcher job, and the returned handle undoes both
+    // in the reverse order. Beginning the activity off the UI thread would publish it only after the editors
+    // are disabled, and a render in between would show them disabled without it.
+    private async Task<IDisposable> SuspendEditorsBehindActivityAsync(
+        ProjectLifecycleActivity activity,
+        CancellationToken cancellationToken)
+    {
+        if (_dispatcher.CheckAccess())
+        {
+            return Suspend();
+        }
+
+        return await _dispatcher.InvokeAsync(Suspend, DispatcherPriority.Normal, cancellationToken);
+
+        IDisposable Suspend()
+        {
+            IDisposable presentation = _editorService.BeginLifecycleActivity(activity);
+            try
+            {
+                return new PresentedEditorSuspension(_editorService.SuspendEditors(), presentation);
+            }
+            catch
+            {
+                presentation.Dispose();
+                throw;
+            }
+        }
     }
 
     private async Task ReleaseEditorSuspensionAsync(IDisposable? suspension)
@@ -1017,6 +1303,7 @@ internal sealed class VersionControlCoordinator :
         bool clearProjectState;
         CancellationTokenSource? configurationActivationCancellation;
         CancellationTokenSource? projectServiceEpochCancellation;
+        PreparedNewProject? preparedNewProject;
         lock (_stateGate)
         {
             if (_disposed)
@@ -1027,6 +1314,8 @@ internal sealed class VersionControlCoordinator :
             _disposed = true;
             _pendingConfigurationActivation = null;
             _pendingOpeningRepositoryDecision = null;
+            preparedNewProject = _preparedNewProject;
+            _preparedNewProject = null;
             _openingPullRecoveries.Clear();
             configurationActivationCancellation = _configurationActivationCancellation;
             projectServiceEpochCancellation = _projectServiceEpochCancellation;
@@ -1048,6 +1337,11 @@ internal sealed class VersionControlCoordinator :
         }
         CancelConfigurationActivation(configurationActivationCancellation);
         CancelProjectServiceEpoch(projectServiceEpochCancellation);
+        if (preparedNewProject?.Service is { } preparedService)
+        {
+            DiscardNewProjectBackend(preparedService);
+        }
+
         _config.ConfigurationChanged -= OnVersionControlConfigChanged;
         _projectService.OpeningPreflight -= PrepareProjectOpeningAsync;
         _projectService.Opening -= InspectProjectOpeningAsync;
@@ -2944,6 +3238,17 @@ internal sealed class VersionControlCoordinator :
         }
     }
 
+    // Whether closing the open project waits on version control: an operation still running, an
+    // activation still deciding how the project is tracked, or a tracked backend to retire.
+    private bool HasVersionControlWorkToFinishLocked()
+    {
+        return !_disposed
+               && _projectService.CurrentProject.Value is not null
+               && (_operationUsers > 0
+                   || _activation is not null
+                   || _state.OwnedService?.Repository is not null);
+    }
+
     private bool IsInternalVersionControlTransition()
     {
         return _projectService.CurrentTransition is
@@ -3503,8 +3808,13 @@ internal sealed class VersionControlCoordinator :
         }
     }
 
+    // versionControlWorkPending runs once the barrier stops new operations, and only when the close then
+    // waits on version control. Deciding under the same lock means no operation can start unnoticed
+    // between the decision and the wait it causes.
     private async Task<NonTransactionalCloseBarrier?>
-        TryBeginNonTransactionalCloseBarrierAsync(CancellationToken cancellationToken)
+        TryBeginNonTransactionalCloseBarrierAsync(
+            Action versionControlWorkPending,
+            CancellationToken cancellationToken)
     {
         lock (_stateGate)
         {
@@ -3530,6 +3840,7 @@ internal sealed class VersionControlCoordinator :
 
             Task operationsQuiesced;
             bool disposed;
+            bool workPending = false;
             lock (_stateGate)
             {
                 disposed = _disposed;
@@ -3542,6 +3853,7 @@ internal sealed class VersionControlCoordinator :
                     operationsQuiesced = _operationUsers == 0
                         ? Task.CompletedTask
                         : (_operationsQuiesced ??= CreateCompletionSource()).Task;
+                    workPending = HasVersionControlWorkToFinishLocked();
                     barrierEntered = true;
                 }
                 else
@@ -3555,6 +3867,11 @@ internal sealed class VersionControlCoordinator :
                 closeCancellation.Dispose();
                 FinishNonTransactionalCloseBarrierWaiter(gateEntered);
                 return null;
+            }
+
+            if (workPending)
+            {
+                versionControlWorkPending();
             }
 
             Exception? cancellationFailure = null;
@@ -4955,6 +5272,7 @@ internal sealed class VersionControlCoordinator :
         bool newProject = project is not null && !internalTransition && IsProjectCreationTransition();
         CancellationTokenSource? configurationActivationCancellation;
         long activationRevision;
+        PreparedNewProject? preparedNewProject = null;
         lock (_stateGate)
         {
             _lastProjectNotification = project;
@@ -4972,6 +5290,11 @@ internal sealed class VersionControlCoordinator :
             {
                 return;
             }
+
+            if (newProject)
+            {
+                preparedNewProject = TakePreparedNewProjectLocked(project!);
+            }
         }
 
         AdvanceProjectServiceEpoch();
@@ -4985,7 +5308,8 @@ internal sealed class VersionControlCoordinator :
             internalTransition,
             activationRevision,
             openingRepositoryDecision,
-            newProject);
+            newProject,
+            preparedNewProject);
     }
 
     private void ObserveCurrentProjectSnapshot()
@@ -5028,7 +5352,8 @@ internal sealed class VersionControlCoordinator :
             internalTransition,
             activationRevision,
             openingRepositoryDecision: null,
-            newProject: false);
+            newProject: false,
+            preparedNewProject: null);
     }
 
     private void StartProjectActivation(
@@ -5036,23 +5361,28 @@ internal sealed class VersionControlCoordinator :
         bool internalTransition,
         long activationRevision,
         PendingOpeningRepositoryDecision? openingRepositoryDecision,
-        bool newProject)
+        bool newProject,
+        PreparedNewProject? preparedNewProject)
     {
         _ = StartProjectActivationAfterOpeningRecoveryAsync(
             project,
             internalTransition,
             activationRevision,
             openingRepositoryDecision,
-            newProject);
+            newProject,
+            preparedNewProject);
     }
 
+    // Owns the prepared backend until OnProjectChangedAsync takes it over.
     private async Task StartProjectActivationAfterOpeningRecoveryAsync(
         Project? project,
         bool internalTransition,
         long activationRevision,
         PendingOpeningRepositoryDecision? openingRepositoryDecision,
-        bool newProject)
+        bool newProject,
+        PreparedNewProject? preparedNewProject)
     {
+        IProjectVersionControlBackend? preparedService = preparedNewProject?.Service;
         try
         {
             if (!ReferenceEquals(_projectService.CurrentProject.Value, project))
@@ -5069,17 +5399,24 @@ internal sealed class VersionControlCoordinator :
                 }
             }
 
+            preparedService = null;
             await OnProjectChangedAsync(
                     project,
                     internalTransition,
                     activationRevision,
                     openingRepositoryDecision,
                     newProject,
-                    CancellationToken.None)
+                    CancellationToken.None,
+                    preparedNewProject)
                 .ConfigureAwait(false);
         }
         finally
         {
+            if (preparedService is not null)
+            {
+                DiscardNewProjectBackend(preparedService);
+            }
+
             FinishActivationSetup();
         }
     }
@@ -5111,14 +5448,18 @@ internal sealed class VersionControlCoordinator :
         }
     }
 
+    // A backend that preparedNewProject carries already initialized the new project's repository, and the
+    // activation adopts it in place of a fresh untracked backend.
     private async Task<ActivationContext?> OnProjectChangedAsync(
         Project? project,
         bool internalTransition,
         long activationRevision,
         PendingOpeningRepositoryDecision? openingRepositoryDecision,
         bool newProject,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        PreparedNewProject? preparedNewProject = null)
     {
+        IProjectVersionControlBackend? preparedService = preparedNewProject?.Service;
         try
         {
             if (internalTransition && !TryPromoteActivationRevision(activationRevision))
@@ -5155,13 +5496,16 @@ internal sealed class VersionControlCoordinator :
 
             string projectRoot = GetProjectRoot(project);
             string projectFile = GetProjectFile(project);
-            IProjectVersionControlBackend service = _serviceFactory?.Invoke(null)
+            IProjectVersionControlBackend service = preparedService
+                ?? _serviceFactory?.Invoke(null)
                 ?? new GitCliVersionControlService(
                     _installationLocator,
                     repository: null,
                     () => _projectService.CurrentProject.Value is null,
                     PresentPolicyNoticeAsync,
                     projectFile);
+            // From here the activation owns the prepared backend, and a rejected activation retires it.
+            preparedService = null;
             var activation = new ActivationContext(
                 activationRevision,
                 projectRoot,
@@ -5169,7 +5513,10 @@ internal sealed class VersionControlCoordinator :
                 service,
                 openingRepositoryDecision,
                 newProject,
-                cancellationToken);
+                cancellationToken)
+            {
+                InterruptedNewProjectRepository = preparedNewProject?.InterruptedRepository,
+            };
             if (BeginActivation(activation, out bool cleanupRejectedService))
             {
                 _ = ActivateRepositoryAsync(activation);
@@ -5185,6 +5532,13 @@ internal sealed class VersionControlCoordinator :
             _logger.LogError(ex, "Failed to activate version control for the open project.");
             ClearProjectState(activationRevision);
             return null;
+        }
+        finally
+        {
+            if (preparedService is not null)
+            {
+                DiscardNewProjectBackend(preparedService);
+            }
         }
     }
 
@@ -5290,10 +5644,13 @@ internal sealed class VersionControlCoordinator :
 
             GitAvailability availability = await activation.Service.GetAvailabilityAsync(
                 activation.CancellationToken);
-            // A project created in this session starts untracked. The new-project dialog already asked
-            // whether to track it, so discovery neither adopts an enclosing repository nor asks again;
-            // initialization does both when the user chose tracking.
-            if (availability.State != GitAvailabilityState.Installed || activation.IsNewProject)
+            // A project created in this session opens with the backend its creation left: tracked when the
+            // new-project dialog chose tracking and initialization recorded the first version, untracked
+            // otherwise. The dialog already decided, so discovery neither adopts an enclosing repository
+            // nor asks again; initialization did both before the project opened. Discovery only looks
+            // again at a repository that initialization created or attached before it stopped.
+            if (availability.State != GitAvailabilityState.Installed
+                || activation.IsNewProject && activation.InterruptedNewProjectRepository is null)
             {
                 return;
             }
@@ -5316,7 +5673,17 @@ internal sealed class VersionControlCoordinator :
                 return;
             }
 
-            if (repository.IsNestedInForeignRepo)
+            if (activation.InterruptedNewProjectRepository is { } interruptedRepository)
+            {
+                // The dialog chose tracking and consented to the repository initialization reached, so once it
+                // has a checked-out commit it resumes tracking without asking again, but only if discovery
+                // still finds that same repository.
+                if (!RepositoriesEqual(interruptedRepository, repository))
+                {
+                    return;
+                }
+            }
+            else if (repository.IsNestedInForeignRepo)
             {
                 PendingOpeningRepositoryDecision? openingDecision =
                     activation.OpeningRepositoryDecision;
@@ -7077,6 +7444,78 @@ internal sealed class VersionControlCoordinator :
         }
     }
 
+    // What a creation's initialization leaves for the activation of its project: the backend that recorded
+    // the first version, or, when initialization stopped after creating or attaching the repository, that
+    // repository to look at again.
+    private sealed record PreparedNewProject(
+        NewProjectSetup Setup,
+        ProjectTransitionContext Transition,
+        Project Project,
+        IProjectVersionControlBackend? Service,
+        RepositoryInfo? InterruptedRepository);
+
+    private sealed class NewProjectSetup(
+        VersionControlCoordinator owner,
+        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync,
+        IDisposable presentation) : INewProjectVersionControlSetup
+    {
+        private int _initializationStarted;
+        private int _disposed;
+
+        public Func<CancellationToken, Task<GitIdentity?>> RequestIdentityAsync => requestIdentityAsync;
+
+        public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
+        public Task<bool> InitializeAsync(Project project, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(project);
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            if (Interlocked.Exchange(ref _initializationStarted, 1) != 0)
+            {
+                throw new InvalidOperationException("The new project has already been initialized.");
+            }
+
+            return owner.InitializeNewProjectAsync(this, project, cancellationToken);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            try
+            {
+                owner.ReleasePreparedNewProject(this);
+            }
+            finally
+            {
+                presentation.Dispose();
+            }
+
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    // Enables the editors again before hiding the activity that covers them.
+    private sealed class PresentedEditorSuspension(
+        IDisposable suspension,
+        IDisposable presentation) : IDisposable
+    {
+        public void Dispose()
+        {
+            try
+            {
+                suspension.Dispose();
+            }
+            finally
+            {
+                presentation.Dispose();
+            }
+        }
+    }
+
     private sealed class NonTransactionalOperationLease : IDisposable
     {
         private VersionControlCoordinator? _owner;
@@ -7153,6 +7592,9 @@ internal sealed class VersionControlCoordinator :
 
         // Set for a project the app has just created, whose tracking the new-project dialog decides.
         public bool IsNewProject { get; }
+
+        // For a new project, the repository its initialization created or attached before it stopped.
+        public RepositoryInfo? InterruptedNewProjectRepository { get; init; }
 
         public CancellationToken CancellationToken => _cancellation.Token;
 

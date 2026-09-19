@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json.Nodes;
 using Beutl.Editor;
@@ -283,6 +284,127 @@ public class NoMigrationRegressionTests
     }
 
     [Test]
+    public void A_standalone_value_attached_afterwards_migrates_the_project_it_is_saved_into()
+    {
+        MigratingLeaf leaf = CreateMigrated(new MigratingLeaf("7.0.0"));
+        var owner = new MigratingContainer();
+        string path = Path.Combine(_tempDirectory, "project.bep");
+        var project = new Project { Uri = new Uri(path) };
+        project.Items.Add(owner);
+        // The value reported to a context that has already ended, so no owner knows about it yet.
+        Assert.That(project.MinAppVersion, Is.EqualTo(Project.DefaultMinAppVersion));
+
+        owner.First = leaf;
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        JsonObject saved = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        Assert.Multiple(() =>
+        {
+            Assert.That(project.MinAppVersion, Is.EqualTo("7.0.0"));
+            Assert.That((string?)saved["minAppVersion"], Is.EqualTo("7.0.0"));
+        });
+    }
+
+    [Test]
+    public void Standalone_values_attached_to_one_owner_keep_the_highest_migration()
+    {
+        var owner = new MigratingContainer
+        {
+            First = CreateMigrated(new MigratingLeaf("7.0.0")),
+            Second = CreateMigrated(new MigratingLeaf("9.0.0")),
+        };
+        string path = Path.Combine(_tempDirectory, "project.bep");
+        var project = new Project { Uri = new Uri(path) };
+        project.Items.Add(owner);
+
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        JsonObject saved = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        Assert.That((string?)saved["minAppVersion"], Is.EqualTo("9.0.0"));
+    }
+
+    [Test]
+    public void Saving_a_standalone_value_hands_its_migration_to_the_owner_for_later_saves()
+    {
+        var owner = new MigratingContainer { First = CreateMigrated(new MigratingLeaf("7.0.0")) };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
+    }
+
+    // A converter reaches CoreSerializer's root entry point rather than SerializeCoreSerializable,
+    // so the requirement has to be handed over there too.
+    [Test]
+    public void A_standalone_value_reached_through_a_converter_migrates_its_owner()
+    {
+        var owner = new OptionalValueOwner
+        {
+            Value = new Optional<MigratingLeaf>(CreateMigrated(new MigratingLeaf("7.0.0"))),
+        };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
+    }
+
+    // The metadata is written before the items and rewritten afterwards, so it must keep the place
+    // the released format gives it rather than move to the end of the file.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Project_keys_keep_the_released_order_whether_or_not_a_migration_arrives_late(
+        bool migrate)
+    {
+        string path = Path.Combine(_tempDirectory, "project.bep");
+        var project = new Project { Uri = new Uri(path) };
+        project.Items.Add(migrate
+            ? new MigratingContainer { First = CreateMigrated(new MigratingLeaf("7.0.0")) }
+            : new MigratingContainer());
+
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        Assert.That(
+            string.Join(",", JsonNode.Parse(File.ReadAllText(path))!.AsObject().Select(property => property.Key)),
+            Is.EqualTo("Id,Name,appVersion,minAppVersion,items,variables,$type"));
+    }
+
+    [Test]
+    public void A_failed_standalone_deserialization_retains_no_migration()
+    {
+        var leaf = new ThrowingMigrationLeaf();
+        JsonObject json = CoreSerializer.SerializeToJsonObject(leaf);
+        Assert.Throws<InvalidOperationException>(() =>
+            CoreSerializer.PopulateFromJsonObject(leaf, json));
+
+        var owner = new StandaloneValueOwner { Value = leaf };
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+    }
+
+    [Test]
+    public void A_retained_standalone_migration_does_not_keep_its_value_alive()
+    {
+        WeakReference reference = CreateMigratedLeafReference();
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        Assert.That(reference.IsAlive, Is.False);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateMigratedLeafReference()
+    {
+        MigratingLeaf leaf = CreateMigrated(new MigratingLeaf("7.0.0"));
+        Assert.That(AttachedContentMigrations.Get(leaf), Is.EqualTo("7.0.0"));
+        return new WeakReference(leaf);
+    }
+
+    [Test]
     public void Failed_deserialization_does_not_attach_a_reported_migration()
     {
         var item = new ThrowingMigrationItem();
@@ -529,6 +651,431 @@ public class NoMigrationRegressionTests
     }
 
     [Test]
+    public void A_project_save_writes_the_gate_before_the_referenced_files_it_guards()
+    {
+        string projectPath = Path.Combine(_tempDirectory, "project.bep");
+        var project = new Project { Uri = new Uri(projectPath) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "scene.scene")) };
+        var element = new StandaloneValueElement
+        {
+            Uri = new Uri(Path.Combine(_tempDirectory, "element.belm")),
+            Value = CreateMigrated(new MigratingLeaf("9.0.0")),
+        };
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        File.WriteAllText(projectPath, "{\"minAppVersion\":\"1.0.0\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(projectPath))!["minAppVersion"];
+
+        // A project writes the files it references before its own bytes reach the disk, so the
+        // requirement has to be persisted by a preflight rather than by this save's own metadata.
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
+    }
+
+    [Test]
+    public void A_project_that_already_covers_a_standalone_migration_skips_the_discovery_pass()
+    {
+        int serializations = 0;
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        element.BeforeSerialization = () => serializations++;
+
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        int discovering = serializations;
+        serializations = 0;
+        CoreSerializer.StoreToUri(project, project.Uri!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(discovering, Is.GreaterThan(1), "the first save has to discover the requirement");
+            Assert.That(serializations, Is.EqualTo(1), "the gate already covers it, so nothing is discovered");
+        });
+    }
+
+    // The destination is gated before the files that gate guards, but the preflight records no item
+    // graph: a save that fails after it must not leave a project pointing at sidecars it never wrote.
+    [TestCase(true)]
+    [TestCase(false)]
+    public void A_project_saved_to_a_new_destination_is_gated_without_an_item_graph(bool firstSave)
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        string sourcePath = project.Uri!.LocalPath;
+        File.WriteAllText(sourcePath, "{\"minAppVersion\":\"1.0.0\"}");
+        if (firstSave)
+        {
+            project.Uri = null;
+        }
+
+        string destinationPath = Path.Combine(_tempDirectory, "elsewhere", "project.bep");
+        JsonObject? destinationAtElementWrite = null;
+        element.BeforeSerialization = () => destinationAtElementWrite ??= File.Exists(destinationPath)
+            ? JsonNode.Parse(File.ReadAllText(destinationPath))!.AsObject()
+            : null;
+
+        CoreSerializer.StoreToUri(project, new Uri(destinationPath));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((string?)destinationAtElementWrite?["minAppVersion"], Is.EqualTo("9.0.0"));
+            Assert.That(destinationAtElementWrite?.ContainsKey("items"), Is.False);
+            Assert.That(
+                (string?)JsonNode.Parse(File.ReadAllText(destinationPath))!["minAppVersion"],
+                Is.EqualTo("9.0.0"));
+            if (!firstSave)
+            {
+                Assert.That(
+                    (string?)JsonNode.Parse(File.ReadAllText(sourcePath))!["minAppVersion"],
+                    Is.EqualTo("1.0.0"),
+                    "a Save As must not rewrite the project it came from");
+            }
+        });
+    }
+
+    // A CoreObject keeps its own requirement, but only the hierarchy hands it on: one embedded
+    // through an ordinary serialized property has to be carried to its owner explicitly.
+    [Test]
+    public void An_embedded_object_deserialized_on_its_own_migrates_the_owner_it_joins()
+    {
+        var owner = new StandaloneValueOwner
+        {
+            Value = CreateMigrated(new MigratingCoreObject("7.0.0")),
+        };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
+    }
+
+    // A referenced object is written to a file of its own, which the save does while the owner is
+    // still being serialized, so its requirement has to be handed over before that write.
+    [Test]
+    public void A_referenced_object_deserialized_on_its_own_migrates_the_owner_that_names_it()
+    {
+        MigratingCoreObject referenced = CreateMigrated(new MigratingCoreObject("7.0.0"));
+        referenced.Uri = new Uri(Path.Combine(_tempDirectory, "referenced.json"));
+        var owner = new StandaloneValueOwner { Value = referenced };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
+    }
+
+    // A converter reaches the referenced object without ever calling into CoreSerializer's root
+    // entry point, so the requirement has to be handed over there too.
+    [Test]
+    public void A_referenced_object_reached_through_a_converter_migrates_its_owner()
+    {
+        MigratingCoreObject referenced = CreateMigrated(new MigratingCoreObject("7.0.0"));
+        referenced.Uri = new Uri(Path.Combine(_tempDirectory, "referenced.json"));
+        var owner = new ReferenceHolderOwner { Holder = new ReferenceHolder(referenced) };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
+    }
+
+    // A gate that cannot be established is not the same as one that is not there: the save must not
+    // walk past it and start replacing the content it guards.
+    [Test]
+    public void A_destination_whose_gate_cannot_be_read_stops_the_save()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", new MigratingLeaf("9.0.0"));
+        project.RestoreVersionMetadata(BeutlApplication.Version, "9.0.0");
+        string destinationPath = Path.Combine(_tempDirectory, "elsewhere", "project.bep");
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        File.WriteAllText(destinationPath, "{\"minAppVersion\":\"1.0.0\"}");
+        File.WriteAllText(element.Uri!.LocalPath, "original element");
+
+        using (new FileStream(destinationPath, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            Assert.Throws<IOException>(() =>
+                CoreSerializer.StoreToUri(project, new Uri(destinationPath)));
+        }
+
+        Assert.That(File.ReadAllText(element.Uri.LocalPath), Is.EqualTo("original element"));
+    }
+
+    // A project that records no gate still opens, at the oldest minimum Project.Deserialize assumes,
+    // so it is a destination to compare against rather than nothing.
+    [Test]
+    public void A_destination_recording_no_gate_still_receives_the_projects_constraint()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", new MigratingLeaf("9.0.0"));
+        project.RestoreVersionMetadata(BeutlApplication.Version, "9.0.0");
+        string destinationPath = Path.Combine(_tempDirectory, "elsewhere", "project.bep");
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        File.WriteAllText(destinationPath, "{\"Name\":\"legacy\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(destinationPath))!["minAppVersion"];
+
+        CoreSerializer.StoreToUri(project, new Uri(destinationPath));
+
+        Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
+    }
+
+    [Test]
+    public void A_standalone_value_type_kept_as_an_interface_box_migrates_its_owner()
+    {
+        var owner = new StandaloneValueOwner
+        {
+            Value = (ICoreSerializable)CoreSerializer.DeserializeFromJsonObject(
+                CoreSerializer.SerializeToJsonObject(new MigratingStructLeaf("7.0.0")),
+                typeof(MigratingStructLeaf)),
+        };
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+
+        CoreSerializer.SerializeToJsonObject(owner);
+
+        // The box the deserializer returned is the instance the owner holds, so it stays trackable.
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.EqualTo("7.0.0"));
+    }
+
+    [Test]
+    public void The_migration_preflight_leaves_the_persisted_item_graph_alone()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        string path = project.Uri!.LocalPath;
+        File.WriteAllText(path, "{\"minAppVersion\":\"1.0.0\",\"items\":[\"already-there.scene\"]}");
+        JsonObject? gateAtElementWrite = null;
+        element.BeforeSerialization = () =>
+            gateAtElementWrite = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((string?)gateAtElementWrite?["minAppVersion"], Is.EqualTo("9.0.0"));
+            // The save that follows can still fail, and ProjectPersistence then rolls the in-memory
+            // item list back; the preflight must not have recorded a graph that never happened.
+            Assert.That(
+                gateAtElementWrite?["items"]?.ToJsonString(),
+                Is.EqualTo("[\"already-there.scene\"]"));
+        });
+    }
+
+    [Test]
+    public void The_migration_preflight_does_not_lower_a_gate_already_on_disk()
+    {
+        string path = Path.Combine(_tempDirectory, "project.bep");
+        var project = new Project { Uri = new Uri(path) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "scene.scene")) };
+        MigratedElement element = CreateMigrated(new MigratedElement("9.0.0"));
+        element.Uri = new Uri(Path.Combine(_tempDirectory, "element.belm"));
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        File.WriteAllText(path, "{\"minAppVersion\":\"99.0.0\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(path))!["minAppVersion"];
+
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        // 99 already guards what this migration needs, so the preflight must keep it.
+        Assert.That(gateAtElementWrite, Is.EqualTo("99.0.0"));
+    }
+
+    // A project reloaded at a raised version reports no migration of its own, but it still writes
+    // content an older application must not read, so the destination has to carry its constraint.
+    [Test]
+    public void A_reloaded_projects_own_gate_reaches_a_lower_gated_destination()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", new MigratingLeaf("9.0.0"));
+        project.RestoreVersionMetadata(BeutlApplication.Version, "9.0.0");
+        string destinationPath = Path.Combine(_tempDirectory, "elsewhere", "project.bep");
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        File.WriteAllText(destinationPath, "{\"minAppVersion\":\"1.0.0\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(destinationPath))!["minAppVersion"];
+
+        CoreSerializer.StoreToUri(project, new Uri(destinationPath));
+
+        Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
+    }
+
+    // The gate that counts is the one in the file being written, not the constraint the project
+    // happens to hold in memory: a Save As can name a file that has never seen this requirement.
+    [Test]
+    public void A_save_to_a_lower_gated_file_is_discovered_even_when_memory_already_covers_it()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        project.RestoreVersionMetadata(BeutlApplication.Version, "9.0.0");
+        string destinationPath = Path.Combine(_tempDirectory, "elsewhere", "project.bep");
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        File.WriteAllText(destinationPath, "{\"minAppVersion\":\"1.0.0\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(destinationPath))!["minAppVersion"];
+
+        CoreSerializer.StoreToUri(project, new Uri(destinationPath));
+
+        Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
+    }
+
+    [Test]
+    public void A_project_file_whose_gate_is_not_a_string_does_not_block_the_save_that_replaces_it()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        File.WriteAllText(project.Uri!.LocalPath, "{\"minAppVersion\":9}");
+
+        Assert.DoesNotThrow(() => CoreSerializer.StoreToUri(project, project.Uri));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                (string?)JsonNode.Parse(File.ReadAllText(project.Uri.LocalPath))!["minAppVersion"],
+                Is.EqualTo("9.0.0"));
+            Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
+        });
+    }
+
+    // Resource inspection walks the live project through a context of its own and declines
+    // migration reports on purpose, so a transfer must stop at any owner that is not the serializer.
+    [Test]
+    public void A_context_outside_the_serializer_takes_no_migration_from_the_value_it_inspects()
+    {
+        var owner = new MigratingContainer { First = CreateMigrated(new MigratingLeaf("7.0.0")) };
+
+        using (ThreadLocalSerializationContext.Enter(new InspectingSerializationContext()))
+        {
+            CoreSerializer.SerializeToJsonObject(owner);
+        }
+
+        Assert.That(Project.GetRequiredMigrationVersion(owner), Is.Null);
+    }
+
+    [Test]
+    public void A_project_file_that_is_not_an_object_does_not_block_the_save_that_replaces_it()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        File.WriteAllText(project.Uri!.LocalPath, "[1, 2, 3]");
+
+        Assert.DoesNotThrow(() => CoreSerializer.StoreToUri(project, project.Uri));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                (string?)JsonNode.Parse(File.ReadAllText(project.Uri.LocalPath))!["minAppVersion"],
+                Is.EqualTo("9.0.0"));
+            Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
+        });
+    }
+
+    [Test]
+    public void A_malformed_project_file_does_not_block_the_save_that_replaces_it()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        File.WriteAllText(project.Uri!.LocalPath, "{ this is not json");
+
+        Assert.DoesNotThrow(() => CoreSerializer.StoreToUri(project, project.Uri));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                (string?)JsonNode.Parse(File.ReadAllText(project.Uri.LocalPath))!["minAppVersion"],
+                Is.EqualTo("9.0.0"));
+            Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
+        });
+    }
+
+    [Test]
+    public void An_unreadable_persisted_gate_does_not_fail_the_save()
+    {
+        (Project project, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("project.bep", CreateMigrated(new MigratingLeaf("9.0.0")));
+        project.RestoreVersionMetadata("not-a-version", "not-a-version");
+        File.WriteAllText(project.Uri!.LocalPath, "{\"minAppVersion\":\"not-a-version\"}");
+
+        Assert.DoesNotThrow(() => CoreSerializer.StoreToUri(project, project.Uri));
+        Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
+    }
+
+    [Test]
+    public void A_standalone_value_shared_with_another_project_is_discovered_again()
+    {
+        MigratingLeaf leaf = CreateMigrated(new MigratingLeaf("9.0.0"));
+        (Project first, StandaloneValueElement _) = CreateProjectWithStandaloneValue("first.bep", leaf);
+        CoreSerializer.StoreToUri(first, first.Uri!);
+
+        // The same value now reaches a second project, whose gate knows nothing about it.
+        (Project second, StandaloneValueElement element) =
+            CreateProjectWithStandaloneValue("second.bep", leaf);
+        File.WriteAllText(second.Uri!.LocalPath, "{\"minAppVersion\":\"1.0.0\"}");
+        string? gateAtElementWrite = null;
+        element.BeforeSerialization = () => gateAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(second.Uri.LocalPath))!["minAppVersion"];
+
+        CoreSerializer.StoreToUri(second, second.Uri);
+
+        Assert.That(gateAtElementWrite, Is.EqualTo("9.0.0"));
+    }
+
+    private (Project Project, StandaloneValueElement Element) CreateProjectWithStandaloneValue(
+        string projectFileName,
+        MigratingLeaf leaf)
+    {
+        string directory = Path.Combine(_tempDirectory, Path.GetFileNameWithoutExtension(projectFileName));
+        Directory.CreateDirectory(directory);
+        var project = new Project { Uri = new Uri(Path.Combine(directory, projectFileName)) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(directory, "scene.scene")) };
+        var element = new StandaloneValueElement
+        {
+            Uri = new Uri(Path.Combine(directory, "element.belm")),
+            Value = leaf,
+        };
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        return (project, element);
+    }
+
+    [Test]
+    public void AutoSave_persists_a_standalone_value_migration_before_writing_the_element()
+    {
+        var project = new Project { Uri = new Uri(Path.Combine(_tempDirectory, "project.bep")) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "scene.scene")) };
+        var element = new StandaloneValueElement
+        {
+            Uri = new Uri(Path.Combine(_tempDirectory, "element.belm")),
+            Value = CreateMigrated(new MigratingLeaf("9.0.0")),
+        };
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        var root = new VirtualProjectRoot();
+        root.AttachProject(project);
+        File.WriteAllText(project.Uri.LocalPath, "{\"minAppVersion\":\"1.0.0\"}");
+        File.WriteAllText(element.Uri.LocalPath, "original");
+        string? requiredVersionAtElementWrite = null;
+        element.BeforeSerialization = () => requiredVersionAtElementWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(project.Uri.LocalPath))!["minAppVersion"];
+        using var autoSave = new AutoSaveService();
+
+        autoSave.SaveObjects([element]);
+
+        Assert.Multiple(() =>
+        {
+            // The gate has to be on disk before the sidecar carrying the migrated value replaces it.
+            Assert.That(requiredVersionAtElementWrite, Is.EqualTo("9.0.0"));
+            Assert.That(File.ReadAllText(element.Uri.LocalPath), Is.Not.EqualTo("original"));
+        });
+    }
+
+    [Test]
     public void AutoSave_does_not_replace_sidecars_when_migration_preflight_fails()
     {
         string blockedPath = Path.Combine(_tempDirectory, "project.bep");
@@ -677,6 +1224,171 @@ public class NoMigrationRegressionTests
         {
             RequiredVersion = context.GetValue<string>(nameof(RequiredVersion))!;
             context.ReportPersistedContentMigration(RequiredVersion);
+        }
+    }
+
+    private sealed class OptionalValueOwner : ProjectItem
+    {
+        public Optional<MigratingLeaf> Value { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Value), Value);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            Value = context.GetValue<Optional<MigratingLeaf>>(nameof(Value));
+        }
+    }
+
+    private sealed class StandaloneValueElement : Element
+    {
+        public MigratingLeaf? Value { get; set; }
+
+        public Action? BeforeSerialization { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            BeforeSerialization?.Invoke();
+            base.Serialize(context);
+            context.SetValue(nameof(Value), Value);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            Value = context.GetValue<MigratingLeaf>(nameof(Value));
+        }
+    }
+
+    private sealed class StandaloneValueOwner : ProjectItem
+    {
+        public ICoreSerializable? Value { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Value), Value);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            Value = context.GetValue<ICoreSerializable>(nameof(Value));
+        }
+    }
+
+    // Stands in for VersionControlSerializationGraph's context: it owns the walk, not the serializer.
+    private sealed class InspectingSerializationContext : ICoreSerializationContext
+    {
+        public CoreSerializationMode Mode => CoreSerializationMode.Write;
+
+        public Uri? BaseUri => null;
+
+        public Type OwnerType => typeof(object);
+
+        public void ReportPersistedContentMigration(string minAppVersion)
+        {
+        }
+
+        public void SetValue<T>(string name, T? value)
+        {
+        }
+
+        public T? GetValue<T>(string name) => default;
+
+        public bool Contains(string name) => false;
+
+        public void Populate(string name, ICoreSerializable obj)
+        {
+        }
+
+        public void Resolve(Guid id, Action<ICoreSerializable> callback)
+        {
+        }
+    }
+
+    // Not ICoreSerializable itself, so its ICoreSerializable member is written by
+    // CoreSerializableJsonConverter rather than by SerializeCoreSerializable.
+    private sealed record ReferenceHolder(ICoreSerializable? Inner);
+
+    private sealed class ReferenceHolderOwner : ProjectItem
+    {
+        public ReferenceHolder? Holder { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Holder), Holder);
+        }
+    }
+
+    private sealed class MigratingCoreObject : CoreObject
+    {
+        public MigratingCoreObject()
+        {
+        }
+
+        public MigratingCoreObject(string requiredVersion)
+        {
+            RequiredVersion = requiredVersion;
+        }
+
+        public string RequiredVersion { get; set; } = null!;
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(RequiredVersion), RequiredVersion);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            RequiredVersion = context.GetValue<string>(nameof(RequiredVersion))!;
+            context.ReportPersistedContentMigration(RequiredVersion);
+        }
+    }
+
+    private struct MigratingStructLeaf : ICoreSerializable
+    {
+        public MigratingStructLeaf()
+        {
+        }
+
+        public MigratingStructLeaf(string requiredVersion)
+        {
+            RequiredVersion = requiredVersion;
+        }
+
+        public string RequiredVersion { get; set; } = null!;
+
+        public void Serialize(ICoreSerializationContext context)
+        {
+            context.SetValue(nameof(RequiredVersion), RequiredVersion);
+        }
+
+        public void Deserialize(ICoreSerializationContext context)
+        {
+            RequiredVersion = context.GetValue<string>(nameof(RequiredVersion))!;
+            context.ReportPersistedContentMigration(RequiredVersion);
+        }
+    }
+
+    private sealed class ThrowingMigrationLeaf : ICoreSerializable
+    {
+        public void Serialize(ICoreSerializationContext context)
+        {
+            context.SetValue("RequiredVersion", "9.0.0");
+        }
+
+        public void Deserialize(ICoreSerializationContext context)
+        {
+            context.ReportPersistedContentMigration("9.0.0");
+            throw new InvalidOperationException("migration failed");
         }
     }
 

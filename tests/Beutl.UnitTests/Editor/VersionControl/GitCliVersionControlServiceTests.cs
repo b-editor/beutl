@@ -9,6 +9,7 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
+using Moq;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -6685,6 +6686,32 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                                     ?? throw new InvalidOperationException(
                                         "The status drain was not scheduled.");
         drainNotifications();
+    }
+
+    [Test]
+    public async Task Watcher_retries_metadata_after_a_failed_refresh_even_if_only_worktree_changes_next()
+    {
+        var time = new FakeTimeProvider();
+        var watcher = new RepositoryWatcher(Repository, time, startWatching: false);
+        var logger = new RecordingLogger();
+        var runner = new Mock<IGitCliRunner>();
+        var actual = CreateRunner();
+        int calls = 0;
+        runner.Setup(x => x.RunAsync(It.IsAny<RepositoryInfo>(), It.IsAny<IReadOnlyList<string>>(),
+                It.IsAny<GitCommandOptions>(), It.IsAny<CancellationToken>(), It.IsAny<IProgress<string>?>()))
+            .Returns<RepositoryInfo, IReadOnlyList<string>, GitCommandOptions, CancellationToken, IProgress<string>?>(
+                (repo, args, options, token, progress) => Interlocked.Increment(ref calls) == 1
+                    ? Task.FromException<GitCommandResult>(new IOException("temporary failure"))
+                    : actual.RunAsync(repo, args, options, token, progress));
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, watcher, _ => runner.Object, logger);
+        watcher.NotifyPathChanged(Path.Combine(Root, ".gitattributes"));
+        time.Advance(RepositoryWatcher.DebounceInterval);
+        await logger.Entry.WaitAsync(TimeSpan.FromSeconds(5));
+        var captured = new TaskCompletionSource<WorkspaceStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.StatusChanged += (_, status) => captured.TrySetResult(status);
+        watcher.NotifyPathChanged(Path.Combine(Root, "project.bep"));
+        time.Advance(RepositoryWatcher.DebounceInterval);
+        Assert.That((await captured.Task.WaitAsync(TimeSpan.FromSeconds(5))).ChangeKind, Is.EqualTo(RepositoryChangeKind.All));
     }
 
     [Test]

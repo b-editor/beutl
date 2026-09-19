@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 
 namespace Beutl.Collections;
@@ -188,33 +189,55 @@ public class CoreList<T> : ICoreList<T>
         }
     }
 
+    // The swap is notified the way Clear is. A list with ResetBehavior.Reset raises one Reset once the new
+    // items are in place. A list with ResetBehavior.Remove, which lists whose observers need the individual
+    // items (such as history recording) use, raises a Remove of the old items and then an Add of the new ones.
+    // A single Replace is never raised, because its old and new item counts could differ: DynamicData's
+    // ToObservableChangeSet applies only NewItems[0] of a Replace (and throws when it is empty), and
+    // Avalonia's VirtualizingStackPanel does not shift the containers after the replaced range.
     public virtual void Replace(IList<T> source)
     {
-        Span<T> span = CollectionsMarshal.AsSpan(Inner);
-        T[] oldItems = Count > 0 ? span.ToArray() : [];
-        if (!oldItems.SequenceEqual(source))
+        ArgumentNullException.ThrowIfNull(source);
+
+        // Copied first so that handlers raised below cannot change what gets inserted.
+        T[] newItems = [.. source];
+        if (CollectionsMarshal.AsSpan(Inner).SequenceEqual(newItems))
         {
-            Inner.Clear();
-            foreach (T? item in oldItems)
-            {
-                Detached?.Invoke(item);
-            }
-
-            Inner.AddRange(source);
-            span = CollectionsMarshal.AsSpan(Inner);
-
-            foreach (T? item in span)
-            {
-                Attached?.Invoke(item);
-            }
-
-            PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-                NotifyCollectionChangedAction.Replace,
-                (IList)source,
-                oldItems,
-                0));
+            return;
         }
+
+        T[] oldItems = [.. Inner];
+        bool reset = ResetBehavior == ResetBehavior.Reset;
+        // Each handler is called on its own and the first failure is rethrown once the swap is done.
+        // A throwing handler must neither leave the list empty nor hide a notification from the handlers
+        // after it: one that saw the Add without the Remove would keep the old items next to the new ones.
+        ExceptionDispatchInfo? failure = null;
+
+        Inner.Clear();
+        InvokeEach(attached: false, oldItems, ref failure);
+        if (!reset && oldItems.Length > 0)
+        {
+            RaiseEach(
+                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, oldItems, 0),
+                ref failure);
+        }
+
+        // Inserted at 0 rather than appended so the list matches the Add notification
+        // even if a handler has added items in the meantime.
+        Inner.InsertRange(0, newItems);
+        InvokeEach(attached: true, newItems, ref failure);
+        if (reset)
+        {
+            RaiseEach(s_resetCollectionChanged, ref failure);
+        }
+        else if (newItems.Length > 0)
+        {
+            RaiseEach(
+                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, newItems, 0),
+                ref failure);
+        }
+
+        failure?.Throw();
     }
 
     public bool Contains(T item)
@@ -681,6 +704,58 @@ public class CoreList<T> : ICoreList<T>
         }
 
         NotifyCountChanged();
+    }
+
+    // The helpers below call every handler even if one throws, keeping the first failure for Replace.
+    private void InvokeEach(bool attached, T[] items, ref ExceptionDispatchInfo? failure)
+    {
+        foreach (T item in items)
+        {
+            foreach (Action<T> handler in Delegate.EnumerateInvocationList(attached ? Attached : Detached))
+            {
+                try
+                {
+                    handler(item);
+                }
+                catch (Exception ex)
+                {
+                    failure ??= ExceptionDispatchInfo.Capture(ex);
+                }
+            }
+        }
+    }
+
+    private void RaiseEach(NotifyCollectionChangedEventArgs e, ref ExceptionDispatchInfo? failure)
+    {
+        RaiseEach(s_indexerPropertyChanged, ref failure);
+        foreach (NotifyCollectionChangedEventHandler handler in Delegate.EnumerateInvocationList(CollectionChanged))
+        {
+            try
+            {
+                handler(this, e);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ExceptionDispatchInfo.Capture(ex);
+            }
+        }
+
+        RaiseEach(s_countPropertyChanged, ref failure);
+    }
+
+    private void RaiseEach(PropertyChangedEventArgs e, ref ExceptionDispatchInfo? failure)
+    {
+        foreach (PropertyChangedEventHandler handler in Delegate.EnumerateInvocationList(PropertyChanged))
+        {
+            try
+            {
+                handler(this, e);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ExceptionDispatchInfo.Capture(ex);
+            }
+        }
     }
 
     public struct Enumerator(List<T> inner) : IEnumerator<T>

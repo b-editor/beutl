@@ -116,6 +116,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             OpenAiJobCenter);
 
         MenuBar = new MenuBarViewModel(_projectService, _editorService, _versionControlCoordinator);
+        ProjectDiskDeletion = new ProjectDiskDeletion(_projectService, _editorService);
 
         IsProjectOpened = _projectService.IsOpened;
         NameOfOpenProject = _projectService.CurrentProject.Select(v =>
@@ -193,6 +194,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     internal ExtensionProvider ExtensionProvider => _extensionProvider;
 
     internal AgentHostEndpoint AgentHostEndpoint => _agentHostEndpoint;
+
+    internal ProjectDiskDeletion ProjectDiskDeletion { get; }
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 

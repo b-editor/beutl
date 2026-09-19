@@ -58,7 +58,7 @@
             </WrapPanel>
         </ToggleButton>
 
-        <controls:TreeLineDecorator Grid.Row="1" LineBrush="{DynamicResource TreeLineBrush}">
+        <controls:TreeLineDecorator Grid.Row="1" LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
             <StackPanel x:Name="content" MinHeight="24">
                 <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
                 <local:PropertiesEditor Padding="0"

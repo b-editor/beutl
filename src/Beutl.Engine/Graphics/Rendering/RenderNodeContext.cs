@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Engine;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
@@ -52,6 +53,7 @@ public sealed class RenderNodeContext
     private readonly float _outputScale;
     private readonly float _maxWorkingScale;
     private readonly bool _supports3DRendering;
+    private readonly Device3DExtentBudget _device3DExtentBudget;
 
     internal RenderNodeContext(NodeRecordingTransaction transaction)
     {
@@ -63,6 +65,7 @@ public sealed class RenderNodeContext
         _outputScale = transaction.Request.Options.OutputScale;
         _maxWorkingScale = transaction.Request.Options.MaxWorkingScale;
         _supports3DRendering = transaction.Request.Options.Supports3DRendering;
+        _device3DExtentBudget = transaction.Request.Options.Device3DExtentBudget;
     }
 
     /// <summary>Gets the non-null ordered fragment inputs borrowed by the current node transaction.</summary>
@@ -124,6 +127,20 @@ public sealed class RenderNodeContext
     public bool Supports3DRendering
     {
         get { VerifyActive(); return _supports3DRendering; }
+    }
+
+    /// <summary>Gets the 3D extents the current request may expect to allocate.</summary>
+    /// <remarks>
+    /// A node whose output exists only as a 3D attachment asks this while recording, because an extent past
+    /// a limit is refused rather than drawn: recording it anyway would publish bounds and a hit test for a
+    /// value the request goes on to drop, and a scene that is never drawn must not answer clicks. Like
+    /// <see cref="Supports3DRendering"/> this is request state settled before any node records, never a live
+    /// probe of the device, and <see cref="Device3DExtentBudget.Unreported"/> refuses nothing - the
+    /// allocation still decides.
+    /// </remarks>
+    public Device3DExtentBudget Device3DExtentBudget
+    {
+        get { VerifyActive(); return _device3DExtentBudget; }
     }
 
     /// <summary>Tries to calculate the union of all current input bounds from concrete recording metadata.</summary>

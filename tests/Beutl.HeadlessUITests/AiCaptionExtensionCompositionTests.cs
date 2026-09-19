@@ -1,9 +1,16 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Collections.ObjectModel;
+using System.Runtime.CompilerServices;
 using System.Text;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Beutl.Collections;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
+using Beutl.Testing.Headless;
+using Beutl.Views.Tools;
+using DynamicData;
+using DynamicData.Binding;
 
 namespace Beutl.HeadlessUITests;
 
@@ -91,6 +98,61 @@ public sealed class AiCaptionExtensionCompositionTests
         finally
         {
             TestShell.Extensions.RemoveExtensions(TestPackageId);
+        }
+    }
+
+    // A template contribution that changes while the subtitle tool is shown swaps the registry's whole
+    // template list. The swap must reach subscribers added after the view model and the template picker
+    // as a change they can apply: DynamicData, for one, cannot apply a Replace whose item counts differ.
+    [AvaloniaTest]
+    public async Task ShownTool_KeepsLaterTemplateSubscribersInSync()
+    {
+        await TestReset.ResetShellAsync();
+        using var viewModel =
+            TestShell.MainViewModel.CreateAiSubtitleToolViewModel(editViewModel: null);
+        ICoreReadOnlyList<CaptionTemplateDescriptor> templates = viewModel.CaptionTemplates;
+        // The edit page hosts the template picker.
+        viewModel.SelectedSubtitlePageIndex.Value = 1;
+        var view = new AiSubtitleView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 460, Height = 900 };
+        IDisposable? subscription = null;
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            subscription = templates
+                .ToObservableChangeSet<ICoreReadOnlyList<CaptionTemplateDescriptor>, CaptionTemplateDescriptor>()
+                .Bind(out ReadOnlyObservableCollection<CaptionTemplateDescriptor> mirror)
+                .Subscribe();
+
+            TestShell.Extensions.AddExtensions(
+                TestPackageId,
+                CreateTemplateExtensions(new TestCaptionElementFactory()));
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    templates.Select(template => template.Name),
+                    Does.Contain("Plugin caption template"));
+                Assert.That(mirror, Is.EqualTo(templates));
+            });
+
+            TestShell.Extensions.RemoveExtensions(TestPackageId);
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    templates.Select(template => template.Name),
+                    Does.Not.Contain("Plugin caption template"));
+                Assert.That(mirror, Is.EqualTo(templates));
+            });
+        }
+        finally
+        {
+            subscription?.Dispose();
+            TestShell.Extensions.RemoveExtensions(TestPackageId);
+            window.Close();
+            HeadlessTestHelpers.Settle();
         }
     }
 

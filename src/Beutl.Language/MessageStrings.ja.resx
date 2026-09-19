@@ -186,6 +186,27 @@
     <value>'{0}'を開いています。
 しばらくお待ちください。</value>
   </data>
+  <data name="CreatingProject" xml:space="preserve">
+    <value>プロジェクトを作成しています</value>
+  </data>
+  <data name="CreatingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>バージョン管理を設定し、最初のバージョンを記録しています。
+完了するとエディターが開きます。</value>
+  </data>
+  <data name="ClosingProject" xml:space="preserve">
+    <value>プロジェクトを閉じています</value>
+  </data>
+  <data name="ClosingProjectWithVersionControlMessage" xml:space="preserve">
+    <value>プロジェクトを閉じる前に、バージョン管理の処理を完了しています。
+プロジェクトが大きい場合は時間がかかることがあります。</value>
+  </data>
+  <data name="EnablingVersionControl" xml:space="preserve">
+    <value>バージョン管理を有効化しています</value>
+  </data>
+  <data name="EnablingVersionControlMessage" xml:space="preserve">
+    <value>プロジェクトを保存し、最初のバージョンを記録しています。
+完了すると編集を続けられます。</value>
+  </data>
   <data name="FileSaveException" xml:space="preserve">
     <value>ファイルの保存中に例外が発生しました。</value>
   </data>
@@ -445,5 +466,20 @@
   </data>
   <data name="AiDiscardRejectedTranscriptionResult" xml:space="preserve">
     <value>受理できない結果を破棄</value>
+  </data>
+  <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
+    <value>このプロジェクトのフォルダーと、その中のすべてのファイルを完全に削除しますか？この操作は元に戻せません。</value>
+  </data>
+  <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
+    <value>このプロジェクトは専用のフォルダーにないため、プロジェクトファイルだけを削除します。シーンなどのファイルはディスクに残ります。プロジェクトファイルを完全に削除しますか？この操作は元に戻せません。</value>
+  </data>
+  <data name="ProjectInUseCannotDeleteFromDisk" xml:space="preserve">
+    <value>このプロジェクトまたはそのファイルが Beutl で開かれています。ディスクから削除する前に閉じてください。</value>
+  </data>
+  <data name="ProjectBusyCannotDeleteFromDisk" xml:space="preserve">
+    <value>書き出し、保存、またはバージョン管理の操作がプロジェクトのファイルを使用中です。完了してからもう一度お試しください。</value>
+  </data>
+  <data name="ProjectFilesBeingChanged" xml:space="preserve">
+    <value>別の操作でプロジェクトのファイルを変更中です。完了してからもう一度お試しください。</value>
   </data>
 </root>

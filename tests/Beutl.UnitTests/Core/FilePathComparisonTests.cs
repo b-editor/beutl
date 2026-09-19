@@ -7,6 +7,7 @@ namespace Beutl.UnitTests.Core;
 public class FilePathComparisonTests
 {
     [Test]
+    [UnsupportedOSPlatform("windows")]
     public void DistinctNonLinkChildren_DoNotRequireParentEnumeration()
     {
         if (OperatingSystem.IsWindows()) Assert.Ignore("Unix directory permissions are required.");

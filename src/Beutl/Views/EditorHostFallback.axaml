@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.EditorHostFallback"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -103,9 +104,14 @@
                         <Style Selector="ListBoxItem">
                             <Setter Property="ContextMenu">
                                 <Template>
-                                    <ContextMenu>
+                                    <ContextMenu x:DataType="sysIO:FileInfo">
                                         <MenuItem Click="DeleteRecentItem_Click" Header="{x:Static lang:Strings.Remove}" />
                                         <MenuItem Click="OpenRecentItem_Click" Header="{x:Static lang:Strings.Open}" />
+                                        <!-- Only projects: deleting a scene on its own would leave its project unable to open. -->
+                                        <Separator IsVisible="{CompiledBinding Converter={x:Static converters:ProjectFileConverters.IsProjectFile}}" />
+                                        <MenuItem Click="DeleteRecentProjectFromDisk_Click"
+                                                  Header="{x:Static lang:Strings.DeleteFromDisk}"
+                                                  IsVisible="{CompiledBinding Converter={x:Static converters:ProjectFileConverters.IsProjectFile}}" />
                                     </ContextMenu>
                                 </Template>
                             </Setter>

@@ -54,6 +54,27 @@ internal sealed class Renderer3D : IRenderer3D
     public float SurfaceDensity { get; set; } = 1f;
 
     /// <summary>
+    /// Whether a device with <paramref name="budget"/> could <see cref="Initialize"/> this extent.
+    /// </summary>
+    /// <remarks>
+    /// The extent-limit half of <see cref="Initialize"/>, asked without a device and without allocating, so
+    /// a recording can answer for what the execution will do. It covers the three extents
+    /// <see cref="Initialize"/> refuses on: the output texture the caller sized, and the two fixed shadow
+    /// extents <see cref="ShadowManager"/> allocates whatever the scene is - a device that cannot attach
+    /// those refuses every 3D scene, not only a large one. It deliberately does not predict a driver's
+    /// out-of-memory or any other runtime failure, which stay the allocation's to report.
+    /// <para>
+    /// This lives beside <see cref="Initialize"/> so the two are read together: an allocation added there
+    /// whose extent a device can refuse belongs here as well.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is zero or negative.</exception>
+    internal static bool CanInitialize(Device3DExtentBudget budget, int width, int height)
+        => budget.CanAttach(width, height)
+           && budget.CanAttach(ShadowPass.DefaultShadowMapSize, ShadowPass.DefaultShadowMapSize)
+           && budget.CanAttachCubeFaces(PointShadowPass.DefaultCubeFaceSize);
+
+    /// <summary>
     /// Allocates the passes and the output texture for an extent.
     /// </summary>
     /// <exception cref="InvalidOperationException">

@@ -463,7 +463,7 @@
     <value>ライブラリ</value>
   </data>
   <data name="FileBrowser" xml:space="preserve">
-    <value>ファイルブラウザ</value>
+    <value>ファイル</value>
   </data>
   <data name="FileBrowser_WorkspaceBusy" xml:space="preserve">
     <value>プロジェクトのファイルは別の操作で使用中です。完了してからもう一度お試しください。</value>
@@ -1181,7 +1181,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>ウェブサイト</value>
   </data>
   <data name="WebBrowser" xml:space="preserve">
-    <value>ウェブブラウザ</value>
+    <value>ブラウザ</value>
   </data>
   <data name="WebAddress" xml:space="preserve">
     <value>検索またはURLを入力</value>
@@ -3006,5 +3006,8 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="CloudStorageCreatedAt" xml:space="preserve">
     <value>作成日時</value>
+  </data>
+  <data name="DeleteFromDisk" xml:space="preserve">
+    <value>ディスクから完全に削除</value>
   </data>
 </root>

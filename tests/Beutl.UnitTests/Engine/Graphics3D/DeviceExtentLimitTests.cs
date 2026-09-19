@@ -56,6 +56,45 @@ public class DeviceExtentLimitTests
         });
     }
 
+    // A recording cannot reach a device, so it asks Renderer3D.CanInitialize over the limits the request
+    // carries. That answer is only worth acting on if it is the same answer Initialize gives, so this runs
+    // both over one mock device: once for the extent the caller sizes, and once for each fixed shadow extent
+    // that refuses every scene on a small device, however small the scene is.
+    [TestCase(AttachmentBudget, CubeBudget, 64, 64, true,
+        TestName = "ThePreflight_AcceptsWhatInitializeAccepts")]
+    [TestCase(AttachmentBudget, CubeBudget, AttachmentBudget + 1, 64, false,
+        TestName = "ThePreflight_RefusesAnOutputTextureTheDeviceCannotAttach")]
+    [TestCase(ShadowPass.DefaultShadowMapSize - 1, CubeBudget, 64, 64, false,
+        TestName = "ThePreflight_RefusesASmallSceneWhoseShadowMapsTheDeviceCannotAttach")]
+    [TestCase(AttachmentBudget, PointShadowPass.DefaultCubeFaceSize - 1, 64, 64, false,
+        TestName = "ThePreflight_RefusesASmallSceneWhoseShadowCubeTheDeviceCannotBuild")]
+    [TestCase(0, 0, 64, 64, true,
+        TestName = "ThePreflight_RefusesNothingWhenTheDeviceReportedNoLimits")]
+    public void TheRecordTimePreflight_AgreesWithInitialize(
+        int attachment, int cube, int width, int height, bool expected)
+    {
+        Mock<IGraphicsContext> device = LooseDevice(attachment: attachment, cube: cube);
+        using var renderer = new Renderer3D(device.Object);
+
+        bool preflight = Renderer3D.CanInitialize(new Device3DExtentBudget(attachment, cube), width, height);
+        bool initializeAccepts = true;
+        try
+        {
+            renderer.Initialize(width, height);
+        }
+        catch (InvalidOperationException)
+        {
+            initializeAccepts = false;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(preflight, Is.EqualTo(expected));
+            Assert.That(preflight, Is.EqualTo(initializeAccepts),
+                "a recording must refuse exactly the extents the allocation refuses");
+        });
+    }
+
     [Test]
     public void Renderer3DInitialize_AllocatesTheShadowMapsBeforeReturning()
     {

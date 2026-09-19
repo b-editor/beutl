@@ -25,7 +25,15 @@
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid ColumnDefinitions="2*,3*,Auto,Auto">
+                    <local:PropertyEditorGrid ColumnDefinitions="2*,3*,Auto,Auto" ValueColumn="1">
+                        <local:PropertyEditorGrid.Styles>
+                            <Style Selector="StackPanel#PART_AlignmentButtons">
+                                <Setter Property="HorizontalAlignment" Value="Right" />
+                            </Style>
+                            <Style Selector="local|PropertyEditorGrid:aligned > StackPanel#PART_AlignmentButtons">
+                                <Setter Property="HorizontalAlignment" Value="Left" />
+                            </Style>
+                        </local:PropertyEditorGrid.Styles>
                         <TextBlock Name="PART_HeaderTextBlock"
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
@@ -35,9 +43,9 @@
                                    ToolTip.Tip="{TemplateBinding Description}"
                                    TextTrimming="CharacterEllipsis" />
 
-                        <StackPanel Grid.Column="1"
+                        <StackPanel Name="PART_AlignmentButtons"
+                                    Grid.Column="1"
                                     Margin="4,2"
-                                    HorizontalAlignment="Right"
                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                     Orientation="Horizontal">
                             <RadioButton Name="PART_LeftRadioButton" Padding="12,4">
@@ -68,7 +76,7 @@
                                           Grid.Column="3"
                                           Content="{TemplateBinding MenuContent}"
                                           ContentTemplate="{TemplateBinding MenuContentTemplate}" />
-                    </Grid>
+                    </local:PropertyEditorGrid>
                 </Border>
             </ControlTemplate>
         </Setter>
@@ -213,7 +221,15 @@
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid ColumnDefinitions="2*,3*,Auto,Auto">
+                    <local:PropertyEditorGrid ColumnDefinitions="2*,3*,Auto,Auto" ValueColumn="1">
+                        <local:PropertyEditorGrid.Styles>
+                            <Style Selector="StackPanel#PART_AlignmentButtons">
+                                <Setter Property="HorizontalAlignment" Value="Right" />
+                            </Style>
+                            <Style Selector="local|PropertyEditorGrid:aligned > StackPanel#PART_AlignmentButtons">
+                                <Setter Property="HorizontalAlignment" Value="Left" />
+                            </Style>
+                        </local:PropertyEditorGrid.Styles>
                         <TextBlock Name="PART_HeaderTextBlock"
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
@@ -223,9 +239,9 @@
                                    ToolTip.Tip="{TemplateBinding Description}"
                                    TextTrimming="CharacterEllipsis" />
 
-                        <StackPanel Grid.Column="1"
+                        <StackPanel Name="PART_AlignmentButtons"
+                                    Grid.Column="1"
                                     Margin="4,2"
-                                    HorizontalAlignment="Right"
                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                     Orientation="Horizontal">
                             <RadioButton Name="PART_TopRadioButton" Padding="12,4">
@@ -256,7 +272,7 @@
                                           Grid.Column="3"
                                           Content="{TemplateBinding MenuContent}"
                                           ContentTemplate="{TemplateBinding MenuContentTemplate}" />
-                    </Grid>
+                    </local:PropertyEditorGrid>
                 </Border>
             </ControlTemplate>
         </Setter>

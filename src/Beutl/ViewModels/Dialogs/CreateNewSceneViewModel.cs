@@ -65,6 +65,15 @@ public sealed class CreateNewSceneViewModel
         Create = new AsyncReactiveCommand(CanCreate);
         Create.Subscribe(async () =>
         {
+            // A worktree mutation, such as a branch switch or a project being deleted from disk, could
+            // replace or remove the folder the scene goes to while it is written and its tab opens.
+            using IDisposable? open = _editorService.TryBeginEditorFileOpen();
+            if (open is null)
+            {
+                NotificationService.ShowWarning(Strings.CreateNewScene, MessageStrings.ProjectFilesBeingChanged);
+                return;
+            }
+
             Scene scene;
             try
             {

@@ -25,14 +25,7 @@ internal static class DeviceExtentLimits
     /// <see cref="IGraphicsContext.MaxAttachmentDimension"/>, and a device may set the two differently.
     /// </remarks>
     public static int ResolveCubeFaceAttachmentBudget(IGraphicsContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        int cube = context.MaxCubeFaceDimension;
-        int attachment = context.MaxAttachmentDimension;
-        if (cube <= 0) return attachment;
-        if (attachment <= 0) return cube;
-        return Math.Min(cube, attachment);
-    }
+        => Device3DExtentBudget.FromContext(context).ResolveCubeFaceAttachmentBudget();
 
     /// <summary>Refuses an extent past what a device can make of an image created with attachment usage.</summary>
     /// <param name="maxImageDimension">The device's image limit for the kind, or zero or less when unknown.</param>
@@ -92,20 +85,34 @@ internal static class DeviceExtentLimits
         }
     }
 
-    /// <summary>Refuses a 2D extent past what <paramref name="context"/> can attach.</summary>
+    /// <summary>Whether an extent is one a device with <paramref name="budget"/> can attach.</summary>
+    /// <param name="budget">The device's attachment limit, or zero or less when it reported none.</param>
+    /// <remarks>
+    /// The question <see cref="ThrowIfCannotAttach"/> asks, separated from the context that answers it, so a
+    /// caller holding only the limit asks the same one. A recording is such a caller: it may not reach the
+    /// process for a device, but it is given the limit as request state and has to decide whether the
+    /// allocation it is describing is one the execution will refuse. An unreported limit refuses nothing.
+    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">A dimension is zero or negative.</exception>
-    /// <exception cref="InvalidOperationException">The extent exceeds the device's attachment limit.</exception>
-    public static void ThrowIfCannotAttach(IGraphicsContext context, int width, int height)
+    public static bool CanAttach(int budget, int width, int height)
     {
-        ArgumentNullException.ThrowIfNull(context);
         // The backend casts a dimension to uint on the way to the driver, so a negative one would arrive
         // as an enormous extent and step past the budget below, and a zero one is an image the driver
         // may not build at all. Either is a caller error, not a device limit, and an attachment that a 3D
         // node reports as its extent has to be positive for (0, 0) to keep meaning "none".
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+        return budget <= 0 || (width <= budget && height <= budget);
+    }
+
+    /// <summary>Refuses a 2D extent past what <paramref name="context"/> can attach.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is zero or negative.</exception>
+    /// <exception cref="InvalidOperationException">The extent exceeds the device's attachment limit.</exception>
+    public static void ThrowIfCannotAttach(IGraphicsContext context, int width, int height)
+    {
+        ArgumentNullException.ThrowIfNull(context);
         int budget = context.MaxAttachmentDimension;
-        if (budget <= 0 || (width <= budget && height <= budget))
+        if (CanAttach(budget, width, height))
             return;
 
         throw new InvalidOperationException(
@@ -134,13 +141,12 @@ internal static class DeviceExtentLimits
     /// <exception cref="InvalidOperationException">The face exceeds either device limit.</exception>
     public static void ThrowIfCannotAttachCubeFaces(IGraphicsContext context, int faceSize)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(faceSize);
-        int budget = ResolveCubeFaceAttachmentBudget(context);
-        if (budget <= 0 || faceSize <= budget)
+        Device3DExtentBudget budget = Device3DExtentBudget.FromContext(context);
+        if (budget.CanAttachCubeFaces(faceSize))
             return;
 
         throw new InvalidOperationException(
-            $"A {faceSize} pixel shadow cube face exceeds the {budget} pixels this device can render into "
-            + "a cube map.");
+            $"A {faceSize} pixel shadow cube face exceeds the {budget.ResolveCubeFaceAttachmentBudget()} "
+            + "pixels this device can render into a cube map.");
     }
 }
