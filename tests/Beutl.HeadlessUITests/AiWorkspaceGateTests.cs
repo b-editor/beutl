@@ -1,4 +1,4 @@
-using Avalonia.Headless.NUnit;
+﻿using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
