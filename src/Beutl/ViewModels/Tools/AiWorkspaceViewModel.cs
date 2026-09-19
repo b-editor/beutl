@@ -1,6 +1,12 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reactive.Linq;
+using System.Text.Json.Nodes;
+using Beutl.Api.Objects;
+using Beutl.Api.Services;
+using Beutl.Logging;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Dialogs;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using Icon = FluentIcons.Common.Icon;
@@ -115,18 +121,27 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     private readonly CompositeDisposable _disposables = [];
     private readonly EditViewModel _editViewModel;
     private readonly AiWorkspaceSectionViewModel[] _sections;
+    private readonly IAiPlanCoordinator? _aiPlanCoordinator;
+    private readonly Func<CancellationToken, Task>? _signIn;
+    private readonly ILogger _logger = Log.CreateLogger<AiWorkspaceViewModel>();
     private readonly object _disposeGate = new();
     private Task? _disposeTask;
     private bool _disposed;
 
     internal AiWorkspaceViewModel(
         EditViewModel editViewModel,
-        Func<AiWorkspaceSection, IAsyncDisposable> createPage)
+        Func<AiWorkspaceSection, IAsyncDisposable> createPage,
+        IObservable<AiEntitlements?>? entitlements = null,
+        IObservable<AuthenticatedUser?>? authenticatedUser = null,
+        IAiPlanCoordinator? aiPlanCoordinator = null,
+        Func<CancellationToken, Task>? signIn = null)
     {
         ArgumentNullException.ThrowIfNull(editViewModel);
         ArgumentNullException.ThrowIfNull(createPage);
 
         _editViewModel = editViewModel;
+        _aiPlanCoordinator = aiPlanCoordinator;
+        _signIn = signIn;
 
         // Making comes first and the history reads back over it, so the pages run
         // in that order rather than in the order the menu lists them.
@@ -167,8 +182,80 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .ToReadOnlyReactivePropertySlim(Strings.Ai)
             .DisposeWith(_disposables);
 
+        // Without the production observables (headless tests build pages
+        // directly) the gate stays closed so the pages remain visible.
+        IObservable<bool> signedIn = authenticatedUser is null
+            ? Observable.Return(true)
+            : authenticatedUser.Select(user => user is not null);
+        IObservable<bool> snapshotAvailable = entitlements is null
+            ? Observable.Return(true)
+            : entitlements.Select(snapshot => snapshot is not null);
+        IObservable<bool> aiUsable = entitlements is null
+            ? Observable.Return(true)
+            : entitlements.Select(snapshot => snapshot?.CanUseAi == true);
+
+        IsSignedIn = signedIn
+            .ToReadOnlyReactivePropertySlim(true)
+            .DisposeWith(_disposables);
+        HasEntitlementsSnapshot = snapshotAvailable
+            .ToReadOnlyReactivePropertySlim(true)
+            .DisposeWith(_disposables);
+        CanUseAi = aiUsable
+            .ToReadOnlyReactivePropertySlim(true)
+            .DisposeWith(_disposables);
+
+        // Signed out takes precedence: without a user there are no
+        // entitlements to read a plan from. A signed-in account that has not
+        // produced a snapshot yet is still loading, so the pages stay visible
+        // rather than flashing a gate that a retry would immediately close.
+        RequiresSignIn = IsSignedIn
+            .Select(signed => !signed)
+            .ToReadOnlyReactivePropertySlim(false)
+            .DisposeWith(_disposables);
+        RequiresPlan = IsSignedIn
+            .CombineLatest(HasEntitlementsSnapshot, CanUseAi,
+                (signed, hasSnapshot, canUse) => signed && hasSnapshot && !canUse)
+            .ToReadOnlyReactivePropertySlim(false)
+            .DisposeWith(_disposables);
+        IsGateOpen = RequiresSignIn
+            .CombineLatest(RequiresPlan, (signInRequired, planRequired) => signInRequired || planRequired)
+            .ToReadOnlyReactivePropertySlim(false)
+            .DisposeWith(_disposables);
+
+        IsSigningIn = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
+        OpenAiPlan = new ReactiveCommand()
+            .DisposeWith(_disposables);
+        OpenAiPlan.Subscribe(() => _aiPlanCoordinator?.OpenAiPlan())
+            .DisposeWith(_disposables);
+        SignIn = new AsyncReactiveCommand(IsSigningIn.Select(signing => !signing))
+            .WithSubscribe(SignInCore)
+            .DisposeWith(_disposables);
+
         AiWorkspaceSectionViewModel Section(AiWorkspaceSection id, string displayName, Icon icon)
             => new(id, displayName, icon, () => createPage(id));
+    }
+
+    private async Task SignInCore()
+    {
+        if (_signIn is null || IsSigningIn.Value)
+            return;
+        IsSigningIn.Value = true;
+        try
+        {
+            await _signIn(CancellationToken.None);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AI workspace sign-in failed.");
+        }
+        finally
+        {
+            IsSigningIn.Value = false;
+        }
     }
 
     public ToolTabExtension Extension => AiWorkspaceTabExtension.Instance;
@@ -182,6 +269,24 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     internal ReactivePropertySlim<AiWorkspaceSectionViewModel?> SelectedSection { get; }
 
     public ReadOnlyReactivePropertySlim<object?> ActiveContent { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsSignedIn { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> HasEntitlementsSnapshot { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanUseAi { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> RequiresSignIn { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> RequiresPlan { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsGateOpen { get; }
+
+    public ReactivePropertySlim<bool> IsSigningIn { get; }
+
+    public ReactiveCommand OpenAiPlan { get; }
+
+    public AsyncReactiveCommand SignIn { get; }
 
     /// <summary>
     /// Brings a page to the front of this tab and hands back its view model,

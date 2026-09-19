@@ -610,7 +610,11 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     {
         var workspace = new AiWorkspaceViewModel(
             editViewModel,
-            section => CreateAiPage(section, editViewModel));
+            section => CreateAiPage(section, editViewModel),
+            _beutlClients.GetResource<IAiEntitlementService>().Entitlements,
+            _beutlClients.AuthenticatedUser,
+            _aiPlanCoordinator,
+            token => _beutlClients.SignInAsync(token));
 
         // A tab added while another is open is added to see something else, so it
         // starts on the first page no open tab is showing.
