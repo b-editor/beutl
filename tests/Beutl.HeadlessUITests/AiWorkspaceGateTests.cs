@@ -1,4 +1,6 @@
-﻿using Avalonia.Controls;
+﻿using System.Net;
+using System.Text;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Clients;
@@ -13,6 +15,7 @@ using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
 using Reactive.Bindings;
+using Refit;
 
 namespace Beutl.HeadlessUITests;
 
@@ -833,6 +836,56 @@ public sealed class AiWorkspaceGateTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task StaleApiErrorAfterAccountSwitch_RecoversNewAccount()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-stale-api-error");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
+        var entitlements = new StubEntitlementService();
+        var plans = new StubPlanCoordinator();
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            signIn: null,
+            entitlements);
+
+        // The old request's HTTP error must not flag the replacement account when
+        // it wins the race with session cancellation.
+        var releaseRefresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int refreshCalls = 0;
+        entitlements.RefreshHandler = async _ =>
+        {
+            await releaseRefresh.Task;
+            if (Interlocked.Increment(ref refreshCalls) == 1)
+                throw await CreateApiException("{\"error_code\":\"unknown\"}");
+            return CreateEntitlements(canUseAi: true);
+        };
+
+        int refreshesBeforeRetry = entitlements.RefreshCount;
+        Task retry = workspace.RetryGateLoad.ExecuteAsync();
+        await WaitUntilAsync(() => workspace.IsSigningIn.Value);
+
+        auth.Value = CreateUser("user-b");
+        releaseRefresh.TrySetResult();
+        await retry;
+        await WaitUntilAsync(() => workspace.HasEntitlementsSnapshot.Value);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                entitlements.RefreshCount,
+                Is.EqualTo(refreshesBeforeRetry + 2));
+            Assert.That(workspace.GateRefreshFailed.Value, Is.False);
+            Assert.That(workspace.SignInError.Value, Is.Null);
+            Assert.That(workspace.IsGateOpen.Value, Is.False);
+        }
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         for (int attempt = 0; attempt < 100 && !condition(); attempt++)
@@ -842,6 +895,19 @@ public sealed class AiWorkspaceGateTests
         }
 
         Assert.That(condition(), Is.True);
+    }
+
+    private static async Task<ApiException> CreateApiException(string content)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            "https://beutl.beditor.net/api/v3/user/entitlements");
+        using var response = new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            RequestMessage = request,
+            Content = new StringContent(content, Encoding.UTF8, "application/json"),
+        };
+        return await ApiException.Create(request, HttpMethod.Post, response, new RefitSettings());
     }
 
     private static AuthenticatedUser CreateUser(string id)
