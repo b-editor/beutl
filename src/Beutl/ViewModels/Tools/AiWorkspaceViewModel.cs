@@ -323,10 +323,12 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
 
         IsSigningIn.Value = true;
         SignInError.Value = null;
-        GateRefreshFailed.Value = false;
         try
         {
             await RefreshGateEntitlementsAsync();
+            // Cleared only on success so the retry control and its progress ring
+            // stay visible for the duration of the refresh.
+            GateRefreshFailed.Value = false;
         }
         catch (OperationCanceledException)
         {
