@@ -323,6 +323,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         finally
         {
             ClearSigningIn();
+            RefreshAfterFlightIfNeeded();
         }
     }
 
@@ -362,11 +363,26 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         finally
         {
             ClearSigningIn();
+            RefreshAfterFlightIfNeeded();
         }
     }
 
     private void OnAuthenticatedUserChanged(AuthenticatedUser? user)
         => _ = RefreshOnAccountChangeAsync();
+
+    // An account change that lands while sign-in or a retry is awaiting the server
+    // is dropped by the guard above, and the superseded request is cancelled by the
+    // API application's session handling. Recheck after every flight so the current
+    // account always gets a refresh instead of an unloaded gate.
+    private void RefreshAfterFlightIfNeeded()
+    {
+        if (Volatile.Read(ref _disposed)
+            || !IsSignedIn.Value
+            || HasEntitlementsSnapshot.Value
+            || GateRefreshFailed.Value)
+            return;
+        _ = RefreshOnAccountChangeAsync();
+    }
 
     private async Task RefreshOnAccountChangeAsync()
     {

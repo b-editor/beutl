@@ -591,6 +591,53 @@ public sealed class AiWorkspaceGateTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task AccountChangeDuringFlight_RefreshesForNewAccount()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-flight-change");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
+        var entitlements = new StubEntitlementService();
+        var plans = new StubPlanCoordinator();
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            signIn: null,
+            entitlements);
+
+        // The first refresh is cancelled by the session change mid-flight; the
+        // second one serves the new account.
+        var releaseRefresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int refreshCalls = 0;
+        entitlements.RefreshHandler = async _ =>
+        {
+            await releaseRefresh.Task;
+            if (Interlocked.Increment(ref refreshCalls) == 1)
+                throw new OperationCanceledException();
+            return CreateEntitlements(canUseAi: true);
+        };
+
+        Task retry = workspace.RetryGateLoad.ExecuteAsync();
+        await WaitUntilAsync(() => workspace.IsSigningIn.Value);
+
+        // Dropped by the in-flight guard; the post-flight recheck must recover it.
+        auth.Value = CreateUser("user-b");
+        releaseRefresh.TrySetResult();
+        await retry;
+        await WaitUntilAsync(() => workspace.HasEntitlementsSnapshot.Value);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(entitlements.RefreshCount, Is.EqualTo(2));
+            Assert.That(workspace.GateRefreshFailed.Value, Is.False);
+            Assert.That(workspace.IsGateOpen.Value, Is.False);
+        }
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         for (int attempt = 0; attempt < 100 && !condition(); attempt++)
