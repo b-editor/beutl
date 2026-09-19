@@ -323,9 +323,9 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
             else Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             var folders = new HashSet<string>(StringComparer.Ordinal);
             foreach (var item in context.Items)
-                paths.Add(await ExportItem(item.Id, item.Name, item.IsFolder, directory, item));
+                paths.Add(await ExportItem(item.Id, item.Name, item.IsFolder, directory, item, item.Entry?.Size));
 
-            async Task<string> ExportItem(string id, string name, bool folder, string parent, CloudStorageItem? visibleItem = null)
+            async Task<string> ExportItem(string id, string name, bool folder, string parent, CloudStorageItem? visibleItem = null, long? expectedLength = null)
             {
                 token.ThrowIfCancellationRequested();
                 if (!IsTransferCurrent(context)) throw new OperationCanceledException(token);
@@ -346,7 +346,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
                         foreach (var entry in page.Entries)
                         {
                             if (entry.Kind == "file" && !entry.Actions.Contains("download")) throw new InvalidOperationException("File download is unavailable.");
-                            await ExportItem(entry.Id, entry.Name, entry.Kind == "folder", path);
+                            await ExportItem(entry.Id, entry.Name, entry.Kind == "folder", path, expectedLength: entry.Size);
                         }
                         cursor = page.NextCursor;
                         if (cursor != null && !cursors.Add(cursor)) throw new InvalidDataException("Repeated storage cursor.");
@@ -361,7 +361,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
                         request.Headers.Authorization = AuthenticationHeaderValue.Parse(auth);
                         using var response = await _clients.HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
                         response.EnsureSuccessStatusCode();
-                        await CopyDownloadAsync(response.Content, output, visibleItem?.Entry?.Size,
+                        await CopyDownloadAsync(response.Content, output, expectedLength,
                             value => { if (visibleItem != null) progress.Report(visibleItem, value); }, ct);
                         return true;
                     }, token, context.User);
@@ -378,7 +378,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
 
     private static async Task CopyDownloadAsync(HttpContent content, Stream destination, long? expectedLength, Action<double?> report, CancellationToken token)
     {
-        long? length = content.Headers.ContentLength ?? expectedLength;
+        long? length = content.Headers.ContentLength ?? (expectedLength is > 0 ? expectedLength : null);
         double? previous = length > 0 ? 0 : null;
         report(previous);
         await using var source = await content.ReadAsStreamAsync(token);
@@ -393,14 +393,17 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
                 copied += read;
                 if (length is > 0)
                 {
-                    double value = Math.Min(100, 100.0 * copied / length.Value);
-                    if (value - previous.GetValueOrDefault() >= 0.5 || value == 100)
+                    // Completion is reported only after EOF and the final byte-count check.
+                    double value = Math.Min(99, 100.0 * copied / length.Value);
+                    if (value - previous.GetValueOrDefault() >= 0.5)
                     {
                         report(value);
                         previous = value;
                     }
                 }
             }
+            if (length is { } advertised && copied != advertised)
+                throw new InvalidDataException($"Downloaded {copied} bytes, but expected {advertised} bytes.");
             report(100);
         }
         finally { System.Buffers.ArrayPool<byte>.Shared.Return(buffer); }

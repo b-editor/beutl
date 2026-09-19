@@ -48,6 +48,7 @@ public sealed class CloudStorageDownloadTests
     [TestCase("cancel")]
     [TestCase("failure")]
     [TestCase("detach")]
+    [TestCase("truncated")]
     public async Task LocalDestinationIsReplacedOnlyAfterASuccessfulDownload(string outcome)
     {
         await using var scope = new StorageScope();
@@ -78,7 +79,12 @@ public sealed class CloudStorageDownloadTests
                 window.Close();
                 await WaitFor(() => scope.Handler.Requests[1].Token.IsCancellationRequested);
             }
-            if (outcome == "failure")
+            if (outcome == "truncated")
+            {
+                scope.Handler.Requests[1].Completion.SetResult(new HttpResponseMessage(HttpStatusCode.OK)
+                { Content = new StreamContent(new HeaderlessStream([1, 2, 3])) });
+            }
+            else if (outcome == "failure")
             {
                 scope.Handler.Requests[1].Completion.SetResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
@@ -98,6 +104,59 @@ public sealed class CloudStorageDownloadTests
             window.Close();
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, 4)]
+    [TestCase(false, 8)]
+    [TestCase(false, 12)]
+    [TestCase(true, 4)]
+    [TestCase(true, 8)]
+    [TestCase(true, 12)]
+    public async Task HeaderlessExportsValidateTheExpectedSizeIncludingFolderChildren(bool folder, int bytes)
+    {
+        await using var scope = new StorageScope();
+        await scope.LoadFirstAsync(Response().Replace("5368709120", "8", StringComparison.Ordinal));
+        var vm = scope.ViewModel;
+        var item = vm.Items[folder ? 0 : 1];
+        var reported = new List<double>();
+        using var subscription = item.Activity.Progress.Subscribe(reported.Add);
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-eof-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var export = vm.ExportStorageItemsAsync(vm.CaptureActionContext([item])!, directory);
+            await WaitFor(() => scope.Handler.Requests.Count == 2);
+            int contentIndex = 1;
+            if (folder)
+            {
+                scope.Handler.Requests[1].Complete(Response(folder: item.Id).Replace("5368709120", "8", StringComparison.Ordinal));
+                await WaitFor(() => scope.Handler.Requests.Count == 3);
+                contentIndex = 2;
+            }
+            var content = new StreamContent(new HeaderlessStream(new byte[bytes]));
+            Assert.That(content.Headers.ContentLength, Is.Null);
+            scope.Handler.Requests[contentIndex].Completion.SetResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+            var result = await export;
+            if (bytes == 8)
+            {
+                Assert.That(result, Is.Not.Null);
+                Assert.That(new FileInfo(Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Single()).Length, Is.EqualTo(8));
+            }
+            else
+            {
+                Assert.That(result, Is.Null);
+                Assert.That(Directory.Exists(directory), Is.False);
+                Assert.That(reported, Does.Not.Contain(100));
+                Assert.That(vm.ActionError.Value, Is.Not.Null);
+            }
+            Assert.That(item.Activity.IsActive.Value, Is.False);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    private sealed class HeaderlessStream(byte[] bytes) : MemoryStream(bytes)
+    {
+        public override bool CanSeek => false;
     }
 
     private static Window CreateWindow(CloudStorageView view, IStorageFile file)
