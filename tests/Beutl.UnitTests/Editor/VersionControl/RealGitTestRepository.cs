@@ -46,18 +46,42 @@ public abstract class RealGitTestRepository
     {
         if (Directory.Exists(Root))
         {
-            Directory.Delete(Root, recursive: true);
+            DeleteTemporaryRepository(Root);
         }
 
         foreach (string directory in _additionalTemporaryDirectories)
         {
             if (Directory.Exists(directory))
             {
-                Directory.Delete(directory, recursive: true);
+                DeleteTemporaryRepository(directory);
             }
         }
 
         _additionalTemporaryDirectories.Clear();
+    }
+
+    private static void DeleteTemporaryRepository(string directory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            // Git objects are read-only on Windows. Do not follow test-created links while clearing
+            // that attribute: only files inside this fixture's own temporary directory are ours.
+            var options = new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                AttributesToSkip = FileAttributes.ReparsePoint,
+            };
+            foreach (string file in Directory.EnumerateFiles(directory, "*", options))
+            {
+                FileAttributes attributes = File.GetAttributes(file);
+                if (attributes.HasFlag(FileAttributes.ReadOnly))
+                {
+                    File.SetAttributes(file, attributes & ~FileAttributes.ReadOnly);
+                }
+            }
+        }
+
+        Directory.Delete(directory, recursive: true);
     }
 
     private protected GitCliRunner CreateRunner(TimeSpan? timeout = null)

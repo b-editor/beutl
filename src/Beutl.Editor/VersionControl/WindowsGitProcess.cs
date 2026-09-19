@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.IO.Pipes;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -126,19 +127,19 @@ internal sealed partial class WindowsGitProcess : GitProcess
             // Everything that can fail is done before the command runs, so a failure never leaves a
             // command that has already done work.
             standardInput = new StreamWriter(
-                new FileStream(command.TakeInput(), FileAccess.Write, StreamBufferSize, isAsync: false),
+                new WindowsGitPipeStream(command.TakeInput(), PipeDirection.Out),
                 startInfo.StandardInputEncoding ?? s_utf8,
                 StreamBufferSize)
             {
                 AutoFlush = true,
             };
             standardOutput = new StreamReader(
-                new FileStream(command.TakeOutput(), FileAccess.Read, StreamBufferSize, isAsync: false),
+                new WindowsGitPipeStream(command.TakeOutput(), PipeDirection.In),
                 startInfo.StandardOutputEncoding ?? s_utf8,
                 detectEncodingFromByteOrderMarks: true,
                 StreamBufferSize);
             standardError = new StreamReader(
-                new FileStream(command.TakeError(), FileAccess.Read, StreamBufferSize, isAsync: false),
+                new WindowsGitPipeStream(command.TakeError(), PipeDirection.In),
                 startInfo.StandardErrorEncoding ?? s_utf8,
                 detectEncodingFromByteOrderMarks: true,
                 StreamBufferSize);
@@ -291,12 +292,12 @@ internal sealed partial class WindowsGitProcess : GitProcess
         string? workingDirectory,
         bool leaveCallerJob)
     {
-        SafeFileHandle? parentInput = null;
-        SafeFileHandle? parentOutput = null;
-        SafeFileHandle? parentError = null;
-        SafeFileHandle? childInput = null;
-        SafeFileHandle? childOutput = null;
-        SafeFileHandle? childError = null;
+        SafePipeHandle? parentInput = null;
+        SafePipeHandle? parentOutput = null;
+        SafePipeHandle? parentError = null;
+        SafePipeHandle? childInput = null;
+        SafePipeHandle? childOutput = null;
+        SafePipeHandle? childError = null;
         bool created = false;
         lock (createProcessLock)
         {
@@ -365,8 +366,8 @@ internal sealed partial class WindowsGitProcess : GitProcess
     // As Process does: an inheritable pipe whose end for this process is replaced by a duplicate that
     // the command does not inherit.
     private static void CreatePipe(
-        out SafeFileHandle parentHandle,
-        out SafeFileHandle childHandle,
+        out SafePipeHandle parentHandle,
+        out SafePipeHandle childHandle,
         bool parentInputs)
     {
         var attributes = new SecurityAttributes
@@ -374,7 +375,7 @@ internal sealed partial class WindowsGitProcess : GitProcess
             Length = Marshal.SizeOf<SecurityAttributes>(),
             InheritHandle = 1,
         };
-        SafeFileHandle inheritableParent;
+        SafePipeHandle inheritableParent;
         bool created = parentInputs
             ? Native.CreatePipe(out childHandle, out inheritableParent, ref attributes, 0)
             : Native.CreatePipe(out inheritableParent, out childHandle, ref attributes, 0);
@@ -489,13 +490,13 @@ internal sealed partial class WindowsGitProcess : GitProcess
         SafeProcessHandle process,
         int processId,
         nint thread,
-        SafeFileHandle input,
-        SafeFileHandle output,
-        SafeFileHandle error)
+        SafePipeHandle input,
+        SafePipeHandle output,
+        SafePipeHandle error)
     {
-        private SafeFileHandle? _input = input;
-        private SafeFileHandle? _output = output;
-        private SafeFileHandle? _error = error;
+        private SafePipeHandle? _input = input;
+        private SafePipeHandle? _output = output;
+        private SafePipeHandle? _error = error;
         private bool _abandoned;
 
         public SafeProcessHandle Process { get; } = process;
@@ -504,11 +505,11 @@ internal sealed partial class WindowsGitProcess : GitProcess
 
         public nint Thread { get; private set; } = thread;
 
-        public SafeFileHandle TakeInput() => Take(ref _input);
+        public SafePipeHandle TakeInput() => Take(ref _input);
 
-        public SafeFileHandle TakeOutput() => Take(ref _output);
+        public SafePipeHandle TakeOutput() => Take(ref _output);
 
-        public SafeFileHandle TakeError() => Take(ref _error);
+        public SafePipeHandle TakeError() => Take(ref _error);
 
         public void CloseThread()
         {
@@ -549,9 +550,9 @@ internal sealed partial class WindowsGitProcess : GitProcess
             _ = KeepUntilEndedAsync(Process);
         }
 
-        private static SafeFileHandle Take(ref SafeFileHandle? handle)
+        private static SafePipeHandle Take(ref SafePipeHandle? handle)
         {
-            SafeFileHandle taken = handle ?? throw new InvalidOperationException("The pipe end was already taken.");
+            SafePipeHandle taken = handle ?? throw new InvalidOperationException("The pipe end was already taken.");
             handle = null;
             return taken;
         }
@@ -589,8 +590,8 @@ internal sealed partial class WindowsGitProcess : GitProcess
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool CreatePipe(
-            out SafeFileHandle readPipe,
-            out SafeFileHandle writePipe,
+            out SafePipeHandle readPipe,
+            out SafePipeHandle writePipe,
             ref SecurityAttributes pipeAttributes,
             int size);
 
@@ -598,9 +599,9 @@ internal sealed partial class WindowsGitProcess : GitProcess
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool DuplicateHandle(
             nint sourceProcess,
-            SafeFileHandle sourceHandle,
+            SafePipeHandle sourceHandle,
             nint targetProcess,
-            out SafeFileHandle targetHandle,
+            out SafePipeHandle targetHandle,
             int desiredAccess,
             [MarshalAs(UnmanagedType.Bool)] bool inheritHandle,
             int options);

@@ -83,15 +83,17 @@ public class GitCliRunnerTests : RealGitTestRepository
     [Test]
     public async Task LocalWithLfs_commands_use_caller_cancellation_without_local_timeout()
     {
+        // SSH configuration is probed with the local deadline first. Allow Git to start on Windows,
+        // then keep the caller deadline later so applying the local timeout to the command still fails.
         var runner = new GitCliRunner(
             GitPath,
-            TimeSpan.FromMilliseconds(50),
+            TimeSpan.FromSeconds(2),
             IsolatedGitEnvironment);
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(3));
 
         Assert.ThrowsAsync<OperationCanceledException>(async () => await runner.RunAsync(
             Repository,
-            ["-c", "alias.wait=!sleep 1", "wait"],
+            ["-c", "alias.wait=!sleep 30", "wait"],
             new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
             cancellation.Token));
     }
@@ -703,7 +705,8 @@ public class GitCliRunnerTests : RealGitTestRepository
 
             Assert.Multiple(() =>
             {
-                Assert.That(found, Is.EqualTo(new[] { executable }));
+                Assert.That(found, Is.EqualTo(new[] { executable }).Using<string>(
+                    (IEqualityComparer<string>)(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)));
                 Assert.That(missing, Is.Empty);
             });
         }
@@ -789,7 +792,7 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
-    public void Cancellation_kills_a_waiting_git_process()
+    public async Task Cancellation_kills_a_waiting_git_process()
     {
         var runner = CreateRunner(TimeSpan.FromSeconds(10));
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
@@ -801,6 +804,9 @@ public class GitCliRunnerTests : RealGitTestRepository
                 GitCommandOptions.Local with { MaxStdoutBytes = 1 },
                 cancellation.Token));
         Assert.That(runner.HasActiveProcess, Is.False);
+        GitCommandResult followUp = await runner.RunAsync(
+            Repository, ["--version"], GitCommandOptions.Local).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(followUp.ExitCode, Is.Zero);
     }
 
     // With the pipes left open, only the end of the descendant can confirm cleanup.

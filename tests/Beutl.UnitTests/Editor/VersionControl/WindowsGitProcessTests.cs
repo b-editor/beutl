@@ -83,6 +83,142 @@ public class WindowsGitProcessTests
         Assert.That(exception!.Message, Does.Contain(missing));
     }
 
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task Pending_pipe_io_can_be_interrupted_without_ending_the_process(bool useArrayOverloads, bool cancelOperation)
+    {
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "ready.pid");
+        ProcessStartInfo startInfo = CreateStartInfo(
+            "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+            "Set-Content -LiteralPath $env:BEUTL_TEST_PROCESS_PID -Value $PID; Start-Sleep -Seconds 60");
+        startInfo.Environment["BEUTL_TEST_PROCESS_PID"] = pidPath;
+        using GitProcess process = GitProcess.Start(startInfo);
+        Task exit = process.WaitForExitAsync();
+        using var cancellation = new CancellationTokenSource();
+        CancellationToken token = cancelOperation ? cancellation.Token : CancellationToken.None;
+        // The child neither reads stdin nor writes stdout/stderr, so all three operations block.
+        byte[] input = new byte[1024 * 1024];
+        byte[] output = new byte[1];
+        byte[] error = new byte[1];
+        Task stdin = useArrayOverloads
+            ? process.StandardInput.BaseStream.WriteAsync(input, 0, input.Length, token)
+            : process.StandardInput.BaseStream.WriteAsync(input.AsMemory(), token).AsTask();
+        Task stdout = useArrayOverloads
+            ? process.StandardOutput.BaseStream.ReadAsync(output, 0, output.Length, token)
+            : process.StandardOutput.ReadToEndAsync(token);
+        Task stderr = useArrayOverloads
+            ? process.StandardError.BaseStream.ReadAsync(error, 0, error.Length, token)
+            : process.StandardError.ReadToEndAsync(token);
+        Task io = Task.WhenAll(stdin, stdout, stderr);
+        try
+        {
+            await ReadProcessIdAsync(pidPath);
+            await Task.Delay(100);
+            Assert.That(new[] { stdin, stdout, stderr }.All(task => !task.IsCompleted), Is.True);
+
+            if (cancelOperation)
+            {
+                cancellation.Cancel();
+            }
+            else
+            {
+                process.CloseStandardStreams();
+            }
+            await ObserveClosedStreamsAsync(io);
+            Assert.That(exit.IsCompleted, Is.False, "Closing the pipes must not terminate their other owner.");
+            // Closing again, including during Dispose, must be harmless.
+            process.CloseStandardStreams();
+        }
+        finally
+        {
+            process.Kill();
+            await process.WaitForGroupExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+            await ObserveClosedStreamsAsync(io);
+        }
+    }
+
+    private static async Task ObserveClosedStreamsAsync(Task io)
+    {
+        try
+        {
+            await io.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException or OperationCanceledException)
+        {
+            // Closing a pipe can finish its pending I/O with any of these errors. A timeout is a failure.
+        }
+    }
+
+    [Test]
+    public async Task Closing_pipes_does_not_release_quarantine_while_a_job_member_is_alive()
+    {
+        string directory = CreateTemporaryDirectory();
+        string pidPath = Path.Combine(directory, "ready.pid");
+        GitProcess? retainedProcess = null;
+        var runner = new GitCliRunner(
+            "powershell.exe", TimeSpan.FromSeconds(60),
+            new Dictionary<string, string?> { ["BEUTL_TEST_PROCESS_PID"] = pidPath },
+            killProcessGroup: process => retainedProcess = process);
+        var repository = new RepositoryInfo(directory, directory);
+        using var cancellation = new CancellationTokenSource();
+        Task<GitCommandResult> run = runner.RunAsync(
+            repository,
+            ["-NoProfile", "-NonInteractive", "-Command",
+                "Set-Content -LiteralPath $env:BEUTL_TEST_PROCESS_PID -Value $PID; Start-Sleep -Seconds 60"],
+            GitCommandOptions.Local, cancellation.Token);
+        using var followUpCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        Task<GitCommandResult>? followUp = null;
+        try
+        {
+            await ReadProcessIdAsync(pidPath);
+            cancellation.Cancel();
+            Assert.ThrowsAsync<OperationCanceledException>(async () => await run.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.That(runner.HasActiveProcess, Is.True);
+            followUp = runner.RunAsync(
+                repository, ["-NoProfile", "-NonInteractive", "-Command", "exit 0"],
+                GitCommandOptions.Local, followUpCancellation.Token);
+            await Task.Delay(100);
+            Assert.That(followUp.IsCompleted, Is.False);
+
+            retainedProcess!.Kill();
+            retainedProcess = null;
+            GitCommandResult result = await followUp.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.ExitCode, Is.Zero);
+                Assert.That(runner.HasActiveProcess, Is.False);
+            });
+        }
+        finally
+        {
+            cancellation.Cancel();
+            followUpCancellation.Cancel();
+            try
+            {
+                await run.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                retainedProcess?.Kill();
+            }
+            if (followUp is not null)
+            {
+                try
+                {
+                    await followUp.WaitAsync(TimeSpan.FromSeconds(10));
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+        }
+    }
+
     // PowerShell starts ping with its own standard handles and exits, so ping outlives its parent and
     // holds the command's pipes. The job still owns it.
     [Test]
