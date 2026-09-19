@@ -111,6 +111,10 @@ internal sealed partial class GitCliRunner : IGitCliRunner
     ];
     private static readonly TimeSpan s_cleanupGracePeriod = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan s_defaultLocalTimeout = TimeSpan.FromSeconds(30);
+    internal const int UncollectedExitCode = -1;
+    private static readonly Encoding s_utf8WithoutPreamble = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+    private const string UncollectedExitStatusDiagnostic =
+        "[Git's exit status could not be collected; the process was reaped outside Beutl]";
     internal static readonly TimeSpan StaleLockAge = TimeSpan.FromMinutes(10);
     private readonly string _gitPath;
     private readonly TimeSpan _localTimeout;
@@ -121,8 +125,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
     private readonly Func<string, RepositoryLockFileSnapshot?> _readLockFileSnapshot;
     private readonly Func<string, RepositoryLockFileSnapshot, bool> _deleteLockFileConditionally;
     private readonly Func<string, IEnumerable<string>> _enumerateFileSystemEntries;
-    private readonly Action<Process> _killProcessTree;
-    private readonly Action<Process> _closeRedirectedStreams;
+    private readonly Action<GitProcess> _killProcessGroup;
+    private readonly Action<GitProcess> _closeRedirectedStreams;
     private readonly object _quarantineSync = new();
     private readonly ConditionalWeakTable<RepositoryLockInfo, RepositoryLockFileIdentityBox>
         _lockFileIdentities = new();
@@ -149,8 +153,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         Func<string, RepositoryLockFileSnapshot?>? readLockFileSnapshot = null,
         Func<string, RepositoryLockFileSnapshot, bool>? deleteLockFileConditionally = null,
         Func<string, IEnumerable<string>>? enumerateFileSystemEntries = null,
-        Action<Process>? killProcessTree = null,
-        Action<Process>? closeRedirectedStreams = null)
+        Action<GitProcess>? killProcessGroup = null,
+        Action<GitProcess>? closeRedirectedStreams = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gitPath);
         if (localTimeout <= TimeSpan.Zero)
@@ -176,8 +180,9 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                                           path,
                                           "*",
                                           SearchOption.TopDirectoryOnly));
-        _killProcessTree = killProcessTree ?? TryKillProcessTree;
-        _closeRedirectedStreams = closeRedirectedStreams ?? TryCloseRedirectedStreams;
+        _killProcessGroup = killProcessGroup ?? (static process => process.Kill());
+        _closeRedirectedStreams = closeRedirectedStreams
+                                  ?? (static process => process.CloseStandardStreams());
     }
 
     public event EventHandler<GitRepositoryLockEventArgs>? RepositoryLockFailed;
@@ -269,14 +274,14 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         bool captureStdoutBytes,
         bool throwOnFailure)
     {
-        var process = new Process { StartInfo = startInfo };
+        GitProcess? process = null;
         bool processQuarantined = false;
         Interlocked.Increment(ref _activeProcesses);
         try
         {
             try
             {
-                process.Start();
+                process = GitProcess.Start(startInfo);
             }
             catch (System.ComponentModel.Win32Exception ex)
             {
@@ -302,7 +307,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                 standardInput,
                 standardInputBytes,
                 linkedCts.Token);
-            Task processExitTask = process.WaitForExitAsync(CancellationToken.None);
+            Task processExitTask = process.WaitForExitAsync();
             Task completion = Task.WhenAll(
                 processExitTask,
                 stdinTask,
@@ -315,14 +320,15 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             }
             catch (OperationCanceledException) when (linkedCts.IsCancellationRequested)
             {
-                _killProcessTree(process);
+                _killProcessGroup(process);
                 _closeRedirectedStreams(process);
-                Task cleanup = Task.WhenAll(
-                    ObserveCleanupTaskAsync(completion),
-                    ObserveCleanupTaskAsync(processExitTask),
-                    ObserveCleanupTaskAsync(stdinTask),
-                    ObserveCleanupTaskAsync(stdoutTask),
-                    ObserveCleanupTaskAsync(stderrTask));
+                Task cleanup = CompleteCleanupAsync(
+                    process,
+                    completion,
+                    processExitTask,
+                    stdinTask,
+                    stdoutTask,
+                    stderrTask);
                 if (!await WaitForCleanupGracePeriodAsync(cleanup).ConfigureAwait(false))
                 {
                     processQuarantined = true;
@@ -342,9 +348,20 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                 await stdoutTask.ConfigureAwait(false);
             string stderr = GitDiagnosticSanitizer.RedactCredentials(
                 await stderrTask.ConfigureAwait(false));
-            if (throwOnFailure && process.ExitCode != 0)
+            // A status that could not be collected is a failure, never a success.
+            int exitCode = process.TryGetExitCode(out int collectedExitCode)
+                ? collectedExitCode
+                : UncollectedExitCode;
+            if (exitCode == UncollectedExitCode)
             {
-                var exception = new GitOperationException(process.ExitCode, stderr);
+                stderr = stderr.Length == 0 || stderr.EndsWith('\n')
+                    ? stderr + UncollectedExitStatusDiagnostic
+                    : $"{stderr}\n{UncollectedExitStatusDiagnostic}";
+            }
+
+            if (throwOnFailure && exitCode != 0)
+            {
+                var exception = new GitOperationException(exitCode, stderr);
                 if (exception.IsRepositoryLockFailure)
                 {
                     RepositoryLockFailed?.Invoke(
@@ -356,7 +373,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             }
 
             return new GitCommandResult(
-                process.ExitCode,
+                exitCode,
                 stdout,
                 stderr,
                 stdoutTruncated,
@@ -366,7 +383,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         {
             if (!processQuarantined)
             {
-                process.Dispose();
+                process?.Dispose();
                 Interlocked.Decrement(ref _activeProcesses);
             }
         }
@@ -386,7 +403,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         }
     }
 
-    private void QuarantineProcess(Process process, Task cleanup)
+    private void QuarantineProcess(GitProcess process, Task cleanup)
     {
         lock (_quarantineSync)
         {
@@ -398,7 +415,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         _ = CompleteQuarantinedProcessAsync(process, cleanup);
     }
 
-    private async Task CompleteQuarantinedProcessAsync(Process process, Task cleanup)
+    private async Task CompleteQuarantinedProcessAsync(GitProcess process, Task cleanup)
     {
         try
         {
@@ -422,6 +439,19 @@ internal sealed partial class GitCliRunner : IGitCliRunner
 
             quiesced?.TrySetResult();
         }
+    }
+
+    // Cleanup is confirmed only when the pipes have closed and no process the command owned remains.
+    // A member that survives the kill may still hold a repository lock, so it keeps the runner
+    // quarantined even after the command itself has exited.
+    private static async Task CompleteCleanupAsync(GitProcess process, params Task[] tasks)
+    {
+        foreach (Task task in tasks)
+        {
+            await ObserveCleanupTaskAsync(task).ConfigureAwait(false);
+        }
+
+        await process.WaitForGroupExitAsync().ConfigureAwait(false);
     }
 
     private static async Task<bool> WaitForCleanupGracePeriodAsync(Task cleanup)
@@ -560,6 +590,9 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            // Git reads its input as UTF-8. Process would otherwise encode it with the console code page
+            // on Windows, which is the ANSI code page for an application without a console.
+            StandardInputEncoding = s_utf8WithoutPreamble,
             StandardErrorEncoding = Encoding.UTF8,
         };
         foreach (string argument in arguments)
@@ -721,41 +754,6 @@ internal sealed partial class GitCliRunner : IGitCliRunner
     private static bool IsDefaultOpenSshVariant(string? variant)
         => variant is null
            || string.Equals(variant.Trim(), "ssh", StringComparison.OrdinalIgnoreCase);
-
-    private static void TryKillProcessTree(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-        }
-        catch (Exception ex) when (ex is InvalidOperationException
-                                   or System.ComponentModel.Win32Exception
-                                   or NotSupportedException
-                                   or AggregateException)
-        {
-        }
-    }
-
-    private static void TryCloseRedirectedStreams(Process process)
-    {
-        TryCloseStream(() => process.StandardInput.BaseStream);
-        TryCloseStream(() => process.StandardOutput.BaseStream);
-        TryCloseStream(() => process.StandardError.BaseStream);
-    }
-
-    private static void TryCloseStream(Func<Stream> getStream)
-    {
-        try
-        {
-            getStream().Dispose();
-        }
-        catch (Exception)
-        {
-        }
-    }
 
     private static async Task WriteStandardInputAsync(
         StreamWriter writer,
