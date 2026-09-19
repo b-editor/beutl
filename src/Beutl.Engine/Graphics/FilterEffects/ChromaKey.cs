@@ -111,7 +111,7 @@ public partial class ChromaKey : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> Color { get; } = Property.CreateAnimatable<Color>();
+    public IProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.Black);
 
     [Display(Name = nameof(GraphicsStrings.ChromaKey_HueRange), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> HueRange { get; } = Property.CreateAnimatable<float>();
