@@ -1,4 +1,5 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using Avalonia.Controls;
+using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
@@ -8,7 +9,9 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
+using Beutl.Views.Tools;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -296,20 +299,27 @@ public sealed class AiWorkspaceGateTests
             Assert.That(workspace.IsGateOpen.Value, Is.False);
         }
 
-        // Switching accounts also drops a stale failure instead of carrying it over.
-        entitlements.Failure = new InvalidOperationException("entitlements unavailable");
+        // Fail once more so a stale failure is pending, then switch accounts: the
+        // switch drops the stale failure and automatically refreshes for the new
+        // account instead of carrying the old error over.
         entitlements.PublishSnapshot(null);
         await workspace.RetryGateLoad.ExecuteAsync();
         HeadlessTestHelpers.Settle();
         Assert.That(workspace.GateRefreshFailed.Value, Is.True);
 
+        entitlements.Failure = null;
+        entitlements.RefreshResult = CreateEntitlements(canUseAi: true);
+        int refreshesBeforeSwitch = entitlements.RefreshCount;
         auth.Value = CreateUser("user-b");
+        await WaitUntilAsync(() => entitlements.RefreshCount == refreshesBeforeSwitch + 1);
         HeadlessTestHelpers.Settle();
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(workspace.GateRefreshFailed.Value, Is.False);
             Assert.That(workspace.SignInError.Value, Is.Null);
+            Assert.That(workspace.HasEntitlementsSnapshot.Value, Is.True);
+            Assert.That(workspace.IsGateOpen.Value, Is.False);
         }
     }
 
@@ -329,6 +339,154 @@ public sealed class AiWorkspaceGateTests
 
         Assert.DoesNotThrow(() => workspace.OpenAiPlan.Execute());
         Assert.That(plans.OpenPlanCount, Is.EqualTo(1));
+    }
+
+    [AvaloniaTest]
+    public async Task SignIn_ReloadsActivePageModels()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-model-reload");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
+        var entitlements = new StubEntitlementService
+        {
+            RefreshResult = CreateEntitlements(canUseAi: true),
+        };
+        var plans = new StubPlanCoordinator();
+        var page = new ModelPage();
+        AuthenticatedUser user = CreateUser("user-a");
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => page,
+            entitlements.Entitlements,
+            auth,
+            plans,
+            _ =>
+            {
+                auth.Value = user;
+                return Task.CompletedTask;
+            },
+            entitlements);
+
+        int initialReloads = page.RefreshModelsCount;
+        await workspace.SignIn.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(
+            page.RefreshModelsCount,
+            Is.GreaterThan(initialReloads),
+            "A page built while signed out holds an empty catalog and must reload it for the new account.");
+    }
+
+    [AvaloniaTest]
+    public async Task AccountChange_RefreshesEntitlements()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-account-change");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
+        var entitlements = new StubEntitlementService
+        {
+            RefreshResult = CreateEntitlements(canUseAi: true),
+        };
+        var plans = new StubPlanCoordinator();
+        var page = new ModelPage();
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => page,
+            entitlements.Entitlements,
+            auth,
+            plans,
+            signIn: null,
+            entitlements);
+
+        auth.Value = CreateUser("user-b");
+        await WaitUntilAsync(() => entitlements.RefreshCount == 1);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(workspace.HasEntitlementsSnapshot.Value, Is.True);
+            Assert.That(workspace.IsGateOpen.Value, Is.False);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task NullRefreshResult_KeepsGateOpenWithRetry()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-null-refresh");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
+        // A 401 answers without throwing and publishes no snapshot.
+        var entitlements = new StubEntitlementService { RefreshResult = null };
+        var plans = new StubPlanCoordinator();
+        AuthenticatedUser user = CreateUser("user-a");
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            _ =>
+            {
+                auth.Value = user;
+                return Task.CompletedTask;
+            },
+            entitlements);
+
+        await workspace.SignIn.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(workspace.IsSignedIn.Value, Is.True);
+            Assert.That(workspace.HasEntitlementsSnapshot.Value, Is.False);
+            Assert.That(workspace.GateRefreshFailed.Value, Is.True);
+            Assert.That(workspace.IsGateOpen.Value, Is.True);
+            Assert.That(workspace.SignInError.Value, Is.EqualTo(MessageStrings.UnexpectedError));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task WorkspaceView_RefreshesModelsOnPlanReturn()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-plan-return");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
+        using var entitlements = new ReactivePropertySlim<AiEntitlements?>(
+            CreateEntitlements(canUseAi: false));
+        var plans = new StubPlanCoordinator();
+        var page = new ModelPage();
+        await using var workspace = new AiWorkspaceViewModel(
+            editor, _ => page, entitlements, auth, plans, _ => Task.CompletedTask);
+        var view = new AiWorkspaceView { DataContext = workspace };
+        var window = new Window { Content = view, Width = 400, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Settle();
+            int reloadsBeforeReturn = page.RefreshModelsCount;
+
+            plans.RaiseRefreshed();
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(page.RefreshModelsCount, Is.EqualTo(reloadsBeforeReturn + 1));
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        for (int attempt = 0; attempt < 100 && !condition(); attempt++)
+        {
+            HeadlessTestHelpers.Settle();
+            await Task.Delay(10);
+        }
+
+        Assert.That(condition(), Is.True);
     }
 
     private static AuthenticatedUser CreateUser(string id)
@@ -379,6 +537,15 @@ public sealed class AiWorkspaceGateTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
+    private sealed class ModelPage : IAsyncDisposable, IAiModelListConsumer
+    {
+        public int RefreshModelsCount { get; private set; }
+
+        public void RefreshModels() => RefreshModelsCount++;
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
     private sealed class StubEntitlementService : IAiEntitlementService
     {
         private readonly ReactivePropertySlim<AiEntitlements?> _state = new();
@@ -413,6 +580,8 @@ public sealed class AiWorkspaceGateTests
 #pragma warning disable CS0067 // Required by IAiPlanCoordinator; this stub never raises it.
         public event EventHandler? Refreshed;
 #pragma warning restore CS0067
+
+        public void RaiseRefreshed() => Refreshed?.Invoke(this, EventArgs.Empty);
 
         public void OpenAccountSettings()
         {

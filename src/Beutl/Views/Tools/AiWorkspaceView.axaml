@@ -112,7 +112,7 @@
                             HorizontalAlignment="Center"
                             AutomationProperties.Name="{x:Static lang:SettingsStrings.SignIn}"
                             Command="{CompiledBinding SignIn}"
-                            IsVisible="{CompiledBinding RequiresSignIn.Value}">
+                            IsVisible="{CompiledBinding ShowSignInAction.Value}">
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                             <icons:FluentIcon VerticalAlignment="Center"
                                               FontSize="16"

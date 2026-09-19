@@ -242,6 +242,17 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         authenticatedUser?
             .Subscribe(_ => ClearGateFailure())
             .DisposeWith(_disposables);
+        // Signing in through Account Settings, or switching accounts, clears the
+        // snapshot without any page retrying its one-shot load, so pull fresh
+        // entitlements here. SignInCore covers the workspace-initiated flow itself.
+        authenticatedUser?
+            .Skip(1)
+            .Subscribe(OnAuthenticatedUserChanged)
+            .DisposeWith(_disposables);
+        ShowSignInAction = RequiresSignIn
+            .CombineLatest(IsSigningIn, (signInRequired, signingIn) => signInRequired || signingIn)
+            .ToReadOnlyReactivePropertySlim(false)
+            .DisposeWith(_disposables);
         IsGateOpen = RequiresSignIn
             .CombineLatest(RequiresPlan, (signInRequired, planRequired) => signInRequired || planRequired)
             .CombineLatest(IsSigningIn, (gateOpen, signingIn) => gateOpen || signingIn)
@@ -291,6 +302,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             // fresh entitlements here. Otherwise the gate closes on sign-in alone and
             // a signed-in account without a plan is shown the usable form.
             await RefreshGateEntitlementsAsync();
+            RefreshGateModels();
         }
         catch (OperationCanceledException)
         {
@@ -326,6 +338,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         try
         {
             await RefreshGateEntitlementsAsync();
+            RefreshGateModels();
             // Cleared only on success so the retry control and its progress ring
             // stay visible for the duration of the refresh.
             GateRefreshFailed.Value = false;
@@ -349,9 +362,58 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         }
     }
 
-    private Task<AiEntitlements?> RefreshGateEntitlementsAsync()
-        => _entitlementService?.RefreshAsync(_lifetimeCts.Token)
-            ?? Task.FromResult<AiEntitlements?>(null);
+    private void OnAuthenticatedUserChanged(AuthenticatedUser? user)
+        => _ = RefreshOnAccountChangeAsync();
+
+    private async Task RefreshOnAccountChangeAsync()
+    {
+        if (_entitlementService is null || IsSigningIn.Value)
+            return;
+        try
+        {
+            await RefreshGateEntitlementsAsync();
+            RefreshGateModels();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ApiException ex)
+        {
+            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
+            PublishGateFailure(MessageStrings.ApiErrorOccurred);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
+            PublishGateFailure(MessageStrings.UnexpectedError);
+        }
+    }
+
+    private async Task RefreshGateEntitlementsAsync()
+    {
+        if (_entitlementService is null)
+            return;
+        AiEntitlements? snapshot = await _entitlementService.RefreshAsync(_lifetimeCts.Token);
+        // A 401 answers without throwing and publishes no snapshot: without this
+        // check the gate would close onto controls of unknown eligibility.
+        if (snapshot is null && IsSignedIn.Value && !HasEntitlementsSnapshot.Value)
+            throw new AiException("The AI entitlement refresh returned no snapshot.");
+    }
+
+    // A page created while signed out already loaded an empty model catalog, so
+    // offer the new account's models once its entitlements are known. Otherwise a
+    // request could go out naming the server default instead of a chosen model.
+    private void RefreshGateModels()
+    {
+        try
+        {
+            (ActiveContent.Value as IAiModelListConsumer)?.RefreshModels();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh AI models after updating entitlements.");
+        }
+    }
 
     // A failed refresh leaves a signed-in account with no snapshot, which on its
     // own would close the gate onto controls of unknown eligibility. Keep the
@@ -411,11 +473,15 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
 
     public ReactivePropertySlim<bool> GateRefreshFailed { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> ShowSignInAction { get; }
+
     public ReactiveCommand OpenAiPlan { get; }
 
     public AsyncReactiveCommand SignIn { get; }
 
     public AsyncReactiveCommand RetryGateLoad { get; }
+
+    internal IAiPlanCoordinator? AiPlanCoordinator => _aiPlanCoordinator;
 
     /// <summary>
     /// Brings a page to the front of this tab and hands back its view model,
