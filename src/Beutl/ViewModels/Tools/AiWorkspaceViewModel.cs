@@ -250,7 +250,10 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .Subscribe(OnAuthenticatedUserChanged)
             .DisposeWith(_disposables);
         ShowSignInAction = RequiresSignIn
-            .CombineLatest(IsSigningIn, (signInRequired, signingIn) => signInRequired || signingIn)
+            .CombineLatest(
+                IsSigningIn,
+                GateRefreshFailed,
+                (signInRequired, signingIn, refreshFailed) => (signInRequired || signingIn) && !refreshFailed)
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_disposables);
         IsGateOpen = RequiresSignIn
@@ -413,6 +416,19 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         {
             _logger.LogError(ex, "Failed to refresh AI models after updating entitlements.");
         }
+    }
+
+    // Called when the app returns from the plan website. A 401 there answers
+    // without throwing and publishes no snapshot, so a null result must keep the
+    // gate open with a retry instead of closing onto unknown eligibility.
+    // Generation pages already refresh their own models on the same event, so
+    // only Jobs asks the workspace to do it.
+    internal void NotifyPlanReturnRefreshed(bool refreshModels)
+    {
+        if (IsSignedIn.Value && !HasEntitlementsSnapshot.Value)
+            PublishGateFailure(MessageStrings.UnexpectedError);
+        if (refreshModels)
+            RefreshGateModels();
     }
 
     // A failed refresh leaves a signed-in account with no snapshot, which on its

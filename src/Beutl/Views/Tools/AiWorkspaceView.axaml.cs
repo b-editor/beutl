@@ -18,14 +18,17 @@ public partial class AiWorkspaceView : UserControl
     {
         _planReturnRefresh?.Dispose();
         // The plan is bought on the website, so re-read entitlements when the app
-        // is focused again. Without this a purchase made while the Jobs section is
-        // selected leaves the Join Pro gate up until another activation happens.
+        // is focused again. Generation pages already refresh their own models on
+        // the same event, so the workspace only does that for Jobs. Without this
+        // a purchase made while Jobs is selected leaves the Join Pro gate up
+        // until another activation happens.
         _planReturnRefresh = DataContext is AiWorkspaceViewModel viewModel
             && viewModel.AiPlanCoordinator is { } coordinator
             ? AiPlanReturnRefresh.Attach(
                 this,
                 coordinator,
-                () => (viewModel.ActiveContent.Value as IAiModelListConsumer)?.RefreshModels())
+                () => viewModel.NotifyPlanReturnRefreshed(
+                    refreshModels: viewModel.ActiveContent.Value is not IAiModelListConsumer))
             : null;
     }
 }

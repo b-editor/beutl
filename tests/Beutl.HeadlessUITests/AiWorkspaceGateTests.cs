@@ -446,13 +446,56 @@ public sealed class AiWorkspaceGateTests
     }
 
     [AvaloniaTest]
-    public async Task WorkspaceView_RefreshesModelsOnPlanReturn()
+    public async Task WorkspaceView_PlanReturnOnJobs_UpdatesGateWithoutModelRefresh()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-gate-plan-return");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
-        using var entitlements = new ReactivePropertySlim<AiEntitlements?>(
-            CreateEntitlements(canUseAi: false));
+        using var entitlements = new ReactivePropertySlim<AiEntitlements?>();
+        var plans = new StubPlanCoordinator();
+        // Jobs has no model list: the workspace callback only maintains the gate.
+        await using var workspace = new AiWorkspaceViewModel(
+            editor, _ => new StubPage(), entitlements, auth, plans, _ => Task.CompletedTask);
+        var view = new AiWorkspaceView { DataContext = workspace };
+        var window = new Window { Content = view, Width = 400, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Settle();
+
+            plans.RaiseRefreshed();
+            HeadlessTestHelpers.Settle();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(workspace.GateRefreshFailed.Value, Is.True);
+                Assert.That(workspace.IsGateOpen.Value, Is.True);
+            }
+
+            entitlements.Value = CreateEntitlements(canUseAi: true);
+            HeadlessTestHelpers.Settle();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(workspace.GateRefreshFailed.Value, Is.False);
+                Assert.That(workspace.IsGateOpen.Value, Is.False);
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task PlanReturnWithoutSnapshot_KeepsGateOpen()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-plan-return-null");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
+        using var entitlements = new ReactivePropertySlim<AiEntitlements?>();
         var plans = new StubPlanCoordinator();
         var page = new ModelPage();
         await using var workspace = new AiWorkspaceViewModel(
@@ -464,17 +507,87 @@ public sealed class AiWorkspaceGateTests
         {
             window.Show();
             HeadlessTestHelpers.Settle();
-            int reloadsBeforeReturn = page.RefreshModelsCount;
 
+            // A 401 on return answers without throwing, so no snapshot arrives.
             plans.RaiseRefreshed();
             HeadlessTestHelpers.Settle();
 
-            Assert.That(page.RefreshModelsCount, Is.EqualTo(reloadsBeforeReturn + 1));
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(workspace.GateRefreshFailed.Value, Is.True);
+                Assert.That(workspace.IsGateOpen.Value, Is.True);
+                Assert.That(
+                    page.RefreshModelsCount,
+                    Is.EqualTo(1),
+                    "The generation page refreshes its own models; the workspace must not do it twice.");
+            }
         }
         finally
         {
             window.Close();
             HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Retry_HidesSignInActionWhileRefreshing()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-retry-progress");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
+        var entitlements = new StubEntitlementService
+        {
+            Failure = new InvalidOperationException("entitlements unavailable"),
+        };
+        var plans = new StubPlanCoordinator();
+        AuthenticatedUser user = CreateUser("user-a");
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            _ =>
+            {
+                auth.Value = user;
+                return Task.CompletedTask;
+            },
+            entitlements);
+
+        await workspace.SignIn.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+        Assert.That(workspace.GateRefreshFailed.Value, Is.True);
+
+        entitlements.Failure = null;
+        var releaseRefresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        entitlements.RefreshHandler = async cancellationToken =>
+        {
+            await releaseRefresh.Task;
+            cancellationToken.ThrowIfCancellationRequested();
+            return CreateEntitlements(canUseAi: true);
+        };
+
+        Task retry = workspace.RetryGateLoad.ExecuteAsync();
+        await WaitUntilAsync(() => workspace.IsSigningIn.Value);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                workspace.ShowSignInAction.Value,
+                Is.False,
+                "Only the retry control with its progress ring must be visible during a retry.");
+            Assert.That(workspace.GateRefreshFailed.Value, Is.True);
+        }
+
+        releaseRefresh.TrySetResult();
+        await retry;
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(workspace.GateRefreshFailed.Value, Is.False);
+            Assert.That(workspace.IsGateOpen.Value, Is.False);
         }
     }
 
@@ -558,16 +671,21 @@ public sealed class AiWorkspaceGateTests
 
         public Exception? Failure { get; set; }
 
+        public Func<CancellationToken, Task<AiEntitlements?>>? RefreshHandler { get; set; }
+
         public void PublishSnapshot(AiEntitlements? snapshot) => _state.Value = snapshot;
 
-        public Task<AiEntitlements?> RefreshAsync(CancellationToken cancellationToken)
+        public async Task<AiEntitlements?> RefreshAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             RefreshCount++;
             if (Failure is not null)
-                return Task.FromException<AiEntitlements?>(Failure);
-            _state.Value = RefreshResult;
-            return Task.FromResult(RefreshResult);
+                throw Failure;
+            AiEntitlements? result = RefreshHandler is null
+                ? RefreshResult
+                : await RefreshHandler(cancellationToken);
+            _state.Value = result;
+            return result;
         }
     }
 
