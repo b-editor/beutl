@@ -398,8 +398,9 @@ public sealed class AiWorkspaceGateTests
             signIn: null,
             entitlements);
 
+        int refreshesBeforeSwitch = entitlements.RefreshCount;
         auth.Value = CreateUser("user-b");
-        await WaitUntilAsync(() => entitlements.RefreshCount == 1);
+        await WaitUntilAsync(() => entitlements.RefreshCount == refreshesBeforeSwitch + 1);
         HeadlessTestHelpers.Settle();
 
         using (Assert.EnterMultipleScope())
@@ -620,6 +621,7 @@ public sealed class AiWorkspaceGateTests
             return CreateEntitlements(canUseAi: true);
         };
 
+        int refreshesBeforeRetry = entitlements.RefreshCount;
         Task retry = workspace.RetryGateLoad.ExecuteAsync();
         await WaitUntilAsync(() => workspace.IsSigningIn.Value);
 
@@ -632,7 +634,54 @@ public sealed class AiWorkspaceGateTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(entitlements.RefreshCount, Is.EqualTo(2));
+            // The retry itself plus the post-flight recheck for the new account.
+            // The construction-time initial load is excluded via the baseline.
+            Assert.That(
+                entitlements.RefreshCount,
+                Is.EqualTo(refreshesBeforeRetry + 2));
+            Assert.That(workspace.GateRefreshFailed.Value, Is.False);
+            Assert.That(workspace.IsGateOpen.Value, Is.False);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task InitialLoadFailure_OpensRetryGate()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-initial-failure");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
+        var entitlements = new StubEntitlementService
+        {
+            Failure = new InvalidOperationException("entitlements unavailable"),
+        };
+        var plans = new StubPlanCoordinator();
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            signIn: null,
+            entitlements);
+
+        await WaitUntilAsync(() => workspace.GateRefreshFailed.Value);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(workspace.IsSignedIn.Value, Is.True);
+            Assert.That(workspace.HasEntitlementsSnapshot.Value, Is.False);
+            Assert.That(workspace.IsGateOpen.Value, Is.True);
+            Assert.That(workspace.SignInError.Value, Is.EqualTo(MessageStrings.UnexpectedError));
+        }
+
+        entitlements.Failure = null;
+        entitlements.RefreshResult = CreateEntitlements(canUseAi: true);
+        await workspace.RetryGateLoad.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
             Assert.That(workspace.GateRefreshFailed.Value, Is.False);
             Assert.That(workspace.IsGateOpen.Value, Is.False);
         }

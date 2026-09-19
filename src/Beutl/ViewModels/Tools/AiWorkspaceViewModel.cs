@@ -274,6 +274,13 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .WithSubscribe(RetryGateLoadCore)
             .DisposeWith(_disposables);
 
+        // An authenticated user opening the tab without a cached snapshot depends on
+        // the pages' one-shot loads, which swallow failures and accept null results.
+        // Pull once here so a failed initial load surfaces the retry gate instead of
+        // a permanently disabled form. Genuine loading keeps the content visible.
+        if (authenticatedUser is not null && _entitlementService is not null)
+            _ = RefreshInitialGateLoadAsync();
+
         AiWorkspaceSectionViewModel Section(AiWorkspaceSection id, string displayName, Icon icon)
             => new(id, displayName, icon, () => createPage(id));
     }
@@ -370,6 +377,30 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     private void OnAuthenticatedUserChanged(AuthenticatedUser? user)
         => _ = RefreshOnAccountChangeAsync();
 
+    private async Task RefreshInitialGateLoadAsync()
+    {
+        if (!IsSignedIn.Value || HasEntitlementsSnapshot.Value)
+            return;
+        try
+        {
+            await RefreshGateEntitlementsAsync();
+            RefreshGateModels();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ApiException ex)
+        {
+            _logger.LogError(ex, "AI workspace initial entitlement load failed.");
+            PublishGateFailure(MessageStrings.ApiErrorOccurred);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AI workspace initial entitlement load failed.");
+            PublishGateFailure(MessageStrings.UnexpectedError);
+        }
+    }
+
     // An account change that lands while sign-in or a retry is awaiting the server
     // is dropped by the guard above, and the superseded request is cancelled by the
     // API application's session handling. Recheck after every flight so the current
@@ -453,14 +484,30 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     // out needs no flag: the sign-in gate is already open.
     private void PublishGateFailure(string message)
     {
-        SignInError.Value = message;
-        GateRefreshFailed.Value = IsSignedIn.Value && !HasEntitlementsSnapshot.Value;
+        if (Volatile.Read(ref _disposed))
+            return;
+        try
+        {
+            SignInError.Value = message;
+            GateRefreshFailed.Value = IsSignedIn.Value && !HasEntitlementsSnapshot.Value;
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private void ClearGateFailure()
     {
-        GateRefreshFailed.Value = false;
-        SignInError.Value = null;
+        if (Volatile.Read(ref _disposed))
+            return;
+        try
+        {
+            GateRefreshFailed.Value = false;
+            SignInError.Value = null;
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private void ClearSigningIn()
