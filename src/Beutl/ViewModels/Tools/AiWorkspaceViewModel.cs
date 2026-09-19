@@ -333,6 +333,11 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             _logger.LogError(ex, "AI workspace sign-in failed.");
             PublishGateFailure(MessageStrings.UnexpectedError);
         }
+        catch (AuthenticationRequiredException) when (IsSuperseded(account))
+        {
+            // SendAuthenticatedAsync converts a superseded session's cancellation
+            // into this exception; the post-flight recheck owns the new account.
+        }
         catch (ApiException ex)
         {
             _logger.LogError(ex, "AI workspace sign-in failed.");
@@ -378,6 +383,11 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             _logger.LogError(ex, "AI workspace entitlement refresh failed.");
             PublishGateFailure(MessageStrings.UnexpectedError);
         }
+        catch (AuthenticationRequiredException) when (IsSuperseded(account))
+        {
+            // SendAuthenticatedAsync converts a superseded session's cancellation
+            // into this exception; the post-flight recheck owns the new account.
+        }
         catch (ApiException ex)
         {
             _logger.LogError(ex, "AI workspace entitlement refresh failed.");
@@ -414,6 +424,11 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
                 return;
             // HTTP timeouts surface as cancellation without cancelling our token.
             PublishRefreshTimeout(ex, "AI workspace initial entitlement load failed.");
+        }
+        catch (AuthenticationRequiredException) when (IsSuperseded(account))
+        {
+            // SendAuthenticatedAsync converts a superseded session's cancellation
+            // into this exception; the post-flight recheck owns the new account.
         }
         catch (ApiException ex)
         {
@@ -457,6 +472,12 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
                 return;
             // HTTP timeouts surface as cancellation without cancelling our token.
             PublishRefreshTimeout(ex, "AI workspace entitlement refresh failed.");
+        }
+        catch (AuthenticationRequiredException) when (IsSuperseded(account))
+        {
+            // SendAuthenticatedAsync converts a superseded session's cancellation
+            // into this exception; a fresh load for the new account is already
+            // running or rechecked, so this carries no failure.
         }
         catch (ApiException ex)
         {

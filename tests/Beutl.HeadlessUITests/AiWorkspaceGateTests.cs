@@ -783,6 +783,56 @@ public sealed class AiWorkspaceGateTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task SupersededSessionConversion_RecoversNewAccount()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-session-conversion");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
+        var entitlements = new StubEntitlementService();
+        var plans = new StubPlanCoordinator();
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            signIn: null,
+            entitlements);
+
+        // Production converts a superseded session's cancellation into
+        // AuthenticationRequiredException, which must not flag the new account.
+        var releaseRefresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int refreshCalls = 0;
+        entitlements.RefreshHandler = async _ =>
+        {
+            await releaseRefresh.Task;
+            if (Interlocked.Increment(ref refreshCalls) == 1)
+                throw new AuthenticationRequiredException();
+            return CreateEntitlements(canUseAi: true);
+        };
+
+        int refreshesBeforeRetry = entitlements.RefreshCount;
+        Task retry = workspace.RetryGateLoad.ExecuteAsync();
+        await WaitUntilAsync(() => workspace.IsSigningIn.Value);
+
+        auth.Value = CreateUser("user-b");
+        releaseRefresh.TrySetResult();
+        await retry;
+        await WaitUntilAsync(() => workspace.HasEntitlementsSnapshot.Value);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                entitlements.RefreshCount,
+                Is.EqualTo(refreshesBeforeRetry + 2));
+            Assert.That(workspace.GateRefreshFailed.Value, Is.False);
+            Assert.That(workspace.SignInError.Value, Is.Null);
+            Assert.That(workspace.IsGateOpen.Value, Is.False);
+        }
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         for (int attempt = 0; attempt < 100 && !condition(); attempt++)
