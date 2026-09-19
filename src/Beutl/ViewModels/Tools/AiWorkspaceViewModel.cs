@@ -228,9 +228,12 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .DisposeWith(_disposables);
         SignInError = new ReactivePropertySlim<string?>()
             .DisposeWith(_disposables);
+        GateRefreshFailed = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
         IsGateOpen = RequiresSignIn
             .CombineLatest(RequiresPlan, (signInRequired, planRequired) => signInRequired || planRequired)
             .CombineLatest(IsSigningIn, (gateOpen, signingIn) => gateOpen || signingIn)
+            .CombineLatest(GateRefreshFailed, (gateOpen, refreshFailed) => gateOpen || refreshFailed)
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_disposables);
 
@@ -240,6 +243,9 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .DisposeWith(_disposables);
         SignIn = new AsyncReactiveCommand(IsSigningIn.Select(signing => !signing))
             .WithSubscribe(SignInCore)
+            .DisposeWith(_disposables);
+        RetryGateLoad = new AsyncReactiveCommand(IsSigningIn.Select(signing => !signing))
+            .WithSubscribe(RetryGateLoadCore)
             .DisposeWith(_disposables);
 
         AiWorkspaceSectionViewModel Section(AiWorkspaceSection id, string displayName, Icon icon)
@@ -264,6 +270,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             return;
         IsSigningIn.Value = true;
         SignInError.Value = null;
+        GateRefreshFailed.Value = false;
         try
         {
             await _signIn(_lifetimeCts.Token);
@@ -271,8 +278,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             // page created while signed out never retried its one-shot load, so pull
             // fresh entitlements here. Otherwise the gate closes on sign-in alone and
             // a signed-in account without a plan is shown the usable form.
-            if (_entitlementService is not null)
-                await _entitlementService.RefreshAsync(_lifetimeCts.Token);
+            await RefreshGateEntitlementsAsync();
         }
         catch (OperationCanceledException)
         {
@@ -280,23 +286,78 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         catch (ApiException ex)
         {
             _logger.LogError(ex, "AI workspace sign-in failed.");
-            SignInError.Value = MessageStrings.ApiErrorOccurred;
+            PublishGateFailure(MessageStrings.ApiErrorOccurred);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "AI workspace sign-in failed.");
-            SignInError.Value = MessageStrings.UnexpectedError;
+            PublishGateFailure(MessageStrings.UnexpectedError);
         }
         finally
         {
-            try
-            {
-                if (!Volatile.Read(ref _disposed))
-                    IsSigningIn.Value = false;
-            }
-            catch (ObjectDisposedException)
-            {
-            }
+            ClearSigningIn();
+        }
+    }
+
+    private async Task RetryGateLoadCore()
+    {
+        if (IsSigningIn.Value)
+            return;
+        if (!IsSignedIn.Value)
+        {
+            await SignInCore();
+            return;
+        }
+
+        IsSigningIn.Value = true;
+        SignInError.Value = null;
+        GateRefreshFailed.Value = false;
+        try
+        {
+            await RefreshGateEntitlementsAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ApiException ex)
+        {
+            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
+            PublishGateFailure(MessageStrings.ApiErrorOccurred);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
+            PublishGateFailure(MessageStrings.UnexpectedError);
+        }
+        finally
+        {
+            ClearSigningIn();
+        }
+    }
+
+    private Task<AiEntitlements?> RefreshGateEntitlementsAsync()
+        => _entitlementService?.RefreshAsync(_lifetimeCts.Token)
+            ?? Task.FromResult<AiEntitlements?>(null);
+
+    // A failed refresh leaves a signed-in account with no snapshot, which on its
+    // own would close the gate onto controls of unknown eligibility. Keep the
+    // gate open with the error and a retry instead. A failure while still signed
+    // out needs no flag: the sign-in gate is already open.
+    private void PublishGateFailure(string message)
+    {
+        SignInError.Value = message;
+        GateRefreshFailed.Value = IsSignedIn.Value && !HasEntitlementsSnapshot.Value;
+    }
+
+    private void ClearSigningIn()
+    {
+        try
+        {
+            if (!Volatile.Read(ref _disposed))
+                IsSigningIn.Value = false;
+        }
+        catch (ObjectDisposedException)
+        {
         }
     }
 
@@ -328,9 +389,13 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
 
     public ReactivePropertySlim<string?> SignInError { get; }
 
+    public ReactivePropertySlim<bool> GateRefreshFailed { get; }
+
     public ReactiveCommand OpenAiPlan { get; }
 
     public AsyncReactiveCommand SignIn { get; }
+
+    public AsyncReactiveCommand RetryGateLoad { get; }
 
     /// <summary>
     /// Brings a page to the front of this tab and hands back its view model,

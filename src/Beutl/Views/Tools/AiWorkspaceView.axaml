@@ -137,6 +137,27 @@
                             Command="{CompiledBinding OpenAiPlan}"
                             Content="{x:Static lang:Strings.AiJoinPro}"
                             IsVisible="{CompiledBinding RequiresPlan.Value}" />
+                    <Button x:Name="AiGateRetryButton"
+                            HorizontalAlignment="Center"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_Retry}"
+                            Command="{CompiledBinding RetryGateLoad}"
+                            IsVisible="{CompiledBinding GateRefreshFailed.Value}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <icons:FluentIcon VerticalAlignment="Center"
+                                              FontSize="16"
+                                              Icon="ArrowSync"
+                                              IsVisible="{CompiledBinding !IsSigningIn.Value}" />
+                            <ui:FAProgressRing Width="16"
+                                               Height="16"
+                                               IsIndeterminate="True"
+                                               IsVisible="{CompiledBinding IsSigningIn.Value}" />
+                            <TextBlock Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       Text="{x:Static lang:Strings.AiJobCenter_Retry}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                    </Button>
                     <TextBlock AutomationProperties.LiveSetting="Assertive"
                                AutomationProperties.Name="{CompiledBinding SignInError.Value}"
                                Foreground="{DynamicResource SystemFillColorCautionBrush}"

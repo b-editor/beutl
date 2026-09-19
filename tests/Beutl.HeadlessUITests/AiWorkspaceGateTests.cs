@@ -167,6 +167,96 @@ public sealed class AiWorkspaceGateTests
     }
 
     [AvaloniaTest]
+    public async Task SignInRefreshFailure_KeepsGateOpenWithRetry()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-refresh-failure");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
+        var entitlements = new StubEntitlementService
+        {
+            Failure = new InvalidOperationException("entitlements unavailable"),
+        };
+        var plans = new StubPlanCoordinator();
+        AuthenticatedUser user = CreateUser("user-a");
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            _ =>
+            {
+                auth.Value = user;
+                return Task.CompletedTask;
+            },
+            entitlements);
+
+        await workspace.SignIn.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(workspace.IsSignedIn.Value, Is.True);
+            Assert.That(workspace.HasEntitlementsSnapshot.Value, Is.False);
+            Assert.That(workspace.RequiresPlan.Value, Is.False);
+            Assert.That(workspace.GateRefreshFailed.Value, Is.True);
+            Assert.That(workspace.IsGateOpen.Value, Is.True);
+            Assert.That(workspace.SignInError.Value, Is.EqualTo(MessageStrings.UnexpectedError));
+        }
+
+        // A retry that recovers the snapshot resolves the gate to the plan state.
+        entitlements.Failure = null;
+        entitlements.RefreshResult = CreateEntitlements(canUseAi: false);
+        await workspace.RetryGateLoad.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(entitlements.RefreshCount, Is.EqualTo(2));
+            Assert.That(workspace.GateRefreshFailed.Value, Is.False);
+            Assert.That(workspace.SignInError.Value, Is.Null);
+            Assert.That(workspace.RequiresPlan.Value, Is.True);
+            Assert.That(workspace.IsGateOpen.Value, Is.True);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task RetryWhileSignedOut_RunsSignInAgain()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-gate-retry-signed-out");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
+        var entitlements = new StubEntitlementService
+        {
+            RefreshResult = CreateEntitlements(canUseAi: false),
+        };
+        var plans = new StubPlanCoordinator();
+        int signInCount = 0;
+        await using var workspace = new AiWorkspaceViewModel(
+            editor,
+            _ => new StubPage(),
+            entitlements.Entitlements,
+            auth,
+            plans,
+            _ =>
+            {
+                signInCount++;
+                auth.Value = CreateUser("user-a");
+                return Task.CompletedTask;
+            },
+            entitlements);
+
+        await workspace.RetryGateLoad.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(signInCount, Is.EqualTo(1));
+            Assert.That(workspace.RequiresPlan.Value, Is.True);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task OpenAiPlan_NeverEscapesCoordinatorFailures()
     {
         await TestReset.ResetShellAsync();
@@ -242,10 +332,14 @@ public sealed class AiWorkspaceGateTests
 
         public AiEntitlements? RefreshResult { get; set; }
 
+        public Exception? Failure { get; set; }
+
         public Task<AiEntitlements?> RefreshAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             RefreshCount++;
+            if (Failure is not null)
+                return Task.FromException<AiEntitlements?>(Failure);
             _state.Value = RefreshResult;
             return Task.FromResult(RefreshResult);
         }
