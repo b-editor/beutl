@@ -99,6 +99,7 @@ public sealed class EditorService
     }
 
     internal Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost? BrowserSettingsHost { get; set; }
+    internal Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry? StorageProviders { get; set; }
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ExtensionProvider _extensionProvider;
     private readonly Action<Project, Uri> _serializeProject;

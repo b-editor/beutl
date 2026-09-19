@@ -242,6 +242,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     }
 
     private async Task AddElementCore(ElementDescription description)
+        => await AddElementWithResultAsync(description);
+
+    public async Task<ElementAddResult> AddElementWithResultAsync(ElementDescription description)
     {
         ElementAddResult result = await EditorContext
             .GetRequiredService<IElementAdder>()
@@ -250,13 +253,13 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         {
             Element scrollTarget = result.Items[^1].PrimaryElement;
             ScrollTo.Execute((scrollTarget.Range, scrollTarget.ZIndex));
-            return;
+            return result;
         }
 
         if (result.Failure is LockedElementLayerFailure)
         {
             NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
-            return;
+            return result;
         }
 
         _logger.LogError(
@@ -264,6 +267,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             "Failed to add a timeline element: {FailureId}",
             result.Failure?.Id);
         NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+        return result;
     }
 
     private void RaiseCanExecuteChanged()

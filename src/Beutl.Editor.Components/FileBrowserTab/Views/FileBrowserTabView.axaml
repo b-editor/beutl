@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Editor.Components.FileBrowserTab.Views.FileBrowserTabView"
+﻿<UserControl x:Class="Beutl.Editor.Components.FileBrowserTab.Views.FileBrowserTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
@@ -7,6 +7,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.FileBrowserTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:storage="using:Beutl.Editor.Components.FileBrowserTab"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.Editor.Components.FileBrowserTab.ViewModels"
              Name="Root"
@@ -63,29 +64,10 @@
                 <Interaction.Behaviors>
                     <local:FileItemDragBehavior />
                 </Interaction.Behaviors>
-                <Grid RowDefinitions="Auto,*">
-                    <!--  サムネイルまたはアイコン  -->
-                    <Panel Width="64"
-                           Height="64"
-                           VerticalAlignment="Top">
-                        <Image IsVisible="{Binding HasThumbnail.Value}"
-                               Source="{Binding Thumbnail.Value}"
-                               Stretch="Uniform" />
-                        <icons:FluentIcon FontSize="48"
-                                          IsVisible="{Binding !HasThumbnail.Value}"
-                                          Icon="{Binding IconSymbol.Value}" />
-                    </Panel>
-                    <!--  ファイル名  -->
-                    <TextBlock Grid.Row="1"
-                               MaxWidth="80"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               MaxLines="2"
-                               Text="{Binding Name.Value}"
-                               TextAlignment="Center"
-                               TextTrimming="CharacterEllipsis"
-                               TextWrapping="Wrap" />
-                </Grid>
+                <local:FileBrowserItemView Icon="{Binding IconSymbol.Value}"
+                                           IsIconView="True"
+                                           ItemName="{Binding Name.Value}"
+                                           Thumbnail="{Binding Thumbnail.Value}" />
             </Border>
         </DataTemplate>
 
@@ -99,20 +81,9 @@
                 <Interaction.Behaviors>
                     <local:FileItemDragBehavior />
                 </Interaction.Behaviors>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <!--  サムネイルまたはアイコン  -->
-                    <Panel Width="24" Height="24">
-                        <Image IsVisible="{Binding HasThumbnail.Value}"
-                               Source="{Binding Thumbnail.Value}"
-                               Stretch="Uniform" />
-                        <icons:FluentIcon FontSize="20"
-                                          IsVisible="{Binding !HasThumbnail.Value}"
-                                          Icon="{Binding IconSymbol.Value}" />
-                    </Panel>
-                    <TextBlock VerticalAlignment="Center"
-                               Text="{Binding Name.Value}"
-                               TextTrimming="CharacterEllipsis" />
-                </StackPanel>
+                <local:FileBrowserItemView Icon="{Binding IconSymbol.Value}"
+                                           ItemName="{Binding Name.Value}"
+                                           Thumbnail="{Binding Thumbnail.Value}" />
             </Border>
         </DataTemplate>
     </UserControl.Resources>
@@ -120,93 +91,173 @@
     <Grid RowDefinitions="Auto,*">
         <!--  ツールバー  -->
         <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <!--  上へボタン（ディレクトリブラウズ時のみ表示）  -->
-                <Button Grid.Column="0"
-                        Click="OnOpenFolderClick"
-                        IsVisible="{Binding !IsHomeView.Value}"
-                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
-                        ToolTip.Tip="{x:Static lang:Strings.OpenFolder}">
-                    <icons:FluentIcon FontSize="16" Icon="OpenFolder" />
-                </Button>
-
-                <!--  パス表示（ディレクトリブラウズ時）  -->
-                <ui:FABreadcrumbBar Grid.Column="1"
-                                  Margin="8,0"
-                                  VerticalAlignment="Center"
-                                  IsVisible="{Binding !IsHomeView.Value}"
-                                  ItemClicked="BreadcrumbBarItemClicked"
-                                  ItemsSource="{Binding BreadcrumbItems}">
-                    <ui:FABreadcrumbBar.ItemTemplate>
-                        <DataTemplate x:DataType="vm:BreadcrumbPathItem">
-                            <ui:FABreadcrumbBarItem Content="{Binding}">
-                                <ui:FABreadcrumbBarItem.ContentTemplate>
-                                    <DataTemplate DataType="vm:BreadcrumbPathItem">
-                                        <TextBlock Text="{Binding Name}" />
-                                    </DataTemplate>
-                                </ui:FABreadcrumbBarItem.ContentTemplate>
-                            </ui:FABreadcrumbBarItem>
-                        </DataTemplate>
-                    </ui:FABreadcrumbBar.ItemTemplate>
-                </ui:FABreadcrumbBar>
-
-                <!--  ホームヘッダー（ホームビュー時）  -->
-                <TextBlock Grid.Column="1"
-                           IsVisible="{Binding IsHomeView.Value}"
-                           Text="{x:Static lang:Strings.Home}"
-                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
-
-                <!--  表示モード切替とアクションボタン  -->
-                <StackPanel Grid.Column="2"
-                            Orientation="Horizontal"
-                            Spacing="2">
-                    <!--  表示モード切替（ディレクトリブラウズ時のみ）  -->
-                    <Button x:Name="ViewModeButton"
-                            Click="OnCycleViewModeClick"
+            <Grid ColumnDefinitions="*,Auto">
+                <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding !IsStorageView.Value}">
+                    <!--  上へボタン（ディレクトリブラウズ時のみ表示）  -->
+                    <Button Grid.Column="0"
+                            Click="OnOpenFolderClick"
                             IsVisible="{Binding !IsHomeView.Value}"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
-                            ToolTip.Tip="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.ToDisplayName}}">
-                        <Panel>
-                            <icons:FluentIcon FontSize="16"
-                                              IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
-                                              Icon="TextBulletList" />
-                            <icons:FluentIcon FontSize="16"
-                                              IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}"
-                                              Icon="TextBulletListTree" />
-                            <icons:FluentIcon FontSize="16"
-                                              IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}"
-                                              Icon="Grid" />
-                        </Panel>
+                            ToolTip.Tip="{x:Static lang:Strings.OpenFolder}">
+                        <icons:FluentIcon FontSize="16" Icon="OpenFolder" />
                     </Button>
 
-                    <!--  新規フォルダ（ディレクトリブラウズ時のみ）  -->
-                    <Button Click="OnNewFolderClick"
-                            IsVisible="{Binding !IsHomeView.Value}"
-                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
-                            ToolTip.Tip="{x:Static lang:Strings.NewFolder}">
-                        <icons:FluentIcon FontSize="16" Icon="FolderAdd" />
-                    </Button>
+                    <!--  パス表示（ディレクトリブラウズ時）  -->
+                    <ui:FABreadcrumbBar Grid.Column="1"
+                                        Margin="8,0"
+                                        VerticalAlignment="Center"
+                                        IsVisible="{Binding !IsHomeView.Value}"
+                                        ItemClicked="BreadcrumbBarItemClicked"
+                                        ItemsSource="{Binding BreadcrumbItems}">
+                        <ui:FABreadcrumbBar.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BreadcrumbPathItem">
+                                <ui:FABreadcrumbBarItem Content="{Binding}">
+                                    <ui:FABreadcrumbBarItem.ContentTemplate>
+                                        <DataTemplate x:DataType="vm:BreadcrumbPathItem">
+                                            <TextBlock Text="{Binding Name}" />
+                                        </DataTemplate>
+                                    </ui:FABreadcrumbBarItem.ContentTemplate>
+                                </ui:FABreadcrumbBarItem>
+                            </DataTemplate>
+                        </ui:FABreadcrumbBar.ItemTemplate>
+                    </ui:FABreadcrumbBar>
 
-                    <!--  更新  -->
-                    <Button Click="OnRefreshClick"
+                    <!--  ホームヘッダー（ホームビュー時）  -->
+                    <TextBlock Grid.Column="1"
+                               IsVisible="{Binding IsHomeView.Value}"
+                               Text="{x:Static lang:Strings.Home}"
+                               Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+
+                    <!--  表示モード切替とアクションボタン  -->
+                    <StackPanel Grid.Column="2"
+                                Orientation="Horizontal"
+                                Spacing="2">
+                        <!--  表示モード切替（ディレクトリブラウズ時のみ）  -->
+                        <Button x:Name="ViewModeButton"
+                                Click="OnCycleViewModeClick"
+                                IsVisible="{Binding !IsHomeView.Value}"
+                                Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                ToolTip.Tip="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.ToDisplayName}}">
+                            <Panel>
+                                <icons:FluentIcon FontSize="16"
+                                                  Icon="TextBulletList"
+                                                  IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}" />
+                                <icons:FluentIcon FontSize="16"
+                                                  Icon="TextBulletListTree"
+                                                  IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}" />
+                                <icons:FluentIcon FontSize="16"
+                                                  Icon="Grid"
+                                                  IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}" />
+                            </Panel>
+                        </Button>
+
+                        <!--  新規フォルダ（ディレクトリブラウズ時のみ）  -->
+                        <Button Click="OnNewFolderClick"
+                                IsVisible="{Binding !IsHomeView.Value}"
+                                Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                ToolTip.Tip="{x:Static lang:Strings.NewFolder}">
+                            <icons:FluentIcon FontSize="16" Icon="FolderAdd" />
+                        </Button>
+
+                        <!--  更新  -->
+                        <Button Click="OnRefreshClick"
+                                Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                ToolTip.Tip="{x:Static lang:Strings.Refresh}">
+                            <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
+                        </Button>
+
+                        <!--  ホームボタン  -->
+                        <Button x:Name="HomeButton"
+                                Click="OnHomeClick"
+                                Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                ToolTip.Tip="{x:Static lang:Strings.Home}">
+                            <icons:FluentIcon FontSize="16" Icon="Home" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto,Auto"
+                      ColumnSpacing="2"
+                      IsVisible="{Binding IsStorageView.Value}">
+                    <Panel>
+                        <TextBlock IsVisible="{Binding StorageNavigation.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                                   Text="{Binding ActiveStorageProvider.Value.DisplayName}"
+                                   Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+                        <ContentControl Content="{Binding StorageNavigation.Value}" IsVisible="{Binding StorageNavigation.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <ContentControl.ContentTemplate>
+                                <DataTemplate x:DataType="storage:IFileBrowserStorageNavigation">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <ui:FABreadcrumbBar x:Name="StorageBreadcrumbBar"
+                                                            Margin="8,0"
+                                                            VerticalAlignment="Center"
+                                                            ItemClicked="OnStorageBreadcrumbClicked"
+                                                            ItemsSource="{Binding Breadcrumbs}">
+                                            <ui:FABreadcrumbBar.ItemTemplate>
+                                                <DataTemplate x:DataType="storage:FileBrowserStorageBreadcrumb">
+                                                    <ui:FABreadcrumbBarItem Content="{Binding}">
+                                                        <ui:FABreadcrumbBarItem.ContentTemplate>
+                                                            <DataTemplate x:DataType="storage:FileBrowserStorageBreadcrumb">
+                                                                <TextBlock Text="{Binding Name}" />
+                                                            </DataTemplate>
+                                                        </ui:FABreadcrumbBarItem.ContentTemplate>
+                                                    </ui:FABreadcrumbBarItem>
+                                                </DataTemplate>
+                                            </ui:FABreadcrumbBar.ItemTemplate>
+                                        </ui:FABreadcrumbBar>
+                                        <Button x:Name="StorageViewModeButton"
+                                                Grid.Column="1"
+                                                AutomationProperties.Name="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.ToDisplayName}}"
+                                                Command="{Binding CycleViewMode}"
+                                                Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                                ToolTip.Tip="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.ToDisplayName}}">
+                                            <Panel>
+                                                <icons:FluentIcon FontSize="16"
+                                                                  Icon="Grid"
+                                                                  IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}" />
+                                                <icons:FluentIcon FontSize="16"
+                                                                  Icon="TextBulletList"
+                                                                  IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}" />
+                                            </Panel>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
+                    </Panel>
+                    <Button x:Name="StorageRefreshButton"
+                            Grid.Column="1"
+                            AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
+                            Command="{Binding StorageBrowser.Value.Refresh}"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Refresh}">
                         <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
                     </Button>
-
-                    <!--  ホームボタン  -->
-                    <Button x:Name="HomeButton"
+                    <Button x:Name="StorageHomeButton"
+                            Grid.Column="2"
+                            AutomationProperties.Name="{x:Static lang:Strings.Home}"
                             Click="OnHomeClick"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Home}">
                         <icons:FluentIcon FontSize="16" Icon="Home" />
                     </Button>
-                </StackPanel>
+                </Grid>
+                <Button x:Name="StorageLocationsButton"
+                        Grid.Column="1"
+                        Margin="2,0,0,0"
+                        AutomationProperties.Name="{x:Static lang:Strings.StorageLocations}"
+                        IsVisible="{Binding HasStorageProviders}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                        ToolTip.Tip="{x:Static lang:Strings.StorageLocations}">
+                    <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
+                </Button>
             </Grid>
         </controls:ToolTabBar>
 
         <!--  コンテンツ領域  -->
-        <Panel Grid.Row="1">
+        <ContentControl x:Name="StorageContent"
+                        Grid.Row="1"
+                        Content="{Binding StorageBrowser.Value}"
+                        IsVisible="{Binding IsStorageView.Value}" />
+        <Panel Grid.Row="1" IsVisible="{Binding !IsStorageView.Value}">
             <!--  ホームビュー  -->
             <ScrollViewer IsVisible="{Binding IsHomeView.Value}">
                 <StackPanel Background="Transparent" Spacing="0">
@@ -223,11 +274,11 @@
                                               Theme="{StaticResource TransparentButton}">
                                     <Panel>
                                         <icons:FluentIcon FontSize="14"
-                                                          IsVisible="{Binding IsFavoritesIconView.Value}"
-                                                          Icon="Grid" />
+                                                          Icon="Grid"
+                                                          IsVisible="{Binding IsFavoritesIconView.Value}" />
                                         <icons:FluentIcon FontSize="14"
-                                                          IsVisible="{Binding !IsFavoritesIconView.Value}"
-                                                          Icon="TextBulletList" />
+                                                          Icon="TextBulletList"
+                                                          IsVisible="{Binding !IsFavoritesIconView.Value}" />
                                     </Panel>
                                 </ToggleButton>
                             </ToggleButton.Tag>
@@ -290,11 +341,11 @@
                                               Theme="{StaticResource TransparentButton}">
                                     <Panel>
                                         <icons:FluentIcon FontSize="14"
-                                                          IsVisible="{Binding IsProjectDirIconView.Value}"
-                                                          Icon="Grid" />
+                                                          Icon="Grid"
+                                                          IsVisible="{Binding IsProjectDirIconView.Value}" />
                                         <icons:FluentIcon FontSize="14"
-                                                          IsVisible="{Binding !IsProjectDirIconView.Value}"
-                                                          Icon="TextBulletList" />
+                                                          Icon="TextBulletList"
+                                                          IsVisible="{Binding !IsProjectDirIconView.Value}" />
                                     </Panel>
                                 </ToggleButton>
                             </ToggleButton.Tag>
@@ -352,11 +403,11 @@
                                               Theme="{StaticResource TransparentButton}">
                                     <Panel>
                                         <icons:FluentIcon FontSize="14"
-                                                          IsVisible="{Binding IsMediaFilesIconView.Value}"
-                                                          Icon="Grid" />
+                                                          Icon="Grid"
+                                                          IsVisible="{Binding IsMediaFilesIconView.Value}" />
                                         <icons:FluentIcon FontSize="14"
-                                                          IsVisible="{Binding !IsMediaFilesIconView.Value}"
-                                                          Icon="TextBulletList" />
+                                                          Icon="TextBulletList"
+                                                          IsVisible="{Binding !IsMediaFilesIconView.Value}" />
                                     </Panel>
                                 </ToggleButton>
                             </ToggleButton.Tag>
@@ -369,8 +420,8 @@
                                         Orientation="Horizontal"
                                         Spacing="8">
                                 <ui:FAProgressRing Width="20"
-                                                 Height="20"
-                                                 IsIndeterminate="True" />
+                                                   Height="20"
+                                                   IsIndeterminate="True" />
                                 <TextBlock VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                            Text="{x:Static lang:Strings.SearchingMediaFiles}" />
@@ -494,8 +545,8 @@
                                                Source="{Binding Thumbnail.Value}"
                                                Stretch="Uniform" />
                                         <icons:FluentIcon FontSize="20"
-                                                          IsVisible="{Binding !HasThumbnail.Value}"
-                                                          Icon="{Binding IconSymbol.Value}" />
+                                                          Icon="{Binding IconSymbol.Value}"
+                                                          IsVisible="{Binding !HasThumbnail.Value}" />
                                     </Panel>
                                     <TextBlock VerticalAlignment="Center" Text="{Binding Name.Value}" />
                                 </StackPanel>

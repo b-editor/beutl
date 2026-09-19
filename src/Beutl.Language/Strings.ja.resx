@@ -2863,6 +2863,150 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="BrowserIgnorePageDownloads" xml:space="preserve">
     <value>ページを再読み込みするまでダウンロード要求を無視</value>
   </data>
+  <data name="CloudStorage" xml:space="preserve">
+    <value>Beutlストレージ</value>
+  </data>
+  <data name="CloudStorageSignIn" xml:space="preserve">
+    <value>ログインすると、Beutlストレージのファイルとフォルダーを表示できます。</value>
+  </data>
+  <data name="CloudStorageAccountSettings" xml:space="preserve">
+    <value>アカウント設定を開く</value>
+  </data>
+  <data name="CloudStorageUp" xml:space="preserve">
+    <value>親フォルダーへ</value>
+  </data>
+  <data name="CloudStorageFolder" xml:space="preserve">
+    <value>フォルダー</value>
+  </data>
+  <data name="CloudStoragePublic" xml:space="preserve">
+    <value>公開</value>
+  </data>
+  <data name="CloudStoragePrivate" xml:space="preserve">
+    <value>非公開</value>
+  </data>
+  <data name="CloudStorageDedicated" xml:space="preserve">
+    <value>使用中</value>
+  </data>
+  <data name="CloudStorageFree" xml:space="preserve">
+    <value>無料</value>
+  </data>
+  <data name="CloudStorageUsage" xml:space="preserve">
+    <value>{0} / {1} · {2:N0} / {3:N0} ファイル · {4}</value>
+  </data>
+  <data name="CloudStorageEmpty" xml:space="preserve">
+    <value>表示するファイルやフォルダーはありません。</value>
+  </data>
+  <data name="CloudStorageLoadFailed" xml:space="preserve">
+    <value>Beutlストレージを読み込めませんでした。接続を確認して再読み込みしてください。</value>
+  </data>
+  <data name="CloudStorageUnavailable" xml:space="preserve">
+    <value>このサーバーでは、Beutlストレージの一覧表示はまだ利用できません。</value>
+  </data>
+  <data name="LocalFiles" xml:space="preserve">
+    <value>このデバイス</value>
+  </data>
+  <data name="StorageLocations" xml:space="preserve">
+    <value>ストレージの切り替え</value>
+  </data>
+  <data name="StorageProviderOpenFailed" xml:space="preserve">
+    <value>ストレージサービスを開けませんでした。もう一度お試しください。</value>
+  </data>
+  <data name="CloudStorageLoadingMore" xml:space="preserve">
+    <value>ファイルを追加で読み込んでいます…</value>
+  </data>
+  <data name="CloudStorageLoadMoreFailed" xml:space="preserve">
+    <value>追加のファイルを読み込めませんでした。</value>
+  </data>
+  <data name="CloudStorageRetryLoadMore" xml:space="preserve">
+    <value>再試行</value>
+  </data>
+  <data name="CloudStorageDownload" xml:space="preserve">
+    <value>ダウンロード</value>
+  </data>
+  <data name="CloudStorageCopyLink" xml:space="preserve">
+    <value>リンクをコピー</value>
+  </data>
+  <data name="CloudStorageSetPublic" xml:space="preserve">
+    <value>公開にする</value>
+  </data>
+  <data name="CloudStorageSetPrivate" xml:space="preserve">
+    <value>非公開にする</value>
+  </data>
+  <data name="CloudStorageDedicatedHint" xml:space="preserve">
+    <value>このファイルは別の機能で管理されています。ここでは表示・ダウンロード・移動ができます。</value>
+  </data>
+  <data name="CloudStorageFileInUse" xml:space="preserve">
+    <value>使用中のファイルは変更できません。</value>
+  </data>
+  <data name="CloudStorageFolderInUse" xml:space="preserve">
+    <value>このフォルダーには使用中のファイルがあるため削除できません。</value>
+  </data>
+  <data name="CloudStorageInvalidMove" xml:space="preserve">
+    <value>フォルダーを自身や子フォルダーへ移動することはできません。</value>
+  </data>
+  <data name="CloudStorageItemNotFound" xml:space="preserve">
+    <value>ファイルまたはフォルダーが見つからないか、利用できません。</value>
+  </data>
+  <data name="CloudStorageInvalidRequest" xml:space="preserve">
+    <value>名前または移動先を確認して再試行してください。</value>
+  </data>
+  <data name="CloudStorageActionFailed" xml:space="preserve">
+    <value>操作を完了できませんでした。再読み込みして現在の状態を確認してから再試行してください。</value>
+  </data>
+  <data name="CloudStorageInvalidName" xml:space="preserve">
+    <value>制御文字を含まない1～255文字の名前を入力してください。</value>
+  </data>
+  <data name="CloudStorageDeleteFiles" xml:space="preserve">
+    <value>選択した{0:N0}個のファイルを削除しますか？この操作は取り消せません。</value>
+  </data>
+  <data name="CloudStorageDeleteFolder" xml:space="preserve">
+    <value>「{0}」と、その中の{1:N0}個のフォルダー・{2:N0}個のファイルを削除しますか？この操作は取り消せません。</value>
+  </data>
+  <data name="CloudStorageDeleteSkipped" xml:space="preserve">
+    <value>使用中の{0:N0}個のファイルは削除されません。</value>
+  </data>
+  <data name="CloudStorageMoveHere" xml:space="preserve">
+    <value>ここに移動</value>
+  </data>
+  <data name="CloudStorageMoveDescription" xml:space="preserve">
+    <value>移動先のフォルダーを選択してください。</value>
+  </data>
+  <data name="CloudStorageSelectionLimit" xml:space="preserve">
+    <value>1回の操作で選択できるファイルは200個までです。</value>
+  </data>
+  <data name="CloudStorageDownloading" xml:space="preserve">
+    <value>ダウンロード中…</value>
+  </data>
+  <data name="CloudStorageUploading" xml:space="preserve">
+    <value>{0} をアップロード中…</value>
+  </data>
+  <data name="CloudStorageEmptyUpload" xml:space="preserve">
+    <value>このストレージには空のファイルをアップロードできません。</value>
+  </data>
+  <data name="CloudStorageQuotaExceeded" xml:space="preserve">
+    <value>ストレージの容量またはファイル数の上限に達しました。</value>
+  </data>
+  <data name="CloudStorageUploadMoveFailed" xml:space="preserve">
+    <value>{0} はアップロードされましたが、移動先のフォルダーへ移動できませんでした。ストレージのルートに保存されています。</value>
+  </data>
+  <data name="CloudStorageRollingBackUpload" xml:space="preserve">
+    <value>中断したアップロードで作成された項目を削除中…</value>
+  </data>
+  <data name="CloudStorageUploadRollbackIncomplete" xml:space="preserve">
+    <value>後片付けを完了できず、アップロードした項目が残っている可能性があります。元のアカウントでストレージを確認してください。</value>
+  </data>
+  <data name="CloudStoragePreparingDrag" xml:space="preserve">
+    <value>{0} をドラッグする準備中…</value>
+  </data>
+  <data name="CloudStorageDownloadLocalDestinationRequired" xml:space="preserve">
+    <value>この保存先ではファイルを安全に置き換えられません。ダウンロード先にローカルフォルダーを選択してください。</value>
+  </data>
+  <data name="CloudStorageMimeType" xml:space="preserve">
+    <value>MIMEタイプ</value>
+  </data>
+  <data name="CloudStorageCreatedAt" xml:space="preserve">
+    <value>作成日時</value>
+  </data>
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>ディスクから完全に削除</value>
   </data>

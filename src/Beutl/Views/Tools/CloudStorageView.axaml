@@ -1,0 +1,294 @@
+﻿<UserControl x:Class="Beutl.Views.Tools.CloudStorageView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fileVm="using:Beutl.Editor.Components.FileBrowserTab.ViewModels"
+             xmlns:files="using:Beutl.Editor.Components.FileBrowserTab.Views"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.Tools"
+             xmlns:vm="using:Beutl.ViewModels.Tools"
+             x:CompileBindings="True"
+             x:DataType="vm:CloudStorageViewModel">
+    <UserControl.Resources>
+        <DataTemplate x:Key="StorageIconTemplate" x:DataType="vm:CloudStorageItem">
+            <Border Padding="4"
+                    Background="Transparent"
+                    CornerRadius="{DynamicResource ControlCornerRadius}"
+                    PointerEntered="OnItemPointerEntered"
+                    PointerExited="OnItemPointerExited"
+                    ToolTip.Tip="{Binding ToolTip}">
+                <files:FileBrowserItemView Icon="{Binding Icon}"
+                                           IsIconView="True"
+                                           IsProcessing="{Binding Activity.IsActive.Value}"
+                                           IsProgressIndeterminate="{Binding Activity.IsIndeterminate.Value}"
+                                           ItemName="{Binding Name}"
+                                           ProgressValue="{Binding Activity.Progress.Value}" />
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="StorageListTemplate" x:DataType="vm:CloudStorageItem">
+            <Border Padding="4,2"
+                    Background="Transparent"
+                    PointerEntered="OnItemPointerEntered"
+                    PointerExited="OnItemPointerExited"
+                    ToolTip.Tip="{Binding ToolTip}">
+                <files:FileBrowserItemView Icon="{Binding Icon}"
+                                           IsProcessing="{Binding Activity.IsActive.Value}"
+                                           IsProgressIndeterminate="{Binding Activity.IsIndeterminate.Value}"
+                                           ItemName="{Binding Name}"
+                                           ProgressValue="{Binding Activity.Progress.Value}" />
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="LoadingIconTemplate" x:DataType="x:Int32">
+            <Grid Width="92" Height="128">
+                <StackPanel Margin="0,14,0,0"
+                            HorizontalAlignment="Center"
+                            Spacing="12">
+                    <Border Width="48"
+                            Height="48"
+                            Background="{DynamicResource TextFillColorTertiaryBrush}"
+                            CornerRadius="8" />
+                    <StackPanel Spacing="6">
+                        <Border Width="64"
+                                Height="8"
+                                Background="{DynamicResource TextFillColorTertiaryBrush}"
+                                CornerRadius="4" />
+                        <Border Width="42"
+                                Height="8"
+                                Background="{DynamicResource TextFillColorTertiaryBrush}"
+                                CornerRadius="4" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="LoadingListTemplate" x:DataType="x:Int32">
+            <Grid Height="30"
+                  Margin="8,0"
+                  ColumnDefinitions="24,8,*">
+                <Border Width="20"
+                        Height="20"
+                        Background="{DynamicResource TextFillColorTertiaryBrush}"
+                        CornerRadius="4" />
+                <Border Grid.Column="2"
+                        Width="160"
+                        Height="8"
+                        HorizontalAlignment="Left"
+                        Background="{DynamicResource TextFillColorTertiaryBrush}"
+                        CornerRadius="4" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+    <UserControl.Styles>
+        <Style Selector="ListBox#StorageItems ListBoxItem.storage-drop-target">
+            <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListAccentLowBrush}" />
+        </Style>
+        <Style Selector="MenuItem.storage-destructive">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Style>
+        <Style Selector="ListBox#StorageItems">
+            <Setter Property="ItemTemplate" Value="{StaticResource StorageListTemplate}" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="ListBox#StorageItems.icons">
+            <Setter Property="ItemTemplate" Value="{StaticResource StorageIconTemplate}" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <local:StorageIconPanel />
+                </ItemsPanelTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="ListBox#StorageItems ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="ItemsControl#LoadingSkeleton">
+            <Setter Property="ItemTemplate" Value="{StaticResource LoadingListTemplate}" />
+        </Style>
+        <Style Selector="ItemsControl#LoadingSkeleton.icons">
+            <Setter Property="ItemTemplate" Value="{StaticResource LoadingIconTemplate}" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding Refresh}" Gesture="F5" />
+    </UserControl.KeyBindings>
+    <Grid>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !SignedIn.Value}">
+            <StackPanel x:Name="SignInState"
+                        MaxWidth="320"
+                        Margin="24"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="12">
+                <icons:FluentIcon FontSize="32" Icon="Cloud" />
+                <TextBlock Text="{x:Static lang:Strings.CloudStorageSignIn}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap" />
+                <Button x:Name="AccountSettingsButton"
+                        HorizontalAlignment="Center"
+                        Click="OnAccountSettingsClick"
+                        Content="{x:Static lang:Strings.CloudStorageAccountSettings}" />
+            </StackPanel>
+        </ScrollViewer>
+        <Grid ContextRequested="OnStorageContextRequested"
+              IsVisible="{Binding SignedIn.Value}"
+              RowDefinitions="Auto,Auto,*,Auto">
+            <Border Height="2">
+                <ProgressBar x:Name="LoadingProgress"
+                             Height="2"
+                             AutomationProperties.Name="{x:Static lang:Strings.CloudStorage}"
+                             IsIndeterminate="True"
+                             IsVisible="{Binding IsLoadingVisible.Value}" />
+            </Border>
+            <TextBlock x:Name="ErrorText"
+                       Grid.Row="1"
+                       Margin="8,4"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                       IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Text="{Binding Error.Value}"
+                       TextWrapping="Wrap" />
+            <ListBox x:Name="StorageItems"
+                     Grid.Row="2"
+                     Classes.icons="{Binding ViewMode.Value, Converter={x:Static fileVm:FileBrowserViewModeConverters.IsIcon}}"
+                     DoubleTapped="OnItemDoubleTapped"
+                     GotFocus="OnItemFocused"
+                     ItemsSource="{Binding Items}"
+                     LostFocus="OnItemLostFocus"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     SelectionChanged="OnStorageSelectionChanged"
+                     SelectionMode="Multiple" />
+            <ItemsControl x:Name="LoadingSkeleton"
+                          Grid.Row="2"
+                          AutomationProperties.AccessibilityView="Raw"
+                          Classes.icons="{Binding ViewMode.Value, Converter={x:Static fileVm:FileBrowserViewModeConverters.IsIcon}}"
+                          ClipToBounds="True"
+                          IsHitTestVisible="False"
+                          IsVisible="{Binding ShowPlaceholders.Value}"
+                          ItemsSource="{x:Static local:CloudStorageView.LoadingPlaceholders}"
+                          Opacity="0.35" />
+            <TextBlock x:Name="EmptyState"
+                       Grid.Row="2"
+                       MaxWidth="320"
+                       Margin="24"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding IsEmpty.Value}"
+                       Text="{x:Static lang:Strings.CloudStorageEmpty}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+            <StackPanel Grid.Row="3" Spacing="4">
+                <TextBlock Margin="8,4"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           IsVisible="{Binding ActionError.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{Binding ActionError.Value}"
+                           TextWrapping="Wrap" />
+                <ProgressBar Height="2"
+                             IsIndeterminate="True"
+                             IsVisible="{Binding ShowBackgroundProgress.Value}" />
+                <Border Margin="8"
+                        Padding="8"
+                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        IsVisible="{Binding DetailsItem.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <Grid RowDefinitions="Auto,Auto">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.Details}" />
+                            <Button Grid.Column="1"
+                                    AutomationProperties.Name="{x:Static lang:Strings.Close}"
+                                    Click="OnCloseStorageDetails"
+                                    Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                    ToolTip.Tip="{x:Static lang:Strings.Close}">
+                                <icons:FluentIcon FontSize="16" Icon="Dismiss" />
+                            </Button>
+                        </Grid>
+                        <ContentControl Grid.Row="1" Content="{Binding DetailsItem.Value}">
+                            <ContentControl.ContentTemplate>
+                                <DataTemplate x:DataType="vm:CloudStorageItem">
+                                    <ScrollViewer MaxHeight="200">
+                                        <StackPanel Spacing="4">
+                                            <SelectableTextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding VisibilityText}" />
+                                            <Grid ColumnDefinitions="Auto,*"
+                                                  ColumnSpacing="8"
+                                                  RowDefinitions="Auto,Auto,Auto,Auto"
+                                                  RowSpacing="4">
+                                                <TextBlock Text="{x:Static lang:Strings.Size}" />
+                                                <TextBlock Grid.Column="1" Text="{Binding SizeText}" />
+                                                <TextBlock Grid.Row="1" Text="{x:Static lang:Strings.CloudStorageMimeType}" />
+                                                <SelectableTextBlock Grid.Row="1"
+                                                                     Grid.Column="1"
+                                                                     Text="{Binding Entry.MimeType}"
+                                                                     TextWrapping="Wrap" />
+                                                <TextBlock Grid.Row="2" Text="{x:Static lang:Strings.CloudStorageCreatedAt}" />
+                                                <TextBlock Grid.Row="2"
+                                                           Grid.Column="1"
+                                                           Text="{Binding CreatedText}"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock Grid.Row="3" Text="{x:Static lang:Strings.Location}" />
+                                                <SelectableTextBlock Grid.Row="3"
+                                                                     Grid.Column="1"
+                                                                     Text="{Binding Location}"
+                                                                     TextWrapping="Wrap" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
+                    </Grid>
+                </Border>
+                <Border Height="2">
+                    <ProgressBar x:Name="LoadingMoreProgress"
+                                 Height="2"
+                                 AutomationProperties.Name="{x:Static lang:Strings.CloudStorageLoadingMore}"
+                                 IsIndeterminate="True"
+                                 IsVisible="{Binding IsLoadingMoreVisible.Value}" />
+                </Border>
+                <Grid Margin="8,4"
+                      ColumnDefinitions="*,Auto"
+                      ColumnSpacing="8"
+                      IsVisible="{Binding LoadMoreError.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock x:Name="LoadMoreErrorText"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                               Text="{Binding LoadMoreError.Value}"
+                               TextWrapping="Wrap" />
+                    <Button Grid.Column="1"
+                            Command="{Binding RetryLoadMore}"
+                            Content="{x:Static lang:Strings.CloudStorageRetryLoadMore}" />
+                </Grid>
+                <Panel IsVisible="{Binding IsTransferring.Value}">
+                    <ProgressBar Height="2"
+                                 Margin="8,4"
+                                 IsIndeterminate="{Binding TransferIndeterminate.Value}"
+                                 IsVisible="{Binding !HasItemProgress.Value}"
+                                 Maximum="100"
+                                 Minimum="0"
+                                 Value="{Binding TransferProgress.Value}" />
+                </Panel>
+                <StackPanel Margin="8,4"
+                            IsVisible="{Binding HasUsage.Value}"
+                            Spacing="4">
+                    <TextBlock x:Name="UsageText"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="{Binding UsageText.Value}"
+                               TextWrapping="Wrap" />
+                    <ProgressBar Height="2"
+                                 AutomationProperties.Name="{x:Static lang:Strings.CloudStorage}"
+                                 Maximum="100"
+                                 Minimum="0"
+                                 Value="{Binding UsagePercent.Value}" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

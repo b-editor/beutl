@@ -1,8 +1,10 @@
 ﻿using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -23,6 +25,8 @@ public partial class PlayerView
     // Todo: Refactor
     private async void OnFrameDrop(object? sender, DragEventArgs e)
     {
+        var storage = e.DataTransfer.TryGetValue(StorageDragData.Format);
+        using var consumption = storage?.Consumption?.Claim();
         if (DataContext is not PlayerViewModel { Scene: { } scene, EditViewModel: { } editViewModel } viewModel) return;
         TimeSpan frame = viewModel.CurrentFrame.Value;
 
@@ -30,6 +34,32 @@ public partial class PlayerView
         double scaleX = image.Bounds.Size.Width / scene.FrameSize.Width;
         Point scaledPosition = (position / scaleX).ToBtlPoint();
         Point centeredPosition = scaledPosition - new Point(scene.FrameSize.Width / 2f, scene.FrameSize.Height / 2f);
+
+        if (storage != null)
+        {
+            e.Handled = true;
+            using var fileWrite = HostProjectFileWriteAdmission.Resolve(editViewModel)?.TryBeginProjectFileWrite();
+            if (fileWrite == null)
+            {
+                NotificationService.ShowWarning(Strings.CloudStorage, Strings.FileBrowser_WorkspaceBusy);
+                return;
+            }
+            try
+            {
+                using var import = await storage.ImportToSceneAsync(scene);
+                foreach (string path in import.Paths)
+                {
+                    int layer = scene.Children.Select(element => element.ZIndex).DefaultIfEmpty(-1).Max() + 1;
+                    ElementAddResult? result = await AddElement(editViewModel, new ElementDescription(frame, TimeSpan.FromSeconds(5), layer,
+                        new ElementSource.File(path), Position: centeredPosition));
+                    if (result is { IsSuccess: true }) import.Retain(path);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (ObjectDisposedException) { }
+            catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
+            return;
+        }
 
         bool containsFe = e.DataTransfer.Contains(BeutlDataFormats.FilterEffect);
         bool containsTra = e.DataTransfer.Contains(BeutlDataFormats.Transform);
@@ -119,13 +149,13 @@ public partial class PlayerView
         }
     }
 
-    internal async Task AddElement(EditViewModel editViewModel, ElementDescription description)
+    internal async Task<ElementAddResult?> AddElement(EditViewModel editViewModel, ElementDescription description)
     {
         if (editViewModel.FindToolTab<TimelineTabViewModel>() is { } timeline)
         {
             try
             {
-                await timeline.AddElement.ExecuteAsync(description);
+                return await timeline.AddElementWithResultAsync(description);
             }
             catch (OperationCanceledException)
             {
@@ -133,21 +163,21 @@ public partial class PlayerView
             catch (ObjectDisposedException)
             {
             }
-            return;
+            return null;
         }
 
         ElementAddResult? result = await AddPlayerDropAsync(
             editViewModel.GetRequiredService<IElementAdder>(),
             description);
         if (result is null)
-            return;
+            return null;
         if (result.IsSuccess)
-            return;
+            return result;
 
         if (result.Failure is LockedElementLayerFailure)
         {
             NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
-            return;
+            return result;
         }
 
         _logger.LogError(
@@ -155,6 +185,7 @@ public partial class PlayerView
             "Failed to add a player drop: {FailureId}",
             result.Failure?.Id);
         NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+        return result;
     }
 
     internal static async Task<ElementAddResult?> AddPlayerDropAsync(
@@ -177,6 +208,11 @@ public partial class PlayerView
 
     private void OnFrameDragOver(object? sender, DragEventArgs e)
     {
+        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } storage)
+        {
+            e.DragEffects = storage.IsCurrent() ? DragDropEffects.Copy : DragDropEffects.None;
+            return;
+        }
         if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(BeutlDataFormats.FilterEffect)
             || e.DataTransfer.Contains(BeutlDataFormats.Transform)

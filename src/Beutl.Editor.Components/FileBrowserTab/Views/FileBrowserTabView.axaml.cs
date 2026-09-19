@@ -3,12 +3,15 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
+using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Views;
@@ -21,6 +24,8 @@ public partial class FileBrowserTabView : UserControl
     public FileBrowserTabView()
     {
         InitializeComponent();
+        StorageContent.ContentTemplate = new FuncDataTemplate<IFileBrowserStorageBrowser>(
+            (browser, _) => browser?.CreateView());
 
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
@@ -52,6 +57,40 @@ public partial class FileBrowserTabView : UserControl
     }
 
     private FileBrowserTabViewModel? ViewModel => DataContext as FileBrowserTabViewModel;
+
+    private void OnStorageProviderClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: IFileBrowserStorageProvider provider })
+            ViewModel?.OpenStorage(provider);
+    }
+
+    private async void OnStorageBreadcrumbClicked(FABreadcrumbBar sender, FABreadcrumbBarItemClickedEventArgs e)
+    {
+        if (e.Item is FileBrowserStorageBreadcrumb breadcrumb && ViewModel?.StorageNavigation.Value is { } navigation)
+            await navigation.NavigateToAsync(breadcrumb);
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (this.FindControl<Button>("StorageLocationsButton") is not { } button) return;
+        button.Flyout?.Hide();
+        button.Flyout = null;
+        if (ViewModel is not { } vm) return;
+
+        var menu = new MenuFlyout();
+        var local = new MenuItem { Header = Strings.LocalFiles };
+        local.Click += (_, _) => vm.ShowLocalFiles();
+        menu.Items.Add(local);
+        menu.Items.Add(new Separator());
+        foreach (var provider in vm.StorageProviders)
+        {
+            var item = new MenuItem { Header = provider.DisplayName, DataContext = provider };
+            item.Click += OnStorageProviderClick;
+            menu.Items.Add(item);
+        }
+        button.Flyout = menu;
+    }
 
     private async void OnOpenFolderClick(object? sender, RoutedEventArgs e)
     {
@@ -203,7 +242,16 @@ public partial class FileBrowserTabView : UserControl
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        if (!e.DataTransfer.Contains(DataFormat.File))
+        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } source && !source.IsCurrent())
+        { e.DragEffects = DragDropEffects.None; return; }
+        if (ViewModel?.IsStorageView.Value == true)
+        {
+            var breadcrumb = (e.Source as Visual)?.FindAncestorOfType<Control>(includeSelf: true)?.DataContext as FileBrowserStorageBreadcrumb;
+            e.DragEffects = breadcrumb != null && ViewModel.StorageBrowser.Value is IFileBrowserStorageDropTarget target && target.CanDrop(e.DataTransfer, breadcrumb.FolderId)
+                ? DragDropEffects.Copy : DragDropEffects.None;
+            return;
+        }
+        if (ViewModel?.IsStorageView.Value == true || !e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.None;
             return;
@@ -221,9 +269,24 @@ public partial class FileBrowserTabView : UserControl
         }
     }
 
-    private void OnDrop(object? sender, DragEventArgs e)
+    private async void OnDrop(object? sender, DragEventArgs e)
     {
-        if (!e.DataTransfer.Contains(DataFormat.File) || ViewModel == null)
+        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } source && !source.IsCurrent())
+        { e.DragEffects = DragDropEffects.None; return; }
+        if (ViewModel?.IsStorageView.Value == true)
+        {
+            var breadcrumb = (e.Source as Visual)?.FindAncestorOfType<Control>(includeSelf: true)?.DataContext as FileBrowserStorageBreadcrumb;
+            if (breadcrumb != null && ViewModel.StorageBrowser.Value is IFileBrowserStorageDropTarget target)
+            {
+                e.Handled = true;
+                if (!target.CanDrop(e.DataTransfer, breadcrumb.FolderId)) { e.DragEffects = DragDropEffects.None; return; }
+                try { await target.DropAsync(e.DataTransfer, breadcrumb.FolderId); }
+                catch (OperationCanceledException) { }
+                catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
+            }
+            return;
+        }
+        if (!e.DataTransfer.Contains(DataFormat.File) || ViewModel == null || ViewModel.IsStorageView.Value)
             return;
 
         if (ViewModel.IsHomeView.Value)

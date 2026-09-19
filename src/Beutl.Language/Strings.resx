@@ -2868,6 +2868,150 @@ when history recording is enabled.</value>
   <data name="BrowserIgnorePageDownloads" xml:space="preserve">
     <value>Ignore download requests until this page is reloaded</value>
   </data>
+  <data name="CloudStorage" xml:space="preserve">
+    <value>Beutl storage</value>
+  </data>
+  <data name="CloudStorageSignIn" xml:space="preserve">
+    <value>Sign in to see the files and folders in your Beutl storage.</value>
+  </data>
+  <data name="CloudStorageAccountSettings" xml:space="preserve">
+    <value>Open account settings</value>
+  </data>
+  <data name="CloudStorageUp" xml:space="preserve">
+    <value>Parent folder</value>
+  </data>
+  <data name="CloudStorageFolder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="CloudStoragePublic" xml:space="preserve">
+    <value>Public</value>
+  </data>
+  <data name="CloudStoragePrivate" xml:space="preserve">
+    <value>Private</value>
+  </data>
+  <data name="CloudStorageDedicated" xml:space="preserve">
+    <value>In use</value>
+  </data>
+  <data name="CloudStorageFree" xml:space="preserve">
+    <value>Free</value>
+  </data>
+  <data name="CloudStorageUsage" xml:space="preserve">
+    <value>{0} / {1} · {2:N0} / {3:N0} files · {4}</value>
+  </data>
+  <data name="CloudStorageEmpty" xml:space="preserve">
+    <value>No files or folders to display.</value>
+  </data>
+  <data name="CloudStorageLoadFailed" xml:space="preserve">
+    <value>Could not load Beutl storage. Check your connection and try Refresh.</value>
+  </data>
+  <data name="CloudStorageUnavailable" xml:space="preserve">
+    <value>Beutl storage browsing is not available on this server yet.</value>
+  </data>
+  <data name="LocalFiles" xml:space="preserve">
+    <value>This device</value>
+  </data>
+  <data name="StorageLocations" xml:space="preserve">
+    <value>Storage locations</value>
+  </data>
+  <data name="StorageProviderOpenFailed" xml:space="preserve">
+    <value>Could not open this storage service. Please try again.</value>
+  </data>
+  <data name="CloudStorageLoadingMore" xml:space="preserve">
+    <value>Loading more files…</value>
+  </data>
+  <data name="CloudStorageLoadMoreFailed" xml:space="preserve">
+    <value>Could not load more files.</value>
+  </data>
+  <data name="CloudStorageRetryLoadMore" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="CloudStorageDownload" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="CloudStorageCopyLink" xml:space="preserve">
+    <value>Copy link</value>
+  </data>
+  <data name="CloudStorageSetPublic" xml:space="preserve">
+    <value>Make public</value>
+  </data>
+  <data name="CloudStorageSetPrivate" xml:space="preserve">
+    <value>Make private</value>
+  </data>
+  <data name="CloudStorageDedicatedHint" xml:space="preserve">
+    <value>This file is managed by another feature. You can view, download, or move it here.</value>
+  </data>
+  <data name="CloudStorageFileInUse" xml:space="preserve">
+    <value>This file is in use and cannot be changed.</value>
+  </data>
+  <data name="CloudStorageFolderInUse" xml:space="preserve">
+    <value>This folder contains files in use and cannot be deleted.</value>
+  </data>
+  <data name="CloudStorageInvalidMove" xml:space="preserve">
+    <value>A folder cannot be moved into itself or a descendant.</value>
+  </data>
+  <data name="CloudStorageItemNotFound" xml:space="preserve">
+    <value>The file or folder no longer exists or is unavailable.</value>
+  </data>
+  <data name="CloudStorageInvalidRequest" xml:space="preserve">
+    <value>Check the name or destination and try again.</value>
+  </data>
+  <data name="CloudStorageActionFailed" xml:space="preserve">
+    <value>The storage operation could not be completed. Refresh to check its current state before retrying.</value>
+  </data>
+  <data name="CloudStorageInvalidName" xml:space="preserve">
+    <value>Enter a name of 1–255 characters without control characters.</value>
+  </data>
+  <data name="CloudStorageDeleteFiles" xml:space="preserve">
+    <value>Delete {0:N0} selected files? This cannot be undone.</value>
+  </data>
+  <data name="CloudStorageDeleteFolder" xml:space="preserve">
+    <value>Delete “{0}” and its contents ({1:N0} folders and {2:N0} files)? This cannot be undone.</value>
+  </data>
+  <data name="CloudStorageDeleteSkipped" xml:space="preserve">
+    <value>{0:N0} files in use will be kept.</value>
+  </data>
+  <data name="CloudStorageMoveHere" xml:space="preserve">
+    <value>Move here</value>
+  </data>
+  <data name="CloudStorageMoveDescription" xml:space="preserve">
+    <value>Choose a destination folder.</value>
+  </data>
+  <data name="CloudStorageSelectionLimit" xml:space="preserve">
+    <value>Select at most 200 files for one operation.</value>
+  </data>
+  <data name="CloudStorageDownloading" xml:space="preserve">
+    <value>Downloading…</value>
+  </data>
+  <data name="CloudStorageUploading" xml:space="preserve">
+    <value>Uploading {0}…</value>
+  </data>
+  <data name="CloudStorageEmptyUpload" xml:space="preserve">
+    <value>Empty files cannot be uploaded to this storage service.</value>
+  </data>
+  <data name="CloudStorageQuotaExceeded" xml:space="preserve">
+    <value>The storage capacity or file count limit has been reached.</value>
+  </data>
+  <data name="CloudStorageUploadMoveFailed" xml:space="preserve">
+    <value>{0} was uploaded, but could not be moved to the destination folder. It is available at the storage root.</value>
+  </data>
+  <data name="CloudStorageRollingBackUpload" xml:space="preserve">
+    <value>Removing items created by the interrupted upload…</value>
+  </data>
+  <data name="CloudStorageUploadRollbackIncomplete" xml:space="preserve">
+    <value>Some uploaded items may remain because cleanup could not be completed. Check storage in the original account.</value>
+  </data>
+  <data name="CloudStoragePreparingDrag" xml:space="preserve">
+    <value>Preparing {0} for dragging…</value>
+  </data>
+  <data name="CloudStorageDownloadLocalDestinationRequired" xml:space="preserve">
+    <value>This location does not support safe file replacement. Choose a local folder for this download.</value>
+  </data>
+  <data name="CloudStorageMimeType" xml:space="preserve">
+    <value>MIME type</value>
+  </data>
+  <data name="CloudStorageCreatedAt" xml:space="preserve">
+    <value>Created</value>
+  </data>
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>Delete from Disk</value>
   </data>

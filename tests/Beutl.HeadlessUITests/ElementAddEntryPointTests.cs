@@ -3,9 +3,12 @@ using System.Collections.Specialized;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Platform.Storage;
+using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Models;
@@ -20,6 +23,7 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using Beutl.Views.Tools;
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.HeadlessUITests;
@@ -151,7 +155,9 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
-    public async Task TimelineView_TemplateFileDrop_AddsCompleteTemplateAndScrollsToDropTarget()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task TimelineView_TemplateFileDrop_AddsCompleteTemplateAndScrollsToDropTarget(bool fromStorage)
     {
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
@@ -173,6 +179,8 @@ public class ElementAddEntryPointTests
             using var transfer = new DataTransfer();
             transfer.Add(DataTransferItem.CreateFile(storageFile));
             var dropPoint = new AvaPoint(180, timeline.CalculateLayerTop(3) + 5);
+            if (fromStorage)
+                transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], [templatePath], () => true, _ => Task.FromResult(false))));
             int expectedLayer = timeline.ToLayerNumber(dropPoint.Y);
             var args = new DragEventArgs(
                 DragDrop.DropEvent,
@@ -204,7 +212,9 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
-    public async Task PlayerView_ImageFileDrop_RoutesThroughTimelineAndScrollsToAddedElement()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task PlayerView_ImageFileDrop_RoutesThroughTimelineAndScrollsToAddedElement(bool fromStorage)
     {
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
@@ -237,6 +247,8 @@ public class ElementAddEntryPointTests
             using var transfer = new DataTransfer();
             transfer.Add(DataTransferItem.CreateFile(storageFile));
             var imageCenter = new AvaPoint(view.image.Bounds.Width / 2, view.image.Bounds.Height / 2);
+            if (fromStorage)
+                transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], [imagePath], () => true, _ => Task.FromResult(false))));
             var args = new DragEventArgs(
                 DragDrop.DropEvent,
                 transfer,
@@ -244,6 +256,8 @@ public class ElementAddEntryPointTests
                 imageCenter,
                 KeyModifiers.None);
             Element created = await RaiseDropAndWaitForElement(editor.Scene, framePanel, args);
+            if (fromStorage)
+                Assert.That(Directory.GetFiles(Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "resources", "storage"), "*.png", SearchOption.AllDirectories), Has.Length.EqualTo(1));
             HeadlessTestHelpers.Settle();
             using (Assert.EnterMultipleScope())
             {
@@ -347,6 +361,195 @@ public class ElementAddEntryPointTests
             window.Close();
             HeadlessTestHelpers.Settle();
         }
+    }
+
+    [AvaloniaTest]
+    [TestCase("timeline", "locked")]
+    [TestCase("timeline", "unsupported")]
+    [TestCase("timeline", "partial")]
+    [TestCase("player", "locked")]
+    [TestCase("player", "unsupported")]
+    [TestCase("player", "partial")]
+    [TestCase("player-without-timeline", "locked")]
+    [TestCase("player-without-timeline", "unsupported")]
+    [TestCase("player-without-timeline", "partial")]
+    public async Task StorageDropReleasesRejectedCopiesAndRetainsAcceptedResources(string target, string outcome)
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene($"storage-{target}-{outcome}");
+        string image = CreatePngFile(editor, "accepted.png");
+        string unsupported = Path.ChangeExtension(image, ".drop-test");
+        await File.WriteAllTextAsync(unsupported, "unsupported");
+        if (outcome == "locked")
+            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = 0, IsLocked = true });
+        if (target == "player-without-timeline") editor.CloseToolTab(timeline);
+        using var notifications = new NotificationCapture();
+        var view = target == "timeline" ? (Control)new TimelineTabView { DataContext = timeline } : new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        try
+        {
+            if (view is PlayerView player)
+            {
+                editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height));
+                player.image.Width = editor.Scene.FrameSize.Width;
+                player.image.Height = editor.Scene.FrameSize.Height;
+            }
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel panel = view.FindControl<Panel>(target == "timeline" ? "TimelinePanel" : "framePanel")!;
+            using var transfer = new DataTransfer();
+            string[] sources = outcome == "partial" ? [image, unsupported] : [outcome == "locked" ? image : unsupported];
+            transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], sources, () => true, _ => Task.FromResult(false))));
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, panel, new AvaPoint(10, 5), KeyModifiers.None);
+            panel.RaiseEvent(args);
+            await WaitUntilAsync(() => notifications.Notifications.Count == 1);
+            HeadlessTestHelpers.Settle();
+
+            string storage = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "resources", "storage");
+            string[] copies = Directory.GetFiles(storage, "*", SearchOption.AllDirectories);
+            Assert.That(args.Handled, Is.True);
+            Assert.That(editor.Scene.Children, Has.Count.EqualTo(outcome == "partial" ? 1 : 0));
+            Assert.That(copies.Select(Path.GetFileName), Is.EqualTo(outcome == "partial" ? new[] { "accepted.png" } : Array.Empty<string>()));
+            if (outcome != "partial") Assert.That(Directory.GetDirectories(storage), Is.Empty);
+            Assert.That(sources.All(File.Exists), Is.True, "The original drag downloads remain untouched.");
+        }
+        finally { window.Close(); HeadlessTestHelpers.Settle(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task TimelineStorageDropAdvancesPastAllAddedLayers(bool companions, bool rejectFirst)
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene("storage-drop-layers");
+        var handler = new LayeredFileSourceHandler(companions);
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        await using var registration = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(handler, ElementSourceHandlerRegistrationMode.Replace));
+        string[] sources = rejectFirst
+            ? [CreatePngFile(editor, "rejected.png"), CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")]
+            : [CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")];
+        using var notifications = new NotificationCapture();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel panel = view.FindControl<Panel>("TimelinePanel")!;
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], sources, () => true, _ => Task.FromResult(false))));
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, panel, new AvaPoint(180, 5), KeyModifiers.None);
+            panel.RaiseEvent(args);
+            int count = companions ? 4 : 2;
+            await WaitUntilAsync(() => editor.Scene.Children.Count == count);
+            HeadlessTestHelpers.Settle();
+            Assert.That(editor.Scene.Children.Select(element => element.ZIndex).Order(), Is.EqualTo(Enumerable.Range(0, count)));
+            Assert.That(editor.Scene.Children.All(element => element.Start == timeline.ClickedFrame), Is.True);
+            Assert.That(handler.RequestedLayers, Is.EqualTo(rejectFirst ? new[] { 0, 0, 2 } : new[] { 0, companions ? 2 : 1 }));
+            Assert.That(notifications.Notifications, Has.Count.EqualTo(rejectFirst ? 1 : 0));
+        }
+        finally { window.Close(); HeadlessTestHelpers.Settle(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, "success", false)]
+    [TestCase(true, "success", false)]
+    [TestCase(false, "cancel", false)]
+    [TestCase(true, "cancel", false)]
+    [TestCase(false, "signout", false)]
+    [TestCase(true, "signout", false)]
+    [TestCase(false, "busy", false)]
+    [TestCase(true, "busy", false)]
+    [TestCase(false, "unsupported", false)]
+    [TestCase(true, "unsupported", false)]
+    [TestCase(false, "success", true)]
+    [TestCase(true, "success", true)]
+    [TestCase(false, "busy", true)]
+    [TestCase(true, "busy", true)]
+    public async Task StorageEditorDropsCleanStagingAfterSuccessOrRejection(bool playerTarget, string outcome, bool nativeReady)
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene($"storage-pending-drop-{playerTarget}-{outcome}-{nativeReady}");
+        await using var scope = new CloudStorageIncrementalTests.StorageScope();
+        await scope.LoadFirstAsync(CloudStorageTests.Response(name: outcome == "unsupported" ? "rejected.png" : "dropped.bin", fileSize: 8));
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        await using var registration = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(new LayeredFileSourceHandler(false), ElementSourceHandlerRegistrationMode.Replace));
+        var source = new CloudStorageView { DataContext = scope.ViewModel };
+        Control target = playerTarget ? new PlayerView { DataContext = editor.Player } : new TimelineTabView { DataContext = timeline };
+        editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(4);
+        if (target is PlayerView player)
+        {
+            editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height));
+            player.image.Width = editor.Scene.FrameSize.Width;
+            player.image.Height = editor.Scene.FrameSize.Height;
+        }
+        var layout = new Grid { ColumnDefinitions = new ColumnDefinitions("300,*") };
+        Grid.SetColumn(target, 1);
+        layout.Children.Add(source);
+        layout.Children.Add(target);
+        var window = new Window { Content = layout, Width = 1200, Height = 700 };
+        using var notifications = new NotificationCapture();
+        string downloads = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "storage", "downloads");
+        string[] originalDownloads = Directory.Exists(downloads) ? Directory.GetDirectories(downloads) : [];
+        using var reservation = outcome == "busy" ? TestShell.Editor.TryBeginWorktreeMutation() : null;
+        if (outcome == "busy") Assert.That(reservation, Is.Not.Null);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var list = source.FindControl<ListBox>("StorageItems")!;
+            AvaPoint start = list.ContainerFromIndex(1)!.TranslatePoint(new AvaPoint(20, 20), window)!.Value;
+            Control surface = target is PlayerView preview ? preview.image : target.FindControl<Panel>("TimelinePanel")!;
+            AvaPoint end = surface.TranslatePoint(new AvaPoint(80, 5), window)!.Value;
+            TimeSpan droppedFrame = default;
+            void CaptureDropPosition()
+            {
+                droppedFrame = playerTarget ? editor.Player.CurrentFrame.Value : timeline.ClickedFrame;
+                timeline.ClickedFrame = editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(99);
+            }
+            source.DragStarter = (_, data) =>
+            {
+                Assert.That(nativeReady, Is.True, "A released pointer must not start a native drag.");
+                surface.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, data, surface, new AvaPoint(80, 5), KeyModifiers.None)
+                { DragEffects = DragDropEffects.Copy });
+                CaptureDropPosition();
+                return Task.FromResult(DragDropEffects.Copy);
+            };
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+            await WaitUntilAsync(() => scope.Handler.Requests.Count == 2);
+            if (!nativeReady)
+            {
+                window.MouseUp(end, MouseButton.Left);
+                CaptureDropPosition();
+            }
+            Assert.That(scope.Handler.Requests[1].Token.IsCancellationRequested, Is.EqualTo(outcome == "busy" && !nativeReady));
+            Assert.That(editor.Scene.Children, Is.Empty);
+            if (outcome == "cancel") scope.ViewModel.CancelTransfer.Execute();
+            if (outcome == "signout") CloudStorageTests.SignIn(scope.Clients, null);
+            scope.Handler.Requests[1].Complete("exported");
+            string storage = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "resources", "storage");
+            if (outcome == "success")
+            {
+                await WaitUntilAsync(() => editor.Scene.Children.Count == 1);
+                Assert.That(editor.Scene.Children[0].Start, Is.EqualTo(droppedFrame));
+                Assert.That(File.ReadAllText(Directory.GetFiles(storage, "*.bin", SearchOption.AllDirectories).Single()), Is.EqualTo("exported"));
+            }
+            else
+            {
+                await WaitUntilAsync(() => !scope.ViewModel.IsTransferring.Value);
+                if (outcome is "busy" or "unsupported") await WaitUntilAsync(() => notifications.Notifications.Count == 1);
+                HeadlessTestHelpers.Settle();
+                Assert.That(editor.Scene.Children, Is.Empty);
+                Assert.That(!Directory.Exists(storage) || !Directory.EnumerateFileSystemEntries(storage).Any(), Is.True);
+            }
+            await WaitUntilAsync(() => !Directory.Exists(downloads) || !Directory.GetDirectories(downloads).Except(originalDownloads).Any());
+            Assert.That(notifications.Notifications, Has.Count.EqualTo(outcome is "busy" or "unsupported" ? 1 : 0));
+            Assert.That(scope.ViewModel.ActionError.Value, Is.Null);
+        }
+        finally { window.MouseUp(new AvaPoint(0, 0), MouseButton.Left); window.Close(); HeadlessTestHelpers.Settle(); }
     }
 
     [Test]
@@ -511,6 +714,34 @@ public class ElementAddEntryPointTests
             IReadOnlyList<ElementDescription> descriptions,
             CancellationToken cancellationToken)
             => ValueTask.FromException<ElementAddResult>(failure);
+    }
+
+    private sealed class LayeredFileSourceHandler(bool companions) : IElementSourceHandler
+    {
+        public Type SourceType => typeof(ElementSource.File);
+
+        public List<int> RequestedLayers { get; } = [];
+
+        public ValueTask<ElementSourcePreflightResult> PreflightAsync(ElementSourcePreflightContext context, CancellationToken cancellationToken)
+        {
+            int layer = context.Description.Layer;
+            RequestedLayers.Add(layer);
+            if (Path.GetFileName(((ElementSource.File)context.Description.Source).FileName) == "rejected.png")
+                return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(new UnsupportedElementSourceFailure(SourceType)));
+            return ValueTask.FromResult(ElementSourcePreflightResult.Ready(new Preflight(), companions ? [layer, layer + 1] : [layer]));
+        }
+
+        public ValueTask<ElementSourceMaterializationResult> MaterializeAsync(ElementSourceMaterializationContext context, IElementSourcePreflight preflight, CancellationToken cancellationToken)
+        {
+            Element Create(int layer) => new() { Start = context.Description.Start, Length = context.Description.Length!.Value, ZIndex = layer };
+            int layer = context.Description.Layer;
+            return ValueTask.FromResult(ElementSourceMaterializationResult.Materialized(new ElementMaterialization(Create(layer), companions ? [Create(layer + 1)] : [])));
+        }
+
+        private sealed class Preflight : IElementSourcePreflight
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
     }
 
     private sealed class BlockingFileSourceHandler : IElementSourceHandler

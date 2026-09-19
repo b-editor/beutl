@@ -1,0 +1,67 @@
+﻿<UserControl x:Class="Beutl.Editor.Components.FileBrowserTab.Views.FileBrowserItemView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:local="using:Beutl.Editor.Components.FileBrowserTab.Views"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Name="Root"
+             x:CompileBindings="True"
+             x:DataType="local:FileBrowserItemView">
+    <Panel>
+        <Grid Width="80"
+              IsVisible="{Binding IsIconView, ElementName=Root}"
+              RowDefinitions="Auto,*">
+            <Panel Width="64"
+                   Height="64"
+                   VerticalAlignment="Top">
+                <Panel IsVisible="{Binding !IsProcessing, ElementName=Root}">
+                    <Image Source="{Binding Thumbnail, ElementName=Root}" Stretch="Uniform" />
+                    <icons:FluentIcon FontSize="48"
+                                      Icon="{Binding Icon, ElementName=Root}"
+                                      IsVisible="{Binding Thumbnail, ElementName=Root, Converter={x:Static ObjectConverters.IsNull}}" />
+                </Panel>
+                <ui:FAProgressRing Width="48"
+                                   Height="48"
+                                   AutomationProperties.Name="{Binding ItemName, ElementName=Root}"
+                                   IsActive="{Binding IsProcessing, ElementName=Root}"
+                                   IsIndeterminate="{Binding IsProgressIndeterminate, ElementName=Root}"
+                                   IsVisible="{Binding IsProcessing, ElementName=Root}"
+                                   Maximum="100"
+                                   Value="{Binding ProgressValue, ElementName=Root}" />
+            </Panel>
+            <TextBlock Grid.Row="1"
+                       Width="80"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       MaxLines="2"
+                       Text="{Binding ItemName, ElementName=Root}"
+                       TextAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       TextWrapping="Wrap" />
+        </Grid>
+        <Grid ColumnDefinitions="Auto,*"
+              ColumnSpacing="8"
+              IsVisible="{Binding !IsIconView, ElementName=Root}">
+            <Panel Width="24" Height="24">
+                <Panel IsVisible="{Binding !IsProcessing, ElementName=Root}">
+                    <Image Source="{Binding Thumbnail, ElementName=Root}" Stretch="Uniform" />
+                    <icons:FluentIcon FontSize="20"
+                                      Icon="{Binding Icon, ElementName=Root}"
+                                      IsVisible="{Binding Thumbnail, ElementName=Root, Converter={x:Static ObjectConverters.IsNull}}" />
+                </Panel>
+                <ui:FAProgressRing Width="20"
+                                   Height="20"
+                                   AutomationProperties.Name="{Binding ItemName, ElementName=Root}"
+                                   IsActive="{Binding IsProcessing, ElementName=Root}"
+                                   IsIndeterminate="{Binding IsProgressIndeterminate, ElementName=Root}"
+                                   IsVisible="{Binding IsProcessing, ElementName=Root}"
+                                   Maximum="100"
+                                   Value="{Binding ProgressValue, ElementName=Root}" />
+            </Panel>
+            <TextBlock Grid.Column="1"
+                       VerticalAlignment="Center"
+                       Text="{Binding ItemName, ElementName=Root}"
+                       TextTrimming="CharacterEllipsis" />
+        </Grid>
+    </Panel>
+</UserControl>
