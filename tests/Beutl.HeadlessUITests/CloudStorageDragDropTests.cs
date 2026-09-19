@@ -236,7 +236,7 @@ public sealed class CloudStorageDragDropTests
     public async Task ExportedFilesAreCompleteAndSceneImportsSurviveRemovalOfTheDragDownload()
     {
         await using var scope = new StorageScope();
-        await scope.LoadFirstAsync(Response(name: "../clip?.bin"));
+        await scope.LoadFirstAsync(Response(name: "../clip?.bin", fileSize: 7));
         var vm = scope.ViewModel;
         var context = vm.CaptureActionContext([vm.Items[1]])!;
         string root = Path.Combine(Path.GetTempPath(), "beutl-storage-drop-" + Guid.NewGuid().ToString("N"));
@@ -305,12 +305,12 @@ public sealed class CloudStorageDragDropTests
         {
             var export = vm.ExportStorageItemsAsync(vm.CaptureActionContext([vm.Items[0]])!, root);
             await WaitFor(() => scope.Handler.Requests.Count == 2);
-            scope.Handler.Requests[1].Complete(Response(folder: "folder & 日本", name: "one.bin", fileId: "one", pageCount: 2));
+            scope.Handler.Requests[1].Complete(Response(folder: "folder & 日本", name: "one.bin", fileId: "one", pageCount: 2, fileSize: 3));
             await WaitFor(() => scope.Handler.Requests.Count == 3);
             scope.Handler.Requests[2].Complete("one");
             await WaitFor(() => scope.Handler.Requests.Count == 4);
             Assert.That(scope.Handler.Requests[3].Uri.Query, Does.Contain("cursor=cursor-2"));
-            scope.Handler.Requests[3].Complete(Response(folder: "folder & 日本", name: "two.bin", fileId: "two", page: 2, pageCount: 2));
+            scope.Handler.Requests[3].Complete(Response(folder: "folder & 日本", name: "two.bin", fileId: "two", page: 2, pageCount: 2, fileSize: 3));
             await WaitFor(() => scope.Handler.Requests.Count == 5);
             scope.Handler.Requests[4].Complete("two");
             string directory = (await export)!.Single();
@@ -325,7 +325,7 @@ public sealed class CloudStorageDragDropTests
     public async Task CancelledExportRemovesIncompleteLocalFiles()
     {
         await using var scope = new StorageScope();
-        await scope.LoadFirstAsync(Response());
+        await scope.LoadFirstAsync(Response(fileSize: 9));
         var vm = scope.ViewModel;
         string root = Path.Combine(Path.GetTempPath(), "beutl-storage-cancel-" + Guid.NewGuid().ToString("N"));
         var export = vm.ExportStorageItemsAsync(vm.CaptureActionContext([vm.Items[1]])!, root);
@@ -340,7 +340,7 @@ public sealed class CloudStorageDragDropTests
     public async Task ReturningAPreparingDragToItsSourceCancelsWithoutFooterControls()
     {
         await using var scope = new StorageScope();
-        await scope.LoadFirstAsync(Response(name: "clip.bin"));
+        await scope.LoadFirstAsync(Response(name: "clip.bin", fileSize: 13));
         var vm = scope.ViewModel;
         var item = vm.Items[1];
         var view = new CloudStorageView { DataContext = vm };
@@ -379,7 +379,7 @@ public sealed class CloudStorageDragDropTests
     public async Task ReturningAReadyDragToItsOriginalFolderRejectsTheDropAndDeletesDownloads(bool nested)
     {
         await using var scope = new StorageScope();
-        await scope.LoadFirstAsync(Response(name: "clip.bin", folder: nested ? "parent" : null));
+        await scope.LoadFirstAsync(Response(name: "clip.bin", folder: nested ? "parent" : null, fileSize: 8));
         var vm = scope.ViewModel;
         var view = new CloudStorageView { DataContext = vm };
         var provider = new Mock<IStorageProvider>();
@@ -436,7 +436,7 @@ public sealed class CloudStorageDragDropTests
     public async Task NativeDragContainsFilesAndAnInProcessPayloadAndRetainsSuccessfulDownloads()
     {
         await using var scope = new StorageScope();
-        await scope.LoadFirstAsync(Response(name: "clip.bin"));
+        await scope.LoadFirstAsync(Response(name: "clip.bin", fileSize: 8));
         var provider = new Mock<IStorageProvider>();
         provider.Setup(x => x.TryGetFileFromPathAsync(It.IsAny<Uri>())).ReturnsAsync((Uri uri) =>
         {

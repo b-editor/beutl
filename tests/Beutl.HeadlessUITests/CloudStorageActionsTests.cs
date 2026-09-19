@@ -363,7 +363,7 @@ public sealed class CloudStorageActionsTests
     {
         await using var scope = new StorageScope();
         var vm = scope.ViewModel;
-        await scope.LoadFirstAsync(Response());
+        await scope.LoadFirstAsync(Response(fileSize: System.Text.Encoding.UTF8.GetByteCount("downloaded content")));
         var context = vm.CaptureActionContext([vm.Items[1]])!;
         using var output = new MemoryStream();
         var download = vm.DownloadAsync(context, output, CancellationToken.None);

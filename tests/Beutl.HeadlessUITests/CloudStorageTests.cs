@@ -343,7 +343,7 @@ public sealed class CloudStorageTests
         }, clients, DateTime.UtcNow);
     }
 
-    internal static string Response(string name = "video.mp4", string? folder = null, int page = 1, int pageCount = 1, bool empty = false, string fileId = "file", int fileCount = 1, string visibility = "PRIVATE")
+    internal static string Response(string name = "video.mp4", string? folder = null, int page = 1, int pageCount = 1, bool empty = false, string fileId = "file", int fileCount = 1, string visibility = "PRIVATE", long fileSize = 5L * 1024 * 1024 * 1024)
         => JsonSerializer.Serialize(new
         {
             entries = (empty || folder != null || page != 1 ? [] : new[]
@@ -357,7 +357,7 @@ public sealed class CloudStorageTests
                 kind = "file",
                 name = fileCount == 1 ? name : $"{index:D2}-{name}",
                 parentId = folder,
-                size = 5L * 1024 * 1024 * 1024,
+                size = fileSize,
                 mimeType = "video/mp4",
                 visibility,
                 createdAt = "2026-09-01T00:00:00Z",

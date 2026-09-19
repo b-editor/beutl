@@ -473,7 +473,7 @@ public class ElementAddEntryPointTests
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene($"storage-pending-drop-{playerTarget}-{outcome}-{nativeReady}");
         await using var scope = new CloudStorageIncrementalTests.StorageScope();
-        await scope.LoadFirstAsync(CloudStorageTests.Response(name: outcome == "unsupported" ? "rejected.png" : "dropped.bin"));
+        await scope.LoadFirstAsync(CloudStorageTests.Response(name: outcome == "unsupported" ? "rejected.png" : "dropped.bin", fileSize: 8));
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await using var registration = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(new LayeredFileSourceHandler(false), ElementSourceHandlerRegistrationMode.Replace));
         var source = new CloudStorageView { DataContext = scope.ViewModel };

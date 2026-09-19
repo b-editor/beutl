@@ -28,7 +28,7 @@ public sealed class CloudStorageProgressTests
     public async Task DownloadProgressReplacesOnlyTheTargetIcon(bool icons, bool drag)
     {
         await using var scope = new StorageScope();
-        await scope.LoadFirstAsync(Response(fileCount: 2));
+        await scope.LoadFirstAsync(Response(fileCount: 2, fileSize: 8));
         var vm = scope.ViewModel;
         vm.ViewMode.Value = icons ? FileBrowserViewMode.Icon : FileBrowserViewMode.List;
         var target = vm.Items[1];
@@ -90,7 +90,7 @@ public sealed class CloudStorageProgressTests
     public async Task InterruptedDownloadsRestoreTheItemIcon(bool drag, string outcome)
     {
         await using var scope = new StorageScope();
-        await scope.LoadFirstAsync(Response());
+        await scope.LoadFirstAsync(Response(fileSize: 8));
         var vm = scope.ViewModel;
         var target = vm.Items[1];
         using var destination = new MemoryStream();
@@ -120,7 +120,7 @@ public sealed class CloudStorageProgressTests
     public async Task UnknownLengthStaysIndeterminateAndOverlappingWorkKeepsTheItemBusy()
     {
         await using var scope = new StorageScope();
-        await scope.LoadFirstAsync(Response().Replace("5368709120", "0", StringComparison.Ordinal));
+        await scope.LoadFirstAsync(Response(fileSize: 0));
         var vm = scope.ViewModel;
         var item = vm.Items[1];
         using var outer = item.Activity.Begin();

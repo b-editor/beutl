@@ -379,7 +379,12 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
 
     private static async Task CopyDownloadAsync(HttpContent content, Stream destination, long? expectedLength, Action<double?> report, CancellationToken token)
     {
-        long? length = content.Headers.ContentLength ?? (expectedLength is > 0 ? expectedLength : null);
+        token.ThrowIfCancellationRequested();
+        long? metadataLength = expectedLength is > 0 ? expectedLength : null;
+        long? headerLength = content.Headers.ContentLength;
+        if (metadataLength is { } stored && headerLength is { } declared && stored != declared)
+            throw new InvalidDataException($"Content-Length is {declared} bytes, but storage metadata specifies {stored} bytes.");
+        long? length = metadataLength ?? headerLength;
         double? previous = length > 0 ? 0 : null;
         report(previous);
         await using var source = await content.ReadAsStreamAsync(token);

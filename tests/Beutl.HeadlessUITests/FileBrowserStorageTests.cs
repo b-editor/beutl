@@ -376,7 +376,7 @@ public sealed class FileBrowserStorageTests
         var browser = (CloudStorageViewModel)vm.StorageBrowser.Value!;
         string? sourceFolder = breadcrumb ? "folder & 日本" : null;
         await WaitFor(() => handler.Requests.Count == 1);
-        handler.Requests[0].Complete(Response(name: "clip.bin", folder: sourceFolder));
+        handler.Requests[0].Complete(Response(name: "clip.bin", folder: sourceFolder, fileSize: 8));
         await WaitFor(() => !browser.IsLoading.Value);
         var view = new FileBrowserTabView { DataContext = vm };
         var window = new Window { Content = view, Width = 640, Height = 520 };
@@ -413,7 +413,7 @@ public sealed class FileBrowserStorageTests
             Assert.That(move["parentId"]?.GetValue<string>(), Is.EqualTo(breadcrumb ? null : "folder & 日本"));
             handler.Requests[2].Complete(failure ? "{\"error_code\":\"storageInvalidMove\"}" : "{\"affected\":1}", failure ? HttpStatusCode.Conflict : HttpStatusCode.OK);
             await WaitFor(() => handler.Requests.Count == 4);
-            handler.Requests[3].Complete(Response(folder: sourceFolder, empty: !failure));
+            handler.Requests[3].Complete(Response(folder: sourceFolder, empty: !failure, fileSize: 8));
             await consumption.Completion.WaitAsync(TimeSpan.FromSeconds(5));
             await WaitFor(() => !Directory.Exists(staging));
             Assert.That(handler.Requests, Has.Count.EqualTo(4));

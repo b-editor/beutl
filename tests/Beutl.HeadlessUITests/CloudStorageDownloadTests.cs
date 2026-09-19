@@ -49,10 +49,12 @@ public sealed class CloudStorageDownloadTests
     [TestCase("failure")]
     [TestCase("detach")]
     [TestCase("truncated")]
+    [TestCase("header-short")]
+    [TestCase("header-long")]
     public async Task LocalDestinationIsReplacedOnlyAfterASuccessfulDownload(string outcome)
     {
         await using var scope = new StorageScope();
-        await scope.LoadFirstAsync(Response());
+        await scope.LoadFirstAsync(Response(fileSize: Encoding.UTF8.GetByteCount("new content")));
         string directory = Path.Combine(Path.GetTempPath(), $"beutl-storage-save-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, "existing.mp4");
@@ -79,16 +81,22 @@ public sealed class CloudStorageDownloadTests
                 window.Close();
                 await WaitFor(() => scope.Handler.Requests[1].Token.IsCancellationRequested);
             }
-            if (outcome == "truncated")
+            if (outcome is "header-short" or "header-long")
+            {
+                scope.Handler.Requests[1].Complete(outcome == "header-short" ? "short" : "longer than expected");
+            }
+            else if (outcome == "truncated")
             {
                 scope.Handler.Requests[1].Completion.SetResult(new HttpResponseMessage(HttpStatusCode.OK)
                 { Content = new StreamContent(new HeaderlessStream([1, 2, 3])) });
             }
             else if (outcome == "failure")
             {
+                var content = new StreamContent(new FailingReadStream());
+                content.Headers.ContentLength = Encoding.UTF8.GetByteCount("new content");
                 scope.Handler.Requests[1].Completion.SetResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    Content = new StreamContent(new FailingReadStream()),
+                    Content = content,
                 });
             }
             else scope.Handler.Requests[1].Complete("new content");
@@ -107,16 +115,22 @@ public sealed class CloudStorageDownloadTests
     }
 
     [AvaloniaTest]
-    [TestCase(false, 4)]
-    [TestCase(false, 8)]
-    [TestCase(false, 12)]
-    [TestCase(true, 4)]
-    [TestCase(true, 8)]
-    [TestCase(true, 12)]
-    public async Task HeaderlessExportsValidateTheExpectedSizeIncludingFolderChildren(bool folder, int bytes)
+    [TestCase(false, 4, false)]
+    [TestCase(false, 8, false)]
+    [TestCase(false, 12, false)]
+    [TestCase(true, 4, false)]
+    [TestCase(true, 8, false)]
+    [TestCase(true, 12, false)]
+    [TestCase(false, 4, true)]
+    [TestCase(false, 8, true)]
+    [TestCase(false, 12, true)]
+    [TestCase(true, 4, true)]
+    [TestCase(true, 8, true)]
+    [TestCase(true, 12, true)]
+    public async Task ExportsValidateMetadataWithOrWithoutAHeaderIncludingFolderChildren(bool folder, int bytes, bool withHeader)
     {
         await using var scope = new StorageScope();
-        await scope.LoadFirstAsync(Response().Replace("5368709120", "8", StringComparison.Ordinal));
+        await scope.LoadFirstAsync(Response(fileSize: 8));
         var vm = scope.ViewModel;
         var item = vm.Items[folder ? 0 : 1];
         var reported = new List<double>();
@@ -129,12 +143,14 @@ public sealed class CloudStorageDownloadTests
             int contentIndex = 1;
             if (folder)
             {
-                scope.Handler.Requests[1].Complete(Response(folder: item.Id).Replace("5368709120", "8", StringComparison.Ordinal));
+                scope.Handler.Requests[1].Complete(Response(folder: item.Id, fileSize: 8));
                 await WaitFor(() => scope.Handler.Requests.Count == 3);
                 contentIndex = 2;
             }
-            var content = new StreamContent(new HeaderlessStream(new byte[bytes]));
+            using var stream = new HeaderlessStream(new byte[bytes]);
+            var content = new StreamContent(stream);
             Assert.That(content.Headers.ContentLength, Is.Null);
+            if (withHeader) content.Headers.ContentLength = bytes;
             scope.Handler.Requests[contentIndex].Completion.SetResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
             var result = await export;
             if (bytes == 8)
@@ -148,6 +164,7 @@ public sealed class CloudStorageDownloadTests
                 Assert.That(Directory.Exists(directory), Is.False);
                 Assert.That(reported, Does.Not.Contain(100));
                 Assert.That(vm.ActionError.Value, Is.Not.Null);
+                if (withHeader) Assert.That(stream.ReadCalls, Is.Zero, "Contradictory metadata must be rejected before reading content.");
             }
             Assert.That(item.Activity.IsActive.Value, Is.False);
         }
@@ -156,7 +173,13 @@ public sealed class CloudStorageDownloadTests
 
     private sealed class HeaderlessStream(byte[] bytes) : MemoryStream(bytes)
     {
+        public int ReadCalls { get; private set; }
         public override bool CanSeek => false;
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            ReadCalls++;
+            return base.ReadAsync(buffer, cancellationToken);
+        }
     }
 
     private static Window CreateWindow(CloudStorageView view, IStorageFile file)
