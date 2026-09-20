@@ -1596,9 +1596,12 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             // wrong while it is waited on, the name stays: it is the way back.
             persistedServerJob = true;
 
-            var pendingSnapshot = new AiVideoResultSnapshot(
-                SourceMode == AiSourceVideoMode.Edit && sourceSeconds is { } exactSeconds
-                    ? exactSeconds : durationSeconds);
+            var pendingSnapshot = new AiVideoResultSnapshot(SourceMode switch
+            {
+                AiSourceVideoMode.Edit when sourceSeconds is { } exactSeconds => exactSeconds,
+                AiSourceVideoMode.Extend when sourceSeconds is { } originalSeconds => originalSeconds + durationSeconds,
+                _ => durationSeconds,
+            });
             if (!operation.TryPublish(() =>
                 {
                     if (IsGeneration) PromptLibrary.Record(prompt);
