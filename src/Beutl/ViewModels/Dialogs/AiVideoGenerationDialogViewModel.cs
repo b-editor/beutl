@@ -1410,6 +1410,24 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             string quality = Quality.Value.Value;
             int promptLimit = MaxPromptLength.Value;
             InputSnapshot[] inputs = await ReadVideoInputsAsync(operation.CancellationToken, firstFramePath is null);
+            if (IsSourceVideo && _selectedRecovery is null)
+            {
+                sourceSeconds = await ReadSourceSnapshotDurationAsync(
+                    inputs.Single(input => input.Role == "source-video"), operation.CancellationToken);
+                if (!operation.TryPublish(() =>
+                    {
+                        SourceDuration.Value = sourceSeconds;
+                        RefreshVideoInputs();
+                    }))
+                    return;
+                if (InputError.Value is { } sourceError)
+                {
+                    operation.TryPublish(() => Error.Value = sourceError);
+                    return;
+                }
+                if (SourceMode == AiSourceVideoMode.Edit)
+                    durationSeconds = RequestDuration;
+            }
 
             // The model's place is left empty until it is known, because which
             // model this request carries depends on whether a name is already

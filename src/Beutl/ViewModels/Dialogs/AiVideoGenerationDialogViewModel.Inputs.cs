@@ -177,12 +177,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             string kind = role is "source" or "video" ? "video" : role == "audio" ? "audio" : "image";
             foreach (string path in paths) AiVideoInputLimits.Validate(Describe(path), kind,
                 kind == "image" ? AiRequestLimits.MaxFrameUploadBytes : kind == "audio" ? AiVideoInputLimits.MaxAudioBytes : AiVideoInputLimits.MaxSourceBytes);
-            double? duration = role == "source" ? await Task.Run(() =>
-            {
-                if (VideoDurationReader is { } reader) return reader(paths[0]).TotalSeconds;
-                using var video = MediaReader.Open(paths[0], new MediaOptions(MediaMode.Video));
-                return video.VideoInfo.Duration.ToDouble();
-            }, operation.CancellationToken) : null;
+            double? duration = role == "source" ? await ReadVideoDurationAsync(paths[0], operation.CancellationToken) : null;
             operation.TryPublish(() =>
             {
                 if (role == "source") { SourceVideoPath.Value = paths[0]; SourceDuration.Value = duration; }
@@ -201,6 +196,30 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     }
 
     private sealed record InputSnapshot(string Role, string Path, string Name, byte[] Bytes, AiUploadSource Upload);
+
+    private Task<double> ReadVideoDurationAsync(string path, CancellationToken token) => Task.Run(() =>
+    {
+        if (VideoDurationReader is { } reader) return reader(path).TotalSeconds;
+        using var video = MediaReader.Open(path, new MediaOptions(MediaMode.Video));
+        return video.VideoInfo.Duration.ToDouble();
+    }, token);
+
+    private async Task<double> ReadSourceSnapshotDurationAsync(InputSnapshot source, CancellationToken token)
+    {
+        // Probe the upload bytes: the selected path can be overwritten while this request is prepared.
+        (string path, FileStream stream) = AiTemporaryFileStore.Create("inputs", "source-video", Path.GetExtension(source.Name));
+        try
+        {
+            await using (stream)
+                await stream.WriteAsync(source.Bytes, token);
+            return await ReadVideoDurationAsync(path, token);
+        }
+        finally
+        {
+            DeleteTemporaryFile(path);
+        }
+    }
+
     private async Task<InputSnapshot[]> ReadVideoInputsAsync(CancellationToken token, bool references)
     {
         var paths = new List<(string Role, string Path, string Name)>();
