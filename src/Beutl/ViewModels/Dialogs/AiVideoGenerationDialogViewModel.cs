@@ -1443,6 +1443,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                 firstFrameStamp,
                 lastFrameStamp,
             ];
+            // Video endpoints identify media by content/type, not multipart filenames.
+            // Renaming identical input must keep the key for the already-paid request.
             if (inputs.Length > 0 || IsSourceVideo)
                 requestParts = requestParts.Concat(new string?[] { null, IsMotionControl ? orientation : null, IsMotionControl ? quality : null }
                     .Concat(inputs.Select(input => input.Role + ":" + input.Upload.MediaType + ":" + AiRequestKey.ContentStamp(input.Bytes)))).ToArray();
