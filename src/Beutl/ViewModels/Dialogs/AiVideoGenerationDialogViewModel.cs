@@ -958,6 +958,14 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             return false;
         }
 
+        if (attempt.EffectiveSources.Any(source =>
+            source.Role.StartsWith("reference-", StringComparison.Ordinal)
+            && !ReferenceGroups.Any(group => source.Role.StartsWith($"reference-{group.Kind}-", StringComparison.Ordinal))))
+        {
+            Error.Value = Strings.AiResultUnavailable;
+            return false;
+        }
+
         _applyingCapabilities = true;
         try
         {
