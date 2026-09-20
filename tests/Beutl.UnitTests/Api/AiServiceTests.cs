@@ -14,7 +14,7 @@ using Reactive.Bindings;
 namespace Beutl.UnitTests.Api;
 
 [TestFixture]
-public sealed class AiCapabilityServiceTests
+public sealed partial class AiCapabilityServiceTests
 {
     [Test]
     public void Transcription_rejects_excessive_segment_counts_before_deserializing_segments()

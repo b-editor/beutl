@@ -769,7 +769,7 @@ internal sealed class AiCaptionTranslationService(
     }
 }
 
-internal sealed class AiVideoService(
+internal sealed partial class AiVideoService(
     BeutlApiApplication application,
     AiJobChangeNotifier jobChangeNotifier)
     : AiMeteredCapabilityService(application, jobChangeNotifier), IAiVideoService
@@ -782,6 +782,7 @@ internal sealed class AiVideoService(
         // The caller's key when it has one: that is what lets a retry recover a
         // clip already paid for instead of buying it again.
         string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
+        if (request.InputReferences.Count > 0) return await CreateFromReferencesAsync(request, cancellationToken);
         if (request.FirstFrame is null)
         {
             return await ExecuteAsync(
@@ -829,6 +830,7 @@ internal sealed class AiVideoService(
                 idempotencyKey,
                 firstPart,
                 lastPart,
+                null,
                 request.Prompt,
                 request.DurationSeconds,
                 request.Resolution.Value,
