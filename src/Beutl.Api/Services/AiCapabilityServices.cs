@@ -6,6 +6,8 @@ using System.Text;
 using System.Text.Json;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Refit;
 
@@ -993,9 +995,18 @@ internal abstract class AiMeteredCapabilityService(
 
         if (failures is not null)
         {
-            throw new AggregateException(
-                "One or more AI reference streams failed to close.",
-                failures);
+            // This runs from finally: cleanup must not replace a created job,
+            // a definitive API rejection, cancellation, or an upload-open error.
+            try
+            {
+                Log.CreateLogger<AiMeteredCapabilityService>().LogWarning(
+                    new AggregateException("AI reference stream cleanup failed.", failures),
+                    "Failed to close {Count} AI reference streams.", failures.Count);
+            }
+            catch
+            {
+                // A diagnostic sink must not replace the request outcome either.
+            }
         }
     }
 

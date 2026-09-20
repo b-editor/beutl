@@ -33,14 +33,60 @@ public sealed partial class AiCapabilityServiceTests
             Upload("b.mp4", "video/mp4", second),
             Upload("c.wav", "audio/wav", last),
         ]);
-        var error = Assert.ThrowsAsync<AggregateException>(async () =>
-            await app.GetResource<IAiVideoService>().CreateAsync(request, CancellationToken.None));
-        Assert.That(error!.InnerExceptions, Has.Count.EqualTo(failures));
-        Assert.That(error.InnerExceptions, Has.All.InstanceOf<IOException>());
+        if (failLastOpen)
+        {
+            var error = Assert.ThrowsAsync<IOException>(async () =>
+                await app.GetResource<IAiVideoService>().CreateAsync(request, CancellationToken.None));
+            Assert.That(error!.Message, Is.EqualTo("Injected open failure."));
+        }
+        else
+        {
+            var result = await app.GetResource<IAiVideoService>().CreateAsync(request, CancellationToken.None);
+            Assert.That(result.JobId.Value, Is.EqualTo("job"));
+        }
         Assert.That(first.AsyncDisposals, Is.EqualTo(1));
         Assert.That(second.AsyncDisposals, Is.EqualTo(1));
         Assert.That(last.AsyncDisposals, Is.EqualTo(failLastOpen ? 0 : 1));
         Assert.That(handler.Requests.Count, Is.EqualTo(failLastOpen ? 0 : 1));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task ReferenceCleanup_PreservesApiErrorsAndCancellation(bool image, bool cancel)
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var handler = new RecordingHandler(_ =>
+        {
+            if (cancel)
+            {
+                cancellation.Cancel();
+                throw new OperationCanceledException(cancellation.Token);
+            }
+            return JsonResponse(HttpStatusCode.BadRequest, """{"error_code":"aiModelUnavailable","message":"Withdrawn model","documentation_url":null}""");
+        });
+        using var http = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var first = new ReferenceDisposalProbe(throws: true);
+        using var trailing = new ReferenceDisposalProbe(throws: false);
+        AiUploadSource Upload(string name, Stream stream) => new(name, "image/png", _ => ValueTask.FromResult(stream), 3);
+        var references = new[] { Upload("first.png", first), Upload("trailing.png", trailing) };
+        async Task Send()
+        {
+            if (image)
+                await app.GetResource<IAiImageGenerationService>().GenerateAsync(
+                    new AiImageGenerationRequest("scene", new("1:1"), references: references), cancellation.Token);
+            else
+                await app.GetResource<IAiVideoService>().CreateAsync(
+                    new AiVideoGenerationRequest("scene", 5, new("720p"), new("16:9"), inputReferences: references), cancellation.Token);
+        }
+        var error = Assert.CatchAsync<Exception>(Send);
+        if (cancel) Assert.That(error, Is.InstanceOf<OperationCanceledException>());
+        else Assert.That(error, Is.TypeOf<AiModelUnavailableException>());
+        Assert.That(first.AsyncDisposals, Is.EqualTo(1));
+        Assert.That(trailing.AsyncDisposals, Is.EqualTo(1));
     }
 
     private sealed class ReferenceDisposalProbe(bool throws) : MemoryStream([1, 2, 3])

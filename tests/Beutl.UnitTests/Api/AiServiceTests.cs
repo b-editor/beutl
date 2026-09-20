@@ -1143,8 +1143,7 @@ public sealed partial class AiCapabilityServiceTests
             _ => ValueTask.FromResult(stream),
             stream.Length);
 
-        AggregateException? exception = Assert.ThrowsAsync<AggregateException>(async () =>
-            await app.GetResource<IAiImageGenerationService>().GenerateAsync(
+        var result = await app.GetResource<IAiImageGenerationService>().GenerateAsync(
                 new AiImageGenerationRequest(
                     "a calm sky",
                     new AiImageAspectRatioId("1:1"),
@@ -1153,11 +1152,11 @@ public sealed partial class AiCapabilityServiceTests
                         Upload("throwing.png", throwing),
                         Upload("trailing.png", trailing),
                     ]),
-                CancellationToken.None));
+                CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(exception!.InnerExceptions, Has.One.InstanceOf<IOException>());
+            Assert.That(result.JobId?.Value, Is.EqualTo("image-job"));
             Assert.That(throwing.DisposeAttempts, Is.EqualTo(1));
             Assert.That(trailing.IsDisposed, Is.True);
         }
