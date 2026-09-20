@@ -354,11 +354,14 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         if (_requestRecoveryContext is not null)
             _requestRecoveryContext.IdentityChanged += OnIdentityChanged;
 
-        CoreObject? selectedObject = editViewModel?.GetService<IEditorSelection>()?.SelectedObject.Value;
-        SetFrame(
-            isFirstFrame: true,
-            AiImageEditDialogViewModel.GetSelectedImageSourcePath(selectedObject),
-            selectedObject is Element selectedElement ? selectedElement.Id.ToString("N") : null);
+        if (IsGeneration)
+        {
+            CoreObject? selectedObject = editViewModel?.GetService<IEditorSelection>()?.SelectedObject.Value;
+            SetFrame(
+                isFirstFrame: true,
+                AiImageEditDialogViewModel.GetSelectedImageSourcePath(selectedObject),
+                selectedObject is Element selectedElement ? selectedElement.Id.ToString("N") : null);
+        }
 
         _ = LoadEntitlementsAsync();
         TryAutoRecoverSingleAttempt();
