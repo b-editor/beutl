@@ -103,6 +103,84 @@ public sealed partial class AiCapabilityServiceTests
     [TestCase(AiSourceVideoMode.Edit)]
     [TestCase(AiSourceVideoMode.Extend)]
     [TestCase(AiSourceVideoMode.Motion)]
+    public async Task SourceVideoCleanup_PreservesCreatedJob(AiSourceVideoMode mode)
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """{"jobId":"job","status":"queued"}"""));
+        using var http = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var video = new ReferenceDisposalProbe(throws: true);
+        using var character = new ReferenceDisposalProbe(throws: true);
+        var request = new AiSourceVideoRequest(mode, "edit the scene",
+            new("source.mp4", "video/mp4", _ => ValueTask.FromResult<Stream>(video), 3),
+            durationSeconds: mode == AiSourceVideoMode.Edit ? null : 5,
+            characterImage: mode == AiSourceVideoMode.Motion
+                ? new("character.png", "image/png", _ => ValueTask.FromResult<Stream>(character), 3) : null);
+
+        var result = await app.GetResource<IAiVideoService>().CreateFromSourceAsync(request, CancellationToken.None);
+
+        Assert.That(result.JobId.Value, Is.EqualTo("job"));
+        Assert.That(handler.Requests, Has.Count.EqualTo(1));
+        Assert.That(video.AsyncDisposals, Is.EqualTo(1));
+        Assert.That(character.AsyncDisposals, Is.EqualTo(mode == AiSourceVideoMode.Motion ? 1 : 0));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task SourceVideoCleanup_PreservesApiErrorsAndCancellation(bool cancel)
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var handler = new RecordingHandler(_ =>
+        {
+            if (cancel)
+            {
+                cancellation.Cancel();
+                throw new OperationCanceledException(cancellation.Token);
+            }
+            return JsonResponse(HttpStatusCode.BadRequest, """{"error_code":"aiModelUnavailable","message":"Withdrawn model","documentation_url":null}""");
+        });
+        using var http = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var video = new ReferenceDisposalProbe(throws: true);
+        using var character = new ReferenceDisposalProbe(throws: true);
+        var request = new AiSourceVideoRequest(AiSourceVideoMode.Motion, "move the character",
+            new("source.mp4", "video/mp4", _ => ValueTask.FromResult<Stream>(video), 3), durationSeconds: 5,
+            characterImage: new("character.png", "image/png", _ => ValueTask.FromResult<Stream>(character), 3));
+
+        var error = Assert.CatchAsync<Exception>(async () =>
+            await app.GetResource<IAiVideoService>().CreateFromSourceAsync(request, cancellation.Token));
+
+        if (cancel) Assert.That(error, Is.InstanceOf<OperationCanceledException>());
+        else Assert.That(error, Is.TypeOf<AiModelUnavailableException>());
+        Assert.That(video.AsyncDisposals, Is.EqualTo(1));
+        Assert.That(character.AsyncDisposals, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task SourceVideoCleanup_PreservesCharacterOpenFailure()
+    {
+        using var handler = new RecordingHandler(_ => throw new AssertionException("No request should be sent."));
+        using var http = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var video = new ReferenceDisposalProbe(throws: true);
+        var openFailure = new IOException("Injected character open failure.");
+        var request = new AiSourceVideoRequest(AiSourceVideoMode.Motion, "move the character",
+            new("source.mp4", "video/mp4", _ => ValueTask.FromResult<Stream>(video), 3), durationSeconds: 5,
+            characterImage: new("character.png", "image/png", _ => ValueTask.FromException<Stream>(openFailure), 3));
+
+        var error = Assert.ThrowsAsync<IOException>(async () =>
+            await app.GetResource<IAiVideoService>().CreateFromSourceAsync(request, CancellationToken.None));
+
+        Assert.That(error, Is.SameAs(openFailure));
+        Assert.That(video.AsyncDisposals, Is.EqualTo(1));
+        Assert.That(handler.Requests, Is.Empty);
+    }
+
+    [TestCase(AiSourceVideoMode.Edit)]
+    [TestCase(AiSourceVideoMode.Extend)]
+    [TestCase(AiSourceVideoMode.Motion)]
     public async Task ProviderVideo_SourceUsesTheWebContractAndTheSameRetryKey(AiSourceVideoMode mode)
     {
         using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """{"jobId":"job","status":"queued"}"""));

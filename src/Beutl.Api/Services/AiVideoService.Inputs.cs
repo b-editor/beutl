@@ -10,17 +10,30 @@ internal sealed partial class AiVideoService
         ArgumentNullException.ThrowIfNull(request);
         string mode = request.Mode.ToString().ToLowerInvariant();
         string key = request.IdempotencyKey ?? CreateIdempotencyKey();
-        await using Stream video = await AiUploadValidation.OpenAsync(request.SourceVideo, AiVideoInputLimits.MaxSourceBytes, cancellationToken);
-        await using Stream? character = request.CharacterImage is null ? null
-            : await AiUploadValidation.OpenAsync(request.CharacterImage, AiRequestLimits.MaxFrameUploadBytes, cancellationToken);
-        return await ExecuteAsync("AiVideoService.FromSource",
-            (authorization, token) => Application.Ai.CreateSourceVideo(authorization, key, mode,
-                new StreamPart(video, request.SourceVideo.FileName, request.SourceVideo.MediaType),
-                character is null ? null : new StreamPart(character, request.CharacterImage!.FileName, request.CharacterImage.MediaType),
-                request.Prompt, request.DurationSeconds?.ToString(CultureInfo.InvariantCulture),
-                request.Mode == AiSourceVideoMode.Motion ? request.Orientation : null,
-                request.Mode == AiSourceVideoMode.Motion ? request.Quality : null, request.Model?.Value, token),
-            AiModelMapper.ToModel, cancellationToken);
+        var streams = new List<Stream>();
+        try
+        {
+            Stream video = await AiUploadValidation.OpenAsync(request.SourceVideo, AiVideoInputLimits.MaxSourceBytes, cancellationToken);
+            streams.Add(video);
+            Stream? character = null;
+            if (request.CharacterImage is not null)
+            {
+                character = await AiUploadValidation.OpenAsync(request.CharacterImage, AiRequestLimits.MaxFrameUploadBytes, cancellationToken);
+                streams.Add(character);
+            }
+            return await ExecuteAsync("AiVideoService.FromSource",
+                (authorization, token) => Application.Ai.CreateSourceVideo(authorization, key, mode,
+                    new StreamPart(video, request.SourceVideo.FileName, request.SourceVideo.MediaType),
+                    character is null ? null : new StreamPart(character, request.CharacterImage!.FileName, request.CharacterImage.MediaType),
+                    request.Prompt, request.DurationSeconds?.ToString(CultureInfo.InvariantCulture),
+                    request.Mode == AiSourceVideoMode.Motion ? request.Orientation : null,
+                    request.Mode == AiSourceVideoMode.Motion ? request.Quality : null, request.Model?.Value, token),
+                AiModelMapper.ToModel, cancellationToken);
+        }
+        finally
+        {
+            await DisposeReferenceStreamsAsync(streams);
+        }
     }
 
     private async Task<AiVideoGenerationResult> CreateFromReferencesAsync(AiVideoGenerationRequest request, CancellationToken cancellationToken)
