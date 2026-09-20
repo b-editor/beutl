@@ -26,6 +26,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     public bool IsSourceVideo => !IsGeneration;
     public bool IsMotionControl => SourceMode == AiSourceVideoMode.Motion;
     public bool CanChooseDuration => SourceMode != AiSourceVideoMode.Edit;
+    public string DurationLabel => SourceMode == AiSourceVideoMode.Extend ? Strings.AiVideoExtensionDuration : Strings.AiVideoDuration;
     public ObservableCollection<AiVideoInputGroup> ReferenceGroups { get; } = [];
     public ReactivePropertySlim<bool> HasReferenceControls { get; } = new();
     public ReactivePropertySlim<bool> ReferencesSuspended { get; } = new();

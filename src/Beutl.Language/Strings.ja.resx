@@ -1822,6 +1822,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiVideoDuration" xml:space="preserve">
     <value>長さ</value>
   </data>
+  <data name="AiVideoExtensionDuration" xml:space="preserve">
+    <value>延長する長さ</value>
+  </data>
   <data name="AiVideoResolution" xml:space="preserve">
     <value>解像度</value>
   </data>

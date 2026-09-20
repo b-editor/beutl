@@ -1828,6 +1828,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiVideoDuration" xml:space="preserve">
     <value>Duration</value>
   </data>
+  <data name="AiVideoExtensionDuration" xml:space="preserve">
+    <value>Extension duration</value>
+  </data>
   <data name="AiVideoResolution" xml:space="preserve">
     <value>Resolution</value>
   </data>

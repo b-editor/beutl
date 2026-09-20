@@ -70,13 +70,13 @@
                 </StackPanel>
                 <StackPanel x:Name="DurationField" Spacing="4" IsVisible="{CompiledBinding CanChooseDuration}">
                     <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="{x:Static lang:Strings.AiVideoDuration}" VerticalAlignment="Center" />
+                        <TextBlock Text="{CompiledBinding DurationLabel}" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1" Text="{CompiledBinding SelectedDuration.Value}" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                     </Grid>
                     <Slider Minimum="0" Maximum="{CompiledBinding MaxDurationIndex.Value}"
                             Value="{CompiledBinding DurationIndex.Value}" IsSnapToTickEnabled="True" TickFrequency="1" TickPlacement="BottomRight"
-                            AutomationProperties.Name="{x:Static lang:Strings.AiVideoDuration}" />
+                            AutomationProperties.Name="{CompiledBinding DurationLabel}" />
                 </StackPanel>
                 <StackPanel Spacing="8" IsVisible="{CompiledBinding IsMotionControl}" IsEnabled="{CompiledBinding !IsGenerating.Value}">
                     <StackPanel Spacing="4">
