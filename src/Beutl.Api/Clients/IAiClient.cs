@@ -78,8 +78,7 @@ internal interface IAiClient
         [Header("Authorization")] string authorization,
         [Header("Idempotency-Key")] string idempotencyKey,
         string mode,
-        [AliasAs("sourceVideo")] StreamPart? sourceVideo,
-        [AliasAs("sourceJobId")] string? sourceJobId,
+        [AliasAs("sourceVideo")] StreamPart sourceVideo,
         [AliasAs("characterImage")] StreamPart? characterImage,
         [AliasAs("prompt")] string prompt,
         [AliasAs("durationSeconds")] string? durationSeconds,
@@ -87,17 +86,6 @@ internal interface IAiClient
         [AliasAs("quality")] string? quality,
         [AliasAs("model")] string? model,
         CancellationToken cancellationToken);
-
-    [Post("/api/v3/ai/videos/{mode}")]
-    Task<CreateAiVideoResponse> CreateSourceVideoFromJob(
-        [Header("Authorization")] string authorization,
-        [Header("Idempotency-Key")] string idempotencyKey,
-        string mode, [Body] Dictionary<string, object> request,
-        CancellationToken cancellationToken);
-
-    [Get("/api/v3/ai/source-videos")]
-    Task<Beutl.Api.Services.AiSourceVideoPage> GetSourceVideos(
-        [Header("Authorization")] string authorization, CancellationToken cancellationToken);
 
     [Get("/api/v3/ai/videos/{id}")]
     Task<AiVideoJobResponse> GetVideoJob(

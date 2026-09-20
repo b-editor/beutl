@@ -30,16 +30,13 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     public ReactivePropertySlim<bool> HasReferenceControls { get; } = new();
     public ReactivePropertySlim<bool> ReferencesSuspended { get; } = new();
     public ReactivePropertySlim<string?> InputError { get; } = new();
+    public ReactivePropertySlim<bool> HasRequiredInputs { get; } = new();
     public ReactivePropertySlim<int> MaxPromptLength { get; } = new(AiRequestLimits.MaxPromptLength);
     public ReactivePropertySlim<string?> SourceVideoPath { get; } = new();
     public ReactivePropertySlim<double?> SourceDuration { get; } = new();
     public ReactivePropertySlim<string?> CharacterImagePath { get; } = new();
-    public ReactivePropertySlim<bool> UseGeneratedSource { get; } = new();
-    public ObservableCollection<AiSourceVideoChoice> SourceVideos { get; } = [];
-    public ReactivePropertySlim<AiSourceVideoChoice?> SelectedSourceVideo { get; } = new();
     public AsyncReactiveCommand SelectSourceVideo { get; private set; } = null!;
     public AsyncReactiveCommand SelectCharacterImage { get; private set; } = null!;
-    public AsyncReactiveCommand ReloadSourceVideos { get; private set; } = null!;
     public IReadOnlyList<AiVideoInputOption> Orientations { get; } = [new("video", Strings.AiSourceVideo), new("image", Strings.AiCharacterImage)];
     public IReadOnlyList<AiVideoInputOption> Qualities { get; } = [new("standard", Strings.AiMotionStandard), new("pro", Strings.AiMotionPro)];
     public ReactivePropertySlim<AiVideoInputOption> Orientation { get; } = new();
@@ -53,8 +50,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel
 
     private void InitializeVideoInputs()
     {
-        foreach (var property in new IDisposable[] { HasReferenceControls, ReferencesSuspended, InputError, MaxPromptLength,
-            SourceVideoPath, SourceDuration, CharacterImagePath, UseGeneratedSource, SelectedSourceVideo, Orientation, Quality })
+        foreach (var property in new IDisposable[] { HasReferenceControls, ReferencesSuspended, InputError, HasRequiredInputs, MaxPromptLength,
+            SourceVideoPath, SourceDuration, CharacterImagePath, Orientation, Quality })
             property.DisposeWith(_disposables);
         Orientation.Value = Orientations[0];
         Quality.Value = Qualities[0];
@@ -68,8 +65,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             .WithSubscribe(() => PickInputAsync("source")).DisposeWith(_disposables);
         SelectCharacterImage = new AsyncReactiveCommand(IsGenerating.Select(value => !value))
             .WithSubscribe(() => PickInputAsync("character")).DisposeWith(_disposables);
-        ReloadSourceVideos = new AsyncReactiveCommand(IsGenerating.Select(value => !value))
-            .WithSubscribe(LoadSourceVideosAsync).DisposeWith(_disposables);
         SourceVideoPath.Subscribe(_ => RefreshVideoInputs()).DisposeWith(_disposables);
         SourceDuration.Subscribe(_ =>
         {
@@ -78,22 +73,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         }).DisposeWith(_disposables);
         CharacterImagePath.Subscribe(_ => RefreshVideoInputs()).DisposeWith(_disposables);
         FirstFramePath.Subscribe(_ => RefreshVideoInputs()).DisposeWith(_disposables);
-        SelectedSourceVideo.Subscribe(choice =>
-        {
-            if (UseGeneratedSource.Value) SourceDuration.Value = choice?.Source.DurationSeconds;
-            RefreshVideoInputs();
-        }).DisposeWith(_disposables);
-        UseGeneratedSource.Subscribe(value =>
-        {
-            SourceDuration.Value = value ? SelectedSourceVideo.Value?.Source.DurationSeconds : _localSourceDuration;
-            if (value && IsSourceVideo) _ = LoadSourceVideosAsync();
-            RefreshVideoInputs();
-        }).DisposeWith(_disposables);
     }
 
     private sealed class VideoInputException(string message) : Exception(message);
 
-    private double? _localSourceDuration;
     private void RefreshVideoInputs()
     {
         var limits = ModelPicker.Selected.Value?.Model.Video ?? AiVideoModelCapabilities.Unrestricted;
@@ -110,14 +93,14 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         }
         HasReferenceControls.Value = ReferenceGroups.Any(group => group.IsVisible.Value);
         ReferencesSuspended.Value = IsGeneration && FirstFramePath.Value is not null && ReferenceGroups.Any(group => group.Files.Count > 0);
+        HasRequiredInputs.Value = IsGeneration || (SourceVideoPath.Value is not null && (!IsMotionControl || CharacterImagePath.Value is not null));
+        InputError.Value = null;
+        if (!HasRequiredInputs.Value) return;
         try
         {
             if (IsSourceVideo)
             {
-                if (UseGeneratedSource.Value ? SelectedSourceVideo.Value is null : SourceVideoPath.Value is null)
-                    throw new VideoInputException(Strings.AiChooseSourceVideo);
-                if (!UseGeneratedSource.Value)
-                    AiVideoInputLimits.Validate(Describe(SourceVideoPath.Value!), "video", _selectedRecovery is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes);
+                AiVideoInputLimits.Validate(Describe(SourceVideoPath.Value!), "video", _selectedRecovery is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes);
                 if (SourceDuration.Value is not { } seconds || !double.IsFinite(seconds) || seconds <= 0 || seconds > 60
                     || (_selectedRecovery is null && (seconds < (limits.MinSourceVideoSeconds ?? 0) || seconds > (limits.MaxSourceVideoSeconds ?? 60))))
                     throw new VideoInputException(Strings.AiModelDoesNotSupportRequest);
@@ -194,7 +177,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             }, operation.CancellationToken) : null;
             operation.TryPublish(() =>
             {
-                if (role == "source") { _localSourceDuration = duration; SourceVideoPath.Value = paths[0]; UseGeneratedSource.Value = false; SourceDuration.Value = duration; }
+                if (role == "source") { SourceVideoPath.Value = paths[0]; SourceDuration.Value = duration; }
                 else if (role == "character") CharacterImagePath.Value = paths[0];
                 else
                 {
@@ -209,34 +192,11 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         catch (Exception ex) { operation.TryPublish(() => Error.Value = ex is AiFileTooLargeException ? Strings.AiFileTooLarge : Strings.AiVideoInputUnavailable); }
     }
 
-    private async Task LoadSourceVideosAsync()
-    {
-        using var operation = TryEnterIdentityOperation();
-        if (operation is null) return;
-        try
-        {
-            var videos = await _videos.GetSourcesAsync(operation.CancellationToken);
-            operation.TryPublish(() =>
-            {
-                string? selected = SelectedSourceVideo.Value?.Source.JobId;
-                var retained = SelectedSourceVideo.Value;
-                SourceVideos.Clear();
-                foreach (var video in videos) SourceVideos.Add(new(video));
-                // A pending request still identifies the same source if it falls
-                // outside the recent picker page. Never silently choose another.
-                if (retained is not null && !SourceVideos.Any(item => item.Source.JobId == selected)) SourceVideos.Add(retained);
-                SelectedSourceVideo.Value = SourceVideos.FirstOrDefault(item => item.Source.JobId == selected);
-            });
-        }
-        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) { }
-        catch (Exception) { operation.TryPublish(() => Error.Value = Strings.AiVideoSourceLoadFailed); }
-    }
-
     private sealed record InputSnapshot(string Role, string Path, string Name, byte[] Bytes, AiUploadSource Upload);
     private async Task<InputSnapshot[]> ReadVideoInputsAsync(CancellationToken token, bool references)
     {
         var paths = new List<(string Role, string Path, string Name)>();
-        if (IsSourceVideo && !UseGeneratedSource.Value && SourceVideoPath.Value is { } source) paths.Add(("source-video", source, Path.GetFileName(source)));
+        if (IsSourceVideo && SourceVideoPath.Value is { } source) paths.Add(("source-video", source, Path.GetFileName(source)));
         if (IsMotionControl && CharacterImagePath.Value is { } image) paths.Add(("character-image", image, Path.GetFileName(image)));
         if (IsGeneration && references)
             foreach (var group in ReferenceGroups)
@@ -281,14 +241,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                 ReferenceGroups.Single(group => source.Role.StartsWith($"reference-{group.Kind}-", StringComparison.Ordinal)).Add(paths[i], source.Name);
         }
         var form = attempt.Form!;
-        _localSourceDuration = form.SourceVideoSeconds;
-        if (form.SourceJobId is { } id)
-        {
-            var choice = new AiSourceVideoChoice(new(id, null, form.SourceVideoSeconds ?? 0, default));
-            SourceVideos.Add(choice);
-            SelectedSourceVideo.Value = choice;
-        }
-        UseGeneratedSource.Value = form.SourceJobId is not null;
         SourceDuration.Value = form.SourceVideoSeconds;
         Orientation.Value = Orientations.FirstOrDefault(item => item.Value == form.VideoOrientation) ?? Orientations[0];
         Quality.Value = Qualities.FirstOrDefault(item => item.Value == form.VideoQuality) ?? Qualities[0];
@@ -302,11 +254,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         if (origin is null || target is null) return;
         origin.TryPublish(() => target.TryPublish(() =>
         {
-            _localSourceDuration = source._localSourceDuration;
             SourceVideoPath.Value = source.SourceVideoPath.Value;
-            if (source.SelectedSourceVideo.Value is { } choice && !SourceVideos.Any(item => item.Source.JobId == choice.Source.JobId)) SourceVideos.Add(choice);
-            SelectedSourceVideo.Value = source.SelectedSourceVideo.Value;
-            UseGeneratedSource.Value = source.UseGeneratedSource.Value;
             SourceDuration.Value = source.SourceDuration.Value;
             Prompt.Value = source.Prompt.Value;
             Style.Value = source.Style.Value;
@@ -319,13 +267,9 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     private void ClearVideoInputs()
     {
         foreach (var group in ReferenceGroups) group.Files.Clear();
-        UseGeneratedSource.Value = false;
         SourceVideoPath.Value = null;
         CharacterImagePath.Value = null;
-        _localSourceDuration = null;
         SourceDuration.Value = null;
-        SelectedSourceVideo.Value = null;
-        SourceVideos.Clear();
         Orientation.Value = Orientations[0];
         Quality.Value = Qualities[0];
     }
@@ -334,8 +278,4 @@ internal sealed partial class AiVideoGenerationDialogViewModel
 internal sealed record AiVideoInputOption(string Value, string DisplayName)
 {
     public override string ToString() => DisplayName;
-}
-internal sealed record AiSourceVideoChoice(AiSourceVideoOption Source)
-{
-    public override string ToString() => $"{Source.FileName ?? Source.JobId} · {Source.DurationSeconds:0.#} s";
 }

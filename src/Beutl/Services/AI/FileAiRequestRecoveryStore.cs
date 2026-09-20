@@ -61,6 +61,7 @@ internal sealed record AiRequestFormSnapshot(
     string? SourceElementId = null,
     string? FirstFrameElementId = null,
     string? LastFrameElementId = null,
+    // Read legacy attempts without making the rest of the recovery store unreadable.
     string? SourceJobId = null,
     double? SourceVideoSeconds = null,
     string? VideoOrientation = null,

@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -84,15 +85,12 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
-    public async Task ProviderEditing_UsesGeneratedSourceAndKeepsPendingModesIndependent()
+    public async Task ProviderEditing_LocalSourceKeepsPendingModesIndependent()
     {
         await TestReset.ResetShellAsync();
-        string job = Guid.NewGuid().ToString();
         var sent = new List<(string Key, string Body)>();
         using var handler = new StubHandler(async (request, token) =>
         {
-            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/source-videos")
-                return JsonResponse(HttpStatusCode.OK, "{\"videos\":[{\"jobId\":\"" + job + "\",\"fileName\":\"scene.mp4\",\"durationSeconds\":7,\"createdAt\":\"2026-09-20T00:00:00Z\"}]}");
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/videos/edit")
                 sent.Add((request.Headers.GetValues("Idempotency-Key").Single(), await request.Content!.ReadAsStringAsync(token)));
             return ProviderVideoResponse(request);
@@ -103,18 +101,18 @@ public sealed partial class AiDialogWorkflowTests
         using var context = CreateIdentityContext(() => "test-user");
         await using var vm = new AiVideoEditingViewModel(mode => CreateVideoGenerationDialog(clients, context: context, sourceMode: mode));
         var edit = vm.ActiveContent.Value!;
-        edit.UseGeneratedSource.Value = true;
-        await WaitUntilAsync(() => edit.SourceVideos.Count > 0);
-        edit.SelectedSourceVideo.Value = edit.SourceVideos.Single();
+        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, "edit-source.mp4");
+        await File.WriteAllBytesAsync(path, [1, 2, 3]);
+        edit.InputPicker = (_, _) => Task.FromResult<IReadOnlyList<string>>([path]);
+        edit.VideoDurationReader = _ => TimeSpan.FromSeconds(7);
+        await edit.SelectSourceVideo.ExecuteAsync();
         edit.Prompt.Value = "original";
         await WaitUntilAsync(() => edit.CanGenerate.Value);
         await edit.Generate.ExecuteAsync();
-        using var json = JsonDocument.Parse(sent[0].Body);
-        Assert.That(json.RootElement.GetProperty("sourceJobId").GetString(), Is.EqualTo(job));
-        Assert.That(json.RootElement.TryGetProperty("durationSeconds", out _), Is.False);
+        Assert.That(sent[0].Body, Does.Contain("edit-source.mp4").And.Not.Contain("sourceJobId"));
         vm.SelectedTask.Value = vm.Tasks.Single(task => task.Mode == AiSourceVideoMode.Extend);
         var extend = vm.ActiveContent.Value!;
-        Assert.That(extend.SelectedSourceVideo.Value!.Source.JobId, Is.EqualTo(job));
+        Assert.That(extend.SourceVideoPath.Value, Is.EqualTo(path));
         Assert.That(extend.Prompt.Value, Is.EqualTo("original"));
         extend.Prompt.Value = "new intent";
         vm.SelectedTask.Value = vm.Tasks[0];
@@ -150,6 +148,8 @@ public sealed partial class AiDialogWorkflowTests
         {
             group.SelectedTask.Value = task;
             await WaitUntilAsync(() => group.ActiveContent.Value!.ModelPicker.IsLoaded.Value);
+            Assert.That(group.ActiveContent.Value!.InputError.Value, Is.Null);
+            Assert.That(group.ActiveContent.Value!.CanGenerate.Value, Is.False);
             var view = new AiVideoEditingView { DataContext = group };
             var window = new Window { Content = view, Width = width, Height = 1000, RequestedThemeVariant = width == 320 ? ThemeVariant.Dark : ThemeVariant.Light };
             try
@@ -158,6 +158,15 @@ public sealed partial class AiDialogWorkflowTests
                 Assert.That(view.FindControl<ComboBox>("TaskPicker")!.Items.Count, Is.EqualTo(3));
                 foreach (var scroll in view.GetLogicalDescendants().OfType<ScrollViewer>())
                     Assert.That(scroll.Extent.Width, Is.LessThanOrEqualTo(scroll.Viewport.Width + 1));
+                Assert.That(view.GetLogicalDescendants().OfType<AiPromptTemplatesView>(), Is.Empty);
+                Assert.That(view.GetLogicalDescendants().OfType<AiPromptHistoryButton>(), Is.Empty);
+                Assert.That(view.GetLogicalDescendants().OfType<ScrollViewer>().Count(scroll => scroll.Parent is AiVideoEditingView), Is.EqualTo(1));
+                var sourceField = view.GetLogicalDescendants().OfType<StackPanel>().Single(panel => panel.Name == "SourceField");
+                var modelField = view.GetLogicalDescendants().OfType<StackPanel>().Single(panel => panel.Name == "ModelField");
+                var promptField = view.GetLogicalDescendants().OfType<StackPanel>().Single(panel => panel.Name == "PromptField");
+                double Top(Control control) => control.TranslatePoint(default, view)!.Value.Y;
+                Assert.That(Top(sourceField), Is.LessThan(Top(view.FindControl<StackPanel>("TaskField")!)));
+                Assert.That(Top(modelField), Is.LessThanOrEqualTo(Top(promptField)));
                 Directory.CreateDirectory("/tmp/beutl-provider-scoped-ui");
                 using var frame = window.CaptureRenderedFrame();
                 frame?.Save($"/tmp/beutl-provider-scoped-ui/{task.Mode}-{width}.png", PngBitmapEncoderOptions.Default);

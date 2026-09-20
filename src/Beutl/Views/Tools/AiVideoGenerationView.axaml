@@ -40,42 +40,6 @@
                     </WrapPanel>
                 </StackPanel>
             </Border>
-            <StackPanel IsVisible="{CompiledBinding IsSourceVideo}" IsEnabled="{CompiledBinding !IsGenerating.Value}" Spacing="6">
-                <TextBlock Text="{x:Static lang:Strings.AiSourceVideo}" />
-                <CheckBox IsChecked="{CompiledBinding UseGeneratedSource.Value}" Content="{x:Static lang:Strings.AiUseGeneratedSource}" />
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" IsVisible="{CompiledBinding UseGeneratedSource.Value}">
-                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{CompiledBinding SourceVideos}"
-                              SelectedItem="{CompiledBinding SelectedSourceVideo.Value}" AutomationProperties.Name="{x:Static lang:Strings.AiSourceVideo}" />
-                    <Button Grid.Column="1" Command="{CompiledBinding ReloadSourceVideos}" Padding="6"
-                            Theme="{StaticResource TransparentButton}" ToolTip.Tip="{x:Static lang:Strings.Refresh}"
-                            AutomationProperties.Name="{x:Static lang:Strings.Refresh}">
-                        <icons:FluentIcon Icon="ArrowSync" FontSize="16" />
-                    </Button>
-                </Grid>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" IsVisible="{CompiledBinding !UseGeneratedSource.Value}">
-                    <TextBlock Text="{CompiledBinding SourceVideoPath.Value}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                               ToolTip.Tip="{CompiledBinding SourceVideoPath.Value}" />
-                    <Button Grid.Column="1" Command="{CompiledBinding SelectSourceVideo}" Content="{x:Static lang:Strings.AiEditBrowse}"
-                            AutomationProperties.Name="{x:Static lang:Strings.AiSourceVideo}" />
-                </Grid>
-                <TextBlock Text="{x:Static lang:Strings.AiSourceVideoHelp}" FontSize="11" TextWrapping="Wrap"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                <StackPanel IsVisible="{CompiledBinding IsMotionControl}" Spacing="6">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                        <TextBlock Text="{x:Static lang:Strings.AiCharacterImage}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Command="{CompiledBinding SelectCharacterImage}" Content="{x:Static lang:Strings.AiEditBrowse}"
-                                AutomationProperties.Name="{x:Static lang:Strings.AiCharacterImage}" />
-                    </Grid>
-                    <TextBlock Text="{CompiledBinding CharacterImagePath.Value}" TextTrimming="CharacterEllipsis"
-                               ToolTip.Tip="{CompiledBinding CharacterImagePath.Value}" />
-                    <TextBlock Text="{x:Static lang:Strings.AiMotionOrientation}" />
-                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{CompiledBinding Orientations}"
-                              SelectedItem="{CompiledBinding Orientation.Value}" AutomationProperties.Name="{x:Static lang:Strings.AiMotionOrientation}" />
-                    <TextBlock Text="{x:Static lang:Strings.AiMotionQuality}" />
-                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{CompiledBinding Qualities}"
-                              SelectedItem="{CompiledBinding Quality.Value}" AutomationProperties.Name="{x:Static lang:Strings.AiMotionQuality}" />
-                </StackPanel>
-            </StackPanel>
             <Expander Header="{x:Static lang:Strings.AiPromptTemplates}">
                 <tools:AiPromptTemplatesView Margin="0,8,0,0"
                                              DataContext="{CompiledBinding PromptLibrary}" />

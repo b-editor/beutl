@@ -91,6 +91,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         AiSourceVideoMode? sourceMode = null)
     {
         SourceMode = sourceMode;
+        StatusText.Value = InitialStatusText;
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _availability = availability ?? throw new ArgumentNullException(nameof(availability));
         _modelCatalog = modelCatalog ?? throw new ArgumentNullException(nameof(modelCatalog));
@@ -235,7 +236,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                 Motion,
                 Exclusions,
                 (prompt, style, composition, motion, exclusions) =>
-                    AiPromptComposer.GetValidationError(new AiPromptParts(
+                    IsSourceVideo ? (string.IsNullOrWhiteSpace(prompt) ? Strings.AiPromptRequired : null) : AiPromptComposer.GetValidationError(new AiPromptParts(
                         prompt,
                         style,
                         composition,
@@ -264,6 +265,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
 
         CanGenerate = PromptValidationError.CombineLatest(InputError, (prompt, input) => prompt ?? input)
             .CombineLatest(IsGenerating, (error, generating) => error is null && !generating)
+            .CombineLatest(HasRequiredInputs, (can, ready) => can && ready)
             .CombineLatest(
                 FirstFramePath,
                 LastFramePath,
@@ -662,6 +664,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
 
     public ReactivePropertySlim<string?> ResultVideoPath { get; } = new();
 
+    private string InitialStatusText => IsGeneration ? Strings.AiVideoIdle : Strings.AiVideoEditingIdle;
+
     public ReactivePropertySlim<string> StatusText { get; } = new(Strings.AiVideoIdle);
 
     internal AiUsageViewModel Usage { get; }
@@ -903,7 +907,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             RequestTemporaryFileDeletion(resultPath);
         ResultVideoPath.Value = null;
         _resultSnapshot = null;
-        StatusText.Value = Strings.AiVideoIdle;
+        StatusText.Value = InitialStatusText;
         Error.Value = null;
         ModelPicker.ReconcileRecoveryModels();
         ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
@@ -916,6 +920,13 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             || !StringComparer.Ordinal.Equals(account, attempt.AccountId))
         {
             Error.Value = Strings.AiAuthenticationRequired;
+            return false;
+        }
+        // Old job-based attempts remain listed for explicit abandonment; they
+        // cannot be converted into a new uploaded-source request.
+        if (attempt.Form?.SourceJobId is not null)
+        {
+            Error.Value = Strings.AiResultUnavailable;
             return false;
         }
         if (!attempt.HasCanonicalForm
@@ -950,11 +961,13 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         _applyingCapabilities = true;
         try
         {
-            Prompt.Value = form.Prompt ?? string.Empty;
-            Style.Value = form.Style ?? string.Empty;
-            Composition.Value = form.Composition ?? string.Empty;
-            Motion.Value = form.Motion ?? string.Empty;
-            Exclusions.Value = form.Exclusions ?? string.Empty;
+            Prompt.Value = IsSourceVideo
+                ? AiPromptComposer.Compose(new AiPromptParts(form.Prompt ?? string.Empty, form.Style, form.Composition, form.Motion, form.Exclusions))
+                : form.Prompt ?? string.Empty;
+            Style.Value = IsGeneration ? form.Style ?? string.Empty : string.Empty;
+            Composition.Value = IsGeneration ? form.Composition ?? string.Empty : string.Empty;
+            Motion.Value = IsGeneration ? form.Motion ?? string.Empty : string.Empty;
+            Exclusions.Value = IsGeneration ? form.Exclusions ?? string.Empty : string.Empty;
             _chosenDuration = form.DurationSeconds is { } seconds
                 ? new AiVideoDurationOption(seconds)
                 : SelectedDuration.Value;
@@ -1381,7 +1394,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             string? lastFramePath = LastFramePath.Value;
             string? firstFrameElementId = _firstFrameElementId;
             string? lastFrameElementId = _lastFrameElementId;
-            string? sourceJobId = IsSourceVideo && UseGeneratedSource.Value ? SelectedSourceVideo.Value?.Source.JobId : null;
             double? sourceSeconds = SourceDuration.Value;
             string orientation = Orientation.Value.Value;
             string quality = Quality.Value.Value;
@@ -1426,7 +1438,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                 lastFrameStamp,
             ];
             if (inputs.Length > 0 || IsSourceVideo)
-                requestParts = requestParts.Concat(new string?[] { sourceJobId, IsMotionControl ? orientation : null, IsMotionControl ? quality : null }
+                requestParts = requestParts.Concat(new string?[] { null, IsMotionControl ? orientation : null, IsMotionControl ? quality : null }
                     .Concat(inputs.Select(input => input.Role + ":" + input.Upload.MediaType + ":" + AiRequestKey.ContentStamp(input.Bytes)))).ToArray();
             AiModelId? model = ModelForRequest(ModelPicker.SelectedModel);
             requestParts[ModelPartIndex] = model?.Value;
@@ -1447,7 +1459,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                 SupportsLastFrame: SupportsLastFrame.Value,
                 FirstFrameElementId: firstFrameElementId,
                 LastFrameElementId: lastFrameElementId,
-                SourceJobId: sourceJobId, SourceVideoSeconds: sourceSeconds,
+                SourceVideoSeconds: sourceSeconds,
                 VideoOrientation: IsMotionControl ? orientation : null,
                 VideoQuality: IsMotionControl ? quality : null,
                 VideoPromptLimit: promptLimit);
@@ -1546,8 +1558,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                 _requestKey.MarkClaimDispatched(claim);
                 response = SourceMode is { } mode
                     ? await _videos.CreateFromSourceAsync(new AiSourceVideoRequest(mode, prompt,
-                        sourceVideo: inputs.FirstOrDefault(input => input.Role == "source-video")?.Upload,
-                        sourceJobId: sourceJobId is { } sourceId ? new AiJobId(sourceId) : null,
+                        sourceVideo: inputs.FirstOrDefault(input => input.Role == "source-video")?.Upload
+                            ?? throw new InvalidDataException(Strings.AiVideoInputUnavailable),
                         durationSeconds: mode == AiSourceVideoMode.Edit ? null : durationSeconds,
                         characterImage: inputs.FirstOrDefault(input => input.Role == "character-image")?.Upload,
                         orientation: orientation, quality: quality, model: model, idempotencyKey: name.Key), operation.CancellationToken)
@@ -1579,7 +1591,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             var pendingSnapshot = new AiVideoResultSnapshot(durationSeconds);
             if (!operation.TryPublish(() =>
                 {
-                    PromptLibrary.Record(prompt);
+                    if (IsGeneration) PromptLibrary.Record(prompt);
                 }))
             {
                 return;
@@ -2248,7 +2260,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             || extension.Equals(".mov", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase);
 
-    private string ComposePrompt() => AiPromptComposer.Compose(new AiPromptParts(
+    private string ComposePrompt() => IsSourceVideo ? Prompt.Value.Trim() : AiPromptComposer.Compose(new AiPromptParts(
         Prompt.Value,
         Style.Value,
         Composition.Value,

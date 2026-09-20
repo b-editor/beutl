@@ -1,22 +1,17 @@
-﻿using System.Text.Json.Serialization;
-
-namespace Beutl.Api.Services;
+﻿namespace Beutl.Api.Services;
 
 public enum AiSourceVideoMode { Edit, Extend, Motion }
 
 public sealed record AiSourceVideoRequest
 {
     public AiSourceVideoRequest(AiSourceVideoMode mode, string prompt,
-        AiUploadSource? sourceVideo = null, AiJobId? sourceJobId = null,
+        AiUploadSource sourceVideo,
         int? durationSeconds = null, AiUploadSource? characterImage = null,
         string orientation = "video", string quality = "standard",
         AiModelId? model = null, string? idempotencyKey = null)
     {
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
-        if ((sourceVideo is null) == (sourceJobId is null))
-            throw new ArgumentException("Exactly one source video is required.");
-        if (sourceJobId is { } job && !Guid.TryParse(job.Value, out _))
-            throw new ArgumentException("The source job must be a UUID.", nameof(sourceJobId));
+        ArgumentNullException.ThrowIfNull(sourceVideo);
         if (mode == AiSourceVideoMode.Edit && durationSeconds is not null)
             throw new ArgumentException("An edit follows the source duration.", nameof(durationSeconds));
         if (mode != AiSourceVideoMode.Edit)
@@ -25,12 +20,11 @@ public sealed record AiSourceVideoRequest
             throw new ArgumentException("Only motion control requires a character image.");
         if (orientation is not ("image" or "video") || quality is not ("standard" or "pro"))
             throw new ArgumentException("Unsupported motion options.");
-        if (sourceVideo is not null) AiVideoInputLimits.Validate(sourceVideo, "video", AiVideoInputLimits.MaxSourceBytes);
+        AiVideoInputLimits.Validate(sourceVideo, "video", AiVideoInputLimits.MaxSourceBytes);
         if (characterImage is not null) AiVideoInputLimits.Validate(characterImage, "image", AiRequestLimits.MaxFrameUploadBytes);
         Mode = mode;
         Prompt = AiRequestLimits.ValidatePrompt(prompt, nameof(prompt));
         SourceVideo = sourceVideo;
-        SourceJobId = sourceJobId;
         DurationSeconds = durationSeconds;
         CharacterImage = characterImage;
         Orientation = orientation;
@@ -41,8 +35,7 @@ public sealed record AiSourceVideoRequest
 
     public AiSourceVideoMode Mode { get; }
     public string Prompt { get; }
-    public AiUploadSource? SourceVideo { get; }
-    public AiJobId? SourceJobId { get; }
+    public AiUploadSource SourceVideo { get; }
     public int? DurationSeconds { get; }
     public AiUploadSource? CharacterImage { get; }
     public string Orientation { get; }
@@ -50,14 +43,6 @@ public sealed record AiSourceVideoRequest
     public AiModelId? Model { get; }
     public string? IdempotencyKey { get; }
 }
-
-public sealed record AiSourceVideoOption(
-    [property: JsonPropertyName("jobId")] string JobId,
-    [property: JsonPropertyName("fileName")] string? FileName,
-    [property: JsonPropertyName("durationSeconds")] double DurationSeconds,
-    [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt);
-
-internal sealed record AiSourceVideoPage([property: JsonPropertyName("videos")] AiSourceVideoOption[] Videos);
 
 internal static class AiVideoInputLimits
 {

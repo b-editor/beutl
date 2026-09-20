@@ -3055,9 +3055,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiVideoReferencePaused" xml:space="preserve">
     <value>開始フレームの指定中は、参照素材を保持して送信対象から外します。</value>
   </data>
-  <data name="AiChooseSourceVideo" xml:space="preserve">
-    <value>素材動画を選択してください。</value>
-  </data>
   <data name="AiChooseCharacterImage" xml:space="preserve">
     <value>人物・キャラクター画像を選択してください。</value>
   </data>
@@ -3067,12 +3064,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiVideoInputUnavailable" xml:space="preserve">
     <value>素材を読み込めません。対応するファイルを選択してください。</value>
   </data>
-  <data name="AiVideoSourceLoadFailed" xml:space="preserve">
-    <value>生成済み動画を読み込めませんでした。</value>
-  </data>
-  <data name="AiUseGeneratedSource" xml:space="preserve">
-    <value>生成済みの動画を使う</value>
-  </data>
   <data name="AiSourceVideoHelp" xml:space="preserve">
     <value>MP4 / WebM、32 MiB まで。編集では素材の長さを使い、延長では追加する長さを指定します。</value>
   </data>
@@ -3081,5 +3072,14 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiMotionQuality" xml:space="preserve">
     <value>品質</value>
+  </data>
+  <data name="AiVideoNoSourceSelected" xml:space="preserve">
+    <value>動画が選択されていません</value>
+  </data>
+  <data name="AiVideoEditPromptPlaceholder" xml:space="preserve">
+    <value>動画をどのように編集するか入力してください…</value>
+  </data>
+  <data name="AiVideoEditingIdle" xml:space="preserve">
+    <value>動画とタスクを選択して「実行」をクリックしてください。</value>
   </data>
 </root>
