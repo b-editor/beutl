@@ -302,7 +302,8 @@ public sealed class AiCompactPresentationTests
             Expander details = FindExpander(view, Strings.AiPromptDetails);
             Expander frames = FindExpander(view, Strings.AiVideoFrameGuidanceHeader);
             TextBox prompt = view.GetLogicalDescendants().OfType<TextBox>().First(box => box.AcceptsReturn);
-            CheckBox generateAudio = view.GetLogicalDescendants().OfType<CheckBox>().Single();
+            CheckBox generateAudio = view.GetLogicalDescendants().OfType<CheckBox>()
+                .Single(box => Equals(box.Content, Strings.AiGenerateAudio));
             Button generate = view.GetLogicalDescendants()
                 .OfType<Button>()
                 .Single(button => ReferenceEquals(button.Command, viewModel.Generate));

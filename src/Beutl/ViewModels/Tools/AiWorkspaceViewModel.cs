@@ -22,6 +22,7 @@ internal enum AiWorkspaceSection
     VideoGeneration,
     Subtitles,
     Jobs,
+    VideoEditing,
 }
 
 /// <summary>
@@ -156,6 +157,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             Section(AiWorkspaceSection.ImageGeneration, Strings.AiImageGeneration, Icon.SparkleCircle),
             Section(AiWorkspaceSection.ImageEdit, Strings.AiImageEdit, Icon.ImageEdit),
             Section(AiWorkspaceSection.VideoGeneration, Strings.AiVideoGeneration, Icon.Video),
+            Section(AiWorkspaceSection.VideoEditing, Strings.AiVideoEditing, Icon.VideoClipWand),
             Section(AiWorkspaceSection.Subtitles, Strings.AiSubtitle, Icon.Subtitles),
             Section(AiWorkspaceSection.Jobs, Strings.AiJobCenter, Icon.History),
         ];
@@ -667,7 +669,11 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             && value.TryGetValue(out string? name)
             && Enum.TryParse(name, out AiWorkspaceSection section))
         {
-            Show(section);
+            object content = Show(section);
+            if (content is AiVideoEditingViewModel editing && json["videoMode"] is JsonValue task
+                && task.TryGetValue(out string? mode) && Enum.TryParse<AiSourceVideoMode>(mode, out var parsed)
+                && editing.Tasks.FirstOrDefault(item => item.Mode == parsed) is { } selected)
+                editing.SelectedTask.Value = selected;
         }
     }
 
@@ -677,6 +683,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         if (SelectedSection.Value is { } section)
         {
             json["section"] = section.Id.ToString();
+            if (section.Content is AiVideoEditingViewModel editing) json["videoMode"] = editing.SelectedTask.Value.Mode.ToString();
         }
     }
 
