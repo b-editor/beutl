@@ -261,12 +261,12 @@ public sealed class PackageInstallerDisposeTests
             var stopwatch = Stopwatch.StartNew();
             Task dispose = installer.DisposeAsync().AsTask();
             Assert.That(dispose.IsCompleted, Is.False, "disposal must first wait for the drain deadline");
-            Task checkpoint = Task.Delay(TimeSpan.FromMilliseconds(100));
-            Assert.That(await Task.WhenAny(dispose, checkpoint), Is.SameAs(checkpoint),
-                "disposal must remain pending at a checkpoint before its 500 ms drain deadline");
-            await dispose.WaitAsync(TimeSpan.FromSeconds(10));
+            TimeSpan completedAfter = await CaptureCompletionTime(dispose, stopwatch)
+                .WaitAsync(TimeSpan.FromSeconds(10));
             stopwatch.Stop();
 
+            Assert.That(completedAfter, Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100)),
+                "disposal must remain pending for the initial part of its 500 ms drain deadline");
             Assert.That(operation.IsCompleted, Is.False);
             Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)),
                 "disposal must stop waiting at the drain deadline even when an operation never completes");
@@ -528,12 +528,12 @@ public sealed class PackageInstallerDisposeTests
             var stopwatch = Stopwatch.StartNew();
             Task idle = installer.WaitUntilIdleAsync(TimeSpan.FromMilliseconds(300));
             Assert.That(idle.IsCompleted, Is.False, "the idle wait must first wait for its timeout");
-            Task checkpoint = Task.Delay(TimeSpan.FromMilliseconds(100));
-            Assert.That(await Task.WhenAny(idle, checkpoint), Is.SameAs(checkpoint),
-                "the idle wait must remain pending at a checkpoint before its 300 ms timeout");
-            await idle.WaitAsync(TimeSpan.FromSeconds(5));
+            TimeSpan completedAfter = await CaptureCompletionTime(idle, stopwatch)
+                .WaitAsync(TimeSpan.FromSeconds(5));
             stopwatch.Stop();
 
+            Assert.That(completedAfter, Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100)),
+                "the idle wait must remain pending for the initial part of its 300 ms timeout");
             Assert.That(operation.IsCompleted, Is.False);
             Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(3)));
         }
@@ -690,6 +690,17 @@ public sealed class PackageInstallerDisposeTests
 
         Assert.That(condition(), Is.True, "condition did not become true within the timeout");
     }
+
+    // Observe completion before the awaiting test continuation can be delayed. The assertions use
+    // a conservative 100 ms minimum, well below both deadlines, so timer rounding cannot fail them.
+    // A second Task.Delay would race the real deadline when a busy timer queue drains both at once.
+    private static Task<TimeSpan> CaptureCompletionTime(Task task, Stopwatch stopwatch)
+        => task.ContinueWith(completed =>
+        {
+            TimeSpan elapsed = stopwatch.Elapsed;
+            completed.GetAwaiter().GetResult();
+            return elapsed;
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
 
     private sealed class ShortDeadlinePackageInstaller : PackageInstaller
     {
