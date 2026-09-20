@@ -180,10 +180,15 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             .DisposeWith(_disposables);
         Seed = new ReactivePropertySlim<int?>()
             .DisposeWith(_disposables);
-        // A model that cannot be given a shape must not be offered one, so the
-        // lists are rebuilt from whichever model is chosen.
-        ModelPicker.Filter = model =>
-            model.Video is not { } video || (IsSourceVideo ? !video.DurationsSeconds.IsSpecified || !video.DurationsSeconds.Values.IsEmpty : video.CanServeAnything());
+        // Require only dimensions sent by this operation: edits inherit the
+        // source length and shape; extension and motion choose only a length.
+        ModelPicker.Filter = model => model.Video is not { } video || (SourceMode switch
+        {
+            AiSourceVideoMode.Edit => true,
+            AiSourceVideoMode.Extend or AiSourceVideoMode.Motion =>
+                !video.DurationsSeconds.IsSpecified || !video.DurationsSeconds.Values.IsEmpty,
+            _ => video.CanServeAnything(),
+        });
         SelectedDuration.Subscribe(option =>
             {
                 if (!_applyingCapabilities)
@@ -451,7 +456,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     {
         // The model's own lists, already narrowed to what the server accepts.
         // The client's own are a fallback for a server that publishes none.
-        IEnumerable<int> durations = video.DurationsSeconds.IsSpecified
+        IEnumerable<int> durations = CanChooseDuration && video.DurationsSeconds.IsSpecified
             ? video.DurationsSeconds.Values
             : DefaultDurations;
         var availableDurations = durations.ToList();
@@ -465,7 +470,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         MaxDurationIndex.Value = DurationOptions.Count - 1;
         DurationIndex.Value = IndexOfDuration(SelectedDuration.Value);
 
-        IEnumerable<string> resolutions = video.Resolutions.IsSpecified
+        IEnumerable<string> resolutions = IsGeneration && video.Resolutions.IsSpecified
             ? video.Resolutions.Values
             : DefaultResolutions;
         var availableResolutions = resolutions.ToList();
@@ -477,7 +482,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             ResolutionOptions.FirstOrDefault(option => option.Value == _chosenResolution?.Value)
             ?? ResolutionOptions[0];
 
-        IEnumerable<string> aspectRatios = video.AspectRatios.IsSpecified
+        IEnumerable<string> aspectRatios = IsGeneration && video.AspectRatios.IsSpecified
             ? video.AspectRatios.Values
             : DefaultAspectRatios;
         var availableAspectRatios = aspectRatios.ToList();
