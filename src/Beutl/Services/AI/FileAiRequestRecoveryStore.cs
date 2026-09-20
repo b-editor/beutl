@@ -1924,8 +1924,8 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             ValidateOptionalText(form.SourceElementId, MaximumScalarLength, nameof(form.SourceElementId));
             ValidateOptionalText(form.FirstFrameElementId, MaximumScalarLength, nameof(form.FirstFrameElementId));
             ValidateOptionalText(form.LastFrameElementId, MaximumScalarLength, nameof(form.LastFrameElementId));
-            if ((form.SourceJobId is { } sourceJob && !Guid.TryParse(sourceJob, out _))
-                || (form.SourceVideoSeconds is { } sourceSeconds && (!double.IsFinite(sourceSeconds) || sourceSeconds <= 0 || sourceSeconds > 60))
+            ValidateOptionalText(form.SourceJobId, MaximumScalarLength, nameof(form.SourceJobId));
+            if ((form.SourceVideoSeconds is { } sourceSeconds && (!double.IsFinite(sourceSeconds) || sourceSeconds <= 0 || sourceSeconds > 60))
                 || form.VideoOrientation is not (null or "image" or "video")
                 || form.VideoQuality is not (null or "standard" or "pro")
                 || form.VideoPromptLimit is < 1 or > AiRequestLimits.MaxPromptLength)
