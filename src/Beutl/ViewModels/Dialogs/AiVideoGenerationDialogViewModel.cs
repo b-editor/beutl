@@ -961,9 +961,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         _applyingCapabilities = true;
         try
         {
-            Prompt.Value = IsSourceVideo
-                ? AiPromptComposer.Compose(new AiPromptParts(form.Prompt ?? string.Empty, form.Style, form.Composition, form.Motion, form.Exclusions))
-                : form.Prompt ?? string.Empty;
+            Prompt.Value = form.Prompt ?? string.Empty;
             Style.Value = IsGeneration ? form.Style ?? string.Empty : string.Empty;
             Composition.Value = IsGeneration ? form.Composition ?? string.Empty : string.Empty;
             Motion.Value = IsGeneration ? form.Motion ?? string.Empty : string.Empty;

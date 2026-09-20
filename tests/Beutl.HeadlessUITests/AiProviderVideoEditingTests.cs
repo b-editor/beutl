@@ -27,6 +27,7 @@ public sealed partial class AiDialogWorkflowTests
     public async Task ProviderEditing_PreservesSourceModeOptionsAndRequestKeyAcrossRestart(AiSourceVideoMode mode)
     {
         await TestReset.ResetShellAsync();
+        const string originalPrompt = "  change  the sky\nkeep\tmy subject  ";
         var sent = new List<(string Key, string Body)>();
         string route = "/api/v3/ai/videos/" + mode.ToString().ToLowerInvariant();
         using var handler = new StubHandler(async (request, token) =>
@@ -56,13 +57,13 @@ public sealed partial class AiDialogWorkflowTests
                 vm.Orientation.Value = vm.Orientations[1];
                 vm.Quality.Value = vm.Qualities[1];
             }
-            vm.Prompt.Value = "change the sky";
+            vm.Prompt.Value = originalPrompt;
             await WaitUntilAsync(() => vm.CanGenerate.Value);
             if (mode == AiSourceVideoMode.Edit)
             {
                 vm.Prompt.Value = new string('a', 81);
                 Assert.That(vm.CanGenerate.Value, Is.False);
-                vm.Prompt.Value = "change the sky";
+                vm.Prompt.Value = originalPrompt;
             }
             await vm.Generate.ExecuteAsync();
             Assert.That(sent, Has.Count.EqualTo(1), vm.Error.Value);
@@ -72,6 +73,7 @@ public sealed partial class AiDialogWorkflowTests
         await using var restored = CreateVideoGenerationDialog(clients, context: context, sourceMode: mode);
         await WaitUntilAsync(() => restored.CanGenerate.Value);
         Assert.That(restored.SourceDuration.Value, Is.EqualTo(7));
+        Assert.That(restored.Prompt.Value, Is.EqualTo(originalPrompt));
         Assert.That(restored.SourceVideoPath.Value, Is.EqualTo(source));
         if (mode == AiSourceVideoMode.Motion)
         {
