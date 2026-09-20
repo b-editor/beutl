@@ -80,7 +80,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     private void RefreshVideoInputs()
     {
         var limits = ModelPicker.Selected.Value?.Model.Video ?? AiVideoModelCapabilities.Unrestricted;
-        MaxPromptLength.Value = _selectedRecovery?.Form?.VideoPromptLimit ?? limits.MaxPromptLength;
+        // Legacy pending requests used the global limit before per-model limits were saved.
+        MaxPromptLength.Value = _selectedRecovery is { } recovery
+            ? recovery.Form?.VideoPromptLimit ?? AiRequestLimits.MaxPromptLength
+            : limits.MaxPromptLength;
         foreach (var group in ReferenceGroups)
         {
             (int count, long bytes) = group.Kind switch
