@@ -25,7 +25,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer
+internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
@@ -87,8 +87,10 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         IAiJobKindRegistry jobKinds,
         IAiJobMonitor jobMonitor,
         EditViewModel? editViewModel,
-        AiRequestRecoveryContext requestRecoveryContext)
+        AiRequestRecoveryContext requestRecoveryContext,
+        AiSourceVideoMode? sourceMode = null)
     {
+        SourceMode = sourceMode;
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _availability = availability ?? throw new ArgumentNullException(nameof(availability));
         _modelCatalog = modelCatalog ?? throw new ArgumentNullException(nameof(modelCatalog));
@@ -102,7 +104,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         _requestRecoveryContext = requestRecoveryContext;
         _requestKey = new(
             recoveryContext: requestRecoveryContext,
-            operation: "video.generate");
+            operation: Operation.Value);
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
         ModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
             .DisposeWith(_disposables);
@@ -137,16 +139,16 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             _availabilityLifetimeCts.Token);
         SelectedDuration.Subscribe(option =>
                 _availabilityTracker.Check(new AiOperationAvailabilityRequest.Video(
-                    AiOperations.VideoGeneration,
-                    option.Seconds,
+                    Operation,
+                    RequestDuration,
                     ModelPicker.SelectedModel)))
             .DisposeWith(_disposables);
         // A dearer model can put the same clip out of reach, so the estimate
         // has to be re-asked when the choice changes.
         ModelPicker.Selected.Subscribe(_ =>
                 _availabilityTracker.Check(new AiOperationAvailabilityRequest.Video(
-                    AiOperations.VideoGeneration,
-                    SelectedDuration.Value.Seconds,
+                    Operation,
+                    RequestDuration,
                     ModelPicker.SelectedModel)))
             .DisposeWith(_disposables);
         EstimatedUsage = new AiUsageEstimateViewModel(
@@ -180,7 +182,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         // A model that cannot be given a shape must not be offered one, so the
         // lists are rebuilt from whichever model is chosen.
         ModelPicker.Filter = model =>
-            model.Video is not { } video || video.CanServeAnything();
+            model.Video is not { } video || (IsSourceVideo ? !video.DurationsSeconds.IsSpecified || !video.DurationsSeconds.Values.IsEmpty : video.CanServeAnything());
         SelectedDuration.Subscribe(option =>
             {
                 if (!_applyingCapabilities)
@@ -224,6 +226,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         IsWaitingForJob = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
 
+        InitializeVideoInputs();
+
         PromptValidationError = Prompt
             .CombineLatest(
                 Style,
@@ -237,6 +241,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                         composition,
                         motion,
                         exclusions)))
+            .CombineLatest(MaxPromptLength, (error, max) => error ??
+                (ComposePrompt().Length > max ? string.Format(Strings.AiPromptTooLongFormat, max) : null))
             .ToReadOnlyReactivePropertySlim(Strings.AiPromptRequired)
             .DisposeWith(_disposables);
 
@@ -256,7 +262,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         ClearLastFrame = new ReactiveCommand();
         ClearLastFrame.Subscribe(() => SetFrame(isFirstFrame: false, null)).DisposeWith(_disposables);
 
-        CanGenerate = PromptValidationError
+        CanGenerate = PromptValidationError.CombineLatest(InputError, (prompt, input) => prompt ?? input)
             .CombineLatest(IsGenerating, (error, generating) => error is null && !generating)
             .CombineLatest(
                 FirstFramePath,
@@ -436,6 +442,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         {
             _applyingCapabilities = false;
         }
+        RefreshVideoInputs();
     }
 
     private void ApplyModelCapabilitiesCore(AiVideoModelCapabilities video)
@@ -484,11 +491,11 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             // scene rather than whichever the model happens to list first.
             ?? GetSuggestedAspectRatio(AspectRatioOptions, _editViewModel?.Scene.FrameSize);
 
-        SupportsAudio.Value = _selectedRecovery?.Form?.SupportsAudio
-            ?? video.SupportsAudio;
+        SupportsAudio.Value = IsGeneration && (_selectedRecovery?.Form?.SupportsAudio
+            ?? video.SupportsAudio);
         GenerateAudio.Value = SupportsAudio.Value && _chosenAudio;
-        SupportsSeed.Value = _selectedRecovery?.Form?.SupportsSeed
-            ?? video.SupportsSeed;
+        SupportsSeed.Value = IsGeneration && (_selectedRecovery?.Form?.SupportsSeed
+            ?? video.SupportsSeed);
         Seed.Value = SupportsSeed.Value ? _chosenSeed : null;
         // A model conditions on the frames it publishes, and one of the two is
         // not the other. A picker left up for a frame the model does not take
@@ -497,8 +504,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         // A last frame is only ever sent alongside a first one — the endpoint
         // takes no request without one — so a model that publishes a last frame
         // and no first frame can be given neither.
-        SupportsFirstFrame.Value = _selectedRecovery?.Form?.SupportsFirstFrame
-            ?? video.SupportsFirstFrame;
+        SupportsFirstFrame.Value = IsGeneration && (_selectedRecovery?.Form?.SupportsFirstFrame
+            ?? video.SupportsFirstFrame);
         SupportsLastFrame.Value = SupportsFirstFrame.Value
             && (_selectedRecovery?.Form?.SupportsLastFrame ?? video.SupportsLastFrame);
         SupportsFrameGuidance.Value = SupportsFirstFrame.Value;
@@ -649,7 +656,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     internal void RefreshAvailability()
         => _availabilityTracker.Refresh(new AiOperationAvailabilityRequest.Video(
-            AiOperations.VideoGeneration,
+            Operation,
             SelectedDuration.Value.Seconds,
             ModelPicker.SelectedModel));
 
@@ -802,7 +809,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         {
             await _entitlements.RefreshAsync(operation.CancellationToken);
             await ModelPicker.LoadAsync(
-                AiOperations.VideoGeneration,
+                Operation,
                 operation.CancellationToken);
             SelectRecoveredModel();
         }
@@ -819,7 +826,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
     {
         try
         {
-            return _requestKey.PendingAttempts(AiOperations.VideoGeneration);
+            return _requestKey.PendingAttempts(Operation);
         }
         catch (InvalidDataException ex)
         {
@@ -879,6 +886,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         IsGenerating.Value = false;
         IsWaitingForJob.Value = false;
         ClearActiveRecovery();
+        ClearVideoInputs();
         _chosenDuration = null;
         _chosenResolution = null;
         _chosenAspectRatio = null;
@@ -911,7 +919,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             return false;
         }
         if (!attempt.HasCanonicalForm
-            || !string.Equals(attempt.Operation, AiOperations.VideoGeneration.Value, StringComparison.Ordinal))
+            || !string.Equals(attempt.Operation, Operation.Value, StringComparison.Ordinal))
         {
             Error.Value = Strings.AiResultUnavailable;
             return false;
@@ -988,6 +996,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         SetFrameCore(isFirstFrame: true, firstPath, firstElement);
         SetFrameCore(isFirstFrame: false, lastPath, lastElement);
         ActivateRecovery(attempt);
+        RestoreVideoInputs(attempt, paths);
         ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
         _recoveryRevision.Value++;
         SelectRecoveredModel();
@@ -1123,9 +1132,9 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             if (!ModelPicker.IsLoaded.Value || !_requestKey.HasOutstandingName.Value)
             {
                 await ModelPicker.LoadAsync(
-                    AiOperations.VideoGeneration,
-                    _requestKey.PreferredPersistedModel(AiOperations.VideoGeneration),
-                    _requestKey.HasExplicitNullPersistedModel(AiOperations.VideoGeneration),
+                    Operation,
+                    _requestKey.PreferredPersistedModel(Operation),
+                    _requestKey.HasExplicitNullPersistedModel(Operation),
                     operation.CancellationToken);
                 SelectRecoveredModel();
             }
@@ -1361,15 +1370,23 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             string composition = Composition.Value;
             string motion = Motion.Value;
             string exclusions = Exclusions.Value;
-            int durationSeconds = SelectedDuration.Value.Seconds;
-            string resolution = SelectedResolution.Value.Value;
-            string aspectRatio = SelectedAspectRatio.Value.Value;
+            RefreshVideoInputs();
+            if (InputError.Value is { } inputError) throw new ArgumentException(inputError);
+            int durationSeconds = RequestDuration;
+            string resolution = IsGeneration ? SelectedResolution.Value.Value : string.Empty;
+            string aspectRatio = IsGeneration ? SelectedAspectRatio.Value.Value : string.Empty;
             bool generateAudio = GenerateAudio.Value;
             int? seed = Seed.Value;
             string? firstFramePath = FirstFramePath.Value;
             string? lastFramePath = LastFramePath.Value;
             string? firstFrameElementId = _firstFrameElementId;
             string? lastFrameElementId = _lastFrameElementId;
+            string? sourceJobId = IsSourceVideo && UseGeneratedSource.Value ? SelectedSourceVideo.Value?.Source.JobId : null;
+            double? sourceSeconds = SourceDuration.Value;
+            string orientation = Orientation.Value.Value;
+            string quality = Quality.Value.Value;
+            int promptLimit = MaxPromptLength.Value;
+            InputSnapshot[] inputs = await ReadVideoInputsAsync(operation.CancellationToken, firstFramePath is null);
 
             // The model's place is left empty until it is known, because which
             // model this request carries depends on whether a name is already
@@ -1408,6 +1425,9 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                 firstFrameStamp,
                 lastFrameStamp,
             ];
+            if (inputs.Length > 0 || IsSourceVideo)
+                requestParts = requestParts.Concat(new string?[] { sourceJobId, IsMotionControl ? orientation : null, IsMotionControl ? quality : null }
+                    .Concat(inputs.Select(input => input.Role + ":" + input.Upload.MediaType + ":" + AiRequestKey.ContentStamp(input.Bytes)))).ToArray();
             AiModelId? model = ModelForRequest(ModelPicker.SelectedModel);
             requestParts[ModelPartIndex] = model?.Value;
             AiRequestFormSnapshot form = new(
@@ -1426,10 +1446,16 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                 SupportsFirstFrame: SupportsFirstFrame.Value,
                 SupportsLastFrame: SupportsLastFrame.Value,
                 FirstFrameElementId: firstFrameElementId,
-                LastFrameElementId: lastFrameElementId);
+                LastFrameElementId: lastFrameElementId,
+                SourceJobId: sourceJobId, SourceVideoSeconds: sourceSeconds,
+                VideoOrientation: IsMotionControl ? orientation : null,
+                VideoQuality: IsMotionControl ? quality : null,
+                VideoPromptLimit: promptLimit);
             var recoverySources = new List<AiRequestRecoverySource>(2);
             try
             {
+                foreach (InputSnapshot input in inputs)
+                    recoverySources.Add(FileAiRequestRecoveryStore.CreateExternalSource(input.Role, input.Path, input.Name, input.Bytes));
                 if (firstFramePath is { } firstPath && firstFrame is not null && firstFrameBytes is not null)
                 {
                     recoverySources.Add(
@@ -1500,7 +1526,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                 if (!name.IsRepeat
                     && !await _availabilityTracker.CheckNowAsync(
                         new AiOperationAvailabilityRequest.Video(
-                            AiOperations.VideoGeneration,
+                            Operation,
                             durationSeconds,
                             model),
                         operation.CancellationToken))
@@ -1518,7 +1544,14 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             try
             {
                 _requestKey.MarkClaimDispatched(claim);
-                response = await _videos.CreateAsync(
+                response = SourceMode is { } mode
+                    ? await _videos.CreateFromSourceAsync(new AiSourceVideoRequest(mode, prompt,
+                        sourceVideo: inputs.FirstOrDefault(input => input.Role == "source-video")?.Upload,
+                        sourceJobId: sourceJobId is { } sourceId ? new AiJobId(sourceId) : null,
+                        durationSeconds: mode == AiSourceVideoMode.Edit ? null : durationSeconds,
+                        characterImage: inputs.FirstOrDefault(input => input.Role == "character-image")?.Upload,
+                        orientation: orientation, quality: quality, model: model, idempotencyKey: name.Key), operation.CancellationToken)
+                    : await _videos.CreateAsync(
                     new AiVideoGenerationRequest(
                         prompt,
                         durationSeconds,
@@ -1529,7 +1562,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                         firstFrame: firstFrame,
                         lastFrame: lastFrame,
                         model: model,
-                        idempotencyKey: name.Key),
+                        idempotencyKey: name.Key,
+                        inputReferences: inputs.Select(input => input.Upload).ToArray()),
                     operation.CancellationToken);
             }
             catch (Exception ex) when (AiRequestOutcome.CanWithdraw(name, ex))
