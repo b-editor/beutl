@@ -7,6 +7,7 @@ using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Services.AI;
@@ -282,6 +283,7 @@ internal sealed class VideoAiJobResultCapabilities()
             "downloads",
             "job-video",
             ".download");
+        string ownedPath = temporaryContentPath;
         try
         {
             AiContentDownload download;
@@ -299,16 +301,32 @@ internal sealed class VideoAiJobResultCapabilities()
                 download.Metadata);
             string extension = metadata?.GetFileExtension(".mp4", "video") ?? ".mp4";
 
-            int? durationSeconds = AiJobResultInput.GetInt32(job, "durationSeconds");
+            TimeSpan duration = TimeSpan.FromSeconds(AiJobResultInput.GetInt32(job, "durationSeconds") ?? 6);
+            if (AiJobResultInput.GetString(job, "mode") is "edit" or "extend" or "motion")
+            {
+                string completedPath = Path.ChangeExtension(temporaryContentPath, extension);
+                File.Move(temporaryContentPath, completedPath);
+                ownedPath = completedPath;
+                // Source jobs retain billing seconds, which need not be the full output duration.
+                duration = await Task.Run(() =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    using var reader = MediaReader.Open(ownedPath, new MediaOptions(MediaMode.Video) { PreferProxy = false });
+                    double seconds = reader.HasVideo ? reader.VideoInfo.Duration.ToDouble() : 0;
+                    if (!double.IsFinite(seconds) || seconds <= 0)
+                        throw new InvalidDataException("The AI video result has no valid video duration.");
+                    return TimeSpan.FromSeconds(seconds);
+                }, cancellationToken);
+            }
             IAiJobResultEditorContext editor = context.Editor;
             TimeSpan start = editor.CurrentTime;
             var importer = new AiResultImporter(editor.Scene, editor.ElementAdder);
             ElementAddResult result = await importer.ImportVideoAsync(
-                temporaryContentPath,
+                ownedPath,
                 extension,
                 new AiResultImportOptions(
                     start,
-                    TimeSpan.FromSeconds(durationSeconds ?? 6),
+                    duration,
                     editor.GetNextLayer(start),
                     Strings.AiVideoGeneration),
                 cancellationToken);
@@ -316,7 +334,7 @@ internal sealed class VideoAiJobResultCapabilities()
         }
         finally
         {
-            TryDelete(temporaryContentPath);
+            TryDelete(ownedPath);
         }
     }
 
