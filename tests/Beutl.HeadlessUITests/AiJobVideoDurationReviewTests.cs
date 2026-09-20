@@ -28,13 +28,18 @@ public sealed class AiJobVideoDurationReviewTests
     [TestCase("motion", 5, 72, ".mp4")]
     [TestCase(null, 4, 72, ".mp4")]
     [TestCase("edit", 8, 0, ".mp4")]
-    public async Task SourceJobsImportTheDecodedOutputDuration(string? mode, int? requestedSeconds, int durationTenths, string extension)
+    [TestCase("edit", null, 0, ".webm")]
+    [TestCase("extend", 5, 0, ".webm")]
+    [TestCase("motion", 5, 0, ".mp4")]
+    [TestCase("edit", 8, null, ".mp4")]
+    [TestCase("edit", 8, 0, ".mp4", false)]
+    public async Task SourceJobsImportTheDecodedOutputDuration(string? mode, int? requestedSeconds, int? durationTenths, string extension, bool decodable = true)
     {
         await TestReset.ResetShellAsync();
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "job-video-duration-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         var scene = new Scene(640, 480, "result") { Uri = new Uri(Path.Combine(root, "result.scene")) };
-        var decoder = new ResultDecoder(durationTenths);
+        var decoder = new ResultDecoder(durationTenths, decodable);
         var adder = new Mock<IElementAdder>();
         ElementDescription? imported = null;
         adder.Setup(value => value.AddAsync(It.IsAny<IReadOnlyList<ElementDescription>>(), It.IsAny<CancellationToken>()))
@@ -65,12 +70,12 @@ public sealed class AiJobVideoDurationReviewTests
         try
         {
             var capability = new VideoAiJobResultCapabilities();
-            if (durationTenths == 0)
+            if (!decodable)
             {
                 try
                 {
                     await capability.ApplyAsync(job, context.Object, CancellationToken.None);
-                    Assert.Fail("An invalid result duration must be rejected before import.");
+                    Assert.Fail("A video without a decodable frame must be rejected before import.");
                 }
                 catch (InvalidDataException)
                 {
@@ -81,7 +86,8 @@ public sealed class AiJobVideoDurationReviewTests
             {
                 await capability.ApplyAsync(job, context.Object, CancellationToken.None);
                 Assert.That(imported, Is.Not.Null);
-                Assert.That(imported!.Length, Is.EqualTo(TimeSpan.FromSeconds(mode is null ? requestedSeconds!.Value : durationTenths / 10d)));
+                double expectedSeconds = mode is not null && durationTenths is > 0 ? durationTenths.Value / 10d : requestedSeconds ?? 6;
+                Assert.That(imported!.Length, Is.EqualTo(TimeSpan.FromSeconds(expectedSeconds)));
                 Assert.That(((ElementSource.File)imported.Source).FileName, Does.EndWith(extension));
             }
             string[] probes = decoder.OpenedPaths.Where(path => Path.GetFileName(path).StartsWith("job-video-", StringComparison.Ordinal)).ToArray();
@@ -96,7 +102,7 @@ public sealed class AiJobVideoDurationReviewTests
         }
     }
 
-    private sealed class ResultDecoder(int durationTenths) : IDecoderInfo
+    private sealed class ResultDecoder(int? durationTenths, bool decodable) : IDecoderInfo
     {
         public string Name => "AI job duration test decoder";
         public List<string> OpenedPaths { get; } = [];
@@ -106,18 +112,26 @@ public sealed class AiJobVideoDurationReviewTests
         {
             Assert.That(options.PreferProxy, Is.False);
             OpenedPaths.Add(file);
-            return new ResultReader(durationTenths);
+            return new ResultReader(durationTenths, decodable);
         }
     }
 
-    private sealed class ResultReader(int durationTenths) : MediaReader
+    private sealed class ResultReader(int? durationTenths, bool decodable) : MediaReader
     {
-        public override VideoStreamInfo VideoInfo { get; } = new("test", new Rational(durationTenths, 10), new PixelSize(2, 2), new Rational(30, 1));
+        public override VideoStreamInfo VideoInfo { get; } = new("test", new Rational(0, 1), new PixelSize(2, 2), new Rational(30, 1))
+        {
+            Duration = durationTenths is { } tenths ? new Rational(tenths, 10) : new Rational(0, 0),
+        };
         public override AudioStreamInfo AudioInfo => throw new InvalidOperationException();
         public override bool HasVideo => true;
         public override bool HasAudio => false;
         public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
         {
+            if (!decodable)
+            {
+                image = null;
+                return false;
+            }
             image = Ref<Bitmap>.Create(new Bitmap(2, 2));
             return true;
         }

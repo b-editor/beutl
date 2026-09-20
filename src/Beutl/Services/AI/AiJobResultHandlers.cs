@@ -313,9 +313,11 @@ internal sealed class VideoAiJobResultCapabilities()
                     cancellationToken.ThrowIfCancellationRequested();
                     using var reader = MediaReader.Open(ownedPath, new MediaOptions(MediaMode.Video) { PreferProxy = false });
                     double seconds = reader.HasVideo ? reader.VideoInfo.Duration.ToDouble() : 0;
-                    if (!double.IsFinite(seconds) || seconds <= 0)
-                        throw new InvalidDataException("The AI video result has no valid video duration.");
-                    return TimeSpan.FromSeconds(seconds);
+                    // Some backends can decode frames without duration metadata. Keep the
+                    // retained/default length in that case; the importer still validates decoding.
+                    return double.IsFinite(seconds) && seconds > 0 && seconds < TimeSpan.MaxValue.TotalSeconds
+                        ? TimeSpan.FromSeconds(seconds)
+                        : duration;
                 }, cancellationToken);
             }
             IAiJobResultEditorContext editor = context.Editor;
