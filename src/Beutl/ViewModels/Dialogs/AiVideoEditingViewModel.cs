@@ -25,7 +25,11 @@ internal sealed class AiVideoEditingViewModel : IDisposable, IAsyncDisposable, I
             if (!cached) _pages.Add(task.Mode, page = _create(task.Mode));
             if (previous is not null && previous != page) page!.CopySourceIntent(previous);
             ActiveContent.Value = page;
-            if (cached && previous != page) page!.RefreshModels();
+            if (cached && previous != page)
+            {
+                page!.RefreshModels();
+                page.RefreshAvailability();
+            }
         }).DisposeWith(_disposables);
         CanChooseTask = ActiveContent.Select(page => page?.IsGenerating.Select(value => !value) ?? Observable.Return(false))
             .Switch().ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
