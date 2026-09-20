@@ -1588,7 +1588,9 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             // wrong while it is waited on, the name stays: it is the way back.
             persistedServerJob = true;
 
-            var pendingSnapshot = new AiVideoResultSnapshot(durationSeconds);
+            var pendingSnapshot = new AiVideoResultSnapshot(
+                SourceMode == AiSourceVideoMode.Edit && sourceSeconds is { } exactSeconds
+                    ? exactSeconds : durationSeconds);
             if (!operation.TryPublish(() =>
                 {
                     if (IsGeneration) PromptLibrary.Record(prompt);
@@ -2083,7 +2085,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                 .Select(item => item.ZIndex)
                 .DefaultIfEmpty(-1)
                 .Max() + 1;
-            int durationSeconds = _resultSnapshot?.DurationSeconds ?? SelectedDuration.Value.Seconds;
+            double durationSeconds = _resultSnapshot?.DurationSeconds ?? SelectedDuration.Value.Seconds;
             AiResultImportOptions options = new(
                 start,
                 TimeSpan.FromSeconds(durationSeconds),
@@ -2267,7 +2269,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         Motion.Value,
         Exclusions.Value));
 
-    private sealed record AiVideoResultSnapshot(int DurationSeconds);
+    private sealed record AiVideoResultSnapshot(double DurationSeconds);
 
 }
 
