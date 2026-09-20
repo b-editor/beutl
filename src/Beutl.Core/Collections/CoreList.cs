@@ -190,7 +190,8 @@ public class CoreList<T> : ICoreList<T>
 
     // The swap is notified the way Clear is. A list with ResetBehavior.Reset raises one Reset once the new
     // items are in place. A list with ResetBehavior.Remove, which lists whose observers need the individual
-    // items (such as history recording) use, raises a Remove of the old items and then an Add of the new ones.
+    // items (such as ForEachItem's removed callback) use, raises a Remove of the old items and then an Add
+    // of the new ones.
     // A single Replace is never raised, because its old and new item counts could differ: DynamicData's
     // ToObservableChangeSet applies only NewItems[0] of a Replace (and throws when it is empty), and
     // Avalonia's VirtualizingStackPanel does not shift the containers after the replaced range.
