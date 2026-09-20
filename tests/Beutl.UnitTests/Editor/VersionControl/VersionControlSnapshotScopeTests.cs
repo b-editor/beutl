@@ -10,6 +10,7 @@ using Beutl.Serialization;
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
+[Parallelizable(ParallelScope.Self)]
 public class VersionControlSnapshotScopeTests : RealGitTestRepository
 {
     [Test]

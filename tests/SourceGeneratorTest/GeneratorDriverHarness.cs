@@ -100,34 +100,10 @@ internal static class GeneratorDriverHarness
             .Select(s => CSharpSyntaxTree.ParseText(s, parseOptions))
             .ToArray();
 
-        // GetAssemblies() only returns assemblies already loaded into the AppDomain, which can miss ones
-        // the inline test scenarios reference (e.g. System.Text.Json via the IFallback/JsonObject case,
-        // System.Collections.Immutable) and cause intermittent "type not found" failures. Force-load and
-        // explicitly seed those references so the compilation is deterministic regardless of load order.
-        _ = typeof(System.Text.Json.Nodes.JsonObject);
-        _ = typeof(System.Collections.Immutable.ImmutableArray);
-        _ = typeof(System.ComponentModel.DataAnnotations.ValidationAttribute);
-
-        var seededLocations = new[]
-        {
-            typeof(object).Assembly.Location,
-            typeof(System.Text.Json.Nodes.JsonObject).Assembly.Location,
-            typeof(System.Collections.Immutable.ImmutableArray).Assembly.Location,
-            typeof(System.ComponentModel.DataAnnotations.ValidationAttribute).Assembly.Location,
-        };
-
-        var references = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-            .Select(a => a.Location)
-            .Concat(seededLocations)
-            .Distinct(StringComparer.Ordinal)
-            .Select(location => (MetadataReference)MetadataReference.CreateFromFile(location))
-            .ToArray();
-
         var compilation = CSharpCompilation.Create(
             "SourceGeneratorTest.GeneratedAssembly",
             syntaxTrees,
-            references,
+            CompilationReferences.Framework,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         var driver = CSharpGeneratorDriver.Create(

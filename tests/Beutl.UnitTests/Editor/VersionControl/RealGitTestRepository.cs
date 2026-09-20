@@ -34,11 +34,22 @@ public abstract class RealGitTestRepository
         Repository = new RepositoryInfo(Root, Root);
         Runner = CreateRunner();
         await RunGitAsync("init", "-b", "main");
-        await RunGitAsync("config", "user.name", "Beutl Test");
-        await RunGitAsync("config", "user.email", "beutl-test@example.invalid");
-        await RunGitAsync("config", "commit.gpgsign", "false");
-        await RunGitAsync("config", "gc.auto", "0");
-        await RunGitAsync("config", "maintenance.auto", "false");
+        // Fixture preparation does not exercise our Git runner. Write the fixed local settings
+        // together instead of starting five extra Git processes for every test. Keep init's
+        // platform-specific core settings and a fresh repository for each scenario.
+        await File.AppendAllTextAsync(Path.Combine(Root, ".git", "config"), """
+
+            [user]
+                name = Beutl Test
+                email = beutl-test@example.invalid
+            [commit]
+                gpgsign = false
+            [gc]
+                auto = 0
+            [maintenance]
+                auto = false
+
+            """);
     }
 
     [TearDown]

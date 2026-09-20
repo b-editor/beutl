@@ -33,10 +33,17 @@ public sealed class PackageInstallerDisposeTests
         await handler.Entered.WaitAsync(TimeSpan.FromSeconds(10));
 
         Task dispose = installer.DisposeAsync().AsTask();
-        await Task.Delay(500);
-        Assert.That(dispose.IsCompleted, Is.False, "disposal must wait for the in-flight download");
-
-        handler.Release();
+        // DisposeAsync reaches its first incomplete await before returning. The handler is
+        // already blocked, so no wall-clock delay is needed to observe the drain wait.
+        try
+        {
+            Assert.That(dispose.IsCompleted, Is.False, "disposal must wait for the in-flight download");
+            Assert.That(handler.Disposed, Is.False);
+        }
+        finally
+        {
+            handler.Release();
+        }
         await dispose.WaitAsync(TimeSpan.FromSeconds(10));
         await download.WaitAsync(TimeSpan.FromSeconds(10));
 
@@ -68,10 +75,14 @@ public sealed class PackageInstallerDisposeTests
         await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Task dispose = installer.DisposeAsync().AsTask();
-        await Task.Delay(300);
-        Assert.That(dispose.IsCompleted, Is.False, "disposal must wait for the composite operation");
-
-        releaseOperation.TrySetResult();
+        try
+        {
+            Assert.That(dispose.IsCompleted, Is.False, "disposal must wait for the composite operation");
+        }
+        finally
+        {
+            releaseOperation.TrySetResult();
+        }
         await Task.WhenAll(operation, dispose).WaitAsync(TimeSpan.FromSeconds(5));
     }
 
@@ -242,18 +253,26 @@ public sealed class PackageInstallerDisposeTests
             new InstalledPackageRepository(),
             app);
 
-        // A tracked operation that never completes must not outlive the drain deadline.
-        Task operation = installer.TrackInstallOperationAsync(async () =>
+        // Keep the operation pending through the deadline, then release it during cleanup.
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task operation = installer.TrackInstallOperationAsync(() => release.Task);
+        try
         {
-            await Task.Delay(Timeout.InfiniteTimeSpan);
-        });
+            var stopwatch = Stopwatch.StartNew();
+            Task dispose = installer.DisposeAsync().AsTask();
+            Assert.That(dispose.IsCompleted, Is.False, "disposal must first wait for the drain deadline");
+            await dispose.WaitAsync(TimeSpan.FromSeconds(10));
+            stopwatch.Stop();
 
-        var stopwatch = Stopwatch.StartNew();
-        await installer.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(10));
-        stopwatch.Stop();
-
-        Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)),
-            "disposal must stop waiting at the drain deadline even when an operation never completes");
+            Assert.That(operation.IsCompleted, Is.False);
+            Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)),
+                "disposal must stop waiting at the drain deadline even when an operation never completes");
+        }
+        finally
+        {
+            release.TrySetResult();
+            await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        }
     }
 
     [Test]
@@ -284,11 +303,15 @@ public sealed class PackageInstallerDisposeTests
         await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Task dispose = installer.DisposeAsync().AsTask();
-        await Task.Delay(300);
-        Assert.That(dispose.IsCompleted, Is.False,
-            "disposal must wait for the admitted synchronous operation");
-
-        releaseOperation.TrySetResult();
+        try
+        {
+            Assert.That(dispose.IsCompleted, Is.False,
+                "disposal must wait for the admitted synchronous operation");
+        }
+        finally
+        {
+            releaseOperation.TrySetResult();
+        }
         await Task.WhenAll(syncOperation, dispose).WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(operationCompleted, Is.True);
     }
@@ -399,11 +422,15 @@ public sealed class PackageInstallerDisposeTests
         // Disposal must be able to acquire the gate and start its drain deadline even
         // though the transaction is still blocked in its synchronous prefix.
         Task dispose = installer.DisposeAsync().AsTask();
-        await Task.Delay(300);
-        Assert.That(dispose.IsCompleted, Is.False,
-            "disposal must start draining while the transaction blocks before its first await");
-
-        releaseOperation.TrySetResult();
+        try
+        {
+            Assert.That(dispose.IsCompleted, Is.False,
+                "disposal must start draining while the transaction blocks before its first await");
+        }
+        finally
+        {
+            releaseOperation.TrySetResult();
+        }
         await Task.WhenAll(operation, dispose).WaitAsync(TimeSpan.FromSeconds(10));
     }
 
@@ -466,11 +493,15 @@ public sealed class PackageInstallerDisposeTests
         // WaitUntilIdleAsync must keep waiting for the operation that outlived the
         // drain deadline; it must not return while the operation is still running.
         Task idle = installer.WaitUntilIdleAsync(TimeSpan.FromSeconds(10));
-        await Task.Delay(300);
-        Assert.That(idle.IsCompleted, Is.False,
-            "waiting for idleness must not complete while an operation is still running");
-
-        release.TrySetResult();
+        try
+        {
+            Assert.That(idle.IsCompleted, Is.False,
+                "waiting for idleness must not complete while an operation is still running");
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
         await Task.WhenAll(idle, operation).WaitAsync(TimeSpan.FromSeconds(5));
     }
 
@@ -487,17 +518,25 @@ public sealed class PackageInstallerDisposeTests
             new InstalledPackageRepository(),
             app);
 
-        // An operation that never completes; the idle wait must still be bounded.
-        Task operation = installer.TrackInstallOperationAsync(async () =>
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task operation = installer.TrackInstallOperationAsync(() => release.Task);
+        try
         {
-            await Task.Delay(Timeout.InfiniteTimeSpan);
-        });
+            var stopwatch = Stopwatch.StartNew();
+            Task idle = installer.WaitUntilIdleAsync(TimeSpan.FromMilliseconds(300));
+            Assert.That(idle.IsCompleted, Is.False, "the idle wait must first wait for its timeout");
+            await idle.WaitAsync(TimeSpan.FromSeconds(5));
+            stopwatch.Stop();
 
-        var stopwatch = Stopwatch.StartNew();
-        await installer.WaitUntilIdleAsync(TimeSpan.FromMilliseconds(300)).WaitAsync(TimeSpan.FromSeconds(5));
-        stopwatch.Stop();
-
-        Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(3)));
+            Assert.That(operation.IsCompleted, Is.False);
+            Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(3)));
+        }
+        finally
+        {
+            release.TrySetResult();
+            await operation.WaitAsync(TimeSpan.FromSeconds(5));
+            await installer.DisposeAsync();
+        }
     }
 
     [Test]

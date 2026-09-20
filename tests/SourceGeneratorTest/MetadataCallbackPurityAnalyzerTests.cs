@@ -98,11 +98,11 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Any(diagnostic => diagnostic.Id == "BESG003"), Is.True);
     }
 
-    private static readonly MetadataReference[] FrameworkReferences = AppDomain.CurrentDomain
-        .GetAssemblies()
-        .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-        .Select(static a => (MetadataReference)MetadataReference.CreateFromFile(a.Location))
-        .ToArray();
+    private static readonly CSharpCompilation BaseCompilation = CSharpCompilation.Create(
+        "AnalyzerTest",
+        [CSharpSyntaxTree.ParseText(ContractStubs)],
+        CompilationReferences.Framework,
+        new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
     private const string ContractStubs = """
         namespace Beutl.Graphics
@@ -7136,14 +7136,9 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     /// </remarks>
     private static ImmutableArray<Diagnostic> AnalyzeWithLibrary(string librarySource, string source)
     {
-        CSharpCompilation library = CSharpCompilation.Create(
-            "AnalyzerTestLibrary",
-            [
-                CSharpSyntaxTree.ParseText(ContractStubs),
-                CSharpSyntaxTree.ParseText(librarySource),
-            ],
-            FrameworkReferences,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        CSharpCompilation library = BaseCompilation
+            .WithAssemblyName("AnalyzerTestLibrary")
+            .AddSyntaxTrees(CSharpSyntaxTree.ParseText(librarySource));
 
         using var image = new MemoryStream();
         EmitResult emit = library.Emit(image);
@@ -7169,17 +7164,16 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     {
         parseOptions ??= CSharpParseOptions.Default;
 
-        CSharpCompilation compilation = CSharpCompilation.Create(
-            "AnalyzerTest",
-            library is null
-                ?
-                [
-                    CSharpSyntaxTree.ParseText(ContractStubs, parseOptions),
-                    CSharpSyntaxTree.ParseText(source, parseOptions),
-                ]
-                : [CSharpSyntaxTree.ParseText(source, parseOptions)],
-            library is null ? FrameworkReferences : [.. FrameworkReferences, library],
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        // Compilations are immutable: share the framework binding and default stub tree, while
+        // each scenario still gets its own source tree and a fresh analyzer. Conditional symbols
+        // must apply to the stubs as well as the scenario.
+        CSharpCompilation compilation = library is not null
+            ? BaseCompilation.RemoveAllSyntaxTrees().AddReferences(library)
+            : parseOptions.Equals(CSharpParseOptions.Default)
+                ? BaseCompilation
+                : BaseCompilation.RemoveAllSyntaxTrees()
+                    .AddSyntaxTrees(CSharpSyntaxTree.ParseText(ContractStubs, parseOptions));
+        compilation = compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText(source, parseOptions));
 
         // A source that does not bind produces no analyzer diagnostics, which would let a "stays accepted"
         // case pass without the analyzer ever having looked at it.

@@ -14,6 +14,7 @@ using Moq;
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
+[Parallelizable(ParallelScope.Self)]
 public class GitCliVersionControlServiceTests : RealGitTestRepository
 {
     // Stable union of the existing policy, Engine built-in decoders, optional decoders,

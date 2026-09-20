@@ -1,11 +1,13 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text;
 using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
+[Parallelizable(ParallelScope.Self)]
 public class VersionControlPerformanceTests : RealGitTestRepository
 {
     private static readonly TimeSpan s_snapshotLimit = TimeSpan.FromSeconds(10);
@@ -191,12 +193,30 @@ public class VersionControlPerformanceTests : RealGitTestRepository
     public async Task Loading_200_commit_history_completes_within_bound()
     {
         const int requestedCommitCount = 200;
-        await CommitFileAsync("project.bep", "0\n", "history baseline");
-        for (int index = 1; index <= requestedCommitCount; index++)
+        // Only history loading is measured here. Build the same linear history in one Git
+        // process instead of paying for a commit process for every fixture revision.
+        var input = new StringBuilder();
+        long timestamp = DateTimeOffset.Parse(IsolatedGitEnvironment["GIT_AUTHOR_DATE"]!).ToUnixTimeSeconds();
+        for (int index = 0; index <= requestedCommitCount; index++)
         {
-            await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), $"{index}\n");
-            await RunGitAsync("commit", "-am", $"history {index}");
+            string message = index == 0 ? "history baseline\n" : $"history {index}\n";
+            string contents = $"{index}\n";
+            input.Append($"commit refs/heads/main\nmark :{index + 1}\n")
+                .Append($"committer Beutl Test <beutl-test@example.invalid> {timestamp} +0000\n")
+                .Append($"data {Encoding.UTF8.GetByteCount(message)}\n{message}\n");
+            if (index > 0)
+                input.Append($"from :{index}\n");
+            input.Append("M 100644 inline project.bep\n")
+                .Append($"data {Encoding.UTF8.GetByteCount(contents)}\n{contents}\n\n");
         }
+        input.Append("done\n");
+        GitCommandResult imported = await Runner.RunAsync(
+            Repository,
+            ["fast-import", "--quiet"],
+            GitCommandOptions.Local with { StandardInput = input.ToString() },
+            CancellationToken.None);
+        Assert.That(imported.ExitCode, Is.Zero, imported.Stderr);
+        await RunGitAsync("reset", "--hard", "HEAD");
 
         using var service = CreateService();
         var stopwatch = Stopwatch.StartNew();
@@ -211,6 +231,8 @@ public class VersionControlPerformanceTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(history, Has.Count.EqualTo(requestedCommitCount));
+            Assert.That(history.Select(commit => commit.Subject),
+                Is.EqualTo(Enumerable.Range(1, requestedCommitCount).Reverse().Select(index => $"history {index}")));
             Assert.That(
                 stopwatch.Elapsed,
                 Is.LessThan(s_historyLimit),

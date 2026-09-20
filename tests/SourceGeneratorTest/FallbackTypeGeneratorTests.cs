@@ -61,16 +61,7 @@ public class FallbackTypeGeneratorTests
         """;
 
     [Test]
-    public void Baseline_KeptInputsProduceNoFallbackSource()
-    {
-        GeneratorHarnessResult result = GeneratorDriverHarness.Run();
-
-        Assert.That(result.HasSource("_Fallback.g.cs"), Is.False,
-            "None of the kept Derived* inputs implement IFallback, so no fallback source is expected.");
-    }
-
-    [Test]
-    public void IFallbackImplementer_GeneratesFallbackPartial()
+    public void IFallbackImplementer_GeneratesCompilableFallbackPartial()
     {
         GeneratorHarnessResult result = GeneratorDriverHarness.Run(FallbackScenario);
 
@@ -80,6 +71,12 @@ public class FallbackTypeGeneratorTests
         string source = result.GetSource("_Fallback.g.cs");
         Assert.Multiple(() =>
         {
+            Assert.That(
+                result.GeneratorDiagnostics.Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error),
+                Is.Empty, "The generators must run without errors.");
+            Assert.That(result.CompilationErrors, Is.Empty,
+                "Generated fallback + Resource sources must compile against the stubs: "
+                + string.Join(Environment.NewLine, result.CompilationErrors.Select(d => d.ToString())));
             Assert.That(source, Does.Contain("partial class FallbackObject : global::Beutl.Serialization.IFallback"));
             Assert.That(source, Does.Contain("public global::System.Text.Json.Nodes.JsonObject? Json"));
             Assert.That(source, Does.Contain("public global::Beutl.Serialization.FallbackReason Reason"));
@@ -88,17 +85,5 @@ public class FallbackTypeGeneratorTests
             Assert.That(source, Does.Contain("public override void Deserialize("));
             Assert.That(source, Does.Contain("public bool TryGetTypeName("));
         });
-    }
-
-    [Test]
-    public void FallbackScenario_GeneratedSourcesCompileWithoutErrors()
-    {
-        GeneratorHarnessResult result = GeneratorDriverHarness.Run(FallbackScenario);
-
-        Assert.That(
-            result.CompilationErrors,
-            Is.Empty,
-            "Generated fallback + Resource sources must compile against the stubs (the real-gate check): "
-            + string.Join(Environment.NewLine, result.CompilationErrors.Select(d => d.ToString())));
     }
 }

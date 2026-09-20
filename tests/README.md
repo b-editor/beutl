@@ -116,9 +116,36 @@ Conventions:
 - `Assert.That(...)` (constraint API), not `Assert.AreEqual` — match existing files
 - Moq matchers: prefer `It.IsAny<T>()` only when the argument is genuinely irrelevant; otherwise capture and assert explicitly
 
+## Keeping tests fast
+
+- Run expensive preparation once per distinct scenario. Assertions about the same generated output
+  belong in one `Assert.Multiple` block; keep different inputs and regression scenarios independent.
+- Source-generator/analyzer tests share immutable framework metadata and baseline compilations.
+  Add a fresh source tree and analyzer/driver for each scenario, and retain the compiler-error check.
+  Do not cache analyzer results or discover references from the assemblies earlier tests happened to load.
+- Coordinate asynchronous work with completion signals. When an async call has synchronously reached
+  a blocked operation before returning, assert its pending state directly instead of sleeping first.
+  Keep bounded waits for real completion/deadline behavior, and release blocked work in `finally`.
+- Keep a fresh Git repository per integration test. Fixed fixture configuration is written together;
+  the Git commands whose behavior is under test still run against the real executable.
+- Independent Git fixtures opt into `ParallelScope.Self`: fixtures can overlap, but their test
+  cases still run sequentially. Tests that change process-wide environment variables must stay
+  `[NonParallelizable]`; `GitCliRunnerTests` remains sequential as a whole.
+- Package crash-recovery tests start the unit-test executable with `--package-install-worker`.
+  This skips VSTest startup, discovery, and assembly setup in each child; the worker validates its
+  isolated home before initializing the installer. Keep real process termination, lock contention,
+  recovery, and repeat-recovery assertions. Normal test runs still use `dotnet test`.
+
 ## Running
 
 ```bash
 dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings              # all
-dotnet test Beutl.slnx -f net10.0 --filter "FullyQualifiedName~<substring>"    # scoped
+dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj --filter "FullyQualifiedName~<substring>"
+dotnet test tests/SourceGeneratorTest/SourceGeneratorTest.csproj
 ```
+
+For repeated runs without source changes, add `--no-build` to the project command. A filter on the
+whole solution still builds and starts unrelated test projects. To compare execution time, build
+each revision first, run the same project with `--no-build --logger trx` without other builds/tests
+running, and compare several runs. Report the executed test count as well as time; a skipped GPU or
+native suite is not a speed improvement.
