@@ -7,7 +7,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
-[Parallelizable(ParallelScope.Self)]
+[NonParallelizable]
 public class VersionControlPerformanceTests : RealGitTestRepository
 {
     private static readonly TimeSpan s_snapshotLimit = TimeSpan.FromSeconds(10);

@@ -130,7 +130,8 @@ Conventions:
   the Git commands whose behavior is under test still run against the real executable.
 - Independent Git fixtures opt into `ParallelScope.Self`: fixtures can overlap, but their test
   cases still run sequentially. Tests that change process-wide environment variables must stay
-  `[NonParallelizable]`; `GitCliRunnerTests` remains sequential as a whole.
+  `[NonParallelizable]`; `GitCliRunnerTests` remains sequential as a whole. Stopwatch-based
+  performance fixtures also stay non-parallel so other tests cannot consume their timing budget.
 - Package crash-recovery tests start the unit-test executable with `--package-install-worker`.
   This skips VSTest startup, discovery, and assembly setup in each child; the worker validates its
   isolated home before initializing the installer. Keep real process termination, lock contention,
