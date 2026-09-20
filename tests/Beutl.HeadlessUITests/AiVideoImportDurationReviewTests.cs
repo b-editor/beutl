@@ -12,9 +12,11 @@ namespace Beutl.HeadlessUITests;
 public sealed partial class AiDialogWorkflowTests
 {
     [AvaloniaTest]
-    [TestCase(AiSourceVideoMode.Edit, 7.2)]
-    [TestCase(AiSourceVideoMode.Extend, 12.2)]
-    public async Task Review_SourceVideoImportRetainsTheFullResultDuration(AiSourceVideoMode mode, double expectedSeconds)
+    [TestCase(AiSourceVideoMode.Edit, 7.2, false)]
+    [TestCase(AiSourceVideoMode.Extend, 12.2, false)]
+    [TestCase(AiSourceVideoMode.Edit, 7.2, true)]
+    [TestCase(AiSourceVideoMode.Extend, 12.2, true)]
+    public async Task Review_SourceVideoImportRetainsTheFullResultDuration(AiSourceVideoMode mode, double expectedSeconds, bool deleteSource)
     {
         await TestReset.ResetShellAsync();
         var editor = await OpenEditor("fractional-video-edit");
@@ -47,8 +49,13 @@ public sealed partial class AiDialogWorkflowTests
             if (++probes == 2)
             {
                 snapshotPath = probePath;
-                // A concurrent render must not change the bytes being probed or uploaded.
-                File.WriteAllText(path, "9.8");
+                // A concurrent render or deletion must not invalidate the captured upload.
+                if (deleteSource) File.Delete(path);
+                else
+                {
+                    using var rewritten = File.OpenWrite(path);
+                    rewritten.SetLength(AiVideoInputLimits.MaxSourceBytes + 1);
+                }
             }
             return TimeSpan.FromSeconds(double.Parse(File.ReadAllText(probePath), CultureInfo.InvariantCulture));
         };

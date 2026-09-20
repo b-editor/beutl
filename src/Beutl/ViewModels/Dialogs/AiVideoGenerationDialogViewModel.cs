@@ -1414,19 +1414,17 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             {
                 sourceSeconds = await ReadSourceSnapshotDurationAsync(
                     inputs.Single(input => input.Role == "source-video"), operation.CancellationToken);
-                if (!operation.TryPublish(() =>
-                    {
-                        SourceDuration.Value = sourceSeconds;
-                        RefreshVideoInputs();
-                    }))
+                if (!operation.TryPublish(() => SourceDuration.Value = sourceSeconds))
                     return;
-                if (InputError.Value is { } sourceError)
-                {
-                    operation.TryPublish(() => Error.Value = sourceError);
-                    return;
-                }
                 if (SourceMode == AiSourceVideoMode.Edit)
                     durationSeconds = RequestDuration;
+            }
+            if (IsSourceVideo)
+            {
+                // Live paths can change after capture; validate the same bytes that will be uploaded.
+                ValidateSourceInputs(inputs.Single(input => input.Role == "source-video").Upload,
+                    inputs.FirstOrDefault(input => input.Role == "character-image")?.Upload,
+                    sourceSeconds, ModelPicker.Selected.Value?.Model.Video ?? AiVideoModelCapabilities.Unrestricted);
             }
 
             // The model's place is left empty until it is known, because which
@@ -1714,6 +1712,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         catch (AiFileTooLargeException)
         {
             operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
+        }
+        catch (VideoInputException ex)
+        {
+            operation.TryPublish(() => Error.Value = ex.Message);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {

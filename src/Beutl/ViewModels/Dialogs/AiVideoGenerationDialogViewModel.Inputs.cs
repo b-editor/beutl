@@ -103,15 +103,9 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         {
             if (IsSourceVideo)
             {
-                AiVideoInputLimits.Validate(Describe(SourceVideoPath.Value!), "video", _selectedRecovery is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes);
-                if (SourceDuration.Value is not { } seconds || !double.IsFinite(seconds) || seconds <= 0 || seconds > 60
-                    || (_selectedRecovery is null && (seconds < (limits.MinSourceVideoSeconds ?? 0) || seconds > (limits.MaxSourceVideoSeconds ?? 60))))
-                    throw new VideoInputException(Strings.AiModelDoesNotSupportRequest);
-                if (IsMotionControl)
-                {
-                    if (CharacterImagePath.Value is not { } character) throw new VideoInputException(Strings.AiChooseCharacterImage);
-                    AiVideoInputLimits.Validate(Describe(character), "image", AiRequestLimits.MaxFrameUploadBytes);
-                }
+                ValidateSourceInputs(Describe(SourceVideoPath.Value!),
+                    IsMotionControl && CharacterImagePath.Value is { } character ? Describe(character) : null,
+                    SourceDuration.Value, limits);
             }
             else if (FirstFramePath.Value is null)
             {
@@ -135,6 +129,19 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         catch (ArgumentException) { InputError.Value = Strings.AiVideoInputUnavailable; }
         catch (IOException) { InputError.Value = Strings.AiVideoInputUnavailable; }
         catch (UnauthorizedAccessException) { InputError.Value = Strings.AiVideoInputUnavailable; }
+    }
+
+    private void ValidateSourceInputs(AiUploadSource source, AiUploadSource? character, double? duration, AiVideoModelCapabilities limits)
+    {
+        AiVideoInputLimits.Validate(source, "video", _selectedRecovery is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes);
+        if (duration is not { } seconds || !double.IsFinite(seconds) || seconds <= 0 || seconds > 60
+            || (_selectedRecovery is null && (seconds < (limits.MinSourceVideoSeconds ?? 0) || seconds > (limits.MaxSourceVideoSeconds ?? 60))))
+            throw new VideoInputException(Strings.AiModelDoesNotSupportRequest);
+        if (IsMotionControl)
+        {
+            if (character is null) throw new VideoInputException(Strings.AiChooseCharacterImage);
+            AiVideoInputLimits.Validate(character, "image", AiRequestLimits.MaxFrameUploadBytes);
+        }
     }
 
     private static string MediaType(string name) => Path.GetExtension(name).ToLowerInvariant() switch
