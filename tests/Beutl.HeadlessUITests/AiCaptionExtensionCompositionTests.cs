@@ -1,13 +1,17 @@
 ﻿using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Threading;
 using Beutl.Collections;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Tools;
 using DynamicData;
 using DynamicData.Binding;
@@ -18,7 +22,11 @@ namespace Beutl.HeadlessUITests;
 public sealed class AiCaptionExtensionCompositionTests
 {
     private const int TestPackageId = -42_001;
+    private const int OtherTestPackageId = -42_002;
     private static readonly CaptionFormatId s_testFormat = new("test.caption");
+    private static readonly CaptionTemplateId s_pluginTemplateId = new("beutl.tests.plugin-caption");
+    // Sorts ahead of the plugin template, so adding it moves the plugin template's index.
+    private static readonly CaptionTemplateId s_otherTemplateId = new("beutl.tests.another-plugin-caption");
 
     [AvaloniaTest]
     public async Task OpenTool_UsesDynamicContributionsAndDropsThemAfterUnload()
@@ -62,7 +70,7 @@ public sealed class AiCaptionExtensionCompositionTests
                 openTool.CaptionTemplates.Select(template => template.Name),
                 Does.Not.Contain("Plugin caption template"));
             Assert.That(
-                openTool.SelectedCaptionTemplate.Value.Id,
+                openTool.SelectedCaptionTemplate.Value?.Id,
                 Is.EqualTo(CaptionTemplateIds.DefaultText));
             Assert.Throws<NotSupportedException>(() =>
                 openTool.ImportCaptionBytes(
@@ -74,6 +82,174 @@ public sealed class AiCaptionExtensionCompositionTests
             Assert.That(Collect(codecReference), Is.False);
             Assert.That(Collect(factoryReference), Is.False);
         });
+    }
+
+    [AvaloniaTest]
+    public async Task ShownTool_KeepsTheTemplateChoiceWhilePluginTemplatesComeAndGo()
+    {
+        await TestReset.ResetShellAsync();
+        using AiSubtitleDialogViewModel viewModel =
+            TestShell.MainViewModel.CreateAiSubtitleToolViewModel(editViewModel: null);
+        viewModel.SelectedSubtitlePageIndex.Value = 1;
+        var view = new AiSubtitleView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 460, Height = 640 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            ComboBox picker = view.FindControl<ComboBox>("CaptionTemplateComboBox")!;
+            CaptionTemplateDescriptor defaultText = viewModel.CaptionTemplates
+                .Single(template => template.Id == CaptionTemplateIds.DefaultText);
+            Assert.That(picker.IsEffectivelyVisible, Is.True);
+            AssertChoice("when the tool is shown", defaultText);
+            var selections = new List<CaptionTemplateDescriptor?>();
+            using IDisposable recording = viewModel.SelectedCaptionTemplate
+                .Skip(1)
+                .Subscribe(selections.Add);
+            int previewRefreshes = 0;
+            viewModel.BeforeTemplatePreviewAdmission = () => previewRefreshes++;
+
+            Swap(
+                "after a plugin template was added",
+                () => TestShell.Extensions.AddExtensions(
+                    TestPackageId,
+                    CreateTemplateExtensions(new TestCaptionElementFactory())),
+                defaultText,
+                keepsChoice: true);
+
+            CaptionTemplateDescriptor pluginTemplate = viewModel.CaptionTemplates
+                .Single(template => template.Id == s_pluginTemplateId);
+            picker.SelectedItem = pluginTemplate;
+            HeadlessTestHelpers.Render();
+            AssertChoice("after the plugin template was picked", pluginTemplate);
+
+            Swap(
+                "after another plugin template was added",
+                () => TestShell.Extensions.AddExtensions(
+                    OtherTestPackageId,
+                    CreateTemplateExtensions(
+                        new TestCaptionElementFactory(),
+                        s_otherTemplateId,
+                        "Another plugin caption template")),
+                pluginTemplate,
+                keepsChoice: true);
+            Swap(
+                "after the picked plugin template was removed",
+                () => TestShell.Extensions.RemoveExtensions(TestPackageId),
+                defaultText,
+                keepsChoice: false);
+
+            void Swap(string step, Action swap, CaptionTemplateDescriptor expected, bool keepsChoice)
+            {
+                selections.Clear();
+                previewRefreshes = 0;
+                swap();
+                HeadlessTestHelpers.Render();
+                AssertChoice(step, expected);
+                if (keepsChoice)
+                {
+                    // Dropping a template that stays and choosing it again would restart its
+                    // preview and briefly disable Add to scene.
+                    Assert.Multiple(() =>
+                    {
+                        Assert.That(selections, Is.Empty, step);
+                        Assert.That(previewRefreshes, Is.Zero, step);
+                    });
+                }
+            }
+
+            void AssertChoice(string step, CaptionTemplateDescriptor expected)
+            {
+                CaptionTemplateDescriptor[] templates = [.. viewModel.CaptionTemplates];
+                Assert.Multiple(() =>
+                {
+                    Assert.That(viewModel.SelectedCaptionTemplate.Value, Is.EqualTo(expected), step);
+                    Assert.That(picker.SelectedItem, Is.EqualTo(expected), step);
+                    Assert.That(picker.SelectedIndex, Is.EqualTo(Array.IndexOf(templates, expected)), step);
+                    Assert.That(picker.SelectionBoxItem, Is.EqualTo(expected), step);
+                });
+            }
+        }
+        finally
+        {
+            _ = TestShell.Extensions.RemoveExtensions(TestPackageId);
+            _ = TestShell.Extensions.RemoveExtensions(OtherTestPackageId);
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    // Packages can be loaded and unloaded on a worker thread. The picker's list must still change only
+    // on the UI thread, and a swap that reaches the UI thread late must not undo a later one.
+    [AvaloniaTest]
+    public async Task ShownTool_TakesTemplateSwapsFromWorkerThreadsInOrder()
+    {
+        await TestReset.ResetShellAsync();
+        using AiSubtitleDialogViewModel viewModel =
+            TestShell.MainViewModel.CreateAiSubtitleToolViewModel(editViewModel: null);
+        viewModel.SelectedSubtitlePageIndex.Value = 1;
+        var view = new AiSubtitleView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 460, Height = 640 };
+        int changesOffUiThread = 0;
+        void OnChoicesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (!Dispatcher.UIThread.CheckAccess())
+                Interlocked.Increment(ref changesOffUiThread);
+        }
+
+        viewModel.CaptionTemplates.CollectionChanged += OnChoicesChanged;
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            ComboBox picker = view.FindControl<ComboBox>("CaptionTemplateComboBox")!;
+            CaptionTemplateDescriptor defaultText = viewModel.CaptionTemplates
+                .Single(template => template.Id == CaptionTemplateIds.DefaultText);
+
+            await Task.Run(() => TestShell.Extensions.AddExtensions(
+                TestPackageId,
+                CreateTemplateExtensions(new TestCaptionElementFactory())));
+            HeadlessTestHelpers.Render();
+            AssertChoice("after a worker thread added a plugin template", defaultText);
+            picker.SelectedItem = viewModel.CaptionTemplates
+                .Single(template => template.Id == s_pluginTemplateId);
+            HeadlessTestHelpers.Render();
+
+            // The UI thread stays busy while a worker removes the plugin template, then adds another
+            // template itself before it gets to the removal.
+            Task removal = Task.Run(() => TestShell.Extensions.RemoveExtensions(TestPackageId));
+            Assert.That(removal.Wait(TimeSpan.FromSeconds(10)), Is.True);
+            TestShell.Extensions.AddExtensions(
+                OtherTestPackageId,
+                CreateTemplateExtensions(
+                    new TestCaptionElementFactory(),
+                    s_otherTemplateId,
+                    "Another plugin caption template"));
+            HeadlessTestHelpers.Render();
+            AssertChoice("after both swaps reached the UI thread", defaultText);
+            Assert.That(
+                viewModel.CaptionTemplates.Select(template => template.Id),
+                Does.Contain(s_otherTemplateId).And.Not.Contain(s_pluginTemplateId));
+
+            void AssertChoice(string step, CaptionTemplateDescriptor expected)
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(picker.ItemCount, Is.EqualTo(viewModel.CaptionTemplates.Count), step);
+                    Assert.That(viewModel.SelectedCaptionTemplate.Value, Is.EqualTo(expected), step);
+                    Assert.That(picker.SelectedItem, Is.EqualTo(expected), step);
+                    Assert.That(changesOffUiThread, Is.Zero, step);
+                });
+            }
+        }
+        finally
+        {
+            viewModel.CaptionTemplates.CollectionChanged -= OnChoicesChanged;
+            _ = TestShell.Extensions.RemoveExtensions(TestPackageId);
+            _ = TestShell.Extensions.RemoveExtensions(OtherTestPackageId);
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
     }
 
     [AvaloniaTest]
@@ -101,9 +277,9 @@ public sealed class AiCaptionExtensionCompositionTests
         }
     }
 
-    // A template contribution that changes while the subtitle tool is shown swaps the registry's whole
-    // template list. The swap must reach subscribers added after the view model and the template picker
-    // as a change they can apply: DynamicData, for one, cannot apply a Replace whose item counts differ.
+    // A template contribution that changes while the subtitle tool is shown changes the tool's
+    // template list. The change must reach subscribers added after the template picker as one they
+    // can apply: DynamicData, for one, cannot apply a Replace whose item counts differ.
     [AvaloniaTest]
     public async Task ShownTool_KeepsLaterTemplateSubscribersInSync()
     {
@@ -230,15 +406,20 @@ public sealed class AiCaptionExtensionCompositionTests
     }
 
     private static Extension[] CreateTemplateExtensions(ICaptionElementFactory factory)
+        => CreateTemplateExtensions(factory, s_pluginTemplateId, "Plugin caption template");
+
+    private static Extension[] CreateTemplateExtensions(
+        ICaptionElementFactory factory,
+        CaptionTemplateId id,
+        string name)
     {
-        var id = new CaptionTemplateId("beutl.tests.plugin-caption");
         return
         [
             new TestCaptionTemplateDescriptorExtension([
                 new CaptionTemplateDescriptorRegistration(new CaptionTemplateDescriptor(
                     id,
                     new CaptionTemplateProviderId("beutl.tests"),
-                    "Plugin caption template")),
+                    name)),
             ]),
             new TestCaptionElementFactoryExtension([
                 new CaptionElementFactoryRegistration(id, factory),
