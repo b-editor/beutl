@@ -261,6 +261,9 @@ public sealed class PackageInstallerDisposeTests
             var stopwatch = Stopwatch.StartNew();
             Task dispose = installer.DisposeAsync().AsTask();
             Assert.That(dispose.IsCompleted, Is.False, "disposal must first wait for the drain deadline");
+            Task checkpoint = Task.Delay(TimeSpan.FromMilliseconds(100));
+            Assert.That(await Task.WhenAny(dispose, checkpoint), Is.SameAs(checkpoint),
+                "disposal must remain pending at a checkpoint before its 500 ms drain deadline");
             await dispose.WaitAsync(TimeSpan.FromSeconds(10));
             stopwatch.Stop();
 
@@ -525,6 +528,9 @@ public sealed class PackageInstallerDisposeTests
             var stopwatch = Stopwatch.StartNew();
             Task idle = installer.WaitUntilIdleAsync(TimeSpan.FromMilliseconds(300));
             Assert.That(idle.IsCompleted, Is.False, "the idle wait must first wait for its timeout");
+            Task checkpoint = Task.Delay(TimeSpan.FromMilliseconds(100));
+            Assert.That(await Task.WhenAny(idle, checkpoint), Is.SameAs(checkpoint),
+                "the idle wait must remain pending at a checkpoint before its 300 ms timeout");
             await idle.WaitAsync(TimeSpan.FromSeconds(5));
             stopwatch.Stop();
 
