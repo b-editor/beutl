@@ -5589,10 +5589,11 @@ public sealed partial class AiDialogWorkflowTests
         BeutlApiApplication clients,
         EditViewModel? editor = null,
         AiRequestRecoveryContext? context = null,
-        AiSourceVideoMode? sourceMode = null)
+        AiSourceVideoMode? sourceMode = null,
+        IAiOperationAvailabilityService? availability = null)
         => new(
             clients.GetResource<IAiEntitlementService>(),
-            clients.GetResource<IAiOperationAvailabilityService>(),
+            availability ?? clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),
             CreatePlanCoordinator(clients),
             clients.GetResource<IAiVideoService>(),

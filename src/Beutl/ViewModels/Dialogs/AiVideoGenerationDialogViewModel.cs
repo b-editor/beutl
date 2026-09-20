@@ -659,7 +659,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     internal void RefreshAvailability()
         => _availabilityTracker.Refresh(new AiOperationAvailabilityRequest.Video(
             Operation,
-            SelectedDuration.Value.Seconds,
+            RequestDuration,
             ModelPicker.SelectedModel));
 
     public ReactivePropertySlim<string?> ResultVideoPath { get; } = new();
