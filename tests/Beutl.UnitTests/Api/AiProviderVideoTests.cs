@@ -10,6 +10,50 @@ public sealed partial class AiCapabilityServiceTests
     private static AiUploadSource VideoInput(string name, string type, long length = 3)
         => new(name, type, _ => ValueTask.FromResult<Stream>(new MemoryStream([1, 2, 3])), length);
 
+    [TestCase(1, false)]
+    [TestCase(2, false)]
+    [TestCase(1, true)]
+    public async Task ProviderVideo_DisposesEveryOpenedReferenceWhenCleanupFails(int failures, bool failLastOpen)
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """{"jobId":"job","status":"queued"}"""));
+        using var http = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var first = new ReferenceDisposalProbe(throws: true);
+        using var second = new ReferenceDisposalProbe(throws: failures == 2);
+        using var last = new ReferenceDisposalProbe(throws: false);
+        AiUploadSource Upload(string name, string mediaType, ReferenceDisposalProbe stream) => new(
+            name, mediaType,
+            _ => failLastOpen && ReferenceEquals(stream, last)
+                ? ValueTask.FromException<Stream>(new IOException("Injected open failure."))
+                : ValueTask.FromResult<Stream>(stream), 3);
+        var request = new AiVideoGenerationRequest("scene", 5, new("720p"), new("16:9"), inputReferences:
+        [
+            Upload("a.png", "image/png", first),
+            Upload("b.mp4", "video/mp4", second),
+            Upload("c.wav", "audio/wav", last),
+        ]);
+        var error = Assert.ThrowsAsync<AggregateException>(async () =>
+            await app.GetResource<IAiVideoService>().CreateAsync(request, CancellationToken.None));
+        Assert.That(error!.InnerExceptions, Has.Count.EqualTo(failures));
+        Assert.That(error.InnerExceptions, Has.All.InstanceOf<IOException>());
+        Assert.That(first.AsyncDisposals, Is.EqualTo(1));
+        Assert.That(second.AsyncDisposals, Is.EqualTo(1));
+        Assert.That(last.AsyncDisposals, Is.EqualTo(failLastOpen ? 0 : 1));
+        Assert.That(handler.Requests.Count, Is.EqualTo(failLastOpen ? 0 : 1));
+    }
+
+    private sealed class ReferenceDisposalProbe(bool throws) : MemoryStream([1, 2, 3])
+    {
+        public int AsyncDisposals { get; private set; }
+        public override ValueTask DisposeAsync()
+        {
+            AsyncDisposals++;
+            base.Dispose(disposing: true);
+            return throws ? ValueTask.FromException(new IOException("Injected cleanup failure.")) : ValueTask.CompletedTask;
+        }
+    }
+
     [TestCase(AiSourceVideoMode.Edit)]
     [TestCase(AiSourceVideoMode.Extend)]
     [TestCase(AiSourceVideoMode.Motion)]

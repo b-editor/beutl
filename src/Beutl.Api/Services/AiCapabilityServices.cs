@@ -428,29 +428,6 @@ internal sealed class AiImageGenerationService(
         }
     }
 
-    private static async ValueTask DisposeReferenceStreamsAsync(IReadOnlyList<Stream> streams)
-    {
-        List<Exception>? failures = null;
-        foreach (Stream stream in streams)
-        {
-            try
-            {
-                await stream.DisposeAsync();
-            }
-            catch (Exception ex)
-            {
-                (failures ??= []).Add(ex);
-            }
-        }
-
-        if (failures is not null)
-        {
-            throw new AggregateException(
-                "One or more AI image reference streams failed to close.",
-                failures);
-        }
-    }
-
     // A picture midway through being worked out. Anything that cannot be read as
     // one is passed over: it is a preview, and the finished picture is what the
     // caller is really waiting for.
@@ -998,6 +975,29 @@ internal abstract class AiMeteredCapabilityService(
     protected BeutlApiApplication Application { get; } = application;
 
     protected static string CreateIdempotencyKey() => Guid.NewGuid().ToString("D");
+
+    protected static async ValueTask DisposeReferenceStreamsAsync(IReadOnlyList<Stream> streams)
+    {
+        List<Exception>? failures = null;
+        foreach (Stream stream in streams)
+        {
+            try
+            {
+                await stream.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
+            }
+        }
+
+        if (failures is not null)
+        {
+            throw new AggregateException(
+                "One or more AI reference streams failed to close.",
+                failures);
+        }
+    }
 
     /// <summary>
     /// Runs a request that answers a piece at a time, handing each piece to the

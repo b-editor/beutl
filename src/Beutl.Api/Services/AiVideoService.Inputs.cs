@@ -43,6 +43,9 @@ internal sealed partial class AiVideoService
                     request.GenerateAudio ? "true" : "false", request.Seed?.ToString(CultureInfo.InvariantCulture), request.Model?.Value, token),
                 AiModelMapper.ToModel, cancellationToken);
         }
-        finally { foreach (var stream in streams) await stream.DisposeAsync(); }
+        finally
+        {
+            await DisposeReferenceStreamsAsync(streams);
+        }
     }
 }
