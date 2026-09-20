@@ -1395,7 +1395,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             string motion = Motion.Value;
             string exclusions = Exclusions.Value;
             RefreshVideoInputs();
-            if (InputError.Value is { } inputError) throw new ArgumentException(inputError);
+            if (InputError.Value is { } inputError) throw new VideoInputException(inputError);
             int durationSeconds = RequestDuration;
             string resolution = IsGeneration ? SelectedResolution.Value.Value : string.Empty;
             string aspectRatio = IsGeneration ? SelectedAspectRatio.Value.Value : string.Empty;
