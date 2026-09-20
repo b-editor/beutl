@@ -136,8 +136,13 @@ internal sealed partial class AiVideoGenerationDialogViewModel
 
     private static string MediaType(string name) => Path.GetExtension(name).ToLowerInvariant() switch
     {
-        ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".webp" => "image/webp",
-        ".mp4" => "video/mp4", ".webm" => "video/webm", ".wav" or ".wave" => "audio/wav", ".mp3" => "audio/mpeg",
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".webp" => "image/webp",
+        ".mp4" => "video/mp4",
+        ".webm" => "video/webm",
+        ".wav" or ".wave" => "audio/wav",
+        ".mp3" => "audio/mpeg",
         _ => throw new VideoInputException(Strings.AiVideoInputUnavailable),
     };
     private static AiUploadSource Describe(string path, string? name = null)

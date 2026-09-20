@@ -21,15 +21,19 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         string operation = mode switch
         {
-            AiSourceVideoMode.Edit => "video.edit", AiSourceVideoMode.Extend => "video.extend",
-            AiSourceVideoMode.Motion => "video.motion", _ => "video.generate",
+            AiSourceVideoMode.Edit => "video.edit",
+            AiSourceVideoMode.Extend => "video.extend",
+            AiSourceVideoMode.Motion => "video.motion",
+            _ => "video.generate",
         };
         var capabilities = JsonNode.Parse(ProviderVideoCapabilities)!;
         capabilities["operations"]![operation]!["models"] = new JsonArray(new JsonObject
         {
-            ["id"] = "gateway/source-model", ["isDefault"] = true,
+            ["id"] = "gateway/source-model",
+            ["isDefault"] = true,
             ["durationsSeconds"] = durations ? new JsonArray(5, 10) : new JsonArray(),
-            ["resolutions"] = new JsonArray(), ["aspectRatios"] = new JsonArray(),
+            ["resolutions"] = new JsonArray(),
+            ["aspectRatios"] = new JsonArray(),
         });
         string? sent = null;
         using var handler = new StubHandler(async (request, token) =>
