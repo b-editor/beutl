@@ -3077,7 +3077,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>動画が選択されていません</value>
   </data>
   <data name="AiVideoEditPromptPlaceholder" xml:space="preserve">
-    <value>動画をどのように編集するか入力してください…</value>
+    <value>動画をどのように編集するか入力してください...</value>
   </data>
   <data name="AiVideoEditingIdle" xml:space="preserve">
     <value>動画とタスクを選択して「実行」をクリックしてください。</value>

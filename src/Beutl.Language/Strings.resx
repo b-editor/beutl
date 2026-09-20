@@ -3082,7 +3082,7 @@ when history recording is enabled.</value>
     <value>No video selected</value>
   </data>
   <data name="AiVideoEditPromptPlaceholder" xml:space="preserve">
-    <value>Describe the changes to the video…</value>
+    <value>Describe the changes to the video...</value>
   </data>
   <data name="AiVideoEditingIdle" xml:space="preserve">
     <value>Choose a video and a task, then click Run.</value>
