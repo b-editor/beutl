@@ -45,6 +45,7 @@ public class ControlPointBehavior : Behavior<Path>
         AssociatedObject.PointerMoved += OnPointerMoved;
         AssociatedObject.PointerPressed += OnPointerPressed;
         AssociatedObject.PointerReleased += OnPointerReleased;
+        AssociatedObject.ContextRequested += OnContextRequested;
     }
 
     protected override void OnDetaching()
@@ -55,6 +56,7 @@ public class ControlPointBehavior : Behavior<Path>
         AssociatedObject.PointerMoved -= OnPointerMoved;
         AssociatedObject.PointerPressed -= OnPointerPressed;
         AssociatedObject.PointerReleased -= OnPointerReleased;
+        AssociatedObject.ContextRequested -= OnContextRequested;
     }
 
     // GraphEditorView, GraphEditorViewModel, GraphEditorKeyFrameViewModelを取得
@@ -188,6 +190,27 @@ public class ControlPointBehavior : Behavior<Path>
             editorViewModel.BeginEditing();
             e.Handled = true;
         }
+    }
+
+    private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (!TryGetValues(out var view, out _, out var viewModel)
+            || !e.TryGetPosition(view, out Point position))
+            return;
+
+        // A handle can cover its own keyframe or the previous segment's keyframe.
+        // Context requests are raised on release, separately from PointerPressed.
+        Path? keyTimeIcon = view.GetVisualsAt(position)
+            .OfType<Path>()
+            .FirstOrDefault(path => path.Name == "KeyTimeIcon"
+                && path.DataContext is GraphEditorKeyFrameViewModel keyFrame
+                && keyFrame.Parent == viewModel.Parent);
+        if (keyTimeIcon == null)
+            return;
+
+        var forwarded = new ContextRequestedEventArgs(e);
+        keyTimeIcon.RaiseEvent(forwarded);
+        e.Handled = forwarded.Handled;
     }
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
