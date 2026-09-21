@@ -270,7 +270,7 @@ public sealed class CustomEffectSynchronizationTests
             using var context = new FilterEffectContext(bounds);
             context.ApplyTransactional(effect, resource);
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(
+            using var executor = new FilterEffectExecutor(
                 targets,
                 builder,
                 RenderIntent.Preview,
@@ -284,9 +284,9 @@ public sealed class CustomEffectSynchronizationTests
 
             Assert.That(source.Value.Context, Is.Null);
             using (ImmediateCanvas.ObserveFlushes(flushes.Add))
-                activator.Apply(context);
+                executor.Apply(context);
 
-            RenderTarget actualTarget = activator.CurrentTargets.Single().RenderTarget!;
+            RenderTarget actualTarget = executor.CurrentTargets.Single().RenderTarget!;
             Assert.That(actualTarget.Value.Context, Is.Not.Null);
             using Bitmap actual = actualTarget.Snapshot();
             Assert.Multiple(() =>
@@ -340,7 +340,7 @@ public sealed class CustomEffectSynchronizationTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void PublicFilterEffectActivator_RetainsEffectItemCanvasAndSourceFlushes()
+    public void PublicFilterEffectExecutor_RetainsEffectItemCanvasAndSourceFlushes()
     {
         VulkanTestEnvironment.EnsureAvailable();
         var bounds = new Rect(0, 0, 16, 12);
@@ -359,7 +359,7 @@ public sealed class CustomEffectSynchronizationTests
         using var context = new FilterEffectContext(bounds);
         context.ApplyTransactional(effect, resource);
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -371,9 +371,9 @@ public sealed class CustomEffectSynchronizationTests
         var flushes = new List<ImmediateCanvasFlushKind>();
 
         using (ImmediateCanvas.ObserveFlushes(flushes.Add))
-            activator.Apply(context);
+            executor.Apply(context);
 
-        using Bitmap actual = activator.CurrentTargets.Single().RenderTarget!.Snapshot();
+        using Bitmap actual = executor.CurrentTargets.Single().RenderTarget!.Snapshot();
         Assert.Multiple(() =>
         {
             Assert.That(actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()), Is.True);
@@ -381,7 +381,7 @@ public sealed class CustomEffectSynchronizationTests
             {
                 ImmediateCanvasFlushKind.SourceSurface,
                 ImmediateCanvasFlushKind.CanvasClose,
-            }), "The public standalone activator must retain its effectItem source and context flushes.");
+            }), "The public standalone executor must retain its effectItem source and context flushes.");
         });
         AssertFlushCounts(
             flushes,

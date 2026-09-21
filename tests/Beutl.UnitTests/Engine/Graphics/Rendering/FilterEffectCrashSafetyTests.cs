@@ -98,15 +98,15 @@ public sealed class FilterEffectCrashSafetyTests
         effect.ApplyTo(feCtx, effect.ToResource(new CompositionContext(TimeSpan.Zero)));
 
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Delivery,
             RenderRequestPurpose.Auxiliary,
             drawableBrushMaterializer: null);
-        Assert.DoesNotThrow(() => activator.Apply(feCtx));
+        Assert.DoesNotThrow(() => executor.Apply(feCtx));
 
-        foreach (EffectTarget target in activator.CurrentTargets)
+        foreach (EffectTarget target in executor.CurrentTargets)
         {
             Assert.That(IsFinite(target.Bounds), Is.True, $"Shaken bounds must stay finite; got {target.Bounds}.");
             Assert.That(IsFinite(target.OriginalBounds), Is.True, $"Original bounds must stay finite; got {target.OriginalBounds}.");
@@ -149,13 +149,13 @@ public sealed class FilterEffectCrashSafetyTests
             effect.ApplyTo(feCtx, effect.ToResource(new CompositionContext(TimeSpan.Zero)));
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(
+            using var executor = new FilterEffectExecutor(
                 targets,
                 builder,
                 RenderIntent.Delivery,
                 RenderRequestPurpose.Auxiliary,
                 drawableBrushMaterializer: null);
-            Assert.DoesNotThrow(() => activator.Apply(feCtx));
+            Assert.DoesNotThrow(() => executor.Apply(feCtx));
         });
     }
 

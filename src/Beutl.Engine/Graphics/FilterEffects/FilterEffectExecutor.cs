@@ -9,24 +9,24 @@ using SkiaSharp;
 namespace Beutl.Graphics.Effects;
 
 /// <summary>
-/// Applies a recorded <see cref="FilterEffectContext"/> to a set of <see cref="EffectTargets"/>.
+/// Executes the filter operations recorded in a <see cref="FilterEffectContext"/> on a set of <see cref="EffectTargets"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The public constructor builds a <i>standalone</i> activator, which allocates its own intermediates from
-/// the process-wide shared graphics context. That is the right answer only when the activator belongs to no
+/// The public constructor builds a <i>standalone</i> executor, which allocates its own intermediates from
+/// the process-wide shared graphics context. That is the right answer only when the executor belongs to no
 /// render — there is no caller allocation policy to honour.
 /// </para>
 /// <para>
 /// Inside a custom effect callback there is one, so call
-/// <see cref="CustomFilterEffectContext.CreateActivator"/> instead of constructing an activator: it carries
+/// <see cref="CustomFilterEffectContext.CreateExecutor"/> instead of constructing an executor: it carries
 /// the running render's lease session, and so allocates through a caller-supplied
 /// <see cref="IRenderTargetFactory"/> rather than drawing factory-made inputs into a shared-context buffer.
 /// </para>
 /// </remarks>
-public sealed class FilterEffectActivator : IDisposable
+public sealed class FilterEffectExecutor : IDisposable
 {
-    private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectActivator");
+    private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectExecutor");
     private readonly SkRuntimeEffectProgramAcquirer? _injectedProgramAcquirer;
     private readonly Vector? _deviceGridOffset;
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
@@ -43,7 +43,7 @@ public sealed class FilterEffectActivator : IDisposable
     /// <see langword="null"/> when the caller applies no drawable brush. Stated rather than defaulted: left
     /// implicit, a <see cref="DrawableBrush"/> resolves to transparent instead of to its content.
     /// </param>
-    public FilterEffectActivator(
+    public FilterEffectExecutor(
         EffectTargets targets,
         SKImageFilterBuilder builder,
         RenderIntent intent,
@@ -72,7 +72,7 @@ public sealed class FilterEffectActivator : IDisposable
     {
     }
 
-    internal FilterEffectActivator(
+    internal FilterEffectExecutor(
         EffectTargets targets,
         SKImageFilterBuilder builder,
         RenderIntent intent,
@@ -105,7 +105,7 @@ public sealed class FilterEffectActivator : IDisposable
     {
     }
 
-    internal FilterEffectActivator(
+    internal FilterEffectExecutor(
         EffectTargets targets,
         SKImageFilterBuilder builder,
         RenderIntent intent,
@@ -139,7 +139,7 @@ public sealed class FilterEffectActivator : IDisposable
     {
     }
 
-    private FilterEffectActivator(
+    private FilterEffectExecutor(
         EffectTargets targets,
         SKImageFilterBuilder builder,
         RenderIntent intent,
@@ -201,10 +201,10 @@ public sealed class FilterEffectActivator : IDisposable
     public float MaxWorkingScale { get; }
 
     /// <summary>
-    /// Gets the budget an allocation from this activator is held to, on both axes.
+    /// Gets the budget an allocation from this executor is held to, on both axes.
     /// </summary>
     /// <remarks>
-    /// Resolved per call rather than in the constructor: an activator can outlive the moment the graphics
+    /// Resolved per call rather than in the constructor: an executor can outlive the moment the graphics
     /// context first answers, and until it does the engine ceiling stands in for the device's own limit.
     /// </remarks>
     public BufferDimensionBudget Budget
@@ -226,14 +226,14 @@ public sealed class FilterEffectActivator : IDisposable
     {
         if (float.IsFinite(value) && value > 0f)
             return value;
-        s_logger.LogWarning("FilterEffectActivator: {Param} ({Value}) is not positive-finite; falling back to 1.0.",
+        s_logger.LogWarning("FilterEffectExecutor: {Param} ({Value}) is not positive-finite; falling back to 1.0.",
             name, value);
         return 1f;
     }
 
     private static float LogAndFallback(float value, string name, float fallback)
     {
-        s_logger.LogWarning("FilterEffectActivator: {Param} ({Value}) is not positive; falling back to {Fallback}.",
+        s_logger.LogWarning("FilterEffectExecutor: {Param} ({Value}) is not positive; falling back to {Fallback}.",
             name, value, fallback);
         return fallback;
     }
@@ -828,7 +828,7 @@ public sealed class FilterEffectActivator : IDisposable
 
         using EffectTargets cloned = CurrentTargets.Clone();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             cloned,
             builder,
             Intent,
@@ -844,13 +844,13 @@ public sealed class FilterEffectActivator : IDisposable
             _renderTargetLeaseSession,
             targetDomain: _targetDomain);
 
-        activator.Apply(context);
-        activator.Flush(false);
+        executor.Apply(context);
+        executor.Flush(false);
 
         SKImageFilter? filter = builder.GetFilter();
         if (filter != null) return filter;
 
-        foreach (EffectTarget t in activator.CurrentTargets)
+        foreach (EffectTarget t in executor.CurrentTargets)
         {
             if (t.RenderTarget == null) continue;
 

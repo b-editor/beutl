@@ -367,10 +367,14 @@ The former public `FilterEffectContext.Bounds` property is removed. Bounds stay 
 
 `FilterEffect.Resource.CreateRenderNode()` remains virtual. A custom `FilterEffectRenderNode` must use the new `void Process` contract. If the customization changes only working-scale semantics, override the protected `GetWorkingScaleContract()` and retain base `Process`; a `null` result selects `RenderScaleContract.MaterializeAtWorkingScale`.
 
-Direct `FilterEffectActivator` consumers must classify execution explicitly:
+`FilterEffectActivator` is renamed to `FilterEffectExecutor`, and `CustomFilterEffectContext.CreateActivator`
+is renamed to `CreateExecutor`. Update explicit type references and Skia factory delegate signatures to
+use the new name; execution behavior is unchanged.
+
+Direct `FilterEffectExecutor` consumers must classify execution explicitly:
 
 ```csharp
-using var activator = new FilterEffectActivator(
+using var executor = new FilterEffectExecutor(
     targets,
     builder,
     RenderIntent.Delivery,
@@ -528,14 +532,14 @@ The same rule applies to `CubeMesh`, `PlaneMesh`, `SphereMesh`, and `ModelMesh`:
 
 ## Render intent, brushes, and allocation behavior
 
-`Renderer`, `ImmediateCanvas`, `SceneRenderer`, `BrushConstructor` and `FilterEffectActivator` take `RenderIntent` — and `BrushConstructor` and `FilterEffectActivator` also take `DrawableBrushMaterializer?` — as required arguments, not trailing optional ones. Neither can be reached by dropping a trailing argument, so a host cannot inherit preview semantics or a transparent `DrawableBrush` by omission. See "A render host states what its output is for" below for the signatures and the migration.
+`Renderer`, `ImmediateCanvas`, `SceneRenderer`, `BrushConstructor` and `FilterEffectExecutor` take `RenderIntent` — and `BrushConstructor` and `FilterEffectExecutor` also take `DrawableBrushMaterializer?` — as required arguments, not trailing optional ones. Neither can be reached by dropping a trailing argument, so a host cannot inherit preview semantics or a transparent `DrawableBrush` by omission. See "A render host states what its output is for" below for the signatures and the migration.
 
 Positional callers must be updated: the materializer sits directly after `intent`, ahead of the optional scale parameters. Custom `IRenderTargetFactory` implementations must drop `GetMaximumDimension`. `BufferDimensionBudget.EngineCeiling` is the engine's own axis ceiling and still bounds a buffer no device attaches; where an allocation does attach, `BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation)` answers with what that device reports instead, which on the bundled software fallback is lower. That scope answers for the caller's own allocation, so off the render thread it reports the ceiling: a buffer allocated there is rastered on the CPU and reaches no device. A caller that is instead predicting what a later render will face — a dialog pre-validating an export, a tool validating a render scale — reads `BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction)`, which answers for the installed device from any thread and falls back to the engine ceiling only while no device has been built.
 
-`FilterEffectActivator`'s public constructor requires the same `DrawableBrushMaterializer?` for the same reason: the activator is a direct host, and it forwards the materializer into every `CustomFilterEffectContext` it opens. Without one, a `DrawableBrush` used as a displacement map (or any other brush a custom effect paints) degrades to transparent, which for a displacement map silently turns the effect into a no-op:
+`FilterEffectExecutor`'s public constructor requires the same `DrawableBrushMaterializer?` for the same reason: the executor is a direct host, and it forwards the materializer into every `CustomFilterEffectContext` it opens. Without one, a `DrawableBrush` used as a displacement map (or any other brush a custom effect paints) degrades to transparent, which for a displacement map silently turns the effect into a no-op:
 
 ```csharp
-using var activator = new FilterEffectActivator(
+using var executor = new FilterEffectExecutor(
     targets,
     builder,
     RenderIntent.Preview,
@@ -544,7 +548,7 @@ using var activator = new FilterEffectActivator(
 ```
 
 A further trailing optional `Rect? targetDomain` carries the region the request delivers, which
-`CustomFilterEffectContext.TargetDomain` exposes to the effects the activator runs. It is what lets a
+`CustomFilterEffectContext.TargetDomain` exposes to the effects the executor runs. It is what lets a
 transform declare `Rect.TransformToDeliveredAABB` rather than the pragmatic box, so a direct host that
 omits it keeps the pragmatic bounds: a perspective transform straddling the camera plane then declares a
 box that clips the wedge the rasterizer still draws, or declares nothing at all and drops the target. A

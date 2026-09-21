@@ -65,7 +65,7 @@ public sealed class SymbolicTransformActivationTests
     {
         using EffectTargets targets = CreateSolidTargets(bounds);
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -75,10 +75,10 @@ public sealed class SymbolicTransformActivationTests
             workingScale: 1,
             maxWorkingScale: 1);
 
-        activator.Apply(context);
-        activator.Flush();
+        executor.Apply(context);
+        executor.Flush();
 
-        EffectTarget target = activator.CurrentTargets.Single();
+        EffectTarget target = executor.CurrentTargets.Single();
         return new Activation(target.Bounds, MeasureCoveredBounds(target));
     }
 

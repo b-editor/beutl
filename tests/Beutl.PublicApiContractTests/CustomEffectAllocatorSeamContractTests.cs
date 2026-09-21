@@ -34,21 +34,21 @@ public sealed class CustomEffectAllocatorSeamContractTests
             Assert.That(
                 probe.SeamIntermediate,
                 Is.Not.Null,
-                "an activator minted by the context has to produce a flush buffer");
+                "an executor minted by the context has to produce a flush buffer");
             Assert.That(
                 factory.Created,
                 Has.Some.SameAs(probe.SeamIntermediate),
-                "the context-minted activator has to allocate its intermediate through the caller's factory, "
+                "the context-minted executor has to allocate its intermediate through the caller's factory, "
                 + "so the buffer shares a graphics context with the inputs it draws");
 
             Assert.That(
                 probe.StandaloneIntermediate,
                 Is.Not.Null,
-                "an activator built through the public constructor still produces a flush buffer");
+                "an executor built through the public constructor still produces a flush buffer");
             Assert.That(
                 factory.Created,
                 Has.None.SameAs(probe.StandaloneIntermediate),
-                "the public constructor documents a standalone activator: it belongs to no render, so it "
+                "the public constructor documents a standalone executor: it belongs to no render, so it "
                 + "self-allocates and this recording factory never sees the request");
         });
     }
@@ -112,9 +112,9 @@ public sealed class CustomEffectAllocatorSeamContractTests
         {
             using EffectTargets targets = context.Targets.Clone();
             using var builder = new SKImageFilterBuilder();
-            using FilterEffectActivator activator = throughSeam
-                ? context.CreateActivator(targets, builder)
-                : new FilterEffectActivator(
+            using FilterEffectExecutor executor = throughSeam
+                ? context.CreateExecutor(targets, builder)
+                : new FilterEffectExecutor(
                     targets,
                     builder,
                     context.Intent,
@@ -129,12 +129,12 @@ public sealed class CustomEffectAllocatorSeamContractTests
             // target it already holds.
             builder.AppendSkiaFilter(
                 4f,
-                activator,
+                executor,
                 static (sigma, input, _) => SKImageFilter.CreateBlur(sigma, sigma, input));
-            activator.Flush(false);
+            executor.Flush(false);
 
-            return activator.CurrentTargets.Count > 0
-                ? activator.CurrentTargets[0].RenderTarget
+            return executor.CurrentTargets.Count > 0
+                ? executor.CurrentTargets[0].RenderTarget
                 : null;
         }
 

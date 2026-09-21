@@ -272,7 +272,7 @@ public sealed class FilterEffectContext : IDisposable
     /// filter reads.
     /// </param>
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory,
+    public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectExecutor, SKImageFilter?> factory,
         Func<T, Rect, Rect> transformBounds, Func<T, Rect, Rect>? transformSamplingBounds = null)
         where T : IEquatable<T>
     {
@@ -304,7 +304,7 @@ public sealed class FilterEffectContext : IDisposable
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public void AppendSKColorFilter<T>(T data, Func<T, FilterEffectActivator, SKColorFilter?> factory)
+    public void AppendSKColorFilter<T>(T data, Func<T, FilterEffectExecutor, SKColorFilter?> factory)
         where T : IEquatable<T>
     {
         AddItem(new FEItem_SKColorFilter<T>(data, factory));
@@ -1063,7 +1063,7 @@ internal sealed class FilterEffectResourceState
 }
 
 internal record FEItem_Skia<T>(
-    T Data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> Factory, Func<T, Rect, Rect> TransformBounds)
+    T Data, Func<T, SKImageFilter?, FilterEffectExecutor, SKImageFilter?> Factory, Func<T, Rect, Rect> TransformBounds)
     : FEItem<T>(Data, TransformBounds), IFEItem_Skia
 {
     public Func<T, SKImageFilter?, SKImageFilter?>? DirectFactory { get; init; }
@@ -1093,9 +1093,9 @@ internal record FEItem_Skia<T>(
         return true;
     }
 
-    public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
+    public void Accepts(FilterEffectExecutor executor, SKImageFilterBuilder builder)
     {
-        builder.AppendSkiaFilter(Data, activator, Factory);
+        builder.AppendSkiaFilter(Data, executor, Factory);
     }
 
     public bool SupportsDirectReplay => DirectFactory is not null;
@@ -1107,7 +1107,7 @@ internal record FEItem_Skia<T>(
 }
 
 internal record FEItem_SKColorFilter<T>(
-    T Data, Func<T, FilterEffectActivator, SKColorFilter?> Factory)
+    T Data, Func<T, FilterEffectExecutor, SKColorFilter?> Factory)
     : FEItem<T>(Data, (_, rect) => rect), IFEItem_Skia
 {
     public bool ResolveBoundsAtExecutionTime => false;
@@ -1119,9 +1119,9 @@ internal record FEItem_SKColorFilter<T>(
         return true;
     }
 
-    public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
+    public void Accepts(FilterEffectExecutor executor, SKImageFilterBuilder builder)
     {
-        builder.AppendSKColorFilter(Data, activator, Factory);
+        builder.AppendSKColorFilter(Data, executor, Factory);
     }
 
     public bool SupportsDirectReplay => false;
@@ -1165,7 +1165,7 @@ internal sealed record FEItem_SkiaDeferredMatrix<T>(
             static (d, rect) => rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(d.Matrix));
     }
 
-    public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
+    public void Accepts(FilterEffectExecutor executor, SKImageFilterBuilder builder)
         => throw new InvalidOperationException(
             "A deferred-bound item runs only through the resolution of one activation.");
 

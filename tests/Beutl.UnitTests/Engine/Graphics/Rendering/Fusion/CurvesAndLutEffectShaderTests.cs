@@ -298,7 +298,7 @@ public sealed class CurvesAndLutEffectShaderTests
                 Is.All.EqualTo(RenderResourceRegistrationState.Pending));
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(
+            using var executor = new FilterEffectExecutor(
                 targets,
                 builder,
                 RenderIntent.Preview,
@@ -307,11 +307,11 @@ public sealed class CurvesAndLutEffectShaderTests
                 outputScale: 1,
                 workingScale: 1,
                 maxWorkingScale: 1);
-            activator.Apply(context);
+            executor.Apply(context);
             Assert.That(
                 tokens.Select(static token => token.RegistrationState),
                 Is.All.EqualTo(RenderResourceRegistrationState.Committed));
-            activator.Flush(false);
+            executor.Flush(false);
 
             using Bitmap bitmap = targets.Single().RenderTarget!.Snapshot();
             AssertCyan(bitmap.SKBitmap.GetPixel(0, 0));
@@ -396,7 +396,7 @@ public sealed class CurvesAndLutEffectShaderTests
                 PixelRect.FromRect(s_bounds, 1)),
         };
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -406,8 +406,8 @@ public sealed class CurvesAndLutEffectShaderTests
             workingScale: 1,
             maxWorkingScale: 1);
 
-        activator.Apply(context);
-        activator.Flush(false);
+        executor.Apply(context);
+        executor.Flush(false);
 
         using Bitmap bitmap = targets.Single().RenderTarget!.Snapshot();
         return bitmap.SKBitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 2);

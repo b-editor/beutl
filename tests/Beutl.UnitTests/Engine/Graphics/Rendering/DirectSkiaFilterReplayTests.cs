@@ -473,7 +473,7 @@ public sealed class DirectSkiaFilterReplayTests
             Assert.That(
                 renderer.LastExecutionStatistics.IntermediateTargetAcquisitions,
                 Is.GreaterThan(0),
-                "A public Skia factory can observe its activator and must not be assumed pure.");
+                "A public Skia factory can observe its executor and must not be assumed pure.");
         });
     }
 

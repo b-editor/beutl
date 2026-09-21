@@ -22,20 +22,20 @@ public sealed class FilterEffectCompatibilityContractTests
     {
         using var targets = new EffectTargets();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
             drawableBrushMaterializer: null);
-        using var unboundedCeilingActivator = new FilterEffectActivator(
+        using var unboundedCeilingExecutor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.CacheWarmup,
             drawableBrushMaterializer: null,
             maxWorkingScale: float.PositiveInfinity);
-        using var deliveryActivator = new FilterEffectActivator(
+        using var deliveryExecutor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Delivery,
@@ -55,7 +55,7 @@ public sealed class FilterEffectCompatibilityContractTests
             typeof(float),
             typeof(Rect?),
         ];
-        System.Reflection.ParameterInfo[] constructorParameters = typeof(FilterEffectActivator)
+        System.Reflection.ParameterInfo[] constructorParameters = typeof(FilterEffectExecutor)
             .GetConstructors()
             .Single()
             .GetParameters();
@@ -65,14 +65,14 @@ public sealed class FilterEffectCompatibilityContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(activator.Intent, Is.EqualTo(RenderIntent.Preview));
-            Assert.That(activator.Purpose, Is.EqualTo(RenderRequestPurpose.Frame));
-            Assert.That(unboundedCeilingActivator.Intent, Is.EqualTo(RenderIntent.Preview),
+            Assert.That(executor.Intent, Is.EqualTo(RenderIntent.Preview));
+            Assert.That(executor.Purpose, Is.EqualTo(RenderRequestPurpose.Frame));
+            Assert.That(unboundedCeilingExecutor.Intent, Is.EqualTo(RenderIntent.Preview),
                 "an unbounded working-scale ceiling must not promote a caller to delivery fail-fast");
-            Assert.That(unboundedCeilingActivator.Purpose, Is.EqualTo(RenderRequestPurpose.CacheWarmup));
-            Assert.That(deliveryActivator.Intent, Is.EqualTo(RenderIntent.Delivery),
+            Assert.That(unboundedCeilingExecutor.Purpose, Is.EqualTo(RenderRequestPurpose.CacheWarmup));
+            Assert.That(deliveryExecutor.Intent, Is.EqualTo(RenderIntent.Delivery),
                 "a finite working-scale ceiling must not demote an explicit delivery intent");
-            Assert.That(deliveryActivator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
+            Assert.That(deliveryExecutor.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
             Assert.That(actualParameterTypes, Is.EqualTo(expectedParameterTypes),
                 "the only public constructor must require both execution classifications and the brush materializer");
             Assert.That(constructorParameters[2].IsOptional, Is.False);
@@ -80,9 +80,9 @@ public sealed class FilterEffectCompatibilityContractTests
             Assert.That(constructorParameters[4].IsOptional, Is.False,
                 "a materializer left implicit paints a DrawableBrush transparent instead of its content");
             Assert.That(constructorParameters.Skip(5).All(static parameter => parameter.IsOptional), Is.True);
-            Assert.That(typeof(FilterEffectActivator).GetProperty(nameof(FilterEffectActivator.Intent))!.CanWrite,
+            Assert.That(typeof(FilterEffectExecutor).GetProperty(nameof(FilterEffectExecutor.Intent))!.CanWrite,
                 Is.False);
-            Assert.That(typeof(FilterEffectActivator).GetProperty(nameof(FilterEffectActivator.Purpose))!.CanWrite,
+            Assert.That(typeof(FilterEffectExecutor).GetProperty(nameof(FilterEffectExecutor.Purpose))!.CanWrite,
                 Is.False);
             Assert.That(typeof(CustomFilterEffectContext).GetProperty(nameof(CustomFilterEffectContext.Intent))!.CanWrite,
                 Is.False);
@@ -102,7 +102,7 @@ public sealed class FilterEffectCompatibilityContractTests
             new EffectTarget(renderTarget, bounds, EffectiveScale.At(1)),
         };
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Delivery,
@@ -114,7 +114,7 @@ public sealed class FilterEffectCompatibilityContractTests
             (_, execution) => observedPurpose = execution.Purpose,
             static (_, value) => value);
 
-        activator.Apply(context);
+        executor.Apply(context);
 
         Assert.That(observedPurpose, Is.EqualTo(RenderRequestPurpose.CacheWarmup));
     }

@@ -378,7 +378,7 @@ public sealed class PixelSortSpecializationTests
             new EffectTarget(source, s_bounds, EffectiveScale.At(1)),
         };
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Delivery,
@@ -389,9 +389,9 @@ public sealed class PixelSortSpecializationTests
             deviceGridOffset: default,
             useExecutorManagedCanvas: true);
 
-        activator.Apply(context);
+        executor.Apply(context);
 
-        RenderTarget applied = activator.CurrentTargets.Single().RenderTarget
+        RenderTarget applied = executor.CurrentTargets.Single().RenderTarget
             ?? throw new InvalidOperationException("The specialized pixel-sort effect produced no target.");
         return applied.ShallowCopy();
     }

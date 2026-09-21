@@ -18,7 +18,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 //    the effect's coordinate space. A bare Drawable pushes its placement outside the node instead, which
 //    leaves every effect input anchored at the origin and the case vacuous.
 //  - Two children give the segment several values. A single-value input whose items are all direct-replayable
-//    composes one SKImageFilter without the activator's pending-target frame, so one child never gets there.
+//    composes one SKImageFilter without the executor's pending-target frame, so one child never gets there.
 //  - Ordinary shapes keep the recorded bounds concrete, which routes FilterEffectContext.Transform down its
 //    non-deferred branch.
 //

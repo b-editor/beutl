@@ -304,7 +304,7 @@ internal sealed partial class RenderRequestExecutor
                         }
 
                         using var builder = new SKImageFilterBuilder();
-                        using var activator = new FilterEffectActivator(
+                        using var executor = new FilterEffectExecutor(
                             targets,
                             builder,
                             _options.Intent,
@@ -320,12 +320,12 @@ internal sealed partial class RenderRequestExecutor
                             useExecutorManagedCanvas: true,
                             renderTargetLeaseSession: _targets,
                             targetDomain: _options.TargetDomain);
-                        activator.Apply(effectContext);
-                        activator.CompletePolicyBoundary(
+                        executor.Apply(effectContext);
+                        executor.CompletePolicyBoundary(
                             payload.WorkingScalePolicy.HasValue);
 
-                        var result = new List<MaterializedRenderValue>(activator.CurrentTargets.Count);
-                        foreach (EffectTarget target in activator.CurrentTargets)
+                        var result = new List<MaterializedRenderValue>(executor.CurrentTargets.Count);
+                        foreach (EffectTarget target in executor.CurrentTargets)
                         {
                             if (target.RenderTarget is not { } renderTarget)
                                 continue;

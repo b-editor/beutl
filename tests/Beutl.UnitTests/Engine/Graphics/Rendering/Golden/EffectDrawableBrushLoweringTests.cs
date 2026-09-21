@@ -257,8 +257,8 @@ internal sealed partial class TypedOperationBeforeBrushEffect : FilterEffect
     }
 }
 
-// Exercises the public FilterEffectActivator.Activate(FilterEffectContext) seam: a registered brush must stay
-// resolvable inside the nested activator that seam builds.
+// Exercises the public FilterEffectExecutor.Activate(FilterEffectContext) seam: a registered brush must stay
+// resolvable inside the nested executor that seam builds.
 internal sealed partial class NestedActivateBrushEffect : FilterEffect
 {
     public NestedActivateBrushEffect()
@@ -273,14 +273,14 @@ internal sealed partial class NestedActivateBrushEffect : FilterEffect
         var r = (Resource)resource;
         context.AppendSkiaFilter(
             new BrushPaintState(r.Brush),
-            static (state, _, activator) =>
+            static (state, _, executor) =>
             {
                 using var nested = new FilterEffectContext(
-                    activator.CurrentTargets.CalculateBounds(),
-                    activator.OutputScale,
-                    activator.WorkingScale);
+                    executor.CurrentTargets.CalculateBounds(),
+                    executor.OutputScale,
+                    executor.WorkingScale);
                 nested.CustomEffect(state, PaintBrush, static (_, bounds) => bounds);
-                return activator.Activate(nested);
+                return executor.Activate(nested);
             },
             static (_, bounds) => bounds);
     }

@@ -154,7 +154,7 @@ public class WorkingScaleClampConsistencyTests
                 new EffectTarget(source, s_pathologicalBounds, EffectiveScale.At(1)),
             };
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(
+            using var executor = new FilterEffectExecutor(
                 targets,
                 builder,
                 RenderIntent.Preview,
@@ -165,16 +165,16 @@ public class WorkingScaleClampConsistencyTests
                 deviceGridOffset: default,
                 budget: BufferDimensionBudget.Named(TestBufferDimension));
 
-            activator.Flush();
+            executor.Flush();
 
             float expected = BufferDimensionBudget.Named(TestBufferDimension)
                 .ClampWorkingScale(s_pathologicalBounds, 8f);
             Assert.That(expected, Is.LessThan(8f), "the fixture must actually trigger the clamp");
-            Assert.That(activator.WorkingScale, Is.EqualTo(expected));
-            Assert.That(activator.CurrentTargets, Has.Count.EqualTo(1));
-            Assert.That(activator.CurrentTargets[0].Scale.Value, Is.EqualTo(activator.WorkingScale),
-                "the flushed buffer's density and the activator's WorkingScale must agree");
-            Assert.That(activator.CurrentTargets[0].RenderTarget!.Width,
+            Assert.That(executor.WorkingScale, Is.EqualTo(expected));
+            Assert.That(executor.CurrentTargets, Has.Count.EqualTo(1));
+            Assert.That(executor.CurrentTargets[0].Scale.Value, Is.EqualTo(executor.WorkingScale),
+                "the flushed buffer's density and the executor's WorkingScale must agree");
+            Assert.That(executor.CurrentTargets[0].RenderTarget!.Width,
                 Is.LessThanOrEqualTo(TestBufferDimension));
         });
     }
@@ -205,7 +205,7 @@ public class WorkingScaleClampConsistencyTests
                 apron);
             using var targets = new EffectTargets { input };
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(
+            using var executor = new FilterEffectExecutor(
                 targets,
                 builder,
                 RenderIntent.Delivery,
@@ -217,13 +217,13 @@ public class WorkingScaleClampConsistencyTests
             {
                 builder.AppendSKColorFilter(
                     0,
-                    activator,
+                    executor,
                     static (_, _) => SKColorFilter.CreateLinearToSrgbGamma());
             }
 
-            activator.Flush();
+            executor.Flush();
 
-            EffectTarget actual = activator.CurrentTargets.Single();
+            EffectTarget actual = executor.CurrentTargets.Single();
             PixelRect expectedDeviceBounds = hasFilter ? apron : canonical;
             Assert.Multiple(() =>
             {
@@ -255,7 +255,7 @@ public class WorkingScaleClampConsistencyTests
                 canonical);
             using var targets = new EffectTargets { input };
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(
+            using var executor = new FilterEffectExecutor(
                 targets,
                 builder,
                 RenderIntent.Delivery,
@@ -264,9 +264,9 @@ public class WorkingScaleClampConsistencyTests
                 outputScale: density,
                 workingScale: density);
 
-            activator.Flush();
+            executor.Flush();
 
-            EffectTarget actual = activator.CurrentTargets.Single();
+            EffectTarget actual = executor.CurrentTargets.Single();
             Assert.Multiple(() =>
             {
                 Assert.That(actual, Is.Not.SameAs(input));
@@ -310,7 +310,7 @@ public class WorkingScaleClampConsistencyTests
     {
         using var targets = CreateInvalidFlushTargets();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -320,12 +320,12 @@ public class WorkingScaleClampConsistencyTests
             workingScale: 1f,
             maxWorkingScale: 8f);
 
-        Assert.That(() => activator.Flush(), Throws.Nothing);
+        Assert.That(() => executor.Flush(), Throws.Nothing);
         Assert.Multiple(() =>
         {
-            Assert.That(activator.Intent, Is.EqualTo(RenderIntent.Preview));
-            Assert.That(activator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
-            Assert.That(activator.CurrentTargets, Is.Empty);
+            Assert.That(executor.Intent, Is.EqualTo(RenderIntent.Preview));
+            Assert.That(executor.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
+            Assert.That(executor.CurrentTargets, Is.Empty);
         });
     }
 
@@ -334,7 +334,7 @@ public class WorkingScaleClampConsistencyTests
     {
         using var targets = CreateInvalidFlushTargets();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Delivery,
@@ -344,11 +344,11 @@ public class WorkingScaleClampConsistencyTests
             workingScale: 1f,
             maxWorkingScale: float.PositiveInfinity);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => activator.Flush());
+        var ex = Assert.Throws<InvalidOperationException>(() => executor.Flush());
         Assert.Multiple(() =>
         {
-            Assert.That(activator.Intent, Is.EqualTo(RenderIntent.Delivery));
-            Assert.That(activator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
+            Assert.That(executor.Intent, Is.EqualTo(RenderIntent.Delivery));
+            Assert.That(executor.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
             Assert.That(ex!.Message, Does.Contain("Effect flush buffer allocation failed"));
         });
     }

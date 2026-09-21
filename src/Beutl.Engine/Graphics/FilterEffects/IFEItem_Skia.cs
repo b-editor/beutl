@@ -4,7 +4,7 @@ namespace Beutl.Graphics.Effects;
 
 internal interface IFEItem_Skia : IFEItem
 {
-    void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder);
+    void Accepts(FilterEffectExecutor executor, SKImageFilterBuilder builder);
 
     bool SupportsDirectReplay { get; }
 

@@ -67,7 +67,7 @@ docs/specs/003-resolution-independent-pipeline/
 ```text
 src/Beutl.Engine/Graphics/Rendering/   # core: RenderNodeContext, RenderNodeOperation, RenderNodeProcessor,
 │                                       #   Renderer, IRenderer, GraphicsContext2D, ImmediateCanvas, Cache/*
-├── FilterEffects/                      # FilterEffectContext, CustomFilterEffectContext, FilterEffectActivator,
+├── FilterEffects/                      # FilterEffectContext, CustomFilterEffectContext, FilterEffectExecutor,
 │                                       #   EffectTarget, SKSL/GLSLScriptEffect, ~40 effects (scale contract)
 ├── Particles/ParticleRenderNode.cs     # FR-029 (hard-coded 1920x1080 -> ceil(bounds*s))
 ├── AudioVisualizers/*                  # FR-030
@@ -93,7 +93,7 @@ Each slice is golden-testable (render at `s`, compare to `s=1.0` within the gate
 
 1. **Slice 0 — plumbing skeleton** (no behavior change). `RenderNodeContext.OutputScale` + `ResolveWorkingScale` + `EffectiveScale` (value type), `RenderNodeProcessor.OutputScale`, `Renderer.RenderScale`; 3 sinks → `PixelRect.FromRect(rect, w)` (w=1). Land the golden harness (`NoPixelCouplingOnRenderPathTest` deferred — T007/SC-008). **Gate: byte-identical at 1.0.**
 2. **Slice 1 — reduced-scale preview for vector + Skia-filter** (root `ceil(FrameSize×s_out)` + `CreateScale(s_out)`, re-shaped text, scale-keyed `RenderNodeCache`). First user-visible slice.
-3. **Slice 2 — render-target (Custom) effects** (`FilterEffectActivator`/`CustomFilterEffectContext` `ceil(bounds×w)`; `FilterEffectContext` primitives × `WorkingScale`; supply-driven `w` at the effect boundary; SKSL `iScale` = `w` (GLSL derives `w` from device-px `Width`/`Height`, no uniform)).
+3. **Slice 2 — render-target (Custom) effects** (`FilterEffectExecutor`/`CustomFilterEffectContext` `ceil(bounds×w)`; `FilterEffectContext` primitives × `WorkingScale`; supply-driven `w` at the effect boundary; SKSL `iScale` = `w` (GLSL derives `w` from device-px `Width`/`Height`, no uniform)).
 4. **Slice 3 — mixed-scale compositing** (per-`EffectTarget` scale; `ImmediateCanvas.DrawSurface`/`DrawRenderTarget` Mitchell-resample on mismatch; nested scenes, `DrawableBrush`, particles, audio visualizers, 3D-as-bitmap).
 5. **Slice 4 — media decoupling (proxy foundation)** (`SourceImage`/`SourceVideo` logical size ≠ decoded px; `DrawBitmap` logical dest rect; `MediaOptions` kept extensible).
 6. **Slice 5 — editor + export** (`PreviewScale` control + rebuild-by-replacement (FR-031); export supersampling + `SourceSize` from `DeviceSize`; finalize logical hit-test/handles).

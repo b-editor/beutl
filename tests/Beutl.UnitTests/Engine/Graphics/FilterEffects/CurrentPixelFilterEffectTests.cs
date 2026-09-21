@@ -609,7 +609,7 @@ public sealed class CurrentPixelFilterEffectTests
         using var context = new FilterEffectContext(new Rect(0, 0, 1, 1));
         context.ApplyTransactional(effect, resource);
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -619,8 +619,8 @@ public sealed class CurrentPixelFilterEffectTests
             workingScale: 1,
             maxWorkingScale: 1);
 
-        activator.Apply(context);
-        activator.Flush(false);
+        executor.Apply(context);
+        executor.Flush(false);
 
         using Bitmap afterBitmap = targets.Single().RenderTarget!.Snapshot();
         return (before, ReadPixel(afterBitmap));

@@ -105,15 +105,15 @@ public sealed class TransformEffectPerspectiveTargetTests
         context.ApplyTransactional(effect, resource);
 
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
             drawableBrushMaterializer: null,
             targetDomain: s_frame);
-        activator.Apply(context);
-        activator.Flush(false);
+        executor.Apply(context);
+        executor.Flush(false);
         return targets;
     }
 

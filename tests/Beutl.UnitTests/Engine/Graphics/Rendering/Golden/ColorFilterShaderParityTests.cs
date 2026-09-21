@@ -505,7 +505,7 @@ public sealed class ColorFilterShaderParityTests
         record(context);
 
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Delivery,
@@ -515,8 +515,8 @@ public sealed class ColorFilterShaderParityTests
             workingScale: 1,
             maxWorkingScale: 1);
 
-        activator.Apply(context);
-        activator.Flush(false);
+        executor.Apply(context);
+        executor.Flush(false);
 
         RenderTarget result = targets.Single().RenderTarget
             ?? throw new InvalidOperationException("The color-matrix stage produced no render target.");

@@ -13,7 +13,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 // SplitEffect declares its own output extent, so a TransformEffect on either side of it resolves one shared
 // matrix from concrete bounds; the order still matters, because splitting first tiles the untransformed shape
 // while transforming first tiles the transformed one. The order placed after the split also exercises the
-// re-anchoring the activator has to apply once a custom effect has re-targeted the buffers. Each order
+// re-anchoring the executor has to apply once a custom effect has re-targeted the buffers. Each order
 // therefore gets an oracle rendered in this same process, which keeps the gate free of any checked-in
 // baseline, machine-local snapshot directory, or inter-test ordering.
 [NonParallelizable]

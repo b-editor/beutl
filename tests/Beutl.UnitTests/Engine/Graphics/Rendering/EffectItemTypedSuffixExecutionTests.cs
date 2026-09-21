@@ -410,7 +410,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
         context.ApplyTransactional(delay, resource);
         using EffectTargets targets = CreateSolidTargets(bounds, Colors.Red);
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -421,7 +421,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             maxWorkingScale: 1);
 
         InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(
-            () => activator.Apply(context));
+            () => executor.Apply(context));
 
         Assert.Multiple(() =>
         {
@@ -882,7 +882,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
         using var context = new FilterEffectContext(bounds);
         context.ApplyTransactional(effect, resource);
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -891,8 +891,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
             outputScale: 1,
             workingScale: 1,
             maxWorkingScale: 1);
-        activator.Apply(context);
-        activator.Flush(false);
+        executor.Apply(context);
+        executor.Flush(false);
     }
 
     private static EffectTargets CreateSolidTargets(Rect bounds, Color color)
