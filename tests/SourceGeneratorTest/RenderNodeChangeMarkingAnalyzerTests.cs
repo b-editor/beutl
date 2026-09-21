@@ -2571,16 +2571,18 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
     private static CSharpCompilation CreateCompilation(string source)
         => CreateCompilation(source, CSharpParseOptions.Default);
 
+    private static readonly CSharpCompilation BaseCompilation = CSharpCompilation.Create(
+        "AnalyzerTest",
+        [CSharpSyntaxTree.ParseText(RenderNodeStubs)],
+        CompilationReferences.Framework,
+        new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
     private static CSharpCompilation CreateCompilation(string source, CSharpParseOptions parseOptions)
-        => CSharpCompilation.Create(
-            "AnalyzerTest",
-            [
-                CSharpSyntaxTree.ParseText(RenderNodeStubs, parseOptions),
-                CSharpSyntaxTree.ParseText(source, parseOptions),
-            ],
-            AppDomain.CurrentDomain.GetAssemblies()
-                .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(static a => (MetadataReference)MetadataReference.CreateFromFile(a.Location))
-                .ToArray(),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+    {
+        CSharpCompilation compilation = parseOptions.Equals(CSharpParseOptions.Default)
+            ? BaseCompilation
+            : BaseCompilation.RemoveAllSyntaxTrees()
+                .AddSyntaxTrees(CSharpSyntaxTree.ParseText(RenderNodeStubs, parseOptions));
+        return compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText(source, parseOptions));
+    }
 }

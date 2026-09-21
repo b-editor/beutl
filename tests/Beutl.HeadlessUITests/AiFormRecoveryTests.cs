@@ -652,26 +652,34 @@ public sealed class AiFormRecoveryTests
         await WaitUntilAsync(() => generation.CanGenerate.Value);
 
         Task request = generation.Generate.ExecuteAsync();
-        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        FieldInfo field = typeof(AiImageGenerationDialogViewModel).GetField(
-            "_runningRequest", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var running = (IdentityOperationLifetime.Operation)field.GetValue(generation)!;
-        bool published = true;
-        using CancellationTokenRegistration registration = running.CancellationToken.Register(() =>
-            published = running.TryPublish(() => generation.Prompt.Value = "stale callback"));
-
-        account = "account-b";
-        context.RefreshIdentity();
-
-        Assert.Multiple(() =>
+        try
         {
-            Assert.That(published, Is.False);
-            Assert.That(generation.Prompt.Value, Is.Empty);
-            Assert.That(generation.ResultImage.Value, Is.Null);
-        });
-        release.TrySetResult();
-        await request.WaitAsync(TimeSpan.FromSeconds(5));
-        Directory.Delete(root, recursive: true);
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            FieldInfo field = typeof(AiImageGenerationDialogViewModel).GetField(
+                "_runningRequest", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var running = (IdentityOperationLifetime.Operation)field.GetValue(generation)!;
+            var publication = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using CancellationTokenRegistration registration = running.CancellationToken.Register(() =>
+                publication.TrySetResult(running.TryPublish(() => generation.Prompt.Value = "stale callback")));
+
+            account = "account-b";
+            context.RefreshIdentity();
+
+            // Switching closes publication synchronously, but cancellation callbacks run on a worker.
+            bool published = await publication.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(published, Is.False);
+                Assert.That(generation.Prompt.Value, Is.Empty);
+                Assert.That(generation.ResultImage.Value, Is.Null);
+            });
+        }
+        finally
+        {
+            release.TrySetResult();
+            await request.WaitAsync(TimeSpan.FromSeconds(5));
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [AvaloniaTest]

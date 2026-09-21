@@ -5,6 +5,7 @@ using Beutl.Serialization;
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
+[Parallelizable(ParallelScope.Self)]
 public sealed class NestedRepositoryTests : RealGitTestRepository
 {
     [Test]

@@ -3,6 +3,7 @@
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
+[Parallelizable(ParallelScope.Self)]
 public class RepositoryWatcherStressTests : RealGitTestRepository
 {
     [Test]

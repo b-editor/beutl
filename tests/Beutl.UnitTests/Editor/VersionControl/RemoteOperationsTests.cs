@@ -5,6 +5,7 @@ using Beutl.Editor.VersionControl;
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
+[Parallelizable(ParallelScope.Self)]
 public sealed class RemoteOperationsTests : RealGitTestRepository
 {
     [Test]

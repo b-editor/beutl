@@ -8,136 +8,62 @@
 [TestFixture]
 public class EngineObjectResourceGeneratorTests
 {
-    private static GeneratorHarnessResult Run() => GeneratorDriverHarness.Run();
-
     [Test]
-    public void Generator_RunsWithoutErrorDiagnostics()
+    public void KeptInputs_GenerateCompilableResources()
     {
-        GeneratorHarnessResult result = Run();
+        GeneratorHarnessResult result = GeneratorDriverHarness.Run();
+        string derived = result.GetSource("Derived_Resource.g.cs");
+        string derived2 = result.GetSource("Derived2_Resource.g.cs");
+        string derived3 = result.GetSource("Derived3_Resource.g.cs");
 
-        Assert.That(
-            result.GeneratorDiagnostics.Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error),
-            Is.Empty,
-            "The generator must run clean against the kept inputs (the 'keep the generator green' gate).");
-    }
-
-    [Test]
-    public void GeneratedSources_CompileWithoutErrors()
-    {
-        GeneratorHarnessResult result = Run();
-
-        Assert.That(
-            result.CompilationErrors,
-            Is.Empty,
-            "Generated Resource sources must compile against the stub inputs (the real-gate check): "
-            + string.Join(Environment.NewLine, result.CompilationErrors.Select(d => d.ToString())));
-    }
-
-    [Test]
-    public void Generator_EmitsResourceSourcesForEveryDerivedType()
-    {
-        GeneratorHarnessResult result = Run();
-
+        // These assertions all inspect the same generated output. Run and bind it once while
+        // retaining diagnostics for every contract, including the absence of fallback output.
         Assert.Multiple(() =>
         {
-            Assert.That(result.HasSource("Derived_Resource.g.cs"), Is.True, "Derived should get a Resource.");
-            Assert.That(result.HasSource("Derived2_Resource.g.cs"), Is.True, "Derived2 should get a Resource.");
-            Assert.That(result.HasSource("Derived3_Resource.g.cs"), Is.True, "Derived3 should get a Resource.");
-        });
-    }
+            Assert.That(
+                result.GeneratorDiagnostics.Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error),
+                Is.Empty, "The generators must run without errors.");
+            Assert.That(result.CompilationErrors, Is.Empty,
+                "Generated Resource sources must compile against the stub inputs: "
+                + string.Join(Environment.NewLine, result.CompilationErrors.Select(d => d.ToString())));
+            Assert.That(result.HasSource("_Fallback.g.cs"), Is.False,
+                "None of the kept Derived* inputs implement IFallback.");
 
-    [Test]
-    public void Derived_GeneratesNestedResourceClassWithValueProperties()
-    {
-        string source = Run().GetSource("Derived_Resource.g.cs");
+            Assert.That(derived, Does.Contain("partial class Resource"));
+            Assert.That(derived, Does.Contain("global::Beutl.Engine.EngineObject.Resource"));
+            Assert.That(derived, Does.Contain("public float X"));
+            Assert.That(derived, Does.Contain("public float Y"));
+            Assert.That(derived, Does.Contain("set => _x = value;"));
+            Assert.That(derived, Does.Contain("set => _y = value;"));
+            Assert.That(derived, Does.Not.Contain("Version++"));
+            Assert.That(derived, Does.Contain("public override void Update"));
+            Assert.That(derived, Does.Contain("CompareAndUpdate(context"));
+            Assert.That(derived, Does.Contain("ScanPropertiesCore"));
+            Assert.That(derived, Does.Contain("yield return X;"));
+            Assert.That(derived, Does.Contain("yield return Y;"));
+            Assert.That(derived, Does.Contain("X.SetAttributes(\"X\", __attrs_X);"));
+            Assert.That(derived, Does.Contain("Y.SetAttributes(\"Y\", __attrs_Y);"));
 
-        Assert.Multiple(() =>
-        {
-            // Nested Resource class deriving from EngineObject.Resource.
-            Assert.That(source, Does.Contain("partial class Resource"));
-            Assert.That(source, Does.Contain("global::Beutl.Engine.EngineObject.Resource"));
+            Assert.That(derived2, Does.Contain("Derived.Resource"));
+            Assert.That(derived2, Does.Contain("public float Z"));
+            Assert.That(derived2, Does.Contain("yield return Z;"));
 
-            // Value properties X and Y are surfaced on the Resource, as plain assignments: a setter moves
-            // no version, so reconciling and the author are the only things that invalidate a resource.
-            Assert.That(source, Does.Contain("public float X"));
-            Assert.That(source, Does.Contain("public float Y"));
-            Assert.That(source, Does.Contain("set => _x = value;"));
-            Assert.That(source, Does.Contain("set => _y = value;"));
-            Assert.That(source, Does.Not.Contain("Version++"));
-
-            // Update override compares-and-updates each value property.
-            Assert.That(source, Does.Contain("public override void Update"));
-            Assert.That(source, Does.Contain("CompareAndUpdate(context"));
-        });
-    }
-
-    [Test]
-    public void Derived_GeneratesScanPropertiesCoreYieldingEachProperty()
-    {
-        string source = Run().GetSource("Derived_Resource.g.cs");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(source, Does.Contain("ScanPropertiesCore"));
-            Assert.That(source, Does.Contain("yield return X;"));
-            Assert.That(source, Does.Contain("yield return Y;"));
-            Assert.That(source, Does.Contain("X.SetAttributes(\"X\", __attrs_X);"));
-            Assert.That(source, Does.Contain("Y.SetAttributes(\"Y\", __attrs_Y);"));
-        });
-    }
-
-    [Test]
-    public void Derived2_ResourceDerivesFromBaseDerivedResource()
-    {
-        string source = Run().GetSource("Derived2_Resource.g.cs");
-
-        Assert.Multiple(() =>
-        {
-            // The Resource inherits the immediate base type's Resource, not EngineObject.Resource.
-            Assert.That(source, Does.Contain("Derived.Resource"));
-            Assert.That(source, Does.Contain("public float Z"));
-            Assert.That(source, Does.Contain("yield return Z;"));
-        });
-    }
-
-    [Test]
-    public void Derived3_GeneratesObjectPropertyForEngineObjectTypedProperty()
-    {
-        string source = Run().GetSource("Derived3_Resource.g.cs");
-
-        Assert.Multiple(() =>
-        {
-            // Child is IProperty<Derived> (an EngineObject subtype) -> object property,
-            // surfaced as a Derived.Resource and compared via CompareAndUpdateObject.
-            Assert.That(source, Does.Contain("Child"));
-            Assert.That(source, Does.Contain("CompareAndUpdateObject(context"));
-            Assert.That(source, Does.Contain("set => _child = value;"));
-            Assert.That(source, Does.Contain("set => _optionalChild = value;"));
-            Assert.That(source, Does.Not.Contain("SetOwnedResource"));
-            Assert.That(source, Does.Not.Contain("ReplaceChild("));
-            Assert.That(source, Does.Not.Contain("DetachChild()"));
-            Assert.That(source, Does.Contain(
+            Assert.That(derived3, Does.Contain("Child"));
+            Assert.That(derived3, Does.Contain("CompareAndUpdateObject(context"));
+            Assert.That(derived3, Does.Contain("set => _child = value;"));
+            Assert.That(derived3, Does.Contain("set => _optionalChild = value;"));
+            Assert.That(derived3, Does.Not.Contain("SetOwnedResource"));
+            Assert.That(derived3, Does.Not.Contain("ReplaceChild("));
+            Assert.That(derived3, Does.Not.Contain("DetachChild()"));
+            Assert.That(derived3, Does.Contain(
                 "get => _child ?? throw new global::System.InvalidOperationException"));
-            Assert.That(source, Does.Not.Contain("DetachOptionalChild()"));
-            Assert.That(source, Does.Not.Contain("ReplaceOptionalChild("));
-            // The disposable object property is released by its backing field in Dispose.
-            Assert.That(source, Does.Contain("_child?.Dispose();"));
-        });
-    }
-
-    [Test]
-    public void Derived3_GeneratesListPropertyForIListPropertyMember()
-    {
-        string source = Run().GetSource("Derived3_Resource.g.cs");
-
-        Assert.Multiple(() =>
-        {
-            // Items is IListProperty<Derived> (an EngineObject element) -> list property: surfaced as a
-            // List<Derived.Resource>, reconciled via CompareAndUpdateList, and disposed element-by-element.
-            Assert.That(source, Does.Contain("Items"));
-            Assert.That(source, Does.Contain("CompareAndUpdateList(context"));
-            Assert.That(source, Does.Contain("foreach (var item in"));
-            Assert.That(source, Does.Contain("item?.Dispose();"));
+            Assert.That(derived3, Does.Not.Contain("DetachOptionalChild()"));
+            Assert.That(derived3, Does.Not.Contain("ReplaceOptionalChild("));
+            Assert.That(derived3, Does.Contain("_child?.Dispose();"));
+            Assert.That(derived3, Does.Contain("Items"));
+            Assert.That(derived3, Does.Contain("CompareAndUpdateList(context"));
+            Assert.That(derived3, Does.Contain("foreach (var item in"));
+            Assert.That(derived3, Does.Contain("item?.Dispose();"));
         });
     }
 }

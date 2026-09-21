@@ -153,17 +153,25 @@ public class PackageInstallerCrashRecoveryTests
         finally { Directory.Delete(home, true); }
     }
 
-    // A separate vstest process runs only this method. Kill really terminates the
-    // installer: no exception handler, Dispose, or finally block can roll it back.
-    [Test]
-    public void RunCrashWorker()
+    // The test assembly's executable entry point runs only this method, without starting
+    // VSTest or discovering the whole suite. Kill still terminates a real installer process:
+    // no exception handler, Dispose, or finally block can roll it back.
+    internal static void RunCrashWorker()
     {
         string? home = Environment.GetEnvironmentVariable(WorkerHomeVariable);
-        if (home is null) Assert.Ignore("Only run by the package recovery subprocess tests.");
-        Environment.SetEnvironmentVariable(BeutlEnvironment.HomeVariable, home);
-        Assert.That(Helper.AppRoot, Is.EqualTo(home));
-        string action = Environment.GetEnvironmentVariable(WorkerActionVariable)!;
+        if (string.IsNullOrWhiteSpace(home) || !Path.IsPathFullyQualified(home) || !Directory.Exists(home))
+            throw new InvalidOperationException("The package worker requires an existing absolute test home.");
+
+        string? action = Environment.GetEnvironmentVariable(WorkerActionVariable);
+        if (action is not ("recover" or "update" or "first-install" or "remove-materials"))
+            throw new InvalidOperationException("The package worker requires a supported action.");
         string? stop = Environment.GetEnvironmentVariable(WorkerStepVariable);
+        if (action != "recover" && string.IsNullOrEmpty(stop))
+            throw new InvalidOperationException("A publishing worker requires a termination checkpoint.");
+
+        Environment.SetEnvironmentVariable(BeutlEnvironment.HomeVariable, home);
+        if (Helper.AppRoot != home)
+            throw new InvalidOperationException("The package worker did not initialize in its isolated test home.");
         void AfterStep(string step)
         {
             if (step == "waiting-for-lock") File.WriteAllText(Path.Combine(home!, "waiting-for-lock.txt"), "waiting");
@@ -193,7 +201,7 @@ public class PackageInstallerCrashRecoveryTests
         installer.AfterDataInstallStep = AfterStep;
         using var deployment = installer.PrepareDataPackage(current, CancellationToken.None);
         deployment.Commit(() => repository.UpgradePackages(new PackageIdentity(PackageName, NuGetVersion.Parse("2.0.0"))));
-        Assert.Fail("The worker did not reach the requested termination point.");
+        throw new InvalidOperationException("The worker did not reach the requested termination point.");
     }
 
     private static LocalPackage CreatePackage(string home, string version, string content)
@@ -238,8 +246,6 @@ public class PackageInstallerCrashRecoveryTests
 
     private static async Task RunWorker(string home, string action, string? step = null)
     {
-        string settings = Path.Combine(home, "worker.runsettings");
-        File.WriteAllText(settings, "<RunSettings><NUnit><AssemblySelectLimit>100000</AssemblySelectLimit></NUnit></RunSettings>");
         string checkpoint = Path.Combine(home, "stopped-at.txt");
         File.Delete(checkpoint);
         var start = new ProcessStartInfo("dotnet")
@@ -248,15 +254,14 @@ public class PackageInstallerCrashRecoveryTests
             RedirectStandardError = true,
             UseShellExecute = false,
         };
-        start.ArgumentList.Add("vstest");
+        start.ArgumentList.Add("exec");
         start.ArgumentList.Add(typeof(PackageInstallerCrashRecoveryTests).Assembly.Location);
-        start.ArgumentList.Add("--TestCaseFilter:FullyQualifiedName=Beutl.UnitTests.Api.PackageInstallerCrashRecoveryTests.RunCrashWorker");
-        start.ArgumentList.Add("--Settings:" + settings);
-        start.ArgumentList.Add("--ResultsDirectory:" + Path.Combine(home, "results"));
+        start.ArgumentList.Add(TestWorkerProgram.PackageInstallWorkerArgument);
+        start.Environment[BeutlEnvironment.HomeVariable] = home;
         start.Environment[WorkerHomeVariable] = home;
         start.Environment[WorkerActionVariable] = action;
-        // Killed testhosts cannot run assembly teardown; put their throwaway homes
-        // and test-platform temporary files under the directory this parent owns.
+        // Put runtime temporary files under the directory this parent owns, including
+        // anything a terminated worker cannot clean up itself.
         start.Environment["TMPDIR"] = home;
         start.Environment["TMP"] = home;
         start.Environment["TEMP"] = home;
