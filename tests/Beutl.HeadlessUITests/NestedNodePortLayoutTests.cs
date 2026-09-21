@@ -7,6 +7,7 @@ using Beutl.Animation;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -20,6 +21,48 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class NestedNodePortLayoutTests
 {
+    [AvaloniaTest]
+    public void ChangingAnObjectExpressionImmediatelyUpdatesItsChildPortAvailability()
+    {
+        var graph = new GraphModel();
+        var node = new FactoryNode<Pen>();
+        var brush = new SolidColorBrush();
+        node.Object.Brush.CurrentValue = brush;
+        graph.Nodes.Add(node);
+        using var vm = CreateViewModel(graph);
+        GraphNodeViewModel nodeVm = vm.Nodes.Single();
+        var member = nodeVm.NestedItems.Single(p => ReferenceEquals(p.Model!.Property!.GetEngineProperty(), brush.Opacity));
+        var view = new GraphNodeView { DataContext = nodeVm };
+        var row = CreateRow(member);
+        view.FindControl<StackPanel>("stackPanel")!.Children.Add(row);
+        var window = new Window { Content = view, Width = 320, Height = 300 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var point = view.GetVisualDescendants().OfType<NodePortPoint>()
+                .Single(p => ReferenceEquals(p.DataContext, member));
+            Assert.That(point.IsEnabled, Is.True);
+
+            node.Object.Brush.Expression = Expression.CreateReference<Brush?>(Guid.NewGuid());
+            HeadlessTestHelpers.Render(3);
+            Assert.That(member.CanConnect.Value, Is.False);
+            Assert.That(point.IsEnabled, Is.False);
+
+            node.Object.Brush.Expression = null;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(member.CanConnect.Value, Is.True);
+            Assert.That(point.IsEnabled, Is.True);
+            Assert.That(nodeVm.NestedItems, Does.Contain(member));
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+            row.DataContext = null;
+        }
+    }
+
     [AvaloniaTest]
     public void ChangingAnObjectAnimationImmediatelyUpdatesItsChildPortAvailability()
     {
