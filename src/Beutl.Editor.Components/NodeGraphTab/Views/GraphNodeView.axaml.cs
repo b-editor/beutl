@@ -136,24 +136,27 @@ public partial class GraphNodeView : UserControl
             if (viewModel.IsExpanded.Value)
             {
                 NodePortView[] portViews = this.GetVisualDescendants().OfType<NodePortView>().ToArray();
+                var realized = new HashSet<NodeMemberViewModel>(portViews.Length);
                 foreach (NodePortView portView in portViews)
                 {
                     portView.UpdateNodePortPosition();
+                    if (portView.DataContext is NodeMemberViewModel member) realized.Add(member);
                 }
+                Dictionary<Guid, PortAnchor>? anchors = null;
                 foreach (InputPortViewModel member in viewModel.NestedItems)
                 {
-                    if (member.Model is not INestedInputPort nested
-                        || portViews.Any(view => ReferenceEquals(view.DataContext, member))) continue;
+                    if (member.Connections.Count == 0 || member.Model is not INestedInputPort nested
+                        || realized.Contains(member)) continue;
                     // Editors may defer creating their children until first expanded.
-                    NodePortView? ancestor = portViews
-                        .Where(view => view.IsEffectivelyVisible && view.DataContext is NodeMemberViewModel vm
-                            && (vm.Model?.Id == nested.RootMember.Id
-                                || vm.Model is INestedInputPort candidate
-                                && candidate.RootMember.Id == nested.RootMember.Id
-                                && GraphNode.IsPathPrefix(candidate.PropertyPath, nested.PropertyPath)))
-                        .OrderByDescending(view => ((view.DataContext as NodeMemberViewModel)?.Model as INestedInputPort)
-                            ?.PropertyPath.Count ?? 0)
-                        .FirstOrDefault();
+                    anchors ??= BuildPortAnchors(portViews);
+                    if (!anchors.TryGetValue(nested.RootMember.Id, out PortAnchor? anchor)) continue;
+                    NodePortView? ancestor = anchor.View;
+                    foreach (string segment in nested.PropertyPath)
+                    {
+                        if (anchor.Children == null || !anchor.Children.TryGetValue(segment, out PortAnchor? child)) break;
+                        anchor = child;
+                        if (anchor.View != null) ancestor = anchor.View;
+                    }
                     if (ancestor?.GetPortPosition() is { } position)
                     {
                         foreach (ConnectionViewModel connection in member.Connections)
@@ -196,6 +199,37 @@ public partial class GraphNodeView : UserControl
                 UpdatePosition(_undecidedRightNodePortContext);
             }
         }
+    }
+
+    // Index the property paths as well as their roots so a large list under one root does not
+    // require scanning all of its visible siblings for every deferred connected port.
+    private static Dictionary<Guid, PortAnchor> BuildPortAnchors(NodePortView[] portViews)
+    {
+        var roots = new Dictionary<Guid, PortAnchor>();
+        foreach (NodePortView view in portViews)
+        {
+            if (!view.IsEffectivelyVisible || view.DataContext is not NodeMemberViewModel { Model: { } model }) continue;
+            Guid rootId = model is INestedInputPort nested ? nested.RootMember.Id : model.Id;
+            if (!roots.TryGetValue(rootId, out PortAnchor? anchor)) roots[rootId] = anchor = new PortAnchor();
+            if (model is INestedInputPort child)
+            {
+                foreach (string segment in child.PropertyPath)
+                {
+                    anchor.Children ??= new Dictionary<string, PortAnchor>(StringComparer.Ordinal);
+                    if (!anchor.Children.TryGetValue(segment, out PortAnchor? next))
+                        anchor.Children[segment] = next = new PortAnchor();
+                    anchor = next;
+                }
+            }
+            anchor.View ??= view;
+        }
+        return roots;
+    }
+
+    private sealed class PortAnchor
+    {
+        public NodePortView? View;
+        public Dictionary<string, PortAnchor>? Children;
     }
 
     private void OnNodeContentPointerReleased(object? sender, PointerReleasedEventArgs e)
