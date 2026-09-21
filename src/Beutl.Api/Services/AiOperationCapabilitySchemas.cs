@@ -72,7 +72,8 @@ internal readonly record struct AiOperationCapabilitySchemaSnapshot(
 
     private static AiModelCapabilitySchema GetBuiltInSchema(AiOperationId operation)
     {
-        if (operation == AiOperations.VideoGeneration)
+        if (operation == AiOperations.VideoGeneration || operation == AiOperations.VideoEditing
+            || operation == AiOperations.VideoExtension || operation == AiOperations.VideoMotion)
             return AiModelCapabilitySchema.Video;
         if (operation == AiOperations.ImageGeneration
             || operation.Value.StartsWith("image.edit.", StringComparison.Ordinal))
@@ -331,7 +332,8 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
 
     private static AiModelCapabilitySchema GetBuiltInSchema(AiOperationId operation)
     {
-        if (operation == AiOperations.VideoGeneration)
+        if (operation == AiOperations.VideoGeneration || operation == AiOperations.VideoEditing
+            || operation == AiOperations.VideoExtension || operation == AiOperations.VideoMotion)
             return AiModelCapabilitySchema.Video;
         if (operation == AiOperations.ImageGeneration
             || operation.Value.StartsWith("image.edit.", StringComparison.Ordinal))

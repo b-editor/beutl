@@ -1828,6 +1828,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiVideoDuration" xml:space="preserve">
     <value>Duration</value>
   </data>
+  <data name="AiVideoExtensionDuration" xml:space="preserve">
+    <value>Extension duration</value>
+  </data>
   <data name="AiVideoResolution" xml:space="preserve">
     <value>Resolution</value>
   </data>
@@ -3014,5 +3017,77 @@ when history recording is enabled.</value>
   </data>
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>Delete from Disk</value>
+  </data>
+  <data name="AiVideoEditing" xml:space="preserve">
+    <value>Video editing</value>
+  </data>
+  <data name="AiVideoExtend" xml:space="preserve">
+    <value>Extend video</value>
+  </data>
+  <data name="AiVideoMotion" xml:space="preserve">
+    <value>Motion control</value>
+  </data>
+  <data name="AiSourceVideo" xml:space="preserve">
+    <value>Source video</value>
+  </data>
+  <data name="AiCharacterImage" xml:space="preserve">
+    <value>Character image</value>
+  </data>
+  <data name="AiMotionStandard" xml:space="preserve">
+    <value>Standard</value>
+  </data>
+  <data name="AiMotionPro" xml:space="preserve">
+    <value>High quality</value>
+  </data>
+  <data name="AiVideoInput" xml:space="preserve">
+    <value>Video inputs</value>
+  </data>
+  <data name="AiReferenceImages" xml:space="preserve">
+    <value>Reference images</value>
+  </data>
+  <data name="AiReferenceVideos" xml:space="preserve">
+    <value>Reference videos</value>
+  </data>
+  <data name="AiReferenceAudio" xml:space="preserve">
+    <value>Reference audio</value>
+  </data>
+  <data name="AiVideoReferenceLimit" xml:space="preserve">
+    <value>{0} / {1} files · Up to {2:0.#} MiB each</value>
+  </data>
+  <data name="AiVideoReferenceTotal" xml:space="preserve">
+    <value>Up to 32 MiB in total, including up to 20 MiB of images.</value>
+  </data>
+  <data name="AiVideoRemoveReference" xml:space="preserve">
+    <value>Remove {0}</value>
+  </data>
+  <data name="AiVideoReferencePaused" xml:space="preserve">
+    <value>References are kept but are not sent while a first frame is selected.</value>
+  </data>
+  <data name="AiChooseCharacterImage" xml:space="preserve">
+    <value>Choose a character image.</value>
+  </data>
+  <data name="AiChooseVideoInput" xml:space="preserve">
+    <value>This model needs a first frame or reference media.</value>
+  </data>
+  <data name="AiVideoInputUnavailable" xml:space="preserve">
+    <value>Cannot read this input. Choose a supported file.</value>
+  </data>
+  <data name="AiSourceVideoHelp" xml:space="preserve">
+    <value>MP4 / WebM, up to 32 MiB. Edits follow the source length; extensions specify the added length.</value>
+  </data>
+  <data name="AiMotionOrientation" xml:space="preserve">
+    <value>Match orientation to</value>
+  </data>
+  <data name="AiMotionQuality" xml:space="preserve">
+    <value>Quality</value>
+  </data>
+  <data name="AiVideoNoSourceSelected" xml:space="preserve">
+    <value>No video selected</value>
+  </data>
+  <data name="AiVideoEditPromptPlaceholder" xml:space="preserve">
+    <value>Describe the changes to the video...</value>
+  </data>
+  <data name="AiVideoEditingIdle" xml:space="preserve">
+    <value>Choose a video and a task, then click Run.</value>
   </data>
 </root>

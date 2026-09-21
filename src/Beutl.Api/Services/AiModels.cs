@@ -253,7 +253,19 @@ public sealed record AiVideoModelCapabilities(
     bool SupportsAudio,
     bool SupportsSeed,
     bool SupportsFirstFrame = true,
-    bool SupportsLastFrame = true)
+    bool SupportsLastFrame = true,
+    bool SupportsPromptToVideo = true,
+    bool SupportsInputReferences = false,
+    int MaxInputReferences = 0,
+    long MaxInputReferenceBytes = 0,
+    int MaxVideoReferences = 0,
+    long MaxVideoReferenceBytes = 0,
+    int MaxAudioReferences = 0,
+    long MaxAudioReferenceBytes = 0,
+    long MaxSourceVideoBytes = AiVideoInputLimits.MaxSourceBytes,
+    double? MinSourceVideoSeconds = null,
+    double? MaxSourceVideoSeconds = null,
+    int MaxPromptLength = AiRequestLimits.MaxPromptLength)
 {
     public static AiVideoModelCapabilities Unrestricted { get; } =
         new(
@@ -521,6 +533,9 @@ public static class AiOperations
     public static AiOperationId ImageGeneration { get; } = new("image.generate");
 
     public static AiOperationId VideoGeneration { get; } = new("video.generate");
+    public static AiOperationId VideoEditing { get; } = new("video.edit");
+    public static AiOperationId VideoExtension { get; } = new("video.extend");
+    public static AiOperationId VideoMotion { get; } = new("video.motion");
 
     public static AiOperationId Transcription { get; } = new("audio.transcribe");
 
@@ -1258,7 +1273,8 @@ public sealed record AiVideoGenerationRequest
         AiUploadSource? firstFrame = null,
         AiUploadSource? lastFrame = null,
         AiModelId? model = null,
-        string? idempotencyKey = null)
+        string? idempotencyKey = null,
+        IReadOnlyList<AiUploadSource>? inputReferences = null)
     {
         AiRequestLimits.ValidateVideoDurationSeconds(durationSeconds, nameof(durationSeconds));
         if (resolution.Value.Length == 0)
@@ -1272,6 +1288,10 @@ public sealed record AiVideoGenerationRequest
         if (lastFrame?.Length > AiRequestLimits.MaxFrameUploadBytes)
             throw new AiFileTooLargeException();
 
+        InputReferences = inputReferences?.ToImmutableArray() ?? [];
+        AiVideoInputLimits.ValidateReferences(InputReferences);
+        if (InputReferences.Count > 0 && (firstFrame is not null || lastFrame is not null))
+            throw new ArgumentException("Frames and references cannot be combined.", nameof(inputReferences));
         Prompt = AiRequestLimits.ValidatePrompt(prompt, nameof(prompt));
         DurationSeconds = durationSeconds;
         Resolution = resolution;
@@ -1285,6 +1305,8 @@ public sealed record AiVideoGenerationRequest
             idempotencyKey,
             nameof(idempotencyKey));
     }
+
+    public IReadOnlyList<AiUploadSource> InputReferences { get; }
 
     public string Prompt { get; }
 
@@ -1829,7 +1851,19 @@ internal static class AiModelMapper
                 model.Audio ?? true,
                 model.Seed ?? true,
                 model.FirstFrame ?? true,
-                model.LastFrame ?? true),
+                model.LastFrame ?? true,
+                model.PromptToVideo ?? true,
+                model.InputReferences ?? false,
+                Math.Clamp(model.MaxInputReferences ?? 0, 0, 9),
+                Math.Clamp(model.MaxInputReferenceBytes ?? 0, 0, AiRequestLimits.MaxFrameUploadBytes),
+                Math.Clamp(model.MaxVideoReferences ?? 0, 0, 3),
+                Math.Clamp(model.MaxVideoReferenceBytes ?? 0, 0, AiVideoInputLimits.MaxSourceBytes),
+                Math.Clamp(model.MaxAudioReferences ?? 0, 0, 1),
+                Math.Clamp(model.MaxAudioReferenceBytes ?? 0, 0, AiVideoInputLimits.MaxAudioBytes),
+                Math.Clamp(model.MaxSourceVideoBytes ?? AiVideoInputLimits.MaxSourceBytes, 0, AiVideoInputLimits.MaxSourceBytes),
+                model.MinSourceVideoSeconds,
+                model.MaxSourceVideoSeconds,
+                Math.Clamp(model.MaxPromptLength ?? AiRequestLimits.MaxPromptLength, 1, AiRequestLimits.MaxPromptLength)),
             capability);
     }
 

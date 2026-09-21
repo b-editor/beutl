@@ -6,6 +6,8 @@ using System.Text;
 using System.Text.Json;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Refit;
 
@@ -428,29 +430,6 @@ internal sealed class AiImageGenerationService(
         }
     }
 
-    private static async ValueTask DisposeReferenceStreamsAsync(IReadOnlyList<Stream> streams)
-    {
-        List<Exception>? failures = null;
-        foreach (Stream stream in streams)
-        {
-            try
-            {
-                await stream.DisposeAsync();
-            }
-            catch (Exception ex)
-            {
-                (failures ??= []).Add(ex);
-            }
-        }
-
-        if (failures is not null)
-        {
-            throw new AggregateException(
-                "One or more AI image reference streams failed to close.",
-                failures);
-        }
-    }
-
     // A picture midway through being worked out. Anything that cannot be read as
     // one is passed over: it is a preview, and the finished picture is what the
     // caller is really waiting for.
@@ -769,7 +748,7 @@ internal sealed class AiCaptionTranslationService(
     }
 }
 
-internal sealed class AiVideoService(
+internal sealed partial class AiVideoService(
     BeutlApiApplication application,
     AiJobChangeNotifier jobChangeNotifier)
     : AiMeteredCapabilityService(application, jobChangeNotifier), IAiVideoService
@@ -782,6 +761,7 @@ internal sealed class AiVideoService(
         // The caller's key when it has one: that is what lets a retry recover a
         // clip already paid for instead of buying it again.
         string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
+        if (request.InputReferences.Count > 0) return await CreateFromReferencesAsync(request, cancellationToken);
         if (request.FirstFrame is null)
         {
             return await ExecuteAsync(
@@ -829,6 +809,7 @@ internal sealed class AiVideoService(
                 idempotencyKey,
                 firstPart,
                 lastPart,
+                null,
                 request.Prompt,
                 request.DurationSeconds,
                 request.Resolution.Value,
@@ -996,6 +977,38 @@ internal abstract class AiMeteredCapabilityService(
     protected BeutlApiApplication Application { get; } = application;
 
     protected static string CreateIdempotencyKey() => Guid.NewGuid().ToString("D");
+
+    protected static async ValueTask DisposeReferenceStreamsAsync(IReadOnlyList<Stream> streams)
+    {
+        List<Exception>? failures = null;
+        foreach (Stream stream in streams)
+        {
+            try
+            {
+                await stream.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
+            }
+        }
+
+        if (failures is not null)
+        {
+            // This runs from finally: cleanup must not replace a created job,
+            // a definitive API rejection, cancellation, or an upload-open error.
+            try
+            {
+                Log.CreateLogger<AiMeteredCapabilityService>().LogWarning(
+                    new AggregateException("AI reference stream cleanup failed.", failures),
+                    "Failed to close {Count} AI reference streams.", failures.Count);
+            }
+            catch
+            {
+                // A diagnostic sink must not replace the request outcome either.
+            }
+        }
+    }
 
     /// <summary>
     /// Runs a request that answers a piece at a time, handing each piece to the

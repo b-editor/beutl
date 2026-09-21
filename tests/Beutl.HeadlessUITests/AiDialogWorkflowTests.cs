@@ -34,7 +34,7 @@ using Reactive.Bindings;
 namespace Beutl.HeadlessUITests;
 
 [TestFixture, NonParallelizable]
-public sealed class AiDialogWorkflowTests
+public sealed partial class AiDialogWorkflowTests
 {
     private static readonly byte[] s_png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
@@ -5588,10 +5588,12 @@ public sealed class AiDialogWorkflowTests
     private static AiVideoGenerationDialogViewModel CreateVideoGenerationDialog(
         BeutlApiApplication clients,
         EditViewModel? editor = null,
-        AiRequestRecoveryContext? context = null)
+        AiRequestRecoveryContext? context = null,
+        AiSourceVideoMode? sourceMode = null,
+        IAiOperationAvailabilityService? availability = null)
         => new(
             clients.GetResource<IAiEntitlementService>(),
-            clients.GetResource<IAiOperationAvailabilityService>(),
+            availability ?? clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),
             CreatePlanCoordinator(clients),
             clients.GetResource<IAiVideoService>(),
@@ -5599,7 +5601,7 @@ public sealed class AiDialogWorkflowTests
             clients.GetResource<IAiJobKindRegistry>(),
             clients.GetResource<IAiJobMonitor>(),
             editor,
-            context ?? AiRetryTestContext.CreateForm());
+            context ?? AiRetryTestContext.CreateForm(), sourceMode);
 
     private static AiRequestRecoveryContext CreateIdentityContext(Func<string?> account)
         => new(

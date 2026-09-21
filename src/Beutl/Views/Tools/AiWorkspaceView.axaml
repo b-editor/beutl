@@ -25,6 +25,9 @@
         <DataTemplate DataType="dialogs:AiVideoGenerationDialogViewModel">
             <tools:AiVideoGenerationView />
         </DataTemplate>
+        <DataTemplate DataType="dialogs:AiVideoEditingViewModel">
+            <tools:AiVideoEditingView />
+        </DataTemplate>
         <DataTemplate DataType="dialogs:AiSubtitleDialogViewModel">
             <tools:AiSubtitleView />
         </DataTemplate>

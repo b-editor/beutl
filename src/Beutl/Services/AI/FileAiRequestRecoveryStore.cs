@@ -60,7 +60,13 @@ internal sealed record AiRequestFormSnapshot(
     bool? SourceIsPrepared = null,
     string? SourceElementId = null,
     string? FirstFrameElementId = null,
-    string? LastFrameElementId = null);
+    string? LastFrameElementId = null,
+    // Read legacy attempts without making the rest of the recovery store unreadable.
+    string? SourceJobId = null,
+    double? SourceVideoSeconds = null,
+    string? VideoOrientation = null,
+    string? VideoQuality = null,
+    int? VideoPromptLimit = null);
 
 /// <summary>
 /// The complete durable identity of a request whose server outcome is not yet
@@ -1831,6 +1837,11 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             nameof(AiRequestFormSnapshot.SourceElementId),
             nameof(AiRequestFormSnapshot.FirstFrameElementId),
             nameof(AiRequestFormSnapshot.LastFrameElementId),
+            nameof(AiRequestFormSnapshot.SourceJobId),
+            nameof(AiRequestFormSnapshot.SourceVideoSeconds),
+            nameof(AiRequestFormSnapshot.VideoOrientation),
+            nameof(AiRequestFormSnapshot.VideoQuality),
+            nameof(AiRequestFormSnapshot.VideoPromptLimit),
         ];
 
     private static readonly HashSet<string> SourceProperties =
@@ -1913,6 +1924,12 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             ValidateOptionalText(form.SourceElementId, MaximumScalarLength, nameof(form.SourceElementId));
             ValidateOptionalText(form.FirstFrameElementId, MaximumScalarLength, nameof(form.FirstFrameElementId));
             ValidateOptionalText(form.LastFrameElementId, MaximumScalarLength, nameof(form.LastFrameElementId));
+            ValidateOptionalText(form.SourceJobId, MaximumScalarLength, nameof(form.SourceJobId));
+            if ((form.SourceVideoSeconds is { } sourceSeconds && (!double.IsFinite(sourceSeconds) || sourceSeconds <= 0 || sourceSeconds > 60))
+                || form.VideoOrientation is not (null or "image" or "video")
+                || form.VideoQuality is not (null or "standard" or "pro")
+                || form.VideoPromptLimit is < 1 or > AiRequestLimits.MaxPromptLength)
+                throw new InvalidDataException("Invalid video input recovery fields.");
             if (form.Seed is < AiRequestLimits.MinSeed or > AiRequestLimits.MaxSeed
                 || form.DurationSeconds is < 1 or > 300
                 || form.OutpaintExpansionPercent is < 1 or > 100)

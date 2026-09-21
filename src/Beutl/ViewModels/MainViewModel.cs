@@ -267,7 +267,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 : new CaptionDraftScope(user.Profile.Id, project.Id, editViewModel.Scene.Id);
         });
 
-    internal AiVideoGenerationDialogViewModel CreateAiVideoGenerationToolViewModel(EditViewModel editViewModel)
+    internal AiVideoGenerationDialogViewModel CreateAiVideoGenerationToolViewModel(EditViewModel editViewModel, AiSourceVideoMode? sourceMode = null)
         => new(
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
@@ -278,7 +278,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             _beutlClients.GetResource<IAiJobMonitor>(),
             editViewModel,
-            _aiRequestRecoveryContext);
+            _aiRequestRecoveryContext, sourceMode);
 
     public Startup RunStartupTask()
     {
@@ -544,6 +544,9 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         }
     }
 
+    internal async void OpenAiVideoEditing()
+        => await OpenAiWorkspaceAsync(AiWorkspaceSection.VideoEditing);
+
     internal async void OpenAiVideoGeneration()
         => await OpenAiWorkspaceAsync(AiWorkspaceSection.VideoGeneration);
 
@@ -652,6 +655,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             AiWorkspaceSection.ImageGeneration => CreateAiImageGenerationToolViewModel(editViewModel),
             AiWorkspaceSection.ImageEdit => CreateAiImageEditToolViewModel(editViewModel),
             AiWorkspaceSection.VideoGeneration => CreateAiVideoGenerationToolViewModel(editViewModel),
+            AiWorkspaceSection.VideoEditing => new AiVideoEditingViewModel(mode => CreateAiVideoGenerationToolViewModel(editViewModel, mode)),
             AiWorkspaceSection.Subtitles => CreateAiSubtitleToolViewModel(editViewModel),
             AiWorkspaceSection.Jobs => CreateAiJobCenterViewModel(editViewModel),
             _ => throw new ArgumentOutOfRangeException(nameof(section)),

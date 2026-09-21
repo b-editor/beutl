@@ -33,6 +33,7 @@ public sealed class AiShellEntryPointTests
                 Strings.AiImageEdit,
                 Strings.AiSubtitle,
                 Strings.AiVideoGeneration,
+                Strings.AiVideoEditing,
             ];
 
             using (Assert.EnterMultipleScope())
@@ -46,6 +47,7 @@ public sealed class AiShellEntryPointTests
                 Assert.That(mainViewModel.MenuBar.EditImage.CanExecute(), Is.True);
                 Assert.That(mainViewModel.MenuBar.GenerateSubtitles.CanExecute(), Is.True);
                 Assert.That(mainViewModel.MenuBar.GenerateVideo.CanExecute(), Is.True);
+                Assert.That(mainViewModel.MenuBar.EditVideo.CanExecute(), Is.True);
             }
 
             AiWorkspaceViewModel? workspace = null;
@@ -300,6 +302,7 @@ public sealed class AiShellEntryPointTests
             Assert.That(mainViewModel.MenuBar.EditImage.CanExecute(), Is.False);
             Assert.That(mainViewModel.MenuBar.GenerateSubtitles.CanExecute(), Is.False);
             Assert.That(mainViewModel.MenuBar.GenerateVideo.CanExecute(), Is.False);
+            Assert.That(mainViewModel.MenuBar.EditVideo.CanExecute(), Is.False);
         }
     }
 
@@ -315,6 +318,9 @@ public sealed class AiShellEntryPointTests
         (mainViewModel.MenuBar.GenerateVideo.Execute,
             AiWorkspaceSection.VideoGeneration,
             typeof(AiVideoGenerationDialogViewModel)),
+        (mainViewModel.MenuBar.EditVideo.Execute,
+            AiWorkspaceSection.VideoEditing,
+            typeof(AiVideoEditingViewModel)),
         (() => mainViewModel.MenuBar.GenerateSubtitles.Execute(),
             AiWorkspaceSection.Subtitles,
             typeof(AiSubtitleDialogViewModel)),

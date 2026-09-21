@@ -1822,6 +1822,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiVideoDuration" xml:space="preserve">
     <value>長さ</value>
   </data>
+  <data name="AiVideoExtensionDuration" xml:space="preserve">
+    <value>延長する長さ</value>
+  </data>
   <data name="AiVideoResolution" xml:space="preserve">
     <value>解像度</value>
   </data>
@@ -3009,5 +3012,77 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>ディスクから完全に削除</value>
+  </data>
+  <data name="AiVideoEditing" xml:space="preserve">
+    <value>動画編集</value>
+  </data>
+  <data name="AiVideoExtend" xml:space="preserve">
+    <value>動画延長</value>
+  </data>
+  <data name="AiVideoMotion" xml:space="preserve">
+    <value>モーション適用</value>
+  </data>
+  <data name="AiSourceVideo" xml:space="preserve">
+    <value>素材動画</value>
+  </data>
+  <data name="AiCharacterImage" xml:space="preserve">
+    <value>人物・キャラクター画像</value>
+  </data>
+  <data name="AiMotionStandard" xml:space="preserve">
+    <value>標準</value>
+  </data>
+  <data name="AiMotionPro" xml:space="preserve">
+    <value>高品質</value>
+  </data>
+  <data name="AiVideoInput" xml:space="preserve">
+    <value>動画の入力素材</value>
+  </data>
+  <data name="AiReferenceImages" xml:space="preserve">
+    <value>参照画像</value>
+  </data>
+  <data name="AiReferenceVideos" xml:space="preserve">
+    <value>参照動画</value>
+  </data>
+  <data name="AiReferenceAudio" xml:space="preserve">
+    <value>参照音声</value>
+  </data>
+  <data name="AiVideoReferenceLimit" xml:space="preserve">
+    <value>{0} / {1} 件・1 件あたり {2:0.#} MiB まで</value>
+  </data>
+  <data name="AiVideoReferenceTotal" xml:space="preserve">
+    <value>素材全体で 32 MiB、画像は合計 20 MiB まで。</value>
+  </data>
+  <data name="AiVideoRemoveReference" xml:space="preserve">
+    <value>{0} を外す</value>
+  </data>
+  <data name="AiVideoReferencePaused" xml:space="preserve">
+    <value>開始フレームの指定中は、参照素材を保持して送信対象から外します。</value>
+  </data>
+  <data name="AiChooseCharacterImage" xml:space="preserve">
+    <value>人物・キャラクター画像を選択してください。</value>
+  </data>
+  <data name="AiChooseVideoInput" xml:space="preserve">
+    <value>このモデルには開始フレームまたは参照素材が必要です。</value>
+  </data>
+  <data name="AiVideoInputUnavailable" xml:space="preserve">
+    <value>素材を読み込めません。対応するファイルを選択してください。</value>
+  </data>
+  <data name="AiSourceVideoHelp" xml:space="preserve">
+    <value>MP4 / WebM、32 MiB まで。編集では素材の長さを使い、延長では追加する長さを指定します。</value>
+  </data>
+  <data name="AiMotionOrientation" xml:space="preserve">
+    <value>向きを合わせる素材</value>
+  </data>
+  <data name="AiMotionQuality" xml:space="preserve">
+    <value>品質</value>
+  </data>
+  <data name="AiVideoNoSourceSelected" xml:space="preserve">
+    <value>動画が選択されていません</value>
+  </data>
+  <data name="AiVideoEditPromptPlaceholder" xml:space="preserve">
+    <value>動画をどのように編集するか入力してください...</value>
+  </data>
+  <data name="AiVideoEditingIdle" xml:space="preserve">
+    <value>動画とタスクを選択して「実行」をクリックしてください。</value>
   </data>
 </root>

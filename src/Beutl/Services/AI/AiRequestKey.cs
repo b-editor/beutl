@@ -986,7 +986,7 @@ internal sealed class AiRequestKey : IDisposable
         int index = operation switch
         {
             "image.generate" => 4,
-            "video.generate" => 6,
+            "video.generate" or "video.edit" or "video.extend" or "video.motion" => 6,
             _ when operation.StartsWith("image.edit.", StringComparison.Ordinal) => 2,
             _ => -1,
         };

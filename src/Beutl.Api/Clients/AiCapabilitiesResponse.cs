@@ -24,6 +24,42 @@ internal sealed record AiModelDescriptionResponse
     [JsonPropertyName("isDefault")]
     public bool IsDefault { get; init; }
 
+    [JsonPropertyName("promptToVideo")]
+    public bool? PromptToVideo { get; init; }
+
+    [JsonPropertyName("inputReferences")]
+    public bool? InputReferences { get; init; }
+
+    [JsonPropertyName("maxInputReferences")]
+    public int? MaxInputReferences { get; init; }
+
+    [JsonPropertyName("maxInputReferenceBytes")]
+    public long? MaxInputReferenceBytes { get; init; }
+
+    [JsonPropertyName("maxVideoReferences")]
+    public int? MaxVideoReferences { get; init; }
+
+    [JsonPropertyName("maxVideoReferenceBytes")]
+    public long? MaxVideoReferenceBytes { get; init; }
+
+    [JsonPropertyName("maxAudioReferences")]
+    public int? MaxAudioReferences { get; init; }
+
+    [JsonPropertyName("maxAudioReferenceBytes")]
+    public long? MaxAudioReferenceBytes { get; init; }
+
+    [JsonPropertyName("maxSourceVideoBytes")]
+    public long? MaxSourceVideoBytes { get; init; }
+
+    [JsonPropertyName("minSourceVideoSeconds")]
+    public double? MinSourceVideoSeconds { get; init; }
+
+    [JsonPropertyName("maxSourceVideoSeconds")]
+    public double? MaxSourceVideoSeconds { get; init; }
+
+    [JsonPropertyName("maxPromptLength")]
+    public int? MaxPromptLength { get; init; }
+
     // Image models only, and absent for a server that predates them.
     [JsonPropertyName("aspectRatios")]
     public ImmutableArray<string>? AspectRatios { get; init; }

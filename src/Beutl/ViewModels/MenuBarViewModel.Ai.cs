@@ -10,7 +10,8 @@ public partial class MenuBarViewModel
         nameof(GenerateImage),
         nameof(GenerateSubtitles),
         nameof(EditImage),
-        nameof(GenerateVideo))]
+        nameof(GenerateVideo),
+        nameof(EditVideo))]
     private void InitializeAiCommands(IObservable<bool> isSceneOpened)
     {
         ShowAiJobs = new ReactiveCommandSlim(isSceneOpened);
@@ -18,6 +19,7 @@ public partial class MenuBarViewModel
         GenerateSubtitles = new ReactiveCommandSlim(isSceneOpened);
         EditImage = new ReactiveCommandSlim(isSceneOpened);
         GenerateVideo = new ReactiveCommandSlim(isSceneOpened);
+        EditVideo = new ReactiveCommandSlim(isSceneOpened);
     }
 
     // AI
@@ -34,4 +36,6 @@ public partial class MenuBarViewModel
     public ReactiveCommandSlim EditImage { get; private set; } = null!;
 
     public ReactiveCommandSlim GenerateVideo { get; private set; } = null!;
+
+    public ReactiveCommandSlim EditVideo { get; private set; } = null!;
 }

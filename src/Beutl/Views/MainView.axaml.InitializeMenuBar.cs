@@ -85,6 +85,7 @@ public partial class MainView
         viewModel.MenuBar.GenerateSubtitles.Subscribe(() => viewModel.OpenAiSubtitle()).AddTo(_disposables);
         viewModel.MenuBar.EditImage.Subscribe(viewModel.OpenAiImageEdit).AddTo(_disposables);
         viewModel.MenuBar.GenerateVideo.Subscribe(viewModel.OpenAiVideoGeneration).AddTo(_disposables);
+        viewModel.MenuBar.EditVideo.Subscribe(viewModel.OpenAiVideoEditing).AddTo(_disposables);
     }
 
     private void InitializeDockLayoutPresetMenu(MainViewModel viewModel)

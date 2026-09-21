@@ -60,14 +60,30 @@ internal interface IAiClient
     Task<CreateAiVideoResponse> CreateVideoFromFrames(
         [Header("Authorization")] string authorization,
         [Header("Idempotency-Key")] string idempotencyKey,
-        [AliasAs("firstFrame")] StreamPart firstFrame,
+        [AliasAs("firstFrame")] StreamPart? firstFrame,
         [AliasAs("lastFrame")] StreamPart? lastFrame,
+        [AliasAs("reference[]")] IEnumerable<StreamPart>? references,
         [AliasAs("prompt")] string prompt,
         [AliasAs("durationSeconds")] int durationSeconds,
         [AliasAs("resolution")] string resolution,
         [AliasAs("aspectRatio")] string aspectRatio,
         [AliasAs("generateAudio")] string generateAudio,
         [AliasAs("seed")] string? seed,
+        [AliasAs("model")] string? model,
+        CancellationToken cancellationToken);
+
+    [Multipart]
+    [Post("/api/v3/ai/videos/{mode}")]
+    Task<CreateAiVideoResponse> CreateSourceVideo(
+        [Header("Authorization")] string authorization,
+        [Header("Idempotency-Key")] string idempotencyKey,
+        string mode,
+        [AliasAs("sourceVideo")] StreamPart sourceVideo,
+        [AliasAs("characterImage")] StreamPart? characterImage,
+        [AliasAs("prompt")] string prompt,
+        [AliasAs("durationSeconds")] string? durationSeconds,
+        [AliasAs("orientation")] string? orientation,
+        [AliasAs("quality")] string? quality,
         [AliasAs("model")] string? model,
         CancellationToken cancellationToken);
 
