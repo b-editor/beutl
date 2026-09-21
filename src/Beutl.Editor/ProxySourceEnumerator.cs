@@ -263,6 +263,8 @@ public static class ProxySourceEnumerator
                         // skips a disabled child, so preflight must not demand its file either.
                         if (skipDisabledElements && !child.IsEnabled)
                             continue;
+                        if (connectedNodeInputs != null && !TryVisitGraphDrawable(child, localRange, walkContext))
+                            continue;
 
                         foreach (IFileSource source in EnumerateObjectFileSources(
                             child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow, connectedNodeInputs))
@@ -282,6 +284,8 @@ public static class ProxySourceEnumerator
                     foreach (Drawable child in decorator.Children)
                     {
                         if (skipDisabledElements && !child.IsEnabled)
+                            continue;
+                        if (connectedNodeInputs != null && !TryVisitGraphDrawable(child, localRange, walkContext))
                             continue;
 
                         // A decorator renders its children at the same composition time (it pushes only
@@ -527,6 +531,17 @@ public static class ProxySourceEnumerator
         {
             foreach (EngineObject item in list.OfType<EngineObject>())
             {
+                if (item is Drawable drawable)
+                {
+                    if (skipDisabledElements && !drawable.IsEnabled
+                        || !TryVisitGraphDrawable(drawable, localRange, walkContext)) continue;
+                    foreach (IFileSource source in EnumerateObjectFileSources(
+                        drawable, walkContext.VisitedScenes, walkContext.VisitedGraphGroups,
+                        walkContext.VisitedTargets, walkContext.VisitedFullWalkTargets, skipDisabledElements,
+                        walkContext.RenderTarget, localRange, walkContext.SceneWindow, walkContext.ConnectedNodeInputs))
+                        yield return source;
+                    continue;
+                }
                 foreach (IFileSource source in EnumeratePropertyValueFileSources(item, localRange, skipDisabledElements, visitedValues, walkContext))
                     yield return source;
             }
@@ -608,6 +623,19 @@ public static class ProxySourceEnumerator
 
         foreach (IFileSource source in EnumeratePropertyFileSources(engineObject, localRange, skipDisabledElements, visitedValues, walkContext?.SceneWindow, walkContext))
             yield return source;
+    }
+
+    // Graph list properties also reach the structural group/decorator walk. Share its guards so
+    // those two paths do not duplicate sources or recurse through a presenter back to the list.
+    private static bool TryVisitGraphDrawable(Drawable drawable, TimeRange? localRange, ObjectWalkContext context)
+    {
+        if (localRange == null)
+        {
+            if (!context.VisitedFullWalkTargets.Add(drawable)) return false;
+            context.VisitedTargets.Add(drawable);
+            return true;
+        }
+        return !context.VisitedFullWalkTargets.Contains(drawable) && context.VisitedTargets.Add(drawable);
     }
 
     // A reference-expression resolves to another object's value (or one of its properties) by id; the

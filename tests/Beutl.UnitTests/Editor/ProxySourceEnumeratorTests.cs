@@ -753,6 +753,74 @@ public class ProxySourceEnumeratorTests
         Assert.That(files, Is.EqualTo(new[] { "upstream.png" }));
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void DrawableListsInGraphInputsReportRenderableMedia(bool decorator, bool connected)
+    {
+        GraphNode node;
+        IListProperty<Drawable> children;
+        if (decorator)
+        {
+            var factory = new FactoryNode<DrawableDecorator>();
+            node = factory;
+            children = factory.Object.Children;
+        }
+        else
+        {
+            var factory = new FactoryNode<DrawableGroup>();
+            node = factory;
+            children = factory.Object.Children;
+        }
+        var image = new SourceImage();
+        image.Source.CurrentValue = CreateImageSource("list-image.png");
+        var video = new SourceVideo();
+        video.Source.CurrentValue = CreateVideoSource("list-video.mov");
+        var disabled = new SourceImage { IsEnabled = false };
+        disabled.Source.CurrentValue = CreateImageSource("disabled.png");
+        var nested = new DrawableGroup();
+        nested.Children.AddRange([image, video, disabled]);
+        children.Add(nested);
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.Add(node);
+        if (connected)
+        {
+            var upstream = new FileSourcePassThroughNode();
+            upstream.Input.Property!.SetValue(CreateImageSource("replacement.png"));
+            graph.Nodes.Add(upstream);
+            graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), image.Source)), upstream.Output);
+        }
+        Element element = ElementWith(drawable);
+        string[] expected = [connected ? "replacement.png" : "list-image.png", "list-video.mov"];
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element, skipDisabledElements: true)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).ToArray();
+        Assert.That(files, Is.EquivalentTo(expected));
+        Assert.That(FileNames(element), Is.EqualTo(new[] { "list-video.mov" }));
+
+        Scene scene = CreateScene("drawable-list.scene");
+        scene.Children.Add(element);
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        Assert.That(missing.Select(Path.GetFileName), Is.EquivalentTo(expected));
+    }
+
+    [Test]
+    public void DrawableListsInGraphInputsTerminateOnPresenterCycles()
+    {
+        var node = new FactoryNode<DrawableGroup>();
+        var video = new SourceVideo();
+        video.Source.CurrentValue = CreateVideoSource("list-cycle.mov");
+        var presenter = new DrawablePresenter();
+        node.Object.Children.AddRange([video, presenter]);
+        SetPropertyValueSilently(presenter.Target, node.Object);
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(node);
+
+        Assert.That(FileNames(ElementWith(drawable)), Is.EqualTo(new[] { "list-cycle.mov" }));
+    }
+
     // A reference-expression makes IProperty.GetValue return another object's value ahead of the
     // base/animation, so the render opens whatever file source it resolves to. Preflight must resolve
     // the reference (by id, no evaluation) and enumerate the target's sources.
