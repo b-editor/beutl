@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using Beutl.Engine;
 using Beutl.Editor;
+using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.NodeGraph.Composition;
@@ -61,7 +61,7 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         if (_property != null)
         {
             _property.Edited -= OnTargetEdited;
-            if (!Connection.IsNull && _property.Expression is NodePortExpression<T>)
+            if (!Connection.IsNull && _property.Expression is NodePortExpression<T> && !HasOtherConnectedInput())
             {
                 using var suppression = RecordingSuppression.Enter();
                 _property.Expression = null;
@@ -74,6 +74,11 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
 
     private void OnTargetEdited(object? sender, EventArgs e) => RaiseEdited();
 
+    private bool HasOtherConnectedInput()
+        => this.FindHierarchicalParent<GraphNode>()?.EnumerateMembers().OfType<IInputPort>()
+            .Any(input => input != this && !input.Connection.IsNull
+                && ReferenceEquals(input.Property?.GetEngineProperty(), _property)) == true;
+
     private void UpdateExpression()
     {
         if (_property == null || !_property.SupportsExpression) return;
@@ -82,7 +87,7 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         using var suppression = RecordingSuppression.Enter();
         if (!Connection.IsNull && _property.Expression is not NodePortExpression<T>)
             _property.Expression = new NodePortExpression<T>();
-        else if (Connection.IsNull && _property.Expression is NodePortExpression<T>)
+        else if (Connection.IsNull && _property.Expression is NodePortExpression<T> && !HasOtherConnectedInput())
             _property.Expression = null;
     }
 

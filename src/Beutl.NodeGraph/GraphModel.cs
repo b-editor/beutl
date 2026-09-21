@@ -86,7 +86,7 @@ public partial class GraphModel : EngineObject
     {
         if (inputNodePort.FindHierarchicalParent<GraphNode>() is { } owner
             && !owner.CanConnectInput(inputNodePort))
-            throw new InvalidOperationException("An object input and its descendant inputs cannot be connected together.");
+            throw new InvalidOperationException("This input cannot be connected in the current graph state.");
         var connection = new Connection(inputNodePort, outputNodePort);
         connection.Connect();
         AllConnections.Add(connection);

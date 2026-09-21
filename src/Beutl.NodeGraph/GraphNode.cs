@@ -128,18 +128,28 @@ public abstract partial class GraphNode : EngineObject
     {
         _nestedPortManager.EnsureSynchronized();
         if (input is INestedInputPort { Property: null }) return false;
-        if (input.Property?.GetEngineProperty() is { SupportsExpression: false }) return false;
+        IProperty? property = input.Property?.GetEngineProperty();
+        if (property is { SupportsExpression: false }) return false;
         _connectedInputs ??= _items.Concat<INodeMember>(_nestedInputPorts)
             .OfType<IInputPort>().Where(p => !p.Connection.IsNull).ToArray();
-        if (input is INestedInputPort nested)
+        foreach (IInputPort other in _connectedInputs)
         {
-            return !_connectedInputs.Any(other => other != nested
-                && (other.Id == nested.RootMember.Id
+            if (other == input) continue;
+            // Distinct paths can still drive the same expression when objects are shared.
+            if (property != null && ReferenceEquals(other.Property?.GetEngineProperty(), property)) return false;
+            if (input is INestedInputPort nested)
+            {
+                if (other.Id == nested.RootMember.Id
                     || other is INestedInputPort child && child.RootMember.Id == nested.RootMember.Id
                     && (IsPathPrefix(child.PropertyPath, nested.PropertyPath)
-                        || IsPathPrefix(nested.PropertyPath, child.PropertyPath))));
+                        || IsPathPrefix(nested.PropertyPath, child.PropertyPath))) return false;
+            }
+            else if (other is INestedInputPort descendant && descendant.RootMember.Id == input.Id)
+            {
+                return false;
+            }
         }
-        return !_connectedInputs.OfType<INestedInputPort>().Any(p => p.RootMember.Id == input.Id);
+        return true;
     }
 
     internal static bool IsPathPrefix(IReadOnlyList<string> prefix, IReadOnlyList<string> path)

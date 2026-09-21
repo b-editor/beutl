@@ -1,4 +1,4 @@
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Reactive.Linq;
 using Beutl.Composition;
 using Beutl.Editor;
@@ -236,6 +236,81 @@ public class NestedInputPortTests
         Assert.That(node.CanConnectInput(Find(node, pen.Brush)), Is.False);
         Assert.That(node.CanConnectInput(Find(node, pen.Thickness)), Is.True);
         Assert.That(node.CanConnectInput(Find(node, brush.Opacity)), Is.True);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AliasedPropertiesRejectASecondConnectionAndKeepTheFirst(bool penFirst)
+    {
+        var graph = new GraphModel();
+        var node = new GeometryShapeNode();
+        var brush = new SolidColorBrush();
+        var pen = new Pen();
+        pen.Brush.CurrentValue = brush;
+        node.Fill.Property!.SetValue(brush);
+        node.Pen.Property!.SetValue(pen);
+        graph.Nodes.Add(node);
+        var fillColor = node.NestedInputPorts.Single(p => p.RootMember.Id == node.Fill.Id
+            && ReferenceEquals(p.Property!.GetEngineProperty(), brush.Color));
+        var penColor = node.NestedInputPorts.Single(p => p.RootMember.Id == node.Pen.Id
+            && ReferenceEquals(p.Property!.GetEngineProperty(), brush.Color));
+        var first = penFirst ? penColor : fillColor;
+        var second = penFirst ? fillColor : penColor;
+        var red = Source(graph, Colors.Red);
+        var blue = Source(graph, Colors.Blue);
+        var connection = graph.Connect(first, red);
+
+        Assert.That(node.CanConnectInput(second), Is.False);
+        Assert.Throws<InvalidOperationException>(() => graph.Connect(second, blue));
+        Evaluate(graph);
+        Assert.That(graph.AllConnections.Single(), Is.SameAs(connection));
+        Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
+
+        graph.Disconnect(connection);
+        Assert.That(node.CanConnectInput(second), Is.True);
+        graph.Connect(second, blue);
+        Evaluate(graph);
+        Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Blue));
+    }
+
+    [Test]
+    public void RebindingConnectedPathsToTheSamePropertyCanRecoverWithoutLosingConnections()
+    {
+        var graph = new GraphModel();
+        var node = new GeometryShapeNode();
+        var fillBrush = new SolidColorBrush();
+        var penBrush = new SolidColorBrush();
+        var pen = new Pen();
+        pen.Brush.CurrentValue = penBrush;
+        node.Fill.Property!.SetValue(fillBrush);
+        node.Pen.Property!.SetValue(pen);
+        graph.Nodes.Add(node);
+        graph.Connect(Find(node, fillBrush.Color), Source(graph, Colors.Red));
+        var penConnection = graph.Connect(Find(node, penBrush.Color), Source(graph, Colors.Blue));
+        Evaluate(graph);
+        using var history = new HistoryHarness(graph);
+
+        pen.Brush.CurrentValue = fillBrush;
+        history.History.Commit("Share brush");
+        Evaluate(graph);
+
+        Assert.That(graph.AllConnections, Has.Count.EqualTo(2));
+        Assert.That(graph.AllConnections.Select(c => c.Status), Is.All.EqualTo(ConnectionStatus.Error));
+
+        Assert.That(history.History.Undo(), Is.True);
+        Evaluate(graph);
+        Assert.That(graph.AllConnections.Select(c => c.Status), Is.All.EqualTo(ConnectionStatus.Success));
+        Assert.That(fillBrush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+        Assert.That(penBrush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Blue));
+
+        Assert.That(history.History.Redo(), Is.True);
+        Evaluate(graph);
+        Assert.That(graph.AllConnections.Select(c => c.Status), Is.All.EqualTo(ConnectionStatus.Error));
+        graph.Disconnect(penConnection);
+        Evaluate(graph);
+        Assert.That(graph.AllConnections.Single().Status, Is.EqualTo(ConnectionStatus.Success));
+        Assert.That(fillBrush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
     }
 
     [Test]
