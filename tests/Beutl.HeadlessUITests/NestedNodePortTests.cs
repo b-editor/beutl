@@ -9,15 +9,19 @@ using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
@@ -33,6 +37,128 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class NestedNodePortTests
 {
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task InvalidConnectedPortsAllowDisconnectionButCannotStartNewConnections(bool expression, bool contextMenu)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await CreateEditor();
+        var graph = new GraphModel();
+        var node = new GeometryShapeNode { Position = (70, 140) };
+        var pen = new Pen();
+        var brush = new SolidColorBrush();
+        pen.Brush.CurrentValue = brush;
+        node.Pen.Property!.SetValue(pen);
+        graph.Nodes.Add(node);
+        var source = new LayerInputNode { Position = (10, 0) };
+        var output = new LayerInputNode.LayerInputPort<float>();
+        output.SetupProperty("Opacity");
+        var otherOutput = new LayerInputNode.LayerInputPort<float>();
+        otherOutput.SetupProperty("Other opacity");
+        source.Items.Add(output);
+        source.Items.Add(otherOutput);
+        graph.Nodes.Add(source);
+        var input = node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Opacity));
+        var connection = graph.Connect(input, output);
+        using var vm = new NodeGraphViewModel(graph, editor);
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window
+        {
+            Content = view,
+            Width = 320,
+            Height = 900,
+            RequestedThemeVariant = contextMenu ? ThemeVariant.Light : ThemeVariant.Dark
+        };
+        try
+        {
+            window.Show();
+            var nodeVm = vm.Nodes.Single(n => n.GraphNode == node);
+            var penVm = (PenEditorViewModel)nodeVm.Items.Single(p => p.Model == node.Pen).PropertyEditorContext!;
+            penVm.IsExpanded.Value = true;
+            penVm.MajorProperties.OfType<BrushEditorViewModel>().Single().IsExpanded.Value = true;
+            await FinishTransition();
+            var row = FindPortView(view, brush.Opacity);
+            var member = (InputPortViewModel)row.DataContext!;
+            var point = FindPortPoint(view, row);
+            Assert.That(point.IsEnabled, Is.True);
+
+            var root = (NodePropertyAdapter<Pen?>)node.Pen.Property;
+            if (expression)
+                pen.Brush.Expression = Expression.CreateReference<Brush>(Guid.NewGuid());
+            else
+                root.Animation = new KeyFrameAnimation<Pen?>();
+            using (var snapshot = new GraphSnapshot())
+                snapshot.Build(graph, CompositionContext.Default);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Error));
+            Assert.That(member.CanConnect.Value, Is.False);
+            Assert.That(point.IsEnabled, Is.True, "An invalid existing connection must remain disconnectable.");
+            Point position = point.TranslatePoint(new Point(5, 5), window)!.Value;
+            Assert.That(window.InputHitTest(position), Is.SameAs(point));
+            Capture(window, $"invalid-connected-{expression}-{contextMenu}");
+
+            window.MouseMove(position);
+            window.MouseDown(position, MouseButton.Left);
+            Assert.That(view.GetVisualDescendants().OfType<ConnectionLine>().Count(), Is.EqualTo(1),
+                "An invalid input must not start a temporary connection line.");
+            window.MouseUp(position, MouseButton.Left);
+
+            var otherPoint = view.GetVisualDescendants().OfType<NodePortPoint>()
+                .Single(p => p.DataContext is NodePortViewModel m && m.Model == otherOutput);
+            Point from = otherPoint.TranslatePoint(new Point(5, 5), window)!.Value;
+            Assert.That(window.InputHitTest(from), Is.SameAs(otherPoint));
+            window.MouseMove(from);
+            window.MouseDown(from, MouseButton.Left);
+            Assert.That(view.GetVisualDescendants().OfType<ConnectionLine>().Count(), Is.EqualTo(2));
+            window.MouseMove(position, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(position, MouseButton.Left);
+            Assert.That(graph.AllConnections, Is.EqualTo(new[] { connection }),
+                "Dropping another output on an invalid input must preserve its existing connection.");
+            Assert.That(view.GetVisualDescendants().OfType<ConnectionLine>().Count(), Is.EqualTo(1));
+
+            if (contextMenu)
+            {
+                window.MouseDown(position, MouseButton.Right);
+                window.MouseUp(position, MouseButton.Right);
+                HeadlessTestHelpers.Render(3);
+                ContextMenu menu = point.ContextMenu!;
+                Assert.That(menu.IsOpen, Is.True);
+                MenuItem disconnect = menu.Items.OfType<MenuItem>().Single();
+                TopLevel popup = TopLevel.GetTopLevel(menu)!;
+                Capture(popup, $"invalid-connected-menu-{expression}");
+                Point action = disconnect.TranslatePoint(new Point(disconnect.Bounds.Width / 2, disconnect.Bounds.Height / 2), popup)!.Value;
+                popup.MouseMove(action);
+                popup.MouseDown(action, MouseButton.Left);
+                popup.MouseUp(action, MouseButton.Left);
+                menu.Close();
+            }
+            else
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    window.MouseDown(position, MouseButton.Left);
+                    window.MouseUp(position, MouseButton.Left);
+                }
+            }
+            HeadlessTestHelpers.Render(3);
+            Assert.That(graph.AllConnections, Is.Empty);
+            Assert.That(member.IsConnected.Value, Is.False);
+            Assert.That(point.IsEnabled, Is.False, "The now-unconnected invalid input must reject new connections.");
+            pen.Brush.Expression = null;
+            root.Animation = null;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(point.IsEnabled, Is.True);
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
@@ -739,7 +865,7 @@ public class NestedNodePortTests
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
     }
 
-    private static void Capture(Window window, string name)
+    private static void Capture(TopLevel window, string name)
     {
         if (Environment.GetEnvironmentVariable("BEUTL_NESTED_PORT_CAPTURE") is not { Length: > 0 } directory) return;
         Directory.CreateDirectory(directory);

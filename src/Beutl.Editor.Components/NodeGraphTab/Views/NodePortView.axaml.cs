@@ -160,11 +160,12 @@ public partial class NodePortView : UserControl
         portPt.ConnectRequested += OnNodePortPointConnectRequested;
         portPt.DisconnectRequested += OnNodePortPointDisconnectRequested;
 
-        if (obj is InputPortViewModel)
+        if (obj is InputPortViewModel input)
         {
             Grid.SetColumn(portPt, 0);
             portPt.Margin = new Thickness(ProvidedEditor == null ? -6 : 0, 4, 0, 0);
-            portPt.Bind(IsEnabledProperty, ((InputPortViewModel)obj).CanConnect.ToBinding())
+            portPt.Bind(IsEnabledProperty, input.CanConnect
+                .CombineLatest(input.IsConnected, (canConnect, connected) => canConnect || connected).ToBinding())
                 .DisposeWith(_disposables);
         }
         else
