@@ -117,8 +117,6 @@ public class ToolTabReuseTests
 
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
 
-        public IKnownEditorCommands? Commands => null;
-
         public object? GetService(Type serviceType) => null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)

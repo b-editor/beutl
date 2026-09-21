@@ -42,7 +42,7 @@ public sealed class AiResultImporterTests
         element.Objects.Remove(historyObject);
         editor.HistoryManager.Commit("Remove history source");
         scene.Uri = savedUri;
-        Assert.That(await editor.Commands!.OnSave(), Is.True);
+        Assert.That(await editor.SaveAsync(), Is.True);
         Assert.That(editor.HistoryManager.Undo(), Is.True);
         Assert.That(element.Objects, Does.Contain(historyObject));
         Assert.That(historySource.Uri, Is.EqualTo(original));
@@ -520,7 +520,7 @@ public sealed class AiResultImporterTests
             Assert.That(editor.HistoryManager.Undo(), Is.True);
             Assert.That(scene.Children, Is.Empty);
             scene.Uri = savedSceneUri;
-            Assert.That(await editor.Commands!.OnSave(), Is.True);
+            Assert.That(await editor.SaveAsync(), Is.True);
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(File.Exists(unsavedSidecar.LocalPath), Is.True,
@@ -531,7 +531,7 @@ public sealed class AiResultImporterTests
 
             Assert.That(editor.HistoryManager.Redo(), Is.True);
             Assert.That(scene.Children.Single(), Is.SameAs(element));
-            Assert.That(await editor.Commands.OnSave(), Is.True);
+            Assert.That(await editor.SaveAsync(), Is.True);
 
             Uri savedSidecar = element.Uri!;
             string savedResourcePath = element.Objects
@@ -618,7 +618,7 @@ public sealed class AiResultImporterTests
             Uri originalResource = source.Uri;
             scene.Uri = new Uri(Path.GetFullPath(directoryAtScenePath));
 
-            Assert.CatchAsync<Exception>(async () => await editor.Commands!.OnSave());
+            Assert.CatchAsync<Exception>(async () => await editor.SaveAsync());
 
             using (Assert.EnterMultipleScope())
             {
@@ -635,7 +635,7 @@ public sealed class AiResultImporterTests
             }
 
             scene.Uri = eventualSceneUri;
-            Assert.That(await editor.Commands!.OnSave(), Is.True);
+            Assert.That(await editor.SaveAsync(), Is.True);
         }
         finally
         {
@@ -703,7 +703,7 @@ public sealed class AiResultImporterTests
                        }
                    }))
             {
-                Assert.CatchAsync<Exception>(async () => await editor.Commands!.OnSave());
+                Assert.CatchAsync<Exception>(async () => await editor.SaveAsync());
             }
 
             using (Assert.EnterMultipleScope())
@@ -718,7 +718,7 @@ public sealed class AiResultImporterTests
                 Assert.That(File.ReadAllBytes(sceneFile), Is.EqualTo(sceneBefore));
             }
 
-            Assert.That(await editor.Commands!.OnSave(), Is.True);
+            Assert.That(await editor.SaveAsync(), Is.True);
             Assert.That(Directory.GetFiles(sceneDirectory, "*.belm"), Has.Length.EqualTo(1));
         }
         finally

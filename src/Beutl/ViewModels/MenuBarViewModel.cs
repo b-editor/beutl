@@ -60,16 +60,14 @@ public sealed partial class MenuBarViewModel
 
     private async Task OnUndo()
     {
-        IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
-        if (commands != null)
-            await commands.OnUndo();
+        if (_editorService.SelectedTabItem.Value?.Context.Value is IUndoRedoEditorContext editor)
+            await editor.UndoAsync();
     }
 
     private async Task OnRedo()
     {
-        IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
-        if (commands != null)
-            await commands.OnRedo();
+        if (_editorService.SelectedTabItem.Value?.Context.Value is IUndoRedoEditorContext editor)
+            await editor.RedoAsync();
     }
 
     private sealed class NoProjectVersionControlSession : IProjectVersionControlSession

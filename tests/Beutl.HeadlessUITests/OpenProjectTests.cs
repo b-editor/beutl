@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.Configuration;
+using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -95,7 +96,7 @@ public class OpenProjectTests
                 Assert.That(published.LastOrDefault(), Is.SameAs(original));
                 Assert.That(GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile, Is.EqualTo(original.Uri.LocalPath));
             });
-            Assert.That(await TestShell.Editor.SelectedTabItem.Value!.Commands.Value!.OnSave(), Is.True);
+            Assert.That(await ((ISavableEditorContext)TestShell.Editor.SelectedTabItem.Value!.Context.Value).SaveAsync(), Is.True);
             Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
         }
         finally

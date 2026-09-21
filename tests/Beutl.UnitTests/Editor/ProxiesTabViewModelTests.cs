@@ -1672,8 +1672,6 @@ public sealed class ProxiesTabViewModelTests
 
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
 
-        public IKnownEditorCommands? Commands => null;
-
         public void AddService<T>(T service)
             where T : notnull
         {

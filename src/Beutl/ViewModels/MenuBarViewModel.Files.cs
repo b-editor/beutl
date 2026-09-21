@@ -155,13 +155,13 @@ public partial class MenuBarViewModel
 
             itemsCount++;
 
-            // Each OnSave yields to the dispatcher, which can close a tab, so the live list is
+            // Each SaveAsync can yield to the dispatcher, which can close a tab, so the live list is
             // snapshotted rather than enumerated across the awaits.
             foreach (EditorTabItem item in _editorService.TabItems.ToArray())
             {
-                if (item.Commands.Value is { } commands)
+                if (item.Context.Value is ISavableEditorContext editor)
                 {
-                    if (await commands.OnSave())
+                    if (await editor.SaveAsync())
                     {
                         itemsCount++;
                     }
@@ -220,7 +220,7 @@ public partial class MenuBarViewModel
                 return;
             }
 
-            bool result = item.Commands.Value is { } commands && await commands.OnSave();
+            bool result = item.Context.Value is ISavableEditorContext editor && await editor.SaveAsync();
             if (result)
             {
                 NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemSaved, item.FileName.Value));

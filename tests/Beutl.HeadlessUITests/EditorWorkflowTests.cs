@@ -165,7 +165,7 @@ public class EditorWorkflowTests
             HeadlessTestHelpers.Settle();
             Element element = editor.Scene.Children[^1];
 
-            Assert.That(await editor.Commands!.OnSave(), Is.True);
+            Assert.That(await editor.SaveAsync(), Is.True);
             Assert.Multiple(() =>
             {
                 Assert.That(File.Exists(editor.Scene.Uri!.LocalPath), Is.True);
@@ -257,22 +257,28 @@ public class EditorWorkflowTests
     }
 
     [AvaloniaTest]
-    public async Task Undo_redo_through_known_editor_commands()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Undo_redo_through_editor_history_capability(bool useMenu)
     {
         await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("knowncmds");
+        EditViewModel editor = await OpenEditorForNewScene(useMenu ? "editor-history-menu" : "editor-history");
         await AddRectangle(editor, TimeSpan.Zero, layer: 0);
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
 
-        IKnownEditorCommands commands = editor.Commands!;
-        bool undone = await commands.OnUndo();
+        IUndoRedoEditorContext history = editor;
+        if (useMenu)
+            await TestShell.MainViewModel.MenuBar.Undo.ExecuteAsync();
+        else
+            Assert.That(await history.UndoAsync(), Is.True);
         HeadlessTestHelpers.Settle();
-        Assert.That(undone, Is.True);
         Assert.That(editor.Scene.Children, Is.Empty);
 
-        bool redone = await commands.OnRedo();
+        if (useMenu)
+            await TestShell.MainViewModel.MenuBar.Redo.ExecuteAsync();
+        else
+            Assert.That(await history.RedoAsync(), Is.True);
         HeadlessTestHelpers.Settle();
-        Assert.That(redone, Is.True);
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
     }
 }

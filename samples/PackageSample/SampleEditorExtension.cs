@@ -12,21 +12,18 @@ using Reactive.Bindings;
 
 namespace PackageSample;
 
-public sealed class TextEditorContext : IEditorContext
+public sealed class TextEditorContext : ISavableEditorContext
 {
     public TextEditorContext(CoreObject obj, SampleEditorExtension extension)
     {
         Extension = extension;
         Object = obj;
         Text.Value = File.ReadAllText(obj.Uri!.LocalPath);
-        Commands = new CommandsImpl(this);
     }
 
     public EditorExtension Extension { get; }
 
     public CoreObject Object { get; }
-
-    public IKnownEditorCommands? Commands { get; }
 
     public ReactiveProperty<string> Text { get; } = new();
 
@@ -60,19 +57,16 @@ public sealed class TextEditorContext : IEditorContext
         return false;
     }
 
-    private sealed class CommandsImpl(TextEditorContext context) : IKnownEditorCommands
+    public async ValueTask<bool> SaveAsync()
     {
-        public async ValueTask<bool> OnSave()
+        try
         {
-            try
-            {
-                await File.WriteAllTextAsync(context.Object.Uri!.LocalPath, context.Text.Value);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            await File.WriteAllTextAsync(Object.Uri!.LocalPath, Text.Value);
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 }

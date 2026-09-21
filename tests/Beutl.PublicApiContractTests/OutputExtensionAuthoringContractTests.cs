@@ -162,8 +162,6 @@ public sealed class OutputExtensionAuthoringContractTests : PublicApiContractTes
 
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
 
-        public IKnownEditorCommands? Commands => null;
-
         public T? FindToolTab<T>(Func<T, bool> condition)
             where T : IToolContext
             => default;

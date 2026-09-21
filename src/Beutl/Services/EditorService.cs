@@ -25,8 +25,6 @@ public sealed class EditorTabItem : IAsyncDisposable
             .ToReadOnlyReactivePropertySlim()!;
         Extension = Context.Select(ctxt => ctxt?.Extension!)
             .ToReadOnlyReactivePropertySlim()!;
-        Commands = Context.Select(ctxt => ctxt?.Commands)
-            .ToReadOnlyReactivePropertySlim();
     }
 
     public IReactiveProperty<IEditorContext> Context { get; }
@@ -36,8 +34,6 @@ public sealed class EditorTabItem : IAsyncDisposable
     public IReadOnlyReactiveProperty<string> FileName { get; }
 
     public IReadOnlyReactiveProperty<EditorExtension> Extension { get; }
-
-    public IReadOnlyReactiveProperty<IKnownEditorCommands?> Commands { get; }
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
@@ -66,7 +62,6 @@ public sealed class EditorTabItem : IAsyncDisposable
         FilePath.Dispose();
         FileName.Dispose();
         Extension.Dispose();
-        Commands.Dispose();
         IsSelected.Dispose();
     }
 }
@@ -525,7 +520,7 @@ public sealed class EditorService
         foreach (EditorTabItem item in tabItems)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (item.Commands.Value is { } commands && !await commands.OnSave())
+            if (item.Context.Value is ISavableEditorContext editor && !await editor.SaveAsync())
             {
                 return false;
             }

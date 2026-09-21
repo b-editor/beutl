@@ -214,10 +214,9 @@ public sealed partial class MacWindow : Window
                 if (s is NativeMenuItem { CommandParameter: EditorExtension editorExtension } menuItem
                     && selectedTab != null)
                 {
-                    IKnownEditorCommands? commands = selectedTab.Commands.Value;
-                    if (commands != null)
+                    if (selectedTab.Context.Value is ISavableEditorContext editor)
                     {
-                        await commands.OnSave();
+                        await editor.SaveAsync();
                     }
 
                     if (editorExtension.TryCreateContext(
