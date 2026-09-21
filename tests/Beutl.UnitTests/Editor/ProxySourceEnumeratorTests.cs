@@ -14,6 +14,7 @@ using Beutl.Graphics3D.Textures;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.ProjectSystem;
@@ -627,6 +628,131 @@ public class ProxySourceEnumeratorTests
         Assert.That(collected.Select(Path.GetFileName), Does.Contain("node-fill.png"));
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void ConnectedNestedSourcesExcludeTheirBaseButKeepSiblings(bool group, bool windowed)
+    {
+        var brush = new ImageBrush();
+        brush.Source.CurrentValue = CreateImageSource("stale.png");
+        var sibling = new ImageBrush();
+        sibling.Source.CurrentValue = CreateImageSource("sibling.png");
+        var pen = new Pen();
+        pen.Brush.CurrentValue = brush;
+        var node = new GeometryShapeNode();
+        node.Pen.Property!.SetValue(pen);
+        node.Fill.Property!.SetValue(sibling);
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        if (group)
+        {
+            var container = new GroupNode();
+            graph.Nodes.Add(container);
+            graph = container.Group;
+        }
+        graph.Nodes.Add(node);
+        var upstream = new FileSourcePassThroughNode();
+        upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
+        graph.Nodes.Add(upstream);
+        var port = node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Source));
+        graph.Connect(port, upstream.Output);
+        Element element = ElementWith(drawable);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element,
+                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+
+        Assert.That(files, Is.EquivalentTo(new[] { "upstream.png", "sibling.png" }));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ConnectedDrawableBrushPropertiesDoNotLeakSourcesThroughTheStructuralWalk(bool wholeObject)
+    {
+        var original = new SourceImage();
+        original.Source.CurrentValue = CreateImageSource("stale-drawable.png");
+        var brush = new DrawableBrush();
+        brush.Drawable.CurrentValue = original;
+        var node = new GeometryShapeNode();
+        node.Fill.Property!.SetValue(brush);
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.Add(node);
+        IOutputPort output;
+        IProperty target;
+        if (wholeObject)
+        {
+            var upstream = new FactoryNode<SourceImage>();
+            upstream.Object.Source.CurrentValue = CreateImageSource("upstream.png");
+            graph.Nodes.Add(upstream);
+            output = upstream.Items.OfType<IOutputPort>().Single();
+            target = brush.Drawable;
+        }
+        else
+        {
+            var upstream = new FileSourcePassThroughNode();
+            upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
+            graph.Nodes.Add(upstream);
+            output = upstream.Output;
+            target = original.Source;
+        }
+        graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), target)), output);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(ElementWith(drawable))
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+
+        Assert.That(files, Is.EqualTo(new[] { "upstream.png" }));
+    }
+
+    [Test]
+    public void ConnectedListPropertiesDoNotSuppressTheSameFileOnAnUnconnectedSibling()
+    {
+        var shared = CreateImageSource("shared.png");
+        var first = new ImageBrush();
+        var second = new ImageBrush();
+        first.Source.CurrentValue = shared;
+        second.Source.CurrentValue = shared;
+        var node = new FactoryNode<ImageBrushList>();
+        node.Object.Brushes.AddRange([first, second]);
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.Add(node);
+        var upstream = new FileSourcePassThroughNode();
+        upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
+        graph.Nodes.Add(upstream);
+        graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), first.Source)), upstream.Output);
+        Element element = ElementWith(drawable);
+        string[] Files() => ProxySourceEnumerator.EnumerateFileSources(element)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+
+        Assert.That(Files(), Is.EquivalentTo(new[] { "upstream.png", "shared.png" }));
+
+        second.Source.CurrentValue = CreateImageSource("sibling.png");
+        node.Object.Brushes.Move(0, 1);
+        Assert.That(Files(), Is.EquivalentTo(new[] { "upstream.png", "sibling.png" }));
+    }
+
+    [Test]
+    public void ConnectedNestedPropertyAlsoOverridesAnAliasedRootInput()
+    {
+        var alias = new FactoryNode<ImageBrush>();
+        alias.Object.Source.CurrentValue = CreateImageSource("stale-alias.png");
+        var node = new GeometryShapeNode();
+        node.Fill.Property!.SetValue(alias.Object);
+        var upstream = new FileSourcePassThroughNode();
+        upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([alias, node, upstream]);
+        graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), alias.Object.Source)), upstream.Output);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(ElementWith(drawable))
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+
+        Assert.That(files, Is.EqualTo(new[] { "upstream.png" }));
+    }
+
     // A reference-expression makes IProperty.GetValue return another object's value ahead of the
     // base/animation, so the render opens whatever file source it resolves to. Preflight must resolve
     // the reference (by id, no evaluation) and enumerate the target's sources.
@@ -742,4 +868,29 @@ public class ProxySourceEnumeratorTests
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, name)),
         };
     }
+}
+
+internal sealed partial class FileSourcePassThroughNode : GraphNode
+{
+    public FileSourcePassThroughNode()
+    {
+        Input = AddInput<ImageSource?>("Input");
+        Output = AddOutput<ImageSource?>("Output");
+    }
+
+    public InputPort<ImageSource?> Input { get; }
+
+    public OutputPort<ImageSource?> Output { get; }
+
+    public partial class Resource
+    {
+        public override void Update(GraphCompositionContext context) => Output = Input;
+    }
+}
+
+public sealed partial class ImageBrushList : EngineObject
+{
+    public ImageBrushList() => ScanProperties<ImageBrushList>();
+
+    public IListProperty<ImageBrush> Brushes { get; } = Property.CreateList<ImageBrush>();
 }

@@ -196,14 +196,18 @@ public static class ProxySourceEnumerator
         bool skipDisabledElements,
         CompositionTarget? renderTarget,
         TimeRange? localRange = null,
-        TimeRange? sceneWindow = null)
+        TimeRange? sceneWindow = null,
+        IReadOnlySet<IProperty>? connectedNodeInputs = null)
     {
         // Direct IFileSource-valued properties (current + animated): SourceVideo/SourceImage/SourceSound.
         // Thread the walk context so a rendered structural value reachable only as a property (a
         // DrawableBrush's Drawable, a visualizer's SceneSound) dispatches through the guarded walks — from
         // the current value, an expression, an animation keyframe, or a node input alike.
         var walkContext = new ObjectWalkContext(
-            visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, renderTarget, sceneWindow);
+            visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, renderTarget, sceneWindow)
+        {
+            ConnectedNodeInputs = connectedNodeInputs
+        };
         foreach (IFileSource source in EnumeratePropertyFileSources(
             obj, localRange, skipDisabledElements, sceneWindow: sceneWindow, walkContext: walkContext))
             yield return source;
@@ -214,7 +218,7 @@ public static class ProxySourceEnumerator
             // drawable's filter chain; the render path evaluates those, so scan them too. The render uses
             // the effective FilterEffect value, so resolve an expression-supplied one before walking.
             foreach (IFileSource source in EnumerateFilterEffectGraphSources(
-                ResolveExpressionValue<FilterEffect>(drawable, drawable.FilterEffect),
+                ResolveExpressionValue<FilterEffect>(drawable, drawable.FilterEffect, walkContext: walkContext),
                 visitedGraphGroups,
                 new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
                 new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
@@ -233,7 +237,7 @@ public static class ProxySourceEnumerator
                     break;
 
                 case SceneDrawable sceneDrawable
-                    when ResolveExpressionValue<Scene>(sceneDrawable, sceneDrawable.ReferencedScene) is { } referencedScene:
+                    when ResolveExpressionValue<Scene>(sceneDrawable, sceneDrawable.ReferencedScene, walkContext: walkContext) is { } referencedScene:
                     // A SceneDrawable renders only the referenced scene's graphics, never its audio, so
                     // narrow the descent to Graphics regardless of the outer target: an audio-only
                     // original missing inside a graphically-embedded scene must not block a video export.
@@ -261,7 +265,7 @@ public static class ProxySourceEnumerator
                             continue;
 
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
+                            child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow, connectedNodeInputs))
                             yield return source;
                     }
 
@@ -284,14 +288,14 @@ public static class ProxySourceEnumerator
                         // transform/opacity/effect, never remaps time), so the render window still maps
                         // directly — thread localRange through, unlike the time-remapping cases below.
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
+                            child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow, connectedNodeInputs))
                             yield return source;
                     }
 
                     break;
 
                 case DrawableTimeController controller
-                    when ResolveExpressionValue<Drawable>(controller, controller.Target) is { } target:
+                    when ResolveExpressionValue<Drawable>(controller, controller.Target, walkContext: walkContext) is { } target:
                     // The remapped full walk (range dropped below) is a superset of a window-preserving
                     // one, so it must run even if a presenter already window-visited this target — dedup it
                     // in its own set so that earlier windowed visit cannot suppress it (identity-only would).
@@ -301,14 +305,14 @@ public static class ProxySourceEnumerator
                         // nor the scene-time window still maps — drop both to the conservative full walk.
                         // PostUpdate renders context.Get(Target), so resolve an expression-supplied one.
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            target, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget))
+                            target, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, connectedNodeInputs: connectedNodeInputs))
                             yield return source;
                     }
 
                     break;
 
                 case DrawablePresenter presenter
-                    when ResolveExpressionValue<Drawable>(presenter, presenter.Target) is { } presented:
+                    when ResolveExpressionValue<Drawable>(presenter, presenter.Target, walkContext: walkContext) is { } presented:
                     // A full walk already covers this windowed subset, so skip when the target was
                     // full-walked; otherwise dedup the windowed visit in visitedTargets.
                     if ((!skipDisabledElements || presented.IsEnabled)
@@ -320,7 +324,7 @@ public static class ProxySourceEnumerator
                         // controller above. The render uses the effective Target, so resolve an
                         // expression-supplied one.
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            presented, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
+                            presented, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow, connectedNodeInputs))
                             yield return source;
                     }
 
@@ -335,7 +339,7 @@ public static class ProxySourceEnumerator
         // through, so the referenced scene sees the element-local window and localRange maps directly;
         // any real remap makes the window unexpressible, so fall back to the conservative full walk.
         if (obj is SceneSound sceneSound
-            && ResolveExpressionValue<Scene>(sceneSound, sceneSound.ReferencedScene) is { } soundScene)
+            && ResolveExpressionValue<Scene>(sceneSound, sceneSound.ReferencedScene, walkContext: walkContext) is { } soundScene)
         {
             TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange : null;
             foreach (IFileSource source in EnumerateReferencedSceneSources(
@@ -354,7 +358,7 @@ public static class ProxySourceEnumerator
                     continue;
 
                 foreach (IFileSource source in EnumerateObjectFileSources(
-                    child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow))
+                    child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow, connectedNodeInputs))
                     yield return source;
             }
         }
@@ -442,6 +446,9 @@ public static class ProxySourceEnumerator
 
         foreach (IProperty property in obj.Properties)
         {
+            // Connected nested inputs override this exact property, including its base, animation,
+            // and object subtree. The upstream node contributes the effective sources instead.
+            if (walkContext?.ConnectedNodeInputs?.Contains(property) == true) continue;
             // IProperty.GetValue evaluates an expression ahead of the animation/current value, so a
             // reference-expression pointing at a file source is what the render opens. Resolve it (no
             // evaluation — just id/path lookup) and report its sources. StringExpressions are arbitrary
@@ -501,7 +508,10 @@ public static class ProxySourceEnumerator
         HashSet<Drawable> VisitedTargets,
         HashSet<Drawable> VisitedFullWalkTargets,
         CompositionTarget? RenderTarget,
-        TimeRange? SceneWindow);
+        TimeRange? SceneWindow)
+    {
+        public IReadOnlySet<IProperty>? ConnectedNodeInputs { get; init; }
+    }
 
     private static IEnumerable<IFileSource> EnumeratePropertyValueFileSources(
         object? value, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues,
@@ -513,18 +523,28 @@ public static class ProxySourceEnumerator
             yield break;
         }
 
+        if (walkContext?.ConnectedNodeInputs != null && value is System.Collections.IList list)
+        {
+            foreach (EngineObject item in list.OfType<EngineObject>())
+            {
+                foreach (IFileSource source in EnumeratePropertyValueFileSources(item, localRange, skipDisabledElements, visitedValues, walkContext))
+                    yield return source;
+            }
+            yield break;
+        }
+
         // A DrawableBrush paints an area with a nested Drawable that BrushConstructor renders when the
         // owning shape draws; it is reachable only as a property value, so route it through the guarded
         // drawable walk. VisitedTargets stops a structurally-reached drawable being walked twice.
         if (walkContext is { } brushContext && value is DrawableBrush brush
-            && ResolveExpressionValue<Drawable>(brush, brush.Drawable) is { } brushDrawable
+            && ResolveExpressionValue<Drawable>(brush, brush.Drawable, walkContext: walkContext) is { } brushDrawable
             && (!skipDisabledElements || brushDrawable.IsEnabled)
             && brushContext.VisitedTargets.Add(brushDrawable))
         {
             foreach (IFileSource source in EnumerateObjectFileSources(
                 brushDrawable, brushContext.VisitedScenes, brushContext.VisitedGraphGroups,
                 brushContext.VisitedTargets, brushContext.VisitedFullWalkTargets, skipDisabledElements,
-                brushContext.RenderTarget, localRange, brushContext.SceneWindow))
+                brushContext.RenderTarget, localRange, brushContext.SceneWindow, brushContext.ConnectedNodeInputs))
                 yield return source;
             // Fall through so the brush's own remaining properties (Transform, …) are still walked.
         }
@@ -533,21 +553,21 @@ public static class ProxySourceEnumerator
         // Drawable via GetTexture, opening that drawable's files; it is reachable only as a property
         // value, so route it through the guarded drawable walk like DrawableBrush above.
         if (walkContext is { } textureContext && value is DrawableTextureSource textureSource
-            && ResolveExpressionValue<Drawable>(textureSource, textureSource.Drawable) is { } textureDrawable
+            && ResolveExpressionValue<Drawable>(textureSource, textureSource.Drawable, walkContext: walkContext) is { } textureDrawable
             && (!skipDisabledElements || textureDrawable.IsEnabled)
             && textureContext.VisitedTargets.Add(textureDrawable))
         {
             foreach (IFileSource source in EnumerateObjectFileSources(
                 textureDrawable, textureContext.VisitedScenes, textureContext.VisitedGraphGroups,
                 textureContext.VisitedTargets, textureContext.VisitedFullWalkTargets, skipDisabledElements,
-                textureContext.RenderTarget, localRange, textureContext.SceneWindow))
+                textureContext.RenderTarget, localRange, textureContext.SceneWindow, textureContext.ConnectedNodeInputs))
                 yield return source;
         }
 
         // A SceneSound held as a property value (an audio visualizer's Source) contributes only its
         // referenced scene's audio; the structural `obj is SceneSound` walk never fires for a value.
         if (walkContext is { } soundContext && value is SceneSound sceneSound
-            && ResolveExpressionValue<Scene>(sceneSound, sceneSound.ReferencedScene) is { } referencedScene)
+            && ResolveExpressionValue<Scene>(sceneSound, sceneSound.ReferencedScene, walkContext: walkContext) is { } referencedScene)
         {
             TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange : null;
             foreach (IFileSource source in EnumerateReferencedSceneSources(
@@ -623,6 +643,7 @@ public static class ProxySourceEnumerator
             p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase));
         if (property is not null)
         {
+            if (walkContext?.ConnectedNodeInputs?.Contains(property) == true) yield break;
             // A cyclic reference chain (Target.Expression -> Target) would recurse forever; the render's
             // IsEvaluating guard breaks the cycle to DefaultValue, contributing no sources, so stop
             // descending on a re-visited property.
@@ -669,6 +690,23 @@ public static class ProxySourceEnumerator
     {
         visitedValues ??= new HashSet<EngineObject>(ReferenceEqualityComparer.Instance);
 
+        // Use property identity so aliases are treated like rendering, while an unrelated property
+        // holding the same file still contributes that file. Keep this scoped to the graph walk;
+        // the broad project-asset walk must retain stored values for later disconnection.
+        var connectedInputs = new HashSet<IProperty>(ReferenceEqualityComparer.Instance);
+        if (walkContext?.ConnectedNodeInputs is { } inherited) connectedInputs.UnionWith(inherited);
+        foreach (GraphNode node in model.Nodes)
+        {
+            foreach (IInputPort port in node.EnumerateMembers().OfType<IInputPort>())
+            {
+                if (port.Connection.Value != null && port.Property?.GetEngineProperty() is { } property)
+                    connectedInputs.Add(property);
+            }
+        }
+        walkContext ??= new ObjectWalkContext([], visitedGraphGroups,
+            new HashSet<Drawable>(ReferenceEqualityComparer.Instance), new HashSet<Drawable>(ReferenceEqualityComparer.Instance), null, sceneWindow);
+        walkContext = walkContext with { ConnectedNodeInputs = connectedInputs };
+
         foreach (GraphNode node in model.Nodes)
         {
             // Every input port whose value is an IFileSource — VideoSourceNode.Source, ImageSourceNode.Source,
@@ -704,7 +742,9 @@ public static class ProxySourceEnumerator
 
             // A connected input's value comes from the upstream node (LoadAnimatedValues skips it), so
             // this port's own base/animation is never opened — the upstream node reports its sources.
-            if (inputPort.Connection.Value is not null)
+            if (inputPort.Connection.Value is not null
+                || property.GetEngineProperty() is { } engineProperty
+                && walkContext?.ConnectedNodeInputs?.Contains(engineProperty) == true)
                 continue;
 
             IAnimation? animation = (property as IAnimatablePropertyAdapter)?.Animation;
@@ -796,7 +836,7 @@ public static class ProxySourceEnumerator
             // property walk cannot reach, so a NodeGraphFilterEffect source inside them would be
             // invisible to the Proxies tab, cache invalidation, and export preflight.
             case FilterEffectPresenter presenter
-                when ResolveExpressionValue<FilterEffect>(presenter, presenter.Target) is { } presented:
+                when ResolveExpressionValue<FilterEffect>(presenter, presenter.Target, walkContext: walkContext) is { } presented:
                 // A presenter applies its target with the same context (no time remap), so the render
                 // window maps directly — thread localRange, unlike the delay effect below. The resource
                 // renders the effective Target, so resolve an expression-supplied one.
@@ -807,7 +847,7 @@ public static class ProxySourceEnumerator
                 break;
 
             case DelayAnimationEffect delay
-                when ResolveExpressionValue<FilterEffect>(delay, delay.Effect) is { } delayed:
+                when ResolveExpressionValue<FilterEffect>(delay, delay.Effect, walkContext: walkContext) is { } delayed:
                 foreach (IFileSource source in EnumerateFilterEffectGraphSources(
                     delayed, visitedGraphGroups, visitedFilterEffects, visitedFullWalkFilterEffects, skipDisabledElements, walkContext: walkContext))
                     yield return source;
@@ -840,9 +880,11 @@ public static class ProxySourceEnumerator
     // evaluator: an unresolvable reference yields DefaultValue, never the stale base. Only a non-reference
     // expression (a StringExpression, arbitrary C#) — which this walk cannot evaluate — best-efforts to
     // CurrentValue.
-    private static T? ResolveExpressionValue<T>(EngineObject owner, IProperty property, HashSet<IProperty>? visited = null)
+    private static T? ResolveExpressionValue<T>(EngineObject owner, IProperty property, HashSet<IProperty>? visited = null,
+        ObjectWalkContext? walkContext = null)
         where T : class
     {
+        if (walkContext?.ConnectedNodeInputs?.Contains(property) == true) return null;
         // A user-constructed reference chain (Target.Expression -> Target) can cycle; the engine's own
         // evaluation is cycle-guarded by ExpressionContext, breaking the cycle to DefaultValue (null for
         // a reference type). This reference walk is outside that guard, so track visited properties and
@@ -864,7 +906,7 @@ public static class ProxySourceEnumerator
                     if (target.Properties.FirstOrDefault(
                             p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase)) is { } targetProperty)
                     {
-                        return ResolveExpressionValue<T>(target, targetProperty, visited);
+                        return ResolveExpressionValue<T>(target, targetProperty, visited, walkContext);
                     }
 
                     // PropertyLookup's second strategy: a registered CoreProperty (e.g. a plugin exposing
