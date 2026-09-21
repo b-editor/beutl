@@ -2249,7 +2249,11 @@ public class AudioLatencyCompensationTests
             eligibility);
         using var first = composer.Compose(firstRange, firstFrame);
 
-        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(62),
+        // The resampler's lookahead consumes some of the upstream tail during Process. Measure that
+        // source-domain drain instead of hard-coding the prefetch size of a particular resampler.
+        Assert.That(sound.FlushedSamples, Is.InRange(1, SpeedInlineTailSound.SourceLatencySamples - 1));
+        int remainingSourceSamples = SpeedInlineTailSound.SourceLatencySamples - sound.FlushedSamples;
+        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(remainingSourceSamples * 2),
             "The source-domain tail remaining after the SpeedNode's inline drain must be scaled to output samples.");
     }
 

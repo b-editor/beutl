@@ -162,6 +162,139 @@ public class SpeedNodeTests
         }
     }
 
+    [TestCase(44100, 50f, 200f)]
+    [TestCase(48000, 200f, 50f)]
+    public void ProcessAnimatedSpeed_ChangingSpeed_FollowsContinuousSinePhase(
+        int sampleRate, float fromPercent, float toPercent)
+    {
+        IProperty<float> speed = AnimatedSpeed(fromPercent, toPercent, 1.0);
+        using var node = new SpeedNode { Speed = speed };
+        node.AddInput(new SineInputNode(sampleRate));
+        float[][] samples = RenderSamples(node, sampleRate, sampleRate, 1024);
+
+        double sourcePosition = 0;
+        double squaredError = 0;
+        double maximumError = 0;
+        int measuredSamples = 0;
+        for (int i = 0; i < sampleRate; i++)
+        {
+            // The source phase follows the integral of speed at each output sample. Ignore only
+            // the initial filter warm-up, not the boundaries of processing blocks or render chunks.
+            if (i >= 512)
+            {
+                for (int ch = 0; ch < 2; ch++)
+                {
+                    double expected = SineInputNode.Sample(sourcePosition, sampleRate, ch);
+                    double error = samples[ch][i] - expected;
+                    squaredError += error * error;
+                    maximumError = Math.Max(maximumError, Math.Abs(error));
+                    measuredSamples++;
+                }
+            }
+
+            sourcePosition += speed.Animation!.GetAnimatedValue(
+                TimeSpan.FromSeconds(i / (double)sampleRate)) / 100.0;
+        }
+
+        double rmsError = Math.Sqrt(squaredError / measuredSamples);
+        TestContext.WriteLine($"RMS phase error: {rmsError:E3}; maximum error: {maximumError:E3}");
+        Assert.Multiple(() =>
+        {
+            Assert.That(rmsError, Is.LessThan(0.0002), "Speed quantization introduces periodic noise.");
+            Assert.That(maximumError, Is.LessThan(0.001), "The waveform must not click at block boundaries.");
+        });
+    }
+
+    [Test]
+    public void ProcessAnimatedSpeed_ChangingSpeed_IsIndependentOfChunkSize()
+    {
+        const int sampleRate = 44100;
+        using var first = new SpeedNode { Speed = AnimatedSpeed(50f, 200f, 1.0) };
+        using var second = new SpeedNode { Speed = AnimatedSpeed(50f, 200f, 1.0) };
+        first.AddInput(new SineInputNode(sampleRate));
+        second.AddInput(new SineInputNode(sampleRate));
+
+        float[][] largeChunks = RenderSamples(first, sampleRate, sampleRate, 4096);
+        float[][] smallChunks = RenderSamples(second, sampleRate, sampleRate, 137);
+        for (int ch = 0; ch < 2; ch++)
+        {
+            double maximumDifference = largeChunks[ch].Zip(smallChunks[ch],
+                (a, b) => Math.Abs(a - b)).Max();
+            Assert.That(maximumDifference, Is.LessThan(0.0001),
+                $"Channel {ch} changes with the render chunk size.");
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ProcessSpeed_AboveUnity_RejectsFrequenciesAboveOutputNyquist(bool animated)
+    {
+        const int sampleRate = 48000;
+        using var node = new SpeedNode
+        {
+            Speed = animated ? AnimatedSpeed(200f, 400f, 1.0) : StaticSpeed(200f)
+        };
+        node.AddInput(new SineInputNode(sampleRate, 16000, 18000));
+        float[][] samples = RenderSamples(node, sampleRate, sampleRate, 1024);
+
+        for (int ch = 0; ch < 2; ch++)
+        {
+            double rms = Math.Sqrt(samples[ch].Skip(512).Average(value => (double)value * value));
+            Assert.That(rms, Is.LessThan(0.001),
+                $"Channel {ch} must not fold high source frequencies into audible aliases.");
+        }
+    }
+
+    [Test]
+    public void ProcessAnimatedSpeed_DeceleratingToZero_HoldsSourcePosition()
+    {
+        const int sampleRate = 44100;
+        using var node = new SpeedNode { Speed = AnimatedSpeed(100f, 0f, 0.25) };
+        node.AddInput(new SineInputNode(sampleRate));
+        float[][] samples = RenderSamples(node, sampleRate, sampleRate, 1024);
+
+        for (int ch = 0; ch < 2; ch++)
+        {
+            float heldSample = samples[ch][sampleRate / 2];
+            Assert.That(float.IsFinite(heldSample), Is.True);
+            Assert.That(samples[ch].Skip(sampleRate / 2), Is.All.EqualTo(heldSample));
+        }
+    }
+
+    private static float[][] RenderSamples(SpeedNode node, int sampleRate, int sampleCount, int chunkSize)
+    {
+        float[][] samples = [new float[sampleCount], new float[sampleCount]];
+        var sampler = new AnimationSampler();
+        for (int offset = 0; offset < sampleCount; offset += chunkSize)
+        {
+            int count = Math.Min(chunkSize, sampleCount - offset);
+            var start = TimeSpan.FromTicks((long)Math.Ceiling(
+                offset * (double)TimeSpan.TicksPerSecond / sampleRate) + 1);
+            var range = new TimeRange(start, AudioProcessContext.GetDurationForSampleCount(count, sampleRate));
+            using AudioBuffer buffer = node.Process(new AudioProcessContext(range, sampleRate, sampler, null));
+            for (int ch = 0; ch < 2; ch++)
+                buffer.GetChannelData(ch).CopyTo(samples[ch].AsSpan(offset, count));
+        }
+
+        return samples;
+    }
+
+    private sealed class SineInputNode(int sampleRate, double leftFrequency = 1000, double rightFrequency = 1700)
+        : AudioNode
+    {
+        public static double Sample(double position, int sampleRate, int channel)
+            => Math.Sin(2 * Math.PI * (channel == 0 ? 1000 : 1700) * position / sampleRate);
+
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            int count = context.GetSampleCount();
+            long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate);
+            return AudioTestBuffers.CreateBuffer(2, count,
+                (ch, i) => (float)Math.Sin(2 * Math.PI * (ch == 0 ? leftFrequency : rightFrequency)
+                    * (start + i) / sampleRate), sampleRate);
+        }
+    }
+
     [Test]
     public void ProcessAnimatedSpeed_At44100Hz_RequestsEverySourceSampleExactlyOnce()
     {
@@ -526,7 +659,7 @@ public class SpeedNodeTests
 
     // Guards the ArrayPool usage in ProcessAnimatedSpeed: two fresh nodes fed identical input must
     // produce identical output, so a pooled speed buffer with leftover stale data would diverge.
-    // A node is stateful across renders (WdlResampler filter state), hence a fresh node per render.
+    // A node is stateful across renders (resampler filter state), hence a fresh node per render.
     [Test]
     public void ProcessAnimatedSpeed_IsDeterministicAcrossFreshInstances()
     {

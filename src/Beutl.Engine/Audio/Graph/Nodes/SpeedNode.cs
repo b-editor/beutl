@@ -2,7 +2,6 @@
 using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Media;
-using NAudio.Dsp;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -364,7 +363,7 @@ public sealed class SpeedNode : AudioNode
         private readonly int _sampleRate;
         private readonly int _channels;
         private readonly SpeedNode _speedNode;
-        private readonly WdlResampler _rs;
+        private readonly SpeedResampler _rs;
         private ResamplingMode _resamplingMode;
         private float _currentSpeed = 1.0f;
 
@@ -382,11 +381,7 @@ public sealed class SpeedNode : AudioNode
             _channels = channels;
             _speedNode = speedNode;
 
-            _rs = new WdlResampler();
-            _rs.SetMode(interp: true, filtercnt: 0, sinc: true, sinc_size: 128, sinc_interpsize: 64);
-            _rs.SetFilterParms();
-            _rs.SetFeedMode(false);
-            _rs.SetRates(sampleRate, sampleRate);
+            _rs = new SpeedResampler();
         }
 
         public bool CanPassThroughDrain => !_initialized || _sourceCursorMatchesOutputTimeline;
@@ -405,19 +400,8 @@ public sealed class SpeedNode : AudioNode
 
         private void ConfigureStaticResampling(float speed)
         {
-            _rs.SetRates(_sampleRate, _sampleRate / speed);
-            _rs.SetFilterParms();
             _currentSpeed = speed;
             _resamplingMode = ResamplingMode.Static;
-        }
-
-        private void ConfigureVariableResampling(double speed)
-        {
-            _rs.SetRates(_sampleRate, _sampleRate / speed);
-            float cutoff = 0.97f / (float)speed;
-            _rs.SetFilterParms(cutoff, 0.707f);
-            _currentSpeed = (float)speed;
-            _resamplingMode = ResamplingMode.Variable;
         }
 
         // Decides whether this chunk continues the stream or is a seek; on a seek the resampler is
@@ -511,9 +495,8 @@ public sealed class SpeedNode : AudioNode
                     && !draining
                     && (configurationChanged || forceReanchor));
 
-            // Re-set the rate after a seek (resampler just reset) or when the constant speed changes.
-            // Never Reset() outside a seek: that zero-fills filter history and silences a continuous
-            // Draining keeps the cursor at the upstream end while changing only the resampling rate.
+            // Track mapping changes separately from filter history. Draining keeps the cursor at the
+            // upstream end and retains buffered samples while changing only the resampling step.
             if (seek || configurationChanged)
             {
                 ConfigureStaticResampling(speed);
@@ -527,17 +510,16 @@ public sealed class SpeedNode : AudioNode
                 int framesDone = 0;
                 while (framesDone < expectedOut)
                 {
-                    int want = _rs.ResamplePrepare(
+                    int want = _rs.Prepare(
                         expectedOut - framesDone,
-                        _channels,
+                        speed,
                         out Span<float> inBuf);
                     int got = Read(inBuf[..(want * _channels)], context, draining) / _channels;
 
-                    int made = _rs.ResampleOut(
+                    int made = _rs.Process(
                         dst.AsSpan(framesDone * _channels, (expectedOut - framesDone) * _channels),
                         got,
-                        expectedOut - framesDone,
-                        _channels);
+                        speed);
 
                     // No output and no input means the source is exhausted; the tail-fill below pads the
                     // rest. (got > 0 with made == 0 just means the resampler needs more lookahead.)
@@ -580,29 +562,20 @@ public sealed class SpeedNode : AudioNode
             {
                 float[] dst = new float[expectedOut * _channels];
 
-                // Same streaming loop as the constant-speed path, but the rate is updated per block from
-                // the average of the speed curve. ResamplePrepare is the single source of truth for how
-                // many source frames to feed, so there is no hand-rolled cursor to drift out of sync.
+                // Batch source reads, but advance the resampler's fractional position by each sample's
+                // speed. Averaging 256 speeds quantized a smooth curve and introduced periodic noise.
                 int framesDone = 0;
                 while (framesDone < expectedOut)
                 {
                     int framesThis = Math.Min(BLOCK, expectedOut - framesDone);
-
-                    double sumSpeed = 0.0;
-                    for (int i = 0; i < framesThis; i++)
-                        sumSpeed += speedCurve[framesDone + i];
-
-                    double vAvg = sumSpeed / framesThis;
-                    ConfigureVariableResampling(vAvg);
-
-                    int want = _rs.ResamplePrepare(framesThis, _channels, out Span<float> inBuf);
+                    ReadOnlySpan<double> speeds = speedCurve.Slice(framesDone, framesThis);
+                    int want = _rs.Prepare(speeds, out Span<float> inBuf);
                     int got = Read(inBuf[..(want * _channels)], context, draining) / _channels;
 
-                    int made = _rs.ResampleOut(
+                    int made = _rs.Process(
                         dst.AsSpan(framesDone * _channels, framesThis * _channels),
                         got,
-                        framesThis,
-                        _channels);
+                        speeds);
 
                     if (made == 0 && got == 0)
                         break;
@@ -614,6 +587,7 @@ public sealed class SpeedNode : AudioNode
                 // Advance only on full success.
                 _nextOutputStart = outputStart + (double)expectedOut / _sampleRate;
                 _sourceCursorMatchesOutputTimeline = false;
+                _resamplingMode = ResamplingMode.Variable;
                 return output;
             }
             catch
