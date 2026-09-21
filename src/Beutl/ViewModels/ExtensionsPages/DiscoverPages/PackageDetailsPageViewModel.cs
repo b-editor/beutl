@@ -21,6 +21,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     private readonly PackageOperationHandler _handler;
     private readonly LibraryService _library;
     private readonly BeutlApiApplication _app;
+    private readonly ReactivePropertySlim<string?> _unavailableVersion = new();
 
     public PackageDetailsPageViewModel(Package package, BeutlApiApplication app, EditorService editorService, ProjectService projectService, string? requestedVersion = null)
     {
@@ -47,6 +48,15 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim<string[]>([])
             .DisposeWith(_disposables);
 
+        VersionSelectionError = _unavailableVersion
+            .Select(version => version == null ? null : string.Format(ExtensionsStrings.RequestedVersionUnavailable, version))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        _unavailableVersion.DisposeWith(_disposables);
+        SelectedRelease.Where(release => release != null)
+            .Subscribe(_ => _unavailableVersion.Value = null)
+            .DisposeWith(_disposables);
+
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
@@ -67,19 +77,16 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                                 count),
                             releases =>
                             {
+                                string? versionToSelect = requestedVersion ?? SelectedRelease.Value?.Version.Value ?? _unavailableVersion.Value;
                                 AllReleases.Clear();
                                 AllReleases.AddRange(releases);
 
                                 LatestRelease.Value = releases.FirstOrDefault();
-                                string? versionToSelect = requestedVersion ?? SelectedRelease.Value?.Version.Value;
                                 SelectedRelease.Value = versionToSelect == null
                                     ? LatestRelease.Value
                                     : releases.FirstOrDefault(release => NuGetVersion.Parse(release.Version.Value)
                                         .Equals(NuGetVersion.Parse(versionToSelect)));
-                                if (versionToSelect != null && SelectedRelease.Value == null)
-                                {
-                                    throw new InvalidOperationException($"Package version {versionToSelect} is no longer available.");
-                                }
+                                _unavailableVersion.Value = SelectedRelease.Value == null ? versionToSelect : null;
                                 requestedVersion = null;
                             });
                     }
@@ -455,6 +462,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
     public ReactivePropertySlim<string?> StatusText { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<string?> VersionSelectionError { get; }
 
     public AsyncReactiveCommand Refresh { get; }
 

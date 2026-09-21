@@ -3,6 +3,7 @@ using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Text;
 using System.Text.Json;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
@@ -15,6 +16,8 @@ using Beutl.Pages.ExtensionsPages.DiscoverPages;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
+using NuGet.Packaging.Core;
+using NuGet.Versioning;
 
 namespace Beutl.HeadlessUITests;
 
@@ -89,7 +92,63 @@ public class PackageInstallNavigationTests
             Assert.That(viewModel.CanInstallOrUpdate.Value, Is.False);
             Assert.That(viewModel.IsVersionUnsupported.Value, Is.False);
             Assert.That(viewModel.IsInstallButtonVisible.Value, Is.False);
+            Assert.That(viewModel.VersionSelectionError.Value, Does.Contain("9.0.0"));
         });
+    }
+
+    [AvaloniaTest]
+    public async Task MissingRequestedVersionStillResolvesTheInstalledRelease()
+    {
+        await TestReset.ResetShellAsync();
+        using var handler = new StoreHandler();
+        using var http = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        var package = await app.GetResource<DiscoverService>().GetPackage("Beutl.Sample", CancellationToken.None);
+        var repository = app.GetResource<InstalledPackageRepository>();
+        var installed = new PackageIdentity(package.Name, NuGetVersion.Parse("1.2.3"));
+        repository.UpgradePackages(installed);
+        using var context = new ExtensionsPageViewModel(app, TestShell.MainViewModel.EditorService, TestShell.MainViewModel.ProjectService);
+        var window = new ExtensionsPage { DataContext = context };
+        try
+        {
+            window.OpenPackage(package, "9.0.0");
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var page = window.GetVisualDescendants().OfType<PackageDetailsPage>().Single();
+            var viewModel = (PackageDetailsPageViewModel)page.DataContext!;
+            await viewModel.IsBusy.FirstAsync(busy => !busy).ToTask().WaitAsync(TimeSpan.FromSeconds(10));
+            HeadlessTestHelpers.Settle();
+            Assert.That(viewModel.CurrentRelease.Value?.Version.Value, Is.EqualTo("1.2.3"));
+            var message = page.FindControl<TextBlock>("versionSelectionError")!;
+            Assert.That(message.IsVisible, Is.True);
+            Assert.That(message.Text, Does.Contain("9.0.0"));
+
+            viewModel.Refresh.Execute();
+            await viewModel.IsBusy.FirstAsync(busy => !busy).ToTask().WaitAsync(TimeSpan.FromSeconds(10));
+            HeadlessTestHelpers.Render();
+            Assert.That(message.IsVisible, Is.True);
+            Assert.That(viewModel.SelectedRelease.Value, Is.Null);
+            if (Environment.GetEnvironmentVariable("BEUTL_INSTALL_CAPTURE") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                using var image = window.CaptureRenderedFrame();
+                image!.Save(Path.Combine(directory, "desktop-install-unavailable.png"), PngBitmapEncoderOptions.Default);
+            }
+
+            viewModel.SelectedRelease.Value = viewModel.AllReleases.Single(release => release.Version.Value == "2.0.0");
+            Assert.That(viewModel.IsUpdateButtonVisible.Value, Is.True);
+            Assert.That(message.IsVisible, Is.False);
+            viewModel.Refresh.Execute();
+            await viewModel.IsBusy.FirstAsync(busy => !busy).ToTask().WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(viewModel.SelectedRelease.Value?.Version.Value, Is.EqualTo("2.0.0"));
+            Assert.That(viewModel.VersionSelectionError.Value, Is.Null);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            repository.RemovePackage(installed);
+        }
     }
 
     private sealed class StoreHandler : HttpMessageHandler

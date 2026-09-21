@@ -155,4 +155,7 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="PackageKind_Both" xml:space="preserve">
     <value>素材 + テンプレート</value>
   </data>
+  <data name="RequestedVersionUnavailable" xml:space="preserve">
+    <value>バージョン {0} は現在利用できません。利用可能なバージョンを選択してください。</value>
+  </data>
 </root>

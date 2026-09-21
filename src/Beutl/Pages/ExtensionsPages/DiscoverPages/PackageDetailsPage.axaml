@@ -72,6 +72,13 @@
                                   SelectedItem="{Binding SelectedRelease.Value}"
                                   Theme="{StaticResource LiteComboBoxStyle}" />
 
+                        <TextBlock x:Name="versionSelectionError"
+                                   MaxWidth="280"
+                                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                   IsVisible="{Binding VersionSelectionError.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Text="{Binding VersionSelectionError.Value}"
+                                   TextWrapping="Wrap" />
+
                         <Button Padding="48,5,48,6"
                                 HorizontalAlignment="Stretch"
                                 Classes="accent"
