@@ -262,9 +262,11 @@ public sealed partial class MainView : UserControl
                 if (s is MenuItem { DataContext: EditorExtension editorExtension } menuItem
                     && selectedTab != null)
                 {
-                    if (selectedTab.Context.Value is ISavableEditorContext editor)
+                    if (selectedTab.Context.Value is ISavableEditorContext editor
+                        && !await editor.SaveAsync())
                     {
-                        await editor.SaveAsync();
+                        NotificationService.ShowError(MessageStrings.UnableToSaveFile, selectedTab.FileName.Value);
+                        return;
                     }
 
                     if (editorExtension.TryCreateContext(
