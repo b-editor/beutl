@@ -11,17 +11,31 @@ internal sealed class PackageLinkBroker : IDisposable
 {
     private static readonly UTF8Encoding s_encoding = new(false, true);
     private readonly NamedPipeServerStream _pipe;
-    private readonly Mutex _instance;
+    private readonly IDisposable _instance;
     private readonly CancellationTokenSource _cancellation = new();
     private readonly Queue<string> _pending = new();
     private readonly object _gate = new();
     private readonly Task _listener;
     private Action<string>? _handler;
 
-    internal static string PipeName => "beutl-install-" + Convert.ToHexString(
-        SHA256.HashData(Encoding.UTF8.GetBytes(Environment.UserName + "\n" + BeutlEnvironment.GetHomeDirectoryPath())))[..24];
+    internal static string PipeName => ResolvePipeName(
+        "beutl-install-" + Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes(Environment.UserName + "\n" + BeutlEnvironment.GetHomeDirectoryPath())))[..24],
+        OperatingSystem.IsLinux() ? Environment.GetEnvironmentVariable("FLATPAK_ID") : null,
+        Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR"));
 
-    private PackageLinkBroker(string pipeName, Mutex instance)
+    internal static string ResolvePipeName(string name, string? flatpakId, string? runtimeDirectory)
+    {
+        if (flatpakId != "net.beditor.Beutl")
+            return name;
+
+        if (string.IsNullOrEmpty(runtimeDirectory) || !Path.IsPathFullyQualified(runtimeDirectory))
+            throw new IOException("Flatpak's shared runtime directory is unavailable.");
+
+        return Path.Combine(runtimeDirectory, "app", flatpakId, name);
+    }
+
+    private PackageLinkBroker(string pipeName, IDisposable instance)
     {
         _pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
@@ -31,17 +45,25 @@ internal sealed class PackageLinkBroker : IDisposable
 
     public static PackageLinkBroker? TryCreate(string? pipeName = null)
     {
-        Mutex? instance = null;
+        IDisposable? instance = null;
         try
         {
             pipeName ??= PipeName;
-            // Keep the named object alive without thread-affine ownership. Its lifetime
-            // selects the server; a new server can clean up a Unix socket left by a crash.
-            instance = new Mutex(false, pipeName, out bool createdNew);
-            if (!createdNew)
+            if (!OperatingSystem.IsWindows() && Path.IsPathFullyQualified(pipeName))
             {
-                instance.Dispose();
-                return null;
+                // Flatpak instances must share both the socket and its ownership lock.
+                // Keep the lock file after closing; unlinking it could split ownership.
+                Directory.CreateDirectory(Path.GetDirectoryName(pipeName)!);
+                instance = File.Open(pipeName + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            else
+            {
+                instance = new Mutex(false, pipeName, out bool createdNew);
+                if (!createdNew)
+                {
+                    instance.Dispose();
+                    return null;
+                }
             }
             return new PackageLinkBroker(pipeName, instance);
         }
