@@ -63,7 +63,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
                     remaining.Remove(port);
                     port.Bind(target.Owner, target.Property);
                 }
-                else if (!RecordingSuppression.IsSuppressed && !PublishingSuppression.IsSuppressed)
+                else if (!RecordingSuppression.IsSuppressed)
                 {
                     var portType = typeof(NestedInputPort<>).MakeGenericType(target.Property.ValueType);
                     port = (INestedInputPort)Activator.CreateInstance(portType,
@@ -86,7 +86,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
 
             // During history replay the collection operations restore/remove the original port
             // instances themselves. Only rebind here; never race those operations with new IDs.
-            if (!RecordingSuppression.IsSuppressed && !PublishingSuppression.IsSuppressed)
+            if (!RecordingSuppression.IsSuppressed)
             {
                 foreach (INestedInputPort port in remaining)
                 {

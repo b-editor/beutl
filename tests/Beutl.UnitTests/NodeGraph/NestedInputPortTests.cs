@@ -41,6 +41,55 @@ public class NestedInputPortTests
         snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void PublishingSuppressionStillSynchronizesObjectAndListPorts(bool list)
+    {
+        var graph = new GraphModel();
+        GraphNode node;
+        IProperty property;
+        Action add;
+        Action remove;
+        if (list)
+        {
+            var group = new FactoryNode<TransformGroup>();
+            var item = new TranslateTransform();
+            node = group;
+            property = item.X;
+            add = () => group.Object.Children.Add(item);
+            remove = () => group.Object.Children.Remove(item);
+        }
+        else
+        {
+            var factory = new FactoryNode<Pen>();
+            factory.Object.Brush.CurrentValue = null;
+            var brush = new SolidColorBrush();
+            node = factory;
+            property = brush.Opacity;
+            add = () => factory.Object.Brush.CurrentValue = brush;
+            remove = () => factory.Object.Brush.CurrentValue = null;
+        }
+        graph.Nodes.Add(node);
+        var source = Source(graph, 42f);
+        using var history = new HistoryHarness(graph);
+        INestedInputPort port;
+        using (PublishingSuppression.Enter())
+        {
+            add();
+            port = Find(node, property);
+            graph.Connect(port, source);
+        }
+        Assert.That(history.History.HasPendingOperations, Is.False);
+        Evaluate(graph);
+        Assert.That(((IProperty<float>)property).GetValue(CompositionContext.Default), Is.EqualTo(42f));
+
+        using (PublishingSuppression.Enter()) remove();
+
+        Assert.That(node.NestedInputPorts, Does.Not.Contain(port));
+        Assert.That(graph.AllConnections, Is.Empty);
+        Assert.That(property.Expression, Is.Null);
+    }
+
     [Test]
     public void NestedValuesAreEvaluatedWithoutCreatingAnEditor()
     {
