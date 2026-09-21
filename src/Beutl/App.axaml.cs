@@ -46,6 +46,8 @@ public sealed class App : Application
     private MainViewModel? _mainViewModel;
     private Startup? _startUp;
     private LoadSideloadExtensionTask? _sideloadExtensionTask;
+    private readonly SemaphoreSlim _packageLinkGate = new(1, 1);
+    private readonly CancellationTokenSource _activationCts = new();
 
     public override void Initialize()
     {
@@ -147,6 +149,16 @@ public sealed class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        Program.ActivationBroker?.SetHandler(HandlePackageLink);
+        if (this.TryGetFeature<IActivatableLifetime>() is { } activatableLifetime)
+        {
+            activatableLifetime.Activated += (_, args) =>
+            {
+                if (args is ProtocolActivatedEventArgs protocol)
+                    HandlePackageLink(protocol.Uri.OriginalString);
+            };
+        }
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             if (OperatingSystem.IsMacOS())
@@ -159,6 +171,9 @@ public sealed class App : Application
             }
 
             desktop.MainWindow.Opened += (_, _) => _windowOpenTcs.SetResult();
+            desktop.Exit += (_, _) => _activationCts.Cancel();
+            foreach (string argument in desktop.Args ?? [])
+                HandlePackageLink(argument);
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
@@ -166,6 +181,68 @@ public sealed class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    internal void HandlePackageLink(string value)
+    {
+        if (PackageInstallRequest.TryParse(value, out PackageInstallRequest? request))
+            Dispatcher.UIThread.Post(() => OpenPackageAsync(request));
+    }
+
+    private async void OpenPackageAsync(PackageInstallRequest request)
+    {
+        CancellationToken token = _activationCts.Token;
+        bool entered = false;
+        try
+        {
+            await _packageLinkGate.WaitAsync(token);
+            entered = true;
+            await _windowOpenTcs.Task.WaitAsync(token);
+            // Authentication and extension registration must finish before creating the store models.
+            await WaitStartupTask().AsTask().WaitAsync(token);
+            if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } mainWindow } desktop)
+                return;
+
+            this.TryGetFeature<IActivatableLifetime>()?.TryLeaveBackground();
+            if (mainWindow.WindowState == WindowState.Minimized)
+                mainWindow.WindowState = WindowState.Normal;
+            mainWindow.Activate();
+
+            MainViewModel main = GetMainViewModel();
+            var package = await main._beutlClients.GetResource<DiscoverService>()
+                .GetPackage(request.PackageName, token);
+            token.ThrowIfCancellationRequested();
+
+            ExtensionsPage? page = desktop.Windows.OfType<ExtensionsPage>().FirstOrDefault();
+            if (page == null)
+            {
+                var viewModel = new ExtensionsPageViewModel(main._beutlClients, main.EditorService, main.ProjectService);
+                page = new ExtensionsPage { DataContext = viewModel };
+                page.Closed += (_, _) => viewModel.Dispose();
+                page.OpenPackage(package, request.Version);
+                _ = page.ShowDialog(mainWindow);
+            }
+            else
+            {
+                page.OpenPackage(package, request.Version);
+                if (page.WindowState == WindowState.Minimized)
+                    page.WindowState = WindowState.Normal;
+                page.Activate();
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
+        catch (Exception e)
+        {
+            s_logger.LogError(e, "Failed to open package {PackageName} from the web store.", request.PackageName);
+            await e.Handle();
+        }
+        finally
+        {
+            if (entered)
+                _packageLinkGate.Release();
+        }
     }
 
     public static ContextCommandManager? GetContextCommandManager()

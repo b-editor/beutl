@@ -111,7 +111,7 @@
                     <TextBlock Margin="0,16,0,0"
                                HorizontalAlignment="Center"
                                Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                               IsVisible="{Binding !CanInstallOrUpdate.Value}"
+                               IsVisible="{Binding IsVersionUnsupported.Value}"
                                Text="{x:Static lang:ExtensionsStrings.This_extension_does_not_support_your_Beutl_version}"
                                Theme="{StaticResource CaptionTextBlockStyle}" />
 

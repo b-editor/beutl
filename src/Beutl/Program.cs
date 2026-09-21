@@ -13,9 +13,19 @@ namespace Beutl;
 
 internal static class Program
 {
+    internal static PackageLinkBroker? ActivationBroker { get; private set; }
+
     [STAThread]
     public static void Main(string[] args)
     {
+        using PackageLinkBroker? broker = OperatingSystem.IsMacOS() ? null : PackageLinkBroker.TryCreate();
+        if (broker == null && !OperatingSystem.IsMacOS() && args.Length == 1
+            && PackageLinkBroker.TryForwardAsync(args[0]).GetAwaiter().GetResult())
+        {
+            return;
+        }
+        ActivationBroker = broker;
+
         // Restore config
         GlobalConfiguration config = GlobalConfiguration.Instance;
         config.Restore(GlobalConfiguration.DefaultFilePath);

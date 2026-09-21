@@ -22,7 +22,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     private readonly LibraryService _library;
     private readonly BeutlApiApplication _app;
 
-    public PackageDetailsPageViewModel(Package package, BeutlApiApplication app, EditorService editorService, ProjectService projectService)
+    public PackageDetailsPageViewModel(Package package, BeutlApiApplication app, EditorService editorService, ProjectService projectService, string? requestedVersion = null)
     {
         Package = package;
         _app = app;
@@ -71,10 +71,16 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                                 AllReleases.AddRange(releases);
 
                                 LatestRelease.Value = releases.FirstOrDefault();
-                                if (LatestRelease.Value is { } publicRelease)
+                                string? versionToSelect = requestedVersion ?? SelectedRelease.Value?.Version.Value;
+                                SelectedRelease.Value = versionToSelect == null
+                                    ? LatestRelease.Value
+                                    : releases.FirstOrDefault(release => NuGetVersion.Parse(release.Version.Value)
+                                        .Equals(NuGetVersion.Parse(versionToSelect)));
+                                if (versionToSelect != null && SelectedRelease.Value == null)
                                 {
-                                    SelectedRelease.Value = publicRelease;
+                                    throw new InvalidOperationException($"Package version {versionToSelect} is no longer available.");
                                 }
+                                requestedVersion = null;
                             });
                     }
                 }
@@ -101,6 +107,9 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
         CanInstallOrUpdate = SelectedRelease.Select(v =>
             {
+                if (v == null)
+                    return false;
+
                 string beutlVersion = BeutlApplication.Version;
 
                 if (v?.TargetVersion?.Value is { } target
@@ -114,6 +123,11 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                     return true;
                 }
             })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        IsVersionUnsupported = SelectedRelease.CombineLatest(CanInstallOrUpdate)
+            .Select(x => x.First != null && !x.Second)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -425,6 +439,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     public ReadOnlyReactivePropertySlim<bool> SelectingLatestVersion { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanInstallOrUpdate { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsVersionUnsupported { get; }
 
     public ReadOnlyReactivePropertySlim<string> InstallButtonText { get; }
 

@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Xml.Linq;
 using Nuke.Common.Tools.InnoSetup;
 using static Nuke.Common.Tools.InnoSetup.InnoSetupTasks;
 
@@ -282,6 +283,19 @@ class Build : NukeBuild
                 .SetProperty("TargetFramework", tfm)
                 .SetProperty("UseAppHost", true)
                 .SetProperty("SelfContained", true));
+
+            // Dotnet.Bundle 0.9.13 does not forward CFBundleURLTypes to its plist writer.
+            // Register the protocol in the generated bundle before it is signed.
+            AbsolutePath plistPath = output / "Beutl.app" / "Contents" / "Info.plist";
+            XDocument plist = XDocument.Load(plistPath);
+            plist.Root!.Element("dict")!.Add(
+                new XElement("key", "CFBundleURLTypes"),
+                new XElement("array", new XElement("dict",
+                    new XElement("key", "CFBundleURLName"),
+                    new XElement("string", "net.beditor.beutl"),
+                    new XElement("key", "CFBundleURLSchemes"),
+                    new XElement("array", new XElement("string", "beutl")))));
+            plist.Save(plistPath);
 
             // The worker carries private deps (FFmpeg.AutoGen, FFmpegSharp) absent from the app's MIT
             // set, so the BundleApp MSBuild target — which drops only a partial flat worker set

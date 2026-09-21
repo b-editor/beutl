@@ -5,6 +5,8 @@ using Beutl.Services;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
+internal sealed record PackageDetailsNavigation(Package Package, string? Version);
+
 public class DataContextFactory(DiscoverService discoverService, BeutlApiApplication application, EditorService editorService, ProjectService projectService)
 {
     public SearchPageViewModel SearchPage(string keyword)
@@ -12,8 +14,8 @@ public class DataContextFactory(DiscoverService discoverService, BeutlApiApplica
         return new SearchPageViewModel(discoverService, keyword);
     }
 
-    public PackageDetailsPageViewModel PackageDetailPage(Package package)
+    public PackageDetailsPageViewModel PackageDetailPage(Package package, string? version = null)
     {
-        return new PackageDetailsPageViewModel(package, application, editorService, projectService);
+        return new PackageDetailsPageViewModel(package, application, editorService, projectService, version);
     }
 }

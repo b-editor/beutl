@@ -65,6 +65,10 @@ Source: "{#MySource}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs c
 Source: "{#MyGPLLicenseFile}"; Flags: dontcopy
 
 [Registry]
+Root: HKA; Subkey: "Software\Classes\beutl"; ValueType: string; ValueName: ""; ValueData: "URL:Beutl Protocol"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\beutl"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKA; Subkey: "Software\Classes\beutl\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"
+Root: HKA; Subkey: "Software\Classes\beutl\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocExt}\OpenWithProgids"; ValueType: string; ValueName: "{#MyAppAssocKey}"; ValueData: ""; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}"; ValueType: string; ValueName: ""; ValueData: "{#MyAppAssocName}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"
@@ -134,4 +138,3 @@ begin
     CheckGPLAccepted(nil);
   end;
 end;
-
