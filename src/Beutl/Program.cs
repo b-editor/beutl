@@ -18,12 +18,20 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        using PackageLinkBroker? broker = OperatingSystem.IsMacOS() ? null : PackageLinkBroker.TryCreate();
-        if (broker == null && !OperatingSystem.IsMacOS() && args.Length == 1
-            && PackageLinkBroker.TryForwardAsync(args[0]).GetAwaiter().GetResult())
+        PackageLinkLaunchResult launch = OperatingSystem.IsMacOS()
+            ? new(PackageLinkLaunchAction.StartApplication, null, args)
+            : PackageLinkLauncher.PrepareAsync(args).GetAwaiter().GetResult();
+        using PackageLinkBroker? broker = launch.Broker;
+        if (launch.Action != PackageLinkLaunchAction.StartApplication)
         {
+            if (launch.Action == PackageLinkLaunchAction.Failed)
+            {
+                Console.Error.WriteLine("Could not send the installation link to Beutl. Please try again.");
+                Environment.ExitCode = 1;
+            }
             return;
         }
+        args = launch.Arguments;
         ActivationBroker = broker;
 
         // Restore config

@@ -84,14 +84,15 @@ internal sealed class PackageLinkBroker : IDisposable
         }
     }
 
-    public static async Task<bool> TryForwardAsync(string uri, string? pipeName = null)
+    public static async Task<bool> TryForwardAsync(string uri, string? pipeName = null, CancellationToken cancellationToken = default)
     {
         if (!PackageInstallRequest.TryParse(uri, out _))
             return false;
 
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(3));
             using var pipe = new NamedPipeClientStream(".", pipeName ?? PipeName, PipeDirection.InOut,
                 PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
             await pipe.ConnectAsync(timeout.Token).ConfigureAwait(false);
