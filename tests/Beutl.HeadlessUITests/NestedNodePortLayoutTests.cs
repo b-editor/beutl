@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
+using Beutl.Animation;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
@@ -19,6 +20,49 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class NestedNodePortLayoutTests
 {
+    [AvaloniaTest]
+    public void ChangingAnObjectAnimationImmediatelyUpdatesItsChildPortAvailability()
+    {
+        var graph = new GraphModel();
+        var node = new GeometryShapeNode();
+        var pen = new Pen();
+        node.Pen.Property!.SetValue(pen);
+        graph.Nodes.Add(node);
+        using var vm = CreateViewModel(graph);
+        GraphNodeViewModel nodeVm = vm.Nodes.Single();
+        var member = nodeVm.NestedItems.Single(p => ReferenceEquals(p.Model!.Property!.GetEngineProperty(), pen.Thickness));
+        var view = new GraphNodeView { DataContext = nodeVm };
+        var row = CreateRow(member);
+        view.FindControl<StackPanel>("stackPanel")!.Children.Add(row);
+        var window = new Window { Content = view, Width = 320, Height = 300 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var point = view.GetVisualDescendants().OfType<NodePortPoint>()
+                .Single(p => ReferenceEquals(p.DataContext, member));
+            Assert.That(point.IsEnabled, Is.True);
+            var root = (NodePropertyAdapter<Pen?>)node.Pen.Property;
+
+            root.Animation = new KeyFrameAnimation<Pen?>();
+            HeadlessTestHelpers.Render(3);
+            Assert.That(member.CanConnect.Value, Is.False);
+            Assert.That(point.IsEnabled, Is.False);
+
+            root.Animation = null;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(member.CanConnect.Value, Is.True);
+            Assert.That(point.IsEnabled, Is.True);
+            Assert.That(nodeVm.NestedItems, Does.Contain(member));
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+            row.DataContext = null;
+        }
+    }
+
     [AvaloniaTest]
     [TestCase(100)]
     [TestCase(800)]

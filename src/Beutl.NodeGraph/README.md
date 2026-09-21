@@ -21,6 +21,8 @@ remain unchanged. Their bindings are maintained by the model, independently of e
 Property paths use property names and stable object IDs for list elements. Replacing an object keeps
 matching paths and value types; replacing a list element does not transfer its connections to the new
 element. `CanConnectInput` enforces exclusive connections between an object input and its descendants.
+Descendant inputs bind to local values and are unavailable while an ancestor has an animation;
+the animated property itself remains connectable.
 Fallback objects retain their serialized nested ports and connections without evaluating them until
 the original type is restored. Bulk list edits publish port changes together; consumers can use
 `NestedInputPortsChanged` to reconcile once after the bindings and collection are synchronized.

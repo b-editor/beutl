@@ -127,7 +127,8 @@ public abstract partial class GraphNode : EngineObject
     public bool CanConnectInput(IInputPort input)
     {
         _nestedPortManager.EnsureSynchronized();
-        if (input is INestedInputPort { Property: null }) return false;
+        if (input is INestedInputPort nestedInput
+            && (nestedInput.Property == null || _nestedPortManager.HasAnimatedAncestor(nestedInput))) return false;
         IProperty? property = input.Property?.GetEngineProperty();
         if (property is { SupportsExpression: false }) return false;
         _connectedInputs ??= _items.Concat<INodeMember>(_nestedInputPorts)

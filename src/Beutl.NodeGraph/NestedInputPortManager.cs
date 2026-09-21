@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text.Json.Nodes;
+using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -17,10 +18,14 @@ namespace Beutl.NodeGraph;
 internal sealed class NestedInputPortManager(GraphNode node)
 {
     private readonly CompositeDisposable _subscriptions = [];
+    private readonly HashSet<PortKey> _animatedTargets = [];
     private bool _synchronizing;
     private bool _pending;
 
     public bool IsSynchronizing => _synchronizing;
+
+    public bool HasAnimatedAncestor(INestedInputPort port)
+        => _animatedTargets.Contains(new PortKey(port.RootMember.Id, port.PropertyPath, port.AssociatedType));
 
     public void EnsureSynchronized(bool force = false)
     {
@@ -42,13 +47,15 @@ internal sealed class NestedInputPortManager(GraphNode node)
         try
         {
             _subscriptions.Clear();
+            _animatedTargets.Clear();
             var targets = new List<Target>();
             var unresolved = new List<UnresolvedSubtree>();
             foreach (INodeMember member in node.Items)
             {
                 if (member is not NodeMember root || member.Property is not { } adapter) continue;
                 Watch(adapter);
-                Visit(adapter.GetValue(), root, [], new HashSet<EngineObject>(ReferenceEqualityComparer.Instance), targets, unresolved);
+                Visit(adapter.GetValue(), root, [], new HashSet<EngineObject>(ReferenceEqualityComparer.Instance),
+                    targets, unresolved, GetAnimation(adapter) != null);
             }
 
             var remaining = node.NestedInputPorts.ToHashSet();
@@ -58,6 +65,8 @@ internal sealed class NestedInputPortManager(GraphNode node)
             var added = new List<INestedInputPort>();
             foreach (Target target in targets)
             {
+                if (target.HasAnimatedAncestor)
+                    _animatedTargets.Add(new PortKey(target.Root.Id, target.Path, target.Property.ValueType));
                 if (existing.Remove(new PortKey(target.Root.Id, target.Path, target.Property.ValueType), out var port))
                 {
                     remaining.Remove(port);
@@ -150,10 +159,29 @@ internal sealed class NestedInputPortManager(GraphNode node)
             && !typeof(EngineObject).IsAssignableFrom(adapter.PropertyType)
             && !typeof(IEnumerable).IsAssignableFrom(adapter.PropertyType)) return;
         adapter.GetObservable().Skip(1).Subscribe(_ => Synchronize()).DisposeWith(_subscriptions);
+        if (adapter is IAnimatablePropertyAdapter animatable)
+        {
+            animatable.ObserveAnimation.Skip(1).Subscribe(_ => Synchronize()).DisposeWith(_subscriptions);
+        }
+        else if (adapter.GetEngineProperty() is { IsAnimatable: true } property)
+        {
+            IAnimation? previous = property.Animation;
+            EventHandler handler = (_, _) =>
+            {
+                if (ReferenceEquals(previous, property.Animation)) return;
+                previous = property.Animation;
+                Synchronize();
+            };
+            property.Edited += handler;
+            _subscriptions.Add(Disposable.Create(() => property.Edited -= handler));
+        }
     }
 
+    private static IAnimation? GetAnimation(IPropertyAdapter adapter)
+        => (adapter as IAnimatablePropertyAdapter)?.Animation ?? adapter.GetEngineProperty()?.Animation;
+
     private void Visit(object? value, NodeMember root, string[] path,
-        HashSet<EngineObject> ancestors, List<Target> targets, List<UnresolvedSubtree> unresolved)
+        HashSet<EngineObject> ancestors, List<Target> targets, List<UnresolvedSubtree> unresolved, bool hasAnimatedAncestor)
     {
         if (value is IFallback)
         {
@@ -166,11 +194,12 @@ internal sealed class NestedInputPortManager(GraphNode node)
             {
                 string[] childPath = [.. path, "p:" + property.Name];
                 if (property.SupportsExpression)
-                    targets.Add(new Target(root, childPath, obj, property));
+                    targets.Add(new Target(root, childPath, obj, property, hasAnimatedAncestor));
                 var adapter = (IPropertyAdapter)Activator.CreateInstance(
                     typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType), property, obj)!;
                 Watch(adapter);
-                Visit(property.CurrentValue, root, childPath, ancestors, targets, unresolved);
+                Visit(property.CurrentValue, root, childPath, ancestors, targets, unresolved,
+                    hasAnimatedAncestor || property.Animation != null);
             }
             ancestors.Remove(obj);
         }
@@ -184,7 +213,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
             }
             // Duplicate occurrences of an object still refer to the same property, not two inputs.
             foreach (EngineObject item in list.OfType<EngineObject>().DistinctBy(GetItemId))
-                Visit(item, root, [.. path, "i:" + GetItemId(item)], ancestors, targets, unresolved);
+                Visit(item, root, [.. path, "i:" + GetItemId(item)], ancestors, targets, unresolved, hasAnimatedAncestor);
         }
     }
 
@@ -192,7 +221,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
         => item is IFallback { Json: { } json } && json[nameof(CoreObject.Id)] is JsonValue value
             && value.TryGetValue<Guid>(out Guid id) ? id : item.Id;
 
-    private sealed record Target(NodeMember Root, string[] Path, EngineObject Owner, IProperty Property);
+    private sealed record Target(NodeMember Root, string[] Path, EngineObject Owner, IProperty Property, bool HasAnimatedAncestor);
     private sealed record UnresolvedSubtree(NodeMember Root, string[] Path);
 
     private readonly record struct PortKey(Guid RootId, IReadOnlyList<string> Path, Type? Type)
