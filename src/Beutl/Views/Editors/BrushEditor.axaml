@@ -30,7 +30,8 @@
                       ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.Tag>
                 <Grid ColumnDefinitions="*,4,Auto">
-                    <Button Width="80"
+                    <Button x:Name="BrushPreviewButton"
+                            Width="{DynamicResource BrushEditorPreviewWidth}"
                             Height="24"
                             Padding="1"
                             HorizontalAlignment="Right"

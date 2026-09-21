@@ -5,6 +5,7 @@
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:Beutl.Editor.Components.NodeGraphTab.ViewModels"
              xmlns:views="using:Beutl.Editor.Components.NodeGraphTab.Views"
@@ -21,6 +22,17 @@
              CornerRadius="{DynamicResource ControlCornerRadius}"
              mc:Ignorable="d">
     <UserControl.Styles>
+        <Style Selector=":is(Control).property-editor-menu">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <!-- Include editors created inside composite controls, not only port-backed rows. -->
+        <Style Selector=":is(pe|PropertyEditor)">
+            <Setter Property="EditorStyle" Value="Compact" />
+        </Style>
+        <!-- Root rows keep the original theme minimum width and horizontal layout. -->
+        <Style Selector="views|NodePortView.nested :is(pe|PropertyEditor), :is(pe|PropertyEditor):list-item">
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
         <Style Selector="views|GraphNodeView.selected /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />
         </Style>
@@ -91,5 +103,9 @@
                 </ItemsControl>
             </StackPanel>
         </Border>
+        <views:NodePortOverlay x:Name="nestedPortOverlay"
+                               Grid.RowSpan="2"
+                               ClipToBounds="False"
+                               IsVisible="{Binding IsExpanded.Value}" />
     </Grid>
 </UserControl>

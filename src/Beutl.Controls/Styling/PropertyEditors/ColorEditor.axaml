@@ -32,7 +32,7 @@
                         <GridSplitter Grid.Column="1" Background="Transparent" />
 
                         <Grid Grid.Column="2"
-                              MinWidth="120"
+                              MinWidth="{DynamicResource ColorEditorValueMinWidth}"
                               Margin="4,2"
                               ColumnDefinitions="*,Auto">
                             <Button Name="PART_ColorPickerButton"

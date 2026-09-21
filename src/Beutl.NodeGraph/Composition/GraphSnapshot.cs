@@ -22,6 +22,8 @@ public sealed class GraphSnapshot : IDisposable
 
     public void Build(GraphModel model, CompositionContext context)
     {
+        foreach (GraphNode node in model.Nodes)
+            _ = node.NestedInputPorts;
         if (!_isDirty) return;
 
         // 既存リソースをクリーンアップ
@@ -76,9 +78,10 @@ public sealed class GraphSnapshot : IDisposable
 
         foreach (GraphNode node in nodes)
         {
-            for (int i = 0; i < node.Items.Count; i++)
+            foreach (INodeMember item in node.EnumerateMembers())
             {
-                INodeMember item = node.Items[i];
+                // Unresolved fallback endpoints are retained for recovery, not evaluated.
+                if (item is INestedInputPort { Property: null }) continue;
                 if (item is IListInputPort listInputPort)
                 {
                     foreach (var connection in listInputPort.Connections)
@@ -148,12 +151,13 @@ public sealed class GraphSnapshot : IDisposable
             nodeToResourceIndex[node] = i;
 
             // ItemValues を構築
-            var itemIndexMap = new Dictionary<INodeMember, int>(node.Items.Count);
-            var itemValues = new IItemValue[node.Items.Count];
+            INodeMember[] members = node.EnumerateMembers().ToArray();
+            var itemIndexMap = new Dictionary<INodeMember, int>(members.Length);
+            var itemValues = new IItemValue[members.Length];
 
-            for (int j = 0; j < node.Items.Count; j++)
+            for (int j = 0; j < members.Length; j++)
             {
-                INodeMember item = node.Items[j];
+                INodeMember item = members[j];
                 itemIndexMap[item] = j;
                 itemValues[j] = item.CreateItemValue();
             }
@@ -162,6 +166,7 @@ public sealed class GraphSnapshot : IDisposable
             var resource = node.ToResource(context);
             resource.SlotIndex = i;
             resource.ItemValues = itemValues;
+            resource.Members = members;
             resource.ItemIndexMap = itemIndexMap;
             _resources[i] = resource;
 
@@ -197,6 +202,12 @@ public sealed class GraphSnapshot : IDisposable
             if (outputNode == null || inputNode == null
                                    || !nodeToResourceIndex.TryGetValue(outputNode, out int outputResourceIdx)
                                    || !nodeToResourceIndex.TryGetValue(inputNode, out int inputResourceIdx))
+            {
+                connection.Status = ConnectionStatus.Error;
+                continue;
+            }
+
+            if (inputSock is IInputPort input && !inputNode.CanConnectInput(input))
             {
                 connection.Status = ConnectionStatus.Error;
                 continue;
@@ -254,9 +265,9 @@ public sealed class GraphSnapshot : IDisposable
         for (int resourceIdx = 0; resourceIdx < _resources.Length; resourceIdx++)
         {
             GraphNode node = _resources[resourceIdx].RequireOriginal();
-            for (int itemIdx = 0; itemIdx < node.Items.Count; itemIdx++)
+            for (int itemIdx = 0; itemIdx < _resources[resourceIdx].Members.Length; itemIdx++)
             {
-                var item = node.Items[itemIdx];
+                var item = _resources[resourceIdx].Members[itemIdx];
                 if (item is IListInputPort listNodePort)
                 {
                     var key = (resourceIdx, itemIdx);
@@ -368,9 +379,9 @@ public sealed class GraphSnapshot : IDisposable
     private void LoadAnimatedValues(GraphNode.Resource resource, TimeSpan time)
     {
         GraphNode node = resource.RequireOriginal();
-        for (int i = 0; i < node.Items.Count; i++)
+        for (int i = 0; i < resource.Members.Length; i++)
         {
-            INodeMember item = node.Items[i];
+            INodeMember item = resource.Members[i];
             // 接続がある入力は上流から値が来るのでスキップ
             if (_connectedInputs.Contains((resource.SlotIndex, i))) continue;
             if (item.Property is null || item is IEnginePropertyBackedInputPort) continue;
@@ -396,7 +407,7 @@ public sealed class GraphSnapshot : IDisposable
     private void PropagateOutputs(GraphNode.Resource resource)
     {
         GraphNode node = resource.RequireOriginal();
-        for (int itemIdx = 0; itemIdx < node.Items.Count; itemIdx++)
+        for (int itemIdx = 0; itemIdx < resource.Members.Length; itemIdx++)
         {
             if (!_outputConnectionMap.TryGetValue((resource.SlotIndex, itemIdx), out var connIndices))
                 continue;

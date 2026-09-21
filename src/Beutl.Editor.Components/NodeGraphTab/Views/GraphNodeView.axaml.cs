@@ -55,6 +55,7 @@ public partial class GraphNodeView : UserControl
         this.SubscribeDataContextChange<GraphNodeViewModel>(OnDataContextAttached, OnDataContextDetached);
 
         SizeChanged += OnSizeChanged;
+        LayoutUpdated += (_, _) => UpdateNodePortPosition();
     }
 
     private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
@@ -65,6 +66,19 @@ public partial class GraphNodeView : UserControl
     private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         UpdateNodePortPosition();
+    }
+
+    internal void AttachNestedPort(NodePortPoint port)
+    {
+        if (!nestedPortOverlay.Children.Contains(port)) nestedPortOverlay.Children.Add(port);
+    }
+
+    internal void DetachNestedPort(NodePortPoint port) => nestedPortOverlay.Children.Remove(port);
+
+    internal void PositionNestedPort(NodePortPoint port, Point center)
+    {
+        if (this.TranslatePoint(center, nestedPortOverlay) is { } position)
+            nestedPortOverlay.SetPosition(port, position - new Point(5, 5));
     }
 
     private void OnDataContextDetached(GraphNodeViewModel obj)
@@ -82,6 +96,7 @@ public partial class GraphNodeView : UserControl
         }
 
         _positionDisposable?.Dispose();
+        nestedPortOverlay.Children.Clear();
 
         DetachUndecidedNodePort(ref _undecidedLeftNodePort, ref _undecidedLeftNodePortContext);
         DetachUndecidedNodePort(ref _undecidedRightNodePort, ref _undecidedRightNodePortContext);
@@ -120,11 +135,29 @@ public partial class GraphNodeView : UserControl
         {
             if (viewModel.IsExpanded.Value)
             {
-                foreach (Control item in itemsControl.GetRealizedContainers())
+                NodePortView[] portViews = this.GetVisualDescendants().OfType<NodePortView>().ToArray();
+                foreach (NodePortView portView in portViews)
                 {
-                    if (item is ContentPresenter { Child: NodePortView portView })
+                    portView.UpdateNodePortPosition();
+                }
+                foreach (InputPortViewModel member in viewModel.NestedItems)
+                {
+                    if (member.Model is not INestedInputPort nested
+                        || portViews.Any(view => ReferenceEquals(view.DataContext, member))) continue;
+                    // Editors may defer creating their children until first expanded.
+                    NodePortView? ancestor = portViews
+                        .Where(view => view.IsEffectivelyVisible && view.DataContext is NodeMemberViewModel vm
+                            && (vm.Model?.Id == nested.RootMember.Id
+                                || vm.Model is INestedInputPort candidate
+                                && candidate.RootMember.Id == nested.RootMember.Id
+                                && GraphNode.IsPathPrefix(candidate.PropertyPath, nested.PropertyPath)))
+                        .OrderByDescending(view => ((view.DataContext as NodeMemberViewModel)?.Model as INestedInputPort)
+                            ?.PropertyPath.Count ?? 0)
+                        .FirstOrDefault();
+                    if (ancestor?.GetPortPosition() is { } position)
                     {
-                        portView.UpdateNodePortPosition();
+                        foreach (ConnectionViewModel connection in member.Connections)
+                            connection.InputPortPosition.Value = position + viewModel.Position.Value;
                     }
                 }
 
@@ -154,7 +187,7 @@ public partial class GraphNodeView : UserControl
                     }
                 }
 
-                foreach (NodeMemberViewModel item in viewModel.Items)
+                foreach (NodeMemberViewModel item in viewModel.EnumerateMembers())
                 {
                     UpdatePosition(item);
                 }

@@ -84,6 +84,9 @@ public partial class GraphModel : EngineObject
 
     public Connection Connect(IInputPort inputNodePort, IOutputPort outputNodePort)
     {
+        if (inputNodePort.FindHierarchicalParent<GraphNode>() is { } owner
+            && !owner.CanConnectInput(inputNodePort))
+            throw new InvalidOperationException("An object input and its descendant inputs cannot be connected together.");
         var connection = new Connection(inputNodePort, outputNodePort);
         connection.Connect();
         AllConnections.Add(connection);
@@ -105,7 +108,7 @@ public partial class GraphModel : EngineObject
     {
         foreach (GraphNode node in Nodes.GetMarshal().Value)
         {
-            foreach (INodeMember item in node.Items.GetMarshal().Value)
+            foreach (INodeMember item in node.EnumerateMembers())
             {
                 if (item is INodePort port
                     && port.Id == id)

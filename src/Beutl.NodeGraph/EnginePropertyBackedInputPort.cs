@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Beutl.Engine;
+using Beutl.Editor;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.NodeGraph.Composition;
@@ -18,14 +19,25 @@ public interface IEnginePropertyBackedInputPort
 
 public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBackedInputPort
 {
-    private readonly IProperty<T> _property;
+    private IProperty<T>? _property;
+
+    protected EnginePropertyBackedInputPort()
+    {
+    }
 
     public EnginePropertyBackedInputPort(EngineObject obj, IProperty<T> property)
     {
+        BindProperty(obj, property);
+    }
+
+    protected void BindProperty(EngineObject obj, IProperty<T> property)
+    {
+        if (ReferenceEquals(_property, property)) return;
+        UnbindProperty();
         Name = property.Name;
         Display = property.GetAttributes()?.OfType<DisplayAttribute>().FirstOrDefault();
         _property = property;
-        property.Edited += (_, e) => RaiseEdited();
+        property.Edited += OnTargetEdited;
         IPropertyAdapter<T> adapter;
         if (property is AnimatableProperty<T> animatableProperty)
         {
@@ -41,12 +53,43 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         }
 
         Property = adapter;
+        if (!Connection.IsNull) UpdateExpression();
+    }
+
+    protected void UnbindProperty()
+    {
+        if (_property != null)
+        {
+            _property.Edited -= OnTargetEdited;
+            if (!Connection.IsNull && _property.Expression is NodePortExpression<T>)
+            {
+                using var suppression = RecordingSuppression.Enter();
+                _property.Expression = null;
+            }
+        }
+
+        _property = null;
+        Property = null;
+    }
+
+    private void OnTargetEdited(object? sender, EventArgs e) => RaiseEdited();
+
+    private void UpdateExpression()
+    {
+        if (_property == null || !_property.SupportsExpression) return;
+        // Observers must update their previous-expression state, but this derived change must not
+        // be recorded separately from the connection (or replayed on a replaced object).
+        using var suppression = RecordingSuppression.Enter();
+        if (!Connection.IsNull && _property.Expression is not NodePortExpression<T>)
+            _property.Expression = new NodePortExpression<T>();
+        else if (Connection.IsNull && _property.Expression is NodePortExpression<T>)
+            _property.Expression = null;
     }
 
     public void CopyFrom(IItemValue itemValue)
     {
         if (itemValue is not ItemValue<T> typed) return;
-        if (!Connection.IsNull && _property.Expression is NodePortExpression<T> exp)
+        if (!Connection.IsNull && _property?.Expression is NodePortExpression<T> exp)
         {
             exp.Value = typed.Value;
         }
@@ -58,7 +101,7 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         if (args is CorePropertyChangedEventArgs coreArgs &&
             coreArgs.Property.Id == ConnectionProperty.Id)
         {
-            _property.Expression = Connection.IsNull ? null : new NodePortExpression<T>();
+            UpdateExpression();
         }
     }
 }

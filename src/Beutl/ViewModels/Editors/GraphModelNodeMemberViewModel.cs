@@ -65,7 +65,7 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
         // 削除するとDisposeされるので、事前にHistoryManagerを取得しておく
         var historyManager = _parent.GetRequiredService<HistoryManager>();
 
-        Connection[] allConnections = GraphNode.Items
+        Connection[] allConnections = GraphNode.EnumerateMembers()
             .SelectMany(i => i switch
             {
                 IOutputPort outputNodePort => outputNodePort.Connections,
