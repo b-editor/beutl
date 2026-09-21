@@ -34,6 +34,168 @@ namespace Beutl.HeadlessUITests;
 public class NestedNodePortTests
 {
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task AliasedBrushEditorsUseTheirOwnRootAndPropertyPaths(bool light)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await CreateEditor();
+        var graph = new GraphModel();
+        var node = new GeometryShapeNode { Position = (70, 140) };
+        var shared = new SolidColorBrush();
+        var pen = new Pen();
+        pen.Brush.CurrentValue = shared;
+        node.Fill.Property!.SetValue(shared);
+        node.Pen.Property!.SetValue(pen);
+        graph.Nodes.Add(node);
+        var source = new LayerInputNode();
+        var brushOutput = new LayerInputNode.LayerInputPort<Brush?>();
+        brushOutput.SetupProperty("Brush");
+        brushOutput.Property!.SetValue(new SolidColorBrush(Colors.Blue));
+        var colorOutput = new LayerInputNode.LayerInputPort<Color>();
+        colorOutput.SetupProperty("Color");
+        colorOutput.Property!.SetValue(Colors.Red);
+        source.Items.Add(brushOutput);
+        source.Items.Add(colorOutput);
+        graph.Nodes.Add(source);
+        using var vm = new NodeGraphViewModel(graph, editor);
+        var nodeVm = vm.Nodes.Single(n => n.GraphNode == node);
+        var fillVm = (BrushEditorViewModel)nodeVm.Items.Single(p => p.Model == node.Fill).PropertyEditorContext!;
+        var penVm = (PenEditorViewModel)nodeVm.Items.Single(p => p.Model == node.Pen).PropertyEditorContext!;
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window
+        {
+            Content = view,
+            Width = 640,
+            Height = 900,
+            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+        };
+        try
+        {
+            window.Show();
+            fillVm.IsExpanded.Value = true;
+            penVm.IsExpanded.Value = true;
+            var penBrushVm = penVm.MajorProperties.OfType<BrushEditorViewModel>().Single();
+            penBrushVm.IsExpanded.Value = true;
+            await FinishTransition();
+            NodePortView Row(BrushEditorViewModel brush)
+            {
+                var context = brush.ChildContext.Value!.Properties.OfType<BaseEditorViewModel>()
+                    .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shared.Color));
+                return view.GetVisualDescendants().OfType<NodePortView>()
+                    .Single(row => ReferenceEquals(row.ProvidedEditor?.DataContext, context));
+            }
+            var fillRow = Row(fillVm);
+            var penRow = Row(penBrushVm);
+            var fillPort = (INestedInputPort)((InputPortViewModel)fillRow.DataContext!).Model!;
+            var penPort = (INestedInputPort)((InputPortViewModel)penRow.DataContext!).Model!;
+            Assert.That(fillPort.RootMember.Id, Is.EqualTo(node.Fill.Id));
+            Assert.That(fillPort.PropertyPath, Is.EqualTo(new[] { "p:Color" }));
+            Assert.That(penPort.RootMember.Id, Is.EqualTo(node.Pen.Id));
+            Assert.That(penPort.PropertyPath, Is.EqualTo(new[] { "p:Brush", "p:Color" }));
+            Assert.That(penRow.DataContext, Is.Not.SameAs(fillRow.DataContext));
+
+            var parentConnection = graph.Connect(node.Fill, brushOutput);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(((InputPortViewModel)fillRow.DataContext!).CanConnect.Value, Is.False);
+            Assert.That(((InputPortViewModel)penRow.DataContext!).CanConnect.Value, Is.True);
+            var colorConnection = graph.Connect(penPort, colorOutput);
+            HeadlessTestHelpers.Render(3);
+            var link = vm.AllConnections.Single(c => c.Connection == colorConnection);
+            Assert.That(link.InputPortVM.Value, Is.SameAs(penRow.DataContext));
+            Assert.That(link.InputPortPosition.Value, Is.EqualTo(penRow.GetPortPosition()!.Value + nodeVm.Position.Value));
+            Capture(window, $"aliased-brush-paths-{light}");
+
+            graph.Disconnect(colorConnection);
+            graph.Disconnect(parentConnection);
+            await FinishTransition();
+            Assert.That(Row(fillVm).DataContext, Is.SameAs(fillRow.DataContext));
+            Assert.That(Row(penBrushVm).DataContext, Is.SameAs(penRow.DataContext));
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task AliasedEditorsWithinOneRootTrackPropertyPathsAndListItemIdentity()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await CreateEditor();
+        var shared = new SolidColorBrush();
+        var first = new AliasedBrushPair();
+        var second = new AliasedBrushPair();
+        first.Primary.CurrentValue = first.Secondary.CurrentValue = shared;
+        second.Primary.CurrentValue = second.Secondary.CurrentValue = shared;
+        var node = new FactoryNode<AliasedBrushList>();
+        node.Object.Items.AddRange([first, second]);
+        var graph = new GraphModel();
+        graph.Nodes.Add(node);
+        using var vm = new NodeGraphViewModel(graph, editor);
+        var nodeVm = vm.Nodes.Single();
+        var list = (ListEditorViewModel<AliasedBrushPair?>)nodeVm.Items
+            .Single(p => p.Model!.Name == "Items").PropertyEditorContext!;
+        Guid rootId = node.Items.Single(p => p.Name == "Items").Id;
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 1000 };
+        try
+        {
+            window.Show();
+            list.IsExpanded.Value = true;
+            await FinishTransition();
+            async Task<INestedInputPort[]> ReadPorts()
+            {
+                var expected = new List<(BaseEditorViewModel Color, string[] Path)>();
+                foreach (var item in list.Items)
+                {
+                    var obj = (ICoreObjectEditorViewModel)item.Context!;
+                    obj.IsExpanded.Value = true;
+                    var pair = (AliasedBrushPair)obj.Value.Value!;
+                    foreach (var brush in obj.Properties.Value!.Properties.OfType<BrushEditorViewModel>())
+                    {
+                        brush.IsExpanded.Value = true;
+                        var color = brush.ChildContext.Value!.Properties.OfType<BaseEditorViewModel>()
+                            .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shared.Color));
+                        expected.Add((color, ["i:" + pair.Id, "p:" + brush.PropertyAdapter.GetEngineProperty()!.Name, "p:Color"]));
+                    }
+                }
+                await FinishTransition();
+                var result = new List<INestedInputPort>();
+                foreach (var (context, path) in expected)
+                {
+                    var row = view.GetVisualDescendants().OfType<NodePortView>()
+                        .Single(row => ReferenceEquals(row.ProvidedEditor?.DataContext, context));
+                    var port = (INestedInputPort)((InputPortViewModel)row.DataContext!).Model!;
+                    Assert.That(port.RootMember.Id, Is.EqualTo(rootId));
+                    Assert.That(port.PropertyPath, Is.EqualTo(path));
+                    result.Add(port);
+                }
+                Assert.That(result, Has.Count.EqualTo(4));
+                Assert.That(result.Select(p => p.Id), Is.Unique);
+                return result.ToArray();
+            }
+            var initial = await ReadPorts();
+            node.Object.Items.Move(0, 1);
+            Assert.That(await ReadPorts(), Is.EquivalentTo(initial));
+
+            var replacement = new AliasedBrushPair();
+            replacement.Primary.CurrentValue = replacement.Secondary.CurrentValue = shared;
+            node.Object.Items[1] = replacement;
+            var replaced = await ReadPorts();
+            Assert.That(replaced.Count(p => initial.Contains(p)), Is.EqualTo(2));
+            Assert.That(replaced.Any(p => p.PropertyPath.Contains("i:" + first.Id)), Is.False);
+            Capture(window, "aliased-list-paths");
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public void BulkPortUpdatesPreserveExistingViewModelsAndPublishOneCollectionChange()
     {
         var graph = new GraphModel();
@@ -584,4 +746,20 @@ public class NestedNodePortTests
         using var image = window.CaptureRenderedFrame();
         image?.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
     }
+}
+
+public sealed partial class AliasedBrushPair : EngineObject
+{
+    public AliasedBrushPair() => ScanProperties<AliasedBrushPair>();
+
+    public IProperty<Brush?> Primary { get; } = Property.Create<Brush?>();
+
+    public IProperty<Brush?> Secondary { get; } = Property.Create<Brush?>();
+}
+
+public sealed partial class AliasedBrushList : EngineObject
+{
+    public AliasedBrushList() => ScanProperties<AliasedBrushList>();
+
+    public IListProperty<AliasedBrushPair> Items { get; } = Property.CreateList<AliasedBrushPair>();
 }

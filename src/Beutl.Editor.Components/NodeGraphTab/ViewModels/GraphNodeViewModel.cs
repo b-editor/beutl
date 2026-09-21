@@ -144,6 +144,13 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
     }
 
     public Control WrapEditor(IPropertyEditorContext context, Control editor)
+        => WrapEditor(context, editor, null, null);
+
+    public IPropertyEditorControlHost CreateChildHost(IPropertyAdapter property)
+        => new NodePropertyEditorHost(this,
+            GraphNode.Items.FirstOrDefault(item => ReferenceEquals(item.Property, property)), property);
+
+    internal Control WrapEditor(IPropertyEditorContext context, Control editor, INodeMember? root, IReadOnlyList<string>? path)
     {
         // Node presentation also applies to properties that cannot expose an input port.
         // Normal property-panel minimum widths would clip indented node editors.
@@ -151,11 +158,14 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
         if (editor is Beutl.Controls.PropertyEditors.PropertyEditor propertyEditor)
             propertyEditor.EditorStyle = Beutl.Controls.PropertyEditors.PropertyEditorStyle.Compact;
 
-        if (context is not IServiceProvider services
+        if (root == null || path == null || path.Count == 0
+            || context is not IServiceProvider services
             || services.GetService(typeof(IPropertyAdapter)) is not IPropertyAdapter adapter
             || adapter.GetEngineProperty() is not { } property) return editor;
         InputPortViewModel? port = NestedItems.FirstOrDefault(p =>
-            ReferenceEquals(p.Model?.Property?.GetEngineProperty(), property));
+            p.Model is INestedInputPort nested && nested.RootMember.Id == root.Id
+            && nested.PropertyPath.SequenceEqual(path)
+            && ReferenceEquals(nested.Property?.GetEngineProperty(), property));
         if (port == null) return editor;
         editor.DataContext = context;
         return new NodePortView { ProvidedEditor = editor, DataContext = port };
