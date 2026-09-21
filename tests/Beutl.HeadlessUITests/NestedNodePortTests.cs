@@ -1,4 +1,4 @@
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
@@ -14,12 +14,12 @@ using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Extensibility;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
-using Beutl.Extensibility;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
@@ -173,7 +173,9 @@ public class NestedNodePortTests
         content.Children.Add(baselineRows);
         var window = new Window
         {
-            Content = content, Width = 640, Height = 900,
+            Content = content,
+            Width = 640,
+            Height = 900,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try
@@ -239,7 +241,9 @@ public class NestedNodePortTests
         var view = new NodeGraphView { DataContext = vm };
         var window = new Window
         {
-            Content = view, Width = width, Height = 900,
+            Content = view,
+            Width = width,
+            Height = 900,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
         try
