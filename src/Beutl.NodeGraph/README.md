@@ -10,7 +10,22 @@ Node editor (graph-based programming surface). The runtime evaluation happens he
 - `Connection` — typed edge between two ports
 - `GraphGroup` — sub-graph that exposes a smaller port surface to its parent
 - `IDynamicPort` / `IDynamicPortNode` — nodes that grow / shrink ports at runtime
+- `INestedInputPort` — binds an input to an engine property inside a member's local object or list
 - `GraphNodeRegistry` — discovers node implementations via attribute-based registration
+
+## Nested object inputs
+
+`GraphNode.Items` contains only the declared root members. Use `EnumerateMembers()` for evaluation,
+connection lookup, and cascade removal; nested inputs live in `NestedInputPorts` so group I/O indices
+remain unchanged. Their bindings are maintained by the model, independently of expanded editors.
+Property paths use property names and stable object IDs for list elements. Replacing an object keeps
+matching paths and value types; replacing a list element does not transfer its connections to the new
+element. `CanConnectInput` enforces exclusive connections between an object input and its descendants.
+Descendant inputs bind to local values and are unavailable while an ancestor has an animation or
+expression; the overridden property itself remains connectable.
+Fallback objects retain their serialized nested ports and connections without evaluating them until
+the original type is restored. Bulk list edits publish port changes together; consumers can use
+`NestedInputPortsChanged` to reconcile once after the bindings and collection are synchronized.
 
 ## Mandatory rules
 

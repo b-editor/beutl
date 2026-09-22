@@ -26,6 +26,10 @@ public sealed class PropertyEditorContextToViewConverter(bool hideMenu) : IValue
                     pe.MenuContent = null;
                 }
 
+                if (viewModel is IServiceProvider services
+                    && services.GetService(typeof(IPropertyEditorControlHost)) is IPropertyEditorControlHost host)
+                    return host.WrapEditor(viewModel, control);
+
                 return control;
             }
             else

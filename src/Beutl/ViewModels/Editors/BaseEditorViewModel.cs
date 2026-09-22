@@ -35,6 +35,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private EditViewModel? _editViewModel;
     private IEditorClock? _clock;
     private IServiceProvider? _parentServices;
+    private IPropertyEditorControlHost? _propertyEditorControlHost;
     // Carries the editor session's ExtensionProvider once Accept injects the EditViewModel.
     // Editors that build child property-editor contexts gate on this; it becomes available at
     // the same point as the rest of the editor session (clock, element, ...), which Accept also
@@ -227,6 +228,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         if (visitor is IServiceProvider serviceProvider)
         {
             _parentServices = serviceProvider;
+            _propertyEditorControlHost = serviceProvider.GetService<IPropertyEditorControlHost>()?.CreateChildHost(PropertyAdapter);
             _element = serviceProvider.GetService<Element>();
             _editViewModel = serviceProvider.GetService<EditViewModel>();
             _clock = serviceProvider.GetService<IEditorClock>();
@@ -320,6 +322,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         _extensionProvider.Dispose();
         _editViewModel = null!;
         _parentServices = null;
+        _propertyEditorControlHost = null;
         _element = null;
         PropertyAdapter = null!;
     }
@@ -460,6 +463,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public virtual object? GetService(Type serviceType)
     {
+        if (serviceType == typeof(IPropertyEditorControlHost))
+            return _propertyEditorControlHost;
         if (serviceType.IsAssignableTo(typeof(IPropertyAdapter)))
             return PropertyAdapter;
 

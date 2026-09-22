@@ -25,6 +25,9 @@ public partial class NodePortView : UserControl
     private Control? _editor;
     private TextBlock? _label;
 
+    // The original editor context owns this control; the port view model only owns the binding.
+    public Control? ProvidedEditor { get; init; }
+
     public NodePortView()
     {
         InitializeComponent();
@@ -35,10 +38,19 @@ public partial class NodePortView : UserControl
     {
         base.OnAttachedToVisualTree(e);
         _nodeView = this.FindAncestorOfType<GraphNodeView>();
+        if (ProvidedEditor != null && portPt != null) _nodeView?.AttachNestedPort(portPt);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (ProvidedEditor != null && portPt != null) _nodeView?.DetachNestedPort(portPt);
+        _nodeView = null;
+        base.OnDetachedFromVisualTree(e);
     }
 
     private void OnDataContextDetached(NodeMemberViewModel obj)
     {
+        if (ProvidedEditor != null && portPt != null) _nodeView?.DetachNestedPort(portPt);
         _disposables.Clear();
         grid.Children.Clear();
 
@@ -76,8 +88,14 @@ public partial class NodePortView : UserControl
             }
             else if (portPt != null)
             {
+                if (ProvidedEditor != null)
+                {
+                    portPt.IsVisible = IsEffectivelyVisible;
+                    if (IsEffectivelyVisible && GetPortPosition() is { } center)
+                        _nodeView.PositionNestedPort(portPt, center);
+                }
                 // Single port
-                Point? pos = portPt.TranslatePoint(new(5, 5), _nodeView);
+                Point? pos = GetPortPosition();
                 if (pos.HasValue)
                 {
                     Point canvasPos = pos.Value + nodeViewModel.Position.Value;
@@ -100,8 +118,27 @@ public partial class NodePortView : UserControl
         }
     }
 
+    internal Point? GetPortPosition()
+    {
+        if (_nodeView == null) return null;
+        double edge = DataContext is InputPortViewModel ? 0 : _nodeView.Bounds.Width;
+        if (IsEffectivelyVisible && portPt != null)
+        {
+            if (ProvidedEditor != null && this.TranslatePoint(new Point(0, 9), _nodeView) is { } row)
+                return new Point(edge, row.Y);
+            return portPt.TranslatePoint(new(5, 5), _nodeView);
+        }
+        // Object editors hide their content panel, leaving the header above it visible.
+        Control? visibleParent = this.GetVisualAncestors().OfType<Control>()
+            .FirstOrDefault(control => control.IsEffectivelyVisible);
+        return visibleParent?.TranslatePoint(new Point(0, 12), _nodeView) is { } header
+            ? new Point(edge, header.Y) : null;
+    }
+
     private void InitNodePortPoint(NodePortViewModel obj)
     {
+        if (obj.Model is IInputPort && obj.Model.Property?.GetEngineProperty() is { SupportsExpression: false })
+            return;
         if (obj.Model is IListPort)
         {
             InitListNodePortPoints(obj);
@@ -123,10 +160,13 @@ public partial class NodePortView : UserControl
         portPt.ConnectRequested += OnNodePortPointConnectRequested;
         portPt.DisconnectRequested += OnNodePortPointDisconnectRequested;
 
-        if (obj is InputPortViewModel)
+        if (obj is InputPortViewModel input)
         {
             Grid.SetColumn(portPt, 0);
-            portPt.Margin = new Thickness(-6, 4, 0, 0);
+            portPt.Margin = new Thickness(ProvidedEditor == null ? -6 : 0, 4, 0, 0);
+            portPt.Bind(IsEnabledProperty, input.CanConnect
+                .CombineLatest(input.IsConnected, (canConnect, connected) => canConnect || connected).ToBinding())
+                .DisposeWith(_disposables);
         }
         else
         {
@@ -135,7 +175,17 @@ public partial class NodePortView : UserControl
         }
 
         AddContextMenu(obj, portPt);
-        grid.Children.Add(portPt);
+        if (ProvidedEditor != null)
+        {
+            portPt.DataContext = obj;
+            portPt.Margin = default;
+            portPt.HorizontalAlignment = HorizontalAlignment.Left;
+            _nodeView?.AttachNestedPort(portPt);
+        }
+        else
+        {
+            grid.Children.Add(portPt);
+        }
     }
 
     private void InitListNodePortPoints(NodePortViewModel obj)
@@ -267,7 +317,19 @@ public partial class NodePortView : UserControl
 
     private void InitEditor(NodeMemberViewModel obj)
     {
-        if (obj.PropertyEditorContext is { } propContext)
+        if (ProvidedEditor is { } provided)
+        {
+            Classes.Add("nested");
+            Resources["BrushEditorPreviewWidth"] = 32d;
+            Resources["ColorEditorValueMinWidth"] = 0d;
+            // Nested connectors live in the node overlay. The embedded editor already owns its
+            // normal horizontal insets, so it does not need another pair of socket columns.
+            grid.ColumnDefinitions[0].Width = new GridLength(0);
+            grid.ColumnDefinitions[2].Width = new GridLength(0);
+            _editor = provided;
+            Grid.SetColumn(provided, 1);
+        }
+        else if (obj.PropertyEditorContext is { } propContext)
         {
             PropertyEditorExtension extension = obj.PropertyEditorContext.Extension;
             extension.TryCreateControlForNode(obj.PropertyEditorContext, out Control? control1);
@@ -289,6 +351,8 @@ public partial class NodePortView : UserControl
         {
             _label = new TextBlock
             {
+                // Match the standard embedded editor header (outer margin + template inset).
+                Margin = ProvidedEditor != null ? new Thickness(8, 0, 0, 0) : default,
                 HorizontalAlignment = obj is OutputPortViewModel
                     ? HorizontalAlignment.Right
                     : HorizontalAlignment.Left

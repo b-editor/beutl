@@ -8,6 +8,7 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              Margin="0,0,4,0"
+             Classes="property-editor-menu"
              VerticalAlignment="Center"
              d:DesignHeight="500"
              d:DesignWidth="500"

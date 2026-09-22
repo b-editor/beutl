@@ -1,5 +1,6 @@
 ﻿using Beutl.Collections;
 using Beutl.Engine;
+using Beutl.NodeGraph.Nodes.Group;
 
 namespace Beutl.NodeGraph;
 
@@ -10,6 +11,7 @@ public partial class GraphModel : EngineObject
     public static readonly CoreProperty<HierarchicalList<Connection>> AllConnectionsProperty;
     private readonly HierarchicalList<GraphNode> _nodes;
     private readonly HierarchicalList<Connection> _allConnections;
+    private Dictionary<IProperty, (IInputPort Port, int Count)>? _connectedInputProperties;
 
     public event EventHandler? TopologyChanged;
 
@@ -60,6 +62,8 @@ public partial class GraphModel : EngineObject
     {
         obj.TopologyChanged -= OnTopologyChanged;
         obj.Edited -= OnNodeEdited;
+        RaiseTopologyChanged();
+        if (obj is GroupNode group) group.Group.RaiseTopologyChanged();
         RaiseEdited();
     }
 
@@ -67,6 +71,7 @@ public partial class GraphModel : EngineObject
     {
         obj.TopologyChanged += OnTopologyChanged;
         obj.Edited += OnNodeEdited;
+        RaiseTopologyChanged();
         RaiseEdited();
     }
 
@@ -84,6 +89,9 @@ public partial class GraphModel : EngineObject
 
     public Connection Connect(IInputPort inputNodePort, IOutputPort outputNodePort)
     {
+        if (inputNodePort.FindHierarchicalParent<GraphNode>() is { } owner
+            && !owner.CanConnectInput(inputNodePort))
+            throw new InvalidOperationException("This input cannot be connected in the current graph state.");
         var connection = new Connection(inputNodePort, outputNodePort);
         connection.Connect();
         AllConnections.Add(connection);
@@ -98,14 +106,70 @@ public partial class GraphModel : EngineObject
 
     protected void RaiseTopologyChanged()
     {
-        TopologyChanged?.Invoke(this, EventArgs.Empty);
+        // Shared properties can invalidate connections in another group. Clear every cache
+        // before notifying views and snapshots, including those in sibling groups.
+        GraphModel[] graphs = GetRootGraph().EnumerateGraphs().ToArray();
+        foreach (GraphModel graph in graphs) graph._connectedInputProperties = null;
+        foreach (GraphModel graph in graphs) graph.TopologyChanged?.Invoke(graph, EventArgs.Empty);
+    }
+
+    private GraphModel GetRootGraph()
+    {
+        GraphModel root = this;
+        var visited = new HashSet<GraphModel>(ReferenceEqualityComparer.Instance);
+        while (visited.Add(root)
+               && root.HierarchicalParent is GroupNode { HierarchicalParent: GraphModel parent })
+            root = parent;
+        return root;
+    }
+
+    /// <summary>Enumerates this model and its nested groups once per instance, in node order.</summary>
+    public IEnumerable<GraphModel> EnumerateGraphs()
+    {
+        var visited = new HashSet<GraphModel>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<GraphModel>();
+        pending.Push(this);
+        while (pending.TryPop(out GraphModel? graph))
+        {
+            if (!visited.Add(graph)) continue;
+            yield return graph;
+            for (int i = graph.Nodes.Count - 1; i >= 0; i--)
+            {
+                if (graph.Nodes[i] is GroupNode group) pending.Push(group.Group);
+            }
+        }
+    }
+
+    internal IEnumerable<IInputPort> EnumerateConnectedInputs()
+        => GetRootGraph().EnumerateGraphs().SelectMany(graph => graph.Nodes)
+            .SelectMany(node => node.GetConnectedInputs()).Distinct<IInputPort>(ReferenceEqualityComparer.Instance);
+
+    internal bool HasAliasedInput(IInputPort input, IProperty property)
+    {
+        GraphModel root = GetRootGraph();
+        if (root != this) return root.HasAliasedInput(input, property);
+        if (_connectedInputProperties == null)
+        {
+            var properties = new Dictionary<IProperty, (IInputPort Port, int Count)>(ReferenceEqualityComparer.Instance);
+            foreach (IInputPort connected in EnumerateConnectedInputs())
+            {
+                if (connected.Property?.GetEngineProperty() is not { } target
+                    || connected.FindHierarchicalParent<GraphNode>() is not { } owner
+                    || !owner.IsInputTargetAvailable(connected)) continue;
+                properties[target] = properties.TryGetValue(target, out var previous)
+                    ? (previous.Port, previous.Count + 1) : (connected, 1);
+            }
+            _connectedInputProperties = properties;
+        }
+        return _connectedInputProperties.TryGetValue(property, out var entry)
+            && (entry.Count > 1 || entry.Port != input);
     }
 
     public INodePort? FindNodePort(Guid id)
     {
         foreach (GraphNode node in Nodes.GetMarshal().Value)
         {
-            foreach (INodeMember item in node.Items.GetMarshal().Value)
+            foreach (INodeMember item in node.EnumerateMembers())
             {
                 if (item is INodePort port
                     && port.Id == id)

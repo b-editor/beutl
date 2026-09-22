@@ -321,6 +321,12 @@ public partial class GroupNode : GraphNode
             var node = RequireOriginal();
             if (_innerSnapshot == null) return;
 
+            // Internal edits can change both the port maps and the topological slot order while
+            // the outer snapshot remains alive. Build is a no-op when the snapshot is current.
+            _innerSnapshot.Build(node.Group, context);
+            _groupInputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Input);
+            _groupOutputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Output);
+
             // GroupNodeの入力値からGroupInputの出力値に転送
             if (node.Group.Input != null && _groupInputSlotIndex >= 0)
             {

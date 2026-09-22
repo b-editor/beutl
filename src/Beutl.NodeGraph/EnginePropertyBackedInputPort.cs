@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
@@ -16,16 +17,32 @@ public interface IEnginePropertyBackedInputPort
     void CopyFrom(IItemValue itemValue);
 }
 
-public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBackedInputPort
+internal interface IConnectionExpressionController
 {
-    private readonly IProperty<T> _property;
+    void UpdateExpression(bool enabled);
+}
+
+public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBackedInputPort, IConnectionExpressionController
+{
+    private IProperty<T>? _property;
+
+    protected EnginePropertyBackedInputPort()
+    {
+    }
 
     public EnginePropertyBackedInputPort(EngineObject obj, IProperty<T> property)
     {
+        BindProperty(obj, property);
+    }
+
+    protected void BindProperty(EngineObject obj, IProperty<T> property)
+    {
+        if (ReferenceEquals(_property, property)) return;
+        UnbindProperty();
         Name = property.Name;
         Display = property.GetAttributes()?.OfType<DisplayAttribute>().FirstOrDefault();
         _property = property;
-        property.Edited += (_, e) => RaiseEdited();
+        property.Edited += OnTargetEdited;
         IPropertyAdapter<T> adapter;
         if (property is AnimatableProperty<T> animatableProperty)
         {
@@ -41,12 +58,67 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         }
 
         Property = adapter;
+        if (!Connection.IsNull) UpdateExpression();
+    }
+
+    protected void UnbindProperty()
+    {
+        if (_property != null)
+        {
+            _property.Edited -= OnTargetEdited;
+            if (!Connection.IsNull && _property.Expression is NodePortExpression<T> && !HasOtherConnectedInput())
+            {
+                using var suppression = RecordingSuppression.Enter();
+                _property.Expression = null;
+            }
+        }
+
+        _property = null;
+        Property = null;
+    }
+
+    private void OnTargetEdited(object? sender, EventArgs e) => RaiseEdited();
+
+    private bool HasOtherConnectedInput(bool acceptedOnly = false)
+    {
+        GraphNode? node = this.FindHierarchicalParent<GraphNode>();
+        IEnumerable<IInputPort>? inputs = node?.FindHierarchicalParent<GraphModel>() is { } graph
+            ? graph.EnumerateConnectedInputs() : node?.GetConnectedInputs();
+        // Rebinding can be in progress, so compare live targets rather than the topology cache.
+        return inputs?.Any(input => input != this
+            && ReferenceEquals(input.Property?.GetEngineProperty(), _property)
+            && (!acceptedOnly || input.FindHierarchicalParent<GraphNode>()?.CanConnectInput(input) == true)) == true;
+    }
+
+    private void UpdateExpression()
+    {
+        if (_property == null || !_property.SupportsExpression) return;
+        // Observers must update their previous-expression state, but this derived change must not
+        // be recorded separately from the connection (or replayed on a replaced object).
+        using var suppression = RecordingSuppression.Enter();
+        if (!Connection.IsNull && _property.Expression is not NodePortExpression<T>)
+            _property.Expression = new NodePortExpression<T>();
+        else if (Connection.IsNull && _property.Expression is NodePortExpression<T> && !HasOtherConnectedInput())
+            _property.Expression = null;
+    }
+
+    void IConnectionExpressionController.UpdateExpression(bool enabled)
+    {
+        if (enabled)
+        {
+            UpdateExpression();
+        }
+        else if (_property?.Expression is NodePortExpression<T> && !HasOtherConnectedInput(acceptedOnly: true))
+        {
+            using var suppression = RecordingSuppression.Enter();
+            _property.Expression = null;
+        }
     }
 
     public void CopyFrom(IItemValue itemValue)
     {
         if (itemValue is not ItemValue<T> typed) return;
-        if (!Connection.IsNull && _property.Expression is NodePortExpression<T> exp)
+        if (!Connection.IsNull && _property?.Expression is NodePortExpression<T> exp)
         {
             exp.Value = typed.Value;
         }
@@ -58,13 +130,16 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         if (args is CorePropertyChangedEventArgs coreArgs &&
             coreArgs.Property.Id == ConnectionProperty.Id)
         {
-            _property.Expression = Connection.IsNull ? null : new NodePortExpression<T>();
+            UpdateExpression();
         }
     }
 }
 
+/// <summary>Identifies an expression supplied by a node connection rather than a user formula.</summary>
+public interface INodePortExpression : IExpression;
+
 [JsonConverter(typeof(NodePortExpressionJsonConverter))]
-public class NodePortExpression<T> : IExpression<T>
+public class NodePortExpression<T> : IExpression<T>, INodePortExpression
 {
     public T? Value { get; set; }
 

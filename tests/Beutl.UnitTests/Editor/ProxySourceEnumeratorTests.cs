@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using Beutl.Animation;
 using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
@@ -14,6 +15,7 @@ using Beutl.Graphics3D.Textures;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.ProjectSystem;
@@ -627,6 +629,481 @@ public class ProxySourceEnumeratorTests
         Assert.That(collected.Select(Path.GetFileName), Does.Contain("node-fill.png"));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void LayerOutputAnimationsRespectNodeAndGlobalClocks(bool globalClock)
+    {
+        var node = new VideoSourceNode();
+        node.Source.Property!.SetValue(CreateVideoSource("layer-base.mov"));
+        var layer = new LayerInputNode
+        {
+            IsTimeAnchor = true,
+            TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10))
+        };
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([node, layer]);
+        Assert.That(layer.AddNodePort(node.Source, out _), Is.True);
+        var output = layer.Items.OfType<LayerInputNode.ILayerInputPort>().Single();
+        var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = globalClock };
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(1), Value = CreateVideoSource("local-clock.mov") });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(6), Value = CreateVideoSource("global-clock.mov") });
+        ((IAnimatablePropertyAdapter<VideoSource?>)output.Property!).Animation = animation;
+        Element element = ElementWith(drawable);
+        element.Length = TimeSpan.FromSeconds(10);
+        Scene scene = CreateScene("layer-animation.scene");
+        scene.Children.Add(element);
+        var window = new TimeRange(TimeSpan.FromSeconds(6), TimeSpan.Zero);
+        string expected = globalClock ? "global-clock.mov" : "local-clock.mov";
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element, localRange: window, sceneWindow: window)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, window.Start));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Is.EqualTo(new[] { expected }));
+            Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { expected }));
+            Assert.That(FileNames(element), Is.EquivalentTo(new[] { "layer-base.mov", "local-clock.mov", "global-clock.mov" }));
+        });
+    }
+
+    [Test]
+    public void LayerObjectOutputsReportTheirNestedMedia()
+    {
+        var brush = new ImageBrush { Source = { CurrentValue = CreateImageSource("layer-object.png") } };
+        var node = new GeometryShapeNode();
+        node.Fill.Property!.SetValue(brush);
+        var layer = new LayerInputNode();
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([node, layer]);
+        Assert.That(layer.AddNodePort(node.Fill, out _), Is.True);
+        node.Fill.Property.SetValue(new ImageBrush { Source = { CurrentValue = CreateImageSource("stale-object.png") } });
+        Element element = ElementWith(drawable);
+        Scene scene = CreateScene("layer-object.scene");
+        scene.Children.Add(element);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+
+        Assert.That(files, Is.EqualTo(new[] { "layer-object.png" }));
+        Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "layer-object.png" }));
+    }
+
+    [Test]
+    public void LayerOutputRemainsDiscoveredUntilItsLastConsumerDisconnects()
+    {
+        var first = new VideoSourceNode();
+        var second = new VideoSourceNode();
+        first.Source.Property!.SetValue(CreateVideoSource("shared-layer.mov"));
+        second.Source.Property!.SetValue(CreateVideoSource("second-local.mov"));
+        var layer = new LayerInputNode();
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([first, second, layer]);
+        Assert.That(layer.AddNodePort(first.Source, out var firstConnection), Is.True);
+        var secondConnection = graph.Connect(second.Source, layer.Items.OfType<IOutputPort>().Single());
+        first.Source.Property.SetValue(CreateVideoSource("first-local.mov"));
+        Element element = ElementWith(drawable);
+
+        Assert.That(FileNames(element), Is.EqualTo(new[] { "shared-layer.mov" }));
+        graph.Disconnect(firstConnection!);
+        Assert.That(FileNames(element), Is.EquivalentTo(new[] { "first-local.mov", "shared-layer.mov" }));
+        graph.Disconnect(secondConnection);
+        Assert.That(FileNames(element), Is.EquivalentTo(new[] { "first-local.mov", "second-local.mov" }));
+    }
+
+    [Test]
+    public void LayerOutputWithOnlyRejectedConsumersDoesNotSupplyRenderableMedia()
+    {
+        var brush = new ImageBrush { Source = { CurrentValue = CreateImageSource("unused-layer.png") } };
+        var node = new GeometryShapeNode();
+        node.Fill.Property!.SetValue(brush);
+        var layer = new LayerInputNode();
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([node, layer]);
+        var port = node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Source));
+        Assert.That(layer.AddNodePort(port, out var connection), Is.True);
+        brush.Source.CurrentValue = CreateImageSource("base-local.png");
+        var animation = new KeyFrameAnimation<Brush?>();
+        animation.KeyFrames.Add(new KeyFrame<Brush?>
+        {
+            Value = new ImageBrush { Source = { CurrentValue = CreateImageSource("animated-local.png") } }
+        });
+        ((IAnimatablePropertyAdapter<Brush?>)node.Fill.Property).Animation = animation;
+        Assert.That(node.CanConnectInput(port), Is.False);
+        Assert.That(port.Connection.Value, Is.SameAs(connection));
+        Element element = ElementWith(drawable);
+        Scene scene = CreateScene("rejected-layer-output.scene");
+        scene.Children.Add(element);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+
+        Assert.That(files, Is.EquivalentTo(new[] { "base-local.png", "animated-local.png" }));
+        Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "animated-local.png" }));
+        Assert.That(ProxySourceEnumerator.EnumerateMediaFileSources(scene).Select(Path.GetFileName),
+            Does.Contain("unused-layer.png"), "Stored output values must remain available to the asset scan.");
+    }
+
+    [TestCase(false, false, false)]
+    [TestCase(false, false, true)]
+    [TestCase(false, true, false)]
+    [TestCase(false, true, true)]
+    [TestCase(true, false, false)]
+    [TestCase(true, false, true)]
+    [TestCase(true, true, false)]
+    [TestCase(true, true, true)]
+    public void DynamicLayerOutputsReportCopiedMediaForNestedInputs(bool video, bool group, bool windowed)
+    {
+        var node = new FactoryNode<DrawableGroup>();
+        IProperty property;
+        if (video)
+        {
+            var child = new SourceVideo();
+            child.Source.CurrentValue = CreateVideoSource("layer-output.mov");
+            node.Object.Children.Add(child);
+            property = child.Source;
+        }
+        else
+        {
+            var child = new SourceImage();
+            child.Source.CurrentValue = CreateImageSource("layer-output.png");
+            node.Object.Children.Add(child);
+            property = child.Source;
+        }
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        if (group)
+        {
+            var container = new GroupNode();
+            graph.Nodes.Add(container);
+            graph = container.Group;
+        }
+        var layer = new LayerInputNode();
+        graph.Nodes.AddRange([node, layer]);
+        var port = node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), property));
+        Assert.That(layer.AddNodePort(port, out var connection), Is.True);
+        Assert.That(connection, Is.Not.Null);
+        // The dynamic output keeps the copied value after its destination's base value changes.
+        port.Property!.SetValue(video ? CreateVideoSource("stale-destination.mov") : CreateImageSource("stale-destination.png"));
+        Element element = ElementWith(drawable);
+        Scene scene = CreateScene("layer-output.scene");
+        scene.Children.Add(element);
+        string expected = video ? "layer-output.mov" : "layer-output.png";
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element,
+                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Is.EqualTo(new[] { expected }));
+            Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { expected }));
+            Assert.That(FileNames(element), Is.EqualTo(video ? new[] { expected } : Array.Empty<string>()));
+        });
+
+        graph.Disconnect(connection!);
+        Assert.That(layer.Items.OfType<LayerInputNode.ILayerInputPort>().Count(), Is.EqualTo(1));
+        string fallback = video ? "stale-destination.mov" : "stale-destination.png";
+        files = ProxySourceEnumerator.EnumerateFileSources(element)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        Assert.That(files, Is.EqualTo(new[] { fallback }));
+        Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { fallback }));
+        Assert.That(ProxySourceEnumerator.EnumerateMediaFileSources(scene).Select(Path.GetFileName), Does.Contain(expected));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void RejectedNestedSourcesKeepTheirLocalMediaBeforeAndAfterEvaluation(bool windowed, bool evaluated)
+    {
+        var brush = new ImageBrush();
+        brush.Source.CurrentValue = CreateImageSource("restored-local.png");
+        var otherBrush = new ImageBrush();
+        otherBrush.Source.CurrentValue = CreateImageSource("replaced-local.png");
+        var first = new GeometryShapeNode();
+        var second = new GeometryShapeNode();
+        first.Fill.Property!.SetValue(brush);
+        second.Fill.Property!.SetValue(otherBrush);
+        var upstream = new FileSourcePassThroughNode();
+        var otherUpstream = new FileSourcePassThroughNode();
+        upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
+        otherUpstream.Input.Property!.SetValue(CreateImageSource("other-upstream.png"));
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([first, second, upstream, otherUpstream]);
+        var firstPort = first.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Source));
+        var secondPort = second.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), otherBrush.Source));
+        graph.Connect(firstPort, upstream.Output);
+        graph.Connect(secondPort, otherUpstream.Output);
+        second.Fill.Property.SetValue(brush);
+        Assert.That(first.CanConnectInput(firstPort), Is.False);
+        Assert.That(second.CanConnectInput(secondPort), Is.False);
+        if (evaluated)
+        {
+            using var snapshot = new GraphSnapshot();
+            snapshot.Build(graph, CompositionContext.Default);
+            snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        }
+        IExpression? expressionBeforeWalk = brush.Source.Expression;
+        Element element = ElementWith(drawable);
+        Scene scene = CreateScene("rejected-input.scene");
+        scene.Children.Add(element);
+        // The graph still evaluates every upstream node, as well as the restored local source.
+        string[] expected = ["restored-local.png", "upstream.png", "other-upstream.png"];
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element,
+                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Is.EquivalentTo(expected));
+            Assert.That(missing.Select(Path.GetFileName), Is.EquivalentTo(expected));
+            Assert.That(brush.Source.Expression, Is.SameAs(expressionBeforeWalk), "Discovery must not mutate the graph.");
+        });
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void ConnectedNestedSourcesExcludeTheirBaseButKeepSiblings(bool group, bool windowed)
+    {
+        var brush = new ImageBrush();
+        brush.Source.CurrentValue = CreateImageSource("stale.png");
+        var sibling = new ImageBrush();
+        sibling.Source.CurrentValue = CreateImageSource("sibling.png");
+        var pen = new Pen();
+        pen.Brush.CurrentValue = brush;
+        var node = new GeometryShapeNode();
+        node.Pen.Property!.SetValue(pen);
+        node.Fill.Property!.SetValue(sibling);
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        if (group)
+        {
+            var container = new GroupNode();
+            graph.Nodes.Add(container);
+            graph = container.Group;
+        }
+        graph.Nodes.Add(node);
+        var upstream = new FileSourcePassThroughNode();
+        upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
+        graph.Nodes.Add(upstream);
+        var port = node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Source));
+        graph.Connect(port, upstream.Output);
+        Element element = ElementWith(drawable);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element,
+                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+
+        Assert.That(files, Is.EquivalentTo(new[] { "upstream.png", "sibling.png" }));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ConnectedDrawableBrushPropertiesDoNotLeakSourcesThroughTheStructuralWalk(bool wholeObject)
+    {
+        var original = new SourceImage();
+        original.Source.CurrentValue = CreateImageSource("stale-drawable.png");
+        var brush = new DrawableBrush();
+        brush.Drawable.CurrentValue = original;
+        var node = new GeometryShapeNode();
+        node.Fill.Property!.SetValue(brush);
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.Add(node);
+        IOutputPort output;
+        IProperty target;
+        if (wholeObject)
+        {
+            var upstream = new FactoryNode<SourceImage>();
+            upstream.Object.Source.CurrentValue = CreateImageSource("upstream.png");
+            graph.Nodes.Add(upstream);
+            output = upstream.Items.OfType<IOutputPort>().Single();
+            target = brush.Drawable;
+        }
+        else
+        {
+            var upstream = new FileSourcePassThroughNode();
+            upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
+            graph.Nodes.Add(upstream);
+            output = upstream.Output;
+            target = original.Source;
+        }
+        graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), target)), output);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(ElementWith(drawable))
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+
+        Assert.That(files, Is.EqualTo(new[] { "upstream.png" }));
+    }
+
+    [Test]
+    public void ConnectedListPropertiesDoNotSuppressTheSameFileOnAnUnconnectedSibling()
+    {
+        var shared = CreateImageSource("shared.png");
+        var first = new ImageBrush();
+        var second = new ImageBrush();
+        first.Source.CurrentValue = shared;
+        second.Source.CurrentValue = shared;
+        var node = new FactoryNode<ImageBrushList>();
+        node.Object.Brushes.AddRange([first, second]);
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.Add(node);
+        var upstream = new FileSourcePassThroughNode();
+        upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
+        graph.Nodes.Add(upstream);
+        graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), first.Source)), upstream.Output);
+        Element element = ElementWith(drawable);
+        string[] Files() => ProxySourceEnumerator.EnumerateFileSources(element)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+
+        Assert.That(Files(), Is.EquivalentTo(new[] { "upstream.png", "shared.png" }));
+
+        second.Source.CurrentValue = CreateImageSource("sibling.png");
+        node.Object.Brushes.Move(0, 1);
+        Assert.That(Files(), Is.EquivalentTo(new[] { "upstream.png", "sibling.png" }));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void DescendantConnectionsOverrideOuterAliasesRegardlessOfNodeOrder(bool groupFirst, bool windowed)
+    {
+        var alias = new FactoryNode<ImageBrush>();
+        alias.Object.Source.CurrentValue = CreateImageSource("stale-outer-alias.png");
+        var group = new GroupNode();
+        var nestedGroup = new GroupNode();
+        group.Group.Nodes.Add(nestedGroup);
+        var node = new GeometryShapeNode();
+        node.Fill.Property!.SetValue(alias.Object);
+        var upstream = new FileSourcePassThroughNode();
+        upstream.Input.Property!.SetValue(CreateImageSource("inner-upstream.png"));
+        nestedGroup.Group.Nodes.AddRange([node, upstream]);
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange(groupFirst ? new GraphNode[] { group, alias } : [alias, group]);
+        nestedGroup.Group.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), alias.Object.Source)), upstream.Output);
+        Element element = ElementWith(drawable);
+        Scene scene = CreateScene("outer-alias.scene");
+        scene.Children.Add(element);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element,
+                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Is.EqualTo(new[] { "inner-upstream.png" }));
+            Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "inner-upstream.png" }));
+            Assert.That(ProxySourceEnumerator.EnumerateMediaFileSources(scene).Select(Path.GetFileName),
+                Does.Contain("stale-outer-alias.png"), "The broad asset scan must retain stored media for later disconnection.");
+        });
+    }
+
+    [Test]
+    public void ConnectedNestedPropertyAlsoOverridesAnAliasedRootInput()
+    {
+        var alias = new FactoryNode<ImageBrush>();
+        alias.Object.Source.CurrentValue = CreateImageSource("stale-alias.png");
+        var node = new GeometryShapeNode();
+        node.Fill.Property!.SetValue(alias.Object);
+        var upstream = new FileSourcePassThroughNode();
+        upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([alias, node, upstream]);
+        graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), alias.Object.Source)), upstream.Output);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(ElementWith(drawable))
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+
+        Assert.That(files, Is.EqualTo(new[] { "upstream.png" }));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void DrawableListsInGraphInputsReportRenderableMedia(bool decorator, bool connected)
+    {
+        GraphNode node;
+        IListProperty<Drawable> children;
+        if (decorator)
+        {
+            var factory = new FactoryNode<DrawableDecorator>();
+            node = factory;
+            children = factory.Object.Children;
+        }
+        else
+        {
+            var factory = new FactoryNode<DrawableGroup>();
+            node = factory;
+            children = factory.Object.Children;
+        }
+        var image = new SourceImage();
+        image.Source.CurrentValue = CreateImageSource("list-image.png");
+        var video = new SourceVideo();
+        video.Source.CurrentValue = CreateVideoSource("list-video.mov");
+        var disabled = new SourceImage { IsEnabled = false };
+        disabled.Source.CurrentValue = CreateImageSource("disabled.png");
+        var nested = new DrawableGroup();
+        nested.Children.AddRange([image, video, disabled]);
+        children.Add(nested);
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.Add(node);
+        if (connected)
+        {
+            var upstream = new FileSourcePassThroughNode();
+            upstream.Input.Property!.SetValue(CreateImageSource("replacement.png"));
+            graph.Nodes.Add(upstream);
+            graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), image.Source)), upstream.Output);
+        }
+        Element element = ElementWith(drawable);
+        string[] expected = [connected ? "replacement.png" : "list-image.png", "list-video.mov"];
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element, skipDisabledElements: true)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).ToArray();
+        Assert.That(files, Is.EquivalentTo(expected));
+        Assert.That(FileNames(element), Is.EqualTo(new[] { "list-video.mov" }));
+
+        Scene scene = CreateScene("drawable-list.scene");
+        scene.Children.Add(element);
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        Assert.That(missing.Select(Path.GetFileName), Is.EquivalentTo(expected));
+    }
+
+    [Test]
+    public void DrawableListsInGraphInputsTerminateOnPresenterCycles()
+    {
+        var node = new FactoryNode<DrawableGroup>();
+        var video = new SourceVideo();
+        video.Source.CurrentValue = CreateVideoSource("list-cycle.mov");
+        var presenter = new DrawablePresenter();
+        node.Object.Children.AddRange([video, presenter]);
+        SetPropertyValueSilently(presenter.Target, node.Object);
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue!.Nodes.Add(node);
+
+        Assert.That(FileNames(ElementWith(drawable)), Is.EqualTo(new[] { "list-cycle.mov" }));
+    }
+
     // A reference-expression makes IProperty.GetValue return another object's value ahead of the
     // base/animation, so the render opens whatever file source it resolves to. Preflight must resolve
     // the reference (by id, no evaluation) and enumerate the target's sources.
@@ -742,4 +1219,29 @@ public class ProxySourceEnumeratorTests
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, name)),
         };
     }
+}
+
+internal sealed partial class FileSourcePassThroughNode : GraphNode
+{
+    public FileSourcePassThroughNode()
+    {
+        Input = AddInput<ImageSource?>("Input");
+        Output = AddOutput<ImageSource?>("Output");
+    }
+
+    public InputPort<ImageSource?> Input { get; }
+
+    public OutputPort<ImageSource?> Output { get; }
+
+    public partial class Resource
+    {
+        public override void Update(GraphCompositionContext context) => Output = Input;
+    }
+}
+
+public sealed partial class ImageBrushList : EngineObject
+{
+    public ImageBrushList() => ScanProperties<ImageBrushList>();
+
+    public IListProperty<ImageBrush> Brushes { get; } = Property.CreateList<ImageBrush>();
 }

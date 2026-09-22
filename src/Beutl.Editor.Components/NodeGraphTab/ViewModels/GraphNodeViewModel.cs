@@ -2,9 +2,11 @@
 using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Beutl.Controls;
+using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
@@ -14,10 +16,12 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 
-public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IPropertyEditorContextVisitor, IServiceProvider
+public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IPropertyEditorContextVisitor, IServiceProvider, IPropertyEditorControlHost
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly string _defaultName;
+    private readonly Dictionary<INestedInputPort, InputPortViewModel> _nestedItems = new();
+    private bool _synchronizingNestedItems;
 
     public GraphNodeViewModel(GraphNode node, NodeGraphViewModel nodeGraphViewModel)
     {
@@ -71,6 +75,8 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
             }
         });
 
+        GraphNode.NestedInputPortsChanged += OnNestedInputPortsChanged;
+        SynchronizeNestedItems();
         InitItems();
     }
 
@@ -96,8 +102,81 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
     public CoreList<NodeMemberViewModel> Items { get; } = [];
 
+    public CoreList<InputPortViewModel> NestedItems { get; } = [];
+
+    public IEnumerable<NodeMemberViewModel> EnumerateMembers() => Items.Concat<NodeMemberViewModel>(NestedItems);
+
+    private void OnNestedInputPortsChanged(object? sender, EventArgs e) => SynchronizeNestedItems();
+
+    private void SynchronizeNestedItems()
+    {
+        if (_synchronizingNestedItems) return;
+        _synchronizingNestedItems = true;
+        try
+        {
+            var ports = GraphNode.NestedInputPorts;
+            var current = ports.ToHashSet();
+            var removed = new List<InputPortViewModel>();
+            foreach (var (port, item) in _nestedItems)
+            {
+                if (!current.Contains(port)) removed.Add(item);
+            }
+            foreach (InputPortViewModel item in removed)
+            {
+                _nestedItems.Remove((INestedInputPort)item.Model!);
+                item.Dispose();
+            }
+            NestedItems.RemoveAll(removed);
+            var added = new List<InputPortViewModel>();
+            foreach (INestedInputPort port in ports)
+            {
+                if (_nestedItems.ContainsKey(port)) continue;
+                var item = new InputPortViewModel(port, null, this);
+                _nestedItems.Add(port, item);
+                added.Add(item);
+            }
+            NestedItems.AddRange(added);
+        }
+        finally
+        {
+            _synchronizingNestedItems = false;
+        }
+    }
+
+    public Control WrapEditor(IPropertyEditorContext context, Control editor)
+        => WrapEditor(context, editor, null, null);
+
+    public IPropertyEditorControlHost CreateChildHost(IPropertyAdapter property)
+        => new NodePropertyEditorHost(this,
+            GraphNode.Items.FirstOrDefault(item => ReferenceEquals(item.Property, property)), property);
+
+    internal Control WrapEditor(IPropertyEditorContext context, Control editor, INodeMember? root, IReadOnlyList<string>? path)
+    {
+        // Node presentation also applies to properties that cannot expose an input port.
+        // Normal property-panel minimum widths would clip indented node editors.
+        editor.MinWidth = 0;
+        if (editor is Beutl.Controls.PropertyEditors.PropertyEditor propertyEditor)
+            propertyEditor.EditorStyle = Beutl.Controls.PropertyEditors.PropertyEditorStyle.Compact;
+
+        if (root == null || path == null || path.Count == 0
+            || context is not IServiceProvider services
+            || services.GetService(typeof(IPropertyAdapter)) is not IPropertyAdapter adapter
+            || adapter.GetEngineProperty() is not { } property) return editor;
+        InputPortViewModel? port = NestedItems.FirstOrDefault(p =>
+            p.Model is INestedInputPort nested && nested.RootMember.Id == root.Id
+            && nested.PropertyPath.SequenceEqual(path)
+            && ReferenceEquals(nested.Property?.GetEngineProperty(), property));
+        if (port == null) return editor;
+        editor.DataContext = context;
+        return new NodePortView { ProvidedEditor = editor, DataContext = port };
+    }
+
     public void Dispose()
     {
+        GraphNode.NestedInputPortsChanged -= OnNestedInputPortsChanged;
+        foreach (InputPortViewModel item in NestedItems) item.Dispose();
+        NestedItems.Clear();
+        _nestedItems.Clear();
         GraphNode.Items.CollectionChanged -= OnItemsCollectionChanged;
         foreach (NodeMemberViewModel item in Items)
         {
@@ -256,6 +335,7 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
     public object? GetService(Type serviceType)
     {
+        if (serviceType == typeof(IPropertyEditorControlHost)) return this;
         if (serviceType == typeof(GraphNode))
         {
             return GraphNode;

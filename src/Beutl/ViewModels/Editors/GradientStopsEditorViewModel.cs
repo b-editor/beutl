@@ -34,10 +34,31 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
 
     public ReactivePropertySlim<AM.GradientStop?> SelectedItem { get; } = new();
 
+    // The slider remains available in a node, with expandable per-stop properties for wiring.
+    public ReactivePropertySlim<ListEditorViewModel<GradientStop?>?> NodeItems { get; } = new();
+
+    public override void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        base.Accept(visitor);
+        if (this.GetService<IPropertyEditorControlHost>() != null)
+        {
+            NodeItems.Value ??= new ListEditorViewModel<GradientStop?>(PropertyAdapter);
+            NodeItems.Value.Accept(new NodeItemsVisitor(this));
+        }
+    }
+
+    private sealed record NodeItemsVisitor(GradientStopsEditorViewModel Owner) : IPropertyEditorContextVisitor, IServiceProvider
+    {
+        public object? GetService(Type serviceType) => Owner.GetService(serviceType);
+        public void Visit(IPropertyEditorContext context) { }
+    }
+
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
         _disposable?.Dispose();
+        NodeItems.Value?.Dispose();
+        NodeItems.Dispose();
     }
 
     public void InsertGradientStop(int index, GradientStop item)

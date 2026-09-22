@@ -56,6 +56,8 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             } while (foundItems != null && extension != null);
         }
 
+        foreach (IPropertyEditorContext context in MajorProperties) context.Dispose();
+        foreach (IPropertyEditorContext context in MinorProperties) context.Dispose();
         MajorProperties.Clear();
         MinorProperties.Clear();
         if (pen != null)

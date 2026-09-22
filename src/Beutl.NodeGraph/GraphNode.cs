@@ -16,7 +16,11 @@ public abstract partial class GraphNode : EngineObject
     public static readonly CoreProperty<bool> IsExpandedProperty;
     public static readonly CoreProperty<(double X, double Y)> PositionProperty;
     public static readonly CoreProperty<ICoreList<INodeMember>> ItemsProperty;
+    public static readonly CoreProperty<ICoreList<INestedInputPort>> NestedInputPortsProperty;
     private readonly HierarchicalList<INodeMember> _items;
+    private readonly HierarchicalList<INestedInputPort> _nestedInputPorts;
+    private readonly NestedInputPortManager _nestedPortManager;
+    private IInputPort[]? _connectedInputs;
     private (double X, double Y) _position;
 
     static GraphNode()
@@ -33,24 +37,46 @@ public abstract partial class GraphNode : EngineObject
         ItemsProperty = ConfigureProperty<ICoreList<INodeMember>, GraphNode>(nameof(Items))
             .Accessor(o => o.Items, (o, v) => o._items.Replace(v))
             .Register();
+        NestedInputPortsProperty = ConfigureProperty<ICoreList<INestedInputPort>, GraphNode>(nameof(NestedInputPorts))
+            .Accessor(o => o.NestedInputPorts, (o, v) => o._nestedInputPorts.Replace(v))
+            .Register();
     }
 
     public GraphNode()
     {
         _items = new(this);
+        _nestedInputPorts = new(this);
+        _nestedPortManager = new(this);
 
         _items.Attached += OnItemAttached;
         _items.Detached += OnItemDetached;
+        _items.CollectionChanged += (_, _) => _nestedPortManager.Synchronize();
+        _nestedInputPorts.Attached += port =>
+        {
+            OnItemAttached(port);
+            if (!_nestedPortManager.IsSynchronizing) _nestedPortManager.Bind(port);
+        };
+        _nestedInputPorts.Detached += port =>
+        {
+            OnItemDetached(port);
+            port.Unbind();
+        };
+        _nestedInputPorts.CollectionChanged += (_, _) =>
+        {
+            if (!_nestedPortManager.IsSynchronizing) NotifyNestedInputPortsChanged();
+        };
     }
 
     private void OnItemDetached(INodeMember obj)
     {
+        _connectedInputs = null;
         obj.TopologyChanged -= OnItemTopologyChanged;
         obj.Edited -= OnItemEdited;
     }
 
     private void OnItemAttached(INodeMember obj)
     {
+        _connectedInputs = null;
         obj.TopologyChanged += OnItemTopologyChanged;
         obj.Edited += OnItemEdited;
     }
@@ -66,6 +92,84 @@ public abstract partial class GraphNode : EngineObject
     }
 
     [NotAutoSerialized] public ICoreList<INodeMember> Items => _items;
+
+    [NotAutoSerialized]
+    public ICoreList<INestedInputPort> NestedInputPorts
+    {
+        get
+        {
+            _nestedPortManager.EnsureSynchronized();
+            return _nestedInputPorts;
+        }
+    }
+
+    public event EventHandler? NestedInputPortsChanged;
+
+    internal void NotifyNestedInputPortsChanged()
+    {
+        _connectedInputs = null;
+        NestedInputPortsChanged?.Invoke(this, EventArgs.Empty);
+        RaiseTopologyChanged();
+    }
+
+    internal void RemoveNestedInputPorts(IEnumerable<INestedInputPort> ports) => _nestedInputPorts.RemoveAll(ports);
+
+    public void SynchronizeNestedInputPorts() => _nestedPortManager.Synchronize();
+
+    /// <summary>Root members come first, retaining the indices used by group-node resources.</summary>
+    public IEnumerable<INodeMember> EnumerateMembers()
+    {
+        _nestedPortManager.EnsureSynchronized();
+        return _items.Concat<INodeMember>(_nestedInputPorts);
+    }
+
+    internal IInputPort[] GetConnectedInputs()
+    {
+        _nestedPortManager.EnsureSynchronized();
+        return _connectedInputs ??= _items.Concat<INodeMember>(_nestedInputPorts)
+            .OfType<IInputPort>().Where(p => !p.Connection.IsNull).ToArray();
+    }
+
+    // Check binding and ancestor overrides without consulting other connections. Alias indexing
+    // uses this first so an independently rejected path cannot block an otherwise usable writer.
+    internal bool IsInputTargetAvailable(IInputPort input)
+    {
+        _nestedPortManager.EnsureSynchronized();
+        if (input is INestedInputPort nestedInput
+            && (nestedInput.Property == null || _nestedPortManager.HasOverridingAncestor(nestedInput))) return false;
+        return input.Property?.GetEngineProperty()?.SupportsExpression != false;
+    }
+
+    /// <summary>Object inputs and their descendant inputs cannot both supply a value.</summary>
+    public bool CanConnectInput(IInputPort input)
+    {
+        if (!IsInputTargetAvailable(input)) return false;
+        IProperty? property = input.Property?.GetEngineProperty();
+        if (property != null && this.FindHierarchicalParent<GraphModel>() is { } graph
+            && graph.HasAliasedInput(input, property)) return false;
+        foreach (IInputPort other in GetConnectedInputs())
+        {
+            if (other == input) continue;
+            // Distinct paths can still drive the same expression when objects are shared.
+            if (property != null && ReferenceEquals(other.Property?.GetEngineProperty(), property)
+                && IsInputTargetAvailable(other)) return false;
+            if (input is INestedInputPort nested)
+            {
+                if (other.Id == nested.RootMember.Id
+                    || other is INestedInputPort child && child.RootMember.Id == nested.RootMember.Id
+                    && (IsPathPrefix(child.PropertyPath, nested.PropertyPath)
+                        || IsPathPrefix(nested.PropertyPath, child.PropertyPath))) return false;
+            }
+            else if (other is INestedInputPort descendant && descendant.RootMember.Id == input.Id)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    internal static bool IsPathPrefix(IReadOnlyList<string> prefix, IReadOnlyList<string> path)
+        => prefix.Count <= path.Count && prefix.SequenceEqual(path.Take(prefix.Count));
 
     public bool IsExpanded
     {
@@ -95,7 +199,8 @@ public abstract partial class GraphNode : EngineObject
 
     protected void RaiseTopologyChanged()
     {
-        TopologyChanged?.Invoke(this, EventArgs.Empty);
+        _connectedInputs = null;
+        if (!_nestedPortManager.IsSynchronizing) TopologyChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // TODO: AddInput, AddOutput, AddPropertyに変更する
@@ -284,20 +389,28 @@ public abstract partial class GraphNode : EngineObject
                 }
             }
         }
+
+        if (context.GetValue<INestedInputPort[]>(nameof(NestedInputPorts)) is { } nestedPorts)
+            _nestedInputPorts.Replace(nestedPorts);
+        _nestedPortManager.Synchronize();
     }
 
     public override void Serialize(ICoreSerializationContext context)
     {
+        _nestedPortManager.EnsureSynchronized(force: true);
         base.Serialize(context);
         context.SetValue(nameof(Position), $"{Position.X},{Position.Y}");
 
         context.SetValue(nameof(Items), Items);
+        if (_nestedInputPorts.Count > 0)
+            context.SetValue(nameof(NestedInputPorts), _nestedInputPorts);
     }
 
     public partial class Resource
     {
         public int SlotIndex { get; internal set; }
         public IItemValue[] ItemValues { get; internal set; } = [];
+        public INodeMember[] Members { get; internal set; } = [];
         public IRenderer? Renderer { get; internal set; }
         public Dictionary<INodeMember, int> ItemIndexMap { get; set; } = new();
 

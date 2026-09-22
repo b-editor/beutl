@@ -82,7 +82,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     {
         foreach (GraphNodeViewModel node in Nodes.GetMarshal().Value)
         {
-            foreach (NodeMemberViewModel item in node.Items.GetMarshal().Value)
+            foreach (NodeMemberViewModel item in node.EnumerateMembers())
             {
                 if (item.Model == port)
                 {

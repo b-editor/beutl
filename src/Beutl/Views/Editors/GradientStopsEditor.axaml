@@ -13,7 +13,7 @@
              x:CompileBindings="True"
              x:DataType="vm:GradientStopsEditorViewModel"
              mc:Ignorable="d">
-    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
         <TextBlock Margin="4,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Top"
@@ -47,5 +47,10 @@
                                   UseColorPalette="True"
                                   Color="{Binding SelectedItem.Value.Color}" />
         </StackPanel>
+        <Panel Grid.Row="3"
+               Grid.ColumnSpan="2"
+               IsVisible="{Binding NodeItems.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <local:ListEditor DataContext="{Binding NodeItems.Value}" />
+        </Panel>
     </Grid>
 </UserControl>

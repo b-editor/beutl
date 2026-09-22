@@ -73,7 +73,8 @@ public sealed class NodePortPoint : Control
         else if (_canvas != null && DataContext is NodePortViewModel viewModel)
         {
             PointerPoint point = e.GetCurrentPoint(_canvas);
-            if (point.Properties.IsLeftButtonPressed)
+            if (point.Properties.IsLeftButtonPressed
+                && viewModel is not InputPortViewModel { CanConnect.Value: false })
             {
                 _line = new ConnectionLine();
                 Point? portPosition = this.TranslatePoint(new(5, 5), _canvas);

@@ -221,6 +221,7 @@ public class NodePortViewModel : NodeMemberViewModel
     protected override void OnDispose()
     {
         base.OnDispose();
+        _disposables.Dispose();
         _connectionsSubscription?.Dispose();
         Connections.Clear();
     }

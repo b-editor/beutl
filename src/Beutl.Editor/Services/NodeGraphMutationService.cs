@@ -43,7 +43,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
         // Snapshot touching connections first so disconnect calls don't
         // invalidate the iteration.
-        Connection[] touching = node.Items
+        Connection[] touching = node.EnumerateMembers()
             .SelectMany(i => i switch
             {
                 IOutputPort output => output.Connections,
@@ -161,6 +161,11 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
                 mate = port1;
             }
 
+            if (mate is IInputPort nestedInput
+                && nestedInput.FindHierarchicalParent<GraphNode>() is { } owner
+                && !owner.CanConnectInput(nestedInput))
+                return NodeConnectOutcome.None;
+
             if (dynamicNode is not null && mate is not null && dynamicNode.AddNodePort(mate, out _))
             {
                 _historyManager.Commit(CommandNames.AddPort);
@@ -174,6 +179,8 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         if (port1 is not null && port2 is not null
             && SortPortDirection(port1, port2, out IInputPort? input, out IOutputPort? output))
         {
+            if (input.FindHierarchicalParent<GraphNode>() is { } owner && !owner.CanConnectInput(input))
+                return NodeConnectOutcome.None;
             graph.Connect(input, output);
             _historyManager.Commit(CommandNames.ConnectPort);
             return NodeConnectOutcome.Connected;
