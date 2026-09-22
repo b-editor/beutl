@@ -130,21 +130,29 @@ public abstract partial class GraphNode : EngineObject
             .OfType<IInputPort>().Where(p => !p.Connection.IsNull).ToArray();
     }
 
-    /// <summary>Object inputs and their descendant inputs cannot both supply a value.</summary>
-    public bool CanConnectInput(IInputPort input)
+    // Check binding and ancestor overrides without consulting other connections. Alias indexing
+    // uses this first so an independently rejected path cannot block an otherwise usable writer.
+    internal bool IsInputTargetAvailable(IInputPort input)
     {
         _nestedPortManager.EnsureSynchronized();
         if (input is INestedInputPort nestedInput
             && (nestedInput.Property == null || _nestedPortManager.HasOverridingAncestor(nestedInput))) return false;
+        return input.Property?.GetEngineProperty()?.SupportsExpression != false;
+    }
+
+    /// <summary>Object inputs and their descendant inputs cannot both supply a value.</summary>
+    public bool CanConnectInput(IInputPort input)
+    {
+        if (!IsInputTargetAvailable(input)) return false;
         IProperty? property = input.Property?.GetEngineProperty();
-        if (property is { SupportsExpression: false }) return false;
         if (property != null && this.FindHierarchicalParent<GraphModel>() is { } graph
             && graph.HasAliasedInput(input, property)) return false;
         foreach (IInputPort other in GetConnectedInputs())
         {
             if (other == input) continue;
             // Distinct paths can still drive the same expression when objects are shared.
-            if (property != null && ReferenceEquals(other.Property?.GetEngineProperty(), property)) return false;
+            if (property != null && ReferenceEquals(other.Property?.GetEngineProperty(), property)
+                && IsInputTargetAvailable(other)) return false;
             if (input is INestedInputPort nested)
             {
                 if (other.Id == nested.RootMember.Id

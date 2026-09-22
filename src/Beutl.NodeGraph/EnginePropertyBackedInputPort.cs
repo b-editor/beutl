@@ -79,14 +79,15 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
 
     private void OnTargetEdited(object? sender, EventArgs e) => RaiseEdited();
 
-    private bool HasOtherConnectedInput()
+    private bool HasOtherConnectedInput(bool acceptedOnly = false)
     {
         GraphNode? node = this.FindHierarchicalParent<GraphNode>();
         IEnumerable<IInputPort>? inputs = node?.FindHierarchicalParent<GraphModel>() is { } graph
             ? graph.EnumerateConnectedInputs() : node?.GetConnectedInputs();
         // Rebinding can be in progress, so compare live targets rather than the topology cache.
         return inputs?.Any(input => input != this
-            && ReferenceEquals(input.Property?.GetEngineProperty(), _property)) == true;
+            && ReferenceEquals(input.Property?.GetEngineProperty(), _property)
+            && (!acceptedOnly || input.FindHierarchicalParent<GraphNode>()?.CanConnectInput(input) == true)) == true;
     }
 
     private void UpdateExpression()
@@ -107,7 +108,7 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         {
             UpdateExpression();
         }
-        else if (_property?.Expression is NodePortExpression<T>)
+        else if (_property?.Expression is NodePortExpression<T> && !HasOtherConnectedInput(acceptedOnly: true))
         {
             using var suppression = RecordingSuppression.Enter();
             _property.Expression = null;

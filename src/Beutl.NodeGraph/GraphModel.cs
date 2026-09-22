@@ -153,7 +153,9 @@ public partial class GraphModel : EngineObject
             var properties = new Dictionary<IProperty, (IInputPort Port, int Count)>(ReferenceEqualityComparer.Instance);
             foreach (IInputPort connected in EnumerateConnectedInputs())
             {
-                if (connected.Property?.GetEngineProperty() is not { } target) continue;
+                if (connected.Property?.GetEngineProperty() is not { } target
+                    || connected.FindHierarchicalParent<GraphNode>() is not { } owner
+                    || !owner.IsInputTargetAvailable(connected)) continue;
                 properties[target] = properties.TryGetValue(target, out var previous)
                     ? (previous.Port, previous.Count + 1) : (connected, 1);
             }
