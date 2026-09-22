@@ -123,6 +123,13 @@ public abstract partial class GraphNode : EngineObject
         return _items.Concat<INodeMember>(_nestedInputPorts);
     }
 
+    internal IInputPort[] GetConnectedInputs()
+    {
+        _nestedPortManager.EnsureSynchronized();
+        return _connectedInputs ??= _items.Concat<INodeMember>(_nestedInputPorts)
+            .OfType<IInputPort>().Where(p => !p.Connection.IsNull).ToArray();
+    }
+
     /// <summary>Object inputs and their descendant inputs cannot both supply a value.</summary>
     public bool CanConnectInput(IInputPort input)
     {
@@ -131,9 +138,9 @@ public abstract partial class GraphNode : EngineObject
             && (nestedInput.Property == null || _nestedPortManager.HasOverridingAncestor(nestedInput))) return false;
         IProperty? property = input.Property?.GetEngineProperty();
         if (property is { SupportsExpression: false }) return false;
-        _connectedInputs ??= _items.Concat<INodeMember>(_nestedInputPorts)
-            .OfType<IInputPort>().Where(p => !p.Connection.IsNull).ToArray();
-        foreach (IInputPort other in _connectedInputs)
+        if (property != null && this.FindHierarchicalParent<GraphModel>() is { } graph
+            && graph.HasAliasedInput(input, property)) return false;
+        foreach (IInputPort other in GetConnectedInputs())
         {
             if (other == input) continue;
             // Distinct paths can still drive the same expression when objects are shared.

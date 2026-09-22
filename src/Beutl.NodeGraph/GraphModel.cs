@@ -10,6 +10,7 @@ public partial class GraphModel : EngineObject
     public static readonly CoreProperty<HierarchicalList<Connection>> AllConnectionsProperty;
     private readonly HierarchicalList<GraphNode> _nodes;
     private readonly HierarchicalList<Connection> _allConnections;
+    private Dictionary<IProperty, (IInputPort Port, int Count)>? _connectedInputProperties;
 
     public event EventHandler? TopologyChanged;
 
@@ -60,6 +61,7 @@ public partial class GraphModel : EngineObject
     {
         obj.TopologyChanged -= OnTopologyChanged;
         obj.Edited -= OnNodeEdited;
+        RaiseTopologyChanged();
         RaiseEdited();
     }
 
@@ -67,6 +69,7 @@ public partial class GraphModel : EngineObject
     {
         obj.TopologyChanged += OnTopologyChanged;
         obj.Edited += OnNodeEdited;
+        RaiseTopologyChanged();
         RaiseEdited();
     }
 
@@ -101,7 +104,28 @@ public partial class GraphModel : EngineObject
 
     protected void RaiseTopologyChanged()
     {
+        _connectedInputProperties = null;
         TopologyChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal IEnumerable<IInputPort> EnumerateConnectedInputs()
+        => Nodes.SelectMany(node => node.GetConnectedInputs());
+
+    internal bool HasAliasedInput(IInputPort input, IProperty property)
+    {
+        if (_connectedInputProperties == null)
+        {
+            var properties = new Dictionary<IProperty, (IInputPort Port, int Count)>(ReferenceEqualityComparer.Instance);
+            foreach (IInputPort connected in EnumerateConnectedInputs())
+            {
+                if (connected.Property?.GetEngineProperty() is not { } target) continue;
+                properties[target] = properties.TryGetValue(target, out var previous)
+                    ? (previous.Port, previous.Count + 1) : (connected, 1);
+            }
+            _connectedInputProperties = properties;
+        }
+        return _connectedInputProperties.TryGetValue(property, out var entry)
+            && (entry.Count > 1 || entry.Port != input);
     }
 
     public INodePort? FindNodePort(Guid id)

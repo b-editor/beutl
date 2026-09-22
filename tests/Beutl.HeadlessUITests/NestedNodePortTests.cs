@@ -38,6 +38,78 @@ namespace Beutl.HeadlessUITests;
 public class NestedNodePortTests
 {
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task SharedPropertiesRefreshPortAvailabilityAcrossNodes(bool light)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await CreateEditor();
+        var graph = new GraphModel();
+        var first = new GeometryShapeNode { Position = (30, 140) };
+        var second = new GeometryShapeNode { Position = (340, 140) };
+        var brush = new SolidColorBrush();
+        first.Fill.Property!.SetValue(brush);
+        second.Fill.Property!.SetValue(brush);
+        graph.Nodes.AddRange([first, second]);
+        var source = new LayerInputNode { Position = (30, 0) };
+        var output = new LayerInputNode.LayerInputPort<Color>();
+        output.SetupProperty("Color");
+        output.Property!.SetValue(Colors.Red);
+        source.Items.Add(output);
+        graph.Nodes.Add(source);
+        using var vm = new NodeGraphViewModel(graph, editor);
+        var firstVm = vm.Nodes.Single(n => n.GraphNode == first);
+        var secondVm = vm.Nodes.Single(n => n.GraphNode == second);
+        var firstMember = firstVm.NestedItems.Single(p => ReferenceEquals(p.Model!.Property!.GetEngineProperty(), brush.Color));
+        var secondMember = secondVm.NestedItems.Single(p => ReferenceEquals(p.Model!.Property!.GetEngineProperty(), brush.Color));
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window
+        {
+            Content = view,
+            Width = 640,
+            Height = 650,
+            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+        };
+        try
+        {
+            window.Show();
+            ((BrushEditorViewModel)firstVm.Items.Single(p => p.Model == first.Fill).PropertyEditorContext!).IsExpanded.Value = true;
+            ((BrushEditorViewModel)secondVm.Items.Single(p => p.Model == second.Fill).PropertyEditorContext!).IsExpanded.Value = true;
+            await FinishTransition();
+            var secondPoint = view.GetVisualDescendants().OfType<NodePortPoint>()
+                .Single(p => ReferenceEquals(p.DataContext, secondMember));
+            Assert.That(secondPoint.IsEnabled, Is.True);
+
+            var connection = graph.Connect(firstMember.Model!, output);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(secondMember.CanConnect.Value, Is.False);
+            Assert.That(secondPoint.IsEnabled, Is.False);
+            Assert.That(firstMember.CanConnect.Value, Is.True);
+            Capture(window, $"shared-property-nodes-{light}");
+
+            first.Fill.Property!.SetValue(new SolidColorBrush());
+            HeadlessTestHelpers.Render(3);
+            Assert.That(secondPoint.IsEnabled, Is.True);
+            first.Fill.Property.SetValue(brush);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(secondPoint.IsEnabled, Is.False);
+            graph.Disconnect(connection);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(secondPoint.IsEnabled, Is.True);
+
+            graph.Connect(secondMember.Model!, output);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(firstMember.CanConnect.Value, Is.False);
+            Assert.That(secondMember.CanConnect.Value, Is.True);
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(false, true)]
     [TestCase(true, false)]

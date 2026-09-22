@@ -323,8 +323,44 @@ public class NestedInputPortTests
         Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Blue));
     }
 
-    [Test]
-    public void RebindingConnectedPathsToTheSamePropertyCanRecoverWithoutLosingConnections()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AliasedPropertiesOnDifferentNodesRejectASecondConnection(bool reverse)
+    {
+        var graph = new GraphModel();
+        var first = new GeometryShapeNode();
+        var second = new GeometryShapeNode();
+        var brush = new SolidColorBrush();
+        first.Fill.Property!.SetValue(brush);
+        second.Fill.Property!.SetValue(brush);
+        graph.Nodes.AddRange([first, second]);
+        if (reverse) (first, second) = (second, first);
+        var firstPort = Find(first, brush.Color);
+        var secondPort = Find(second, brush.Color);
+        var red = Source(graph, Colors.Red);
+        var blue = Source(graph, Colors.Blue);
+        Assert.That(second.CanConnectInput(secondPort), Is.True);
+        var connection = graph.Connect(firstPort, red);
+
+        Assert.That(second.CanConnectInput(secondPort), Is.False);
+        Assert.Throws<InvalidOperationException>(() => graph.Connect(secondPort, blue));
+        Assert.That(second.CanConnectInput(Find(second, brush.Opacity)), Is.True);
+        Evaluate(graph);
+        Assert.That(graph.AllConnections.Single(), Is.SameAs(connection));
+        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
+        Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+
+        graph.Disconnect(connection);
+        Assert.That(second.CanConnectInput(secondPort), Is.True);
+        graph.Connect(secondPort, blue);
+        Evaluate(graph);
+        Assert.That(first.CanConnectInput(firstPort), Is.False);
+        Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Blue));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RebindingConnectedPathsToTheSamePropertyCanRecoverWithoutLosingConnections(bool differentNodes)
     {
         var graph = new GraphModel();
         var node = new GeometryShapeNode();
@@ -335,12 +371,19 @@ public class NestedInputPortTests
         node.Fill.Property!.SetValue(fillBrush);
         node.Pen.Property!.SetValue(pen);
         graph.Nodes.Add(node);
+        var otherNode = new GeometryShapeNode();
+        if (differentNodes)
+        {
+            otherNode.Fill.Property!.SetValue(penBrush);
+            graph.Nodes.Add(otherNode);
+        }
         graph.Connect(Find(node, fillBrush.Color), Source(graph, Colors.Red));
-        var penConnection = graph.Connect(Find(node, penBrush.Color), Source(graph, Colors.Blue));
+        var penConnection = graph.Connect(Find(differentNodes ? otherNode : node, penBrush.Color), Source(graph, Colors.Blue));
         Evaluate(graph);
         using var history = new HistoryHarness(graph);
 
-        pen.Brush.CurrentValue = fillBrush;
+        if (differentNodes) otherNode.Fill.Property!.SetValue(fillBrush);
+        else pen.Brush.CurrentValue = fillBrush;
         history.History.Commit("Share brush");
         Evaluate(graph);
 

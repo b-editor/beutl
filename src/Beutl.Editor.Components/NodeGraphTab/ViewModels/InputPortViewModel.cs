@@ -9,7 +9,7 @@ public class InputPortViewModel : NodePortViewModel
     public InputPortViewModel(IInputPort? port, IPropertyEditorContext? propertyEditorContext, GraphNodeViewModel nodeViewModel)
         : base(port, propertyEditorContext, nodeViewModel)
     {
-        GraphNode.TopologyChanged += OnTopologyChanged;
+        GraphNodeViewModel.NodeGraphViewModel.NodeGraph.TopologyChanged += OnTopologyChanged;
         OnTopologyChanged(null, EventArgs.Empty);
     }
 
@@ -22,7 +22,7 @@ public class InputPortViewModel : NodePortViewModel
 
     protected override void OnDispose()
     {
-        GraphNode.TopologyChanged -= OnTopologyChanged;
+        GraphNodeViewModel.NodeGraphViewModel.NodeGraph.TopologyChanged -= OnTopologyChanged;
         CanConnect.Dispose();
         base.OnDispose();
     }

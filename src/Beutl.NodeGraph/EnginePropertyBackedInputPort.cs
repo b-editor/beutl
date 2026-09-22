@@ -75,9 +75,14 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
     private void OnTargetEdited(object? sender, EventArgs e) => RaiseEdited();
 
     private bool HasOtherConnectedInput()
-        => this.FindHierarchicalParent<GraphNode>()?.EnumerateMembers().OfType<IInputPort>()
-            .Any(input => input != this && !input.Connection.IsNull
-                && ReferenceEquals(input.Property?.GetEngineProperty(), _property)) == true;
+    {
+        GraphNode? node = this.FindHierarchicalParent<GraphNode>();
+        IEnumerable<IInputPort>? inputs = node?.FindHierarchicalParent<GraphModel>() is { } graph
+            ? graph.EnumerateConnectedInputs() : node?.GetConnectedInputs();
+        // Rebinding can be in progress, so compare live targets rather than the topology cache.
+        return inputs?.Any(input => input != this
+            && ReferenceEquals(input.Property?.GetEngineProperty(), _property)) == true;
+    }
 
     private void UpdateExpression()
     {
