@@ -210,6 +210,19 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         }
     }
 
+    internal static string? GetResponseFileName(Uri uri, string? suggestedName, string? mediaType)
+    {
+        if (!IsHttpUri(uri)) return null;
+        try
+        {
+            return CreateFileName(suggestedName, uri, mediaType);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
     internal static string CreateFileName(string? suggestedName, Uri uri, string? mediaType)
     {
         string name = NormalizeFileName(suggestedName)

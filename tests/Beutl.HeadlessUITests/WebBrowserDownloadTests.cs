@@ -4,7 +4,9 @@ using System.Net.Http.Headers;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.WebBrowserTab;
@@ -32,16 +34,98 @@ public class WebBrowserDownloadTests
     public void UnregisterDownloadTestDecoder() => DecoderRegistry.Unregister(_decoder);
 
     [AvaloniaTest]
-    [TestCase("image.svg", false)]
-    [TestCase("image.png", true)]
-    [TestCase("video.mp4", true)]
-    [TestCase("download", false)]
-    public async Task DownloadOptionsOnlyEnableImportForSupportedFileTypes(string fileName, bool canImport)
+    [TestCase(320)]
+    [TestCase(640)]
+    public async Task NativeDownloadResponseUsesItsFileNameAndKeepsTheFormPage(int width)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var page = new Uri("https://page.example/bgm/detail/2445/download");
+        var media = new Uri("https://files.example/download?filepath=bgm%2Faudio%2Ftrack.mp3&filename=Morning.mp3");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
+        project.Items.Add(scene);
+        var context = new DownloadContext(scene);
+        using var vm = new WebBrowserTabViewModel(context, page, profile);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true) { DataContext = vm };
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        var window = new Window { Width = width, Height = 600, Content = view };
+        try
+        {
+            window.Show();
+            // Form POST followed by a redirect whose path has no media extension.
+            view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = page });
+            view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = media });
+            view.OnNativeDownloadRequested(media, "Morning.mp3");
+            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
+            Dispatcher.UIThread.RunJobs();
+            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+            Assert.That(confirm.IsVisible, Is.True);
+            Assert.That(view.FindControl<Grid>("ToolPanel")!.IsVisible, Is.False);
+            Assert.That(vm.CurrentUri, Is.EqualTo(page));
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(vm.ErrorMessage.Value, Is.Null);
+            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            var options = (BrowserDownloadOptionsView)view.FindControl<ContentControl>("ToolPanelContent")!.Content!;
+            Assert.That(options.FileName, Is.EqualTo("Morning.mp3"));
+            Assert.That(options.CanImport, Is.True);
+            if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is { Length: > 0 } directory)
+            {
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                Directory.CreateDirectory(directory);
+                using var image = window.CaptureRenderedFrame();
+                image?.Save(Path.Combine(directory, $"native-download-{width}.png"), PngBitmapEncoderOptions.Default);
+            }
+            options.FindControl<CheckBox>("AddToTimelineCheckBox")!.IsChecked = false;
+            options.FindControl<Button>("ConfirmDownloadButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var download = profile.Downloads.Single();
+            Assert.That(Path.GetFileName(download.FilePath), Is.EqualTo("Morning.mp3"));
+            Assert.That(File.Exists(download.FilePath), Is.True);
+            Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://page.example/")));
+            Assert.That(vm.CurrentUri, Is.EqualTo(page));
+        }
+        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    public void DismissedAndDisposedViewsIgnoreNativeDownloadRequests()
+    {
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+        var media = new Uri("https://files.example/download");
+        view.OnNativeDownloadRequested(media, "Morning.mp3");
+        Dispatcher.UIThread.RunJobs();
+        view.FindControl<Button>("DismissDownloadStatusButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        view.OnNativeDownloadRequested(media, "Morning.mp3");
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+        view.Dispose();
+        view.OnNativeDownloadRequested(media, "Morning.mp3");
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+    }
+
+    [AvaloniaTest]
+    [TestCase("image.svg", false, null)]
+    [TestCase("image.png", true, null)]
+    [TestCase("video.mp4", true, null)]
+    [TestCase("download", false, null)]
+    [TestCase("download", true, "Morning.mp3")]
+    [TestCase("audio.mp3", true, "")]
+    [TestCase("audio.mp3", true, " ")]
+    public async Task DownloadOptionsOnlyEnableImportForSupportedFileTypes(string fileName, bool canImport, string? suggestedName)
     {
         using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene
         { Uri = new Uri(Path.Combine(Path.GetTempPath(), "download-options.scene")) }));
         using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
-        Task<WebBrowserTabView.BrowserDownloadOptions?> pending = view.ChooseDownloadOptionsAsync(new Uri("https://files.example/" + fileName), default);
+        Task<WebBrowserTabView.BrowserDownloadOptions?> pending = view.ChooseDownloadOptionsAsync(new Uri("https://files.example/" + fileName), default, suggestedName);
         var options = (BrowserDownloadOptionsView)view.FindControl<ContentControl>("ToolPanelContent")!.Content!;
         Assert.That(options.CanImport, Is.EqualTo(canImport));
         Assert.That(options.FindControl<CheckBox>("AddToTimelineCheckBox")!.IsChecked, Is.EqualTo(canImport));

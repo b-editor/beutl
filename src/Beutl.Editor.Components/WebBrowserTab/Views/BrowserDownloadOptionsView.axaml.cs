@@ -10,12 +10,13 @@ internal partial class BrowserDownloadOptionsView : UserControl
         InitializeComponent();
     }
 
-    public BrowserDownloadOptionsView(Uri uri, string? projectDirectory, string materialsDirectory, bool canImport)
+    public BrowserDownloadOptionsView(Uri uri, string? projectDirectory, string materialsDirectory, bool canImport, string? suggestedName = null)
         : this()
     {
         SourceUrl = uri.AbsoluteUri;
         SourceHost = uri.Host;
-        FileName = Uri.UnescapeDataString(Path.GetFileName(uri.AbsolutePath));
+        FileName = string.IsNullOrWhiteSpace(suggestedName)
+            ? Uri.UnescapeDataString(Path.GetFileName(uri.AbsolutePath)) : suggestedName;
         if (string.IsNullOrWhiteSpace(FileName)) FileName = uri.Host;
         ProjectDirectory = projectDirectory;
         MaterialsDirectory = materialsDirectory;

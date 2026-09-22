@@ -28,6 +28,17 @@ internal partial class WebBrowserTabView
             ? await manager.GetCookiesAsync().WaitAsync(cancellation) : [];
     internal sealed record BrowserDownloadOptions(string Directory, bool AddToTimeline);
 
+    internal void OnNativeDownloadRequested(Uri uri, string suggestedName)
+    {
+        if (_disposed || _viewModel == null) return;
+        // A response belongs to the main frame, but the download has not replaced its document.
+        if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
+        else InvalidatePageDownloadRequests();
+        _mediaNavigationIntercepted = true;
+        _viewModel.StopNavigation();
+        QueuePageDownloadRequest(uri, suggestedName);
+    }
+
     // Capture explicit download links as well as media links added dynamically by the page.
     internal const string DownloadLinkScript = """
         (() => {
@@ -222,11 +233,12 @@ internal partial class WebBrowserTabView
 
     private void OnCancelDownloadClick(object? sender, RoutedEventArgs e) => _downloadCancellation?.Cancel();
 
-    internal async Task<BrowserDownloadOptions?> ChooseDownloadOptionsAsync(Uri uri, CancellationToken cancellation)
+    internal async Task<BrowserDownloadOptions?> ChooseDownloadOptionsAsync(Uri uri, CancellationToken cancellation, string? suggestedName = null)
     {
         if (_disposed || _viewModel is not { } vm || cancellation.IsCancellationRequested) return null;
+        string fileName = string.IsNullOrWhiteSpace(suggestedName) ? Uri.UnescapeDataString(uri.AbsolutePath) : suggestedName;
         var content = new BrowserDownloadOptionsView(uri, vm.ProjectDownloadDirectory,
-            BeutlEnvironment.GetMaterialsDirectoryPath(), vm.CanAddDownloadedFile(Uri.UnescapeDataString(uri.AbsolutePath)));
+            BeutlEnvironment.GetMaterialsDirectoryPath(), vm.CanAddDownloadedFile(fileName), suggestedName);
         var completion = new TaskCompletionSource<BrowserDownloadOptions?>(TaskCreationOptions.RunContinuationsAsynchronously);
         content.Confirmed += () => completion.TrySetResult(new BrowserDownloadOptions(content.SelectedDirectory, content.AddToTimeline));
         content.Canceled += () => completion.TrySetResult(null);
@@ -252,7 +264,9 @@ internal partial class WebBrowserTabView
         _downloadCancellation = cancellation;
         try
         {
-            BrowserDownloadOptions? options = await (DownloadOptionsSelector ?? ChooseDownloadOptionsAsync)(uri, cancellation.Token);
+            BrowserDownloadOptions? options = DownloadOptionsSelector is { } selector
+                ? await selector(uri, cancellation.Token)
+                : await ChooseDownloadOptionsAsync(uri, cancellation.Token, suggestedName);
             if (options == null || cancellation.IsCancellationRequested) return;
             DownloadStatusPanel.IsVisible = true;
             SetDownloadRunning(true);

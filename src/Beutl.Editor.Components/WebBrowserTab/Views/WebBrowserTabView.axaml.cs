@@ -25,6 +25,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private readonly bool _navigationStartedIncludesSubframes;
     private NativeWebView? _webView;
     private BrowserAdBlockSession? _adBlockSession;
+    private IDisposable? _nativeDownloadHandler;
     private WebBrowserTabViewModel? _viewModel;
     private bool _disposed;
 
@@ -147,6 +148,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             webView.EnvironmentRequested += ConfigureMacOSWebViewEnvironment;
         }
         webView.AdapterCreated += OnAdapterCreated;
+        webView.AdapterDestroyed += OnAdapterDestroyed;
         webView.NavigationStarted += OnNavigationStarted;
         webView.NavigationCompleted += OnNavigationCompleted;
         webView.NewWindowRequested += OnNewWindowRequested;
@@ -183,7 +185,18 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         UpdateHistoryState();
+        if (OperatingSystem.IsMacOS())
+        {
+            _nativeDownloadHandler?.Dispose();
+            _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnNativeDownloadRequested);
+        }
         ScheduleLinuxSizeRefresh(_webView);
+    }
+
+    private void OnAdapterDestroyed(object? sender, WebViewAdapterEventArgs e)
+    {
+        _nativeDownloadHandler?.Dispose();
+        _nativeDownloadHandler = null;
     }
 
     private void ScheduleLinuxSizeRefresh(NativeWebView webView)
@@ -653,6 +666,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         _webView.EnvironmentRequested -= ConfigureMacOSWebViewEnvironment;
         _webView.AdapterCreated -= OnAdapterCreated;
+        _webView.AdapterDestroyed -= OnAdapterDestroyed;
+        _nativeDownloadHandler?.Dispose();
+        _nativeDownloadHandler = null;
         _webView.NavigationStarted -= OnNavigationStarted;
         _webView.NavigationCompleted -= OnNavigationCompleted;
         _webView.NewWindowRequested -= OnNewWindowRequested;

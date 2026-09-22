@@ -18,6 +18,18 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class BrowserMediaDownloadTests
 {
+    [TestCase("https://files.example/download?filepath=bgm%2Ftrack.mp3&filename=Morning.mp3", "Morning.mp3", "audio/mpeg", "Morning.mp3")]
+    [TestCase("https://files.example/download", "Morning.mp3", "application/octet-stream", "Morning.mp3")]
+    [TestCase("https://files.example/download", "Morning.mp3", "text/html", null)]
+    [TestCase("https://files.example/download", "installer.exe", "application/octet-stream", null)]
+    [TestCase("https://files.example/download", "page.html", "text/html", null)]
+    [TestCase("https://user:password@files.example/download", "Morning.mp3", "audio/mpeg", null)]
+    [TestCase("file:///tmp/Morning.mp3", "Morning.mp3", "audio/mpeg", null)]
+    public void NativeResponseFileNamesRequireSupportedHttpMedia(string address, string name, string mediaType, string? expected)
+    {
+        Assert.That(BrowserMediaDownload.GetResponseFileName(new Uri(address), name, mediaType), Is.EqualTo(expected));
+    }
+
     [Test]
     public async Task Downloads_PreserveExistingFilesAndPublishOnlyCompletedMedia()
     {
