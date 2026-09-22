@@ -12,6 +12,6 @@ internal sealed class BrowserDownloadNavigation
         _requestMethod = method;
     }
 
-    internal bool CanReplayResponse(Uri uri) => _requestMethod == "GET" && _requestUri == uri
+    internal bool IsGetResponse(Uri uri) => _requestMethod == "GET" && _requestUri == uri
         && BrowserMediaDownload.IsHttpUri(uri);
 }

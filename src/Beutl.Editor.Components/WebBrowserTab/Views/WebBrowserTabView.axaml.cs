@@ -188,7 +188,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (OperatingSystem.IsMacOS())
         {
             _nativeDownloadHandler?.Dispose();
-            _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnNativeDownloadRequested, OnNativeNavigationCommitted);
+            _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnNativeDownloadRequested,
+                OnNativeNavigationCommitted, OnNativeNavigationStarted);
         }
         ScheduleLinuxSizeRefresh(_webView);
     }
@@ -202,6 +203,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     internal void OnNativeNavigationCommitted(Uri uri)
     {
         if (!_disposed) _viewModel?.CommitNavigation(uri);
+    }
+
+    internal void OnNativeNavigationStarted()
+    {
+        if (!_disposed) InvalidatePageDownloadRequests();
     }
 
     private void ScheduleLinuxSizeRefresh(NativeWebView webView)
@@ -246,9 +252,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         // App-initiated navigation and explicit download links are handled separately.
         if (_navigationStartedIncludesSubframes)
         {
-            // Any start may replace the document. Expire the offer without treating a frame
-            // navigation as a new page or re-enabling requests dismissed by the user.
-            InvalidatePageDownloadRequests();
+            // Script offers expire without treating a frame as a new page. Captured native
+            // responses survive iframe activity; the WK delegate reports their main-frame starts.
+            if (_pendingPageDownloadRequest?.Source == null) InvalidatePageDownloadRequests();
             return;
         }
 

@@ -19,7 +19,8 @@ internal partial class WebBrowserTabView
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
 
-    private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId, BrowserReferrerPolicy ReferrerPolicy);
+    private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
+        BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source);
 
     internal BrowserMediaDownload MediaDownloader { get; set; } = BrowserMediaDownload.Default;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
@@ -28,16 +29,20 @@ internal partial class WebBrowserTabView
             ? await manager.GetCookiesAsync().WaitAsync(cancellation) : [];
     internal sealed record BrowserDownloadOptions(string Directory, bool AddToTimeline);
 
-    internal void OnNativeDownloadRequested(Uri uri, string suggestedName)
+    internal void OnNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source)
     {
-        if (_disposed || _viewModel == null) return;
+        if (_disposed || _viewModel == null)
+        {
+            source.Dispose();
+            return;
+        }
         // A response belongs to the main frame, but the download has not replaced its document.
         if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
         else InvalidatePageDownloadRequests();
         _viewModel.RestoreCommittedPage();
         UpdateBlankPageState();
-        // The response does not expose WebKit's effective referrer policy. Never broaden it when replaying the request.
-        QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer);
+        // Keep history retries conservative; the current transfer retains WebKit's original response.
+        QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
         // The queued request keeps its conservative metadata; later links belong to the restored document.
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
     }
@@ -122,17 +127,22 @@ internal partial class WebBrowserTabView
         }
     }
 
-    private void QueuePageDownloadRequest(Uri uri, string? suggestedName, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin)
+    private void QueuePageDownloadRequest(Uri uri, string? suggestedName, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin,
+        IBrowserDownloadSource? downloadSource = null)
     {
         if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
-            || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
+            || _pendingPageDownloadRequest != null || _downloadCancellation != null)
+        {
+            downloadSource?.Dispose();
+            return;
+        }
         var owner = _viewModel;
         var source = _webView;
         int documentId = _pageDownloadDocumentId;
         // BlankPage deliberately prevents the downloader's direct-navigation fallback from
         // using destination cookies when the surviving document's origin is unknown.
         Uri? referrer = _pageDownloadReferrerUncertain ? ViewModels.WebBrowserTabViewModel.BlankPage : owner?.CurrentUri;
-        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, referrerPolicy);
+        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, referrerPolicy, downloadSource);
         _pendingPageDownloadRequest = request;
         Dispatcher.UIThread.Post(() =>
         {
@@ -156,21 +166,23 @@ internal partial class WebBrowserTabView
         });
     }
 
-    private void ClearPageDownloadRequest()
+    private void ClearPageDownloadRequest(bool disposeSource = true)
     {
-        if (_pendingPageDownloadRequest != null && ConfirmPageDownloadButton.IsVisible)
+        PageDownloadRequest? request = _pendingPageDownloadRequest;
+        _pendingPageDownloadRequest = null;
+        if (request != null && ConfirmPageDownloadButton.IsVisible)
         {
             DownloadStatusPanel.IsVisible = false;
             DownloadProgressText.IsVisible = false;
             DownloadProgressText.Text = string.Empty;
             ToolTip.SetTip(DownloadProgressText, null);
         }
-        _pendingPageDownloadRequest = null;
         ConfirmPageDownloadButton.IsVisible = false;
         DownloadStatusText.MaxLines = 0;
         DownloadStatusText.TextTrimming = Avalonia.Media.TextTrimming.None;
         ToolTip.SetTip(DismissDownloadStatusButton, Strings.Close);
         Avalonia.Automation.AutomationProperties.SetName(DismissDownloadStatusButton, Strings.Close);
+        if (disposeSource) request?.Source?.Dispose();
     }
 
     private void ResetPageDownloadRequests()
@@ -203,9 +215,13 @@ internal partial class WebBrowserTabView
     private async void OnConfirmPageDownloadClick(object? sender, RoutedEventArgs e)
     {
         if (_pageDownloadNavigationPending || !ConfirmPageDownloadButton.IsVisible || _pendingPageDownloadRequest is not { } request) return;
-        ClearPageDownloadRequest();
-        if (_disposed || request.DocumentId != _pageDownloadDocumentId) return;
-        await DownloadMediaAsync(request.Uri, request.SuggestedName, request.Referrer, request.ReferrerPolicy);
+        ClearPageDownloadRequest(disposeSource: false);
+        if (_disposed || request.DocumentId != _pageDownloadDocumentId)
+        {
+            request.Source?.Dispose();
+            return;
+        }
+        await DownloadMediaAsync(request.Uri, request.SuggestedName, request.Referrer, request.ReferrerPolicy, request.Source);
     }
 
     private void OnDownloadMediaClick(object? sender, RoutedEventArgs e)
@@ -258,9 +274,13 @@ internal partial class WebBrowserTabView
     }
 
     internal async Task DownloadMediaAsync(Uri uri, string? suggestedName, Uri? referrer = null,
-        BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin)
+        BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin, IBrowserDownloadSource? source = null)
     {
-        if (_disposed || _downloadCancellation != null || _viewModel is not { } vm) return;
+        if (_disposed || _downloadCancellation != null || _viewModel is not { } vm)
+        {
+            source?.Dispose();
+            return;
+        }
         ClearPageDownloadRequest();
         NativeWebView? initiatingWebView = _webView;
         using var cancellation = new CancellationTokenSource();
@@ -286,10 +306,18 @@ internal partial class WebBrowserTabView
                         : $"{value.Received / 1024:N0} KB";
                 }
             });
-            IReadOnlyList<Cookie> cookies = referrer != null && !BrowserMediaDownload.IsHttpUri(referrer)
-                ? [] : await DownloadCookiesProvider(initiatingWebView, cancellation.Token);
-            cancellation.Token.ThrowIfCancellationRequested();
-            string file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies, referrerPolicy);
+            string file;
+            if (source != null)
+            {
+                file = await source.SaveAsync(options.Directory, progress, cancellation.Token);
+            }
+            else
+            {
+                IReadOnlyList<Cookie> cookies = referrer != null && !BrowserMediaDownload.IsHttpUri(referrer)
+                    ? [] : await DownloadCookiesProvider(initiatingWebView, cancellation.Token);
+                cancellation.Token.ThrowIfCancellationRequested();
+                file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies, referrerPolicy);
+            }
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));
             ToolTip.SetTip(DownloadStatusText, file);
@@ -318,6 +346,7 @@ internal partial class WebBrowserTabView
         }
         finally
         {
+            source?.Dispose();
             _downloadCancellation = null;
             if (!_disposed) SetDownloadRunning(false);
         }

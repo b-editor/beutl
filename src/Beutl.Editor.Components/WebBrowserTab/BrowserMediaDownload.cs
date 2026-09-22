@@ -88,6 +88,14 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             ?? NormalizeFileName(suggestedName);
         string name = CreateFileName(nameHint, finalUri, mediaType);
         await using Stream input = await response.Content.ReadAsStreamAsync(cancellationToken);
+        return await SaveAsync(input, directory, name, progress, cancellationToken,
+            response.Content.Headers.ContentLength, response.Content.Headers.ContentType?.CharSet);
+    }
+
+    internal static async Task<string> SaveAsync(Stream input, string directory, string name,
+        IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken,
+        long? total = null, string? charset = null)
+    {
         byte[] prefix = new byte[4096];
         int length = 0;
         while (length < prefix.Length)
@@ -98,7 +106,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         }
         Array.Resize(ref prefix, length);
         var inspector = new BrowserMediaContentInspector(prefix, isFinal: length < 4096,
-            charset: response.Content.Headers.ContentType?.CharSet);
+            charset: charset);
         if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
         Directory.CreateDirectory(directory);
         string temporaryPath = Path.Combine(directory, $".{Guid.NewGuid():N}.part");
@@ -106,7 +114,6 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         {
             long received = 0;
             var progressTimer = Stopwatch.StartNew();
-            long? total = response.Content.Headers.ContentLength;
             await using (var output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
                              81920, FileOptions.Asynchronous))
             {
