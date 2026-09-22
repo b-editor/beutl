@@ -78,12 +78,12 @@ public sealed class HistoryViewModel : IToolContext
 
     public async Task Undo()
     {
-        await _editViewModel.UndoHistoryAsync();
+        await _editViewModel.UndoAsync();
     }
 
     public async Task Redo()
     {
-        await _editViewModel.RedoHistoryAsync();
+        await _editViewModel.RedoAsync();
     }
 
     public void Dispose()

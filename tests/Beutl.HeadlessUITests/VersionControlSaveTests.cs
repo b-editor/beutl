@@ -99,13 +99,13 @@ public class VersionControlSaveTests
 
             string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
             int commitsBeforeSave = await CountCommitsAsync(gitPath, projectRoot);
-            var failedCommands = new FailedSaveCommands();
+            var failedCommands = new FailedSaveOperation();
             var failedItem = new Scene
             {
                 Uri = new Uri(Path.Combine(projectRoot, "failed.scene")),
             };
             TestShell.Editor.TabItems.Add(new EditorTabItem(
-                new FailedSaveEditorContext(failedItem, failedCommands)));
+                new FailedSaveEditorContext(failedItem, failedCommands.SaveAsync)));
             project.Variables["partially-saved"] = "true";
 
             await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
@@ -726,7 +726,7 @@ public class VersionControlSaveTests
         await TestReset.ResetShellAsync();
         try
         {
-            (Project project, BlockingSaveCommands blocking) =
+            (Project project, BlockingSaveOperation blocking) =
                 await CreateProjectWithBlockingEditorAsync("save-all-workspace-lease");
 
             Task saveAll = TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
@@ -768,7 +768,7 @@ public class VersionControlSaveTests
         await TestReset.ResetShellAsync();
         try
         {
-            (_, BlockingSaveCommands blocking) =
+            (_, BlockingSaveOperation blocking) =
                 await CreateProjectWithBlockingEditorAsync("save-workspace-lease");
 
             Task save = TestShell.MainViewModel.MenuBar.Save.ExecuteAsync();
@@ -798,7 +798,7 @@ public class VersionControlSaveTests
         }
     }
 
-    private static async Task<(Project Project, BlockingSaveCommands Commands)>
+    private static async Task<(Project Project, BlockingSaveOperation Commands)>
         CreateProjectWithBlockingEditorAsync(string directoryName)
     {
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, directoryName);
@@ -813,19 +813,19 @@ public class VersionControlSaveTests
         HeadlessTestHelpers.Settle();
 
         string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-        var blocking = new BlockingSaveCommands();
+        var blocking = new BlockingSaveOperation();
         var blockingItem = new Scene
         {
             Uri = new Uri(Path.Combine(projectRoot, "blocking.scene")),
         };
-        var tabItem = new EditorTabItem(new FailedSaveEditorContext(blockingItem, blocking));
+        var tabItem = new EditorTabItem(new FailedSaveEditorContext(blockingItem, blocking.SaveAsync));
         TestShell.Editor.TabItems.Add(tabItem);
         TestShell.Editor.SelectedTabItem.Value = tabItem;
         HeadlessTestHelpers.Settle();
         return (project, blocking);
     }
 
-    private static async Task WaitUntilSaveEnteredAsync(BlockingSaveCommands blocking)
+    private static async Task WaitUntilSaveEnteredAsync(BlockingSaveOperation blocking)
     {
         for (int attempt = 0; attempt < 200 && !blocking.SaveEntered; attempt++)
         {
@@ -1137,7 +1137,7 @@ public class VersionControlSaveTests
             Scene openedScene = opened.Items.OfType<Scene>().Single();
             TestShell.Editor.ActivateTabItem(openedScene);
             HeadlessTestHelpers.Settle();
-            Assert.That(await TestShell.Editor.SelectedTabItem.Value!.Commands.Value!.OnSave(), Is.True);
+            Assert.That(await ((ISavableEditorContext)TestShell.Editor.SelectedTabItem.Value!.Context.Value).SaveAsync(), Is.True);
 
             Assert.Multiple(() =>
             {
@@ -1511,12 +1511,12 @@ public class VersionControlSaveTests
 
             string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
             int commitsBeforeClose = await CountCommitsAsync(gitPath, projectRoot);
-            var failedCommands = new FailedSaveCommands();
+            var failedCommands = new FailedSaveOperation();
             var failedItem = new Scene
             {
                 Uri = new Uri(Path.Combine(projectRoot, "refuses-to-save.scene")),
             };
-            var failedContext = new FailedSaveEditorContext(failedItem, failedCommands);
+            var failedContext = new FailedSaveEditorContext(failedItem, failedCommands.SaveAsync);
             var failedTab = new EditorTabItem(failedContext);
             TestShell.Editor.TabItems.Add(failedTab);
 
@@ -1689,7 +1689,7 @@ public class VersionControlSaveTests
 
     private sealed class FailedSaveEditorContext(
         CoreObject obj,
-        IKnownEditorCommands commands) : IEditorContext
+        Func<ValueTask<bool>> saveAsync) : ISavableEditorContext
     {
         public CoreObject Object { get; } = obj;
 
@@ -1697,7 +1697,7 @@ public class VersionControlSaveTests
 
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
 
-        public IKnownEditorCommands? Commands { get; } = commands;
+        public ValueTask<bool> SaveAsync() => saveAsync();
 
         public object? GetService(Type serviceType) => null;
 
@@ -1720,18 +1720,18 @@ public class VersionControlSaveTests
         }
     }
 
-    private sealed class FailedSaveCommands : IKnownEditorCommands
+    private sealed class FailedSaveOperation
     {
         public int SaveCalls { get; private set; }
 
-        public ValueTask<bool> OnSave()
+        public ValueTask<bool> SaveAsync()
         {
             SaveCalls++;
             return ValueTask.FromResult(false);
         }
     }
 
-    private sealed class BlockingSaveCommands : IKnownEditorCommands
+    private sealed class BlockingSaveOperation
     {
         private readonly TaskCompletionSource<bool> _release = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1740,7 +1740,7 @@ public class VersionControlSaveTests
 
         public bool SaveOnUiThread { get; private set; }
 
-        public async ValueTask<bool> OnSave()
+        public async ValueTask<bool> SaveAsync()
         {
             SaveEntered = true;
             SaveOnUiThread = Avalonia.Threading.Dispatcher.UIThread.CheckAccess();

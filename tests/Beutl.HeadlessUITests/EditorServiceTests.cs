@@ -16,6 +16,39 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class EditorServiceTests
 {
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task Project_save_uses_current_contexts_with_save_support(bool saveSucceeds)
+    {
+        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
+        var project = new Project { Uri = new Uri("file:///project.bep") };
+        var original = new SavableEditorContext(true);
+        var replacement = new SavableEditorContext(saveSucceeds);
+        var following = new SavableEditorContext(true);
+        await using var readOnlyTab = new EditorTabItem(new StubEditorContext());
+        await using var replacedTab = new EditorTabItem(original);
+        await using var followingTab = new EditorTabItem(following);
+        editorService.TabItems.Add(readOnlyTab);
+        editorService.TabItems.Add(replacedTab);
+        editorService.TabItems.Add(followingTab);
+        await original.DisposeAsync();
+        replacedTab.Context.Value = replacement;
+
+        bool saved = await editorService.SaveProjectFilesAsync(project, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(saved, Is.EqualTo(saveSucceeds));
+            Assert.That(original.SaveCalls, Is.Zero, "The replaced context must not be saved.");
+            Assert.That(replacement.SaveCalls, Is.EqualTo(1));
+            Assert.That(replacement.WasEnabledDuringSave, Is.False);
+            Assert.That(replacement.IsEnabled.Value, Is.True);
+            Assert.That(following.SaveCalls, Is.EqualTo(saveSucceeds ? 1 : 0),
+                "An unsupported save is skipped, but a failed save aborts the operation.");
+        });
+    }
+
     [Test]
     public async Task Project_file_writes_and_worktree_mutations_are_mutually_exclusive()
     {
@@ -492,7 +525,7 @@ public sealed class EditorServiceTests
         }
     }
 
-    private sealed class StubEditorContext : IEditorContext
+    private class StubEditorContext : IEditorContext
     {
         public int AsyncDisposeCount { get; private set; }
 
@@ -508,8 +541,6 @@ public sealed class EditorServiceTests
 
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
 
-        public IKnownEditorCommands? Commands => null;
-
         public object? GetService(Type serviceType) => null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
@@ -524,6 +555,20 @@ public sealed class EditorServiceTests
 
         public void CloseToolTab(IToolContext item)
         {
+        }
+    }
+
+    private sealed class SavableEditorContext(bool saveSucceeds) : StubEditorContext, ISavableEditorContext
+    {
+        public int SaveCalls { get; private set; }
+
+        public bool WasEnabledDuringSave { get; private set; }
+
+        public ValueTask<bool> SaveAsync()
+        {
+            SaveCalls++;
+            WasEnabledDuringSave = IsEnabled.Value;
+            return ValueTask.FromResult(saveSucceeds);
         }
     }
 

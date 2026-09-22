@@ -32,7 +32,9 @@ using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.ViewModels;
 
-public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorContext, ISupportAutoSaveEditorContext, IPreviewRenderQuality
+public sealed partial class EditViewModel
+    : ISavableEditorContext, IUndoRedoEditorContext, IAiJobResultEditorContext, ISupportAutoSaveEditorContext,
+        IPreviewRenderQuality
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
@@ -160,7 +162,6 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         config.PropertyChanged += OnEditorConfigPropertyChanged;
 
         HookCommandStateNotifier();
-        Commands = new KnownCommandsImpl(scene, this);
         var sequenceGenerator = new OperationSequenceGenerator();
         var observer = new CoreObjectOperationObserver(null, Scene, sequenceGenerator)
             .DisposeWith(_disposables);
@@ -613,8 +614,6 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
 
     public CoreObject Object => Scene;
 
-    public IKnownEditorCommands? Commands { get; private set; }
-
     IReactiveProperty<bool> IEditorContext.IsEnabled => IsEnabled;
 
     public DockHostViewModel DockHost { get; }
@@ -667,7 +666,6 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         // resources, so its scene-scoped temporary directory must not survive the tab.
         UnsavedSceneStorage.Cleanup(scene.Id);
         Scene = null!;
-        Commands = null!;
         HistoryManager.Clear();
         FrameCacheManager.Value.Dispose();
         FrameCacheManager.Dispose();
@@ -1116,7 +1114,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         return nudge;
     }
 
-    internal ValueTask<bool> UndoHistoryAsync()
+    public ValueTask<bool> UndoAsync()
     {
         return ExecuteHistoryMutationAsync(
             "Undo",
@@ -1128,7 +1126,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
             HistoryManager.Undo);
     }
 
-    internal ValueTask<bool> RedoHistoryAsync()
+    public ValueTask<bool> RedoAsync()
     {
         return ExecuteHistoryMutationAsync(
             "Redo",
@@ -1198,54 +1196,42 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         }
     }
 
-    private sealed class KnownCommandsImpl(Scene scene, EditViewModel viewModel) : IKnownEditorCommands
+    public ValueTask<bool> SaveAsync()
     {
-        public ValueTask<bool> OnSave()
+        Scene scene = Scene;
+        _logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
+        Uri sceneUri = scene.Uri
+            ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
+        UnsavedSceneStorage.SaveRelocation relocation =
+            UnsavedSceneStorage.PrepareSave(scene, sceneUri);
+        // A failure at any step restores the project, scene, element and resource files this
+        // save replaced, instead of leaving the files written before it on disk.
+        using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
         {
-            viewModel._logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
-            Uri sceneUri = scene.Uri
-                ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
-            UnsavedSceneStorage.SaveRelocation relocation =
-                UnsavedSceneStorage.PrepareSave(scene, sceneUri);
-            // A failure at any step restores the project, scene, element and resource files this
-            // save replaced, instead of leaving the files written before it on disk.
-            using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
+            try
             {
-                try
-                {
-                    CoreSerializer.PersistProjectMigrationMetadata([scene]);
+                CoreSerializer.PersistProjectMigrationMetadata([scene]);
 
-                    relocation.Apply();
-                    Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
-                    // The scene is the commit record for every child/resource URI. Persist it only
-                    // after every referenced file is durable at its new location.
-                    CoreSerializer.StoreToUri(scene, sceneUri, CoreSerializationMode.Write);
-                    transaction.Commit();
-                }
-                catch
-                {
-                    relocation.Rollback();
-                    transaction.Rollback();
-                    throw;
-                }
+                relocation.Apply();
+                Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
+                // The scene is the commit record for every child/resource URI. Persist it only
+                // after every referenced file is durable at its new location.
+                CoreSerializer.StoreToUri(scene, sceneUri, CoreSerializationMode.Write);
+                transaction.Commit();
             }
-
-            relocation.Commit();
-
-            viewModel.SaveState(isExplicitUserSave: true);
-            viewModel._logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
-
-            return ValueTask.FromResult(true);
+            catch
+            {
+                relocation.Rollback();
+                transaction.Rollback();
+                throw;
+            }
         }
 
-        public async ValueTask<bool> OnUndo()
-        {
-            return await viewModel.UndoHistoryAsync();
-        }
+        relocation.Commit();
 
-        public async ValueTask<bool> OnRedo()
-        {
-            return await viewModel.RedoHistoryAsync();
-        }
+        SaveState(isExplicitUserSave: true);
+        _logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
+
+        return ValueTask.FromResult(true);
     }
 }

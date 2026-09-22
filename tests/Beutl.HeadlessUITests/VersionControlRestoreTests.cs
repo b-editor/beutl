@@ -837,7 +837,7 @@ public class VersionControlRestoreTests
                 "1111111111111111111111111111111111111111");
             var backend = new PullCycleTestBackend(repository, repository, tip);
             var editorService = new EditorService(new ExtensionProvider());
-            var failedCommands = new FailedSaveCommands();
+            var failedCommands = new FailedSaveOperation();
             var failedContext = new FailedSaveEditorContext(project, failedCommands);
             editorService.TabItems.Add(new EditorTabItem(failedContext));
             coordinator = new VersionControlCoordinator(
@@ -1350,7 +1350,7 @@ public class VersionControlRestoreTests
                 CommitAllRelease = releaseCommit.Task,
                 RequireIdentityForCommit = requireIdentity,
             };
-            var commands = new PassiveSaveCommands();
+            var commands = new PassiveSaveOperation();
             var context = new PassiveEditorContext(project, commands);
             var editorService = new EditorService(new ExtensionProvider());
             editorService.TabItems.Add(new EditorTabItem(context));
@@ -1427,7 +1427,7 @@ public class VersionControlRestoreTests
                 InitializeStarted = initializeStarted,
                 InitializeRelease = releaseInitialize.Task,
             };
-            var commands = new PassiveSaveCommands();
+            var commands = new PassiveSaveOperation();
             var context = new PassiveEditorContext(project, commands);
             var editorService = new EditorService(new ExtensionProvider());
             editorService.TabItems.Add(new EditorTabItem(context));
@@ -1501,7 +1501,7 @@ public class VersionControlRestoreTests
                 InitializeStarted = initializeStarted,
                 InitializeRelease = releaseInitialize.Task,
             };
-            var commands = new PassiveSaveCommands();
+            var commands = new PassiveSaveOperation();
             var context = new PassiveEditorContext(project, commands);
             var editorService = new EditorService(new ExtensionProvider());
             editorService.TabItems.Add(new EditorTabItem(context));
@@ -1597,7 +1597,7 @@ public class VersionControlRestoreTests
                 InitializeStarted = retryStarted,
                 InitializeRelease = releaseRetry.Task,
             };
-            var context = new PassiveEditorContext(project, new PassiveSaveCommands());
+            var context = new PassiveEditorContext(project, new PassiveSaveOperation());
             var editorService = new EditorService(new ExtensionProvider());
             editorService.TabItems.Add(new EditorTabItem(context));
             using var presentation = new EditorPresentationRecorder(editorService, context);
@@ -1690,7 +1690,7 @@ public class VersionControlRestoreTests
                 repository: null,
                 discoveredRepository: null,
                 tip);
-            var commands = new FailedSaveCommands();
+            var commands = new FailedSaveOperation();
             var context = new FailedSaveEditorContext(project, commands);
             var editorService = new EditorService(new ExtensionProvider());
             editorService.TabItems.Add(new EditorTabItem(context));
@@ -1761,7 +1761,7 @@ public class VersionControlRestoreTests
             {
                 InitializeFailureAfterAttach = new InvalidOperationException("The initial commit failed."),
             };
-            var context = new PassiveEditorContext(project, new PassiveSaveCommands());
+            var context = new PassiveEditorContext(project, new PassiveSaveOperation());
             var editorService = new EditorService(new ExtensionProvider());
             editorService.TabItems.Add(new EditorTabItem(context));
             using var presentation = new EditorPresentationRecorder(editorService, context);
@@ -1837,7 +1837,7 @@ public class VersionControlRestoreTests
                 repository: null,
                 discoveredRepository: null,
                 tip);
-            var commands = new PassiveSaveCommands();
+            var commands = new PassiveSaveOperation();
             var context = new PassiveEditorContext(project, commands);
             var editorService = new EditorService(new ExtensionProvider());
             editorService.TabItems.Add(new EditorTabItem(context));
@@ -1926,7 +1926,7 @@ public class VersionControlRestoreTests
                 InitializeStarted = initializeStarted,
                 InitializeRelease = releaseInitialize.Task,
             };
-            var context = new PassiveEditorContext(project, new PassiveSaveCommands());
+            var context = new PassiveEditorContext(project, new PassiveSaveOperation());
             var editorService = new EditorService(new ExtensionProvider());
             editorService.TabItems.Add(new EditorTabItem(context));
             using var presentation = new EditorPresentationRecorder(editorService, context);
@@ -2022,7 +2022,7 @@ public class VersionControlRestoreTests
                 InitializeStarted = initializeStarted,
                 InitializeRelease = releaseInitialize.Task,
             };
-            var context = new PassiveEditorContext(project, new PassiveSaveCommands());
+            var context = new PassiveEditorContext(project, new PassiveSaveOperation());
             var editorService = new EditorService(new ExtensionProvider());
             editorService.TabItems.Add(new EditorTabItem(context));
             using var presentation = new EditorPresentationRecorder(editorService, context);
@@ -2131,7 +2131,7 @@ public class VersionControlRestoreTests
                 InitializeStarted = retryStarted,
                 InitializeRelease = releaseRetry.Task,
             };
-            var commands = new PassiveSaveCommands();
+            var commands = new PassiveSaveOperation();
             var context = new PassiveEditorContext(project, commands);
             var editorService = new EditorService(new ExtensionProvider());
             editorService.TabItems.Add(new EditorTabItem(context));
@@ -6228,7 +6228,7 @@ public class VersionControlRestoreTests
             // The backend reports a pending change, which a branch switch would snapshot first.
             var backend = new PullCycleTestBackend(repository, repository, tip);
             var editorService = new EditorService(new ExtensionProvider());
-            var failedCommands = new FailedSaveCommands();
+            var failedCommands = new FailedSaveOperation();
             editorService.TabItems.Add(new EditorTabItem(
                 new FailedSaveEditorContext(project, failedCommands)));
             coordinator = new VersionControlCoordinator(
@@ -6458,7 +6458,7 @@ public class VersionControlRestoreTests
                 "1111111111111111111111111111111111111111");
             var backend = new PullCycleTestBackend(repository, repository, tip);
             var editorService = new EditorService(new ExtensionProvider());
-            var failedCommands = new FailedSaveCommands();
+            var failedCommands = new FailedSaveOperation();
             editorService.TabItems.Add(new EditorTabItem(
                 new FailedSaveEditorContext(project, failedCommands)));
             coordinator = new VersionControlCoordinator(
@@ -9360,7 +9360,7 @@ public class VersionControlRestoreTests
                 RetirementRelease = releaseRetirement.Task,
             };
             var editorService = new EditorService(new ExtensionProvider());
-            var commands = new PassiveSaveCommands();
+            var commands = new PassiveSaveOperation();
             var context = new PassiveEditorContext(project, commands);
             editorService.TabItems.Add(new EditorTabItem(context));
             coordinator = new VersionControlCoordinator(
@@ -9455,7 +9455,7 @@ public class VersionControlRestoreTests
             };
             var editorService = new EditorService(new ExtensionProvider());
             editorService.TabItems.Add(new EditorTabItem(
-                new PassiveEditorContext(project, new PassiveSaveCommands())));
+                new PassiveEditorContext(project, new PassiveSaveOperation())));
             coordinator = new VersionControlCoordinator(
                 TestShell.Project,
                 editorService,
@@ -12976,7 +12976,7 @@ public class VersionControlRestoreTests
 
     private sealed class PassiveEditorContext(
         CoreObject obj,
-        PassiveSaveCommands commands) : IEditorContext
+        PassiveSaveOperation commands) : ISavableEditorContext
     {
         public CoreObject Object { get; } = obj;
 
@@ -12985,7 +12985,7 @@ public class VersionControlRestoreTests
         public IReactiveProperty<bool> IsEnabled { get; } =
             new ReactivePropertySlim<bool>(true);
 
-        public IKnownEditorCommands? Commands { get; } = commands;
+        public ValueTask<bool> SaveAsync() => commands.SaveAsync();
 
         public object? GetService(Type serviceType) => null;
 
@@ -13016,8 +13016,6 @@ public class VersionControlRestoreTests
         public IReactiveProperty<bool> IsEnabled { get; } =
             new ReactivePropertySlim<bool>(true);
 
-        public IKnownEditorCommands? Commands => null;
-
         public object? GetService(Type serviceType) => null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
@@ -13041,13 +13039,13 @@ public class VersionControlRestoreTests
         }
     }
 
-    private sealed class PassiveSaveCommands : IKnownEditorCommands
+    private sealed class PassiveSaveOperation
     {
         public int SaveCalls { get; private set; }
 
         public Action? Saving { get; set; }
 
-        public ValueTask<bool> OnSave()
+        public ValueTask<bool> SaveAsync()
         {
             SaveCalls++;
             Saving?.Invoke();
@@ -13057,7 +13055,7 @@ public class VersionControlRestoreTests
 
     private sealed class FailedSaveEditorContext(
         CoreObject obj,
-        FailedSaveCommands commands) : IEditorContext
+        FailedSaveOperation commands) : ISavableEditorContext
     {
         public CoreObject Object { get; } = obj;
 
@@ -13066,7 +13064,7 @@ public class VersionControlRestoreTests
         public IReactiveProperty<bool> IsEnabled { get; } =
             new ReactivePropertySlim<bool>(true);
 
-        public IKnownEditorCommands? Commands { get; } = commands;
+        public ValueTask<bool> SaveAsync() => commands.SaveAsync();
 
         public object? GetService(Type serviceType) => null;
 
@@ -13085,11 +13083,11 @@ public class VersionControlRestoreTests
         }
     }
 
-    private sealed class FailedSaveCommands : IKnownEditorCommands
+    private sealed class FailedSaveOperation
     {
         public int SaveCalls { get; private set; }
 
-        public ValueTask<bool> OnSave()
+        public ValueTask<bool> SaveAsync()
         {
             SaveCalls++;
             return ValueTask.FromResult(false);

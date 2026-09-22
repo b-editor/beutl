@@ -62,7 +62,7 @@ public class SaveRoundTripTests
         editor.HistoryManager.Commit("EditZIndex");
         HeadlessTestHelpers.Settle();
 
-        bool saved = await editor.Commands!.OnSave();
+        bool saved = await editor.SaveAsync();
         HeadlessTestHelpers.Settle();
         Assert.That(saved, Is.True);
 
@@ -105,7 +105,7 @@ public class SaveRoundTripTests
         HeadlessTestHelpers.Settle();
 
         Element element = editor.Scene.Children.Single();
-        bool saved = await editor.Commands!.OnSave();
+        bool saved = await editor.SaveAsync();
         HeadlessTestHelpers.Settle();
 
         Assert.That(saved, Is.True);
@@ -118,7 +118,7 @@ public class SaveRoundTripTests
     {
         MigratedProject migrated = await OpenMigratedProjectAsync("migrated-save");
 
-        Assert.That(await migrated.Editor.Commands!.OnSave(), Is.True);
+        Assert.That(await migrated.Editor.SaveAsync(), Is.True);
         JsonObject savedProject = ReadJson(migrated.ProjectFile);
 
         Assert.Multiple(() =>
@@ -160,7 +160,7 @@ public class SaveRoundTripTests
             Assert.That(migrated.FindTemporaryFiles(), Is.Empty);
         });
 
-        Assert.That(await migrated.Editor.Commands!.OnSave(), Is.True);
+        Assert.That(await migrated.Editor.SaveAsync(), Is.True);
         Assert.That(
             (string?)ReadJson(migrated.ProjectFile)["minAppVersion"],
             Is.EqualTo(Project.DefaultMinAppVersion));
@@ -240,7 +240,7 @@ public class SaveRoundTripTests
             Assert.That(migrated.ReadPersistedUnrelatedSceneName(), Is.EqualTo("unrelated-original"));
         });
 
-        Assert.That(await migrated.Editor.Commands!.OnSave(), Is.True);
+        Assert.That(await migrated.Editor.SaveAsync(), Is.True);
         Assert.That(ReadJson(migrated.ElementFile)["$type"], Is.Not.Null);
     }
 
@@ -265,7 +265,7 @@ public class SaveRoundTripTests
             Source: new ElementSource.EngineObject(() => new RectShape()))],
             CancellationToken.None);
         HeadlessTestHelpers.Settle();
-        Assert.That(await sourceEditor.Commands!.OnSave(), Is.True);
+        Assert.That(await sourceEditor.SaveAsync(), Is.True);
         string elementFile = sourceScene.Children.Single().Uri!.LocalPath;
         var unrelatedScene = new Scene
         {
@@ -316,7 +316,7 @@ public class SaveRoundTripTests
     {
         try
         {
-            await editor.Commands!.OnSave();
+            await editor.SaveAsync();
             return null;
         }
         catch (Exception ex)
