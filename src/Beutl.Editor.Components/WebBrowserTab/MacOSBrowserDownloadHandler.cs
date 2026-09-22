@@ -19,6 +19,9 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
     private readonly Action<Uri, string> _onDownload;
     private readonly Action<Uri> _onNavigationCommitted;
     private readonly BrowserDownloadNavigation _navigation = new();
+    private readonly BrowserNavigationCancellations _cancellations = new(
+        static navigation => Send(navigation, sel_registerName("retain")),
+        static navigation => SendVoid(navigation, sel_registerName("release")));
     private readonly nint _originalDelegate;
     private nint _webView;
     private nint _delegate;
@@ -47,6 +50,7 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
         // Keep the WebView alive until its original delegate has been restored.
         if (Send(_webView, sel_registerName("navigationDelegate")) == _delegate)
             SendPointer(_webView, sel_registerName("setNavigationDelegate:"), _originalDelegate);
+        _cancellations.Dispose();
         s_handlers.Remove(_delegate);
         SendVoid(_delegate, sel_registerName("release"));
         SendVoid(_originalDelegate, sel_registerName("release"));
@@ -64,6 +68,12 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, void>)&OnNavigationAction, "v@:@@@");
         class_addMethod(type, sel_registerName("webView:didCommitNavigation:"),
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, void>)&OnNavigationCommitted, "v@:@@");
+        class_addMethod(type, sel_registerName("webView:didStartProvisionalNavigation:"),
+            (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, void>)&OnNavigationStarted, "v@:@@");
+        class_addMethod(type, sel_registerName("webView:didFailProvisionalNavigation:withError:"),
+            (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, void>)&OnNavigationFailed, "v@:@@@");
+        class_addMethod(type, sel_registerName("webView:didFailNavigation:withError:"),
+            (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, void>)&OnNavigationFailed, "v@:@@@");
         class_addMethod(type, s_respondsToSelector,
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, byte>)&RespondsToSelector, "c@::");
         class_addMethod(type, sel_registerName("forwardingTargetForSelector:"),
@@ -111,11 +121,45 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnNavigationStarted(nint self, nint selector, nint webView, nint navigation)
+    {
+        if (!s_handlers.TryGetValue(self, out var handler)) return;
+        try
+        {
+            handler._cancellations.BeginNavigation(navigation);
+        }
+        catch
+        {
+            // Leave native notifications with Avalonia if tracking cannot be initialized.
+        }
+        if (SendBoolPointer(handler._originalDelegate, s_respondsToSelector, selector))
+            SendNavigation(handler._originalDelegate, selector, webView, navigation);
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnNavigationFailed(nint self, nint selector, nint webView, nint navigation, nint error)
+    {
+        if (!s_handlers.TryGetValue(self, out var handler)) return;
+        try
+        {
+            // Consume our cancellation before Avalonia drops the WKNavigation identity.
+            if (handler._cancellations.CompleteNavigation(navigation)) return;
+        }
+        catch
+        {
+            // Unrecognized failures still belong to Avalonia's delegate.
+        }
+        if (SendBoolPointer(handler._originalDelegate, s_respondsToSelector, selector))
+            SendNavigationFailure(handler._originalDelegate, selector, webView, navigation, error);
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void OnNavigationCommitted(nint self, nint selector, nint webView, nint navigation)
     {
         if (!s_handlers.TryGetValue(self, out var handler)) return;
         try
         {
+            handler._cancellations.CommitNavigation(navigation);
             string? address = GetString(Send(Send(webView, sel_registerName("URL")), sel_registerName("absoluteString")));
             if (Uri.TryCreate(address, UriKind.Absolute, out Uri? uri)) handler._onNavigationCommitted(uri);
         }
@@ -131,12 +175,14 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
     private static void OnNavigationResponse(nint self, nint selector, nint webView, nint navigationResponse, nint decisionHandler)
     {
         bool cancel = false;
+        nint canceledNavigation = 0;
         s_handlers.TryGetValue(self, out var handler);
         try
         {
             nint response = Send(navigationResponse, sel_registerName("response"));
             string? address = GetString(Send(Send(response, sel_registerName("URL")), sel_registerName("absoluteString")));
             if (handler != null && SendBool(navigationResponse, sel_registerName("isForMainFrame"))
+                && handler._cancellations.Current != 0
                 && Uri.TryCreate(address, UriKind.Absolute, out Uri? uri) && handler._navigation.CanReplayResponse(uri)
                 && SendBoolPointer(response, s_respondsToSelector, sel_registerName("statusCode"))
                 && Send(response, sel_registerName("statusCode")) is >= 200 and < 300
@@ -144,6 +190,8 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
                     GetString(Send(response, sel_registerName("suggestedFilename"))),
                     GetString(Send(response, sel_registerName("MIMEType")))) is { } name)
             {
+                nint navigation = handler._cancellations.Current;
+                if (handler._cancellations.MarkCanceled(navigation)) canceledNavigation = navigation;
                 handler._onDownload(uri, name);
                 cancel = true;
             }
@@ -151,6 +199,7 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
         catch
         {
             // Exceptions must not escape a native delegate callback. Leave unrecognized responses to WebKit.
+            if (canceledNavigation != 0) handler?._cancellations.ForgetCancellation(canceledNavigation);
         }
 
         if (!cancel && handler != null && SendBoolPointer(handler._originalDelegate, s_respondsToSelector, selector))
@@ -223,4 +272,7 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
 
     [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static partial void SendNavigation(nint receiver, nint selector, nint webView, nint navigation);
+
+    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
+    private static partial void SendNavigationFailure(nint receiver, nint selector, nint webView, nint navigation, nint error);
 }

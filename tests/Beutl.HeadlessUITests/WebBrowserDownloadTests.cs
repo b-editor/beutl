@@ -64,7 +64,6 @@ public class WebBrowserDownloadTests
             view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = page });
             view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = media });
             view.OnNativeDownloadRequested(media, "Morning.mp3");
-            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
             Dispatcher.UIThread.RunJobs();
             var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
             Assert.That(confirm.IsVisible, Is.True);
@@ -155,16 +154,13 @@ public class WebBrowserDownloadTests
         Assert.That(button.IsVisible, Is.True);
         button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
         Assert.That(optionsOpened, Is.EqualTo(openOptions ? 1 : 0));
-        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
         AssertDisplayedPage();
     }
 
     [AvaloniaTest]
-    [TestCase(false, false)]
-    [TestCase(false, true)]
-    [TestCase(true, false)]
-    [TestCase(true, true)]
-    public void NativeDownloadCancellationDoesNotHideLaterNavigationFailures(bool cancellationCompleted, bool retrySameUri)
+    [TestCase(false)]
+    [TestCase(true)]
+    public void NativeDownloadsDoNotHideLaterNavigationFailures(bool retrySameUri)
     {
         var page = new Uri("https://page.example/");
         var media = new Uri("https://files.example/download");
@@ -176,27 +172,23 @@ public class WebBrowserDownloadTests
         view.OnNativeNavigationCommitted(page);
         view.OnNativeDownloadRequested(media, "Morning.mp3");
         Dispatcher.UIThread.RunJobs();
-        if (cancellationCompleted)
-        {
-            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
-            Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
-        }
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
 
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
         view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
-        if (!cancellationCompleted && !retrySameUri)
-            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
         Assert.That(vm.CurrentUri, Is.EqualTo(next));
         Assert.That(vm.IsLoading.Value, Is.False);
         Assert.That(vm.ErrorMessage.Value, Is.EqualTo(Beutl.Language.Strings.WebPageLoadFailed));
     }
 
     [AvaloniaTest]
-    public void NativeDownloadCancellationsPreserveTheNewestOffer()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RepeatedNativeDownloadsPreserveTheNewestOffer(bool sameUri)
     {
         var page = new Uri("https://page.example/");
         var first = new Uri("https://files.example/download?id=1");
-        var second = new Uri("https://files.example/download?id=2");
+        var second = sameUri ? first : new Uri("https://files.example/download?id=2");
         using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
             navigationStartedIncludesSubframes: true)
@@ -205,8 +197,6 @@ public class WebBrowserDownloadTests
         view.OnNativeDownloadRequested(first, "First.mp3");
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = second });
         view.OnNativeDownloadRequested(second, "Second.mp3");
-        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = first, IsSuccess = false });
-        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = second, IsSuccess = false });
         Dispatcher.UIThread.RunJobs();
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
         Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(second.AbsoluteUri));
@@ -344,7 +334,6 @@ public class WebBrowserDownloadTests
                 Assert.That(profile.Downloads.Single().ReferrerPolicy, Is.EqualTo(BrowserReferrerPolicy.NoReferrer));
             }
             Assert.That(cookieRequests, Is.Zero);
-            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
 
             completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
