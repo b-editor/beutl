@@ -242,25 +242,21 @@ jobs:
             fi
             # translation.md is model output: check it against the input this job derived itself.
             placeholders() { awk -v p="$PLACEHOLDER" '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "") } $0 == p { n++ } END { print n + 0 }' "$1"; }
-            # Every destination a renderer could link to: Markdown targets, reference definitions and
-            # the identifiers that use them, HTML href/src values, and bare, protocol-relative or www
-            # autolinks. [text][id] and [id][] resolve alike, so both reduce to the label as CommonMark
-            # matches it, and a translation may turn [Installer][] into [インストーラー][Installer].
+            # Every destination the comment will link to, taken from GitHub's own rendering: it resolves
+            # inline, reference (multiline definitions included), HTML and autolink forms exactly as the
+            # posted comment will, so a translation may reword [Installer][] as [インストーラー][Installer]
+            # but cannot point any link elsewhere. In-page anchors (#...) are left out.
             links() {
-              {
-                grep -oE '\]\([^)]*\)|^[[:space:]]*\[[^]]*\]:[[:space:]]*[^[:space:]]+' "$1" || true
-                grep -oE '\]\[[^][]+\]|\[[^][]*\]\[\]' "$1" \
-                  | sed -E 's/^\]\[(.*)\]$/\1/; s/^\[(.*)\]\[\]$/\1/; s/[[:space:]]+/ /g; s/^ //; s/ $//; s/^/ref:/' \
-                  | tr '[:upper:]' '[:lower:]' || true
-                grep -oiE '(href|src)[[:space:]]*=[[:space:]]*[^[:space:]>]+' "$1" || true
-                grep -oiE '(https?:)?//[^][()<>[:space:]]+|www\.[^][()<>[:space:]]+' "$1" | sed -E 's/[.,;:!?]+$//' || true
-              } | sort
+              gh api markdown -F text=@"$1" -f mode=gfm -f context="$REPO" > "$1.html"
+              { grep -oE '(href|src)="[^"#][^"]*"' "$1.html" || true; } | sort > "$1.links"
             }
             if [ "$(placeholders translation-input.md)" != "$(placeholders "$TRANSLATION")" ]; then
               echo "::error::The translation does not keep the $PLACEHOLDER line. Re-run all jobs."
               exit 1
             fi
-            if ! diff <(links translation-input.md) <(links "$TRANSLATION"); then
+            links translation-input.md
+            links "$TRANSLATION"
+            if ! diff translation-input.md.links "$TRANSLATION.links"; then
               echo "::error::The translation adds, drops or changes links (see the diff above). Re-run all jobs."
               exit 1
             fi
