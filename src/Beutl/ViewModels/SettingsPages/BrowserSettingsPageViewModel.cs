@@ -102,6 +102,7 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
         if (_disposed || IsUpdatingFilters.Value) return;
         IsUpdatingFilters.Value = true;
         FilterFeedback.Value = Strings.BrowserAdBlockLoading;
+        Task<BrowserAdBlockRules>? request = null;
         try
         {
             string[] urls = BrowserAdBlockFilterStore.ParseUrls(FilterListUrls.Value);
@@ -110,15 +111,20 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
                 FilterFeedback.Value = string.Format(Strings.BrowserStorageError, _profile.Error);
                 return;
             }
-            await _profile.AdBlockFilters.UpdateAsync(urls, _lifetime.Token);
-            if (!_disposed)
+            request = _profile.AdBlockFilters.UpdateAsync(urls, _lifetime.Token);
+            await request;
+            if (!_disposed && !_profile.AdBlockFilters.IsSuperseded(request))
             {
                 FilterListUrls.Value = string.Join(Environment.NewLine, urls);
                 RefreshFilterStatus();
                 FilterFeedback.Value = Strings.BrowserAdBlockUpdated;
             }
+            else ClearSupersededFilterFeedback();
         }
-        catch (OperationCanceledException) when (_disposed) { }
+        catch (OperationCanceledException) when (_disposed || (request != null && _profile.AdBlockFilters.IsSuperseded(request)))
+        {
+            ClearSupersededFilterFeedback();
+        }
         catch (Exception ex)
         {
             if (!_disposed) FilterFeedback.Value = string.Format(Strings.BrowserAdBlockUpdateFailed, ex.Message);
@@ -131,10 +137,16 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
         if (_disposed || IsUpdatingFilters.Value) return;
         IsUpdatingFilters.Value = true;
         FilterStatus.Value = Strings.BrowserAdBlockLoading;
+        Task<BrowserAdBlockRules>? request = null;
         try
         {
-            await _profile.AdBlockFilters.GetAsync(_profile.AdBlockListUrls);
+            request = _profile.AdBlockFilters.GetAsync(_profile.AdBlockListUrls);
+            await request;
             if (!_disposed) RefreshFilterStatus();
+        }
+        catch (OperationCanceledException) when (_disposed || (request != null && _profile.AdBlockFilters.IsSuperseded(request)))
+        {
+            ClearSupersededFilterFeedback();
         }
         catch (Exception ex)
         {
@@ -145,6 +157,13 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
             }
         }
         finally { if (!_disposed) IsUpdatingFilters.Value = false; }
+    }
+
+    private void ClearSupersededFilterFeedback()
+    {
+        if (_disposed) return;
+        RefreshFilterStatus();
+        FilterFeedback.Value = null;
     }
 
     public void ClearHistory()

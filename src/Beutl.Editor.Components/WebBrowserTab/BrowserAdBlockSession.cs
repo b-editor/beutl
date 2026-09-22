@@ -103,16 +103,43 @@ internal sealed class BrowserAdBlockSession : IDisposable
         IBrowserAdBlockBackend? candidate = null;
         try
         {
-            BrowserAdBlockRules rules = await _profile.AdBlockFilters.GetAsync(_profile.AdBlockListUrls);
-            if (_disposed || revision != _revision) return;
-            candidate = await _createBackend(_handle, rules);
-            if (_disposed || revision != _revision) return;
-            await candidate.EnableAsync();
-            if (_disposed || revision != _revision) return;
-            _backend?.Dispose();
-            _backend = candidate;
-            _activeRules = rules;
-            candidate = null;
+            while (true)
+            {
+                Task<BrowserAdBlockRules> load = _profile.AdBlockFilters.GetAsync(_profile.AdBlockListUrls);
+                try
+                {
+                    BrowserAdBlockRules rules = await load;
+                    if (_disposed || revision != _revision) return;
+                    candidate = await _createBackend(_handle, rules);
+                    if (_disposed || revision != _revision) return;
+                    if (_profile.AdBlockFilters.IsSuperseded(load))
+                    {
+                        candidate.Dispose();
+                        candidate = null;
+                        continue;
+                    }
+                    await candidate.EnableAsync();
+                    if (_disposed || revision != _revision) return;
+                    if (_profile.AdBlockFilters.IsSuperseded(load))
+                    {
+                        candidate.Dispose();
+                        candidate = null;
+                        continue;
+                    }
+                    _backend?.Dispose();
+                    _backend = candidate;
+                    _activeRules = rules;
+                    candidate = null;
+                    break;
+                }
+                catch (Exception) when (!_disposed && revision == _revision && _profile.AdBlockFilters.IsSuperseded(load))
+                {
+                    // A newer subscription replaced this load. Keep initial navigation
+                    // deferred and join the latest request instead of applying old rules.
+                    candidate?.Dispose();
+                    candidate = null;
+                }
+            }
         }
         catch (Exception ex)
         {
