@@ -40,6 +40,8 @@ internal partial class WebBrowserTabView
         UpdateBlankPageState();
         // The response does not expose WebKit's effective referrer policy. Never broaden it when replaying the request.
         QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer);
+        // The queued request keeps its conservative metadata; later links belong to the restored document.
+        _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
     }
 
     // Capture explicit download links as well as media links added dynamically by the page.

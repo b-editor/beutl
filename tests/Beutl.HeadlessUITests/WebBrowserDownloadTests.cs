@@ -301,6 +301,67 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    [TestCase(false, true)]
+    public async Task RestoredNativeDownloadPageAllowsCookiesForLaterLinks(bool hasCommittedPage, bool saveNativeDownload)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var page = hasCommittedPage ? new Uri("https://files.example/page") : WebBrowserTabViewModel.BlankPage;
+        var media = new Uri("https://files.example/download");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page, profile);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true)
+        { DataContext = vm };
+        if (hasCommittedPage) view.OnNativeNavigationCommitted(page);
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (uri, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(
+            uri == media && !saveNativeDownload ? null : new(root, false));
+        int cookieRequests = 0;
+        view.DownloadCookiesProvider = (_, _) =>
+        {
+            cookieRequests++;
+            return Task.FromResult<IReadOnlyList<Cookie>>([new("session", "private", "/", "files.example") { Secure = true }]);
+        };
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        try
+        {
+            vm.Address.Value = "https://files.example/generate";
+            view.NavigateFromAddress();
+            view.OnNativeDownloadRequested(media, "Morning.mp3");
+            Dispatcher.UIThread.RunJobs();
+            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            if (saveNativeDownload)
+            {
+                await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.That(handler.CookieHeader, Is.Null);
+                Assert.That(handler.Referrer, Is.Null);
+                Assert.That(profile.Downloads.Single().ReferrerPolicy, Is.EqualTo(BrowserReferrerPolicy.NoReferrer));
+            }
+            Assert.That(cookieRequests, Is.Zero);
+            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
+
+            completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download","url":"https://files.example/protected.mp3"}""" });
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(confirm.IsVisible, Is.True);
+            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(vm.CurrentUri, Is.EqualTo(page));
+            Assert.That(cookieRequests, Is.EqualTo(hasCommittedPage ? 1 : 0));
+            Assert.That(handler.CookieHeader, Is.EqualTo(hasCommittedPage ? "session=private" : null));
+            Assert.That(handler.Referrer, Is.EqualTo(hasCommittedPage ? new Uri("https://files.example/") : null));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
     public async Task DownloadedSvgIsSavedWithoutAttemptingTimelineImport()
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
