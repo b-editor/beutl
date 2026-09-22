@@ -204,6 +204,14 @@ jobs:
           set -euo pipefail
           downloads="https://github.com/$REPO/releases/download/$TAG"
           flatpak_url="$downloads/Beutl-$SEM_VER.flatpak"
+          # Editing a published release must not turn it back into a draft.
+          edit_release() {
+            local args=(--notes-file release-body.md)
+            if [ "$(jq -r .isDraft release.json)" = true ]; then
+              args+=(--draft=true)
+            fi
+            gh release edit "$TAG" -R "$REPO" "${args[@]}"
+          }
 
           if [ "$MODE" = formatted ]; then
             echo "The notes of $TAG are already formatted."
@@ -233,12 +241,7 @@ jobs:
               echo "::error::The notes of $TAG have neither a Flatpak nor a Debian package bullet to put the Flatpak link on."
               exit 1
             fi
-            args=(--notes-file release-body.md)
-            # Repairing a published release must not turn it back into a draft.
-            if [ "$(jq -r .isDraft release.json)" = true ]; then
-              args+=(--draft=true)
-            fi
-            gh release edit "$TAG" -R "$REPO" "${args[@]}"
+            edit_release
             exit 0
           fi
 
@@ -246,14 +249,14 @@ jobs:
             echo "::error::The notes of $TAG changed while they were being summarized. Re-run all jobs."
             exit 1
           fi
-          # summary.json is model output: accept only the shape the prompt asked for.
-          if ! jq -e '
-            def line: type == "string" and test("\\S") and (test("[\\r\\n]|https?://|\\]\\(") | not);
+          # summary.json is model output: accept exactly one document of the shape the prompt asked for.
+          if ! jq -e -s '
+            def line: type == "string" and test("\\S") and (test("[\\r\\n]|https?://|www\\.|\\]\\("; "i") | not);
             def bullet: type == "object" and (keys - ["text", "children"] | length == 0)
               and (.text | line) and (.children // [] | type == "array" and all(.[]; line));
-            type == "object"
-            and keys == ["bugFixes", "improvements", "newFeatures", "other"]
-            and all(.[]; type == "array" and all(.[]; bullet))
+            length == 1 and (.[0] | type == "object"
+              and keys == ["bugFixes", "improvements", "newFeatures", "other"]
+              and all(.[]; type == "array" and all(.[]; bullet)))
           ' "$SUMMARY" > /dev/null; then
             echo "::error::opencode wrote a summary.json that does not have the expected shape. Re-run all jobs."
             # Compact JSON is one line starting with "{", so it cannot be read as a workflow command.
@@ -262,8 +265,9 @@ jobs:
           fi
 
           summary=$(jq -r '
-            def trim: gsub("^\\s+|\\s+$"; "");
-            def bullets: map("- \(.text | trim)" + (.children // [] | map("\n  - \(trim)") | join("")));
+            # Escape what could still form a link: HTML tags and Markdown or reference-style brackets.
+            def md: gsub("^\\s+|\\s+$"; "") | gsub("<"; "&lt;") | gsub(">"; "&gt;") | gsub("\\["; "\\[") | gsub("\\]"; "\\]");
+            def bullets: map("- \(.text | md)" + (.children // [] | map("\n  - \(md)") | join("")));
             [["New Features", .newFeatures], ["Improvements & Refactoring", .improvements], ["Bug Fixes", .bugFixes], ["Other", .other]]
             | map(select(.[1] | length > 0) | "**\(.[0])**\n" + (.[1] | bullets | join("\n")))
             | join("\n\n")
@@ -301,7 +305,7 @@ jobs:
             fi
             cat full-changelog.md
           } > release-body.md
-          gh release edit "$TAG" -R "$REPO" --notes-file release-body.md --draft=true
+          edit_release
 
       - name: Verify the release notes were reformatted
         env:

@@ -242,12 +242,20 @@ jobs:
             fi
             # translation.md is model output: check it against the input this job derived itself.
             placeholders() { awk -v p="$PLACEHOLDER" '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "") } $0 == p { n++ } END { print n + 0 }' "$1"; }
-            urls() { grep -oE 'https?://[^][()<>[:space:]]+' "$1" | sed -E 's/[.,;:!?]+$//' | sort -u || true; }
+            # Every destination a renderer could link to: Markdown and reference-style targets, HTML
+            # href/src values, and bare, protocol-relative or www autolinks.
+            links() {
+              {
+                grep -oE '\]\([^)]*\)|^[[:space:]]*\[[^]]*\]:[[:space:]]*[^[:space:]]+' "$1" || true
+                grep -oiE '(href|src)[[:space:]]*=[[:space:]]*[^[:space:]>]+' "$1" || true
+                grep -oiE '(https?:)?//[^][()<>[:space:]]+|www\.[^][()<>[:space:]]+' "$1" | sed -E 's/[.,;:!?]+$//' || true
+              } | sort
+            }
             if [ "$(placeholders translation-input.md)" != "$(placeholders "$TRANSLATION")" ]; then
               echo "::error::The translation does not keep the $PLACEHOLDER line. Re-run all jobs."
               exit 1
             fi
-            if ! diff <(urls translation-input.md) <(urls "$TRANSLATION"); then
+            if ! diff <(links translation-input.md) <(links "$TRANSLATION"); then
               echo "::error::The translation adds, drops or changes links (see the diff above). Re-run all jobs."
               exit 1
             fi
@@ -332,7 +340,7 @@ jobs:
           GH_TOKEN: ${{ secrets.DISCUSSION_TOKEN }}
         run: |
           set -euo pipefail
-          if ! err=$(gh release view "$TAG" -R "$REPO" --json url 2>&1 >/dev/null); then
+          if ! err=$(gh release view "$TAG" -R "$REPO" --json body 2>&1 >final-release.json); then
             if printf '%s' "$err" | grep -qiE 'release not found|not found|HTTP 404'; then
               echo "No release found for $TAG — nothing to translate, skipping verification."
               exit 0
@@ -340,37 +348,37 @@ jobs:
             echo "::error::Failed to look up release $TAG to verify its notes (gh release view errored): $err"
             exit 1
           fi
-          body=$(gh release view "$TAG" -R "$REPO" --json body -q .body)
-          if printf '%s' "$body" | grep -qF "日本語のリリースノートは"; then
-            echo "Release notes link to the Japanese translation — translation succeeded."
-          else
+          linked_url=$(jq -r '(first((.body // "") | scan("日本語のリリースノートは\\[こちら\\]\\(([^)]*)\\)")) | .[0]) // ""' final-release.json)
+          if [ -z "$linked_url" ]; then
             echo "::error::Release $TAG exists but its notes do not link to the Japanese translation."
             exit 1
           fi
-          # The check above is already satisfied on a repair rerun, so it cannot tell whether the
-          # translation comment kept up with the release body. Use the release's own Flatpak href
-          # rather than reconstructing one from the tag, which would assume tag == "v" + semVer.
-          flatpak_url=$(printf '%s' "$body" | grep -oE '\[Flatpak\]\(https://[^)]+\.flatpak\)' | head -n1 | sed -E 's/^\[Flatpak\]\((.*)\)$/\1/') || flatpak_url=""
-          if [ -n "$flatpak_url" ]; then
-            # Check the comment the release actually links to; a discussion can hold more than one
-            # marked comment, and only the linked one is the one users reach.
-            linked_url=$(printf '%s' "$body" | grep -oE 'https://github\.com/[^)]*#discussioncomment-[0-9]+' | head -n1) || linked_url=""
-            comments=$(gh api graphql --paginate -F number="$DISCUSSION_NUMBER" -f owner="$OWNER" -f repo="$REPO_NAME" -f query='
-              query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
-                repository(owner: $owner, name: $repo) {
-                  discussion(number: $number) {
-                    comments(first: 100, after: $endCursor) {
-                      nodes { url body }
-                      pageInfo { hasNextPage endCursor }
-                    }
+          me=$(gh api graphql -f query='query { viewer { login } }' --jq .data.viewer.login)
+          gh api graphql --paginate -F number="$DISCUSSION_NUMBER" -f owner="$OWNER" -f repo="$REPO_NAME" -f query='
+            query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
+              repository(owner: $owner, name: $repo) {
+                discussion(number: $number) {
+                  comments(first: 100, after: $endCursor) {
+                    nodes { url body author { login } }
+                    pageInfo { hasNextPage endCursor }
                   }
                 }
-              }' --jq '.data.repository.discussion.comments.nodes[]' | jq -s .)
-            comment=$(printf '%s' "$comments" | jq -r --arg url "$linked_url" --arg marker "$MARKER" '
-              [.[] | select($url != "" and .url == $url) | .body]
-              + [.[] | select(.body | contains($marker)) | .body]
-              | first // ""')
-            if printf '%s' "$comment" | grep -qF "[Flatpak]($flatpak_url)"; then
+              }
+            }' --jq '.data.repository.discussion.comments.nodes[]' | jq -s . > final-comments.json
+          # Users reach the linked comment, so it must be a marked translation posted with this token.
+          if ! jq -e --arg url "$linked_url" --arg me "$me" --arg marker "$MARKER" \
+            'any(.[]; .url == $url and .author.login == $me and (.body | contains($marker)))' final-comments.json > /dev/null; then
+            echo "::error::Release $TAG links $linked_url, which is not a Japanese translation posted by this workflow."
+            exit 1
+          fi
+          echo "Release notes link to the Japanese translation — translation succeeded."
+          # The link is already there on a repair rerun, so also check that the translation kept up with
+          # the release. Use the release's own Flatpak href rather than reconstructing one from the tag,
+          # which would assume tag == "v" + semVer.
+          flatpak_url=$(jq -r '(first((.body // "") | scan("\\[Flatpak\\]\\((https://[^)]+\\.flatpak)\\)")) | .[0]) // ""' final-release.json)
+          if [ -n "$flatpak_url" ]; then
+            if jq -e --arg url "$linked_url" --arg link "[Flatpak]($flatpak_url)" \
+              'any(.[]; .url == $url and (.body | contains($link)))' final-comments.json > /dev/null; then
               echo "The Japanese translation comment links the same Flatpak bundle as the release."
             else
               echo "::error::Release $TAG links $flatpak_url but the Japanese translation comment does not."
