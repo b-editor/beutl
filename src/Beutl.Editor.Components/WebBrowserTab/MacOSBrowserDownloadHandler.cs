@@ -17,25 +17,27 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
     private static readonly nint s_respondsToSelector = sel_registerName("respondsToSelector:");
     private static readonly nint s_delegateClass = CreateDelegateClass();
     private readonly Action<Uri, string> _onDownload;
+    private readonly Action<Uri> _onNavigationCommitted;
     private readonly nint _originalDelegate;
     private nint _webView;
     private nint _delegate;
 
-    private MacOSBrowserDownloadHandler(nint webView, Action<Uri, string> onDownload)
+    private MacOSBrowserDownloadHandler(nint webView, Action<Uri, string> onDownload, Action<Uri> onNavigationCommitted)
     {
         _webView = webView;
         _onDownload = onDownload;
+        _onNavigationCommitted = onNavigationCommitted;
         _originalDelegate = Send(Send(webView, sel_registerName("navigationDelegate")), sel_registerName("retain"));
         _delegate = Send(s_delegateClass, sel_registerName("new"));
         s_handlers.Add(_delegate, this);
         SendPointer(webView, sel_registerName("setNavigationDelegate:"), _delegate);
     }
 
-    internal static MacOSBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string> onDownload)
+    internal static MacOSBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string> onDownload, Action<Uri> onNavigationCommitted)
     {
         if (handle is not IAppleWKWebViewPlatformHandle apple) return null;
         nint webView = apple.GetWKWebViewRetained();
-        return webView == 0 ? null : new MacOSBrowserDownloadHandler(webView, onDownload);
+        return webView == 0 ? null : new MacOSBrowserDownloadHandler(webView, onDownload, onNavigationCommitted);
     }
 
     public void Dispose()
@@ -57,6 +59,8 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
         nint type = objc_allocateClassPair(objc_getClass("NSObject"), "BeutlDownloadNavigationDelegate", 0);
         class_addMethod(type, s_responsePolicy,
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, void>)&OnNavigationResponse, "v@:@@@");
+        class_addMethod(type, sel_registerName("webView:didCommitNavigation:"),
+            (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, void>)&OnNavigationCommitted, "v@:@@");
         class_addMethod(type, s_respondsToSelector,
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, byte>)&RespondsToSelector, "c@::");
         class_addMethod(type, sel_registerName("forwardingTargetForSelector:"),
@@ -74,6 +78,23 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static nint ForwardingTarget(nint self, nint selector, nint requestedSelector) =>
         s_handlers.TryGetValue(self, out var handler) ? handler._originalDelegate : 0;
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnNavigationCommitted(nint self, nint selector, nint webView, nint navigation)
+    {
+        if (!s_handlers.TryGetValue(self, out var handler)) return;
+        try
+        {
+            string? address = GetString(Send(Send(webView, sel_registerName("URL")), sel_registerName("absoluteString")));
+            if (Uri.TryCreate(address, UriKind.Absolute, out Uri? uri)) handler._onNavigationCommitted(uri);
+        }
+        catch
+        {
+            // Still forward the native notification if recording the committed document fails.
+        }
+        if (SendBoolPointer(handler._originalDelegate, s_respondsToSelector, selector))
+            SendNavigation(handler._originalDelegate, selector, webView, navigation);
+    }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void OnNavigationResponse(nint self, nint selector, nint webView, nint navigationResponse, nint decisionHandler)
@@ -163,4 +184,7 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
 
     [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static partial void SendResponsePolicy(nint receiver, nint selector, nint webView, nint response, nint decisionHandler);
+
+    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
+    private static partial void SendNavigation(nint receiver, nint selector, nint webView, nint navigation);
 }

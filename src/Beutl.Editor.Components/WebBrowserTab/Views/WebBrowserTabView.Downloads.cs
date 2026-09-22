@@ -35,7 +35,8 @@ internal partial class WebBrowserTabView
         if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
         else InvalidatePageDownloadRequests();
         _mediaNavigationIntercepted = true;
-        _viewModel.StopNavigation();
+        _viewModel.RestoreCommittedPage();
+        UpdateBlankPageState();
         QueuePageDownloadRequest(uri, suggestedName);
     }
 

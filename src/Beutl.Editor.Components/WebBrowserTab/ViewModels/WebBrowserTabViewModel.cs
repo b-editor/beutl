@@ -26,6 +26,8 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     private readonly ReadOnlyReactivePropertySlim<string> _header;
     private readonly ReadOnlyReactivePropertySlim<bool> _hasWebAddress;
     private readonly int _instanceNumber;
+    private Uri _committedUri = BlankPage;
+    private string? _committedPageTitle;
     private bool _disposed;
     private bool _navigationStopped;
 
@@ -202,6 +204,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         // Some adapters complete page-initiated navigation without a reliable top-level start.
         // A title from the previous document must not survive that transition, even at the same URI.
         _pageTitle.Value = null;
+        if (isSuccess) CommitNavigation(uri);
         if (isSuccess && uri != BlankPage)
         {
             string address = FormatAddress(uri);
@@ -243,6 +246,23 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         _navigationStopped = true;
     }
 
+    internal void CommitNavigation(Uri uri)
+    {
+        if (!IsPersistableUri(uri)) return;
+        _committedUri = uri;
+        _committedPageTitle = null;
+    }
+
+    internal void RestoreCommittedPage()
+    {
+        _currentUri.Value = _committedUri;
+        _address.Value = FormatAddress(_committedUri);
+        _pageTitle.Value = _committedPageTitle;
+        _isLoading.Value = false;
+        _errorMessage.Value = null;
+        _navigationStopped = false;
+    }
+
     internal void UpdateHistoryState(bool canGoBack, bool canGoForward)
     {
         _canGoBack.Value = canGoBack;
@@ -259,6 +279,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         if (_currentUri.Value == uri)
         {
             _pageTitle.Value = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+            if (_committedUri == uri) _committedPageTitle = _pageTitle.Value;
         }
     }
 

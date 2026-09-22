@@ -188,7 +188,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (OperatingSystem.IsMacOS())
         {
             _nativeDownloadHandler?.Dispose();
-            _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnNativeDownloadRequested);
+            _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnNativeDownloadRequested, OnNativeNavigationCommitted);
         }
         ScheduleLinuxSizeRefresh(_webView);
     }
@@ -197,6 +197,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     {
         _nativeDownloadHandler?.Dispose();
         _nativeDownloadHandler = null;
+    }
+
+    internal void OnNativeNavigationCommitted(Uri uri)
+    {
+        if (!_disposed) _viewModel?.CommitNavigation(uri);
     }
 
     private void ScheduleLinuxSizeRefresh(NativeWebView webView)

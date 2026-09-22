@@ -50,6 +50,7 @@ public class WebBrowserDownloadTests
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
             navigationStartedIncludesSubframes: true)
         { DataContext = vm };
+        view.OnNativeNavigationCommitted(page);
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
         view.MediaDownloader = new BrowserMediaDownload(client);
@@ -93,6 +94,69 @@ public class WebBrowserDownloadTests
             Assert.That(vm.CurrentUri, Is.EqualTo(page));
         }
         finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase("address", false)]
+    [TestCase("address", true)]
+    [TestCase("redirect", false)]
+    [TestCase("redirect", true)]
+    [TestCase("blank", false)]
+    [TestCase("blank", true)]
+    [TestCase("restored", false)]
+    [TestCase("restored", true)]
+    [TestCase("committed", false)]
+    [TestCase("committed", true)]
+    public void NativeDownloadsRestoreTheLastLoadedPage(string navigation, bool openOptions)
+    {
+        var page = navigation is "blank" or "restored" ? WebBrowserTabViewModel.BlankPage : new Uri("https://page.example/original");
+        var media = new Uri("https://files.example/download?filename=Morning.mp3");
+        var initial = navigation == "redirect" ? new Uri("https://page.example/generate") : media;
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        if (navigation == "restored") vm.ReadFromJson(new JsonObject { ["source"] = initial.AbsoluteUri });
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true)
+        { DataContext = vm };
+        int optionsOpened = 0;
+        view.DownloadOptionsSelector = (_, _) =>
+        {
+            optionsOpened++;
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+        if (navigation != "restored")
+        {
+            if (navigation == "committed") view.OnNativeNavigationCommitted(page);
+            else vm.CompleteNavigation(page, true, page != WebBrowserTabViewModel.BlankPage, false);
+            if (page != WebBrowserTabViewModel.BlankPage) vm.SetPageTitle(page, "Original page");
+            vm.Address.Value = initial.AbsoluteUri;
+            view.NavigateFromAddress();
+        }
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = initial });
+        if (initial != media) view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = media });
+        view.OnNativeDownloadRequested(media, "Morning.mp3");
+        Dispatcher.UIThread.RunJobs();
+
+        void AssertDisplayedPage()
+        {
+            Assert.That(vm.CurrentUri, Is.EqualTo(page));
+            Assert.That(vm.Address.Value, Is.EqualTo(WebBrowserTabViewModel.FormatAddress(page)));
+            Assert.That(vm.Header.Value, Is.EqualTo(page == WebBrowserTabViewModel.BlankPage ? Beutl.Language.Strings.NewTab : "Original page"));
+            Assert.That(vm.HasWebAddress.Value, Is.EqualTo(page != WebBrowserTabViewModel.BlankPage));
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(vm.ErrorMessage.Value, Is.Null);
+            Assert.That(vm.AddressSuggestions, Does.Not.Contain(media.AbsoluteUri));
+            var saved = new JsonObject();
+            vm.WriteToJson(saved);
+            Assert.That(saved["source"]!.GetValue<string>(), Is.EqualTo(WebBrowserTabViewModel.FormatAddress(page)));
+        }
+
+        AssertDisplayedPage();
+        var button = view.FindControl<Button>(openOptions ? "ConfirmPageDownloadButton" : "DismissDownloadStatusButton")!;
+        Assert.That(button.IsVisible, Is.True);
+        button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Assert.That(optionsOpened, Is.EqualTo(openOptions ? 1 : 0));
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
+        AssertDisplayedPage();
     }
 
     [AvaloniaTest]
