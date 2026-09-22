@@ -282,9 +282,12 @@ jobs:
           else
             comment_url=$(jq -r .url comment.json)
             # Keep the translation's Flatpak link in step with the release: correct a stale href, or
-            # add the bullet after the Debian one, and leave the rest of the comment alone.
+            # add the bullet after the Debian one, and leave the rest of the comment alone. The first
+            # Flatpak bullet is the one compared here, since it is the one the repair edits.
             flatpak_url=$(jq -r '(first((.body // "") | scan("\\[Flatpak\\]\\((https://[^)]+\\.flatpak)\\)")) | .[0]) // ""' release.json)
-            if [ -n "$flatpak_url" ] && ! jq -e --arg link "[Flatpak]($flatpak_url)" '.body | contains($link)' comment.json > /dev/null; then
+            if [ -n "$flatpak_url" ] && ! jq -e --arg url "$flatpak_url" '
+              [.body | split("\n")[] | capture("^\\s*[-*+]\\s+\\[Flatpak\\]\\((?<href>[^)]*)\\)") | .href] | first == $url
+            ' comment.json > /dev/null; then
               jq -j .body comment.json | tr -d '\r' > comment.md
               if ! awk -v url="$flatpak_url" -v debian="[Debian パッケージ](" '
                 { line[NR] = $0 }
@@ -377,8 +380,10 @@ jobs:
           # which would assume tag == "v" + semVer.
           flatpak_url=$(jq -r '(first((.body // "") | scan("\\[Flatpak\\]\\((https://[^)]+\\.flatpak)\\)")) | .[0]) // ""' final-release.json)
           if [ -n "$flatpak_url" ]; then
-            if jq -e --arg url "$linked_url" --arg link "[Flatpak]($flatpak_url)" \
-              'any(.[]; .url == $url and (.body | contains($link)))' final-comments.json > /dev/null; then
+            if jq -e --arg url "$linked_url" --arg flatpak "$flatpak_url" '
+              any(.[]; .url == $url
+                and ([.body | split("\n")[] | capture("^\\s*[-*+]\\s+\\[Flatpak\\]\\((?<href>[^)]*)\\)") | .href] | first == $flatpak))
+            ' final-comments.json > /dev/null; then
               echo "The Japanese translation comment links the same Flatpak bundle as the release."
             else
               echo "::error::Release $TAG links $flatpak_url but the Japanese translation comment does not."
