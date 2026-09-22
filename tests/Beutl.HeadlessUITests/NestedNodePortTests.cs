@@ -23,6 +23,7 @@ using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Group;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
@@ -38,34 +39,55 @@ namespace Beutl.HeadlessUITests;
 public class NestedNodePortTests
 {
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task SharedPropertiesRefreshPortAvailabilityAcrossNodes(bool light)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task SharedPropertiesRefreshPortAvailabilityAcrossNodes(bool light, bool grouped)
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await CreateEditor();
         var graph = new GraphModel();
+        var group = new GroupNode { Position = (30, 750) };
+        if (grouped) graph.Nodes.Add(group);
+        GraphModel secondGraph = grouped ? group.Group : graph;
         var first = new GeometryShapeNode { Position = (30, 140) };
-        var second = new GeometryShapeNode { Position = (340, 140) };
+        var second = new GeometryShapeNode { Position = (grouped ? 30 : 340, 140) };
         var brush = new SolidColorBrush();
         first.Fill.Property!.SetValue(brush);
         second.Fill.Property!.SetValue(brush);
-        graph.Nodes.AddRange([first, second]);
-        var source = new LayerInputNode { Position = (30, 0) };
-        var output = new LayerInputNode.LayerInputPort<Color>();
-        output.SetupProperty("Color");
-        output.Property!.SetValue(Colors.Red);
-        source.Items.Add(output);
-        graph.Nodes.Add(source);
+        graph.Nodes.Add(first);
+        secondGraph.Nodes.Add(second);
+        IOutputPort AddSource(GraphModel target)
+        {
+            var source = new LayerInputNode { Position = (30, 0) };
+            var port = new LayerInputNode.LayerInputPort<Color>();
+            port.SetupProperty("Color");
+            port.Property!.SetValue(Colors.Red);
+            source.Items.Add(port);
+            target.Nodes.Add(source);
+            return port;
+        }
+        var output = AddSource(graph);
+        var secondOutput = grouped ? AddSource(secondGraph) : output;
         using var vm = new NodeGraphViewModel(graph, editor);
+        using var innerVm = grouped ? new NodeGraphViewModel(secondGraph, editor) : null;
         var firstVm = vm.Nodes.Single(n => n.GraphNode == first);
-        var secondVm = vm.Nodes.Single(n => n.GraphNode == second);
+        var secondVm = (innerVm ?? vm).Nodes.Single(n => n.GraphNode == second);
         var firstMember = firstVm.NestedItems.Single(p => ReferenceEquals(p.Model!.Property!.GetEngineProperty(), brush.Color));
         var secondMember = secondVm.NestedItems.Single(p => ReferenceEquals(p.Model!.Property!.GetEngineProperty(), brush.Color));
         var view = new NodeGraphView { DataContext = vm };
+        var innerView = grouped ? new NodeGraphView { DataContext = innerVm } : null;
+        var content = new Grid { ColumnDefinitions = new ColumnDefinitions(grouped ? "*,*" : "*") };
+        content.Children.Add(view);
+        if (innerView != null)
+        {
+            Grid.SetColumn(innerView, 1);
+            content.Children.Add(innerView);
+        }
         var window = new Window
         {
-            Content = view,
+            Content = content,
             Width = 640,
             Height = 650,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
@@ -76,7 +98,7 @@ public class NestedNodePortTests
             ((BrushEditorViewModel)firstVm.Items.Single(p => p.Model == first.Fill).PropertyEditorContext!).IsExpanded.Value = true;
             ((BrushEditorViewModel)secondVm.Items.Single(p => p.Model == second.Fill).PropertyEditorContext!).IsExpanded.Value = true;
             await FinishTransition();
-            var secondPoint = view.GetVisualDescendants().OfType<NodePortPoint>()
+            var secondPoint = (innerView ?? view).GetVisualDescendants().OfType<NodePortPoint>()
                 .Single(p => ReferenceEquals(p.DataContext, secondMember));
             Assert.That(secondPoint.IsEnabled, Is.True);
 
@@ -85,7 +107,17 @@ public class NestedNodePortTests
             Assert.That(secondMember.CanConnect.Value, Is.False);
             Assert.That(secondPoint.IsEnabled, Is.False);
             Assert.That(firstMember.CanConnect.Value, Is.True);
-            Capture(window, $"shared-property-nodes-{light}");
+            Capture(window, $"shared-property-nodes-{light}-{grouped}");
+
+            if (grouped)
+            {
+                graph.Nodes.Remove(group);
+                HeadlessTestHelpers.Render(3);
+                Assert.That(secondPoint.IsEnabled, Is.True);
+                graph.Nodes.Add(group);
+                HeadlessTestHelpers.Render(3);
+                Assert.That(secondPoint.IsEnabled, Is.False);
+            }
 
             first.Fill.Property!.SetValue(new SolidColorBrush());
             HeadlessTestHelpers.Render(3);
@@ -97,13 +129,14 @@ public class NestedNodePortTests
             HeadlessTestHelpers.Render(3);
             Assert.That(secondPoint.IsEnabled, Is.True);
 
-            graph.Connect(secondMember.Model!, output);
+            secondGraph.Connect(secondMember.Model!, secondOutput);
             HeadlessTestHelpers.Render(3);
             Assert.That(firstMember.CanConnect.Value, Is.False);
             Assert.That(secondMember.CanConnect.Value, Is.True);
         }
         finally
         {
+            if (innerView != null) innerView.DataContext = null;
             view.DataContext = null;
             window.Close();
         }

@@ -323,39 +323,87 @@ public class NestedInputPortTests
         Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Blue));
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void AliasedPropertiesOnDifferentNodesRejectASecondConnection(bool reverse)
+    [TestCase(false, "flat")]
+    [TestCase(true, "flat")]
+    [TestCase(false, "nested")]
+    [TestCase(true, "nested")]
+    [TestCase(false, "siblings")]
+    [TestCase(true, "siblings")]
+    public void AliasedPropertiesOnDifferentNodesRejectASecondConnection(bool reverse, string layout)
     {
         var graph = new GraphModel();
+        GraphModel AddGroup(GraphModel parent)
+        {
+            var group = new GroupNode();
+            parent.Nodes.Add(group);
+            return group.Group;
+        }
+        GraphModel firstGraph = layout == "siblings" ? AddGroup(graph) : graph;
+        GraphModel secondGraph = layout == "flat" ? graph : AddGroup(AddGroup(graph));
         var first = new GeometryShapeNode();
         var second = new GeometryShapeNode();
         var brush = new SolidColorBrush();
         first.Fill.Property!.SetValue(brush);
         second.Fill.Property!.SetValue(brush);
-        graph.Nodes.AddRange([first, second]);
-        if (reverse) (first, second) = (second, first);
+        firstGraph.Nodes.Add(first);
+        secondGraph.Nodes.Add(second);
+        if (reverse)
+        {
+            (first, second) = (second, first);
+            (firstGraph, secondGraph) = (secondGraph, firstGraph);
+        }
         var firstPort = Find(first, brush.Color);
         var secondPort = Find(second, brush.Color);
-        var red = Source(graph, Colors.Red);
-        var blue = Source(graph, Colors.Blue);
+        var red = Source(firstGraph, Colors.Red);
+        var blue = Source(secondGraph, Colors.Blue);
         Assert.That(second.CanConnectInput(secondPort), Is.True);
-        var connection = graph.Connect(firstPort, red);
+        var connection = firstGraph.Connect(firstPort, red);
 
         Assert.That(second.CanConnectInput(secondPort), Is.False);
-        Assert.Throws<InvalidOperationException>(() => graph.Connect(secondPort, blue));
+        Assert.Throws<InvalidOperationException>(() => secondGraph.Connect(secondPort, blue));
         Assert.That(second.CanConnectInput(Find(second, brush.Opacity)), Is.True);
         Evaluate(graph);
-        Assert.That(graph.AllConnections.Single(), Is.SameAs(connection));
+        Assert.That(firstGraph.AllConnections.Single(), Is.SameAs(connection));
         Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
         Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
 
-        graph.Disconnect(connection);
+        firstGraph.Disconnect(connection);
         Assert.That(second.CanConnectInput(secondPort), Is.True);
-        graph.Connect(secondPort, blue);
+        secondGraph.Connect(secondPort, blue);
         Evaluate(graph);
         Assert.That(first.CanConnectInput(firstPort), Is.False);
         Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Blue));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void GroupAliasesRecoverAfterDisconnectingEitherWriter(bool disconnectOuter)
+    {
+        var graph = new GraphModel();
+        var group = new GroupNode();
+        var outer = new GeometryShapeNode();
+        var inner = new GeometryShapeNode();
+        var shared = new SolidColorBrush();
+        var separate = new SolidColorBrush();
+        outer.Fill.Property!.SetValue(shared);
+        inner.Fill.Property!.SetValue(separate);
+        graph.Nodes.AddRange([outer, group]);
+        group.Group.Nodes.Add(inner);
+        var outerPort = Find(outer, shared.Color);
+        var innerPort = Find(inner, separate.Color);
+        var outerConnection = graph.Connect(outerPort, Source(graph, Colors.Red));
+        var innerConnection = group.Group.Connect(innerPort, Source(group.Group, Colors.Blue));
+        Evaluate(graph);
+
+        inner.Fill.Property.SetValue(shared);
+        Assert.That(outer.CanConnectInput(outerPort), Is.False);
+        Assert.That(inner.CanConnectInput(innerPort), Is.False);
+        if (disconnectOuter) graph.Disconnect(outerConnection);
+        else group.Group.Disconnect(innerConnection);
+        Evaluate(graph);
+
+        Assert.That((disconnectOuter ? innerConnection : outerConnection).Status, Is.EqualTo(ConnectionStatus.Success));
+        Assert.That(shared.Color.GetValue(CompositionContext.Default), Is.EqualTo(disconnectOuter ? Colors.Blue : Colors.Red));
     }
 
     [TestCase(false)]

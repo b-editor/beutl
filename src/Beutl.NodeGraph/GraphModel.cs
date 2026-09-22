@@ -1,5 +1,6 @@
 ﻿using Beutl.Collections;
 using Beutl.Engine;
+using Beutl.NodeGraph.Nodes.Group;
 
 namespace Beutl.NodeGraph;
 
@@ -62,6 +63,7 @@ public partial class GraphModel : EngineObject
         obj.TopologyChanged -= OnTopologyChanged;
         obj.Edited -= OnNodeEdited;
         RaiseTopologyChanged();
+        if (obj is GroupNode group) group.Group.RaiseTopologyChanged();
         RaiseEdited();
     }
 
@@ -104,15 +106,38 @@ public partial class GraphModel : EngineObject
 
     protected void RaiseTopologyChanged()
     {
-        _connectedInputProperties = null;
-        TopologyChanged?.Invoke(this, EventArgs.Empty);
+        // Shared properties can invalidate connections in another group. Clear every cache
+        // before notifying views and snapshots, including those in sibling groups.
+        GraphModel[] graphs = GetRootGraph().EnumerateGraphs().ToArray();
+        foreach (GraphModel graph in graphs) graph._connectedInputProperties = null;
+        foreach (GraphModel graph in graphs) graph.TopologyChanged?.Invoke(graph, EventArgs.Empty);
+    }
+
+    private GraphModel GetRootGraph()
+    {
+        GraphModel root = this;
+        while (root.HierarchicalParent is GroupNode { HierarchicalParent: GraphModel parent })
+            root = parent;
+        return root;
+    }
+
+    private IEnumerable<GraphModel> EnumerateGraphs()
+    {
+        yield return this;
+        foreach (GroupNode group in Nodes.OfType<GroupNode>())
+        {
+            foreach (GraphModel graph in group.Group.EnumerateGraphs()) yield return graph;
+        }
     }
 
     internal IEnumerable<IInputPort> EnumerateConnectedInputs()
-        => Nodes.SelectMany(node => node.GetConnectedInputs());
+        => GetRootGraph().EnumerateGraphs().SelectMany(graph => graph.Nodes)
+            .SelectMany(node => node.GetConnectedInputs());
 
     internal bool HasAliasedInput(IInputPort input, IProperty property)
     {
+        GraphModel root = GetRootGraph();
+        if (root != this) return root.HasAliasedInput(input, property);
         if (_connectedInputProperties == null)
         {
             var properties = new Dictionary<IProperty, (IInputPort Port, int Count)>(ReferenceEqualityComparer.Instance);
