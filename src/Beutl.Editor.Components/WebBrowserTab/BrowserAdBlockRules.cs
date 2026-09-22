@@ -178,10 +178,19 @@ internal sealed class BrowserAdBlockRules
         {
             CosmeticRule[] exceptions = _cosmeticExceptions[rule.Selector].ToArray();
             if (exceptions.Any(r => r.Include.Length == 0)) continue;
-            // Combining include and exclude domains is not supported by WebKit. Skip that
-            // cosmetic filter rather than hiding content on a site with an explicit exception.
-            if (rule.Include.Length != 0 && exceptions.Length != 0) continue;
-            var trigger = CreateTrigger(".*", rule.Include, rule.Exclude.Concat(exceptions.SelectMany(r => r.Include)).Distinct().ToArray());
+            string[] exceptionDomains = exceptions.SelectMany(r => r.Include).Distinct().ToArray();
+            string[] include = rule.Include;
+            string[] exclude = rule.Exclude;
+            if (include.Length != 0)
+            {
+                // A child-domain exception cannot be combined with if-domain in WebKit.
+                // Omit only overlapping include domains, preserving unrelated sites.
+                include = include.Where(domain => !exceptionDomains.Any(exception =>
+                    DomainMatches(domain, exception) || DomainMatches(exception, domain))).ToArray();
+                if (include.Length == 0) continue;
+            }
+            else exclude = exclude.Concat(exceptionDomains).Distinct().ToArray();
+            var trigger = CreateTrigger(".*", include, exclude);
             rules.Add(new { trigger, action = new { type = "css-display-none", selector = rule.Selector } });
         }
         foreach (NetworkRule rule in _network.OrderBy(r => r.Exception))
