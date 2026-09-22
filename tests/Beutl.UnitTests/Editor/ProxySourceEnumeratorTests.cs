@@ -692,6 +692,64 @@ public class ProxySourceEnumeratorTests
         Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "layer-object.png" }));
     }
 
+    [Test]
+    public void LayerOutputRemainsDiscoveredUntilItsLastConsumerDisconnects()
+    {
+        var first = new VideoSourceNode();
+        var second = new VideoSourceNode();
+        first.Source.Property!.SetValue(CreateVideoSource("shared-layer.mov"));
+        second.Source.Property!.SetValue(CreateVideoSource("second-local.mov"));
+        var layer = new LayerInputNode();
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([first, second, layer]);
+        Assert.That(layer.AddNodePort(first.Source, out var firstConnection), Is.True);
+        var secondConnection = graph.Connect(second.Source, layer.Items.OfType<IOutputPort>().Single());
+        first.Source.Property.SetValue(CreateVideoSource("first-local.mov"));
+        Element element = ElementWith(drawable);
+
+        Assert.That(FileNames(element), Is.EqualTo(new[] { "shared-layer.mov" }));
+        graph.Disconnect(firstConnection!);
+        Assert.That(FileNames(element), Is.EquivalentTo(new[] { "first-local.mov", "shared-layer.mov" }));
+        graph.Disconnect(secondConnection);
+        Assert.That(FileNames(element), Is.EquivalentTo(new[] { "first-local.mov", "second-local.mov" }));
+    }
+
+    [Test]
+    public void LayerOutputWithOnlyRejectedConsumersDoesNotSupplyRenderableMedia()
+    {
+        var brush = new ImageBrush { Source = { CurrentValue = CreateImageSource("unused-layer.png") } };
+        var node = new GeometryShapeNode();
+        node.Fill.Property!.SetValue(brush);
+        var layer = new LayerInputNode();
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([node, layer]);
+        var port = node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Source));
+        Assert.That(layer.AddNodePort(port, out var connection), Is.True);
+        brush.Source.CurrentValue = CreateImageSource("base-local.png");
+        var animation = new KeyFrameAnimation<Brush?>();
+        animation.KeyFrames.Add(new KeyFrame<Brush?>
+        {
+            Value = new ImageBrush { Source = { CurrentValue = CreateImageSource("animated-local.png") } }
+        });
+        ((IAnimatablePropertyAdapter<Brush?>)node.Fill.Property).Animation = animation;
+        Assert.That(node.CanConnectInput(port), Is.False);
+        Assert.That(port.Connection.Value, Is.SameAs(connection));
+        Element element = ElementWith(drawable);
+        Scene scene = CreateScene("rejected-layer-output.scene");
+        scene.Children.Add(element);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+
+        Assert.That(files, Is.EquivalentTo(new[] { "base-local.png", "animated-local.png" }));
+        Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "animated-local.png" }));
+        Assert.That(ProxySourceEnumerator.EnumerateMediaFileSources(scene).Select(Path.GetFileName),
+            Does.Contain("unused-layer.png"), "Stored output values must remain available to the asset scan.");
+    }
+
     [TestCase(false, false, false)]
     [TestCase(false, false, true)]
     [TestCase(false, true, false)]
@@ -749,6 +807,16 @@ public class ProxySourceEnumeratorTests
             Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { expected }));
             Assert.That(FileNames(element), Is.EqualTo(video ? new[] { expected } : Array.Empty<string>()));
         });
+
+        graph.Disconnect(connection!);
+        Assert.That(layer.Items.OfType<LayerInputNode.ILayerInputPort>().Count(), Is.EqualTo(1));
+        string fallback = video ? "stale-destination.mov" : "stale-destination.png";
+        files = ProxySourceEnumerator.EnumerateFileSources(element)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        Assert.That(files, Is.EqualTo(new[] { fallback }));
+        Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { fallback }));
+        Assert.That(ProxySourceEnumerator.EnumerateMediaFileSources(scene).Select(Path.GetFileName), Does.Contain(expected));
     }
 
     [TestCase(false, false)]

@@ -134,6 +134,20 @@ public static class ProxySourceEnumerator
 
     private static void CollectFileSourcePaths(CoreObject obj, HashSet<string> paths, bool includeObjectUri)
     {
+        // The broad asset walk retains authored layer values for later reconnection, even when
+        // render/proxy discovery excludes an output with no accepted consumers.
+        if (obj is LayerInputNode.ILayerInputPort { Property: { } property })
+        {
+            var visitedValues = new HashSet<EngineObject>(ReferenceEqualityComparer.Instance);
+            foreach (IFileSource source in EnumeratePropertyValueFileSources(property.GetValue(), null, false, visitedValues))
+                AddFileSourcePath(source.Uri, paths);
+            if (property is IAnimatablePropertyAdapter { Animation: { } animation })
+            {
+                foreach (IFileSource source in EnumerateAnimatedFileSources(animation, visitedValues: visitedValues))
+                    AddFileSourcePath(source.Uri, paths);
+            }
+        }
+
         if (obj is EngineObject engineObj)
         {
             foreach (IFileSource source in EnumeratePropertyFileSources(engineObj))
@@ -779,6 +793,11 @@ public static class ProxySourceEnumerator
             // Layer inputs store their authored values on outputs, which LoadAnimatedValues reads
             // just like input properties. Computed outputs do not carry these stored values.
             if (member is not (IInputPort or LayerInputNode.ILayerInputPort) || member.Property is not { } property)
+                continue;
+
+            if (member is LayerInputNode.ILayerInputPort output
+                && !output.Connections.Any(reference => reference.Value?.Input.Value is IInputPort consumer
+                    && consumer.FindHierarchicalParent<GraphNode>()?.CanConnectInput(consumer) == true))
                 continue;
 
             // Accepted connections supply the input from upstream. Rejected retained connections
