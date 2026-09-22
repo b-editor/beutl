@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using Avalonia.Threading;
 using Beutl.Editor.Components.WebBrowserTab;
 using Reactive.Bindings;
 
@@ -31,7 +32,7 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
         _subscriptions.Add(RecordDownloads.Skip(1).Subscribe(_ => Save()));
         _subscriptions.Add(BlockAds.Skip(1).Subscribe(_ => Save()));
         profile.SettingsChanged += Reload;
-        profile.AdBlockFilters.Changed += RefreshFilterStatus;
+        profile.AdBlockFilters.Changed += OnFiltersChanged;
         RefreshFilterStatus();
         BrowserWebViewRegistry.Changed += RefreshCookieAvailability;
         RefreshCookieAvailability();
@@ -84,6 +85,8 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
         }
         finally { _updating = false; }
     }
+
+    private void OnFiltersChanged() => Dispatcher.UIThread.Post(RefreshFilterStatus);
 
     private void RefreshFilterStatus()
     {
@@ -187,7 +190,7 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
         _disposed = true;
         _lifetime.Cancel();
         _lifetime.Dispose();
-        _profile.AdBlockFilters.Changed -= RefreshFilterStatus;
+        _profile.AdBlockFilters.Changed -= OnFiltersChanged;
         BrowserWebViewRegistry.Changed -= RefreshCookieAvailability;
         _profile.SettingsChanged -= Reload;
         _subscriptions.Dispose();

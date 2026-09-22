@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Reactive.Linq;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
@@ -18,6 +19,58 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class BrowserSettingsPageTests
 {
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task BackgroundFilterChangesUpdateStatusOnTheUiThread(bool loadCache)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var client = new HttpClient(new FilterResponseHandler());
+        string cache = Path.Combine(root, "filters.json");
+        var filters = new BrowserAdBlockFilterStore(cache, client);
+        if (loadCache)
+        {
+            await filters.UpdateAsync([BrowserAdBlockFilterStore.EasyListUrl], CancellationToken.None);
+            filters = new BrowserAdBlockFilterStore(cache, client);
+        }
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"), adBlockFilters: filters);
+        using var vm = new BrowserSettingsPageViewModel(profile, () => null);
+        var notifications = new List<bool>();
+        using var subscription = vm.FilterStatus.Skip(1).Subscribe(_ => notifications.Add(Dispatcher.UIThread.CheckAccess()));
+        try
+        {
+            await Task.Run(() => loadCache
+                ? filters.GetAsync([BrowserAdBlockFilterStore.EasyListUrl])
+                : filters.UpdateAsync([BrowserAdBlockFilterStore.EasyListUrl], CancellationToken.None));
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(notifications, Is.EqualTo(new[] { true }));
+            Assert.That(vm.FilterStatus.Value, Does.Contain("1"));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    public void QueuedFilterStatusChangeIsIgnoredAfterDisposal()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var client = new HttpClient(new FilterResponseHandler());
+        var filters = new BrowserAdBlockFilterStore(Path.Combine(root, "filters.json"), client);
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"), adBlockFilters: filters);
+        using var vm = new BrowserSettingsPageViewModel(profile, () => null);
+        int notifications = 0;
+        using var subscription = vm.FilterStatus.Skip(1).Subscribe(_ => Interlocked.Increment(ref notifications));
+        try
+        {
+            // Hold the UI thread until the worker has queued its notification, then close the page.
+            Task update = Task.Run(() => filters.UpdateAsync([BrowserAdBlockFilterStore.EasyListUrl], CancellationToken.None));
+            Assert.That(update.Wait(TimeSpan.FromSeconds(10)), Is.True);
+            vm.Dispose();
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(notifications, Is.Zero);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
     [AvaloniaTest]
     public async Task SettingsHost_UsesRequestingWindowAndReusesOpenDialog()
     {
