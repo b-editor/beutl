@@ -115,9 +115,11 @@ internal sealed class PackageLinkBroker : IDisposable
     {
         while (!_cancellation.IsCancellationRequested)
         {
+            bool accepted = false;
             try
             {
                 await _pipe.WaitForConnectionAsync(_cancellation.Token).ConfigureAwait(false);
+                accepted = true;
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_cancellation.Token);
                 timeout.CancelAfter(TimeSpan.FromSeconds(3));
                 byte[] header = new byte[4];
@@ -150,7 +152,9 @@ internal sealed class PackageLinkBroker : IDisposable
             }
             finally
             {
-                if (_pipe.IsConnected)
+                // A failed acknowledgement can mark the pipe Broken, making IsConnected
+                // false. Disconnect must still reset that accepted connection before reuse.
+                if (accepted)
                     _pipe.Disconnect();
             }
         }
