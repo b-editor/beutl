@@ -18,6 +18,7 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
     private static readonly nint s_delegateClass = CreateDelegateClass();
     private readonly Action<Uri, string> _onDownload;
     private readonly Action<Uri> _onNavigationCommitted;
+    private readonly BrowserDownloadNavigation _navigation = new();
     private readonly nint _originalDelegate;
     private nint _webView;
     private nint _delegate;
@@ -59,6 +60,8 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
         nint type = objc_allocateClassPair(objc_getClass("NSObject"), "BeutlDownloadNavigationDelegate", 0);
         class_addMethod(type, s_responsePolicy,
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, void>)&OnNavigationResponse, "v@:@@@");
+        class_addMethod(type, sel_registerName("webView:decidePolicyForNavigationAction:decisionHandler:"),
+            (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, void>)&OnNavigationAction, "v@:@@@");
         class_addMethod(type, sel_registerName("webView:didCommitNavigation:"),
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, void>)&OnNavigationCommitted, "v@:@@");
         class_addMethod(type, s_respondsToSelector,
@@ -78,6 +81,34 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static nint ForwardingTarget(nint self, nint selector, nint requestedSelector) =>
         s_handlers.TryGetValue(self, out var handler) ? handler._originalDelegate : 0;
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnNavigationAction(nint self, nint selector, nint webView, nint navigationAction, nint decisionHandler)
+    {
+        s_handlers.TryGetValue(self, out var handler);
+        if (handler != null)
+        {
+            try
+            {
+                nint request = Send(navigationAction, sel_registerName("request"));
+                nint targetFrame = Send(navigationAction, sel_registerName("targetFrame"));
+                string? address = GetString(Send(Send(request, sel_registerName("URL")), sel_registerName("absoluteString")));
+                Uri.TryCreate(address, UriKind.Absolute, out Uri? uri);
+                handler._navigation.RecordRequest(uri, GetString(Send(request, sel_registerName("HTTPMethod"))),
+                    targetFrame != 0 && SendBool(targetFrame, sel_registerName("isMainFrame")));
+            }
+            catch
+            {
+                // An unknown request must never inherit permission to replay an earlier GET.
+                handler._navigation.RecordRequest(null, null, true);
+            }
+        }
+
+        if (handler != null && SendBoolPointer(handler._originalDelegate, s_respondsToSelector, selector))
+            SendNavigationPolicy(handler._originalDelegate, selector, webView, navigationAction, decisionHandler);
+        else
+            CompletePolicy(decisionHandler, 1); // WKNavigationActionPolicy.Allow
+    }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void OnNavigationCommitted(nint self, nint selector, nint webView, nint navigation)
@@ -106,7 +137,7 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
             nint response = Send(navigationResponse, sel_registerName("response"));
             string? address = GetString(Send(Send(response, sel_registerName("URL")), sel_registerName("absoluteString")));
             if (handler != null && SendBool(navigationResponse, sel_registerName("isForMainFrame"))
-                && Uri.TryCreate(address, UriKind.Absolute, out Uri? uri) && BrowserMediaDownload.IsHttpUri(uri)
+                && Uri.TryCreate(address, UriKind.Absolute, out Uri? uri) && handler._navigation.CanReplayResponse(uri)
                 && SendBoolPointer(response, s_respondsToSelector, sel_registerName("statusCode"))
                 && Send(response, sel_registerName("statusCode")) is >= 200 and < 300
                 && BrowserMediaDownload.GetResponseFileName(uri,
@@ -124,13 +155,18 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
 
         if (!cancel && handler != null && SendBoolPointer(handler._originalDelegate, s_respondsToSelector, selector))
         {
-            SendResponsePolicy(handler._originalDelegate, selector, webView, navigationResponse, decisionHandler);
+            SendNavigationPolicy(handler._originalDelegate, selector, webView, navigationResponse, decisionHandler);
             return;
         }
 
+        CompletePolicy(decisionHandler, cancel ? 0 : 1); // WKNavigationResponsePolicy.Cancel / Allow
+    }
+
+    private static void CompletePolicy(nint decisionHandler, nint policy)
+    {
         // Objective-C block ABI: isa, flags, reserved, invoke. Call the policy completion exactly once.
         var callback = (delegate* unmanaged[Cdecl]<nint, nint, void>)((BlockLiteral*)decisionHandler)->Invoke;
-        callback(decisionHandler, cancel ? 0 : 1); // WKNavigationResponsePolicy.Cancel / Allow
+        callback(decisionHandler, policy);
     }
 
     private static string? GetString(nint value) =>
@@ -183,7 +219,7 @@ internal sealed unsafe partial class MacOSBrowserDownloadHandler : IDisposable
     private static partial bool SendBoolPointer(nint receiver, nint selector, nint value);
 
     [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
-    private static partial void SendResponsePolicy(nint receiver, nint selector, nint webView, nint response, nint decisionHandler);
+    private static partial void SendNavigationPolicy(nint receiver, nint selector, nint webView, nint navigation, nint decisionHandler);
 
     [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static partial void SendNavigation(nint receiver, nint selector, nint webView, nint navigation);
