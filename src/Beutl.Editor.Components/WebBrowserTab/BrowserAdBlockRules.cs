@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -9,6 +10,10 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 internal sealed class BrowserAdBlockRules
 {
     internal const int MaximumRules = 100_000;
+    internal const int MaximumCandidateRules = 4096;
+    internal const int MaximumRequestUrlLength = 8192;
+    private static readonly TimeSpan RequestMatchTimeout = TimeSpan.FromMilliseconds(10);
+    private static readonly TimeSpan RuleMatchTimeout = TimeSpan.FromMilliseconds(5);
     private static readonly string[] ResourceTypes = ["document", "image", "style-sheet", "script", "font", "media", "raw", "svg-document", "popup"];
     private readonly Dictionary<string, List<NetworkRule>> _index = new(StringComparer.Ordinal);
     private readonly List<NetworkRule> _unindexed = [];
@@ -222,28 +227,52 @@ internal sealed class BrowserAdBlockRules
 
     internal bool ShouldBlock(Uri request, Uri? page, string resourceType, bool isChildFrame = false, bool? isThirdParty = null)
     {
-        if (!BrowserMediaDownload.IsHttpUri(request)) return false;
+        // WebView2 invokes this synchronously on the UI thread. Bound candidate collection
+        // as well as matching, and allow the request if a complete decision is too expensive.
+        if (request.OriginalString.Length > MaximumRequestUrlLength || !BrowserMediaDownload.IsHttpUri(request)
+            || _unindexed.Count > MaximumCandidateRules) return false;
+        long started = Stopwatch.GetTimestamp();
         string url = request.AbsoluteUri;
+        if (url.Length > MaximumRequestUrlLength) return false;
         string normalized = url.ToLowerInvariant();
-        var candidates = new HashSet<NetworkRule>(_unindexed, ReferenceEqualityComparer.Instance);
+        var candidates = new HashSet<NetworkRule>(ReferenceEqualityComparer.Instance);
+        var visitedKeys = new HashSet<string>(StringComparer.Ordinal);
         for (int i = 0; i <= normalized.Length - 5; i++)
-            if (_index.TryGetValue(normalized.Substring(i, 5), out var bucket)) candidates.UnionWith(bucket);
-        bool blocked = false;
-        foreach (NetworkRule rule in candidates)
         {
-            if (!rule.Types.Contains(resourceType) || (rule.ChildFrame && !isChildFrame)
-                || !MatchesDomains(page?.Host ?? "", rule.Include, rule.Exclude)) continue;
-            if (rule.ThirdParty is { } thirdParty)
-            {
-                if (page == null) continue;
-                bool? actual = isThirdParty ?? InferThirdParty(request, page);
-                if (actual == null || thirdParty != actual) continue;
-            }
-            if (!rule.Matches(url)) continue;
-            if (rule.Exception) return false;
-            blocked = true;
+            if (Stopwatch.GetElapsedTime(started) >= RequestMatchTimeout) return false;
+            string key = normalized.Substring(i, 5);
+            if (!visitedKeys.Add(key) || !_index.TryGetValue(key, out var bucket)) continue;
+            // A rule belongs to only one bucket. Count before enumerating, including the
+            // unindexed rules that will be appended, so a hostile bucket is never copied.
+            if (bucket.Count > MaximumCandidateRules - candidates.Count - _unindexed.Count) return false;
+            candidates.UnionWith(bucket);
         }
-        return blocked;
+        candidates.UnionWith(_unindexed);
+
+        // Examine exceptions first. Once they have all been checked, the first blocking
+        // match is conclusive; a timeout must never preserve a partial blocking result.
+        if (HasMatch(exceptions: true) != false) return false;
+        return HasMatch(exceptions: false) == true;
+
+        bool? HasMatch(bool exceptions)
+        {
+            foreach (NetworkRule rule in candidates)
+            {
+                if (Stopwatch.GetElapsedTime(started) >= RequestMatchTimeout) return null;
+                if (rule.Exception != exceptions || !rule.Types.Contains(resourceType) || (rule.ChildFrame && !isChildFrame)
+                    || !MatchesDomains(page?.Host ?? "", rule.Include, rule.Exclude)) continue;
+                if (rule.ThirdParty is { } thirdParty)
+                {
+                    if (page == null) continue;
+                    bool? actual = isThirdParty ?? InferThirdParty(request, page);
+                    if (actual == null || thirdParty != actual) continue;
+                }
+                bool? matched = rule.Matches(url);
+                if (matched == null || Stopwatch.GetElapsedTime(started) >= RequestMatchTimeout) return null;
+                if (matched.Value) return true;
+            }
+            return false;
+        }
     }
 
     private static bool? InferThirdParty(Uri request, Uri page)
@@ -279,11 +308,11 @@ internal sealed class BrowserAdBlockRules
         bool? ThirdParty, bool MatchCase, bool ChildFrame, bool Exception)
     {
         private Regex? _regex;
-        internal bool Matches(string url)
+        internal bool? Matches(string url)
         {
-            _regex ??= new Regex(Pattern, RegexOptions.CultureInvariant | (MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase), TimeSpan.FromMilliseconds(20));
+            _regex ??= new Regex(Pattern, RegexOptions.CultureInvariant | (MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase), RuleMatchTimeout);
             try { return _regex.IsMatch(url); }
-            catch (RegexMatchTimeoutException) { return false; }
+            catch (RegexMatchTimeoutException) { return null; }
         }
     }
 }
