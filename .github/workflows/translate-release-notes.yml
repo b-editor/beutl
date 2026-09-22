@@ -243,12 +243,15 @@ jobs:
             # translation.md is model output: check it against the input this job derived itself.
             placeholders() { awk -v p="$PLACEHOLDER" '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "") } $0 == p { n++ } END { print n + 0 }' "$1"; }
             # Every destination a renderer could link to: Markdown targets, reference definitions and
-            # the identifiers that use them ([text][id], [id][]), HTML href/src values, and bare,
-            # protocol-relative or www autolinks.
+            # the identifiers that use them, HTML href/src values, and bare, protocol-relative or www
+            # autolinks. [text][id] and [id][] resolve alike, so both reduce to the label as CommonMark
+            # matches it, and a translation may turn [Installer][] into [インストーラー][Installer].
             links() {
               {
                 grep -oE '\]\([^)]*\)|^[[:space:]]*\[[^]]*\]:[[:space:]]*[^[:space:]]+' "$1" || true
-                grep -oE '\]\[[^][]+\]|\[[^][]*\]\[\]' "$1" || true
+                grep -oE '\]\[[^][]+\]|\[[^][]*\]\[\]' "$1" \
+                  | sed -E 's/^\]\[(.*)\]$/\1/; s/^\[(.*)\]\[\]$/\1/; s/[[:space:]]+/ /g; s/^ //; s/ $//; s/^/ref:/' \
+                  | tr '[:upper:]' '[:lower:]' || true
                 grep -oiE '(href|src)[[:space:]]*=[[:space:]]*[^[:space:]>]+' "$1" || true
                 grep -oiE '(https?:)?//[^][()<>[:space:]]+|www\.[^][()<>[:space:]]+' "$1" | sed -E 's/[.,;:!?]+$//' || true
               } | sort
