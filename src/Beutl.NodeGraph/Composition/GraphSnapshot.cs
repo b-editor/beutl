@@ -80,8 +80,8 @@ public sealed class GraphSnapshot : IDisposable
         {
             foreach (INodeMember item in node.EnumerateMembers())
             {
-                // Unresolved fallback endpoints are retained for recovery, not evaluated.
-                if (item is INestedInputPort { Property: null }) continue;
+                // Retained invalid inputs must not create dependencies that block valid nodes.
+                if (item is IInputPort input && !node.CanConnectInput(input)) continue;
                 if (item is IListInputPort listInputPort)
                 {
                     foreach (var connection in listInputPort.Connections)
