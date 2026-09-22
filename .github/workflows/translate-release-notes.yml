@@ -20,125 +20,306 @@ on:
         required: true
         type: string
 
-jobs:
-  translate:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      discussions: write
-      id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
+# opencode only writes the Japanese translation as Markdown, in a job that holds no GitHub
+# token scopes and no GitHub secrets. The jobs around it read and write GitHub with gh.
+permissions: {}
 
-      - name: Translate discussion and link from release
-        uses: anthropics/claude-code-action@v1.0.219
-        timeout-minutes: 20
+env:
+  TAG: ${{ inputs.discussion_title }}
+  REPO: ${{ github.repository }}
+  OWNER: ${{ github.repository_owner }}
+  REPO_NAME: ${{ github.event.repository.name }}
+  DISCUSSION_NUMBER: ${{ inputs.discussion_number }}
+  DISCUSSION_ID: ${{ inputs.discussion_node_id }}
+  MARKER: "<!-- japanese-release-notes -->"
+  # Stands in for the changelog, which stays untranslated, while opencode translates the rest.
+  PLACEHOLDER: "<!-- changelog -->"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.state.outputs.mode }}
+      body-sha256: ${{ steps.state.outputs.body-sha256 }}
+    steps:
+      - &read-state
+        name: Read the release and the discussion comments
+        id: state
         env:
           GH_TOKEN: ${{ secrets.DISCUSSION_TOKEN }}
+        run: |
+          set -euo pipefail
+          if ! err=$(gh release view "$TAG" -R "$REPO" --json body,isDraft 2>&1 >release.json); then
+            if printf '%s' "$err" | grep -qiE 'release not found|not found|HTTP 404'; then
+              echo "No release found for $TAG — nothing to translate."
+              echo "mode=none" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::Failed to look up release $TAG (gh release view errored): $err"
+            exit 1
+          fi
+          jq -j '.body // ""' release.json > body.raw
+          tr -d '\r' < body.raw > body.md
+          echo "body-sha256=$(sha256sum < body.raw | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+          gh api graphql --paginate -F number="$DISCUSSION_NUMBER" -f owner="$OWNER" -f repo="$REPO_NAME" -f query='
+            query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
+              repository(owner: $owner, name: $repo) {
+                discussion(number: $number) {
+                  comments(first: 100, after: $endCursor) {
+                    nodes { id url body author { login } }
+                    pageInfo { hasNextPage endCursor }
+                  }
+                }
+              }
+            }' --jq '.data.repository.discussion.comments.nodes[]' | jq -s . > comments.json
+          # An existing translation is a marked comment posted with this token, since anyone can comment:
+          # the one the release links to, or else the first.
+          me=$(gh api graphql -f query='query { viewer { login } }' --jq .data.viewer.login)
+          linked_url=$(jq -r '(first((.body // "") | scan("https://github\\.com/[^)]*#discussioncomment-[0-9]+"))) // ""' release.json)
+          jq --arg url "$linked_url" --arg marker "$MARKER" --arg me "$me" '
+            [.[] | select(.author.login == $me and (.body | contains($marker)))]
+            | (map(select(.url == $url)) + .) | first // empty
+          ' comments.json > comment.json
+
+          if [ -s comment.json ]; then
+            mode=existing
+          else
+            mode=translate
+            # Drop the link paragraph this workflow prepends, and swap the changelog for the placeholder.
+            if ! awk -v placeholder="$PLACEHOLDER" '
+              { t = $0; sub(/[[:space:]]+$/, "", t) }
+              NR == 1 && index(t, "日本語のリリースノートは") == 1 { skipping = 1; next }
+              skipping && t == "" { next }
+              { skipping = 0 }
+              state == "block" {
+                block = block "\n" $0
+                if (t == "</details>") { state = "done"; print placeholder }
+                next
+              }
+              state == "held" {
+                if (t == "<summary>Changelog</summary>") { state = "block"; block = held "\n" $0; next }
+                print held
+                state = ""
+              }
+              state == "" && t == "<details>" { state = "held"; held = $0; next }
+              { print }
+              END {
+                if (state == "held") print held
+                if (state == "block") exit 1
+                if (block != "") print block > "changelog-block.md"
+              }
+            ' body.md > translation-input.md; then
+              echo "::error::The changelog in the notes of $TAG has no closing </details>."
+              exit 1
+            fi
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Translation of $TAG: $mode"
+
+      - name: Upload the notes for opencode
+        if: steps.state.outputs.mode == 'translate'
+        uses: actions/upload-artifact@v7
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.DISCUSSION_TOKEN }}
-          allowed_bots: "github-actions"
-          claude_args: '--allowed-tools "Bash(gh release view:*),Bash(gh release edit:*),Bash(gh api graphql:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*),Bash(jq:*),Write,Read"'
-          prompt: |
-            A new GitHub Discussion was created in `${{ github.repository }}`. Treat its title as a release tag and:
-              1. translate the matching release body into Japanese and post it as a NEW COMMENT on the discussion (do not edit the discussion body itself), and
-              2. prepend a Japanese link to that release's body so users can find the translation.
+          name: translation-input
+          path: translation-input.md
+          retention-days: 1
+          if-no-files-found: error
+          # A re-run uploads the artifact again.
+          overwrite: true
 
-            ## Discussion context (passed via workflow_dispatch inputs)
-            - number: `${{ inputs.discussion_number }}`
-            - node_id: `${{ inputs.discussion_node_id }}`
-            - title (use as release tag): `${{ inputs.discussion_title }}`
-            - url: `${{ inputs.discussion_html_url }}`
+  translate:
+    needs: prepare
+    if: needs.prepare.outputs.mode == 'translate'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Download the notes
+        uses: actions/download-artifact@v8
+        with:
+          name: translation-input
+          path: ${{ runner.temp }}/input
 
-            ## Steps
+      - name: Install opencode
+        run: npm install --global opencode-ai@1.18.32
 
-            1. Use the discussion title verbatim as the release tag (e.g. `v2.0.0-preview.3`). Fetch the release body:
-               `gh release view "${{ inputs.discussion_title }}" -R ${{ github.repository }} --json body,tagName,isDraft,url`
-               If the release does not exist, exit cleanly with a message — do not modify anything.
+      - name: Translate the release notes with opencode
+        timeout-minutes: 20
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          # Any OpenCode Zen model (opencode/...) can replace the default through the OPENCODE_MODEL variable.
+          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL || 'opencode/claude-sonnet-5' }}
+          # Every tool but the edit tools is hidden from the model, and those may touch only
+          # translation.md in the working directory: anything outside it is an
+          # external_directory request, which "*" denies.
+          OPENCODE_CONFIG_CONTENT: |
+            {
+              "permission": {
+                "*": "deny",
+                "edit": { "*": "deny", "*/translation.md": "allow" }
+              }
+            }
+          PROMPT: |
+            Translate the GitHub release notes of Beutl ${{ inputs.discussion_title }}, a video editing application, in the <release-notes> below into natural Japanese.
 
-            2. Translate the release body into natural Japanese:
-               - Keep all markdown structure (headings, bullets, nesting, `<details>`/`<summary>`, code spans, links) intact.
-               - Translate human-readable text including section headings:
-                 - `## What's Changed` → `## 変更点`
-                 - `**New Features**` → `**新機能**`
-                 - `**Improvements & Refactoring**` → `**改善・リファクタリング**`
-                 - `**Bug Fixes**` → `**バグ修正**`
-                 - `**Other**` → `**その他**`
-                 - Download link labels: `Installer` → `インストーラー`, `Installer (.NET Runtime required)` → `インストーラー (.NET Runtime 必須)`, `Zip (arm64)` / `Zip (x64)` はそのまま、`Debian package` → `Debian パッケージ`, `Flatpak` はそのまま、`Zip (.NET Runtime required)` → `Zip (.NET Runtime 必須)`.
-               - Inside the `<details><summary>Changelog</summary>` block, keep the auto-generated `* <prefix>: ... by @user in <PR-URL>` lines untranslated (they are PR titles).
-               - Translate the `**Full Changelog**` line label to `**フルチェンジログ**` but keep the URL.
-               - Do not add or remove sections.
+            - Keep the Markdown structure intact: headings, bullets and their nesting, bold labels, code spans, links and HTML tags.
+            - Keep every URL exactly as it is.
+            - Keep the line `${{ env.PLACEHOLDER }}` as it is, on a line of its own. The untranslated changelog goes back in its place afterwards.
+            - Translate these labels exactly:
+              - `## What's Changed` → `## 変更点`
+              - `**New Features**` → `**新機能**`
+              - `**Improvements & Refactoring**` → `**改善・リファクタリング**`
+              - `**Bug Fixes**` → `**バグ修正**`
+              - `**Other**` → `**その他**`
+              - `Installer` → `インストーラー`, `Installer (.NET Runtime required)` → `インストーラー (.NET Runtime 必須)`, `Debian package` → `Debian パッケージ`, `Zip (.NET Runtime required)` → `Zip (.NET Runtime 必須)`. Keep `Zip (arm64)`, `Zip (x64)`, `Zip`, `Flatpak` and the platform names as they are.
+              - `(breaking change)` → `（破壊的変更）`
+              - `## New Contributors` → `## 新しいコントリビューター`, and each `* @<user> made their first contribution in <URL>` → `* @<user> さんが <URL> で初めてコントリビュートしました`
+              - `**Full Changelog**` → `**フルチェンジログ**`, keeping the URL.
+            - Do not add or remove sections or bullets.
+        run: |
+          set -euo pipefail
+          if [ -z "$OPENCODE_API_KEY" ]; then
+            echo "::error::Set the OPENCODE_API_KEY secret to an OpenCode Zen API key."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/opencode"
+          cd "$RUNNER_TEMP/opencode"
+          {
+            printf '%s\n<release-notes>\n' "$PROMPT"
+            cat "$RUNNER_TEMP/input/translation-input.md"
+            printf '</release-notes>\n\nWrite the translation to %s with the write tool, and write no other file.\n' "$PWD/translation.md"
+          } | opencode run --pure --model "$OPENCODE_MODEL" --title "Translate $TAG"
+          if [ ! -s translation.md ]; then
+            echo "::error::opencode finished without writing translation.md."
+            exit 1
+          fi
 
-            3. Check whether a Japanese-translation comment already exists on this discussion (to keep step 4 idempotent and to support repairing a previous half-completed run):
-               ```
-               gh api graphql -F number=${{ inputs.discussion_number }} -F owner='${{ github.repository_owner }}' -F repo='${{ github.event.repository.name }}' -f query='
-                 query($owner: String!, $repo: String!, $number: Int!) {
-                   repository(owner: $owner, name: $repo) {
-                     discussion(number: $number) { comments(first: 50) { nodes { id url body } } }
-                   }
-                 }'
-               ```
-               Find the first comment whose body contains the marker line `<!-- japanese-release-notes -->`. Define `COMMENT_URL`:
-                 - If such a comment exists, set `COMMENT_URL` to its `url`. Skip step 4 — do NOT post another comment.
-                   Then keep the comment's Flatpak link in step with the release. Repair the comment the release body actually links to — the url inside its `日本語のリリースノートは[こちら](<url>)です。` paragraph — and fall back to this first marked comment only when the release body carries no such link; a discussion can hold more than one marked comment, and the one users reach is the linked one. Take the EXACT href of the `[Flatpak](<url>)` bullet in the release body's Linux download list. If the release body has no such bullet, leave the comment untouched. Otherwise the comment must contain that exact url:
-                     - The comment has no Flatpak bullet → insert the translated bullet, copying that exact href, directly after the `[Debian パッケージ](...)` bullet.
-                     - The comment has a Flatpak bullet with a different href → replace just that href with the exact one. A stale link must neither suppress the repair nor produce a second bullet.
-                     - The comment already contains the exact url → leave it untouched.
-                   In every case leave every other byte of the comment unchanged — do NOT re-translate the rest, which would clobber any manual edit. Write the result with the `Write` tool to `comment-body.md` (keep the `<!-- japanese-release-notes -->` marker line) and update the comment in place with its `id` from the query above:
-                   ```
-                   gh api graphql -F commentId='<comment id>' -F body=@comment-body.md -f query='
-                     mutation($commentId: ID!, $body: String!) {
-                       updateDiscussionComment(input: { commentId: $commentId, body: $body }) {
-                         comment { id url }
-                       }
-                     }'
-                   ```
-                   The verification step below fails the job if the release links a Flatpak bundle that this comment does not, so a skipped or failed update cannot pass as success.
-                 - Otherwise, leave `COMMENT_URL` unset and proceed to step 4 to create the comment.
+      - name: Upload the translation
+        uses: actions/upload-artifact@v7
+        with:
+          name: translation
+          path: ${{ runner.temp }}/opencode/translation.md
+          retention-days: 1
+          if-no-files-found: error
+          # A re-run uploads the artifact again.
+          overwrite: true
 
-               In either case, ALWAYS continue to step 5 — a previous run may have posted the comment but failed to update the release body, and step 5 must be allowed to repair that.
+  apply:
+    needs: [prepare, translate]
+    # translate is skipped when the discussion already carries the translation.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.mode != 'none' && needs.translate.result != 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      # Read the release and the comments again rather than trust what other jobs uploaded.
+      - *read-state
 
-            4. (Only if `COMMENT_URL` was not set in step 3.) Post the translated body as a NEW comment on the discussion. Create the comment body with the `Write` tool — write it to `comment-body.md` (it contains backticks, quotes, and newlines, so do NOT build it with shell heredocs / `echo` / `printf`) and prepend the marker line `<!-- japanese-release-notes -->` followed by a blank line so future runs can detect it. Then:
-               ```
-               gh api graphql -F discussionId='${{ inputs.discussion_node_id }}' -F body=@comment-body.md -f query='
-                 mutation($discussionId: ID!, $body: String!) {
-                   addDiscussionComment(input: { discussionId: $discussionId, body: $body }) {
-                     comment { id url }
-                   }
-                 }'
-               ```
-               (Use `-F body=@<file>` so the file contents are sent as the variable value.)
-               Set `COMMENT_URL` to the returned `comment.url` (e.g. `https://github.com/<owner>/<repo>/discussions/<n>#discussioncomment-<id>`).
-               Do NOT modify the discussion body itself — only add a comment.
+      - name: Download the translation
+        if: steps.state.outputs.mode == 'translate' && needs.translate.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: translation
+          path: ${{ runner.temp }}/translation
 
-            5. If the release body does NOT already contain the substring `日本語のリリースノートは`, prepend exactly this paragraph (followed by one blank line) to the existing release body, using `COMMENT_URL` from step 3 or step 4:
-               ```
-               日本語のリリースノートは[こちら](<COMMENT_URL>)です。
-               ```
-               Then create the combined body with the `Write` tool — write it to `release-body.md` (not a shell heredoc) and run:
-               `gh release edit "${{ inputs.discussion_title }}" -R ${{ github.repository }} --notes-file release-body.md`
-               Preserve `--draft=true` if the release was a draft (use the `isDraft` value you fetched).
-               If the substring is already present, do not edit the release.
+      - name: Publish the translation and link it from the release
+        env:
+          GH_TOKEN: ${{ secrets.DISCUSSION_TOKEN }}
+          MODE: ${{ steps.state.outputs.mode }}
+          BODY_SHA256: ${{ steps.state.outputs.body-sha256 }}
+          TRANSLATED_SHA256: ${{ needs.prepare.outputs.body-sha256 }}
+          TRANSLATION: ${{ runner.temp }}/translation/translation.md
+        run: |
+          set -euo pipefail
+          if [ "$MODE" = none ]; then
+            echo "No release found for $TAG — nothing to publish."
+            exit 0
+          fi
 
-            ## Constraints
+          if [ "$MODE" = translate ]; then
+            if [ ! -f "$TRANSLATION" ] || [ "$BODY_SHA256" != "$TRANSLATED_SHA256" ]; then
+              echo "::error::The notes of $TAG changed while they were being translated. Re-run all jobs."
+              exit 1
+            fi
+            # translation.md is model output: check it against the input this job derived itself.
+            placeholders() { awk -v p="$PLACEHOLDER" '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "") } $0 == p { n++ } END { print n + 0 }' "$1"; }
+            urls() { grep -oE 'https?://[^][()<>[:space:]]+' "$1" | sed -E 's/[.,;:!?]+$//' | sort -u || true; }
+            if [ "$(placeholders translation-input.md)" != "$(placeholders "$TRANSLATION")" ]; then
+              echo "::error::The translation does not keep the $PLACEHOLDER line. Re-run all jobs."
+              exit 1
+            fi
+            if ! diff <(urls translation-input.md) <(urls "$TRANSLATION"); then
+              echo "::error::The translation adds, drops or changes links (see the diff above). Re-run all jobs."
+              exit 1
+            fi
+            if grep -qF "## What's Changed" translation-input.md && ! grep -qF "## 変更点" "$TRANSLATION"; then
+              echo "::error::The translation lacks the ## 変更点 heading. Re-run all jobs."
+              exit 1
+            fi
+            {
+              printf '%s\n\n' "$MARKER"
+              awk -v p="$PLACEHOLDER" -v marker="$MARKER" '
+                { t = $0; gsub(/^[[:space:]]+|[[:space:]]+$/, "", t) }
+                t == marker { next }
+                t == p { while ((getline line < "changelog-block.md") > 0) print line; next }
+                { print }
+              ' "$TRANSLATION"
+            } > comment-body.md
+            comment_url=$(gh api graphql -f discussionId="$DISCUSSION_ID" -F body=@comment-body.md -f query='
+              mutation($discussionId: ID!, $body: String!) {
+                addDiscussionComment(input: { discussionId: $discussionId, body: $body }) {
+                  comment { url }
+                }
+              }' --jq .data.addDiscussionComment.comment.url)
+            echo "Posted the translation: $comment_url"
+          else
+            comment_url=$(jq -r .url comment.json)
+            # Keep the translation's Flatpak link in step with the release: correct a stale href, or
+            # add the bullet after the Debian one, and leave the rest of the comment alone.
+            flatpak_url=$(jq -r '(first((.body // "") | scan("\\[Flatpak\\]\\((https://[^)]+\\.flatpak)\\)")) | .[0]) // ""' release.json)
+            if [ -n "$flatpak_url" ] && ! jq -e --arg url "$flatpak_url" '.body | contains($url)' comment.json > /dev/null; then
+              jq -j .body comment.json | tr -d '\r' > comment.md
+              if ! awk -v url="$flatpak_url" -v debian="[Debian パッケージ](" '
+                { line[NR] = $0 }
+                !flatpak && /^[[:space:]]*[-*+][[:space:]]+\[Flatpak\]\(/ { flatpak = NR }
+                !anchor && /^[[:space:]]*[-*+][[:space:]]/ && index($0, debian) { anchor = NR }
+                END {
+                  if (!flatpak && !anchor) exit 1
+                  for (i = 1; i <= NR; i++) {
+                    if (i == flatpak) {
+                      start = index(line[i], "[Flatpak](")
+                      rest = substr(line[i], start + 10)
+                      line[i] = substr(line[i], 1, start - 1) "[Flatpak](" url substr(rest, index(rest, ")"))
+                    }
+                    print line[i]
+                    if (!flatpak && i == anchor) print substr(line[i], 1, index(line[i], debian) - 1) "[Flatpak](" url ")"
+                  }
+                }
+              ' comment.md > comment-body.md; then
+                echo "::error::$comment_url has neither a Flatpak nor a Debian パッケージ bullet to put the Flatpak link on."
+                exit 1
+              fi
+              gh api graphql -f commentId="$(jq -r .id comment.json)" -F body=@comment-body.md -f query='
+                mutation($commentId: ID!, $body: String!) {
+                  updateDiscussionComment(input: { commentId: $commentId, body: $body }) {
+                    comment { id }
+                  }
+                }' > /dev/null
+              echo "Updated the Flatpak link in $comment_url."
+            fi
+          fi
 
-            - Do not edit the discussion body, title, or category. The only comment you may edit is the one carrying the `<!-- japanese-release-notes -->` marker, and only to bring its Flatpak bullet in line with the release as described in step 3; never edit anyone else's comment.
-            - Do not publish the release, edit the tag, or touch assets.
-            - Do not modify any other discussion or release.
-            - If anything is ambiguous (release missing, translation refused, API error), exit without partial writes.
+          # Always check the link: a previous run may have posted the translation but failed here.
+          if ! grep -qF "日本語のリリースノートは" body.md; then
+            { printf '日本語のリリースノートは[こちら](%s)です。\n\n' "$comment_url"; cat body.md; } > release-body.md
+            args=(--notes-file release-body.md)
+            if [ "$(jq -r .isDraft release.json)" = true ]; then
+              args+=(--draft=true)
+            fi
+            gh release edit "$TAG" -R "$REPO" "${args[@]}"
+          fi
 
       - name: Verify the translation link was added
         env:
           GH_TOKEN: ${{ secrets.DISCUSSION_TOKEN }}
-          TAG: ${{ inputs.discussion_title }}
-          REPO: ${{ github.repository }}
-          DISCUSSION_NUMBER: ${{ inputs.discussion_number }}
-          OWNER: ${{ github.repository_owner }}
-          REPO_NAME: ${{ github.event.repository.name }}
         run: |
           set -euo pipefail
           if ! err=$(gh release view "$TAG" -R "$REPO" --json url 2>&1 >/dev/null); then
@@ -153,7 +334,7 @@ jobs:
           if printf '%s' "$body" | grep -qF "日本語のリリースノートは"; then
             echo "Release notes link to the Japanese translation — translation succeeded."
           else
-            echo "::error::Release $TAG exists but its notes do not link to the Japanese translation. The Claude step finished without updating the release body."
+            echo "::error::Release $TAG exists but its notes do not link to the Japanese translation."
             exit 1
           fi
           # The check above is already satisfied on a repair rerun, so it cannot tell whether the
@@ -164,20 +345,25 @@ jobs:
             # Check the comment the release actually links to; a discussion can hold more than one
             # marked comment, and only the linked one is the one users reach.
             linked_url=$(printf '%s' "$body" | grep -oE 'https://github\.com/[^)]*#discussioncomment-[0-9]+' | head -n1) || linked_url=""
-            comments=$(gh api graphql -F number="$DISCUSSION_NUMBER" -F owner="$OWNER" -F repo="$REPO_NAME" -f query='
-              query($owner: String!, $repo: String!, $number: Int!) {
+            comments=$(gh api graphql --paginate -F number="$DISCUSSION_NUMBER" -f owner="$OWNER" -f repo="$REPO_NAME" -f query='
+              query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
                 repository(owner: $owner, name: $repo) {
-                  discussion(number: $number) { comments(first: 50) { nodes { url body } } }
+                  discussion(number: $number) {
+                    comments(first: 100, after: $endCursor) {
+                      nodes { url body }
+                      pageInfo { hasNextPage endCursor }
+                    }
+                  }
                 }
-              }')
-            comment=$(printf '%s' "$comments" | jq -r --arg url "$linked_url" '
-              [.data.repository.discussion.comments.nodes[] | select($url != "" and .url == $url) | .body]
-              + [.data.repository.discussion.comments.nodes[] | select(.body | contains("<!-- japanese-release-notes -->")) | .body]
+              }' --jq '.data.repository.discussion.comments.nodes[]' | jq -s .)
+            comment=$(printf '%s' "$comments" | jq -r --arg url "$linked_url" --arg marker "$MARKER" '
+              [.[] | select($url != "" and .url == $url) | .body]
+              + [.[] | select(.body | contains($marker)) | .body]
               | first // ""')
             if printf '%s' "$comment" | grep -qF "$flatpak_url"; then
               echo "The Japanese translation comment links the same Flatpak bundle as the release."
             else
-              echo "::error::Release $TAG links $flatpak_url but the Japanese translation comment does not. The Claude step did not bring the comment up to date."
+              echo "::error::Release $TAG links $flatpak_url but the Japanese translation comment does not."
               exit 1
             fi
           fi
