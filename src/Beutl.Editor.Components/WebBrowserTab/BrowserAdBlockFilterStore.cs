@@ -19,6 +19,8 @@ internal sealed class BrowserAdBlockFilterStore
     private readonly HttpClient _client;
     private readonly SemaphoreSlim _updateLock = new(1, 1);
     private Task<BrowserAdBlockRules>? _load;
+    private string[]? _loadUrls;
+    private string[]? _currentUrls;
     internal BrowserAdBlockRules? Current { get; private set; }
     internal DateTimeOffset? UpdatedAt { get; private set; }
     internal event Action? Changed;
@@ -43,24 +45,31 @@ internal sealed class BrowserAdBlockFilterStore
 
     internal Task<BrowserAdBlockRules> GetAsync(string[] urls)
     {
-        if (_load?.IsFaulted == true || _load?.IsCanceled == true) _load = null;
+        urls = ParseUrls(string.Join('\n', urls));
+        if (_load?.IsFaulted == true || _load?.IsCanceled == true || !SourcesMatch(_loadUrls, urls)) _load = null;
+        _loadUrls = urls;
         return _load ??= LoadAsync(urls);
     }
 
+    private static bool SourcesMatch(string[]? cached, string[] requested) =>
+        cached != null && cached.SequenceEqual(requested, StringComparer.Ordinal);
+
     private async Task<BrowserAdBlockRules> LoadAsync(string[] urls)
     {
-        if (Current != null) return Current;
+        if (Current != null && SourcesMatch(_currentUrls, urls)) return Current;
         try
         {
             if (File.Exists(_cachePath) && new FileInfo(_cachePath).Length <= MaximumDownloadBytes * 2L)
             {
                 Cache? cache = JsonSerializer.Deserialize<Cache>(await File.ReadAllTextAsync(_cachePath));
-                if (cache is { Version: 1, Text: { Length: > 0 and <= MaximumDownloadBytes } })
+                if (cache is { Version: 1, Text: { Length: > 0 and <= MaximumDownloadBytes } }
+                    && SourcesMatch(cache.Urls, urls))
                 {
                     BrowserAdBlockRules rules = await Task.Run(() => BrowserAdBlockRules.Parse(cache.Text));
                     if (rules.SupportedCount > 0)
                     {
                         Current = rules;
+                        _currentUrls = urls;
                         UpdatedAt = cache.UpdatedAt;
                         Changed?.Invoke();
                         return rules;
@@ -74,7 +83,7 @@ internal sealed class BrowserAdBlockFilterStore
 
     internal async Task<BrowserAdBlockRules> UpdateAsync(string[] urls, CancellationToken cancellationToken)
     {
-        ParseUrls(string.Join('\n', urls));
+        urls = ParseUrls(string.Join('\n', urls));
         await _updateLock.WaitAsync(cancellationToken);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(90));
@@ -116,8 +125,10 @@ internal sealed class BrowserAdBlockFilterStore
             cancellationToken.ThrowIfCancellationRequested();
             File.Move(temporary, _cachePath, overwrite: true);
             Current = rules;
+            _currentUrls = urls;
             UpdatedAt = now;
             _load = Task.FromResult(rules);
+            _loadUrls = urls;
             Changed?.Invoke();
             return rules;
         }

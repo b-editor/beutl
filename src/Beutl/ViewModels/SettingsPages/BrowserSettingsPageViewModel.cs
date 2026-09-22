@@ -128,7 +128,7 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
 
     private async Task LoadFiltersAsync()
     {
-        if (_disposed || IsUpdatingFilters.Value || _profile.AdBlockFilters.Current != null) return;
+        if (_disposed || IsUpdatingFilters.Value) return;
         IsUpdatingFilters.Value = true;
         FilterStatus.Value = Strings.BrowserAdBlockLoading;
         try
