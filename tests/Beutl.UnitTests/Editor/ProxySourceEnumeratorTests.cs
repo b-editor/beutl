@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using Beutl.Animation;
 using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
@@ -632,6 +633,60 @@ public class ProxySourceEnumeratorTests
     [TestCase(false, true)]
     [TestCase(true, false)]
     [TestCase(true, true)]
+    public void RejectedNestedSourcesKeepTheirLocalMediaBeforeAndAfterEvaluation(bool windowed, bool evaluated)
+    {
+        var brush = new ImageBrush();
+        brush.Source.CurrentValue = CreateImageSource("restored-local.png");
+        var otherBrush = new ImageBrush();
+        otherBrush.Source.CurrentValue = CreateImageSource("replaced-local.png");
+        var first = new GeometryShapeNode();
+        var second = new GeometryShapeNode();
+        first.Fill.Property!.SetValue(brush);
+        second.Fill.Property!.SetValue(otherBrush);
+        var upstream = new FileSourcePassThroughNode();
+        var otherUpstream = new FileSourcePassThroughNode();
+        upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
+        otherUpstream.Input.Property!.SetValue(CreateImageSource("other-upstream.png"));
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([first, second, upstream, otherUpstream]);
+        var firstPort = first.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Source));
+        var secondPort = second.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), otherBrush.Source));
+        graph.Connect(firstPort, upstream.Output);
+        graph.Connect(secondPort, otherUpstream.Output);
+        second.Fill.Property.SetValue(brush);
+        Assert.That(first.CanConnectInput(firstPort), Is.False);
+        Assert.That(second.CanConnectInput(secondPort), Is.False);
+        if (evaluated)
+        {
+            using var snapshot = new GraphSnapshot();
+            snapshot.Build(graph, CompositionContext.Default);
+            snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        }
+        IExpression? expressionBeforeWalk = brush.Source.Expression;
+        Element element = ElementWith(drawable);
+        Scene scene = CreateScene("rejected-input.scene");
+        scene.Children.Add(element);
+        // The graph still evaluates every upstream node, as well as the restored local source.
+        string[] expected = ["restored-local.png", "upstream.png", "other-upstream.png"];
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element,
+                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Is.EquivalentTo(expected));
+            Assert.That(missing.Select(Path.GetFileName), Is.EquivalentTo(expected));
+            Assert.That(brush.Source.Expression, Is.SameAs(expressionBeforeWalk), "Discovery must not mutate the graph.");
+        });
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
     public void ConnectedNestedSourcesExcludeTheirBaseButKeepSiblings(bool group, bool windowed)
     {
         var brush = new ImageBrush();
@@ -731,6 +786,44 @@ public class ProxySourceEnumeratorTests
         second.Source.CurrentValue = CreateImageSource("sibling.png");
         node.Object.Brushes.Move(0, 1);
         Assert.That(Files(), Is.EquivalentTo(new[] { "upstream.png", "sibling.png" }));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void DescendantConnectionsOverrideOuterAliasesRegardlessOfNodeOrder(bool groupFirst, bool windowed)
+    {
+        var alias = new FactoryNode<ImageBrush>();
+        alias.Object.Source.CurrentValue = CreateImageSource("stale-outer-alias.png");
+        var group = new GroupNode();
+        var nestedGroup = new GroupNode();
+        group.Group.Nodes.Add(nestedGroup);
+        var node = new GeometryShapeNode();
+        node.Fill.Property!.SetValue(alias.Object);
+        var upstream = new FileSourcePassThroughNode();
+        upstream.Input.Property!.SetValue(CreateImageSource("inner-upstream.png"));
+        nestedGroup.Group.Nodes.AddRange([node, upstream]);
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange(groupFirst ? new GraphNode[] { group, alias } : [alias, group]);
+        nestedGroup.Group.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), alias.Object.Source)), upstream.Output);
+        Element element = ElementWith(drawable);
+        Scene scene = CreateScene("outer-alias.scene");
+        scene.Children.Add(element);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element,
+                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Is.EqualTo(new[] { "inner-upstream.png" }));
+            Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "inner-upstream.png" }));
+            Assert.That(ProxySourceEnumerator.EnumerateMediaFileSources(scene).Select(Path.GetFileName),
+                Does.Contain("stale-outer-alias.png"), "The broad asset scan must retain stored media for later disconnection.");
+        });
     }
 
     [Test]

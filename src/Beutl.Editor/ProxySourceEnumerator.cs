@@ -464,7 +464,7 @@ public static class ProxySourceEnumerator
             // base value or the animation, so in a windowed pass (which mirrors what the render opens)
             // they must not block export. Without a window (proxy/badge scan) keep them, since an
             // unresolvable expression is not something the scanner can follow.
-            bool expressionOverrides = localRange is not null && property.Expression is not null;
+            bool expressionOverrides = localRange is not null && HasActiveExpression(property, walkContext);
 
             // A property animated by >=1 keyframe is sampled from its animation, never its base
             // CurrentValue, so when range-filtering to a render window the base must not block export —
@@ -516,6 +516,13 @@ public static class ProxySourceEnumerator
     {
         public IReadOnlySet<IProperty>? ConnectedNodeInputs { get; init; }
     }
+
+    private static bool HasActiveExpression(IProperty property, ObjectWalkContext? context)
+        // Discovery may run before GraphSnapshot removes a rejected connection's generated
+        // expression. Its stored value/animation is already the effective fallback in that case.
+        => property.Expression is { } expression
+           && (expression is not INodePortExpression
+               || context?.ConnectedNodeInputs?.Contains(property) != false);
 
     private static IEnumerable<IFileSource> EnumeratePropertyValueFileSources(
         object? value, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues,
@@ -682,7 +689,7 @@ public static class ProxySourceEnumerator
             foreach (IFileSource source in EnumerateExpressionFileSources(target, property.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, visitedExpressionProps, walkContext))
                 yield return source;
 
-            bool targetExpressionOverrides = localRange is not null && property.Expression is not null;
+            bool targetExpressionOverrides = localRange is not null && HasActiveExpression(property, walkContext);
             bool targetBaseOverridden = localRange is not null && (targetExpressionOverrides || AnimationSuppliesValue(property.Animation));
             if (!targetBaseOverridden)
             {
@@ -723,11 +730,13 @@ public static class ProxySourceEnumerator
         // the broad project-asset walk must retain stored values for later disconnection.
         var connectedInputs = new HashSet<IProperty>(ReferenceEqualityComparer.Instance);
         if (walkContext?.ConnectedNodeInputs is { } inherited) connectedInputs.UnionWith(inherited);
-        foreach (GraphNode node in model.Nodes)
+        // Resolve all descendant writers before visiting any aliases in an outer graph.
+        foreach (GraphNode node in model.EnumerateGraphs().SelectMany(graph => graph.Nodes))
         {
             foreach (IInputPort port in node.EnumerateMembers().OfType<IInputPort>())
             {
-                if (port.Connection.Value != null && port.Property?.GetEngineProperty() is { } property)
+                if (port.Connection.Value != null && node.CanConnectInput(port)
+                    && port.Property?.GetEngineProperty() is { } property)
                     connectedInputs.Add(property);
             }
         }
@@ -735,20 +744,21 @@ public static class ProxySourceEnumerator
             new HashSet<Drawable>(ReferenceEqualityComparer.Instance), new HashSet<Drawable>(ReferenceEqualityComparer.Instance), null, sceneWindow);
         walkContext = walkContext with { ConnectedNodeInputs = connectedInputs };
 
-        foreach (GraphNode node in model.Nodes)
-        {
-            // Every input port whose value is an IFileSource — VideoSourceNode.Source, ImageSourceNode.Source,
-            // and a GroupNode's outer-boundary inputs alike. Gating on the value type (not a specific node
-            // type) keeps this uniform across all source-carrying nodes.
-            foreach (IFileSource source in EnumerateNodeInputSources(node, localRange, visitedValues, sceneWindow, walkContext, skipDisabledElements))
-                yield return source;
+        foreach (IFileSource source in WalkGraph(model)) yield return source;
 
-            // A user-constructed GroupNode can reference a GraphGroup that (transitively) contains the
-            // same GroupNode, producing an infinite walk. The visited set makes the recursion terminate.
-            if (node is GroupNode groupNode && visitedGraphGroups.Add(groupNode.Group))
+        IEnumerable<IFileSource> WalkGraph(GraphModel graph)
+        {
+            foreach (GraphNode node in graph.Nodes)
             {
-                foreach (IFileSource source in EnumerateGraphSources(groupNode.Group, visitedGraphGroups, localRange, visitedValues, sceneWindow, walkContext, skipDisabledElements))
+                // Keep every group's outer inputs even when its inner graph is shared.
+                foreach (IFileSource source in EnumerateNodeInputSources(node, localRange, visitedValues, sceneWindow, walkContext, skipDisabledElements))
                     yield return source;
+
+                // Reuse the complete input set without rescanning each descendant subtree.
+                if (node is GroupNode groupNode && visitedGraphGroups.Add(groupNode.Group))
+                {
+                    foreach (IFileSource source in WalkGraph(groupNode.Group)) yield return source;
+                }
             }
         }
     }
@@ -768,9 +778,9 @@ public static class ProxySourceEnumerator
             if (member is not IInputPort inputPort || inputPort.Property is not { } property)
                 continue;
 
-            // A connected input's value comes from the upstream node (LoadAnimatedValues skips it), so
-            // this port's own base/animation is never opened — the upstream node reports its sources.
-            if (inputPort.Connection.Value is not null
+            // Accepted connections supply the input from upstream. Rejected retained connections
+            // use local values again, just as GraphSnapshot does.
+            if (inputPort.Connection.Value is not null && node.CanConnectInput(inputPort)
                 || property.GetEngineProperty() is { } engineProperty
                 && walkContext?.ConnectedNodeInputs?.Contains(engineProperty) == true)
                 continue;

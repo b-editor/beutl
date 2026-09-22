@@ -134,8 +134,11 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
     }
 }
 
+/// <summary>Identifies an expression supplied by a node connection rather than a user formula.</summary>
+public interface INodePortExpression : IExpression;
+
 [JsonConverter(typeof(NodePortExpressionJsonConverter))]
-public class NodePortExpression<T> : IExpression<T>
+public class NodePortExpression<T> : IExpression<T>, INodePortExpression
 {
     public T? Value { get; set; }
 
