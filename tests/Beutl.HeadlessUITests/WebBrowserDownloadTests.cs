@@ -48,7 +48,8 @@ public class WebBrowserDownloadTests
         var context = new DownloadContext(scene);
         using var vm = new WebBrowserTabViewModel(context, page, profile);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: true) { DataContext = vm };
+            navigationStartedIncludesSubframes: true)
+        { DataContext = vm };
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
         view.MediaDownloader = new BrowserMediaDownload(client);
