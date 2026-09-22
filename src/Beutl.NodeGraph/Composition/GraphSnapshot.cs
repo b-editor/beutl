@@ -29,6 +29,18 @@ public sealed class GraphSnapshot : IDisposable
         // 既存リソースをクリーンアップ
         Uninitialize();
 
+        // Rejected edges retain their connections, but must not leave an old expression value
+        // overriding the property's local value or animation. Restore valid expressions before
+        // creating resources so recovered connections can supply their values again.
+        foreach (GraphNode node in model.Nodes)
+        {
+            foreach (IInputPort input in node.GetConnectedInputs())
+            {
+                if (input is IConnectionExpressionController expression)
+                    expression.UpdateExpression(node.CanConnectInput(input));
+            }
+        }
+
         int nodeCount = model.Nodes.Count;
         if (nodeCount == 0)
         {

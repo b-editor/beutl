@@ -17,7 +17,12 @@ public interface IEnginePropertyBackedInputPort
     void CopyFrom(IItemValue itemValue);
 }
 
-public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBackedInputPort
+internal interface IConnectionExpressionController
+{
+    void UpdateExpression(bool enabled);
+}
+
+public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBackedInputPort, IConnectionExpressionController
 {
     private IProperty<T>? _property;
 
@@ -94,6 +99,19 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
             _property.Expression = new NodePortExpression<T>();
         else if (Connection.IsNull && _property.Expression is NodePortExpression<T> && !HasOtherConnectedInput())
             _property.Expression = null;
+    }
+
+    void IConnectionExpressionController.UpdateExpression(bool enabled)
+    {
+        if (enabled)
+        {
+            UpdateExpression();
+        }
+        else if (_property?.Expression is NodePortExpression<T>)
+        {
+            using var suppression = RecordingSuppression.Enter();
+            _property.Expression = null;
+        }
     }
 
     public void CopyFrom(IItemValue itemValue)
