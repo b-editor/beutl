@@ -38,7 +38,8 @@ internal partial class WebBrowserTabView
         _canceledNativeDownloadUris.Add(uri);
         _viewModel.RestoreCommittedPage();
         UpdateBlankPageState();
-        QueuePageDownloadRequest(uri, suggestedName);
+        // The response does not expose WebKit's effective referrer policy. Never broaden it when replaying the request.
+        QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer);
     }
 
     // Capture explicit download links as well as media links added dynamically by the page.

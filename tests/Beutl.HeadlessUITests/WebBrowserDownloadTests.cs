@@ -90,7 +90,7 @@ public class WebBrowserDownloadTests
             var download = profile.Downloads.Single();
             Assert.That(Path.GetFileName(download.FilePath), Is.EqualTo("Morning.mp3"));
             Assert.That(File.Exists(download.FilePath), Is.True);
-            Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://page.example/")));
+            Assert.That(handler.Referrer, Is.Null);
             Assert.That(vm.CurrentUri, Is.EqualTo(page));
         }
         finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
@@ -254,12 +254,15 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
-    public async Task PageLinkReferrerPolicySurvivesConfirmationAndHistoryRetry()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DownloadReferrerPolicySurvivesConfirmationAndHistoryRetry(bool nativeResponse)
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
         using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://files.example/page"), profile);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+        view.OnNativeNavigationCommitted(vm.CurrentUri);
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
         view.MediaDownloader = new BrowserMediaDownload(client);
@@ -271,8 +274,11 @@ public class WebBrowserDownloadTests
         try
         {
             window.Show();
-            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
-            { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3","referrerPolicy":"no-referrer"}""" });
+            if (nativeResponse)
+                view.OnNativeDownloadRequested(new Uri("https://files.example/download"), "media.mp3");
+            else
+                view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+                { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3","referrerPolicy":"no-referrer"}""" });
             Dispatcher.UIThread.RunJobs();
             view.FindControl<Button>("ConfirmPageDownloadButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
