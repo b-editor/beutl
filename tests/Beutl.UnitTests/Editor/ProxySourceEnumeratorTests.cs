@@ -629,6 +629,128 @@ public class ProxySourceEnumeratorTests
         Assert.That(collected.Select(Path.GetFileName), Does.Contain("node-fill.png"));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void LayerOutputAnimationsRespectNodeAndGlobalClocks(bool globalClock)
+    {
+        var node = new VideoSourceNode();
+        node.Source.Property!.SetValue(CreateVideoSource("layer-base.mov"));
+        var layer = new LayerInputNode
+        {
+            IsTimeAnchor = true,
+            TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10))
+        };
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([node, layer]);
+        Assert.That(layer.AddNodePort(node.Source, out _), Is.True);
+        var output = layer.Items.OfType<LayerInputNode.ILayerInputPort>().Single();
+        var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = globalClock };
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(1), Value = CreateVideoSource("local-clock.mov") });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(6), Value = CreateVideoSource("global-clock.mov") });
+        ((IAnimatablePropertyAdapter<VideoSource?>)output.Property!).Animation = animation;
+        Element element = ElementWith(drawable);
+        element.Length = TimeSpan.FromSeconds(10);
+        Scene scene = CreateScene("layer-animation.scene");
+        scene.Children.Add(element);
+        var window = new TimeRange(TimeSpan.FromSeconds(6), TimeSpan.Zero);
+        string expected = globalClock ? "global-clock.mov" : "local-clock.mov";
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element, localRange: window, sceneWindow: window)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, window.Start));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Is.EqualTo(new[] { expected }));
+            Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { expected }));
+            Assert.That(FileNames(element), Is.EquivalentTo(new[] { "layer-base.mov", "local-clock.mov", "global-clock.mov" }));
+        });
+    }
+
+    [Test]
+    public void LayerObjectOutputsReportTheirNestedMedia()
+    {
+        var brush = new ImageBrush { Source = { CurrentValue = CreateImageSource("layer-object.png") } };
+        var node = new GeometryShapeNode();
+        node.Fill.Property!.SetValue(brush);
+        var layer = new LayerInputNode();
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        graph.Nodes.AddRange([node, layer]);
+        Assert.That(layer.AddNodePort(node.Fill, out _), Is.True);
+        node.Fill.Property.SetValue(new ImageBrush { Source = { CurrentValue = CreateImageSource("stale-object.png") } });
+        Element element = ElementWith(drawable);
+        Scene scene = CreateScene("layer-object.scene");
+        scene.Children.Add(element);
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+
+        Assert.That(files, Is.EqualTo(new[] { "layer-object.png" }));
+        Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "layer-object.png" }));
+    }
+
+    [TestCase(false, false, false)]
+    [TestCase(false, false, true)]
+    [TestCase(false, true, false)]
+    [TestCase(false, true, true)]
+    [TestCase(true, false, false)]
+    [TestCase(true, false, true)]
+    [TestCase(true, true, false)]
+    [TestCase(true, true, true)]
+    public void DynamicLayerOutputsReportCopiedMediaForNestedInputs(bool video, bool group, bool windowed)
+    {
+        var node = new FactoryNode<DrawableGroup>();
+        IProperty property;
+        if (video)
+        {
+            var child = new SourceVideo();
+            child.Source.CurrentValue = CreateVideoSource("layer-output.mov");
+            node.Object.Children.Add(child);
+            property = child.Source;
+        }
+        else
+        {
+            var child = new SourceImage();
+            child.Source.CurrentValue = CreateImageSource("layer-output.png");
+            node.Object.Children.Add(child);
+            property = child.Source;
+        }
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.CurrentValue!;
+        if (group)
+        {
+            var container = new GroupNode();
+            graph.Nodes.Add(container);
+            graph = container.Group;
+        }
+        var layer = new LayerInputNode();
+        graph.Nodes.AddRange([node, layer]);
+        var port = node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), property));
+        Assert.That(layer.AddNodePort(port, out var connection), Is.True);
+        Assert.That(connection, Is.Not.Null);
+        // The dynamic output keeps the copied value after its destination's base value changes.
+        port.Property!.SetValue(video ? CreateVideoSource("stale-destination.mov") : CreateImageSource("stale-destination.png"));
+        Element element = ElementWith(drawable);
+        Scene scene = CreateScene("layer-output.scene");
+        scene.Children.Add(element);
+        string expected = video ? "layer-output.mov" : "layer-output.png";
+
+        var files = ProxySourceEnumerator.EnumerateFileSources(element,
+                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Is.EqualTo(new[] { expected }));
+            Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { expected }));
+            Assert.That(FileNames(element), Is.EqualTo(video ? new[] { expected } : Array.Empty<string>()));
+        });
+    }
+
     [TestCase(false, false)]
     [TestCase(false, true)]
     [TestCase(true, false)]

@@ -11,6 +11,7 @@ using Beutl.IO;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.ProjectSystem;
 
@@ -751,7 +752,7 @@ public static class ProxySourceEnumerator
             foreach (GraphNode node in graph.Nodes)
             {
                 // Keep every group's outer inputs even when its inner graph is shared.
-                foreach (IFileSource source in EnumerateNodeInputSources(node, localRange, visitedValues, sceneWindow, walkContext, skipDisabledElements))
+                foreach (IFileSource source in EnumerateNodePropertySources(node, localRange, visitedValues, sceneWindow, walkContext, skipDisabledElements))
                     yield return source;
 
                 // Reuse the complete input set without rescanning each descendant subtree.
@@ -763,11 +764,11 @@ public static class ProxySourceEnumerator
         }
     }
 
-    private static IEnumerable<IFileSource> EnumerateNodeInputSources(
+    private static IEnumerable<IFileSource> EnumerateNodePropertySources(
         GraphNode node, TimeRange? localRange, HashSet<EngineObject> visitedValues, TimeRange? sceneWindow, ObjectWalkContext? walkContext = null,
         bool skipDisabledElements = false)
     {
-        // GraphSnapshot.LoadAnimatedValues evaluates a node's non-global input animations at
+        // GraphSnapshot.LoadAnimatedValues evaluates a node's non-global property animations at
         // time - node.Start, so shift the window into node-local time before filtering; without this an
         // in-window keyframe on a time-offset node could be wrongly dropped. A global-clock input is
         // sampled at scene time, not node-local time, so it filters against the unshifted sceneWindow.
@@ -775,12 +776,14 @@ public static class ProxySourceEnumerator
 
         foreach (INodeMember member in node.Items)
         {
-            if (member is not IInputPort inputPort || inputPort.Property is not { } property)
+            // Layer inputs store their authored values on outputs, which LoadAnimatedValues reads
+            // just like input properties. Computed outputs do not carry these stored values.
+            if (member is not (IInputPort or LayerInputNode.ILayerInputPort) || member.Property is not { } property)
                 continue;
 
             // Accepted connections supply the input from upstream. Rejected retained connections
             // use local values again, just as GraphSnapshot does.
-            if (inputPort.Connection.Value is not null && node.CanConnectInput(inputPort)
+            if (member is IInputPort inputPort && inputPort.Connection.Value is not null && node.CanConnectInput(inputPort)
                 || property.GetEngineProperty() is { } engineProperty
                 && walkContext?.ConnectedNodeInputs?.Contains(engineProperty) == true)
                 continue;
