@@ -160,6 +160,61 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void NativeDownloadCancellationDoesNotHideLaterNavigationFailures(bool cancellationCompleted, bool retrySameUri)
+    {
+        var page = new Uri("https://page.example/");
+        var media = new Uri("https://files.example/download");
+        var next = retrySameUri ? media : new Uri("https://failed.example/");
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true)
+        { DataContext = vm };
+        view.OnNativeNavigationCommitted(page);
+        view.OnNativeDownloadRequested(media, "Morning.mp3");
+        Dispatcher.UIThread.RunJobs();
+        if (cancellationCompleted)
+        {
+            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
+            Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        }
+
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+        if (!cancellationCompleted && !retrySameUri)
+            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
+        Assert.That(vm.CurrentUri, Is.EqualTo(next));
+        Assert.That(vm.IsLoading.Value, Is.False);
+        Assert.That(vm.ErrorMessage.Value, Is.EqualTo(Beutl.Language.Strings.WebPageLoadFailed));
+    }
+
+    [AvaloniaTest]
+    public void NativeDownloadCancellationsPreserveTheNewestOffer()
+    {
+        var page = new Uri("https://page.example/");
+        var first = new Uri("https://files.example/download?id=1");
+        var second = new Uri("https://files.example/download?id=2");
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true)
+        { DataContext = vm };
+        view.OnNativeNavigationCommitted(page);
+        view.OnNativeDownloadRequested(first, "First.mp3");
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = second });
+        view.OnNativeDownloadRequested(second, "Second.mp3");
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = first, IsSuccess = false });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = second, IsSuccess = false });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(second.AbsoluteUri));
+        Assert.That(vm.CurrentUri, Is.EqualTo(page));
+        Assert.That(vm.ErrorMessage.Value, Is.Null);
+    }
+
+    [AvaloniaTest]
     public void DismissedAndDisposedViewsIgnoreNativeDownloadRequests()
     {
         using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));

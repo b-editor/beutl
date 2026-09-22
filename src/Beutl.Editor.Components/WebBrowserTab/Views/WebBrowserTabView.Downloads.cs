@@ -18,6 +18,7 @@ internal partial class WebBrowserTabView
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
+    private readonly HashSet<Uri> _canceledNativeDownloadUris = [];
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId, BrowserReferrerPolicy ReferrerPolicy);
 
@@ -34,7 +35,7 @@ internal partial class WebBrowserTabView
         // A response belongs to the main frame, but the download has not replaced its document.
         if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
         else InvalidatePageDownloadRequests();
-        _mediaNavigationIntercepted = true;
+        _canceledNativeDownloadUris.Add(uri);
         _viewModel.RestoreCommittedPage();
         UpdateBlankPageState();
         QueuePageDownloadRequest(uri, suggestedName);
@@ -178,6 +179,7 @@ internal partial class WebBrowserTabView
         _pageDownloadNavigationPending = false;
         _pageDownloadReferrerUncertain = false;
         _mediaNavigationIntercepted = false;
+        _canceledNativeDownloadUris.Clear();
     }
 
     private void SettleAbortedPageNavigation()

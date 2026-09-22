@@ -233,6 +233,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
         if (e.Cancel) return;
+        // A retry of the same URL is a new navigation whose failure must be reported.
+        if (e.Request is { } startedUri) _canceledNativeDownloadUris.Remove(startedUri);
         if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
         {
@@ -284,13 +286,14 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         // The canceled media never replaced the document. Its failure may arrive even after
         // the offer is dismissed or downloaded, so track it independently of the confirmation UI.
+        Uri uri = e.Request ?? _webView.Source;
+        if (!e.IsSuccess && _canceledNativeDownloadUris.Remove(uri)) return;
         if (!e.IsSuccess && _mediaNavigationIntercepted) return;
 
         if (e.IsSuccess) ResetPageDownloadRequests();
         else SettleAbortedPageNavigation();
         _pageRevision++;
         _findRequest?.Cancel();
-        Uri uri = e.Request ?? _webView.Source;
         _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
         UpdateBlankPageState();
         if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage)
