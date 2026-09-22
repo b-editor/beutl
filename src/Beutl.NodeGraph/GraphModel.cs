@@ -116,23 +116,33 @@ public partial class GraphModel : EngineObject
     private GraphModel GetRootGraph()
     {
         GraphModel root = this;
-        while (root.HierarchicalParent is GroupNode { HierarchicalParent: GraphModel parent })
+        var visited = new HashSet<GraphModel>(ReferenceEqualityComparer.Instance);
+        while (visited.Add(root)
+               && root.HierarchicalParent is GroupNode { HierarchicalParent: GraphModel parent })
             root = parent;
         return root;
     }
 
-    private IEnumerable<GraphModel> EnumerateGraphs()
+    /// <summary>Enumerates this model and its nested groups once per instance, in node order.</summary>
+    public IEnumerable<GraphModel> EnumerateGraphs()
     {
-        yield return this;
-        foreach (GroupNode group in Nodes.OfType<GroupNode>())
+        var visited = new HashSet<GraphModel>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<GraphModel>();
+        pending.Push(this);
+        while (pending.TryPop(out GraphModel? graph))
         {
-            foreach (GraphModel graph in group.Group.EnumerateGraphs()) yield return graph;
+            if (!visited.Add(graph)) continue;
+            yield return graph;
+            for (int i = graph.Nodes.Count - 1; i >= 0; i--)
+            {
+                if (graph.Nodes[i] is GroupNode group) pending.Push(group.Group);
+            }
         }
     }
 
     internal IEnumerable<IInputPort> EnumerateConnectedInputs()
         => GetRootGraph().EnumerateGraphs().SelectMany(graph => graph.Nodes)
-            .SelectMany(node => node.GetConnectedInputs());
+            .SelectMany(node => node.GetConnectedInputs()).Distinct<IInputPort>(ReferenceEqualityComparer.Instance);
 
     internal bool HasAliasedInput(IInputPort input, IProperty property)
     {
