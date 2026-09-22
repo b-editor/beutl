@@ -32,11 +32,14 @@ internal sealed class BrowserProfile
     private readonly string _fileName;
     private bool _corrupt;
     private readonly Action<string>? _writeSnapshot;
+    private BrowserAdBlockFilterStore? _adBlockFilters;
+    internal BrowserAdBlockFilterStore AdBlockFilters => _adBlockFilters ??= new(Path.Combine(Path.GetDirectoryName(_fileName)!, "adblock-filters.json"));
 
-    internal BrowserProfile(string fileName, Action<string>? writeSnapshot = null)
+    internal BrowserProfile(string fileName, Action<string>? writeSnapshot = null, BrowserAdBlockFilterStore? adBlockFilters = null)
     {
         _fileName = fileName;
         _writeSnapshot = writeSnapshot;
+        _adBlockFilters = adBlockFilters;
         if (!File.Exists(fileName)) return;
         try
         {
@@ -57,6 +60,12 @@ internal sealed class BrowserProfile
             Engine = engine;
             SuggestionsEnabled = data.SuggestionsEnabled;
             RecordDownloads = data.RecordDownloads;
+            BlockAds = data.BlockAds;
+            if (data.AdBlockListUrls is { Length: > 0 })
+            {
+                try { AdBlockListUrls = BrowserAdBlockFilterStore.ParseUrls(string.Join('\n', data.AdBlockListUrls)); }
+                catch (InvalidDataException) { }
+            }
             foreach (BrowserBookmark item in bookmarks) Bookmarks.Add(item);
             foreach (BrowserDownloadRecord item in downloads) Downloads.Add(item);
         }
@@ -72,6 +81,8 @@ internal sealed class BrowserProfile
     internal BrowserSearchEngine Engine { get; private set; }
     internal bool SuggestionsEnabled { get; private set; } = true;
     internal bool RecordDownloads { get; private set; } = true;
+    internal bool BlockAds { get; private set; }
+    internal string[] AdBlockListUrls { get; private set; } = [BrowserAdBlockFilterStore.EasyListUrl];
     internal string? Error { get; private set; }
     internal event Action? SettingsChanged;
     internal event Action? HistoryCleared;
@@ -79,7 +90,16 @@ internal sealed class BrowserProfile
     internal static bool IsAllowedUrl(string? value) => Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
         && BrowserMediaDownload.IsHttpUri(uri);
 
-    private ProfileData Snapshot() => new(1, Engine, SuggestionsEnabled, RecordDownloads, Bookmarks.ToArray(), Downloads.ToArray());
+    private ProfileData Snapshot() => new(1, Engine, SuggestionsEnabled, RecordDownloads, Bookmarks.ToArray(), Downloads.ToArray(), BlockAds, AdBlockListUrls);
+
+    internal bool UpdateAdBlockListUrls(string[] urls)
+    {
+        string[] validated = BrowserAdBlockFilterStore.ParseUrls(string.Join('\n', urls));
+        if (!Save(Snapshot() with { AdBlockListUrls = validated })) return false;
+        AdBlockListUrls = validated;
+        SettingsChanged?.Invoke();
+        return true;
+    }
 
     internal bool AddBookmark(Uri uri, string title)
     {
@@ -126,12 +146,14 @@ internal sealed class BrowserProfile
         return true;
     }
 
-    internal bool UpdateSettings(BrowserSearchEngine engine, bool suggestionsEnabled, bool recordDownloads)
+    internal bool UpdateSettings(BrowserSearchEngine engine, bool suggestionsEnabled, bool recordDownloads, bool? blockAds = null)
     {
-        if (!Save(Snapshot() with { Engine = engine, SuggestionsEnabled = suggestionsEnabled, RecordDownloads = recordDownloads })) return false;
+        bool nextBlockAds = blockAds ?? BlockAds;
+        if (!Save(Snapshot() with { Engine = engine, SuggestionsEnabled = suggestionsEnabled, RecordDownloads = recordDownloads, BlockAds = nextBlockAds })) return false;
         Engine = engine;
         SuggestionsEnabled = suggestionsEnabled;
         RecordDownloads = recordDownloads;
+        BlockAds = nextBlockAds;
         SettingsChanged?.Invoke();
         return true;
     }
@@ -179,5 +201,5 @@ internal sealed class BrowserProfile
     }
 
     private sealed record ProfileData(int Version, BrowserSearchEngine Engine, bool SuggestionsEnabled,
-        bool RecordDownloads, BrowserBookmark[]? Bookmarks, BrowserDownloadRecord[]? Downloads);
+        bool RecordDownloads, BrowserBookmark[]? Bookmarks, BrowserDownloadRecord[]? Downloads, bool BlockAds = false, string[]? AdBlockListUrls = null);
 }

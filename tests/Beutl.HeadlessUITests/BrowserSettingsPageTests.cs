@@ -2,6 +2,7 @@
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Controls;
@@ -38,32 +39,49 @@ public class BrowserSettingsPageTests
     }
 
     [AvaloniaTest]
-    public void Page_ImmediatelyPersistsBoundSettings()
+    [TestCase(640, false)]
+    [TestCase(760, true)]
+    public async Task Page_ImmediatelyPersistsBoundSettings(int width, bool light)
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var client = new HttpClient(new FilterResponseHandler());
+        var filters = new BrowserAdBlockFilterStore(Path.Combine(root, "filters.json"), client);
+        await filters.UpdateAsync([BrowserAdBlockFilterStore.EasyListUrl], CancellationToken.None);
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"), adBlockFilters: filters);
         using var vm = new BrowserSettingsPageViewModel(profile, () => null);
         var page = new BrowserSettingsPage { DataContext = vm };
-        var window = new Window { Content = page, Width = 760, Height = 840 };
+        var window = new Window { Content = page, Width = width, Height = 840, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark };
         try
         {
             window.Show();
             Dispatcher.UIThread.RunJobs();
-            Assert.That(page.GetVisualDescendants().OfType<OptionsDisplayItem>().Count(), Is.EqualTo(5));
+            Assert.That(page.GetVisualDescendants().OfType<OptionsDisplayItem>().Count(), Is.EqualTo(6));
+            page.FindControl<ToggleSwitch>("BlockAdsToggle")!.IsChecked = true;
+            Dispatcher.UIThread.RunJobs();
             if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is { Length: > 0 } directory)
             {
+                // Capture the expanded settings after its opacity/chevron transition settles.
+                await Task.Delay(350);
+                Dispatcher.UIThread.RunJobs();
                 Directory.CreateDirectory(directory);
                 using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, "settings.png"), PngBitmapEncoderOptions.Default);
+                image?.Save(Path.Combine(directory, $"settings-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
             }
             page.FindControl<ComboBox>("SearchEngineComboBox")!.SelectedIndex = 1;
             page.FindControl<ToggleSwitch>("SuggestionsToggle")!.IsChecked = false;
             var saved = new BrowserProfile(Path.Combine(root, "profile.json"));
             Assert.That(saved.Engine, Is.EqualTo(BrowserSearchEngine.Bing));
             Assert.That(saved.SuggestionsEnabled, Is.False);
+            Assert.That(saved.BlockAds, Is.True);
             Assert.That(vm.CanClearCookies, Is.False);
         }
         finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private sealed class FilterResponseHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent("[Adblock Plus 2.0]\n||ads.example.test^") });
     }
 
     [AvaloniaTest]
