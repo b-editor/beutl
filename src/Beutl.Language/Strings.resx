@@ -3118,7 +3118,7 @@ when history recording is enabled.</value>
     <value>Ad blocking could not be applied: {0}</value>
   </data>
   <data name="BrowserAdBlockUpdateFailed" xml:space="preserve">
-    <value>Filter update failed. The previous cached filters are kept: {0}</value>
+    <value>Could not update filters: {0}</value>
   </data>
   <data name="BrowserAdBlockInvalidUrls" xml:space="preserve">
     <value>Enter 1 to 8 HTTPS URLs, one per line, without credentials or fragments.</value>

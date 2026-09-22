@@ -3113,7 +3113,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>広告ブロックを適用できませんでした: {0}</value>
   </data>
   <data name="BrowserAdBlockUpdateFailed" xml:space="preserve">
-    <value>フィルターを更新できませんでした。以前のキャッシュを保持します: {0}</value>
+    <value>フィルターを更新できませんでした: {0}</value>
   </data>
   <data name="BrowserAdBlockInvalidUrls" xml:space="preserve">
     <value>認証情報やフラグメントを含まないHTTPS URLを、1行に1件、1～8件入力してください。</value>
