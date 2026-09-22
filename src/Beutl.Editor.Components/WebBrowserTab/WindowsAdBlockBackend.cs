@@ -99,6 +99,31 @@ internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBack
         return result;
     }
 
+    internal static bool ShouldBlockRequest(BrowserAdBlockRules rules, Uri uri, Uri page, int context,
+        string? fetchSite, string? fetchDestination)
+    {
+        string type = context switch
+        {
+            1 => "document",
+            2 => "style-sheet",
+            3 => "image",
+            4 => "media",
+            5 => "font",
+            6 => "script",
+            _ => "raw"
+        };
+        bool? thirdParty = fetchSite switch
+        {
+            "same-origin" or "same-site" => false,
+            "cross-site" => true,
+            _ => null
+        };
+        // Document context also includes top-level navigations and redirects. Only
+        // explicit Fetch Metadata identifies a child frame; a different URL does not.
+        bool isChildFrame = context == 1 && fetchDestination is "iframe" or "frame";
+        return rules.ShouldBlock(uri, page, type, isChildFrame, thirdParty);
+    }
+
     [GeneratedComClass]
     internal sealed partial class RequestHandler(WindowsAdBlockBackend owner, BrowserAdBlockRules rules, Func<Uri> getPage) : IAdBlockRequestHandler
     {
@@ -113,24 +138,8 @@ internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBack
                 if (!Uri.TryCreate(Marshal.PtrToStringUni(uriText), UriKind.Absolute, out Uri? uri)) return;
                 int context;
                 Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(args, 7))(args, &context));
-                string type = context switch
-                {
-                    1 => "document",
-                    2 => "style-sheet",
-                    3 => "image",
-                    4 => "media",
-                    5 => "font",
-                    6 => "script",
-                    _ => "raw"
-                };
-                Uri page = getPage();
-                bool? thirdParty = GetFetchSite(request) switch
-                {
-                    "same-origin" or "same-site" => false,
-                    "cross-site" => true,
-                    _ => null
-                };
-                if (rules.ShouldBlock(uri, page, type, context == 1 && uri != page, thirdParty))
+                if (ShouldBlockRequest(rules, uri, getPage(), context,
+                        GetHeader(request, "Sec-Fetch-Site"), GetHeader(request, "Sec-Fetch-Dest")))
                     Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, nint, int>)Method(args, 5))(args, owner._response));
             }
             catch (Exception ex) { System.Diagnostics.Trace.TraceError("Ad filter request failed: {0}", ex.Message); }
@@ -141,13 +150,13 @@ internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBack
             }
         }
 
-        private static string? GetFetchSite(nint request)
+        private static string? GetHeader(nint request, string headerName)
         {
             nint headers = 0, value = 0;
             try
             {
                 headers = GetObject(request, 9);
-                fixed (char* name = "Sec-Fetch-Site")
+                fixed (char* name = headerName)
                 {
                     nint nativeValue;
                     int hr = ((delegate* unmanaged[Stdcall]<nint, char*, nint*, int>)Method(headers, 3))(headers, name, &nativeValue);
