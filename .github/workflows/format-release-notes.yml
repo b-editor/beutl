@@ -182,7 +182,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      # Read the release again rather than trust what other jobs uploaded.
+      # The prepare step again (YAML alias): it re-reads the release and rebuilds changelog.md,
+      # contributors.md and full-changelog.md here instead of trusting another job's artifacts.
       - *read-release
 
       - name: Download the summary
@@ -251,9 +252,8 @@ jobs:
             def bullet: type == "object" and (keys - ["text", "children"] | length == 0)
               and (.text | line) and (.children // [] | type == "array" and all(.[]; line));
             type == "object"
-            and (keys - ["newFeatures", "improvements", "bugFixes", "other"] | length == 0)
-            and all(.newFeatures, .improvements, .bugFixes, .other; . == null or (type == "array" and all(.[]; bullet)))
-            and ([.newFeatures, .improvements, .bugFixes, .other | length] | add > 0)
+            and keys == ["bugFixes", "improvements", "newFeatures", "other"]
+            and all(.[]; type == "array" and all(.[]; bullet))
           ' "$SUMMARY" > /dev/null; then
             echo "::error::opencode wrote a summary.json that does not have the expected shape. Re-run all jobs."
             # Compact JSON is one line starting with "{", so it cannot be read as a workflow command.
@@ -261,6 +261,13 @@ jobs:
             exit 1
           fi
 
+          summary=$(jq -r '
+            def trim: gsub("^\\s+|\\s+$"; "");
+            def bullets: map("- \(.text | trim)" + (.children // [] | map("\n  - \(trim)") | join("")));
+            [["New Features", .newFeatures], ["Improvements & Refactoring", .improvements], ["Bug Fixes", .bugFixes], ["Other", .other]]
+            | map(select(.[1] | length > 0) | "**\(.[0])**\n" + (.[1] | bullets | join("\n")))
+            | join("\n\n")
+          ' "$SUMMARY")
           {
             printf '%s\n' \
               "## What's Changed" \
@@ -280,14 +287,11 @@ jobs:
               "  - [Zip (.NET Runtime required)]($downloads/Beutl-linux-x64-$SEM_VER.zip)" \
               "  - [Zip]($downloads/Beutl-linux-x64-standalone-$SEM_VER.zip)" \
               ""
-            jq -r '
-              def trim: gsub("^\\s+|\\s+$"; "");
-              def bullets: map("- \(.text | trim)" + (.children // [] | map("\n  - \(trim)") | join("")));
-              [["New Features", .newFeatures], ["Improvements & Refactoring", .improvements], ["Bug Fixes", .bugFixes], ["Other", .other]]
-              | map(select(.[1] // [] | length > 0) | "**\(.[0])**\n" + (.[1] | bullets | join("\n")))
-              | join("\n\n")
-            ' "$SUMMARY"
-            printf '\n<details>\n<summary>Changelog</summary>\n\n'
+            # Every category may be empty: a release of dependency bumps and chores has nothing to summarize.
+            if [ -n "$summary" ]; then
+              printf '%s\n\n' "$summary"
+            fi
+            printf '<details>\n<summary>Changelog</summary>\n\n'
             cat changelog.md
             printf '\n</details>\n\n'
             if [ -s contributors.md ]; then

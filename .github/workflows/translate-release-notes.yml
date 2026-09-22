@@ -210,7 +210,8 @@ jobs:
     if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.mode != 'none' && needs.translate.result != 'failure' }}
     runs-on: ubuntu-latest
     steps:
-      # Read the release and the comments again rather than trust what other jobs uploaded.
+      # The prepare step again (YAML alias): it re-reads the release and the comments and rebuilds
+      # translation-input.md and changelog-block.md here instead of trusting another job's artifacts.
       - *read-state
 
       - name: Download the translation
@@ -275,7 +276,7 @@ jobs:
             # Keep the translation's Flatpak link in step with the release: correct a stale href, or
             # add the bullet after the Debian one, and leave the rest of the comment alone.
             flatpak_url=$(jq -r '(first((.body // "") | scan("\\[Flatpak\\]\\((https://[^)]+\\.flatpak)\\)")) | .[0]) // ""' release.json)
-            if [ -n "$flatpak_url" ] && ! jq -e --arg url "$flatpak_url" '.body | contains($url)' comment.json > /dev/null; then
+            if [ -n "$flatpak_url" ] && ! jq -e --arg link "[Flatpak]($flatpak_url)" '.body | contains($link)' comment.json > /dev/null; then
               jq -j .body comment.json | tr -d '\r' > comment.md
               if ! awk -v url="$flatpak_url" -v debian="[Debian パッケージ](" '
                 { line[NR] = $0 }
@@ -307,9 +308,18 @@ jobs:
             fi
           fi
 
-          # Always check the link: a previous run may have posted the translation but failed here.
-          if ! grep -qF "日本語のリリースノートは" body.md; then
-            { printf '日本語のリリースノートは[こちら](%s)です。\n\n' "$comment_url"; cat body.md; } > release-body.md
+          # Always check the link: a previous run may have posted the translation but failed here, and a
+          # link paragraph pointing anywhere else (a deleted comment, another account's) is repointed.
+          paragraph="日本語のリリースノートは[こちら](${comment_url})です。"
+          if ! grep -qxF -- "$paragraph" body.md; then
+            if grep -q '^日本語のリリースノートは' body.md; then
+              awk -v paragraph="$paragraph" '
+                !done && index($0, "日本語のリリースノートは") == 1 { print paragraph; done = 1; next }
+                { print }
+              ' body.md > release-body.md
+            else
+              { printf '%s\n\n' "$paragraph"; cat body.md; } > release-body.md
+            fi
             args=(--notes-file release-body.md)
             if [ "$(jq -r .isDraft release.json)" = true ]; then
               args+=(--draft=true)
@@ -360,7 +370,7 @@ jobs:
               [.[] | select($url != "" and .url == $url) | .body]
               + [.[] | select(.body | contains($marker)) | .body]
               | first // ""')
-            if printf '%s' "$comment" | grep -qF "$flatpak_url"; then
+            if printf '%s' "$comment" | grep -qF "[Flatpak]($flatpak_url)"; then
               echo "The Japanese translation comment links the same Flatpak bundle as the release."
             else
               echo "::error::Release $TAG links $flatpak_url but the Japanese translation comment does not."
