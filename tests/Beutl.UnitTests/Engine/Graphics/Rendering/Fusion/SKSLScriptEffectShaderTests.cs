@@ -342,7 +342,7 @@ public sealed class SKSLScriptEffectShaderTests
                 new PixelRect(0, 0, 2, 2)),
         };
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -352,8 +352,8 @@ public sealed class SKSLScriptEffectShaderTests
             workingScale: 1,
             maxWorkingScale: 1);
 
-        activator.Apply(context);
-        activator.Flush(false);
+        executor.Apply(context);
+        executor.Flush(false);
 
         using Bitmap bitmap = targets.Single().RenderTarget!.Snapshot();
         SKColor[] pixels = Enumerable.Range(0, bitmap.Width * bitmap.Height)

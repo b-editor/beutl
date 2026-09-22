@@ -9,7 +9,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
 /// <summary>
 /// <see cref="PixelSortEffect"/> は内部的に GLSL シェーダー 3 パスを使う Vulkan 専用パス。
-/// FilterEffectActivator 経由で実行できることを確認する。
+/// FilterEffectExecutor 経由で実行できることを確認する。
 /// </summary>
 [NonParallelizable]
 public class PixelSortEffectTests
@@ -42,14 +42,14 @@ public class PixelSortEffectTests
             effect.ApplyTo(feCtx, resource);
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(
+            using var executor = new FilterEffectExecutor(
                 targets,
                 builder,
                 RenderIntent.Delivery,
                 RenderRequestPurpose.Auxiliary,
                 drawableBrushMaterializer: null);
-            activator.Apply(feCtx);
-            activator.Flush(false);
+            executor.Apply(feCtx);
+            executor.Flush(false);
 
             // Apply 後はソート結果のターゲットに置換されている
             Assert.That(targets.Count, Is.EqualTo(1));
@@ -85,14 +85,14 @@ public class PixelSortEffectTests
             effect.ApplyTo(feCtx, resource);
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(
+            using var executor = new FilterEffectExecutor(
                 targets,
                 builder,
                 RenderIntent.Delivery,
                 RenderRequestPurpose.Auxiliary,
                 drawableBrushMaterializer: null);
-            Assert.DoesNotThrow(() => activator.Apply(feCtx));
-            Assert.DoesNotThrow(() => activator.Flush(false));
+            Assert.DoesNotThrow(() => executor.Apply(feCtx));
+            Assert.DoesNotThrow(() => executor.Flush(false));
         });
     }
 

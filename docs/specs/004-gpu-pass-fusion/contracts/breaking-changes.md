@@ -10,7 +10,15 @@ BREAKING CHANGE: `RenderNode.HasChanges` is the only public content-invalidation
 
 The affected public surface is mostly in `Beutl.Engine`, plus `Beutl.ProjectSystem`'s `SceneRenderer`, which now takes its render intent as a required argument, and `Beutl.Editor.Components`' engine-resource subscription, which is app-internal and so is recorded under "App-internal changes" at the end rather than among the plugin migrations. In-tree consumers in `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and the test/benchmark hosts have already migrated, but out-of-tree render-node, filter-effect, geometry, mesh, renderer, target-factory, brush-construction, and graphics-backend code must apply the recipes below. Anything implementing `IGraphicsContext`, `IRenderPass3D`, or the other backend interfaces has to be recompiled even where its own source is unchanged, because those contracts gained members and lost a default.
 
-The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The remaining forty-two each carry their own footer as well: `999ad728f`, `991f49e70`, `ee507067d`, `2974a6073`, `6dfd0f2d3`, `66cd2dc4c`, `7e2d928b5`, `48318a60f`, `70479b19f`, `a619d8046`, `3c33795ab`, `d53b155e8`, `449e71258`, `c8314e40f`, `6857dfa98`, `def8dcb1b`, `66dc0486b`, `c9ab89352`, `5ade9db14`, `9226be071`, `85667b924`, `60b51d110`, `5c6bac032`, `28d79bc87`, `e82717596`, `263c47e31`, `bd624508e`, `bc79b7f32`, `a3497c49c`, `6b28e5c23`, `2e4d07f77`, `e267d512c`, `3de2f06f7`, `2ff37dd66`, `020e4bfe9`, `c5836f92e`, `333127aa1`, `564b0bc94`, `61b86a1eb`, `f9980af33`, `0c58064b3` and `4d9000ef0`, documented in the sections below. All forty-four contain a literal `BREAKING CHANGE:` footer, so no history rewrite is required. Keep this list and the count current when a new `!` commit lands on the branch; a squash merge takes its footer from the pull request description, not from these messages, so the description is the only place the changelog reads.
+This migration inventory records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The remaining forty-three each carry their own footer as well: `999ad728f`, `991f49e70`, `ee507067d`, `2974a6073`, `6dfd0f2d3`, `66cd2dc4c`, `7e2d928b5`, `48318a60f`, `70479b19f`, `a619d8046`, `3c33795ab`, `d53b155e8`, `449e71258`, `c8314e40f`, `6857dfa98`, `def8dcb1b`, `66dc0486b`, `c9ab89352`, `5ade9db14`, `9226be071`, `85667b924`, `60b51d110`, `5c6bac032`, `28d79bc87`, `e82717596`, `263c47e31`, `bd624508e`, `bc79b7f32`, `a3497c49c`, `6b28e5c23`, `2e4d07f77`, `e267d512c`, `3de2f06f7`, `2ff37dd66`, `020e4bfe9`, `c5836f92e`, `333127aa1`, `564b0bc94`, `61b86a1eb`, `f9980af33`, `0c58064b3`, `4d9000ef0` and `11eb9cae4`, documented in the sections below. A GitHub commit API audit on 2026-09-21 retrieved all forty-five entries and confirmed their breaking Conventional Commit subjects and literal `BREAKING CHANGE:` footers.
+
+The original forty-four entries are historical feature-branch references. In that audit, a fresh, non-shallow clone of the advertised repository refs resolved only `11eb9cae4` from this inventory. Verify the historical entries through the GitHub commit API. Reproduce an entry lookup with the following command, substituting any SHA from the inventory:
+
+```sh
+gh api repos/b-editor/beutl/commits/35e7f28b0 --jq '.commit.message'
+```
+
+The API audit records availability on that date. Future audits must check each response and its footer again; a locally retained commit object alone does not establish that a reader can retrieve it. Keep this list, count, and verification source current when a new `!` commit lands on the branch; a squash merge takes its footer from the pull request description, not from these messages, so the description is the only place the changelog reads.
 
 `main` is squash-only, so the single commit that lands there is built from the pull request's title and body, not from any of those messages. The footer that reaches changelog tooling is therefore the one in the **pull request description**; a branch full of correctly footed commits does not supply it. Keep a `BREAKING CHANGE:` footer in the description that names `Beutl.Engine` and summarises the migrations below, and update it whenever a new breaking commit is added to the branch.
 
@@ -367,10 +375,14 @@ The former public `FilterEffectContext.Bounds` property is removed. Bounds stay 
 
 `FilterEffect.Resource.CreateRenderNode()` remains virtual. A custom `FilterEffectRenderNode` must use the new `void Process` contract. If the customization changes only working-scale semantics, override the protected `GetWorkingScaleContract()` and retain base `Process`; a `null` result selects `RenderScaleContract.MaterializeAtWorkingScale`.
 
-Direct `FilterEffectActivator` consumers must classify execution explicitly:
+`FilterEffectActivator` is renamed to `FilterEffectExecutor`, and `CustomFilterEffectContext.CreateActivator`
+is renamed to `CreateExecutor`. Update explicit type references and Skia factory delegate signatures to
+use the new name; execution behavior is unchanged.
+
+Direct `FilterEffectExecutor` consumers must classify execution explicitly:
 
 ```csharp
-using var activator = new FilterEffectActivator(
+using var executor = new FilterEffectExecutor(
     targets,
     builder,
     RenderIntent.Delivery,
@@ -528,14 +540,14 @@ The same rule applies to `CubeMesh`, `PlaneMesh`, `SphereMesh`, and `ModelMesh`:
 
 ## Render intent, brushes, and allocation behavior
 
-`Renderer`, `ImmediateCanvas`, `SceneRenderer`, `BrushConstructor` and `FilterEffectActivator` take `RenderIntent` — and `BrushConstructor` and `FilterEffectActivator` also take `DrawableBrushMaterializer?` — as required arguments, not trailing optional ones. Neither can be reached by dropping a trailing argument, so a host cannot inherit preview semantics or a transparent `DrawableBrush` by omission. See "A render host states what its output is for" below for the signatures and the migration.
+`Renderer`, `ImmediateCanvas`, `SceneRenderer`, `BrushConstructor` and `FilterEffectExecutor` take `RenderIntent` — and `BrushConstructor` and `FilterEffectExecutor` also take `DrawableBrushMaterializer?` — as required arguments, not trailing optional ones. Neither can be reached by dropping a trailing argument, so a host cannot inherit preview semantics or a transparent `DrawableBrush` by omission. See "A render host states what its output is for" below for the signatures and the migration.
 
 Positional callers must be updated: the materializer sits directly after `intent`, ahead of the optional scale parameters. Custom `IRenderTargetFactory` implementations must drop `GetMaximumDimension`. `BufferDimensionBudget.EngineCeiling` is the engine's own axis ceiling and still bounds a buffer no device attaches; where an allocation does attach, `BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation)` answers with what that device reports instead, which on the bundled software fallback is lower. That scope answers for the caller's own allocation, so off the render thread it reports the ceiling: a buffer allocated there is rastered on the CPU and reaches no device. A caller that is instead predicting what a later render will face — a dialog pre-validating an export, a tool validating a render scale — reads `BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction)`, which answers for the installed device from any thread and falls back to the engine ceiling only while no device has been built.
 
-`FilterEffectActivator`'s public constructor requires the same `DrawableBrushMaterializer?` for the same reason: the activator is a direct host, and it forwards the materializer into every `CustomFilterEffectContext` it opens. Without one, a `DrawableBrush` used as a displacement map (or any other brush a custom effect paints) degrades to transparent, which for a displacement map silently turns the effect into a no-op:
+`FilterEffectExecutor`'s public constructor requires the same `DrawableBrushMaterializer?` for the same reason: the executor is a direct host, and it forwards the materializer into every `CustomFilterEffectContext` it opens. Without one, a `DrawableBrush` used as a displacement map (or any other brush a custom effect paints) degrades to transparent, which for a displacement map silently turns the effect into a no-op:
 
 ```csharp
-using var activator = new FilterEffectActivator(
+using var executor = new FilterEffectExecutor(
     targets,
     builder,
     RenderIntent.Preview,
@@ -544,7 +556,7 @@ using var activator = new FilterEffectActivator(
 ```
 
 A further trailing optional `Rect? targetDomain` carries the region the request delivers, which
-`CustomFilterEffectContext.TargetDomain` exposes to the effects the activator runs. It is what lets a
+`CustomFilterEffectContext.TargetDomain` exposes to the effects the executor runs. It is what lets a
 transform declare `Rect.TransformToDeliveredAABB` rather than the pragmatic box, so a direct host that
 omits it keeps the pragmatic bounds: a perspective transform straddling the camera plane then declares a
 box that clips the wedge the rasterizer still draws, or declares nothing at all and drops the target. A

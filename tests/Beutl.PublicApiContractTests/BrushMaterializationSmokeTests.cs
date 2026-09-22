@@ -201,7 +201,7 @@ public sealed class BrushMaterializationSmokeTests
     }
 
     [Test]
-    public void PublicActivator_PaintsADrawableBrushDisplacementMapThroughASuppliedMaterializer()
+    public void PublicExecutor_PaintsADrawableBrushDisplacementMapThroughASuppliedMaterializer()
     {
         var content = new EllipseShape();
         content.Width.CurrentValue = 24;
@@ -222,19 +222,19 @@ public sealed class BrushMaterializationSmokeTests
 
         DrawableBrushMaterializer materializer =
             (_, _, _) => new MaterializedDrawableBrush(CreateOpaqueImage(32, 32), bounds);
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
             drawableBrushMaterializer: materializer);
-        activator.Apply(context);
-        activator.Flush(false);
+        executor.Apply(context);
+        executor.Flush(false);
 
         using Bitmap bitmap = targets[0].RenderTarget!.Snapshot();
 
         Assert.That(GetAlpha(bitmap, 16, 16), Is.GreaterThan(0.9f),
-            "a materializer supplied to the public activator must reach the custom-effect brush constructor");
+            "a materializer supplied to the public executor must reach the custom-effect brush constructor");
     }
 
     // The absent hook is the failure, not the brush: a delivery frame that painted the fill transparent would

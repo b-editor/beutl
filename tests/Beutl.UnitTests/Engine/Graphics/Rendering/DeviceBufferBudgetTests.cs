@@ -176,7 +176,7 @@ public sealed class DeviceBufferBudgetTests
             RenderIntent.Delivery,
             RenderRequestPurpose.Auxiliary);
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Delivery,
@@ -189,7 +189,7 @@ public sealed class DeviceBufferBudgetTests
                 context.Budget.MaxDimension,
                 Is.EqualTo(BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).MaxDimension));
             Assert.That(
-                activator.Budget.MaxDimension,
+                executor.Budget.MaxDimension,
                 Is.EqualTo(BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).MaxDimension));
         });
     }
@@ -300,7 +300,7 @@ public sealed class DeviceBufferBudgetTests
                     budget: default(BufferDimensionBudget)),
                 Throws.InstanceOf<ArgumentOutOfRangeException>());
             Assert.That(
-                () => new FilterEffectActivator(
+                () => new FilterEffectExecutor(
                     targets,
                     builder,
                     RenderIntent.Delivery,

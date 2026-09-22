@@ -7,7 +7,7 @@ using SkiaSharp;
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
 [TestFixture]
-public sealed class FilterEffectActivatorFlushPlanTests
+public sealed class FilterEffectExecutorFlushPlanTests
 {
     private static readonly Rect s_leadingBounds = new(0, 0, 8, 6);
     private static readonly Rect s_trailingBounds = new(0, 0, 4, 3);
@@ -30,7 +30,7 @@ public sealed class FilterEffectActivatorFlushPlanTests
             CreateSolidTarget(s_trailingBounds),
         };
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -41,10 +41,10 @@ public sealed class FilterEffectActivatorFlushPlanTests
             maxWorkingScale: 1);
         builder.AppendSKColorFilter(
             SKColors.White,
-            activator,
+            executor,
             static (color, _) => SKColorFilter.CreateBlendMode(color, SKBlendMode.Modulate));
 
-        activator.Flush();
+        executor.Flush();
 
         Assert.Multiple(() =>
         {

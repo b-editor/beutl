@@ -7,7 +7,7 @@ using SkiaSharp;
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
 [TestFixture]
-public sealed class FilterEffectActivatorReentrancyTests
+public sealed class FilterEffectExecutorReentrancyTests
 {
     private static readonly Rect s_bounds = new(0, 0, 8, 6);
 
@@ -19,7 +19,7 @@ public sealed class FilterEffectActivatorReentrancyTests
         using var context = new FilterEffectContext(s_bounds);
         context._items.Add(new ReentrantSkiaItem(reentrant));
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -29,8 +29,8 @@ public sealed class FilterEffectActivatorReentrancyTests
             workingScale: 1,
             maxWorkingScale: 1);
 
-        Assert.That(() => activator.Apply(context), Throws.Nothing,
-            "The activator must re-establish its own bookkeeping after running author code.");
+        Assert.That(() => executor.Apply(context), Throws.Nothing,
+            "The executor must re-establish its own bookkeeping after running author code.");
     }
 
     private sealed record ReentrantSkiaItem(FilterEffectContext Reentrant)
@@ -46,13 +46,13 @@ public sealed class FilterEffectActivatorReentrancyTests
             return true;
         }
 
-        public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
+        public void Accepts(FilterEffectExecutor executor, SKImageFilterBuilder builder)
         {
             builder.AppendSKColorFilter(
                 SKColors.White,
-                activator,
+                executor,
                 static (color, _) => SKColorFilter.CreateBlendMode(color, SKBlendMode.Modulate));
-            _ = activator.Activate(Reentrant);
+            _ = executor.Activate(Reentrant);
         }
 
         public void AcceptsDirect(SKImageFilterBuilder builder)

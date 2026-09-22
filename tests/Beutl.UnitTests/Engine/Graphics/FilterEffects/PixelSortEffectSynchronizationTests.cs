@@ -165,7 +165,7 @@ public sealed class PixelSortEffectSynchronizationTests
             new EffectTarget(source, s_bounds, EffectiveScale.At(1)),
         };
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -176,9 +176,9 @@ public sealed class PixelSortEffectSynchronizationTests
             deviceGridOffset: default,
             useExecutorManagedCanvas: true);
 
-        activator.Apply(context);
+        executor.Apply(context);
 
-        RenderTarget applied = activator.CurrentTargets.Single().RenderTarget
+        RenderTarget applied = executor.CurrentTargets.Single().RenderTarget
             ?? throw new InvalidOperationException("The pixel-sort effect produced no target.");
         return applied.ShallowCopy();
     }
@@ -205,7 +205,7 @@ public sealed class PixelSortEffectSynchronizationTests
             new EffectTarget(source, s_bounds, EffectiveScale.At(1)),
         };
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Delivery,
@@ -220,8 +220,8 @@ public sealed class PixelSortEffectSynchronizationTests
         var allocations = new List<TextureFormat>();
         using (VulkanContext.ObserveTextureAllocations(allocations.Add))
         {
-            activator.Apply(context);
-            using Bitmap completed = activator.CurrentTargets.Single().RenderTarget!.Snapshot();
+            executor.Apply(context);
+            using Bitmap completed = executor.CurrentTargets.Single().RenderTarget!.Snapshot();
         }
 
         return allocations;

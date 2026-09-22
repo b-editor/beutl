@@ -236,7 +236,7 @@ public sealed class ShaderMigrationPhysicalFootprintTests
         using var context = new FilterEffectContext(bounds, outputScale: 1, workingScale);
         context.ApplyTransactional(effect, resource);
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -245,8 +245,8 @@ public sealed class ShaderMigrationPhysicalFootprintTests
             outputScale: 1,
             workingScale,
             maxWorkingScale: 1);
-        activator.Apply(context);
-        activator.Flush(false);
+        executor.Apply(context);
+        executor.Flush(false);
     }
 
     private static EffectTargets CreateTargets(

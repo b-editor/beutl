@@ -403,7 +403,7 @@ public sealed class EffectTargetsOwnershipTests
     private static void RunCustomEffect(EffectTargets targets, Action<CustomFilterEffectContext> effect)
     {
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Delivery,
@@ -415,7 +415,7 @@ public sealed class EffectTargetsOwnershipTests
             (_, execution) => effect(execution),
             static (_, bounds) => bounds);
 
-        activator.Apply(context);
+        executor.Apply(context);
     }
 
     private static EffectTarget CreateTarget()

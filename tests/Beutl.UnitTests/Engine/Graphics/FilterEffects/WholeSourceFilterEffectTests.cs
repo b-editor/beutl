@@ -68,7 +68,7 @@ public sealed class WholeSourceFilterEffectTests
         using var context = new FilterEffectContext(new Rect(0, 0, 3, 2));
         context.ApplyTransactional(effect, resource);
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -78,8 +78,8 @@ public sealed class WholeSourceFilterEffectTests
             workingScale: 1,
             maxWorkingScale: 1);
 
-        activator.Apply(context);
-        activator.Flush(false);
+        executor.Apply(context);
+        executor.Flush(false);
 
         using Bitmap afterBitmap = targets.Single().RenderTarget!.Snapshot();
         float[] after = ReadPixels(afterBitmap);
@@ -264,7 +264,7 @@ public sealed class WholeSourceFilterEffectTests
             Assert.That(token.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Pending));
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(
+            using var executor = new FilterEffectExecutor(
                 targets,
                 builder,
                 RenderIntent.Preview,
@@ -273,9 +273,9 @@ public sealed class WholeSourceFilterEffectTests
                 outputScale: 1,
                 workingScale: 1,
                 maxWorkingScale: 1);
-            activator.Apply(context);
+            executor.Apply(context);
             Assert.That(token.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Committed));
-            activator.Flush(false);
+            executor.Flush(false);
 
             using Bitmap bitmap = targets.Single().RenderTarget!.Snapshot();
             Assert.That(bitmap.SKBitmap.GetPixel(1, 1).Red, Is.GreaterThan(239));

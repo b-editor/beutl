@@ -240,7 +240,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
     {
         using EffectTargets targets = CreateNonAllocatableTargets();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Preview,
@@ -250,8 +250,8 @@ public sealed class GpuPassFusionFeature003RegressionTests
             workingScale: 1,
             maxWorkingScale: 2);
 
-        Assert.That(() => activator.Flush(), Throws.Nothing);
-        Assert.That(activator.CurrentTargets, Is.Empty,
+        Assert.That(() => executor.Flush(), Throws.Nothing);
+        Assert.That(executor.CurrentTargets, Is.Empty,
             "preview keeps the current-main drop-on-allocation-failure outcome");
     }
 
@@ -260,7 +260,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
     {
         using EffectTargets targets = CreateNonAllocatableTargets();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var executor = new FilterEffectExecutor(
             targets,
             builder,
             RenderIntent.Delivery,
@@ -270,7 +270,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
             workingScale: 1,
             maxWorkingScale: float.PositiveInfinity);
 
-        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(() => activator.Flush());
+        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(() => executor.Flush());
         Assert.That(exception!.Message, Does.StartWith("Effect flush buffer allocation failed"));
     }
 
