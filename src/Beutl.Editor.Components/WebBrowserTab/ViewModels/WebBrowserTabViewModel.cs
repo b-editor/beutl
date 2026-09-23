@@ -253,6 +253,14 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         _committedPageTitle = null;
     }
 
+    internal void AdoptCommittedPage(WebBrowserTabViewModel previous)
+    {
+        _committedUri = previous._committedUri;
+        _committedPageTitle = previous._committedPageTitle;
+        if (_currentUri.Value == _committedUri)
+            _pageTitle.Value = _committedPageTitle;
+    }
+
     internal void RestoreCommittedPage()
     {
         _currentUri.Value = _committedUri;

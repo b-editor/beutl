@@ -69,6 +69,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
+        WebBrowserTabViewModel? previousViewModel = _viewModel;
         _adBlockSession?.Dispose();
         _adBlockSession = null;
         _downloadCancellation?.Cancel();
@@ -93,6 +94,12 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             UpdateBlankPageState();
             OnCancelBookmarkEditorClick(this, new RoutedEventArgs());
             return;
+        }
+        if (_webView != null && previousViewModel != null && _webView.Source == viewModel.CurrentUri)
+        {
+            // The document is still displayed, so keep its commit across a context rebind.
+            // Source may be a provisional URL; the previous model knows the last loaded page.
+            viewModel.AdoptCommittedPage(previousViewModel);
         }
         viewModel.Disposing += Dispose;
         viewModel.Profile.SettingsChanged += OnProfileChanged;

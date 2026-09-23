@@ -34,6 +34,48 @@ public class WebBrowserDownloadTests
     public void UnregisterDownloadTestDecoder() => DecoderRegistry.Unregister(_decoder);
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RebindingToTheSameNativeSourcePreservesTheCommittedPageForDownloads(bool navigationPending)
+    {
+        var page = new Uri("https://page.example/original");
+        var next = new Uri("https://page.example/next");
+        var media = new Uri("https://files.example/download?filename=Morning.mp3");
+        var context = new DownloadContext(new Scene());
+        using var first = new WebBrowserTabViewModel(context, page);
+        using var restored = new WebBrowserTabViewModel(context);
+        var native = new NativeWebView { Source = page };
+        using var view = new WebBrowserTabView(_ => native, () => (true, null, false),
+            navigationStartedIncludesSubframes: true)
+        { DataContext = first };
+        view.OnNativeNavigationCommitted(page);
+        first.SetPageTitle(page, "Original page");
+
+        Uri restoredUri = navigationPending ? next : page;
+        if (navigationPending)
+        {
+            first.BeginNavigation(next);
+            native.Source = next;
+        }
+        restored.ReadFromJson(new JsonObject { ["source"] = restoredUri.AbsoluteUri });
+        view.DataContext = restored;
+        Assert.That(native.Source, Is.EqualTo(restoredUri));
+
+        view.OnNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.CurrentUri, Is.EqualTo(page));
+            Assert.That(restored.Address.Value, Is.EqualTo(page.AbsoluteUri));
+            Assert.That(restored.Header.Value, Is.EqualTo("Original page"));
+            Assert.That(restored.IsLoading.Value, Is.False);
+        });
+        var saved = new JsonObject();
+        restored.WriteToJson(saved);
+        Assert.That(saved["source"]!.GetValue<string>(), Is.EqualTo(page.AbsoluteUri));
+    }
+
+    [AvaloniaTest]
     [TestCase(320)]
     [TestCase(640)]
     public async Task NativeDownloadResponseUsesItsFileNameAndKeepsTheFormPage(int width)
