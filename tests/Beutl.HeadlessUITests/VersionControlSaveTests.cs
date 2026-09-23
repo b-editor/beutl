@@ -170,8 +170,14 @@ public class VersionControlSaveTests
         }
         finally
         {
-            await TestReset.ResetShellAsync();
-            EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
+            try
+            {
+                await TestReset.ResetShellAsync();
+            }
+            finally
+            {
+                EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
+            }
         }
     }
 
