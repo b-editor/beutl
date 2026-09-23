@@ -18,6 +18,17 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class BrowserMediaDownloadTests
 {
+    [Test]
+    public void PartialContentCannotBePublishedAsACompleteDownload()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var client = new HttpClient(new PartialContentHandler());
+        var downloader = new BrowserMediaDownload(client);
+        Assert.ThrowsAsync<IOException>(async () =>
+            await downloader.DownloadAsync(new Uri("https://files.example/Morning.mp3"), directory, null, null, default));
+        Assert.That(Directory.Exists(directory), Is.False);
+    }
+
     [TestCase("https://files.example/download?filepath=bgm%2Ftrack.mp3&filename=Morning.mp3", "Morning.mp3", "audio/mpeg", "Morning.mp3")]
     [TestCase("https://files.example/download", "Morning.mp3", "application/octet-stream", "Morning.mp3")]
     [TestCase("https://files.example/download", "Morning.mp3", "text/html", null)]
@@ -303,6 +314,22 @@ public class BrowserMediaDownloadTests
     private sealed class CancelProgress(CancellationTokenSource cancellation) : IProgress<(long Received, long? Total)>
     {
         public void Report((long Received, long? Total) value) => cancellation.Cancel();
+    }
+
+    private sealed class PartialContentHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Assert.That(request.Headers.Range, Is.Null);
+            var content = new ByteArrayContent([1, 2, 3]);
+            content.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
+            content.Headers.ContentRange = new ContentRangeHeaderValue(0, 2, 1000);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.PartialContent)
+            {
+                RequestMessage = request,
+                Content = content
+            });
+        }
     }
 
     private sealed class MediaHandler(string mediaType = "video/mp4", string? fileName = null) : HttpMessageHandler

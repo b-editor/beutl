@@ -12,6 +12,7 @@ internal sealed class BrowserDownloadNavigation
         _requestMethod = method;
     }
 
-    internal bool IsGetResponse(Uri uri) => _requestMethod == "GET" && _requestUri == uri
+    internal bool IsCompleteGetResponse(Uri uri, nint statusCode) => statusCode == 200
+        && _requestMethod == "GET" && _requestUri == uri
         && BrowserMediaDownload.IsHttpUri(uri);
 }

@@ -77,6 +77,8 @@ internal sealed class BrowserMediaDownload(HttpClient client)
 
         using HttpResponseMessage response = await SendAsync(uri, referrer, cookies ?? [], cancellationToken, referrerPolicy);
         response.EnsureSuccessStatusCode();
+        if (response.StatusCode == HttpStatusCode.PartialContent)
+            throw new IOException(Strings.WebDownloadIncomplete);
         // The handler decodes the outermost supported encoding. Never publish a representation
         // that still has an unsupported or additional compression layer.
         if (response.Content.Headers.ContentEncoding.Any(encoding => !encoding.Equals("identity", StringComparison.OrdinalIgnoreCase)))

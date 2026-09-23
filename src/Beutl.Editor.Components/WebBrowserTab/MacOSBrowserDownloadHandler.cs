@@ -198,9 +198,9 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             string? address = GetString(Send(Send(response, sel_registerName("URL")), sel_registerName("absoluteString")));
             if (handler != null && SendBool(navigationResponse, sel_registerName("isForMainFrame"))
                 && handler._cancellations.Current != 0
-                && Uri.TryCreate(address, UriKind.Absolute, out Uri? uri) && handler._navigation.IsGetResponse(uri)
+                && Uri.TryCreate(address, UriKind.Absolute, out Uri? uri)
                 && SendBoolPointer(response, s_respondsToSelector, sel_registerName("statusCode"))
-                && Send(response, sel_registerName("statusCode")) is >= 200 and < 300
+                && handler._navigation.IsCompleteGetResponse(uri, Send(response, sel_registerName("statusCode")))
                 && BrowserMediaDownload.GetResponseFileName(uri,
                     GetString(Send(response, sel_registerName("suggestedFilename"))),
                     GetString(Send(response, sel_registerName("MIMEType")))) is { } name)
