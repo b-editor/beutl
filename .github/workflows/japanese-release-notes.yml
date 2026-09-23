@@ -6,7 +6,11 @@ on:
 
 jobs:
   dispatch:
+    # Release discussions are posted to Announcements and titled after the release tag, so
+    # narrowing the trigger to that category keeps this job off the categories any user can
+    # open a discussion in.
     if: |
+      github.event.discussion.category.slug == 'announcements' &&
       startsWith(github.event.discussion.title, 'v') &&
       contains(github.event.discussion.title, '.')
     runs-on: ubuntu-latest
@@ -16,11 +20,26 @@ jobs:
       - name: Trigger translation workflow
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          # The discussion is user-supplied content: pass every field through the environment so
+          # that it is never expanded into the script text, where a title could end the quoting
+          # and run commands with this job's actions: write token.
+          DISCUSSION_NUMBER: ${{ github.event.discussion.number }}
+          DISCUSSION_NODE_ID: ${{ github.event.discussion.node_id }}
+          DISCUSSION_TITLE: ${{ github.event.discussion.title }}
+          DISCUSSION_HTML_URL: ${{ github.event.discussion.html_url }}
         run: |
+          set -euo pipefail
+          # The title is used downstream as the release tag, so dispatch only for real tags.
+          version_re='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'
+          if [[ ! $DISCUSSION_TITLE =~ $version_re ]]; then
+            echo "Discussion title is not a release tag — nothing to translate."
+            exit 0
+          fi
           gh workflow run translate-release-notes.yml \
-            -R ${{ github.repository }} \
+            -R "$REPO" \
             --ref main \
-            -f discussion_number='${{ github.event.discussion.number }}' \
-            -f discussion_node_id='${{ github.event.discussion.node_id }}' \
-            -f discussion_title='${{ github.event.discussion.title }}' \
-            -f discussion_html_url='${{ github.event.discussion.html_url }}'
+            -f discussion_number="$DISCUSSION_NUMBER" \
+            -f discussion_node_id="$DISCUSSION_NODE_ID" \
+            -f discussion_title="$DISCUSSION_TITLE" \
+            -f discussion_html_url="$DISCUSSION_HTML_URL"
