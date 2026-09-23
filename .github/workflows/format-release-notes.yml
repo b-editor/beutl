@@ -20,100 +20,296 @@ on:
         required: true
         type: string
 
+# opencode only writes the categorized summary as JSON, in a job that holds no GitHub
+# token scopes and no GitHub secrets. The jobs around it read and edit the release with gh.
+permissions: {}
+
+env:
+  TAG: ${{ inputs.tag }}
+  SEM_VER: ${{ inputs.semVer }}
+  SIMPLE_VER: ${{ inputs.simpleVer }}
+  REVISION: ${{ inputs.revision }}
+  REPO: ${{ github.repository }}
+
 jobs:
-  format:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      # Draft releases are visible only to tokens that can write to the repository.
+      contents: write
+    outputs:
+      mode: ${{ steps.release.outputs.mode }}
+      body-sha256: ${{ steps.release.outputs.body-sha256 }}
+    steps:
+      - &read-release
+        name: Read the release notes
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" -R "$REPO" --json body,isDraft > release.json
+          jq -j '.body // ""' release.json > body.raw
+          tr -d '\r' < body.raw > body.md
+          echo "body-sha256=$(sha256sum < body.raw | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+          downloads="https://github.com/$REPO/releases/download/$TAG"
+          if grep -qF "$downloads/Beutl-$SEM_VER.flatpak" body.md; then
+            mode=formatted
+          elif grep -qF "$downloads/" body.md; then
+            # Formatted by an older revision of this workflow, before the Flatpak link existed.
+            mode=repair
+          else
+            mode=format
+            # Split GitHub's auto-generated notes. Anything else in them is left for a human.
+            : > changelog.md
+            : > contributors.md
+            : > full-changelog.md
+            if ! awk -v changes="## What's Changed" -v contributors="## New Contributors" '
+              { sub(/[[:space:]]+$/, "") }
+              $0 == changes { section = "changes"; next }
+              $0 == contributors { section = "contributors"; next }
+              /^\*\*Full Changelog\*\*: / { print > "full-changelog.md"; section = ""; next }
+              $0 == "" { next }
+              section == "changes" && /^\* / { print > "changelog.md"; next }
+              section == "contributors" && /^\* / { print > "contributors.md"; next }
+              { print "Unexpected line: " $0 > "/dev/stderr"; unexpected = 1 }
+              END { exit unexpected }
+            ' body.md; then
+              echo "::error::The notes of $TAG are neither auto-generated nor formatted by this workflow; format them by hand."
+              exit 1
+            fi
+            if [ ! -s changelog.md ]; then
+              echo "::error::The auto-generated notes of $TAG list no pull requests to summarize."
+              exit 1
+            fi
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Release notes of $TAG: $mode"
+
+      - name: Upload the changelog for opencode
+        if: steps.release.outputs.mode == 'format'
+        uses: actions/upload-artifact@v7
+        with:
+          name: changelog
+          path: changelog.md
+          retention-days: 1
+          if-no-files-found: error
+          # A re-run uploads the artifact again.
+          overwrite: true
+
+  summarize:
+    needs: prepare
+    if: needs.prepare.outputs.mode == 'format'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Download the changelog
+        uses: actions/download-artifact@v8
+        with:
+          name: changelog
+          path: ${{ runner.temp }}/input
+
+      - name: Install opencode
+        run: npm install --global opencode-ai@1.18.32
+
+      - name: Summarize the changelog with opencode
+        timeout-minutes: 20
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          # Any OpenCode Zen model (opencode/...) can replace the default through the OPENCODE_MODEL variable.
+          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL || 'opencode/claude-sonnet-5' }}
+          # Every tool but the edit tools is hidden from the model, and those may touch only
+          # summary.json in the working directory: anything outside it is an external_directory
+          # request, which "*" denies.
+          OPENCODE_CONFIG_CONTENT: |
+            {
+              "permission": {
+                "*": "deny",
+                "edit": { "*": "deny", "*/summary.json": "allow" }
+              }
+            }
+          PROMPT: |
+            You are writing the categorized summary for the release notes of Beutl ${{ inputs.tag }}, a video editing application. The <changelog> below is GitHub's auto-generated list of the pull requests in this release, one `* <PR title> by @<author> in <PR URL>` line each.
+
+            Produce a JSON object with exactly these four keys, each an array of bullets:
+            - "newFeatures": PR titles starting with `feat:` / `feature:`
+            - "improvements": `refactor:` / `perf:` / `improve:` / `chore(refactor):` style
+            - "bugFixes": `fix:`
+            - "other": any other user-visible PR
+            A scope or a breaking-change marker does not change the category (`feat(audio)!:` is a new feature). Skip dependabot bumps and pure `chore:` / `ci:` / `build:` / `docs:` / `test:` PRs that have no end-user impact. Leave a category as an empty array when nothing belongs in it.
+
+            A bullet is `{"text": "<change>"}`, or `{"text": "<feature area>", "children": ["<change>", ...]}` to group several PRs that touch one feature area, for example:
+            {"newFeatures": [{"text": "Audio", "children": ["Added an audio equalizer effect", "Added waveform shapes to the audio visualizer"]}, {"text": "Added the border design theme (breaking change)"}], "improvements": [], "bugFixes": [{"text": "Fixed a crash when importing video without an audio track"}], "other": []}
+
+            - Describe each user-visible change in past tense, paraphrasing the PR title. Never copy a changelog line verbatim.
+            - Merge related PRs into a single bullet when natural.
+            - Append " (breaking change)" to a change whose PR title has `!` before the colon.
+            - Write plain text: no links, URLs, PR numbers, author names, or line breaks.
+        run: |
+          set -euo pipefail
+          if [ -z "$OPENCODE_API_KEY" ]; then
+            echo "::error::Set the OPENCODE_API_KEY secret to an OpenCode Zen API key."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/opencode"
+          cd "$RUNNER_TEMP/opencode"
+          {
+            printf '%s\n<changelog>\n' "$PROMPT"
+            cat "$RUNNER_TEMP/input/changelog.md"
+            printf '</changelog>\n\nWrite the JSON object to %s with the write tool, and write no other file.\n' "$PWD/summary.json"
+          } | opencode run --pure --model "$OPENCODE_MODEL" --title "Summarize $TAG"
+          if [ ! -s summary.json ]; then
+            echo "::error::opencode finished without writing summary.json."
+            exit 1
+          fi
+
+      - name: Upload the summary
+        uses: actions/upload-artifact@v7
+        with:
+          name: summary
+          path: ${{ runner.temp }}/opencode/summary.json
+          retention-days: 1
+          if-no-files-found: error
+          # A re-run uploads the artifact again.
+          overwrite: true
+
+  apply:
+    needs: [prepare, summarize]
+    # summarize is skipped when the notes need no new summary.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.summarize.result != 'failure' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
+      # The prepare step again (YAML alias): it re-reads the release and rebuilds changelog.md,
+      # contributors.md and full-changelog.md here instead of trusting another job's artifacts.
+      - *read-release
 
-      - name: Reformat release notes with Claude
-        uses: anthropics/claude-code-action@v1.0.219
-        timeout-minutes: 20
+      - name: Download the summary
+        if: steps.release.outputs.mode == 'format' && needs.summarize.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: summary
+          path: ${{ runner.temp }}/summary
+
+      - name: Update the release notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          allowed_bots: "github-actions"
-          claude_args: '--allowed-tools "Bash(gh release view:*),Bash(gh release edit:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*),Write,Read"'
-          prompt: |
-            You are reformatting the body of the draft GitHub release `${{ inputs.tag }}` in `${{ github.repository }}` to match the style of https://github.com/b-editor/beutl/releases/tag/v2.0.0-preview.2.
+          MODE: ${{ steps.release.outputs.mode }}
+          BODY_SHA256: ${{ steps.release.outputs.body-sha256 }}
+          SUMMARIZED_SHA256: ${{ needs.prepare.outputs.body-sha256 }}
+          SUMMARY: ${{ runner.temp }}/summary/summary.json
+        run: |
+          set -euo pipefail
+          downloads="https://github.com/$REPO/releases/download/$TAG"
+          flatpak_url="$downloads/Beutl-$SEM_VER.flatpak"
+          # Editing a published release must not turn it back into a draft.
+          edit_release() {
+            local args=(--notes-file release-body.md)
+            if [ "$(jq -r .isDraft release.json)" = true ]; then
+              args+=(--draft=true)
+            fi
+            gh release edit "$TAG" -R "$REPO" "${args[@]}"
+          }
 
-            ## Steps
+          if [ "$MODE" = formatted ]; then
+            echo "The notes of $TAG are already formatted."
+            exit 0
+          fi
 
-            1. Fetch the current auto-generated body:
-               `gh release view ${{ inputs.tag }} -R ${{ github.repository }} --json body,tagName,isDraft`
-               Capture the body verbatim — you will both summarize it and embed it.
+          if [ "$MODE" = repair ]; then
+            # Correct a stale Flatpak href, or add the bullet after the Debian one, and leave the
+            # rest of the body alone.
+            if ! awk -v url="$flatpak_url" -v debian="[Debian package](" '
+              { line[NR] = $0 }
+              !flatpak && /^[[:space:]]*[-*+][[:space:]]+\[Flatpak\]\(/ { flatpak = NR }
+              !anchor && /^[[:space:]]*[-*+][[:space:]]/ && index($0, debian) { anchor = NR }
+              END {
+                if (!flatpak && !anchor) exit 1
+                for (i = 1; i <= NR; i++) {
+                  if (i == flatpak) {
+                    start = index(line[i], "[Flatpak](")
+                    rest = substr(line[i], start + 10)
+                    line[i] = substr(line[i], 1, start - 1) "[Flatpak](" url substr(rest, index(rest, ")"))
+                  }
+                  print line[i]
+                  if (!flatpak && i == anchor) print substr(line[i], 1, index(line[i], debian) - 1) "[Flatpak](" url ")"
+                }
+              }
+            ' body.md > release-body.md; then
+              echo "::error::The notes of $TAG have neither a Flatpak nor a Debian package bullet to put the Flatpak link on."
+              exit 1
+            fi
+            edit_release
+            exit 0
+          fi
 
-            2. Build the new body in this exact order:
+          if [ ! -f "$SUMMARY" ] || [ "$BODY_SHA256" != "$SUMMARIZED_SHA256" ]; then
+            echo "::error::The notes of $TAG changed while they were being summarized. Re-run all jobs."
+            exit 1
+          fi
+          # summary.json is model output: accept exactly one document of the shape the prompt asked for.
+          if ! jq -e -s '
+            def line: type == "string" and test("\\S") and (test("[\\r\\n]|https?://|www\\.|\\]\\("; "i") | not);
+            def bullet: type == "object" and (keys - ["text", "children"] | length == 0)
+              and (.text | line) and (.children // [] | type == "array" and all(.[]; line));
+            length == 1 and (.[0] | type == "object"
+              and keys == ["bugFixes", "improvements", "newFeatures", "other"]
+              and all(.[]; type == "array" and all(.[]; bullet)))
+          ' "$SUMMARY" > /dev/null; then
+            echo "::error::opencode wrote a summary.json that does not have the expected shape. Re-run all jobs."
+            # Compact JSON is one line starting with "{", so it cannot be read as a workflow command.
+            jq -c . "$SUMMARY" || true
+            exit 1
+          fi
 
-               a. `## What's Changed`
-
-               b. Download links (use these exact URLs — the tag is `${{ inputs.tag }}`):
-                  - Windows (x64)
-                    - `[Installer](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/beutl-standalone-setup.exe)`
-                    - `[Installer (.NET Runtime required)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/beutl-setup.exe)`
-                  - Windows (ARM64)
-                    - `[Installer](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/beutl-standalone-arm64-setup.exe)`
-                    - `[Installer (.NET Runtime required)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/beutl-arm64-setup.exe)`
-                  - macOS
-                    - `[Zip (arm64)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl.osx_arm64.app.zip)`
-                    - `[Zip (x64)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl.osx_x64.app.zip)`
-                  - Linux
-                    - `[Debian package](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/beutl_${{ inputs.simpleVer }}-${{ inputs.revision }}ubuntu22.04_amd64.deb)`
-                    - `[Flatpak](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-${{ inputs.semVer }}.flatpak)`
-                    - `[Zip (.NET Runtime required)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-linux-x64-${{ inputs.semVer }}.zip)`
-                    - `[Zip](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-linux-x64-standalone-${{ inputs.semVer }}.zip)`
-
-               c. Categorized summary derived from the auto-generated `* <prefix>: ... by @user in <PR-URL>` list. Use these section headings only, and OMIT any heading that has zero entries:
-                  - `**New Features**` ← PR titles starting with `feat:` / `feature:`
-                  - `**Improvements & Refactoring**` ← `refactor:` / `perf:` / `improve:` / `chore(refactor):` style
-                  - `**Bug Fixes**` ← `fix:`
-                  - `**Other**` ← any other user-visible PR. Skip dependabot bumps and pure `chore:` / `ci:` / `build:` / `docs:` / `test:` PRs that have no end-user impact.
-
-                  Each bullet should describe the user-visible change in past tense, paraphrasing the PR title (do NOT copy `* feat: ... by @user in ...` verbatim into the summary). Group related PRs as a single bullet when natural. If multiple PRs touch one feature area, you may use a nested list as in the v2.0.0-preview.2 example (e.g. `- Audio` with sub-bullets).
-
-               d. Wrap the original auto-generated `* ... by @user in <PR-URL>` block exactly as captured (no edits, in the same order GitHub generated) inside:
-                  ```
-                  <details>
-                  <summary>Changelog</summary>
-
-                  ...original list...
-
-                  </details>
-                  ```
-
-               e. Preserve the trailing `**Full Changelog**: https://github.com/.../compare/...` line that the auto-generated body provides, on its own paragraph at the very end.
-
-            3. Create the new body with the `Write` tool — write it to `release-body.md` in the current directory. Do NOT build the body with shell heredocs / `echo` / `printf`: it contains backticks and newlines that break shell quoting and waste turns on denied commands. Then run:
-               `gh release edit ${{ inputs.tag }} -R ${{ github.repository }} --notes-file release-body.md --draft=true`
-               Confirm that command exits 0 (the release body must actually change); if it errors, fix the file and retry.
-
-            ## Constraints
-
-            - The release MUST remain a draft (`--draft=true`) on the normal path; on the repair path preserve the release's existing `isDraft` state (see Idempotency below).
-            - DO NOT add a "日本語のリリースノートはこちら" line — that is appended later by a separate workflow when the corresponding Discussion is created.
-            - DO NOT publish the release, edit the tag, modify assets, or open issues/PRs.
-            - DO NOT touch any other release.
-            - Idempotency — decide from the fetched body:
-              - It already contains `https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-${{ inputs.semVer }}.flatpak` → already fully reformatted; exit without changes.
-              - It contains `https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/` but NOT that Flatpak link → it was formatted by an older revision of this workflow. Do NOT rebuild the whole body (it is no longer the auto-generated one, so a rebuild would mangle it). Bring only the Flatpak bullet in line, leaving every other byte of the body unchanged:
-                  - The body has no `[Flatpak](...)` bullet → insert one directly after the `[Debian package](...)` bullet.
-                  - The body has a `[Flatpak](...)` bullet with a different href → replace just that href. Never add a second bullet: a stale link must be corrected, not duplicated.
-                Apply the result with the step 3 `gh release edit` command, and preserve the release's current draft state — pass `--draft=true` only when the `isDraft` you fetched in step 1 was true, so repairing an already-published release does not unpublish it.
-              - Neither → the body is the auto-generated one; do the full reformat described above.
+          summary=$(jq -r '
+            # Escape what could still form a link: HTML tags and Markdown or reference-style brackets.
+            def md: gsub("^\\s+|\\s+$"; "") | gsub("<"; "&lt;") | gsub(">"; "&gt;") | gsub("\\["; "\\[") | gsub("\\]"; "\\]");
+            def bullets: map("- \(.text | md)" + (.children // [] | map("\n  - \(md)") | join("")));
+            [["New Features", .newFeatures], ["Improvements & Refactoring", .improvements], ["Bug Fixes", .bugFixes], ["Other", .other]]
+            | map(select(.[1] | length > 0) | "**\(.[0])**\n" + (.[1] | bullets | join("\n")))
+            | join("\n\n")
+          ' "$SUMMARY")
+          {
+            printf '%s\n' \
+              "## What's Changed" \
+              "" \
+              "- Windows (x64)" \
+              "  - [Installer]($downloads/beutl-standalone-setup.exe)" \
+              "  - [Installer (.NET Runtime required)]($downloads/beutl-setup.exe)" \
+              "- Windows (ARM64)" \
+              "  - [Installer]($downloads/beutl-standalone-arm64-setup.exe)" \
+              "  - [Installer (.NET Runtime required)]($downloads/beutl-arm64-setup.exe)" \
+              "- macOS" \
+              "  - [Zip (arm64)]($downloads/Beutl.osx_arm64.app.zip)" \
+              "  - [Zip (x64)]($downloads/Beutl.osx_x64.app.zip)" \
+              "- Linux" \
+              "  - [Debian package]($downloads/beutl_$SIMPLE_VER-${REVISION}ubuntu22.04_amd64.deb)" \
+              "  - [Flatpak]($flatpak_url)" \
+              "  - [Zip (.NET Runtime required)]($downloads/Beutl-linux-x64-$SEM_VER.zip)" \
+              "  - [Zip]($downloads/Beutl-linux-x64-standalone-$SEM_VER.zip)" \
+              ""
+            # Every category may be empty: a release of dependency bumps and chores has nothing to summarize.
+            if [ -n "$summary" ]; then
+              printf '%s\n\n' "$summary"
+            fi
+            printf '<details>\n<summary>Changelog</summary>\n\n'
+            cat changelog.md
+            printf '\n</details>\n\n'
+            if [ -s contributors.md ]; then
+              printf '## New Contributors\n\n'
+              cat contributors.md
+              echo
+            fi
+            cat full-changelog.md
+          } > release-body.md
+          edit_release
 
       - name: Verify the release notes were reformatted
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag }}
-          SEM_VER: ${{ inputs.semVer }}
-          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           if ! body=$(gh release view "$TAG" -R "$REPO" --json body -q .body); then
@@ -123,7 +319,7 @@ jobs:
           if printf '%s' "$body" | grep -qF "releases/download/$TAG/"; then
             echo "Release notes contain the platform download links — reformatting succeeded."
           else
-            echo "::error::Release notes for $TAG were not reformatted (no download links found). The Claude step finished without editing the body."
+            echo "::error::Release notes for $TAG were not reformatted (no download links found)."
             exit 1
           fi
           flatpak_url="https://github.com/$REPO/releases/download/$TAG/Beutl-$SEM_VER.flatpak"
