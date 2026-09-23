@@ -2,7 +2,10 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
+using Beutl.Editor.Models;
+using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -61,6 +64,49 @@ public sealed class ExternalReviewRegressionTests
         {
             EditViewModel.IsAutoSaveSuppressedForTesting = autoSave;
         }
+    }
+
+    [AvaloniaTest]
+    public async Task Edits_are_auto_saved_even_when_a_legacy_config_disabled_auto_save()
+    {
+        EditViewModel editor = await CreateEditor("legacy-auto-save-off");
+        // Configs written before auto save became mandatory may still carry the old opt-out.
+        CoreSerializer.PopulateFromJsonObject(
+            Beutl.Configuration.GlobalConfiguration.Instance.EditorConfig,
+            new JsonObject { ["IsAutoSaveEnabled"] = false });
+
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        ElementAddResult result = await adder.AddAsync([new ElementDescription(
+            Start: TimeSpan.Zero,
+            Length: TimeSpan.FromSeconds(1),
+            Layer: 0,
+            Source: new ElementSource.EngineObject(() => new Beutl.Graphics.Shapes.RectShape()))],
+            CancellationToken.None);
+        Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
+        Element element = editor.Scene.Children.Single();
+        // Let the save queued by the add land first, so only the rename's own save can write the name.
+        Assert.That(WaitForSavedName(element, n => n != null), Is.Not.Null);
+
+        element.Name = "auto-saved";
+        editor.HistoryManager.Commit();
+
+        string? saved = WaitForSavedName(element, n => n == "auto-saved");
+        Assert.That(saved, Is.EqualTo("auto-saved"));
+    }
+
+    private static string? WaitForSavedName(Element element, Func<string?, bool> done)
+    {
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        string? saved;
+        do
+        {
+            HeadlessTestHelpers.Settle();
+            saved = File.Exists(element.Uri!.LocalPath)
+                ? CoreSerializer.RestoreFromUri<Element>(element.Uri).Name
+                : null;
+        } while (!done(saved) && DateTime.UtcNow < deadline);
+
+        return saved;
     }
 
     [AvaloniaTest]
