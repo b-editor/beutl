@@ -11,6 +11,72 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class BrowserSessionDownloadTests
 {
+    private static readonly Uri s_openTracksPage = new("https://opentracks.com/bgm/detail/2445/download");
+    private const string OpenTracksBody = "csrfmiddlewaretoken=AbC123&track=2";
+
+    [Test]
+    public async Task OpenTracksFormPostsSelectedTrackThenDownloadsRedirectedMediaWithGet()
+    {
+        using var handler = new OpenTracksHandler();
+        using var client = new HttpClient(handler);
+        string directory = NewDirectory();
+        try
+        {
+            string file = await new BrowserMediaDownload(client).DownloadAsync(s_openTracksPage, directory,
+                null, null, default, s_openTracksPage,
+                [new Cookie("csrftoken", "session-token", "/", "opentracks.com") { Secure = true }],
+                BrowserReferrerPolicy.SameOrigin, OpenTracksBody);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(Path.GetFileName(file), Is.EqualTo("Morning.mp3"));
+                Assert.That(File.ReadAllBytes(file), Is.EqualTo(new byte[] { 1, 2, 3 }));
+                Assert.That(handler.Requests, Has.Count.EqualTo(2));
+                Assert.That(handler.Requests[0].Method, Is.EqualTo(HttpMethod.Post));
+                Assert.That(handler.Requests[0].Body, Is.EqualTo(OpenTracksBody));
+                Assert.That(handler.Requests[0].Cookies, Is.EqualTo("csrftoken=session-token"));
+                Assert.That(handler.Requests[0].Origin, Is.EqualTo("https://opentracks.com"));
+                Assert.That(handler.Requests[0].Referrer, Is.EqualTo(new Uri("https://opentracks.com/")));
+                Assert.That(handler.Requests[1].Method, Is.EqualTo(HttpMethod.Get));
+                Assert.That(handler.Requests[1].Body, Is.Null);
+                Assert.That(handler.Requests[1].Cookies, Is.Empty);
+                Assert.That(handler.Requests[1].Origin, Is.Null);
+                Assert.That(handler.Requests[1].Referrer, Is.Null);
+            });
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Test]
+    public void OpenTracksFormRejectsOtherPagesAndUnexpectedFields()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(BrowserMediaDownload.IsOpenTracksDownloadForm(s_openTracksPage, s_openTracksPage, OpenTracksBody), Is.True);
+            Assert.That(BrowserMediaDownload.IsOpenTracksDownloadForm(new Uri("https://other.test/page"), s_openTracksPage, OpenTracksBody), Is.False);
+            Assert.That(BrowserMediaDownload.IsOpenTracksDownloadForm(s_openTracksPage,
+                new Uri("https://opentracks.com/bgm/detail/2446/download"), OpenTracksBody), Is.False);
+            Assert.That(BrowserMediaDownload.IsOpenTracksDownloadForm(s_openTracksPage, s_openTracksPage,
+                OpenTracksBody + "&password=secret"), Is.False);
+        });
+    }
+
+    [Test]
+    public void OpenTracksFormDoesNotForwardPostBodyToAnotherOriginOnPreservingRedirect()
+    {
+        using var handler = new OpenTracksHandler(preserveMethod: true);
+        using var client = new HttpClient(handler);
+        string directory = NewDirectory();
+        try
+        {
+            Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
+                s_openTracksPage, directory, null, null, default, s_openTracksPage,
+                referrerPolicy: BrowserReferrerPolicy.SameOrigin, formBody: OpenTracksBody));
+            Assert.That(handler.Requests, Has.Count.EqualTo(1));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
     [TestCase("https://media.example.test/media/movie.mp4", "domain=shared; host=private; secure=secret")]
     [TestCase("http://media.example.test/media/movie.mp4", "domain=shared; host=private")]
     [TestCase("https://child.media.example.test/media/movie.mp4", "domain=shared")]
@@ -191,6 +257,29 @@ public class BrowserSessionDownloadTests
             HttpResponseMessage response = respond(request);
             response.RequestMessage = request;
             return Task.FromResult(response);
+        }
+    }
+
+    private sealed class OpenTracksHandler(bool preserveMethod = false) : HttpMessageHandler
+    {
+        internal List<(HttpMethod Method, string? Body, string Cookies, string? Origin, Uri? Referrer)> Requests { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add((request.Method, request.Content == null ? null : await request.Content.ReadAsStringAsync(cancellationToken),
+                request.Headers.TryGetValues("Cookie", out var cookies) ? string.Join("; ", cookies) : "",
+                request.Headers.TryGetValues("Origin", out var origins) ? origins.Single() : null,
+                request.Headers.Referrer));
+            if (request.RequestUri == s_openTracksPage)
+                return new HttpResponseMessage(preserveMethod ? HttpStatusCode.TemporaryRedirect : HttpStatusCode.Found)
+                { Headers = { Location = new Uri("https://media.example.test/download") } };
+
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            { Content = new ByteArrayContent([1, 2, 3]) };
+            response.Content.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
+            response.Content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment") { FileName = "Morning.mp3" };
+            response.RequestMessage = request;
+            return response;
         }
     }
 }

@@ -9,4 +9,5 @@ internal sealed class BrowserDownloadHistoryItem(BrowserDownloadRecord record, b
     public string DownloadedAt => Record.CompletedAt.ToLocalTime().ToString("g");
     public bool FileExists { get; } = File.Exists(record.FilePath);
     public bool CanImport => canImport && FileExists;
+    public bool CanRetry => !Record.IsPost;
 }

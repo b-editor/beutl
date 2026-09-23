@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
@@ -50,6 +51,35 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
         && string.IsNullOrEmpty(uri.UserInfo);
 
+    internal static bool IsOpenTracksDownloadForm(Uri page, Uri action, string body)
+    {
+        if (!IsHttpUri(page) || !IsHttpUri(action)
+            || page.Scheme != Uri.UriSchemeHttps || page.IdnHost != "opentracks.com" || page.Port != 443
+            || action.GetLeftPart(UriPartial.Path) != page.GetLeftPart(UriPartial.Path)
+            || !string.IsNullOrEmpty(action.Query)) return false;
+
+        string[] path = page.AbsolutePath.TrimEnd('/').Split('/');
+        if (path.Length != 5 || path[1] != "bgm" || path[2] != "detail"
+            || !int.TryParse(path[3], out int id) || id <= 0 || path[4] != "download") return false;
+
+        string[] fields = body.Split('&');
+        if (body.Length is < 1 or > 8192 || fields.Length != 2) return false;
+        string? token = null;
+        string? track = null;
+        foreach (string field in fields)
+        {
+            int separator = field.IndexOf('=');
+            if (separator <= 0) return false;
+            string key = field[..separator];
+            string value = field[(separator + 1)..];
+            if (key == "csrfmiddlewaretoken" && token == null) token = value;
+            else if (key == "track" && track == null) track = value;
+            else return false;
+        }
+        return token is { Length: >= 1 and <= 256 } && token.All(char.IsAsciiLetterOrDigit)
+            && track is { Length: >= 1 and <= 10 } && track.All(char.IsAsciiDigit);
+    }
+
     private static bool IsMediaExtension(string extension) =>
         s_mediaTypes.Values.Contains(extension, StringComparer.OrdinalIgnoreCase)
         || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase);
@@ -68,14 +98,17 @@ internal sealed class BrowserMediaDownload(HttpClient client)
 
     internal async Task<string> DownloadAsync(Uri uri, string directory, string? suggestedName,
         IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken, Uri? referrer = null,
-        IReadOnlyList<Cookie>? cookies = null, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin)
+        IReadOnlyList<Cookie>? cookies = null, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin,
+        string? formBody = null)
     {
         if (!IsHttpUri(uri))
         {
             throw new InvalidOperationException(Strings.WebDownloadUnsupported);
         }
+        if (formBody != null && (referrer == null || !IsOpenTracksDownloadForm(referrer, uri, formBody)))
+            throw new InvalidOperationException(Strings.WebDownloadUnsupported);
 
-        using HttpResponseMessage response = await SendAsync(uri, referrer, cookies ?? [], cancellationToken, referrerPolicy);
+        using HttpResponseMessage response = await SendAsync(uri, referrer, cookies ?? [], cancellationToken, referrerPolicy, formBody);
         response.EnsureSuccessStatusCode();
         if (response.StatusCode == HttpStatusCode.PartialContent)
             throw new IOException(Strings.WebDownloadIncomplete);
@@ -217,15 +250,21 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     }
 
     private async Task<HttpResponseMessage> SendAsync(Uri uri, Uri? referrer, IReadOnlyList<Cookie> cookies,
-        CancellationToken cancellationToken, BrowserReferrerPolicy referrerPolicy)
+        CancellationToken cancellationToken, BrowserReferrerPolicy referrerPolicy, string? formBody)
     {
         // The native API omits SameSite/partition metadata. Do not import another site's
         // existing login session merely because the download redirects to that site.
         CookieContainer cookieContainer = BrowserSessionCookies.CreateContainer(cookies, referrer ?? uri);
         for (int redirects = 0; ; redirects++)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            using var request = new HttpRequestMessage(formBody == null ? HttpMethod.Get : HttpMethod.Post, uri);
             request.Headers.Referrer = NormalizeReferrer(referrer, uri, referrerPolicy);
+            if (formBody != null)
+            {
+                request.Content = new ByteArrayContent(Encoding.UTF8.GetBytes(formBody));
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+                request.Headers.TryAddWithoutValidation("Origin", referrer!.GetLeftPart(UriPartial.Authority));
+            }
             if (uri.Scheme == Uri.UriSchemeHttps)
             {
                 string header = cookieContainer.GetCookieHeader(uri);
@@ -250,6 +289,13 @@ internal sealed class BrowserMediaDownload(HttpClient client)
                 Uri next = new(uri, location);
                 if (!IsHttpUri(next) || (uri.Scheme == Uri.UriSchemeHttps && next.Scheme == Uri.UriSchemeHttp))
                     throw new InvalidOperationException(Strings.WebDownloadUnsupported);
+                if (formBody != null)
+                {
+                    if (response.StatusCode is HttpStatusCode.MovedPermanently or HttpStatusCode.Found or HttpStatusCode.SeeOther)
+                        formBody = null;
+                    else if (uri.Scheme != next.Scheme || uri.IdnHost != next.IdnHost || uri.Port != next.Port)
+                        throw new InvalidOperationException(Strings.WebDownloadUnsupported);
+                }
                 uri = next;
             }
             catch

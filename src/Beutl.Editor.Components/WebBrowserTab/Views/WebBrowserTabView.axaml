@@ -132,6 +132,7 @@
                                 AutomationProperties.Name="{x:Static lang:Strings.BrowserRetry}"
                                 Classes="browserIcon"
                                 Click="OnRetryHistoryClick"
+                                IsVisible="{Binding CanRetry}"
                                 Tag="{Binding Record}"
                                 ToolTip.Tip="{x:Static lang:Strings.BrowserRetry}">
                             <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />

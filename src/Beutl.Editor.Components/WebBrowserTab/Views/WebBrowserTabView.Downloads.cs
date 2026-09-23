@@ -20,7 +20,7 @@ internal partial class WebBrowserTabView
     private bool _mediaNavigationIntercepted;
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
-        BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source);
+        BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source, string? FormBody);
 
     internal BrowserMediaDownload MediaDownloader { get; set; } = BrowserMediaDownload.Default;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
@@ -47,13 +47,37 @@ internal partial class WebBrowserTabView
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
     }
 
-    // Capture explicit download links as well as media links added dynamically by the page.
+    // Capture explicit download links, media links, and OpenTracks' POST download form.
     internal const string DownloadLinkScript = """
         (() => {
             if (window.__beutlDownloadsInstalled) return;
             window.__beutlDownloadsInstalled = true;
             document.addEventListener('click', event => {
                 if (!event.isTrusted || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                const submitter = event.target.closest?.('button, input[type="submit"]');
+                const form = submitter?.form;
+                if (form && submitter.type === 'submit' && form.method.toLowerCase() === 'post'
+                    && form.enctype.toLowerCase() === 'application/x-www-form-urlencoded'
+                    && location.protocol === 'https:' && location.hostname === 'opentracks.com'
+                    && /^\/bgm\/detail\/[1-9]\d*\/download\/?$/.test(location.pathname)) {
+                    const action = new URL(form.action, document.baseURI);
+                    if (action.origin === location.origin && action.pathname === location.pathname && !action.search
+                        && !form.querySelector('input[type="file"]') && typeof window.invokeCSharpAction === 'function') {
+                        const fields = new FormData(form);
+                        const token = fields.get('csrfmiddlewaretoken');
+                        const track = fields.get('track');
+                        if ([...fields].length === 2 && typeof token === 'string' && /^[A-Za-z0-9]{1,256}$/.test(token)
+                            && typeof track === 'string' && /^\d{1,10}$/.test(track)) {
+                            const body = new URLSearchParams(fields).toString();
+                            if (body.length <= 8192) {
+                                event.preventDefault();
+                                event.stopImmediatePropagation();
+                                window.invokeCSharpAction(JSON.stringify({kind:'beutl-download-form',url:action.href,body}));
+                                return;
+                            }
+                        }
+                    }
+                }
                 const link = event.target.closest?.('a[href]');
                 if (!link) return;
                 const url = new URL(link.href, document.baseURI);
@@ -101,6 +125,19 @@ internal partial class WebBrowserTabView
             using JsonDocument document = JsonDocument.Parse(body);
             JsonElement root = document.RootElement;
             if (root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("kind", out var formKind) && formKind.ValueKind == JsonValueKind.String
+                && formKind.GetString() == "beutl-download-form"
+                && root.TryGetProperty("url", out var formUrl) && formUrl.ValueKind == JsonValueKind.String
+                && Uri.TryCreate(formUrl.GetString(), UriKind.Absolute, out Uri? action)
+                && root.TryGetProperty("body", out var formData) && formData.ValueKind == JsonValueKind.String
+                && formData.GetString() is { } formBody
+                && !_pageDownloadReferrerUncertain
+                && BrowserMediaDownload.IsOpenTracksDownloadForm(_viewModel.CurrentUri, action, formBody))
+            {
+                QueuePageDownloadRequest(action, null, BrowserReferrerPolicy.SameOrigin, formBody: formBody);
+                return;
+            }
+            if (root.ValueKind == JsonValueKind.Object
                 && root.TryGetProperty("kind", out var kind) && kind.ValueKind == JsonValueKind.String
                 && kind.GetString() == "beutl-download"
                 && root.TryGetProperty("url", out var url) && url.ValueKind == JsonValueKind.String
@@ -128,7 +165,7 @@ internal partial class WebBrowserTabView
     }
 
     private void QueuePageDownloadRequest(Uri uri, string? suggestedName, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin,
-        IBrowserDownloadSource? downloadSource = null)
+        IBrowserDownloadSource? downloadSource = null, string? formBody = null)
     {
         if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
             || _pendingPageDownloadRequest != null || _downloadCancellation != null)
@@ -142,7 +179,7 @@ internal partial class WebBrowserTabView
         // BlankPage deliberately prevents the downloader's direct-navigation fallback from
         // using destination cookies when the surviving document's origin is unknown.
         Uri? referrer = _pageDownloadReferrerUncertain ? ViewModels.WebBrowserTabViewModel.BlankPage : owner?.CurrentUri;
-        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, referrerPolicy, downloadSource);
+        var request = new PageDownloadRequest(uri, suggestedName, referrer, documentId, referrerPolicy, downloadSource, formBody);
         _pendingPageDownloadRequest = request;
         Dispatcher.UIThread.Post(() =>
         {
@@ -221,7 +258,8 @@ internal partial class WebBrowserTabView
             request.Source?.Dispose();
             return;
         }
-        await DownloadMediaAsync(request.Uri, request.SuggestedName, request.Referrer, request.ReferrerPolicy, request.Source);
+        await DownloadMediaAsync(request.Uri, request.SuggestedName, request.Referrer, request.ReferrerPolicy,
+            request.Source, request.FormBody);
     }
 
     private void OnDownloadMediaClick(object? sender, RoutedEventArgs e)
@@ -274,7 +312,8 @@ internal partial class WebBrowserTabView
     }
 
     internal async Task DownloadMediaAsync(Uri uri, string? suggestedName, Uri? referrer = null,
-        BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin, IBrowserDownloadSource? source = null)
+        BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin, IBrowserDownloadSource? source = null,
+        string? formBody = null)
     {
         if (_disposed || _downloadCancellation != null || _viewModel is not { } vm)
         {
@@ -316,12 +355,13 @@ internal partial class WebBrowserTabView
                 IReadOnlyList<Cookie> cookies = referrer != null && !BrowserMediaDownload.IsHttpUri(referrer)
                     ? [] : await DownloadCookiesProvider(initiatingWebView, cancellation.Token);
                 cancellation.Token.ThrowIfCancellationRequested();
-                file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies, referrerPolicy);
+                file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token,
+                    referrer, cookies, referrerPolicy, formBody);
             }
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));
             ToolTip.SetTip(DownloadStatusText, file);
-            CheckProfileSave(vm.Profile.AddDownload(uri, file, referrer, referrerPolicy));
+            CheckProfileSave(vm.Profile.AddDownload(uri, file, referrer, referrerPolicy, isPost: formBody != null));
             if (options.AddToTimeline && vm.CanAddDownloadedFile(file))
             {
                 try { await vm.AddDownloadedMediaAsync(file, cancellation.Token); }

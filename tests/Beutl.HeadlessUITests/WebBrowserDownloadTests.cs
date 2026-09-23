@@ -693,6 +693,47 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public async Task OpenTracksPostFormWaitsForConfirmationAndSavesTheDownloadedAudio()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var page = new Uri("https://opentracks.com/bgm/detail/2445/download");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page, profile);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
+        { DataContext = vm };
+        using var handler = new OpenTracksFormHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        view.DownloadCookiesProvider = (_, _) => Task.FromResult<IReadOnlyList<Cookie>>(
+            [new Cookie("csrftoken", "value", "/", "opentracks.com") { Secure = true }]);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        try
+        {
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download-form","url":"https://opentracks.com/bgm/detail/2445/download","body":"csrfmiddlewaretoken=AbC123&track=2"}""" });
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(handler.RequestCount, Is.Zero);
+            Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+
+            view.FindControl<Button>("ConfirmPageDownloadButton")!
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(handler.RequestCount, Is.EqualTo(1));
+                Assert.That(handler.Method, Is.EqualTo(HttpMethod.Post));
+                Assert.That(handler.Body, Is.EqualTo("csrfmiddlewaretoken=AbC123&track=2"));
+                Assert.That(profile.Downloads.Single().IsPost, Is.True);
+                Assert.That(new BrowserDownloadHistoryItem(profile.Downloads.Single(), true).CanRetry, Is.False);
+                Assert.That(File.ReadAllBytes(profile.Downloads.Single().FilePath), Is.EqualTo(new byte[] { 1, 2, 3 }));
+            });
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
     public void DismissingPageDownloadsSuppressesRepeatedRequestsUntilANewDocument()
     {
         var initial = new Uri("https://page.example/");
@@ -1249,6 +1290,24 @@ public class WebBrowserDownloadTests
             var content = new ByteArrayContent([1, 2, 3]);
             content.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });
+        }
+    }
+
+    private sealed class OpenTracksFormHandler : HttpMessageHandler
+    {
+        internal int RequestCount { get; private set; }
+        internal HttpMethod? Method { get; private set; }
+        internal string? Body { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestCount++;
+            Method = request.Method;
+            Body = request.Content == null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+            var content = new ByteArrayContent([1, 2, 3]);
+            content.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
+            content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment") { FileName = "Morning.mp3" };
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request };
         }
     }
 
