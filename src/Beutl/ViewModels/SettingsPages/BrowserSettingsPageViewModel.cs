@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using Avalonia.Threading;
 using Beutl.Editor.Components.WebBrowserTab;
 using Reactive.Bindings;
 
@@ -12,6 +13,7 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
     private readonly CompositeDisposable _subscriptions = [];
     private readonly Func<Func<Task>?> _getClearCookies;
     private bool _canClearCookies;
+    private readonly CancellationTokenSource _lifetime = new();
 
     public BrowserSettingsPageViewModel() : this(BrowserProfile.Default, CreateCookieClearAction) { }
 
@@ -22,19 +24,30 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
         SelectedEngineIndex = new((int)profile.Engine);
         SuggestionsEnabled = new(profile.SuggestionsEnabled);
         RecordDownloads = new(profile.RecordDownloads);
+        BlockAds = new(profile.BlockAds);
+        FilterListUrls = new(string.Join(Environment.NewLine, profile.AdBlockListUrls));
         Feedback.Value = profile.Error;
         _subscriptions.Add(SelectedEngineIndex.Skip(1).Subscribe(_ => Save()));
         _subscriptions.Add(SuggestionsEnabled.Skip(1).Subscribe(_ => Save()));
         _subscriptions.Add(RecordDownloads.Skip(1).Subscribe(_ => Save()));
+        _subscriptions.Add(BlockAds.Skip(1).Subscribe(_ => Save()));
         profile.SettingsChanged += Reload;
+        profile.AdBlockFilters.Changed += OnFiltersChanged;
+        RefreshFilterStatus();
         BrowserWebViewRegistry.Changed += RefreshCookieAvailability;
         RefreshCookieAvailability();
+        if (profile.BlockAds) _ = LoadFiltersAsync();
     }
 
     public string[] Engines { get; } = ["Google", "Bing"];
     public ReactivePropertySlim<int> SelectedEngineIndex { get; }
     public ReactivePropertySlim<bool> SuggestionsEnabled { get; }
     public ReactivePropertySlim<bool> RecordDownloads { get; }
+    public ReactivePropertySlim<bool> BlockAds { get; }
+    public ReactivePropertySlim<string> FilterListUrls { get; }
+    public ReactivePropertySlim<bool> IsUpdatingFilters { get; } = new();
+    public ReactivePropertySlim<string?> FilterStatus { get; } = new();
+    public ReactivePropertySlim<string?> FilterFeedback { get; } = new();
     public ReactivePropertySlim<bool> CookieDeletionConfirmed { get; } = new();
     public ReactivePropertySlim<bool> IsClearingCookies { get; } = new();
     public ReactivePropertySlim<string?> Feedback { get; } = new();
@@ -54,9 +67,10 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
     {
         if (_updating || SelectedEngineIndex.Value is < 0 or > 1) return;
         bool saved = _profile.UpdateSettings((BrowserSearchEngine)SelectedEngineIndex.Value,
-            SuggestionsEnabled.Value, RecordDownloads.Value);
+            SuggestionsEnabled.Value, RecordDownloads.Value, BlockAds.Value);
         if (!saved) Reload();
         Feedback.Value = saved ? null : string.Format(Strings.BrowserStorageError, _profile.Error);
+        if (saved && BlockAds.Value) _ = LoadFiltersAsync();
     }
 
     private void Reload()
@@ -67,8 +81,89 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
             SelectedEngineIndex.Value = (int)_profile.Engine;
             SuggestionsEnabled.Value = _profile.SuggestionsEnabled;
             RecordDownloads.Value = _profile.RecordDownloads;
+            BlockAds.Value = _profile.BlockAds;
         }
         finally { _updating = false; }
+    }
+
+    private void OnFiltersChanged() => Dispatcher.UIThread.Post(RefreshFilterStatus);
+
+    private void RefreshFilterStatus()
+    {
+        if (_disposed) return;
+        var store = _profile.AdBlockFilters;
+        FilterStatus.Value = store.Current is { } rules
+            ? string.Format(Strings.BrowserAdBlockFilterStatus, rules.SupportedCount, rules.UnsupportedCount, store.UpdatedAt?.ToLocalTime().ToString("g"))
+            : Strings.BrowserAdBlockNotDownloaded;
+    }
+
+    public async Task UpdateFiltersAsync()
+    {
+        if (_disposed || IsUpdatingFilters.Value) return;
+        IsUpdatingFilters.Value = true;
+        FilterFeedback.Value = Strings.BrowserAdBlockLoading;
+        Task<BrowserAdBlockRules>? request = null;
+        try
+        {
+            string[] urls = BrowserAdBlockFilterStore.ParseUrls(FilterListUrls.Value);
+            if (!_profile.UpdateAdBlockListUrls(urls))
+            {
+                FilterFeedback.Value = string.Format(Strings.BrowserStorageError, _profile.Error);
+                return;
+            }
+            request = _profile.AdBlockFilters.UpdateAsync(urls, _lifetime.Token);
+            await request;
+            if (!_disposed && !_profile.AdBlockFilters.IsSuperseded(request))
+            {
+                FilterListUrls.Value = string.Join(Environment.NewLine, urls);
+                RefreshFilterStatus();
+                FilterFeedback.Value = Strings.BrowserAdBlockUpdated;
+            }
+            else ClearSupersededFilterFeedback();
+        }
+        catch (OperationCanceledException) when (_disposed || (request != null && _profile.AdBlockFilters.IsSuperseded(request)))
+        {
+            ClearSupersededFilterFeedback();
+        }
+        catch (Exception ex)
+        {
+            if (!_disposed) FilterFeedback.Value = string.Format(Strings.BrowserAdBlockUpdateFailed, ex.Message);
+        }
+        finally { if (!_disposed) IsUpdatingFilters.Value = false; }
+    }
+
+    private async Task LoadFiltersAsync()
+    {
+        if (_disposed || IsUpdatingFilters.Value) return;
+        IsUpdatingFilters.Value = true;
+        FilterStatus.Value = Strings.BrowserAdBlockLoading;
+        Task<BrowserAdBlockRules>? request = null;
+        try
+        {
+            request = _profile.AdBlockFilters.GetAsync(_profile.AdBlockListUrls);
+            await request;
+            if (!_disposed) RefreshFilterStatus();
+        }
+        catch (OperationCanceledException) when (_disposed || (request != null && _profile.AdBlockFilters.IsSuperseded(request)))
+        {
+            ClearSupersededFilterFeedback();
+        }
+        catch (Exception ex)
+        {
+            if (!_disposed)
+            {
+                RefreshFilterStatus();
+                FilterFeedback.Value = string.Format(Strings.BrowserAdBlockUpdateFailed, ex.Message);
+            }
+        }
+        finally { if (!_disposed) IsUpdatingFilters.Value = false; }
+    }
+
+    private void ClearSupersededFilterFeedback()
+    {
+        if (_disposed) return;
+        RefreshFilterStatus();
+        FilterFeedback.Value = null;
     }
 
     public void ClearHistory()
@@ -112,12 +207,20 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
     {
         if (_disposed) return;
         _disposed = true;
+        _lifetime.Cancel();
+        _lifetime.Dispose();
+        _profile.AdBlockFilters.Changed -= OnFiltersChanged;
         BrowserWebViewRegistry.Changed -= RefreshCookieAvailability;
         _profile.SettingsChanged -= Reload;
         _subscriptions.Dispose();
         SelectedEngineIndex.Dispose();
         SuggestionsEnabled.Dispose();
         RecordDownloads.Dispose();
+        BlockAds.Dispose();
+        FilterListUrls.Dispose();
+        IsUpdatingFilters.Dispose();
+        FilterStatus.Dispose();
+        FilterFeedback.Dispose();
         CookieDeletionConfirmed.Dispose();
         IsClearingCookies.Dispose();
         Feedback.Dispose();

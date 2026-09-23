@@ -24,6 +24,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private readonly Func<NativeWebView, bool> _canReparentWebView;
     private readonly bool _navigationStartedIncludesSubframes;
     private NativeWebView? _webView;
+    private BrowserAdBlockSession? _adBlockSession;
     private WebBrowserTabViewModel? _viewModel;
     private bool _disposed;
 
@@ -67,6 +68,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
+        _adBlockSession?.Dispose();
+        _adBlockSession = null;
         _downloadCancellation?.Cancel();
         ResetPageDownloadRequests();
         CloseBrowserPanel();
@@ -97,6 +100,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         UpdateBlankPageState();
         OnCancelBookmarkEditorClick(this, new RoutedEventArgs());
         OnProfileChanged();
+
+        if (_webView != null)
+            _adBlockSession = new BrowserAdBlockSession(_webView, viewModel.Profile, viewModel.CurrentUri, ShowToolStatus);
 
         if (_webView != null && _webView.Source != viewModel.CurrentUri)
         {
@@ -133,7 +139,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             _viewModel.CompleteNavigation(WebBrowserTabViewModel.BlankPage, true, false, false);
         if (initialUri != WebBrowserTabViewModel.BlankPage && !downloadInitialMedia)
             _viewModel.BeginNavigation(initialUri);
-        NativeWebView webView = _createWebView(downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri);
+        NativeWebView webView = _createWebView(downloadInitialMedia || _viewModel.Profile.BlockAds ? WebBrowserTabViewModel.BlankPage : initialUri);
+        _adBlockSession = new BrowserAdBlockSession(webView, _viewModel.Profile,
+            downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri, ShowToolStatus);
         if (OperatingSystem.IsMacOS())
         {
             webView.EnvironmentRequested += ConfigureMacOSWebViewEnvironment;
@@ -206,6 +214,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
+        if (e.Cancel) return;
         if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
         {
@@ -249,6 +258,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     internal void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
     {
+        if (_adBlockSession?.IsPreparing == true) return;
         if (_viewModel == null || _webView == null)
         {
             return;
@@ -634,6 +644,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     private void DisposeWebView()
     {
+        _adBlockSession?.Dispose();
+        _adBlockSession = null;
         if (_webView == null)
         {
             return;

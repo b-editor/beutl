@@ -10,6 +10,11 @@ namespace Beutl.Pages.SettingsPages;
 
 public sealed partial class BrowserSettingsPage : UserControl
 {
+    private async void OnUpdateFiltersClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BrowserSettingsPageViewModel vm) await vm.UpdateFiltersAsync();
+    }
+
     private readonly NativeWebView? _cookieWebView;
 
     public BrowserSettingsPage() : this(() => WebBrowserTabView.GetWebViewAvailability().IsAvailable) { }

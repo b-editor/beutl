@@ -32,6 +32,27 @@
                 <TextBlock Margin="0,16,0,0" Text="{x:Static lang:Strings.BrowserPrivacySection}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
                 <Border Classes="options-group">
                     <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.BrowserBlockAds}" Description="{x:Static lang:Strings.BrowserBlockAdsDescription}"
+                                                 Expands="True" IsExpanded="{Binding BlockAds.Value, Mode=OneWay}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch x:Name="BlockAdsToggle" Classes="left" Theme="{StaticResource CompactToggleSwitchStyle}"
+                                              IsChecked="{Binding BlockAds.Value, Mode=TwoWay}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                            <ctrls:OptionsDisplayItem.Content>
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="{x:Static lang:Strings.BrowserAdBlockLists}" TextWrapping="Wrap" />
+                                    <TextBox x:Name="FilterListUrlsTextBox" Text="{Binding FilterListUrls.Value, Mode=TwoWay}"
+                                             AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="160"
+                                             IsEnabled="{Binding !IsUpdatingFilters.Value}" />
+                                    <TextBlock Text="{x:Static lang:Strings.BrowserAdBlockCompatibility}" TextWrapping="Wrap" Opacity="0.65" />
+                                    <TextBlock Text="{Binding FilterStatus.Value}" TextWrapping="Wrap" />
+                                    <Button Content="{x:Static lang:Strings.BrowserAdBlockUpdate}" Click="OnUpdateFiltersClick"
+                                            IsEnabled="{Binding !IsUpdatingFilters.Value}" HorizontalAlignment="Left" />
+                                    <TextBlock Text="{Binding FilterFeedback.Value}" TextWrapping="Wrap"
+                                               IsVisible="{Binding FilterFeedback.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                </StackPanel>
+                            </ctrls:OptionsDisplayItem.Content>
+                        </ctrls:OptionsDisplayItem>
                         <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.BrowserRecordDownloads}" Description="{x:Static lang:Strings.BrowserRecordDownloadsDescription}">
                             <ctrls:OptionsDisplayItem.ActionButton>
                                 <ToggleSwitch Classes="left" Theme="{StaticResource CompactToggleSwitchStyle}"

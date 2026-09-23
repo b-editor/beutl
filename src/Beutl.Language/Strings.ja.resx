@@ -3085,4 +3085,49 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiVideoEditingIdle" xml:space="preserve">
     <value>動画とタスクを選択して「実行」をクリックしてください。</value>
   </data>
+  <data name="BrowserBlockAds" xml:space="preserve">
+    <value>広告をブロック</value>
+  </data>
+  <data name="BrowserBlockAdsDescription" xml:space="preserve">
+    <value>変更後はページを再読み込みしてください。</value>
+  </data>
+  <data name="BrowserAdBlockLists" xml:space="preserve">
+    <value>フィルターURL（HTTPS、1行に1件）</value>
+  </data>
+  <data name="BrowserAdBlockCompatibility" xml:space="preserve">
+    <value>EasyList対応（一部のルールを除く）。更新は手動です。</value>
+  </data>
+  <data name="BrowserAdBlockUpdate" xml:space="preserve">
+    <value>フィルターを更新</value>
+  </data>
+  <data name="BrowserAdBlockFilterStatus" xml:space="preserve">
+    <value>{0:N0}件・未対応 {1:N0}件・更新 {2}</value>
+  </data>
+  <data name="BrowserAdBlockNotDownloaded" xml:space="preserve">
+    <value>フィルター未取得</value>
+  </data>
+  <data name="BrowserAdBlockUpdated" xml:space="preserve">
+    <value>更新しました。</value>
+  </data>
+  <data name="BrowserAdBlockFailed" xml:space="preserve">
+    <value>広告ブロックを適用できませんでした: {0}</value>
+  </data>
+  <data name="BrowserAdBlockUpdateFailed" xml:space="preserve">
+    <value>フィルターを更新できませんでした: {0}</value>
+  </data>
+  <data name="BrowserAdBlockInvalidUrls" xml:space="preserve">
+    <value>認証情報やフラグメントを含まないHTTPS URLを、1行に1件、1～8件入力してください。</value>
+  </data>
+  <data name="BrowserAdBlockListTooLarge" xml:space="preserve">
+    <value>フィルターリストがダウンロード上限の16 MiBを超えています。</value>
+  </data>
+  <data name="BrowserAdBlockInvalidList" xml:space="preserve">
+    <value>取得した内容は、対応するAdblock形式のフィルターリストではありません。</value>
+  </data>
+  <data name="BrowserAdBlockUnsupported" xml:space="preserve">
+    <value>このWebViewは広告通信のブロックに対応していません。</value>
+  </data>
+  <data name="BrowserAdBlockLoading" xml:space="preserve">
+    <value>フィルターを読み込んでいます...</value>
+  </data>
 </root>
