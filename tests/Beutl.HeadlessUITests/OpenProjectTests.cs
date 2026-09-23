@@ -7,6 +7,7 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
@@ -32,7 +33,7 @@ public class OpenProjectTests
         await ResetProjectAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldAutoSave = GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled;
+        bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
         Func<ProjectService.ProjectCloseContext, CancellationToken, Task>? corruptTarget = null;
         Func<Project, Task>? rejectTarget = null;
         try
@@ -54,7 +55,7 @@ public class OpenProjectTests
             Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value?.Object, Is.SameAs(scene));
             string target = Path.Combine(Path.GetDirectoryName(original.Uri!.LocalPath)!, "target.bep");
             File.Copy(original.Uri.LocalPath, target);
-            GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = false;
+            EditViewModel.IsAutoSaveSuppressedForTesting = true;
             scene.Duration = TimeSpan.FromSeconds(73);
 
             bool failedAtExpectedStage = false;
@@ -107,7 +108,7 @@ public class OpenProjectTests
             finally
             {
                 config.AutoCommitOnClose = oldAutoCommitOnClose;
-                GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = oldAutoSave;
+                EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
             }
         }
     }

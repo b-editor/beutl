@@ -55,7 +55,6 @@ public sealed partial class EditorConfig : ConfigurationBase
 {
     public static readonly CoreProperty<bool> AutoAdjustSceneDurationProperty;
     public static readonly CoreProperty<bool> EnablePointerLockInPropertyProperty;
-    public static readonly CoreProperty<bool> IsAutoSaveEnabledProperty;
     public static readonly CoreProperty<bool> IsFrameCacheEnabledProperty;
     public static readonly CoreProperty<double> FrameCacheMaxSizeProperty;
     public static readonly CoreProperty<FrameCacheConfigScale> FrameCacheScaleProperty;
@@ -85,10 +84,6 @@ public sealed partial class EditorConfig : ConfigurationBase
             .Register();
 
         EnablePointerLockInPropertyProperty = ConfigureProperty<bool, EditorConfig>(nameof(EnablePointerLockInProperty))
-            .DefaultValue(true)
-            .Register();
-
-        IsAutoSaveEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsAutoSaveEnabled))
             .DefaultValue(true)
             .Register();
 
@@ -199,12 +194,6 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         get => GetValue(EnablePointerLockInPropertyProperty);
         set => SetValue(EnablePointerLockInPropertyProperty, value);
-    }
-
-    public bool IsAutoSaveEnabled
-    {
-        get => GetValue(IsAutoSaveEnabledProperty);
-        set => SetValue(IsAutoSaveEnabledProperty, value);
     }
 
     [Display(Name = nameof(SettingsStrings.EnableFrameCache), ResourceType = typeof(SettingsStrings))]

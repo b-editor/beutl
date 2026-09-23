@@ -138,11 +138,10 @@ public class VersionControlSaveTests
     public async Task Explicit_save_persists_element_edits_when_auto_save_is_disabled()
     {
         await TestReset.ResetShellAsync();
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        bool oldAutoSave = editorConfig.IsAutoSaveEnabled;
+        bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
         try
         {
-            editorConfig.IsAutoSaveEnabled = false;
+            EditViewModel.IsAutoSaveSuppressedForTesting = true;
             string location = Path.Combine(
                 BeutlHomeIsolation.CurrentHome!,
                 "explicit-element-save");
@@ -172,7 +171,7 @@ public class VersionControlSaveTests
         finally
         {
             await TestReset.ResetShellAsync();
-            editorConfig.IsAutoSaveEnabled = oldAutoSave;
+            EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
         }
     }
 
@@ -1107,7 +1106,7 @@ public class VersionControlSaveTests
         bool oldAutoCommitOnSave = config.AutoCommitOnSave;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
         bool oldUseLfs = config.UseLfsWhenAvailable;
-        bool oldAutoSave = GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled;
+        bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
 
         try
         {
@@ -1128,7 +1127,7 @@ public class VersionControlSaveTests
             string alternate = Path.Combine(Path.GetDirectoryName(original.Uri!.LocalPath)!, "alternate.bep");
             File.Copy(original.Uri.LocalPath, alternate);
 
-            GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = false;
+            EditViewModel.IsAutoSaveSuppressedForTesting = true;
             scene.Duration = TimeSpan.FromSeconds(73);
             Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.Not.EqualTo(scene.Duration));
 
@@ -1157,7 +1156,7 @@ public class VersionControlSaveTests
                 config.AutoCommitOnSave = oldAutoCommitOnSave;
                 config.AutoCommitOnClose = oldAutoCommitOnClose;
                 config.UseLfsWhenAvailable = oldUseLfs;
-                GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = oldAutoSave;
+                EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
             }
         }
     }

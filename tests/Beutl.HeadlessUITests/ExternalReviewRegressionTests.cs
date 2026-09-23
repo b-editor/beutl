@@ -48,10 +48,10 @@ public sealed class ExternalReviewRegressionTests
     {
         EditViewModel editor = await CreateEditor("reopen-unsaved-review");
         Project project = TestShell.Project.CurrentProject.Value!;
-        bool autoSave = Beutl.Configuration.GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled;
+        bool autoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
         try
         {
-            Beutl.Configuration.GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = false;
+            EditViewModel.IsAutoSaveSuppressedForTesting = true;
             editor.Scene.Duration = TimeSpan.FromSeconds(73);
             await TestShell.Project.OpenProject(project.Uri!.LocalPath);
             Assert.That(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().First().Duration,
@@ -59,7 +59,7 @@ public sealed class ExternalReviewRegressionTests
         }
         finally
         {
-            Beutl.Configuration.GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled = autoSave;
+            EditViewModel.IsAutoSaveSuppressedForTesting = autoSave;
         }
     }
 

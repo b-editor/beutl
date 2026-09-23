@@ -28,12 +28,6 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         AutoAdjustSceneDuration.Subscribe(b => _editorConfig.AutoAdjustSceneDuration = b)
             .DisposeWith(_disposables);
 
-        EnableAutoSave = _editorConfig.GetObservable(EditorConfig.IsAutoSaveEnabledProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        EnableAutoSave.Subscribe(b => _editorConfig.IsAutoSaveEnabled = b)
-            .DisposeWith(_disposables);
-
         ShowExactBoundaries = _viewConfig.GetObservable(ViewConfig.ShowExactBoundariesProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
@@ -287,8 +281,6 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     }
 
     public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
-
-    public ReactiveProperty<bool> EnableAutoSave { get; }
 
     public ReactiveProperty<bool> ShowExactBoundaries { get; }
 
