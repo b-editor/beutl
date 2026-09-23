@@ -1044,6 +1044,101 @@ public class NoMigrationRegressionTests
         return (project, element);
     }
 
+    public enum SaveRoute
+    {
+        Project,
+        Scene,
+        AutoSave,
+    }
+
+    // The preflight used to stop at a file reference, so a value held inside the referenced object was
+    // found only when the real save descended into it - after the gate had been decided.
+    [TestCase(SaveRoute.Project)]
+    [TestCase(SaveRoute.Scene)]
+    [TestCase(SaveRoute.AutoSave)]
+    public void A_standalone_value_inside_a_referenced_file_gates_the_project_before_that_file_is_written(
+        SaveRoute route)
+    {
+        var referenced = new ReferencedFile
+        {
+            Uri = new Uri(Path.Combine(_tempDirectory, "referenced.json")),
+            Value = CreateMigrated(new MigratingLeaf("9.0.0")),
+        };
+        (Project project, Scene scene, ReferencingElement element) = CreateProjectReferencing(referenced);
+        string? gateAtReferencedWrite = null;
+        referenced.BeforeSerialization = () => gateAtReferencedWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(project.Uri!.LocalPath))!["minAppVersion"];
+
+        Save(route, project, scene, element, referenced);
+
+        Assert.That(gateAtReferencedWrite, Is.EqualTo("9.0.0"));
+    }
+
+    [Test]
+    public void A_reference_cycle_through_files_ends_the_discovery_pass()
+    {
+        var first = new ReferencedFile { Uri = new Uri(Path.Combine(_tempDirectory, "first.json")) };
+        var second = new ReferencedFile
+        {
+            Uri = new Uri(Path.Combine(_tempDirectory, "second.json")),
+            Value = CreateMigrated(new MigratingLeaf("9.0.0")),
+            Next = first,
+        };
+        first.Next = second;
+        (Project project, Scene scene, ReferencingElement element) = CreateProjectReferencing(first);
+        string? gateAtSecondWrite = null;
+        second.BeforeSerialization = () => gateAtSecondWrite =
+            (string?)JsonNode.Parse(File.ReadAllText(project.Uri!.LocalPath))!["minAppVersion"];
+
+        Save(SaveRoute.Project, project, scene, element, first);
+
+        Assert.That(gateAtSecondWrite, Is.EqualTo("9.0.0"));
+    }
+
+    private (Project Project, Scene Scene, ReferencingElement Element) CreateProjectReferencing(
+        ReferencedFile referenced)
+    {
+        var project = new Project { Uri = new Uri(Path.Combine(_tempDirectory, "project.bep")) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "scene.scene")) };
+        var element = new ReferencingElement
+        {
+            Uri = new Uri(Path.Combine(_tempDirectory, "element.belm")),
+            Reference = referenced,
+        };
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        new VirtualProjectRoot().AttachProject(project);
+        File.WriteAllText(project.Uri.LocalPath, "{\"minAppVersion\":\"1.0.0\"}");
+        return (project, scene, element);
+    }
+
+    // Each route runs the preflight the way its production caller does before writing any file. An
+    // auto-save writes only the objects that changed, without the files they reference, so the
+    // referenced object is one of them here, as it is when a value is assigned inside it.
+    private static void Save(SaveRoute route, Project project, Scene scene, Element element, CoreObject referenced)
+    {
+        switch (route)
+        {
+            case SaveRoute.Project:
+                CoreSerializer.StoreToUri(project, project.Uri!);
+                break;
+            case SaveRoute.Scene:
+                CoreSerializer.PersistProjectMigrationMetadata([scene]);
+                CoreSerializer.StoreToUri(element, element.Uri!);
+                CoreSerializer.StoreToUri(scene, scene.Uri!, CoreSerializationMode.Write);
+                break;
+            case SaveRoute.AutoSave:
+                using (var autoSave = new AutoSaveService())
+                {
+                    // Listed first, the referenced object is discovered last, so only the embedding pass
+                    // through the element can carry its value to the project.
+                    autoSave.SaveObjects([referenced, element]);
+                }
+
+                break;
+        }
+    }
+
     [Test]
     public void AutoSave_persists_a_standalone_value_migration_before_writing_the_element()
     {
@@ -1261,6 +1356,35 @@ public class NoMigrationRegressionTests
         {
             base.Deserialize(context);
             Value = context.GetValue<MigratingLeaf>(nameof(Value));
+        }
+    }
+
+    private sealed class ReferencingElement : Element
+    {
+        public ReferencedFile? Reference { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Reference), Reference);
+        }
+    }
+
+    // A file-backed object reached through an ordinary property rather than the hierarchy.
+    private sealed class ReferencedFile : CoreObject
+    {
+        public MigratingLeaf? Value { get; set; }
+
+        public ReferencedFile? Next { get; set; }
+
+        public Action? BeforeSerialization { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            BeforeSerialization?.Invoke();
+            base.Serialize(context);
+            context.SetValue(nameof(Value), Value);
+            context.SetValue(nameof(Next), Next);
         }
     }
 

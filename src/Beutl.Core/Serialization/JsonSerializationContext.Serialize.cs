@@ -179,13 +179,10 @@ public partial class JsonSerializationContext
         return objectUri;
     }
 
-    private static JsonObject CreateEmbeddedObjectNode(CoreObject value, Uri serializedUri)
+    private static JsonNode CreateEmbeddedObjectNode(CoreObject value, Uri serializedUri)
     {
-        var node = CoreSerializer.SerializeToJsonObject(
-            value,
-            new CoreSerializerOptions { BaseUri = value.Uri });
-        node["Uri"] = serializedUri.ToString();
-        return node;
+        return (JsonNode?)CoreSerializer.SerializeEmbeddedReference(value, serializedUri)
+               ?? (JsonValue)serializedUri.ToString();
     }
 
     public void SetValue<T>(string name, T? value)

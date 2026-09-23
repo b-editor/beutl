@@ -16,6 +16,11 @@ public static class CoreSerializer
     [ThreadStatic]
     private static Dictionary<ICoreSerializable, HashSet<Uri>>? t_activeWrites;
 
+    // The file-backed objects this thread is embedding, so a reference cycle through them ends at
+    // its back edge the way t_activeWrites ends one for a real save.
+    [ThreadStatic]
+    private static HashSet<CoreObject>? t_activeEmbeds;
+
     // What StoreToUri writes with when its caller names no mode.
     private const CoreSerializationMode DefaultStoreMode =
         CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects;
@@ -346,6 +351,7 @@ public static class CoreSerializer
     private static void RaiseAttachedMigrations(CoreObject[] objects)
     {
         var visited = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
+        var embedded = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
         var pending = new Stack<(CoreObject Object, bool OwnsFile)>();
         foreach (CoreObject obj in objects)
         {
@@ -361,15 +367,20 @@ public static class CoreSerializer
 
             // Only a root of this save and a descendant with a file of its own are written on their
             // own; everything else is embedded in the nearest such ancestor and covered by its pass.
-            if (current.OwnsFile)
+            // A file-backed object reached through an ordinary property is embedded too, so a value it
+            // holds reports before the gate is decided rather than when the real save writes its file.
+            // A descendant an earlier pass already embedded has reported through it.
+            if (current.OwnsFile && !embedded.Contains(current.Object))
             {
+                using var capture = new SerializedObjectCapture();
                 SerializeToJsonObject(
                     current.Object,
                     new CoreSerializerOptions
                     {
                         BaseUri = current.Object.Uri,
-                        Mode = CoreSerializationMode.Write,
+                        Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
                     });
+                embedded.UnionWith(capture.Objects);
             }
 
             if (current.Object is IHierarchical hierarchical)
@@ -382,6 +393,35 @@ public static class CoreSerializer
                     }
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Serializes a file-backed object into the node that references it, or returns
+    /// <see langword="null"/> when this thread is already embedding it.
+    /// </summary>
+    /// <remarks>
+    /// A reference cycle through file-backed objects would otherwise recurse until the stack overflows,
+    /// so the back edge keeps its URI, as it does in a real save.
+    /// </remarks>
+    internal static JsonObject? SerializeEmbeddedReference(CoreObject value, Uri serializedUri)
+    {
+        HashSet<CoreObject> activeEmbeds = t_activeEmbeds ??= new(ReferenceEqualityComparer.Instance);
+        if (!activeEmbeds.Add(value))
+        {
+            return null;
+        }
+
+        try
+        {
+            JsonObject node = SerializeToJsonObject(value, new CoreSerializerOptions { BaseUri = value.Uri });
+            node["Uri"] = serializedUri.ToString();
+            return node;
+        }
+        finally
+        {
+            activeEmbeds.Remove(value);
+            if (activeEmbeds.Count == 0) t_activeEmbeds = null;
         }
     }
 
