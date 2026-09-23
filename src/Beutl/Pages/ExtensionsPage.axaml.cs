@@ -1,17 +1,17 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Beutl.Api.Objects;
 using Beutl.Logging;
 using Beutl.Pages.ExtensionsPages;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
 using Beutl.ViewModels;
 using Beutl.ViewModels.ExtensionsPages;
+using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
-
 using Microsoft.Extensions.Logging;
-
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 
 namespace Beutl.Pages;
@@ -19,6 +19,16 @@ namespace Beutl.Pages;
 public sealed partial class ExtensionsPage : Window
 {
     private readonly ILogger _logger = Log.CreateLogger<ExtensionsPage>();
+    private PackageDetailsNavigation? _pendingPackage;
+
+    internal void OpenPackage(Package package, string? version)
+    {
+        var navigation = new PackageDetailsNavigation(package, version);
+        if (IsLoaded)
+            frame.Navigate(typeof(PackageDetailsPage), navigation);
+        else
+            _pendingPackage = navigation;
+    }
 
     public ExtensionsPage()
     {
@@ -41,7 +51,12 @@ public sealed partial class ExtensionsPage : Window
     private void OnFirstLoaded(object? sender, RoutedEventArgs e)
     {
         Loaded -= OnFirstLoaded;
-        if (nav.SelectedItem is FANavigationViewItem selected)
+        if (_pendingPackage is { } package)
+        {
+            _pendingPackage = null;
+            frame.Navigate(typeof(PackageDetailsPage), package);
+        }
+        else if (nav.SelectedItem is FANavigationViewItem selected)
         {
             OnItemInvoked(selected);
         }

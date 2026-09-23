@@ -23,11 +23,13 @@ public partial class PackageDetailsPage : UserControl
 
     private void OnNavigatedTo(object? sender, FANavigationEventArgs e)
     {
-        if (e.Parameter is Package package)
+        if (e.Parameter is Package or PackageDetailsNavigation)
         {
+            var navigation = e.Parameter as PackageDetailsNavigation
+                ?? new PackageDetailsNavigation((Package)e.Parameter, null);
             DestoryDataContext();
             DataContextFactory factory = GetDataContextFactory();
-            DataContext = factory.PackageDetailPage(package);
+            DataContext = factory.PackageDetailPage(navigation.Package, navigation.Version);
         }
     }
 

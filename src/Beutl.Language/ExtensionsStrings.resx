@@ -160,4 +160,7 @@ To force installation, use the CLI tool.</value>
   <data name="PackageKind_Both" xml:space="preserve">
     <value>Material + Template</value>
   </data>
+  <data name="RequestedVersionUnavailable" xml:space="preserve">
+    <value>Version {0} is no longer available. Select an available version to continue.</value>
+  </data>
 </root>

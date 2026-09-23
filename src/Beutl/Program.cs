@@ -13,9 +13,27 @@ namespace Beutl;
 
 internal static class Program
 {
+    internal static PackageLinkBroker? ActivationBroker { get; private set; }
+
     [STAThread]
     public static void Main(string[] args)
     {
+        PackageLinkLaunchResult launch = OperatingSystem.IsMacOS()
+            ? new(PackageLinkLaunchAction.StartApplication, null, args)
+            : PackageLinkLauncher.PrepareAsync(args).GetAwaiter().GetResult();
+        using PackageLinkBroker? broker = launch.Broker;
+        if (launch.Action != PackageLinkLaunchAction.StartApplication)
+        {
+            if (launch.Action == PackageLinkLaunchAction.Failed)
+            {
+                Console.Error.WriteLine("Could not send the installation link to Beutl. Please try again.");
+                Environment.ExitCode = 1;
+            }
+            return;
+        }
+        args = launch.Arguments;
+        ActivationBroker = broker;
+
         // Restore config
         GlobalConfiguration config = GlobalConfiguration.Instance;
         config.Restore(GlobalConfiguration.DefaultFilePath);

@@ -21,8 +21,9 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     private readonly PackageOperationHandler _handler;
     private readonly LibraryService _library;
     private readonly BeutlApiApplication _app;
+    private readonly ReactivePropertySlim<string?> _unavailableVersion = new();
 
-    public PackageDetailsPageViewModel(Package package, BeutlApiApplication app, EditorService editorService, ProjectService projectService)
+    public PackageDetailsPageViewModel(Package package, BeutlApiApplication app, EditorService editorService, ProjectService projectService, string? requestedVersion = null)
     {
         Package = package;
         _app = app;
@@ -47,6 +48,15 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim<string[]>([])
             .DisposeWith(_disposables);
 
+        VersionSelectionError = _unavailableVersion
+            .Select(version => version == null ? null : string.Format(ExtensionsStrings.RequestedVersionUnavailable, version))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        _unavailableVersion.DisposeWith(_disposables);
+        SelectedRelease.Where(release => release != null)
+            .Subscribe(_ => _unavailableVersion.Value = null)
+            .DisposeWith(_disposables);
+
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
@@ -67,14 +77,17 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                                 count),
                             releases =>
                             {
+                                string? versionToSelect = requestedVersion ?? SelectedRelease.Value?.Version.Value ?? _unavailableVersion.Value;
                                 AllReleases.Clear();
                                 AllReleases.AddRange(releases);
 
                                 LatestRelease.Value = releases.FirstOrDefault();
-                                if (LatestRelease.Value is { } publicRelease)
-                                {
-                                    SelectedRelease.Value = publicRelease;
-                                }
+                                SelectedRelease.Value = versionToSelect == null
+                                    ? LatestRelease.Value
+                                    : releases.FirstOrDefault(release => NuGetVersion.Parse(release.Version.Value)
+                                        .Equals(NuGetVersion.Parse(versionToSelect)));
+                                _unavailableVersion.Value = SelectedRelease.Value == null ? versionToSelect : null;
+                                requestedVersion = null;
                             });
                     }
                 }
@@ -101,6 +114,9 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
         CanInstallOrUpdate = SelectedRelease.Select(v =>
             {
+                if (v == null)
+                    return false;
+
                 string beutlVersion = BeutlApplication.Version;
 
                 if (v?.TargetVersion?.Value is { } target
@@ -114,6 +130,11 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                     return true;
                 }
             })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        IsVersionUnsupported = SelectedRelease.CombineLatest(CanInstallOrUpdate)
+            .Select(x => x.First != null && !x.Second)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -426,6 +447,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
     public ReadOnlyReactivePropertySlim<bool> CanInstallOrUpdate { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> IsVersionUnsupported { get; }
+
     public ReadOnlyReactivePropertySlim<string> InstallButtonText { get; }
 
     public AsyncReactiveCommand Install { get; }
@@ -439,6 +462,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
     public ReactivePropertySlim<string?> StatusText { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<string?> VersionSelectionError { get; }
 
     public AsyncReactiveCommand Refresh { get; }
 

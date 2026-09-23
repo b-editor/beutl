@@ -1,8 +1,9 @@
 [Desktop Entry]
 Name=Beutl
 Comment=video editor
-Exec=/usr/bin/beutl
+Exec=/usr/bin/beutl %U
 Icon=/usr/share/pixmaps/beutl_icon.png
 Terminal=false
 Type=Application
-Categories=GNOME;Utility
+Categories=GNOME;Utility;
+MimeType=x-scheme-handler/beutl;

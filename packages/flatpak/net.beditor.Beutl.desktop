@@ -9,3 +9,4 @@ Terminal=false
 Categories=AudioVideo;Video;AudioVideoEditing;
 StartupNotify=true
 StartupWMClass=Beutl
+MimeType=x-scheme-handler/beutl;
