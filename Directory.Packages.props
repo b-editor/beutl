@@ -5,7 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Aigamo.ResXGenerator" Version="4.4.0" />
     <PackageVersion Include="AsyncImageLoader.Avalonia" Version="3.8.0" />
-    <PackageVersion Include="Avalonia" Version="12.1.2" />
+    <PackageVersion Include="Avalonia" Version="12.1.3" />
     <PackageVersion Include="Avalonia.Controls.ItemsRepeater" Version="12.0.0" />
     <PackageVersion Include="Avalonia.Controls.WebView" Version="12.1.0" />
     <PackageVersion Include="PanAndZoom" Version="12.1.1" />
@@ -13,7 +13,7 @@
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
     <PackageVersion Include="Avalonia.Headless" Version="12.1.2" />
     <PackageVersion Include="Avalonia.Headless.NUnit" Version="12.1.2" />
-    <PackageVersion Include="Avalonia.Skia" Version="12.1.2" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.3" />
     <!-- Keep the System.Reactive scheduler used by ReactiveProperty (12.1 uses ReactiveUI.Primitives). -->
     <PackageVersion Include="ReactiveUI.Avalonia" Version="12.0.3" />
     <PackageVersion Include="Silk.NET.MoltenVK.Native" Version="2.23.0" />
