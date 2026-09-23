@@ -19,6 +19,75 @@ namespace Beutl.UnitTests.Editor;
 public class BrowserMediaDownloadTests
 {
     [Test]
+    public void PartialContentCannotBePublishedAsACompleteDownload()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var client = new HttpClient(new PartialContentHandler());
+        var downloader = new BrowserMediaDownload(client);
+        Assert.ThrowsAsync<IOException>(async () =>
+            await downloader.DownloadAsync(new Uri("https://files.example/Morning.mp3"), directory, null, null, default));
+        Assert.That(Directory.Exists(directory), Is.False);
+    }
+
+    [Test]
+    public async Task CompletedNativeFileMovesIntoCollisionSafeDestination()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        string stagingDirectory = Path.Combine(directory, ".staging");
+        Directory.CreateDirectory(stagingDirectory);
+        string staged = Path.Combine(stagingDirectory, "response");
+        try
+        {
+            await File.WriteAllBytesAsync(staged, [1, 2, 3, 4]);
+            Directory.CreateDirectory(Path.Combine(directory, "Morning.mp3"));
+            await File.WriteAllBytesAsync(Path.Combine(directory, "Morning (1).mp3"), [9]);
+
+            string saved = await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "Morning.mp3", null, default);
+            Assert.That(Path.GetFileName(saved), Is.EqualTo("Morning (2).mp3"));
+            Assert.That(File.ReadAllBytes(saved), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
+            Assert.That(File.ReadAllBytes(Path.Combine(directory, "Morning (1).mp3")), Is.EqualTo(new byte[] { 9 }));
+            Assert.That(File.Exists(staged), Is.False);
+            Assert.That(Directory.GetFiles(directory, "*", SearchOption.AllDirectories), Has.Length.EqualTo(2));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [TestCase("<html><body>Not media</body></html>")]
+    [TestCase("")]
+    public void InvalidStagedPayloadsAreNotPublished(string payload)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        string stagingDirectory = Path.Combine(directory, ".staging");
+        Directory.CreateDirectory(stagingDirectory);
+        string staged = Path.Combine(stagingDirectory, "response");
+        try
+        {
+            File.WriteAllText(staged, payload);
+            if (payload.Length == 0)
+                Assert.ThrowsAsync<IOException>(async () =>
+                    await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "Morning.mp3", null, default));
+            else
+                Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                    await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "Morning.mp3", "utf-8", default));
+            Assert.That(File.Exists(staged), Is.True);
+            Assert.That(File.Exists(Path.Combine(directory, "Morning.mp3")), Is.False);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [TestCase("https://files.example/download?filepath=bgm%2Ftrack.mp3&filename=Morning.mp3", "Morning.mp3", "audio/mpeg", "Morning.mp3")]
+    [TestCase("https://files.example/download", "Morning.mp3", "application/octet-stream", "Morning.mp3")]
+    [TestCase("https://files.example/download", "Morning.mp3", "text/html", null)]
+    [TestCase("https://files.example/download", "installer.exe", "application/octet-stream", null)]
+    [TestCase("https://files.example/download", "page.html", "text/html", null)]
+    [TestCase("https://user:password@files.example/download", "Morning.mp3", "audio/mpeg", null)]
+    [TestCase("file:///tmp/Morning.mp3", "Morning.mp3", "audio/mpeg", null)]
+    public void NativeResponseFileNamesRequireSupportedHttpMedia(string address, string name, string mediaType, string? expected)
+    {
+        Assert.That(BrowserMediaDownload.GetResponseFileName(new Uri(address), name, mediaType), Is.EqualTo(expected));
+    }
+
+    [Test]
     public async Task Downloads_PreserveExistingFilesAndPublishOnlyCompletedMedia()
     {
         string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -291,6 +360,22 @@ public class BrowserMediaDownloadTests
     private sealed class CancelProgress(CancellationTokenSource cancellation) : IProgress<(long Received, long? Total)>
     {
         public void Report((long Received, long? Total) value) => cancellation.Cancel();
+    }
+
+    private sealed class PartialContentHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Assert.That(request.Headers.Range, Is.Null);
+            var content = new ByteArrayContent([1, 2, 3]);
+            content.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
+            content.Headers.ContentRange = new ContentRangeHeaderValue(0, 2, 1000);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.PartialContent)
+            {
+                RequestMessage = request,
+                Content = content
+            });
+        }
     }
 
     private sealed class MediaHandler(string mediaType = "video/mp4", string? fileName = null) : HttpMessageHandler

@@ -25,6 +25,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private readonly bool _navigationStartedIncludesSubframes;
     private NativeWebView? _webView;
     private BrowserAdBlockSession? _adBlockSession;
+    private IDisposable? _nativeDownloadHandler;
     private WebBrowserTabViewModel? _viewModel;
     private bool _disposed;
 
@@ -68,6 +69,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
+        WebBrowserTabViewModel? previousViewModel = _viewModel;
         _adBlockSession?.Dispose();
         _adBlockSession = null;
         _downloadCancellation?.Cancel();
@@ -92,6 +94,12 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             UpdateBlankPageState();
             OnCancelBookmarkEditorClick(this, new RoutedEventArgs());
             return;
+        }
+        if (_webView != null && previousViewModel != null && _webView.Source == viewModel.CurrentUri)
+        {
+            // The document is still displayed, so keep its commit across a context rebind.
+            // Source may be a provisional URL; the previous model knows the last loaded page.
+            viewModel.AdoptCommittedPage(previousViewModel);
         }
         viewModel.Disposing += Dispose;
         viewModel.Profile.SettingsChanged += OnProfileChanged;
@@ -147,6 +155,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             webView.EnvironmentRequested += ConfigureMacOSWebViewEnvironment;
         }
         webView.AdapterCreated += OnAdapterCreated;
+        webView.AdapterDestroyed += OnAdapterDestroyed;
         webView.NavigationStarted += OnNavigationStarted;
         webView.NavigationCompleted += OnNavigationCompleted;
         webView.NewWindowRequested += OnNewWindowRequested;
@@ -183,7 +192,29 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         UpdateHistoryState();
+        if (OperatingSystem.IsMacOS())
+        {
+            _nativeDownloadHandler?.Dispose();
+            _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnNativeDownloadRequested,
+                OnNativeNavigationCommitted, OnNativeNavigationStarted);
+        }
         ScheduleLinuxSizeRefresh(_webView);
+    }
+
+    private void OnAdapterDestroyed(object? sender, WebViewAdapterEventArgs e)
+    {
+        _nativeDownloadHandler?.Dispose();
+        _nativeDownloadHandler = null;
+    }
+
+    internal void OnNativeNavigationCommitted(Uri uri)
+    {
+        if (!_disposed) _viewModel?.CommitNavigation(uri);
+    }
+
+    internal void OnNativeNavigationStarted()
+    {
+        if (!_disposed) InvalidatePageDownloadRequests();
     }
 
     private void ScheduleLinuxSizeRefresh(NativeWebView webView)
@@ -228,9 +259,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         // App-initiated navigation and explicit download links are handled separately.
         if (_navigationStartedIncludesSubframes)
         {
-            // Any start may replace the document. Expire the offer without treating a frame
-            // navigation as a new page or re-enabling requests dismissed by the user.
-            InvalidatePageDownloadRequests();
+            // Script offers expire without treating a frame as a new page. Captured native
+            // responses survive iframe activity; the WK delegate reports their main-frame starts.
+            if (_pendingPageDownloadRequest?.Source == null) InvalidatePageDownloadRequests();
             return;
         }
 
@@ -266,13 +297,13 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         // The canceled media never replaced the document. Its failure may arrive even after
         // the offer is dismissed or downloaded, so track it independently of the confirmation UI.
+        Uri uri = e.Request ?? _webView.Source;
         if (!e.IsSuccess && _mediaNavigationIntercepted) return;
 
         if (e.IsSuccess) ResetPageDownloadRequests();
         else SettleAbortedPageNavigation();
         _pageRevision++;
         _findRequest?.Cancel();
-        Uri uri = e.Request ?? _webView.Source;
         _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
         UpdateBlankPageState();
         if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage)
@@ -653,6 +684,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         _webView.EnvironmentRequested -= ConfigureMacOSWebViewEnvironment;
         _webView.AdapterCreated -= OnAdapterCreated;
+        _webView.AdapterDestroyed -= OnAdapterDestroyed;
+        _nativeDownloadHandler?.Dispose();
+        _nativeDownloadHandler = null;
         _webView.NavigationStarted -= OnNavigationStarted;
         _webView.NavigationCompleted -= OnNavigationCompleted;
         _webView.NewWindowRequested -= OnNewWindowRequested;
