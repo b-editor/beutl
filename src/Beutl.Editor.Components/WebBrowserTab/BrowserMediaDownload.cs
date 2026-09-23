@@ -148,28 +148,70 @@ internal sealed class BrowserMediaDownload(HttpClient client)
                 throw new IOException(Strings.WebDownloadIncomplete);
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
-            for (int suffix = 0; ; suffix++)
-            {
-                string candidate = suffix == 0 ? name
-                    : $"{Path.GetFileNameWithoutExtension(name)} ({suffix}){Path.GetExtension(name)}";
-                string destination = Path.Combine(directory, candidate);
-                try
-                {
-                    File.Move(temporaryPath, destination, overwrite: false);
-                    return destination;
-                }
-                catch (IOException) when (File.Exists(destination) || Directory.Exists(destination))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-            }
+            return PublishCompletedFile(temporaryPath, directory, name, cancellationToken);
         }
         finally
         {
             if (File.Exists(temporaryPath))
             {
                 File.Delete(temporaryPath);
+            }
+        }
+    }
+
+    internal static async Task<string> ValidateAndPublishAsync(string completedPath, string directory, string name,
+        string? charset, CancellationToken cancellationToken)
+    {
+        await using (var input = new FileStream(completedPath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                         81920, FileOptions.Asynchronous))
+        {
+            long expectedLength = input.Length;
+            byte[] prefix = new byte[4096];
+            int length = 0;
+            while (length < prefix.Length)
+            {
+                int count = await input.ReadAsync(prefix.AsMemory(length), cancellationToken);
+                if (count == 0) break;
+                length += count;
+            }
+            Array.Resize(ref prefix, length);
+            var inspector = new BrowserMediaContentInspector(prefix, isFinal: length < 4096, charset: charset);
+            if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+            long received = length;
+            byte[] buffer = new byte[81920];
+            int read;
+            while ((read = await input.ReadAsync(buffer, cancellationToken)) > 0)
+            {
+                inspector.Inspect(buffer.AsSpan(0, read));
+                if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+                received += read;
+            }
+            inspector.Inspect([], isFinal: true);
+            if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+            if (received == 0 || received != expectedLength) throw new IOException(Strings.WebDownloadIncomplete);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        Directory.CreateDirectory(directory);
+        return PublishCompletedFile(completedPath, directory, name, cancellationToken);
+    }
+
+    private static string PublishCompletedFile(string path, string directory, string name, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        for (int suffix = 0; ; suffix++)
+        {
+            string candidate = suffix == 0 ? name
+                : $"{Path.GetFileNameWithoutExtension(name)} ({suffix}){Path.GetExtension(name)}";
+            string destination = Path.Combine(directory, candidate);
+            try
+            {
+                File.Move(path, destination, overwrite: false);
+                return destination;
+            }
+            catch (IOException) when (File.Exists(destination) || Directory.Exists(destination))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
             }
         }
     }

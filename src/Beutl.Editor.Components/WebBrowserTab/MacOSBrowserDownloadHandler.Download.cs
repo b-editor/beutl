@@ -75,9 +75,7 @@ internal sealed partial class MacOSBrowserDownloadHandler
                 ChooseDestination(temporaryPath);
                 await _finished.Task.WaitAsync(cancellation.Token);
                 _progressTimer.Stop();
-                await using var input = new FileStream(temporaryPath, FileMode.Open, FileAccess.Read, FileShare.Read,
-                    81920, FileOptions.Asynchronous);
-                return await BrowserMediaDownload.SaveAsync(input, directory, fileName, null, cancellation.Token, input.Length, charset);
+                return await BrowserMediaDownload.ValidateAndPublishAsync(temporaryPath, directory, fileName, charset, cancellation.Token);
             }
             finally
             {
