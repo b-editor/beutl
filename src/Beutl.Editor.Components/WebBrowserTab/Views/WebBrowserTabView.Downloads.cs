@@ -18,6 +18,7 @@ internal partial class WebBrowserTabView
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
+    private bool _nativeDownloadNavigationFailurePending;
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source);
@@ -37,11 +38,12 @@ internal partial class WebBrowserTabView
             return;
         }
         // A response belongs to the main frame, but the download has not replaced its document.
+        _nativeDownloadNavigationFailurePending = true;
         if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
         else InvalidatePageDownloadRequests();
         _viewModel.RestoreCommittedPage();
         UpdateBlankPageState();
-        // Keep history retries conservative; the current transfer retains WebKit's original response.
+        // Keep history retries conservative; the current transfer retains the browser's original response.
         QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
         // The queued request keeps its conservative metadata; later links belong to the restored document.
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
@@ -192,6 +194,7 @@ internal partial class WebBrowserTabView
         _pageDownloadNavigationPending = false;
         _pageDownloadReferrerUncertain = false;
         _mediaNavigationIntercepted = false;
+        _nativeDownloadNavigationFailurePending = false;
     }
 
     private void SettleAbortedPageNavigation()

@@ -192,11 +192,15 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         UpdateHistoryState();
+        _nativeDownloadHandler?.Dispose();
         if (OperatingSystem.IsMacOS())
         {
-            _nativeDownloadHandler?.Dispose();
             _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnNativeDownloadRequested,
                 OnNativeNavigationCommitted, OnNativeNavigationStarted);
+        }
+        else if (OperatingSystem.IsWindows())
+        {
+            _nativeDownloadHandler = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnNativeDownloadRequested);
         }
         ScheduleLinuxSizeRefresh(_webView);
     }
@@ -246,6 +250,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
         if (e.Cancel) return;
+        _nativeDownloadNavigationFailurePending = false;
         if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
         {
@@ -298,6 +303,12 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         // The canceled media never replaced the document. Its failure may arrive even after
         // the offer is dismissed or downloaded, so track it independently of the confirmation UI.
         Uri uri = e.Request ?? _webView.Source;
+        if (!e.IsSuccess && _nativeDownloadNavigationFailurePending)
+        {
+            _nativeDownloadNavigationFailurePending = false;
+            return;
+        }
+        _nativeDownloadNavigationFailurePending = false;
         if (!e.IsSuccess && _mediaNavigationIntercepted) return;
 
         if (e.IsSuccess) ResetPageDownloadRequests();

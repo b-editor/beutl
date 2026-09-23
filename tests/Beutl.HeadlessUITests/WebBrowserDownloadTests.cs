@@ -300,11 +300,41 @@ public class WebBrowserDownloadTests
         view.OnNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
         Dispatcher.UIThread.RunJobs();
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
+        Assert.That(vm.CurrentUri, Is.EqualTo(page));
+        Assert.That(vm.ErrorMessage.Value, Is.Null);
 
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
         view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
         Assert.That(vm.CurrentUri, Is.EqualTo(next));
         Assert.That(vm.IsLoading.Value, Is.False);
+        Assert.That(vm.ErrorMessage.Value, Is.EqualTo(Beutl.Language.Strings.WebPageLoadFailed));
+    }
+
+    [AvaloniaTest]
+    public void NativeDownloadFromFormSuppressesOnlyItsNavigationFailure()
+    {
+        var page = new Uri("https://page.example/form");
+        var action = new Uri("https://page.example/generate");
+        var file = new Uri("https://cdn.example.net/signed?token=temporary");
+        var next = new Uri("https://failed.example/");
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        view.OnNativeNavigationCommitted(page);
+
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = action });
+        view.OnNativeDownloadRequested(file, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = action, IsSuccess = false });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(vm.CurrentUri, Is.EqualTo(page));
+        Assert.That(vm.ErrorMessage.Value, Is.Null);
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+        Assert.That(vm.CurrentUri, Is.EqualTo(next));
         Assert.That(vm.ErrorMessage.Value, Is.EqualTo(Beutl.Language.Strings.WebPageLoadFailed));
     }
 
