@@ -406,23 +406,14 @@ public static class CoreSerializer
     /// </remarks>
     internal static JsonObject? SerializeEmbeddedReference(CoreObject value, Uri serializedUri)
     {
-        HashSet<CoreObject> activeEmbeds = t_activeEmbeds ??= new(ReferenceEqualityComparer.Instance);
-        if (!activeEmbeds.Add(value))
+        if (t_activeEmbeds?.Contains(value) == true)
         {
             return null;
         }
 
-        try
-        {
-            JsonObject node = SerializeToJsonObject(value, new CoreSerializerOptions { BaseUri = value.Uri });
-            node["Uri"] = serializedUri.ToString();
-            return node;
-        }
-        finally
-        {
-            activeEmbeds.Remove(value);
-            if (activeEmbeds.Count == 0) t_activeEmbeds = null;
-        }
+        JsonObject node = SerializeToJsonObject(value, new CoreSerializerOptions { BaseUri = value.Uri });
+        node["Uri"] = serializedUri.ToString();
+        return node;
     }
 
     public static JsonNode SerializeToJsonNode(object obj, CoreSerializerOptions? options = null)
@@ -447,6 +438,27 @@ public static class CoreSerializer
         var type = obj.GetType();
         var context = new JsonSerializationContext(type, ThreadLocalSerializationContext.Current, options: options);
         context.BeginSerialization(obj);
+        // Registered whether this is an embedded reference or the root of an embedding pass, so a back
+        // edge to the root keeps its URI instead of embedding the root a second time.
+        bool embedding = context.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects)
+                         && obj is CoreObject { Uri: not null } fileBacked
+                         && (t_activeEmbeds ??= new(ReferenceEqualityComparer.Instance)).Add(fileBacked);
+        try
+        {
+            return SerializeToJsonObjectCore(obj, type, context);
+        }
+        finally
+        {
+            if (embedding)
+            {
+                t_activeEmbeds!.Remove((CoreObject)obj);
+                if (t_activeEmbeds.Count == 0) t_activeEmbeds = null;
+            }
+        }
+    }
+
+    private static JsonObject SerializeToJsonObjectCore(ICoreSerializable obj, Type type, JsonSerializationContext context)
+    {
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Serialize(context);

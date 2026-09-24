@@ -1095,6 +1095,33 @@ public class NoMigrationRegressionTests
         Assert.That(gateAtSecondWrite, Is.EqualTo("9.0.0"));
     }
 
+    [Test]
+    public void Embedding_the_root_of_a_file_cycle_keeps_the_back_edge_as_its_uri()
+    {
+        int rootSerializations = 0;
+        var first = new ReferencedFile
+        {
+            Uri = new Uri(Path.Combine(_tempDirectory, "first.json")),
+            BeforeSerialization = () => rootSerializations++,
+        };
+        var second = new ReferencedFile { Uri = new Uri(Path.Combine(_tempDirectory, "second.json")), Next = first };
+        first.Next = second;
+
+        JsonObject json = CoreSerializer.SerializeToJsonObject(
+            first,
+            new CoreSerializerOptions
+            {
+                BaseUri = first.Uri,
+                Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
+            });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rootSerializations, Is.EqualTo(1));
+            Assert.That(json["Next"]!["Next"], Is.InstanceOf<JsonValue>(), "the edge back to the root is a URI");
+        });
+    }
+
     private (Project Project, Scene Scene, ReferencingElement Element) CreateProjectReferencing(
         ReferencedFile referenced)
     {
