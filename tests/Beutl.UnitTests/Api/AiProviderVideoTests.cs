@@ -200,6 +200,7 @@ public sealed partial class AiCapabilityServiceTests
         Assert.That(handler.Requests.Select(item => item.IdempotencyKey), Is.All.EqualTo(key));
         Assert.That(sent.Path, Is.EqualTo("/api/v3/ai/videos/" + mode.ToString().ToLowerInvariant()));
         Assert.That(sent.ContentType, Does.StartWith("multipart/form-data"));
+        AssertQuotedMultipartNames(sent);
         Assert.That(sent.Body, Does.Contain("source.webm").And.Not.Contain("sourceJobId"));
         Assert.That(sent.Body.Contains("character.png"), Is.EqualTo(mode == AiSourceVideoMode.Motion));
     }
@@ -215,6 +216,7 @@ public sealed partial class AiCapabilityServiceTests
             inputReferences: [VideoInput("a.png", "image/png"), VideoInput("b.mp4", "video/mp4"), VideoInput("c.wav", "audio/wav")]), CancellationToken.None);
         var sent = handler.Requests.Single();
         Assert.That(sent.Path, Is.EqualTo("/api/v3/ai/videos/frames"));
+        AssertQuotedMultipartNames(sent);
         Assert.That(sent.Body, Does.Contain("reference[]").And.Contain("audio/wav").And.Not.Contain("firstFrame"));
         Assert.That(sent.Body.IndexOf("a.png"), Is.LessThan(sent.Body.IndexOf("b.mp4")));
         Assert.That(sent.Body.IndexOf("b.mp4"), Is.LessThan(sent.Body.IndexOf("c.wav")));

@@ -94,7 +94,7 @@
                          Text="{CompiledBinding Prompt.Value}"
                          TextWrapping="Wrap"
                          PlaceholderText="{CompiledBinding PromptWatermark.Value}" />
-                <TextBlock AutomationProperties.LiveSetting="Assertive"
+                <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
                            Foreground="{DynamicResource SystemFillColorCautionBrush}"
                            IsVisible="{CompiledBinding VisiblePromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                            Text="{CompiledBinding VisiblePromptValidationError.Value}"
@@ -186,7 +186,8 @@
                 </StackPanel>
             </Border>
 
-            <TextBlock AutomationProperties.LiveSetting="Assertive"
+            <TextBlock x:Name="ImageEditErrorMessage"
+                       AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
                        AutomationProperties.Name="{CompiledBinding Error.Value}"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"

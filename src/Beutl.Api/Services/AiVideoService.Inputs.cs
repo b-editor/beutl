@@ -23,8 +23,8 @@ internal sealed partial class AiVideoService
             }
             return await ExecuteAsync("AiVideoService.FromSource",
                 (authorization, token) => Application.Ai.CreateSourceVideo(authorization, key, mode,
-                    new StreamPart(video, request.SourceVideo.FileName, request.SourceVideo.MediaType),
-                    character is null ? null : new StreamPart(character, request.CharacterImage!.FileName, request.CharacterImage.MediaType),
+                    AiMultipartFormData.File(video, request.SourceVideo.FileName, request.SourceVideo.MediaType),
+                    character is null ? null : AiMultipartFormData.File(character, request.CharacterImage!.FileName, request.CharacterImage.MediaType),
                     request.Prompt, request.DurationSeconds?.ToString(CultureInfo.InvariantCulture),
                     request.Mode == AiSourceVideoMode.Motion ? request.Orientation : null,
                     request.Mode == AiSourceVideoMode.Motion ? request.Quality : null, request.Model?.Value, token),
@@ -47,7 +47,7 @@ internal sealed partial class AiVideoService
             {
                 var stream = await AiUploadValidation.OpenAsync(source, AiVideoInputLimits.MaxSourceBytes, cancellationToken);
                 streams.Add(stream);
-                parts.Add(new(stream, source.FileName, source.MediaType));
+                parts.Add(AiMultipartFormData.File(stream, source.FileName, source.MediaType));
             }
             return await ExecuteAsync("AiVideoService.References",
                 (authorization, token) => Application.Ai.CreateVideoFromFrames(authorization,

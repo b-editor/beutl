@@ -60,7 +60,7 @@
                          Text="{CompiledBinding Prompt.Value}"
                          TextWrapping="Wrap"
                          PlaceholderText="{x:Static lang:Strings.AiVideoPrompt_Placeholder}" />
-                <TextBlock AutomationProperties.LiveSetting="Assertive"
+                <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
                            Foreground="{DynamicResource SystemFillColorCautionBrush}"
                            IsVisible="{CompiledBinding VisiblePromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                            Text="{CompiledBinding VisiblePromptValidationError.Value}"
@@ -296,7 +296,7 @@
                 </StackPanel>
             </Expander>
             <TextBlock Text="{CompiledBinding InputError.Value}" TextWrapping="Wrap"
-                       Foreground="{DynamicResource SystemFillColorCautionBrush}" AutomationProperties.LiveSetting="Polite"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}" AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
                        IsVisible="{CompiledBinding InputError.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
             <StackPanel Spacing="8">
@@ -330,7 +330,7 @@
                                            Icon="Video"
                                            Opacity="0.6" />
                         <TextBlock HorizontalAlignment="Center"
-                                   AutomationProperties.LiveSetting="Polite"
+                                   AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
                                    AutomationProperties.Name="{CompiledBinding StatusText.Value}"
                                    Opacity="0.6"
                                    Text="{CompiledBinding StatusText.Value}"
@@ -345,7 +345,7 @@
                 </Grid>
             </Border>
 
-            <TextBlock AutomationProperties.LiveSetting="Assertive"
+            <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
                        AutomationProperties.Name="{CompiledBinding Error.Value}"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"

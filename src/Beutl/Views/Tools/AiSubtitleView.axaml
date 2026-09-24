@@ -123,7 +123,7 @@
                               ItemsSource="{CompiledBinding TranscriptionModelPicker.Options}"
                               SelectedItem="{CompiledBinding TranscriptionModelPicker.Selected.Value}" />
                 </StackPanel>
-                <TextBlock AutomationProperties.LiveSetting="Polite"
+                <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
                            AutomationProperties.Name="{CompiledBinding DetectedLanguageText.Value}"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            IsVisible="{CompiledBinding DetectedLanguageText.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
@@ -203,7 +203,7 @@
                     <TextBlock x:Name="TranscriptionStatusText"
                                VerticalAlignment="Center"
                                AutomationProperties.Name="{CompiledBinding TranscriptionStatusText.Value}"
-                               AutomationProperties.LiveSetting="Polite"
+                               AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
                                Text="{CompiledBinding TranscriptionStatusText.Value}" />
                 </StackPanel>
             </StackPanel>
@@ -213,7 +213,7 @@
                     CornerRadius="6"
                     IsVisible="{CompiledBinding HasPendingHistoryResult.Value}">
                 <StackPanel Spacing="8">
-                    <TextBlock AutomationProperties.LiveSetting="Polite"
+                    <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
                                AutomationProperties.Name="{CompiledBinding HistoryOverwriteMessage.Value}"
                                Text="{CompiledBinding HistoryOverwriteMessage.Value}"
                                TextWrapping="Wrap" />
@@ -248,7 +248,7 @@
                     CornerRadius="6"
                     IsVisible="{CompiledBinding HasPartialResult.Value}">
                 <StackPanel Spacing="8">
-                    <TextBlock AutomationProperties.LiveSetting="Polite"
+                    <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
                                Text="{CompiledBinding PartialResultMessage.Value}"
                                TextWrapping="Wrap" />
                     <WrapPanel Orientation="Horizontal">
@@ -363,7 +363,7 @@
                     </Border>
                 </StackPanel>
 
-                <TextBlock AutomationProperties.LiveSetting="Polite"
+                <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
                            Foreground="{DynamicResource SystemFillColorCautionBrush}"
                            IsVisible="{CompiledBinding CaptionValidationMessage.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                            Text="{CompiledBinding CaptionValidationMessage.Value}"
@@ -435,7 +435,7 @@
             <StackPanel IsVisible="{CompiledBinding IsTranslatePage.Value}" Spacing="6">
                 <!--  The line the model has just translated, while the rest is still
                       being worked on.  -->
-                <TextBlock AutomationProperties.LiveSetting="Polite"
+                <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
                            Opacity="0.7"
                            IsVisible="{CompiledBinding TranslationPreview.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                            Text="{CompiledBinding TranslationPreview.Value}"
@@ -452,7 +452,7 @@
                     Content="{x:Static lang:Strings.Cancel}"
                     IsVisible="{CompiledBinding IsSubtitleOperationActive.Value}" />
 
-            <TextBlock AutomationProperties.LiveSetting="Assertive"
+            <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
                        AutomationProperties.Name="{CompiledBinding Error.Value}"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"

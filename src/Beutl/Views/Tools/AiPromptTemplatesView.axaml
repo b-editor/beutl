@@ -30,7 +30,7 @@
                     Command="{CompiledBinding SaveTemplate}"
                     Content="{x:Static lang:Strings.AiPromptSaveTemplate}" />
         </Grid>
-        <TextBlock AutomationProperties.LiveSetting="Assertive"
+        <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
                    AutomationProperties.Name="{CompiledBinding Error.Value}"
                    Foreground="{DynamicResource SystemFillColorCautionBrush}"
                    IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"

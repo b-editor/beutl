@@ -402,7 +402,7 @@ internal sealed class AiImageGenerationService(
                 {
                     throw new AiFileTooLargeException();
                 }
-                referenceParts.Add(new StreamPart(
+                referenceParts.Add(AiMultipartFormData.File(
                     stream,
                     reference.FileName,
                     reference.MediaType));
@@ -555,7 +555,7 @@ internal sealed class AiImageEditingService(
             request.Image,
             AiRequestLimits.MaxImageUploadBytes,
             cancellationToken);
-        var filePart = new StreamPart(
+        StreamPart filePart = AiMultipartFormData.File(
             stream,
             request.Image.FileName,
             request.Image.MediaType);
@@ -601,11 +601,11 @@ internal sealed class AiTranscriptionService(
                 var body = new MultipartFormDataContent();
                 var file = new StreamContent(stream);
                 file.Headers.ContentType = MediaTypeHeaderValue.Parse(request.Audio.MediaType);
-                body.Add(file, "file", request.Audio.FileName);
+                body.Add(file, "\"file\"", AiMultipartFormData.Quote(request.Audio.FileName));
                 if (request.Language is not null)
-                    body.Add(new StringContent(request.Language), "language");
+                    body.Add(new StringContent(request.Language), "\"language\"");
                 if (request.Model is { } model)
-                    body.Add(new StringContent(model.Value), "model");
+                    body.Add(new StringContent(model.Value), "\"model\"");
                 var message = new HttpRequestMessage(HttpMethod.Post, "/api/v3/ai/transcriptions") { Content = body };
                 message.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
                 return message;
@@ -792,13 +792,13 @@ internal sealed partial class AiVideoService(
         await using Stream? lastStream = request.LastFrame is null
             ? null
             : await OpenFrameStreamAsync(request.LastFrame, cancellationToken);
-        var firstPart = new StreamPart(
+        StreamPart firstPart = AiMultipartFormData.File(
             firstStream,
             request.FirstFrame.FileName,
             request.FirstFrame.MediaType);
         StreamPart? lastPart = request.LastFrame is null || lastStream is null
             ? null
-            : new StreamPart(
+            : AiMultipartFormData.File(
                 lastStream,
                 request.LastFrame.FileName,
                 request.LastFrame.MediaType);

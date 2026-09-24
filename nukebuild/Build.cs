@@ -295,6 +295,9 @@ class Build : NukeBuild
                     new XElement("string", "net.beditor.beutl"),
                     new XElement("key", "CFBundleURLSchemes"),
                     new XElement("array", new XElement("string", "beutl")))));
+            // XDocument emits an empty [] internal subset when re-serializing
+            // this DTD, which makes the bundle's Info.plist invalid to plutil.
+            plist.DocumentType?.Remove();
             plist.Save(plistPath);
 
             // The worker carries private deps (FFmpeg.AutoGen, FFmpegSharp) absent from the app's MIT

@@ -96,12 +96,12 @@
             </ctrls:OptionsDisplayItem>
 
             <TextBlock Margin="32,8,0,0"
-                       AutomationProperties.LiveSetting="Polite"
+                       AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
                        AutomationProperties.Name="{x:Static lang:SettingsStrings.AiPlan_Loading}"
                        IsVisible="{CompiledBinding IsAiPlanLoading.Value}"
                        Text="{x:Static lang:SettingsStrings.AiPlan_Loading}" />
             <TextBlock Margin="32,8,0,0"
-                       AutomationProperties.LiveSetting="Assertive"
+                       AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
                        AutomationProperties.Name="{CompiledBinding AiPlanError.Value}"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        IsVisible="{CompiledBinding AiPlanError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"

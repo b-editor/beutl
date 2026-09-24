@@ -178,7 +178,7 @@
                                        Text="{x:Static lang:MessageStrings.UnexpectedError}" />
                             <TextBlock Name="previewRenderErrorMessage"
                                        HorizontalAlignment="Center"
-                                       AutomationProperties.LiveSetting="Assertive"
+                                       AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
                                        AutomationProperties.Name="{Binding PreviewRenderError.Value}"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                        Text="{Binding PreviewRenderError.Value}"

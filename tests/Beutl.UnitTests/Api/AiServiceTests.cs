@@ -299,6 +299,11 @@ public sealed partial class AiCapabilityServiceTests
                 handler.Requests.Single(request => request.Method == HttpMethod.Get).IdempotencyKey,
                 Is.Null);
         }
+        foreach (RecordedRequest request in paid.Where(request =>
+                     request.ContentType?.StartsWith("multipart/form-data", StringComparison.Ordinal) == true))
+        {
+            AssertQuotedMultipartNames(request);
+        }
     }
 
     [Test]
@@ -1120,6 +1125,35 @@ public sealed partial class AiCapabilityServiceTests
                 Is.LessThan(request.Body.IndexOf("second.png", StringComparison.Ordinal)));
             Assert.That(request.Body, Does.Contain("third.png"));
         }
+    }
+
+    [TestCase("shapes.png")]
+    [TestCase("背景画像.png")]
+    public async Task ImageEdit_GivesEveryMultipartPartAFormFieldName(string fileName)
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+            {
+              "jobId": "image-job",
+              "fileId": "image-file",
+              "url": "https://beutl.beditor.net/api/contents/image-file"
+            }
+            """));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        var upload = new AiUploadSource(
+            fileName,
+            "image/png",
+            _ => ValueTask.FromResult<Stream>(new MemoryStream([1, 2, 3])),
+            3);
+
+        await app.GetResource<IAiImageEditingService>().EditAsync(
+            new AiImageEditRequest(upload, new AiImageEditTaskId("remove_background"),
+                model: new AiModelId("openai/gpt-image-1")),
+            CancellationToken.None);
+
+        RecordedRequest request = handler.Requests.Single();
+        AssertQuotedMultipartNames(request);
     }
 
     [Test]
@@ -2131,6 +2165,20 @@ public sealed partial class AiCapabilityServiceTests
         string? ContentType,
         string Body,
         string? Accept = null);
+
+    private static void AssertQuotedMultipartNames(RecordedRequest request)
+    {
+        string[] dispositions = Regex.Matches(request.Body, @"(?im)^Content-Disposition:[^\r\n]+")
+            .Cast<Match>()
+            .Select(match => match.Value)
+            .ToArray();
+        Assert.That(dispositions, Is.Not.Empty);
+        Assert.That(dispositions.All(line => Regex.IsMatch(line, @"(?:^|;\s*)name=""[^""]+""(?:;|$)")),
+            Is.True, string.Join("\n", dispositions));
+        Assert.That(dispositions.Where(line => line.Contains("filename=", StringComparison.OrdinalIgnoreCase))
+                .All(line => Regex.IsMatch(line, @"(?:^|;\s*)filename=""[^""]+""(?:;|$)")),
+            Is.True, string.Join("\n", dispositions));
+    }
 
     private sealed class TestCapabilitySchemaExtension(
         params AiOperationCapabilitySchemaRegistration[] registrations)

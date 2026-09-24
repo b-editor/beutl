@@ -21,6 +21,9 @@ internal interface IAiClient
         [Body] CreateAiImageRequest request,
         CancellationToken cancellationToken);
 
+    // The production FormData parser requires quoted Content-Disposition names.
+    // Refit passes AliasAs through to MultipartFormDataContent, which otherwise
+    // emits name=file instead of name="file" for simple tokens.
     // Guiding a generation with existing pictures makes it an upload, so the
     // same endpoint is called as multipart. The JSON form above stays the path
     // for a request that carries no reference.
@@ -29,12 +32,12 @@ internal interface IAiClient
     Task<AiImageResponse> CreateImageFromReferences(
         [Header("Authorization")] string authorization,
         [Header("Idempotency-Key")] string idempotencyKey,
-        [AliasAs("reference[]")] IEnumerable<StreamPart> references,
-        [AliasAs("prompt")] string prompt,
-        [AliasAs("aspectRatio")] string aspectRatio,
-        [AliasAs("background")] string? background,
-        [AliasAs("seed")] string? seed,
-        [AliasAs("model")] string? model,
+        [AliasAs("\"reference[]\"")] IEnumerable<StreamPart> references,
+        [AliasAs("\"prompt\"")] string prompt,
+        [AliasAs("\"aspectRatio\"")] string aspectRatio,
+        [AliasAs("\"background\"")] string? background,
+        [AliasAs("\"seed\"")] string? seed,
+        [AliasAs("\"model\"")] string? model,
         CancellationToken cancellationToken);
 
     [Multipart]
@@ -42,10 +45,10 @@ internal interface IAiClient
     Task<AiImageResponse> EditImage(
         [Header("Authorization")] string authorization,
         [Header("Idempotency-Key")] string idempotencyKey,
-        [AliasAs("file")] StreamPart file,
-        [AliasAs("task")] string task,
-        [AliasAs("prompt")] string? prompt,
-        [AliasAs("model")] string? model,
+        [AliasAs("\"file\"")] StreamPart file,
+        [AliasAs("\"task\"")] string task,
+        [AliasAs("\"prompt\"")] string? prompt,
+        [AliasAs("\"model\"")] string? model,
         CancellationToken cancellationToken);
 
     [Post("/api/v3/ai/videos")]
@@ -60,16 +63,16 @@ internal interface IAiClient
     Task<CreateAiVideoResponse> CreateVideoFromFrames(
         [Header("Authorization")] string authorization,
         [Header("Idempotency-Key")] string idempotencyKey,
-        [AliasAs("firstFrame")] StreamPart? firstFrame,
-        [AliasAs("lastFrame")] StreamPart? lastFrame,
-        [AliasAs("reference[]")] IEnumerable<StreamPart>? references,
-        [AliasAs("prompt")] string prompt,
-        [AliasAs("durationSeconds")] int durationSeconds,
-        [AliasAs("resolution")] string resolution,
-        [AliasAs("aspectRatio")] string aspectRatio,
-        [AliasAs("generateAudio")] string generateAudio,
-        [AliasAs("seed")] string? seed,
-        [AliasAs("model")] string? model,
+        [AliasAs("\"firstFrame\"")] StreamPart? firstFrame,
+        [AliasAs("\"lastFrame\"")] StreamPart? lastFrame,
+        [AliasAs("\"reference[]\"")] IEnumerable<StreamPart>? references,
+        [AliasAs("\"prompt\"")] string prompt,
+        [AliasAs("\"durationSeconds\"")] int durationSeconds,
+        [AliasAs("\"resolution\"")] string resolution,
+        [AliasAs("\"aspectRatio\"")] string aspectRatio,
+        [AliasAs("\"generateAudio\"")] string generateAudio,
+        [AliasAs("\"seed\"")] string? seed,
+        [AliasAs("\"model\"")] string? model,
         CancellationToken cancellationToken);
 
     [Multipart]
@@ -78,13 +81,13 @@ internal interface IAiClient
         [Header("Authorization")] string authorization,
         [Header("Idempotency-Key")] string idempotencyKey,
         string mode,
-        [AliasAs("sourceVideo")] StreamPart sourceVideo,
-        [AliasAs("characterImage")] StreamPart? characterImage,
-        [AliasAs("prompt")] string prompt,
-        [AliasAs("durationSeconds")] string? durationSeconds,
-        [AliasAs("orientation")] string? orientation,
-        [AliasAs("quality")] string? quality,
-        [AliasAs("model")] string? model,
+        [AliasAs("\"sourceVideo\"")] StreamPart sourceVideo,
+        [AliasAs("\"characterImage\"")] StreamPart? characterImage,
+        [AliasAs("\"prompt\"")] string prompt,
+        [AliasAs("\"durationSeconds\"")] string? durationSeconds,
+        [AliasAs("\"orientation\"")] string? orientation,
+        [AliasAs("\"quality\"")] string? quality,
+        [AliasAs("\"model\"")] string? model,
         CancellationToken cancellationToken);
 
     [Get("/api/v3/ai/videos/{id}")]

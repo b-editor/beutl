@@ -5457,7 +5457,9 @@ public sealed partial class AiDialogWorkflowTests
                     Is.EqualTo(Strings.AiSubtitle_Transcribing));
                 Assert.That(
                     AutomationProperties.GetLiveSetting(status),
-                    Is.EqualTo(AutomationLiveSetting.Polite));
+                    Is.EqualTo(OperatingSystem.IsMacOS()
+                        ? AutomationLiveSetting.Off
+                        : AutomationLiveSetting.Polite));
             }
         }
         finally
@@ -5830,7 +5832,7 @@ public sealed partial class AiDialogWorkflowTests
 
     private static string? ModelOfMultipart(string body)
     {
-        const string Marker = "name=model";
+        const string Marker = "name=\"model\"";
         int at = body.IndexOf(Marker, StringComparison.Ordinal);
         if (at < 0) return null;
 
