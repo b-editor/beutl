@@ -405,7 +405,8 @@ internal sealed class AiImageGenerationService(
                 referenceParts.Add(AiMultipartFormData.File(
                     stream,
                     reference.FileName,
-                    reference.MediaType));
+                    reference.MediaType,
+                    "reference[]"));
             }
 
             return await ExecuteAsync(
@@ -558,7 +559,8 @@ internal sealed class AiImageEditingService(
         StreamPart filePart = AiMultipartFormData.File(
             stream,
             request.Image.FileName,
-            request.Image.MediaType);
+            request.Image.MediaType,
+            "file");
         return await ExecuteAsync(
             "AiImageEditingService.Edit",
             (authorization, token) => Application.Ai.EditImage(
@@ -602,6 +604,7 @@ internal sealed class AiTranscriptionService(
                 var file = new StreamContent(stream);
                 file.Headers.ContentType = MediaTypeHeaderValue.Parse(request.Audio.MediaType);
                 body.Add(file, "\"file\"", AiMultipartFormData.Quote(request.Audio.FileName));
+                file.Headers.ContentDisposition!.FileNameStar = request.Audio.FileName;
                 if (request.Language is not null)
                     body.Add(new StringContent(request.Language), "\"language\"");
                 if (request.Model is { } model)
@@ -795,13 +798,15 @@ internal sealed partial class AiVideoService(
         StreamPart firstPart = AiMultipartFormData.File(
             firstStream,
             request.FirstFrame.FileName,
-            request.FirstFrame.MediaType);
+            request.FirstFrame.MediaType,
+            "firstFrame");
         StreamPart? lastPart = request.LastFrame is null || lastStream is null
             ? null
             : AiMultipartFormData.File(
                 lastStream,
                 request.LastFrame.FileName,
-                request.LastFrame.MediaType);
+                request.LastFrame.MediaType,
+                "lastFrame");
         return await ExecuteAsync(
             "AiVideoService.CreateFromFrames",
             (authorization, token) => Application.Ai.CreateVideoFromFrames(

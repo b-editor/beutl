@@ -307,6 +307,7 @@ public sealed partial class AiCapabilityServiceTests
         }
         RecordedRequest transcription = paid.Single(request => request.Path == "/api/v3/ai/transcriptions");
         Assert.That(transcription.Body, Does.Contain("name=\"language\"").And.Contain("name=\"model\""));
+        Assert.That(transcription.Body, Does.Contain("filename*=utf-8''audio.wav"));
     }
 
     [Test]
@@ -1157,6 +1158,13 @@ public sealed partial class AiCapabilityServiceTests
 
         RecordedRequest request = handler.Requests.Single();
         AssertQuotedMultipartNames(request);
+        string fileDisposition = Regex.Matches(request.Body, @"(?im)^Content-Disposition:[^\r\n]+")
+            .Cast<Match>()
+            .Select(match => match.Value)
+            .Single(line => line.Contains("filename=", StringComparison.OrdinalIgnoreCase));
+        Match extendedFileName = Regex.Match(fileDisposition, @"filename\*=utf-8''([^;\s]+)", RegexOptions.IgnoreCase);
+        Assert.That(extendedFileName.Success, Is.True, fileDisposition);
+        Assert.That(Uri.UnescapeDataString(extendedFileName.Groups[1].Value), Is.EqualTo(fileName));
     }
 
     [Test]
