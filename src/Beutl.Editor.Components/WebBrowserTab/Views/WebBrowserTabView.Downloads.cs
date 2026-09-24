@@ -18,7 +18,8 @@ internal partial class WebBrowserTabView
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
-    private bool _nativeDownloadNavigationFailurePending;
+    private Uri? _latestNavigationRequest;
+    private readonly List<(Uri? Navigation, Uri Download)> _nativeDownloadFailures = [];
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source);
@@ -38,7 +39,10 @@ internal partial class WebBrowserTabView
             return;
         }
         // A response belongs to the main frame, but the download has not replaced its document.
-        _nativeDownloadNavigationFailurePending = true;
+        // Keep every outstanding failure so a delayed completion cannot consume a newer offer.
+        _nativeDownloadFailures.Add((_latestNavigationRequest, uri));
+        _latestNavigationRequest = null;
+        if (_nativeDownloadFailures.Count > 32) _nativeDownloadFailures.RemoveAt(0);
         if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
         else InvalidatePageDownloadRequests();
         _viewModel.RestoreCommittedPage();
@@ -47,6 +51,17 @@ internal partial class WebBrowserTabView
         QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
         // The queued request keeps its conservative metadata; later links belong to the restored document.
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
+    }
+
+    private bool ConsumeNativeDownloadFailure(Uri? request, Uri fallback)
+    {
+        int index = _nativeDownloadFailures.FindIndex(item =>
+            request != null ? request == item.Navigation || request == item.Download : fallback == item.Download);
+        if (index < 0 && request == null && _latestNavigationRequest == null && _nativeDownloadFailures.Count > 0)
+            index = 0;
+        if (index < 0) return false;
+        _nativeDownloadFailures.RemoveAt(index);
+        return true;
     }
 
     // Capture explicit download links as well as media links added dynamically by the page.
@@ -194,7 +209,6 @@ internal partial class WebBrowserTabView
         _pageDownloadNavigationPending = false;
         _pageDownloadReferrerUncertain = false;
         _mediaNavigationIntercepted = false;
-        _nativeDownloadNavigationFailurePending = false;
     }
 
     private void SettleAbortedPageNavigation()

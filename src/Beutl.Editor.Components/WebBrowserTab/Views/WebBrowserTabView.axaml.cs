@@ -250,7 +250,6 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
         if (e.Cancel) return;
-        _nativeDownloadNavigationFailurePending = false;
         if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
         {
@@ -258,6 +257,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             if (!_navigationStartedIncludesSubframes) _viewModel?.BeginNavigation(unsupportedRequest);
             return;
         }
+
+        _latestNavigationRequest = e.Request;
 
         // The macOS WebView adapter forwards policy decisions for every target frame through this event,
         // without exposing IsMainFrame. Only completed navigation identifies the top-level URL.
@@ -275,6 +276,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
         {
             e.Cancel = true;
+            _latestNavigationRequest = null;
             // A redirect can turn an in-flight page navigation into a download. Its document
             // origin is no longer confirmed, and cancellation must release the request gate.
             if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
@@ -303,12 +305,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         // The canceled media never replaced the document. Its failure may arrive even after
         // the offer is dismissed or downloaded, so track it independently of the confirmation UI.
         Uri uri = e.Request ?? _webView.Source;
-        if (!e.IsSuccess && _nativeDownloadNavigationFailurePending)
+        if (!e.IsSuccess && ConsumeNativeDownloadFailure(e.Request, uri))
         {
-            _nativeDownloadNavigationFailurePending = false;
             return;
         }
-        _nativeDownloadNavigationFailurePending = false;
+        if (uri == _latestNavigationRequest) _latestNavigationRequest = null;
         if (!e.IsSuccess && _mediaNavigationIntercepted) return;
 
         if (e.IsSuccess) ResetPageDownloadRequests();

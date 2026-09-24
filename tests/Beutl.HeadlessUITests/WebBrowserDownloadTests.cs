@@ -341,6 +341,43 @@ public class WebBrowserDownloadTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
+    public void OverlappingNativeDownloadsSuppressOnlyTheirNavigationFailures(bool sameUri)
+    {
+        var page = new Uri("https://page.example/form");
+        var firstAction = new Uri("https://page.example/first");
+        var secondAction = sameUri ? firstAction : new Uri("https://page.example/second");
+        var firstFile = new Uri("https://files.example/first?token=one");
+        var secondFile = sameUri ? firstFile : new Uri("https://files.example/second?token=two");
+        var next = new Uri("https://failed.example/");
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        view.OnNativeNavigationCommitted(page);
+
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = firstAction });
+        view.OnNativeDownloadRequested(firstFile, "First.mp3", new ResponseDownloadSource("First.mp3"));
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = secondAction });
+        view.OnNativeDownloadRequested(secondFile, "Second.mp3", new ResponseDownloadSource("Second.mp3"));
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = firstAction, IsSuccess = false });
+        Assert.That(vm.CurrentUri, Is.EqualTo(next));
+        Assert.That(vm.IsLoading.Value, Is.True);
+        Assert.That(vm.ErrorMessage.Value, Is.Null);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = secondAction, IsSuccess = false });
+        Assert.That(vm.CurrentUri, Is.EqualTo(next));
+        Assert.That(vm.IsLoading.Value, Is.True);
+        Assert.That(vm.ErrorMessage.Value, Is.Null);
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+        Assert.That(vm.CurrentUri, Is.EqualTo(next));
+        Assert.That(vm.ErrorMessage.Value, Is.EqualTo(Beutl.Language.Strings.WebPageLoadFailed));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
     public void RepeatedNativeDownloadsPreserveTheNewestOffer(bool sameUri)
     {
         var page = new Uri("https://page.example/");
