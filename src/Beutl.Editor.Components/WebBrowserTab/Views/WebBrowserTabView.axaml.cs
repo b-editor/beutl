@@ -26,6 +26,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private NativeWebView? _webView;
     private BrowserAdBlockSession? _adBlockSession;
     private IDisposable? _nativeDownloadHandler;
+    private int _nativeDownloadHandlerVersion;
     private WebBrowserTabViewModel? _viewModel;
     private bool _disposed;
 
@@ -192,21 +193,40 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         UpdateHistoryState();
+        _nativeDownloadHandlerVersion++;
+        int handlerVersion = _nativeDownloadHandlerVersion;
+        NativeWebView webView = _webView;
+        _nativeDownloadFailures.Clear();
+        _latestNavigationRequest = null;
         _nativeDownloadHandler?.Dispose();
+        void OnDownload(Uri uri, string name, IBrowserDownloadSource source)
+        {
+            if (handlerVersion != _nativeDownloadHandlerVersion || !ReferenceEquals(webView, _webView))
+            {
+                source.Dispose();
+                return;
+            }
+            if (OperatingSystem.IsWindows()) OnWindowsNativeDownloadRequested(uri, name, source);
+            else OnNativeDownloadRequested(uri, name, source);
+        }
         if (OperatingSystem.IsMacOS())
         {
-            _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnNativeDownloadRequested,
+            _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
                 OnNativeNavigationCommitted, OnNativeNavigationStarted);
         }
         else if (OperatingSystem.IsWindows())
         {
-            _nativeDownloadHandler = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnNativeDownloadRequested);
+            _nativeDownloadHandler = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload);
         }
         ScheduleLinuxSizeRefresh(_webView);
     }
 
     private void OnAdapterDestroyed(object? sender, WebViewAdapterEventArgs e)
     {
+        if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
+        _nativeDownloadHandlerVersion++;
+        _nativeDownloadFailures.Clear();
+        _latestNavigationRequest = null;
         _nativeDownloadHandler?.Dispose();
         _nativeDownloadHandler = null;
     }
@@ -249,6 +269,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
+        if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
         if (e.Cancel) return;
         if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
@@ -273,7 +294,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         _pageRevision++;
         _findRequest?.Cancel();
-        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
+        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri)
+            && _nativeDownloadHandler is not WindowsBrowserDownloadHandler)
         {
             e.Cancel = true;
             _latestNavigationRequest = null;
@@ -296,6 +318,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     internal void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
     {
+        if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
         if (_adBlockSession?.IsPreparing == true) return;
         if (_viewModel == null || _webView == null)
         {
@@ -324,6 +347,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             _ = InstallDownloadLinkHandlerAsync(_webView);
             _ = SetPageZoomAsync(_zoomPercent);
             if (FindPanel.IsVisible) _ = FindInPageAsync(0);
+            // WebView2 handles attachment responses itself; an inline media page still offers a download.
+            if (_nativeDownloadHandler is WindowsBrowserDownloadHandler && BrowserMediaDownload.IsMediaLink(uri))
+                QueuePageDownloadRequest(uri, null);
         }
     }
 
@@ -687,6 +713,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     private void DisposeWebView()
     {
+        _nativeDownloadHandlerVersion++;
+        _nativeDownloadFailures.Clear();
+        _latestNavigationRequest = null;
         _adBlockSession?.Dispose();
         _adBlockSession = null;
         if (_webView == null)

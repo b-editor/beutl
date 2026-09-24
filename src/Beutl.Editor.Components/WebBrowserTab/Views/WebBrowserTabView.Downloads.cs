@@ -31,18 +31,27 @@ internal partial class WebBrowserTabView
             ? await manager.GetCookiesAsync().WaitAsync(cancellation) : [];
     internal sealed record BrowserDownloadOptions(string Directory, bool AddToTimeline);
 
-    internal void OnNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source)
+    internal void OnWindowsNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source) =>
+        OnNativeDownloadRequested(uri, suggestedName, source, trackNavigationFailure: true);
+
+    internal void OnNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source) =>
+        OnNativeDownloadRequested(uri, suggestedName, source, trackNavigationFailure: false);
+
+    private void OnNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source,
+        bool trackNavigationFailure)
     {
         if (_disposed || _viewModel == null)
         {
             source.Dispose();
             return;
         }
-        // A response belongs to the main frame, but the download has not replaced its document.
-        // Keep every outstanding failure so a delayed completion cannot consume a newer offer.
-        _nativeDownloadFailures.Add((_latestNavigationRequest, uri));
+        if (trackNavigationFailure)
+        {
+            // WebView2 forwards a canceled download navigation as a failure. WKWebView consumes it natively.
+            _nativeDownloadFailures.Add((_latestNavigationRequest, uri));
+            if (_nativeDownloadFailures.Count > 32) _nativeDownloadFailures.RemoveAt(0);
+        }
         _latestNavigationRequest = null;
-        if (_nativeDownloadFailures.Count > 32) _nativeDownloadFailures.RemoveAt(0);
         if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
         else InvalidatePageDownloadRequests();
         _viewModel.RestoreCommittedPage();
