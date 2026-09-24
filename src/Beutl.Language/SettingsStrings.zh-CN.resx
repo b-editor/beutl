@@ -176,14 +176,6 @@
     <value>收集更详细的使用信息。发送的日志也会存储在 ".beutl/log" 目录下。</value>
     <comment />
   </data>
-  <data name="EnableAutoSave" xml:space="preserve">
-    <value>启用自动保存</value>
-    <comment />
-  </data>
-  <data name="EnableAutoSave_Description" xml:space="preserve">
-    <value>执行操作后自动保存文件。</value>
-    <comment />
-  </data>
   <data name="ProxyMedia" xml:space="preserve">
     <value>代理媒体</value>
     <comment />

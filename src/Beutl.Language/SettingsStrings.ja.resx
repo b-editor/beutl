@@ -172,14 +172,6 @@
     <value>より詳細な使用状況を収集します。送信されるログは ".beutl/log" ディレクトリ下にも保存されます。</value>
     <comment/>
   </data>
-  <data name="EnableAutoSave" xml:space="preserve">
-    <value>自動保存を有効化</value>
-    <comment/>
-  </data>
-  <data name="EnableAutoSave_Description" xml:space="preserve">
-    <value>操作を実行後、自動でファイルを保存します。</value>
-    <comment/>
-  </data>
   <data name="ProxyMedia" xml:space="preserve">
     <value>プロキシメディア</value>
     <comment/>

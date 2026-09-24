@@ -176,8 +176,7 @@ public partial class MenuBarViewModel
 
             NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemsSaved, itemsCount.ToString()));
 
-            if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
-                && _editorService.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
+            if (_editorService.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
             {
                 NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
             }
@@ -225,8 +224,7 @@ public partial class MenuBarViewModel
             {
                 NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemSaved, item.FileName.Value));
 
-                if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
-                    && item.Context.Value is ISupportAutoSaveEditorContext)
+                if (item.Context.Value is ISupportAutoSaveEditorContext)
                 {
                     NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
                 }

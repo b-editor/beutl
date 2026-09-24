@@ -6068,12 +6068,11 @@ public class VersionControlRestoreTests
         using var environment = new IsolatedGitEnvironment();
         string gitPath = ProbeGitOrIgnore();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
         string? oldGitPath = config.GitExecutablePath;
         bool oldAutoCommitOnSave = config.AutoCommitOnSave;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
         bool oldUseLfs = config.UseLfsWhenAvailable;
-        bool oldAutoSave = editorConfig.IsAutoSaveEnabled;
+        bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
         var oldConfirmSwitchBranchAsync =
             TestShell.VersionControl.ConfirmSwitchBranchAsync;
 
@@ -6083,7 +6082,7 @@ public class VersionControlRestoreTests
             config.AutoCommitOnSave = false;
             config.AutoCommitOnClose = false;
             config.UseLfsWhenAvailable = false;
-            editorConfig.IsAutoSaveEnabled = false;
+            EditViewModel.IsAutoSaveSuppressedForTesting = true;
 
             (Project project, EditViewModel editor) = await CreateTrackedProjectAsync(
                 "version-control-branch-in-memory-edit");
@@ -6134,7 +6133,7 @@ public class VersionControlRestoreTests
             config.AutoCommitOnSave = oldAutoCommitOnSave;
             config.AutoCommitOnClose = oldAutoCommitOnClose;
             config.UseLfsWhenAvailable = oldUseLfs;
-            editorConfig.IsAutoSaveEnabled = oldAutoSave;
+            EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
         }
     }
 
@@ -6145,12 +6144,11 @@ public class VersionControlRestoreTests
         using var environment = new IsolatedGitEnvironment();
         string gitPath = ProbeGitOrIgnore();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
         string? oldGitPath = config.GitExecutablePath;
         bool oldAutoCommitOnSave = config.AutoCommitOnSave;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
         bool oldUseLfs = config.UseLfsWhenAvailable;
-        bool oldAutoSave = editorConfig.IsAutoSaveEnabled;
+        bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
         var oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
 
         try
@@ -6159,7 +6157,7 @@ public class VersionControlRestoreTests
             config.AutoCommitOnSave = true;
             config.AutoCommitOnClose = false;
             config.UseLfsWhenAvailable = false;
-            editorConfig.IsAutoSaveEnabled = false;
+            EditViewModel.IsAutoSaveSuppressedForTesting = true;
 
             (Project project, _) = await CreateTrackedProjectAsync(
                 "version-control-restore-in-memory-save");
@@ -6207,7 +6205,7 @@ public class VersionControlRestoreTests
             config.AutoCommitOnSave = oldAutoCommitOnSave;
             config.AutoCommitOnClose = oldAutoCommitOnClose;
             config.UseLfsWhenAvailable = oldUseLfs;
-            editorConfig.IsAutoSaveEnabled = oldAutoSave;
+            EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
         }
     }
 

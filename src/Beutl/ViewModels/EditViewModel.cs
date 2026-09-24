@@ -39,6 +39,9 @@ public sealed partial class EditViewModel
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
     private readonly CancellationTokenSource _autoSaveCancellation = new();
+
+    // Auto save cannot be turned off by users; tests suppress it to hold edits in memory.
+    internal static bool IsAutoSaveSuppressedForTesting { get; set; }
     private readonly HistoryMutationPlaybackGuard _historyMutationPlaybackGuard = new();
 
     private readonly CompositeDisposable _disposables = [];
@@ -393,7 +396,7 @@ public sealed partial class EditViewModel
         }
 
         // 自動保存
-        if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
+        if (!IsAutoSaveSuppressedForTesting)
         {
             AutoSave(list);
         }
