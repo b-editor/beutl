@@ -81,6 +81,26 @@ public sealed class FileBrowserFileManagerTests
             Is.EqualTo(new[] { @"C:\" }));
     }
 
+    [Test]
+    public void Mac_application_bundle_is_revealed_instead_of_launched()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"beutl-file-manager-app-{Guid.NewGuid():N}");
+        string appPath = Path.Combine(root, "Example.app");
+        Directory.CreateDirectory(appPath);
+        try
+        {
+            using FileSystemItemViewModel item = FileSystemEnumerator.EnumerateDirectory(root).Single();
+            Assert.That(item.IsDirectory, Is.True);
+
+            ProcessStartInfo startInfo = FileManagerLauncher.CreateStartInfo(item.FullPath, item.IsDirectory, OSPlatform.OSX);
+            Assert.That(startInfo.ArgumentList, Is.EqualTo(new[] { "-R", appPath }));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [AvaloniaTest]
     public void Right_click_menu_shows_the_platform_action_for_files_and_directories()
     {

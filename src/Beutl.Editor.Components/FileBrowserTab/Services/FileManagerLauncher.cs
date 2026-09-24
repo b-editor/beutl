@@ -23,7 +23,8 @@ internal static class FileManagerLauncher
         if (platform == OSPlatform.OSX)
         {
             var startInfo = new ProcessStartInfo("/usr/bin/open") { UseShellExecute = false };
-            if (!isDirectory) startInfo.ArgumentList.Add("-R");
+            if (!isDirectory || path.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+                startInfo.ArgumentList.Add("-R");
             startInfo.ArgumentList.Add(path);
             return startInfo;
         }
