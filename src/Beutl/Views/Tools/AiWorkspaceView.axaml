@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="Beutl.Views.Tools.AiWorkspaceView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:live="using:Beutl.Controls"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:dialogs="using:Beutl.ViewModels.Dialogs"
@@ -15,6 +16,8 @@
              x:CompileBindings="True"
              x:DataType="viewModels:AiWorkspaceViewModel"
              mc:Ignorable="d">
+    <!-- Avalonia.Native 12.1.2 aborts on an empty macOS live-region announcement.
+         SafeLiveRegionTextBlock preserves nonempty announcements. -->
     <UserControl.DataTemplates>
         <DataTemplate DataType="dialogs:AiImageGenerationDialogViewModel">
             <tools:AiImageGenerationView />
@@ -161,7 +164,7 @@
                                        TextWrapping="Wrap" />
                         </Grid>
                     </Button>
-                    <TextBlock AutomationProperties.LiveSetting="Assertive"
+                    <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Assertive"
                                AutomationProperties.Name="{CompiledBinding SignInError.Value}"
                                Foreground="{DynamicResource SystemFillColorCautionBrush}"
                                IsVisible="{CompiledBinding SignInError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"

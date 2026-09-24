@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Pages.SettingsPages.AccountSettingsScreen"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:live="using:Beutl.Controls"
              xmlns:asyncImage="using:AsyncImageLoader"
              xmlns:ctrls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -95,12 +96,12 @@
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>
 
-            <TextBlock Margin="32,8,0,0"
+            <live:SafeLiveRegionTextBlock Margin="32,8,0,0"
                        AutomationProperties.LiveSetting="Polite"
                        AutomationProperties.Name="{x:Static lang:SettingsStrings.AiPlan_Loading}"
                        IsVisible="{CompiledBinding IsAiPlanLoading.Value}"
                        Text="{x:Static lang:SettingsStrings.AiPlan_Loading}" />
-            <TextBlock Margin="32,8,0,0"
+            <live:SafeLiveRegionTextBlock Margin="32,8,0,0"
                        AutomationProperties.LiveSetting="Assertive"
                        AutomationProperties.Name="{CompiledBinding AiPlanError.Value}"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"

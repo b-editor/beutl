@@ -260,7 +260,8 @@ public sealed partial class AiCapabilityServiceTests
             new AiImageEditRequest(Upload("image.png", "image/png"), new AiImageEditTaskId("upscale")),
             CancellationToken.None);
         await app.GetResource<IAiTranscriptionService>().TranscribeAsync(
-            new AiTranscriptionRequest(Upload("audio.wav", "audio/wav")),
+            new AiTranscriptionRequest(Upload("audio.wav", "audio/wav"),
+                language: "en", model: new AiModelId("openai/whisper-large-v3-turbo")),
             CancellationToken.None);
         await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
             new AiCaptionTranslationRequest(
@@ -299,6 +300,14 @@ public sealed partial class AiCapabilityServiceTests
                 handler.Requests.Single(request => request.Method == HttpMethod.Get).IdempotencyKey,
                 Is.Null);
         }
+        foreach (RecordedRequest request in paid.Where(request =>
+                     request.ContentType?.StartsWith("multipart/form-data", StringComparison.Ordinal) == true))
+        {
+            AssertQuotedMultipartNames(request);
+        }
+        RecordedRequest transcription = paid.Single(request => request.Path == "/api/v3/ai/transcriptions");
+        Assert.That(transcription.Body, Does.Contain("name=\"language\"").And.Contain("name=\"model\""));
+        Assert.That(transcription.Body, Does.Contain("filename*=utf-8''audio.wav"));
     }
 
     [Test]
@@ -1120,6 +1129,42 @@ public sealed partial class AiCapabilityServiceTests
                 Is.LessThan(request.Body.IndexOf("second.png", StringComparison.Ordinal)));
             Assert.That(request.Body, Does.Contain("third.png"));
         }
+    }
+
+    [TestCase("shapes.png")]
+    [TestCase("背景画像.png")]
+    public async Task ImageEdit_GivesEveryMultipartPartAFormFieldName(string fileName)
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+            {
+              "jobId": "image-job",
+              "fileId": "image-file",
+              "url": "https://beutl.beditor.net/api/contents/image-file"
+            }
+            """));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        var upload = new AiUploadSource(
+            fileName,
+            "image/png",
+            _ => ValueTask.FromResult<Stream>(new MemoryStream([1, 2, 3])),
+            3);
+
+        await app.GetResource<IAiImageEditingService>().EditAsync(
+            new AiImageEditRequest(upload, new AiImageEditTaskId("remove_background"),
+                model: new AiModelId("openai/gpt-image-1")),
+            CancellationToken.None);
+
+        RecordedRequest request = handler.Requests.Single();
+        AssertQuotedMultipartNames(request);
+        string fileDisposition = Regex.Matches(request.Body, @"(?im)^Content-Disposition:[^\r\n]+")
+            .Cast<Match>()
+            .Select(match => match.Value)
+            .Single(line => line.Contains("filename=", StringComparison.OrdinalIgnoreCase));
+        Match extendedFileName = Regex.Match(fileDisposition, @"filename\*=utf-8''([^;\s]+)", RegexOptions.IgnoreCase);
+        Assert.That(extendedFileName.Success, Is.True, fileDisposition);
+        Assert.That(Uri.UnescapeDataString(extendedFileName.Groups[1].Value), Is.EqualTo(fileName));
     }
 
     [Test]
@@ -2131,6 +2176,20 @@ public sealed partial class AiCapabilityServiceTests
         string? ContentType,
         string Body,
         string? Accept = null);
+
+    private static void AssertQuotedMultipartNames(RecordedRequest request)
+    {
+        string[] dispositions = Regex.Matches(request.Body, @"(?im)^Content-Disposition:[^\r\n]+")
+            .Cast<Match>()
+            .Select(match => match.Value)
+            .ToArray();
+        Assert.That(dispositions, Is.Not.Empty);
+        Assert.That(dispositions.All(line => Regex.IsMatch(line, @"(?:^|;\s*)name=""[^""]+""(?:;|$)")),
+            Is.True, string.Join("\n", dispositions));
+        Assert.That(dispositions.Where(line => line.Contains("filename=", StringComparison.OrdinalIgnoreCase))
+                .All(line => Regex.IsMatch(line, @"(?:^|;\s*)filename=""[^""]+""(?:;|$)")),
+            Is.True, string.Join("\n", dispositions));
+    }
 
     private sealed class TestCapabilitySchemaExtension(
         params AiOperationCapabilitySchemaRegistration[] registrations)

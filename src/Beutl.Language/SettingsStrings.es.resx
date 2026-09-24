@@ -176,14 +176,6 @@
     <value>Se recopila información de uso más detallada. Los registros enviados también se almacenan en el directorio ".beutl/log".</value>
     <comment />
   </data>
-  <data name="EnableAutoSave" xml:space="preserve">
-    <value>Habilitar guardado automático</value>
-    <comment />
-  </data>
-  <data name="EnableAutoSave_Description" xml:space="preserve">
-    <value>El archivo se guarda automáticamente después de realizar la operación.</value>
-    <comment />
-  </data>
   <data name="ProxyMedia" xml:space="preserve">
     <value>Medios proxy</value>
     <comment />

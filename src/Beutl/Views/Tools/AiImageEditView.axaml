@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="Beutl.Views.Tools.AiImageEditView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:live="using:Beutl.Controls"
              xmlns:btl="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -94,7 +95,7 @@
                          Text="{CompiledBinding Prompt.Value}"
                          TextWrapping="Wrap"
                          PlaceholderText="{CompiledBinding PromptWatermark.Value}" />
-                <TextBlock AutomationProperties.LiveSetting="Assertive"
+                <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Assertive"
                            Foreground="{DynamicResource SystemFillColorCautionBrush}"
                            IsVisible="{CompiledBinding VisiblePromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                            Text="{CompiledBinding VisiblePromptValidationError.Value}"
@@ -186,7 +187,8 @@
                 </StackPanel>
             </Border>
 
-            <TextBlock AutomationProperties.LiveSetting="Assertive"
+            <live:SafeLiveRegionTextBlock x:Name="ImageEditErrorMessage"
+                       AutomationProperties.LiveSetting="Assertive"
                        AutomationProperties.Name="{CompiledBinding Error.Value}"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"

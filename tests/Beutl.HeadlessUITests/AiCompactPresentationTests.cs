@@ -157,6 +157,44 @@ public sealed class AiCompactPresentationTests
     }
 
     [AvaloniaTest]
+    public async Task ImageEdit_ClearingAnErrorKeepsAMacSafeLiveRegion()
+    {
+        await TestReset.ResetShellAsync();
+        BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
+        await using AiImageEditDialogViewModel viewModel = CreateImageEditDialog(clients);
+        var view = new AiImageEditView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 480, Height = 640 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            TextBlock error = view.FindControl<TextBlock>("ImageEditErrorMessage")!;
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(error);
+            Assert.That(AutomationProperties.GetLiveSetting(error), Is.EqualTo(AutomationLiveSetting.Assertive));
+
+            viewModel.Error.Value = "A test error";
+            HeadlessTestHelpers.Render();
+            Assert.That(peer.GetName(), Is.EqualTo("A test error"));
+
+            viewModel.Error.Value = null;
+            HeadlessTestHelpers.Render();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(error.IsVisible, Is.False);
+                Assert.That(error.Text, Is.Null);
+                Assert.That(peer.GetName(),
+                    Is.EqualTo(OperatingSystem.IsMacOS() ? "\u200B" : string.Empty));
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task VideoGeneration_StacksTheSelectorsFromCoarsestToFinest()
     {
         await TestReset.ResetShellAsync();

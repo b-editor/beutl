@@ -12,7 +12,7 @@
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.2" />
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
     <PackageVersion Include="Avalonia.Headless" Version="12.1.3" />
-    <PackageVersion Include="Avalonia.Headless.NUnit" Version="12.1.2" />
+    <PackageVersion Include="Avalonia.Headless.NUnit" Version="12.1.3" />
     <PackageVersion Include="Avalonia.Skia" Version="12.1.3" />
     <!-- Keep the System.Reactive scheduler used by ReactiveProperty (12.1 uses ReactiveUI.Primitives). -->
     <PackageVersion Include="ReactiveUI.Avalonia" Version="12.0.3" />

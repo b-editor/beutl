@@ -36,7 +36,7 @@ public class GraphEditorContextMenuTests
         IKeyFrame expected = tag == "ControlPoint1" ? graph.First : graph.Second;
         AvaloniaPath keyFrame = graph.KeyFrame(expected);
         Point position = handle.TranslatePoint(default, graph.Window)!.Value;
-        Assert.That(graph.Window.InputHitTest(position), Is.SameAs(handle),
+        Assert.That(graph.HitTest(position), Is.SameAs(handle),
             "The control point must cover the keyframe to reproduce the regression.");
 
         graph.RightClick(position);
@@ -70,7 +70,7 @@ public class GraphEditorContextMenuTests
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
         AvaloniaPath handle = graph.Handle(tag);
         Point position = handle.TranslatePoint(default, graph.Window)!.Value;
-        Assert.That(graph.Window.InputHitTest(position), Is.SameAs(handle));
+        Assert.That(graph.HitTest(position), Is.SameAs(handle));
         graph.RightClick(position);
         Assert.That(graph.BackgroundMenu.IsOpen, Is.True);
         Assert.That(graph.KeyFrame(graph.Second).ContextMenu!.IsOpen, Is.False);
@@ -82,7 +82,7 @@ public class GraphEditorContextMenuTests
 
         AvaloniaPath keyFrame = graph.KeyFrame(graph.Second);
         position = keyFrame.TranslatePoint(default, graph.Window)!.Value;
-        Assert.That(graph.Window.InputHitTest(position), Is.SameAs(keyFrame));
+        Assert.That(graph.HitTest(position), Is.SameAs(keyFrame));
         graph.RightClick(position);
         Assert.That(keyFrame.ContextMenu!.IsOpen, Is.True);
         Assert.That(graph.BackgroundMenu.IsOpen, Is.False);
@@ -190,8 +190,25 @@ public class GraphEditorContextMenuTests
             .Single(path => path.Name == "KeyTimeIcon"
                 && path.DataContext is GraphEditorKeyFrameViewModel model && model.Model == keyFrame);
 
+        // Avalonia answers a hit test from the compositor's readback of a rendered frame, and answers
+        // null for the whole window until one exists. The tick forced right after Show often precedes
+        // the window's first frame, so wait for the window to answer before asserting what it hits.
+        public IInputElement? HitTest(Point position)
+        {
+            for (int attempt = 0; attempt < 20; attempt++)
+            {
+                if (Window.InputHitTest(position) is { } hit)
+                    return hit;
+
+                HeadlessTestHelpers.Render();
+            }
+
+            return Window.InputHitTest(position);
+        }
+
         public void RightClick(Point position)
         {
+            HitTest(position);
             Window.MouseMove(position);
             Window.MouseDown(position, MouseButton.Right);
             Window.MouseUp(position, MouseButton.Right);

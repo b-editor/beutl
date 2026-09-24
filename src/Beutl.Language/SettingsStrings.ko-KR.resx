@@ -176,14 +176,6 @@
     <value>더 자세한 사용 정보를 수집합니다. 전송된 로그는 ".beutl/log" 디렉터리에도 저장됩니다.</value>
     <comment />
   </data>
-  <data name="EnableAutoSave" xml:space="preserve">
-    <value>자동 저장 사용</value>
-    <comment />
-  </data>
-  <data name="EnableAutoSave_Description" xml:space="preserve">
-    <value>작업이 수행된 후 파일이 자동으로 저장됩니다.</value>
-    <comment />
-  </data>
   <data name="ProxyMedia" xml:space="preserve">
     <value>프록시 미디어</value>
     <comment />
