@@ -1,6 +1,8 @@
 ﻿using Beutl.Graphics.Effects;
+using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Group;
 using Beutl.NodeGraph.Nodes.Utilities;
 
 namespace Beutl.UnitTests.NodeGraph;
@@ -35,5 +37,25 @@ public class GraphNodeRegistryTests
     public void RegisterAll_RegistersTopLevelGroupAndNestedGroupNodes(Type nodeType)
     {
         Assert.That(GraphNodeRegistry.FindItem(nodeType), Is.Not.Null);
+    }
+
+    [Test]
+    public void RegisterAll_UsesClearNamesForBuiltInNodes()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(GraphNodeRegistry.FindItem(typeof(LayerInputNode))?.DisplayName,
+                Is.EqualTo(NodeGraphStrings.GraphInputs));
+            Assert.That(GraphNodeRegistry.FindItem(typeof(OutputNode))?.DisplayName,
+                Is.EqualTo(NodeGraphStrings.GraphOutput));
+            Assert.That(GraphNodeRegistry.FindItem(typeof(GroupNode))?.DisplayName,
+                Is.EqualTo(NodeGraphStrings.Group));
+            Assert.That(GraphNodeRegistry.FindItem(typeof(MeasureNode))?.DisplayName,
+                Is.EqualTo(NodeGraphStrings.MeasureBounds));
+            Assert.That(GraphNodeRegistry.FindItem(typeof(RandomInt32Node))?.DisplayName,
+                Is.EqualTo(NodeGraphStrings.RandomInt32));
+            Assert.That(GraphNodeRegistry.FindItem(typeof(TranslateMatrixNode))?.DisplayName,
+                Is.EqualTo(NodeGraphStrings.TranslationMatrix));
+        });
     }
 }

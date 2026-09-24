@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="GraphInputs" xml:space="preserve">
+    <value>Graph inputs</value>
+  </data>
+  <data name="GraphOutput" xml:space="preserve">
+    <value>Graph output</value>
+  </data>
+  <data name="EffectInput" xml:space="preserve">
+    <value>Effect input</value>
+  </data>
+  <data name="Shapes" xml:space="preserve">
+    <value>Shapes</value>
+  </data>
+  <data name="Groups" xml:space="preserve">
+    <value>Groups</value>
+  </data>
+  <data name="GroupInputs" xml:space="preserve">
+    <value>Group inputs</value>
+  </data>
+  <data name="GroupOutputs" xml:space="preserve">
+    <value>Group outputs</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>Group</value>
+  </data>
+  <data name="ToolsAndValues" xml:space="preserve">
+    <value>Tools &amp; values</value>
+  </data>
+  <data name="ConditionalSwitch" xml:space="preserve">
+    <value>Conditional switch</value>
+  </data>
+  <data name="MeasureBounds" xml:space="preserve">
+    <value>Measure bounds</value>
+  </data>
+  <data name="ImagePreview" xml:space="preserve">
+    <value>Image preview</value>
+  </data>
+  <data name="TimelineTime" xml:space="preserve">
+    <value>Timeline time</value>
+  </data>
+  <data name="CSharpExpression" xml:space="preserve">
+    <value>C# expression</value>
+  </data>
+  <data name="TransformMatrices" xml:space="preserve">
+    <value>Transform matrices</value>
+  </data>
+  <data name="TranslationMatrix" xml:space="preserve">
+    <value>Translation matrix</value>
+  </data>
+  <data name="RotationMatrix" xml:space="preserve">
+    <value>Rotation matrix</value>
+  </data>
+  <data name="Rotation3DMatrix" xml:space="preserve">
+    <value>3D rotation matrix</value>
+  </data>
+  <data name="ScaleMatrix" xml:space="preserve">
+    <value>Scale matrix</value>
+  </data>
+  <data name="SkewMatrix" xml:space="preserve">
+    <value>Skew matrix</value>
+  </data>
+  <data name="RandomNumbers" xml:space="preserve">
+    <value>Random numbers</value>
+  </data>
+  <data name="RandomFloat32" xml:space="preserve">
+    <value>Random float (32-bit)</value>
+  </data>
+  <data name="RandomFloat64" xml:space="preserve">
+    <value>Random float (64-bit)</value>
+  </data>
+  <data name="RandomInt32" xml:space="preserve">
+    <value>Random integer (32-bit)</value>
+  </data>
+  <data name="RandomInt64" xml:space="preserve">
+    <value>Random integer (64-bit)</value>
+  </data>
+  <data name="CoordinatesAndSizes" xml:space="preserve">
+    <value>Coordinates &amp; sizes</value>
+  </data>
+  <data name="Point" xml:space="preserve">
+    <value>Point</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Rectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="RelativePoint" xml:space="preserve">
+    <value>Relative point</value>
+  </data>
+  <data name="RelativeRectangle" xml:space="preserve">
+    <value>Relative rectangle</value>
+  </data>
+  <data name="PixelPoint" xml:space="preserve">
+    <value>Pixel point</value>
+  </data>
+  <data name="PixelSize" xml:space="preserve">
+    <value>Pixel size</value>
+  </data>
+  <data name="PixelRectangle" xml:space="preserve">
+    <value>Pixel rectangle</value>
+  </data>
+</root>

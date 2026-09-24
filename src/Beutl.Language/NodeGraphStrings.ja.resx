@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="GraphInputs" xml:space="preserve">
+    <value>グラフ入力</value>
+  </data>
+  <data name="GraphOutput" xml:space="preserve">
+    <value>グラフ出力</value>
+  </data>
+  <data name="EffectInput" xml:space="preserve">
+    <value>エフェクト入力</value>
+  </data>
+  <data name="Shapes" xml:space="preserve">
+    <value>図形</value>
+  </data>
+  <data name="Groups" xml:space="preserve">
+    <value>グループ</value>
+  </data>
+  <data name="GroupInputs" xml:space="preserve">
+    <value>グループ入力</value>
+  </data>
+  <data name="GroupOutputs" xml:space="preserve">
+    <value>グループ出力</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>グループ</value>
+  </data>
+  <data name="ToolsAndValues" xml:space="preserve">
+    <value>ツールと値</value>
+  </data>
+  <data name="ConditionalSwitch" xml:space="preserve">
+    <value>条件で切り替え</value>
+  </data>
+  <data name="MeasureBounds" xml:space="preserve">
+    <value>描画範囲を測定</value>
+  </data>
+  <data name="ImagePreview" xml:space="preserve">
+    <value>画像プレビュー</value>
+  </data>
+  <data name="TimelineTime" xml:space="preserve">
+    <value>タイムライン時刻</value>
+  </data>
+  <data name="CSharpExpression" xml:space="preserve">
+    <value>C# 式</value>
+  </data>
+  <data name="TransformMatrices" xml:space="preserve">
+    <value>変換行列</value>
+  </data>
+  <data name="TranslationMatrix" xml:space="preserve">
+    <value>移動行列</value>
+  </data>
+  <data name="RotationMatrix" xml:space="preserve">
+    <value>回転行列</value>
+  </data>
+  <data name="Rotation3DMatrix" xml:space="preserve">
+    <value>3D回転行列</value>
+  </data>
+  <data name="ScaleMatrix" xml:space="preserve">
+    <value>拡大・縮小行列</value>
+  </data>
+  <data name="SkewMatrix" xml:space="preserve">
+    <value>傾斜行列</value>
+  </data>
+  <data name="RandomNumbers" xml:space="preserve">
+    <value>乱数</value>
+  </data>
+  <data name="RandomFloat32" xml:space="preserve">
+    <value>乱数（32ビット小数）</value>
+  </data>
+  <data name="RandomFloat64" xml:space="preserve">
+    <value>乱数（64ビット小数）</value>
+  </data>
+  <data name="RandomInt32" xml:space="preserve">
+    <value>乱数（32ビット整数）</value>
+  </data>
+  <data name="RandomInt64" xml:space="preserve">
+    <value>乱数（64ビット整数）</value>
+  </data>
+  <data name="CoordinatesAndSizes" xml:space="preserve">
+    <value>座標とサイズ</value>
+  </data>
+  <data name="Point" xml:space="preserve">
+    <value>座標</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>サイズ</value>
+  </data>
+  <data name="Rectangle" xml:space="preserve">
+    <value>矩形</value>
+  </data>
+  <data name="RelativePoint" xml:space="preserve">
+    <value>相対座標</value>
+  </data>
+  <data name="RelativeRectangle" xml:space="preserve">
+    <value>相対矩形</value>
+  </data>
+  <data name="PixelPoint" xml:space="preserve">
+    <value>ピクセル座標</value>
+  </data>
+  <data name="PixelSize" xml:space="preserve">
+    <value>ピクセルサイズ</value>
+  </data>
+  <data name="PixelRectangle" xml:space="preserve">
+    <value>ピクセル矩形</value>
+  </data>
+</root>

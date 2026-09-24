@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="GraphInputs" xml:space="preserve">
+    <value>节点图输入</value>
+  </data>
+  <data name="GraphOutput" xml:space="preserve">
+    <value>节点图输出</value>
+  </data>
+  <data name="EffectInput" xml:space="preserve">
+    <value>效果输入</value>
+  </data>
+  <data name="Shapes" xml:space="preserve">
+    <value>形状</value>
+  </data>
+  <data name="Groups" xml:space="preserve">
+    <value>分组</value>
+  </data>
+  <data name="GroupInputs" xml:space="preserve">
+    <value>分组输入</value>
+  </data>
+  <data name="GroupOutputs" xml:space="preserve">
+    <value>分组输出</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>组</value>
+  </data>
+  <data name="ToolsAndValues" xml:space="preserve">
+    <value>工具与数值</value>
+  </data>
+  <data name="ConditionalSwitch" xml:space="preserve">
+    <value>条件切换</value>
+  </data>
+  <data name="MeasureBounds" xml:space="preserve">
+    <value>测量绘制范围</value>
+  </data>
+  <data name="ImagePreview" xml:space="preserve">
+    <value>图像预览</value>
+  </data>
+  <data name="TimelineTime" xml:space="preserve">
+    <value>时间轴时间</value>
+  </data>
+  <data name="CSharpExpression" xml:space="preserve">
+    <value>C# 表达式</value>
+  </data>
+  <data name="TransformMatrices" xml:space="preserve">
+    <value>变换矩阵</value>
+  </data>
+  <data name="TranslationMatrix" xml:space="preserve">
+    <value>平移矩阵</value>
+  </data>
+  <data name="RotationMatrix" xml:space="preserve">
+    <value>旋转矩阵</value>
+  </data>
+  <data name="Rotation3DMatrix" xml:space="preserve">
+    <value>3D 旋转矩阵</value>
+  </data>
+  <data name="ScaleMatrix" xml:space="preserve">
+    <value>缩放矩阵</value>
+  </data>
+  <data name="SkewMatrix" xml:space="preserve">
+    <value>倾斜矩阵</value>
+  </data>
+  <data name="RandomNumbers" xml:space="preserve">
+    <value>随机数</value>
+  </data>
+  <data name="RandomFloat32" xml:space="preserve">
+    <value>随机浮点数（32 位）</value>
+  </data>
+  <data name="RandomFloat64" xml:space="preserve">
+    <value>随机浮点数（64 位）</value>
+  </data>
+  <data name="RandomInt32" xml:space="preserve">
+    <value>随机整数（32 位）</value>
+  </data>
+  <data name="RandomInt64" xml:space="preserve">
+    <value>随机整数（64 位）</value>
+  </data>
+  <data name="CoordinatesAndSizes" xml:space="preserve">
+    <value>坐标与尺寸</value>
+  </data>
+  <data name="Point" xml:space="preserve">
+    <value>点</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>尺寸</value>
+  </data>
+  <data name="Rectangle" xml:space="preserve">
+    <value>矩形</value>
+  </data>
+  <data name="RelativePoint" xml:space="preserve">
+    <value>相对坐标</value>
+  </data>
+  <data name="RelativeRectangle" xml:space="preserve">
+    <value>相对矩形</value>
+  </data>
+  <data name="PixelPoint" xml:space="preserve">
+    <value>像素坐标</value>
+  </data>
+  <data name="PixelSize" xml:space="preserve">
+    <value>像素尺寸</value>
+  </data>
+  <data name="PixelRectangle" xml:space="preserve">
+    <value>像素矩形</value>
+  </data>
+</root>

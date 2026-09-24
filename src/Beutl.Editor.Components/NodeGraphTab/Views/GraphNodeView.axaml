@@ -44,7 +44,8 @@
                 Padding="4"
                 Background="{Binding Color}"
                 CornerRadius="{DynamicResource ControlCornerRadius}"
-                Focusable="True">
+                Focusable="True"
+                ToolTip.Tip="{Binding NodeName.Value}">
             <Border.ContextFlyout>
                 <ui:FAMenuFlyout>
                     <ui:FAMenuFlyoutItem Command="{Binding Delete}"
@@ -76,7 +77,8 @@
                            Margin="8,0,0,0"
                            VerticalAlignment="Center"
                            IsHitTestVisible="False"
-                           Text="{Binding NodeName.Value}" />
+                           Text="{Binding NodeName.Value}"
+                           TextTrimming="CharacterEllipsis" />
 
                 <Button Grid.Column="2"
                         Click="OpenNodeClick"
