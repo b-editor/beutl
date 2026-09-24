@@ -22,6 +22,8 @@ internal partial class WebBrowserTabView
 
     private void ShowToolStatus(string message)
     {
+        // A page-tool result must not cancel a native response waiting for download confirmation.
+        if (_pendingPageDownloadRequest?.Source != null) return;
         ClearPageDownloadRequest();
         DownloadStatusPanel.IsVisible = true;
         DownloadStatusText.Text = message;
