@@ -78,7 +78,7 @@
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
-                                   ToolTip.Tip="{TemplateBinding Description}"
+                                   ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                    Text="{TemplateBinding Header}"
                                    TextTrimming="CharacterEllipsis" />
 
@@ -252,7 +252,7 @@
             <Setter Property="Margin" Value="0" />
             <Setter Property="Template">
                 <ControlTemplate>
-                    <OptionsDisplayItem Padding="{TemplateBinding Padding}"
+                    <OptionsDisplayItem ToolTip.Tip="{TemplateBinding HeaderTooltip}" Padding="{TemplateBinding Padding}"
                                         BorderBrush="{TemplateBinding BorderBrush}"
                                         BorderThickness="{TemplateBinding BorderThickness}"
                                         CornerRadius="{TemplateBinding CornerRadius}"
@@ -320,7 +320,7 @@
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"
                                        ClipToBounds="False"
-                                       ToolTip.Tip="{TemplateBinding Description}"
+                                       ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                        Text="{TemplateBinding Header}"
                                        TextTrimming="CharacterEllipsis" />
 
@@ -384,7 +384,7 @@
                                        Margin="4,0,0,0"
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"
-                                       ToolTip.Tip="{TemplateBinding Description}"
+                                       ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                        Text="{TemplateBinding Header}" />
 
                             <DataValidationErrors Grid.Row="2">

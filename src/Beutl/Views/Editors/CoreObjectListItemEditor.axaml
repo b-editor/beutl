@@ -17,7 +17,7 @@
         <Grid Margin="8,0,0,0"
               ColumnDefinitions="*,Auto,Auto"
               IsVisible="{Binding !IsPresenter.Value}"
-              ToolTip.Tip="{Binding Description.Value}">
+              ToolTip.Tip="{Binding HoverInfo.Value}">
             <ToggleButton x:Name="reorderHandle"
                           Content="{x:Static lang:Strings.Item}"
                           Cursor="SizeNorthSouth"
@@ -50,7 +50,7 @@
                             EditorStyle="ListItem"
                             IsVisible="{Binding IsPresenter.Value}"
                             SelectTargetRequested="SelectTarget_Requested"
-                            ToolTip.Tip="{Binding Description.Value}"
+                            ToolTip.Tip="{Binding HoverInfo.Value}"
                             TargetName="{Binding CurrentTargetName.Value}">
             <pe:ReferenceEditor.MenuContent>
                 <StackPanel Orientation="Horizontal">

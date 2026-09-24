@@ -37,7 +37,7 @@
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
-                                   ToolTip.Tip="{TemplateBinding Description}"
+                                   ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                    Text="{TemplateBinding Header}"
                                    TextTrimming="CharacterEllipsis" />
 
@@ -88,7 +88,7 @@
                                        Margin="4,0,0,0"
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"
-                                       ToolTip.Tip="{TemplateBinding Description}"
+                                       ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                        Text="{TemplateBinding Header}" />
 
                             <DropDownButton x:Name="PART_InnerButton"

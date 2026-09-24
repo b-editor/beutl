@@ -40,7 +40,7 @@
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
                                    Text="{TemplateBinding Header}"
-                                   ToolTip.Tip="{TemplateBinding Description}"
+                                   ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                    TextTrimming="CharacterEllipsis" />
 
                         <StackPanel Name="PART_AlignmentButtons"
@@ -94,7 +94,7 @@
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"
                                        ClipToBounds="False"
-                                       ToolTip.Tip="{TemplateBinding Description}"
+                                       ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                        Text="{TemplateBinding Header}" />
 
                             <StackPanel Name="LeftRightButtons"
@@ -236,7 +236,7 @@
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
                                    Text="{TemplateBinding Header}"
-                                   ToolTip.Tip="{TemplateBinding Description}"
+                                   ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                    TextTrimming="CharacterEllipsis" />
 
                         <StackPanel Name="PART_AlignmentButtons"
@@ -290,7 +290,7 @@
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"
                                        ClipToBounds="False"
-                                       ToolTip.Tip="{TemplateBinding Description}"
+                                       ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                        Text="{TemplateBinding Header}" />
 
                             <StackPanel Name="LeftRightButtons"

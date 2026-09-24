@@ -357,7 +357,26 @@ public partial class NodePortView : UserControl
                     ? HorizontalAlignment.Right
                     : HorizontalAlignment.Left
             };
-            _label.Bind(TextBlock.TextProperty, obj.Name.ToBinding()).DisposeWith(_disposables);
+            TextBlock label = _label;
+            label.Bind(TextBlock.TextProperty, obj.Name.ToBinding()).DisposeWith(_disposables);
+
+            void UpdateHoverInfo()
+            {
+                INodeMember member = obj.Model;
+                IPropertyAdapter? property = member.Property;
+                string? description = member.Display?.GetDescription();
+                if (string.IsNullOrWhiteSpace(description)) description = property?.Description;
+                ToolTip.SetTip(label, PropertyHoverInfoFormatter.Format(
+                    member.AssociatedType ?? property?.PropertyType, description, property?.GetAttributes()));
+            }
+
+            UpdateHoverInfo();
+            if (obj.Model is NodeMember nodeMember)
+            {
+                nodeMember.GetPropertyChangedObservable(NodeMember.DisplayProperty)
+                    .Subscribe(_ => UpdateHoverInfo())
+                    .DisposeWith(_disposables);
+            }
 
             Grid.SetColumn(_label, 1);
         }

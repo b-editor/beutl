@@ -28,7 +28,7 @@
                        VerticalAlignment="Center"
                        ClipToBounds="False"
                        Text="{Binding Header}"
-                       ToolTip.Tip="{Binding Description.Value}"
+                       ToolTip.Tip="{Binding HoverInfo.Value}"
                        TextTrimming="CharacterEllipsis" />
 
             <GridSplitter Grid.Column="1" Background="Transparent" />

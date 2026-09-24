@@ -1633,4 +1633,10 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>Eliminar del disco</value>
   </data>
+  <data name="PropertyHover_Type" xml:space="preserve">
+    <value>Tipo: {0}</value>
+  </data>
+  <data name="PropertyHover_Range" xml:space="preserve">
+    <value>Rango de valores: {0} – {1}</value>
+  </data>
 </root>

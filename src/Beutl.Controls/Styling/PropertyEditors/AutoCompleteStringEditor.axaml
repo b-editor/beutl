@@ -25,7 +25,7 @@
                                    ClipToBounds="False"
                                    Text="{TemplateBinding Header}"
                                    TextTrimming="CharacterEllipsis"
-                                   ToolTip.Tip="{TemplateBinding Description}" />
+                                   ToolTip.Tip="{TemplateBinding HeaderTooltip}" />
 
                         <GridSplitter Grid.Column="1" Background="Transparent" />
 

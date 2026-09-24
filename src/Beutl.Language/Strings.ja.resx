@@ -3130,4 +3130,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="BrowserAdBlockLoading" xml:space="preserve">
     <value>フィルターを読み込んでいます...</value>
   </data>
+  <data name="PropertyHover_Type" xml:space="preserve">
+    <value>型: {0}</value>
+  </data>
+  <data name="PropertyHover_Range" xml:space="preserve">
+    <value>値の範囲: {0} ～ {1}</value>
+  </data>
 </root>

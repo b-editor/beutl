@@ -34,6 +34,7 @@
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
                                    Text="{TemplateBinding Header}"
+                                   ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                    TextTrimming="CharacterEllipsis" />
 
                         <GridSplitter Grid.Column="1" Background="Transparent" />
@@ -69,6 +70,7 @@
                                             Grid.Column="1"
                                             Margin="0,4"
                                             HorizontalAlignment="Stretch"
+                                            ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                             Content="{TemplateBinding TargetName}" />
 
                             <ContentPresenter Name="PART_MenuContentPresenter"

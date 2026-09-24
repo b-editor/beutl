@@ -3135,4 +3135,10 @@ when history recording is enabled.</value>
   <data name="BrowserAdBlockLoading" xml:space="preserve">
     <value>Loading filters...</value>
   </data>
+  <data name="PropertyHover_Type" xml:space="preserve">
+    <value>Type: {0}</value>
+  </data>
+  <data name="PropertyHover_Range" xml:space="preserve">
+    <value>Value range: {0} – {1}</value>
+  </data>
 </root>
