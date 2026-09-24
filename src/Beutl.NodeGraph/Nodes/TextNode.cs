@@ -22,7 +22,7 @@ public partial class TextNode : GraphNode
 
     public TextNode()
     {
-        Output = AddOutput<DrawableRenderNode?>("Output");
+        Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
         Object = new TextBlock();
         Object.AlignmentX.CurrentValue = AlignmentX.Left;
         Object.AlignmentY.CurrentValue = AlignmentY.Top;

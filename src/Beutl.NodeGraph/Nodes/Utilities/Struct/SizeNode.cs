@@ -7,9 +7,9 @@ public partial class SizeNode : GraphNode
 {
     public SizeNode()
     {
-        Value = AddOutput<Size>("Size");
-        Width = AddInput<float>("Width");
-        Height = AddInput<float>("Height");
+        Value = AddOutput<Size>("Size", NodePortDisplays.Size);
+        Width = AddInput<float>("Width", NodePortDisplays.Width);
+        Height = AddInput<float>("Height", NodePortDisplays.Height);
     }
 
     public OutputPort<Size> Value { get; }

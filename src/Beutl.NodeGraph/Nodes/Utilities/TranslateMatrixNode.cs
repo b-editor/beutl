@@ -7,8 +7,8 @@ public partial class TranslateMatrixNode : MatrixNode
 {
     public TranslateMatrixNode()
     {
-        X = AddInput<float>("X");
-        Y = AddInput<float>("Y");
+        X = AddInput<float>("X", NodePortDisplays.X);
+        Y = AddInput<float>("Y", NodePortDisplays.Y);
     }
 
     public InputPort<float> X { get; }

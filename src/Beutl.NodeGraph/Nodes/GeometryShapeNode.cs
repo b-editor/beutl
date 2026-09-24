@@ -8,10 +8,10 @@ public sealed partial class GeometryShapeNode : GraphNode
 {
     public GeometryShapeNode()
     {
-        Output = AddOutput<GeometryRenderNode?>("Output");
-        Geometry = AddInput<Geometry?>("Geometry");
-        Fill = AddInput<Brush?>("Fill");
-        Pen = AddInput<Pen?>("Pen");
+        Output = AddOutput<GeometryRenderNode?>("Output", NodePortDisplays.Output);
+        Geometry = AddInput<Geometry?>("Geometry", NodePortDisplays.Geometry);
+        Fill = AddInput<Brush?>("Fill", NodePortDisplays.Fill);
+        Pen = AddInput<Pen?>("Pen", NodePortDisplays.Pen);
     }
 
     public OutputPort<GeometryRenderNode?> Output { get; }

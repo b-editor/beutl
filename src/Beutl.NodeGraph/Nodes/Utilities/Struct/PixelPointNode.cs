@@ -7,9 +7,9 @@ public partial class PixelPointNode : GraphNode
 {
     public PixelPointNode()
     {
-        Value = AddOutput<PixelPoint>("PixelPoint");
-        X = AddInput<int>("X");
-        Y = AddInput<int>("Y");
+        Value = AddOutput<PixelPoint>("PixelPoint", NodePortDisplays.PixelPoint);
+        X = AddInput<int>("X", NodePortDisplays.X);
+        Y = AddInput<int>("Y", NodePortDisplays.Y);
     }
 
     public OutputPort<PixelPoint> Value { get; }

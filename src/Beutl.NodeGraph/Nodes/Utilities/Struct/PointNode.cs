@@ -7,9 +7,9 @@ public partial class PointNode : GraphNode
 {
     public PointNode()
     {
-        Value = AddOutput<Point>("Point");
-        X = AddInput<float>("X");
-        Y = AddInput<float>("Y");
+        Value = AddOutput<Point>("Point", NodePortDisplays.Point);
+        X = AddInput<float>("X", NodePortDisplays.X);
+        Y = AddInput<float>("Y", NodePortDisplays.Y);
     }
 
     public OutputPort<Point> Value { get; }

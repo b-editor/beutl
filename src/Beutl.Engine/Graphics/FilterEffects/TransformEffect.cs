@@ -24,6 +24,7 @@ public sealed partial class TransformEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.TransformEffect_BitmapInterpolationMode), ResourceType = typeof(GraphicsStrings))]
     public IProperty<BitmapInterpolationMode> BitmapInterpolationMode { get; } = Property.CreateAnimatable(Media.BitmapInterpolationMode.Default);
 
+    [Display(Name = nameof(GraphicsStrings.TransformEffect_ApplyToTarget), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ApplyToTarget { get; } = Property.CreateAnimatable(true);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

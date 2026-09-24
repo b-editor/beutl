@@ -7,9 +7,9 @@ public partial class ScaleMatrixNode : MatrixNode
 {
     public ScaleMatrixNode()
     {
-        Scale = AddInput<float>("Scale");
-        ScaleX = AddInput<float>("ScaleX");
-        ScaleY = AddInput<float>("ScaleY");
+        Scale = AddInput<float>("Scale", NodePortDisplays.Scale);
+        ScaleX = AddInput<float>("ScaleX", NodePortDisplays.ScaleX);
+        ScaleY = AddInput<float>("ScaleY", NodePortDisplays.ScaleY);
         Scale.Property?.SetValue(1);
         ScaleX.Property?.SetValue(1);
         ScaleY.Property?.SetValue(1);

@@ -7,8 +7,8 @@ public abstract partial class MatrixNode : GraphNode
 {
     public MatrixNode()
     {
-        Output = AddOutput<Matrix>("Output");
-        Input = AddInput<Matrix>("Input");
+        Output = AddOutput<Matrix>("Output", NodePortDisplays.Output);
+        Input = AddInput<Matrix>("Input", NodePortDisplays.Input);
     }
 
     public OutputPort<Matrix> Output { get; }

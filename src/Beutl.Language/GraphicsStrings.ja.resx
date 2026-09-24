@@ -1471,4 +1471,7 @@
   <data name="WaveformShape_DotMode" xml:space="preserve">
     <value>ドット配置</value>
   </data>
+  <data name="TransformEffect_ApplyToTarget" xml:space="preserve">
+    <value>描画対象に適用</value>
+  </data>
 </root>

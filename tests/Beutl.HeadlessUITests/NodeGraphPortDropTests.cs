@@ -70,7 +70,7 @@ public class NodeGraphPortDropTests
             MenuItem selector = utilities.ItemsSource!.Cast<MenuItem>()
                 .Single(item => Equals(item.Header, NodeGraphStrings.ConditionalSwitch));
             Assert.That(selector.ItemsSource!.Cast<MenuItem>().Select(item => item.Header),
-                Is.EquivalentTo(new[] { "True", "False" }));
+                Is.EquivalentTo(new[] { NodeGraphStrings.Port_True, NodeGraphStrings.Port_False }));
             MenuItem outputItem = menu.ItemsSource!.Cast<MenuItem>()
                 .Single(item => Equals(item.Header, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName));
             TopLevel popup = TopLevel.GetTopLevel(menu)!;
@@ -135,6 +135,10 @@ public class NodeGraphPortDropTests
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
+            string?[] labels = view.GetVisualDescendants().OfType<TextBlock>().Select(x => x.Text).ToArray();
+            Assert.That(labels, Does.Contain(NodeGraphStrings.Port_Value)
+                .And.Contain(NodeGraphStrings.Port_Maximum)
+                .And.Contain(NodeGraphStrings.Port_Minimum));
             var socket = view.GetVisualDescendants().OfType<NodePortPoint>()
                 .Single(p => p.DataContext is InputPortViewModel input && input.Model == target.Maximum);
             Point from = socket.TranslatePoint(new Point(5, 5), window)!.Value;

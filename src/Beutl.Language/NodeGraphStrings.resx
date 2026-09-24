@@ -114,4 +114,151 @@
   <data name="PixelRectangle" xml:space="preserve">
     <value>Pixel rectangle</value>
   </data>
+  <data name="Port_CenterX" xml:space="preserve">
+    <value>Center X</value>
+  </data>
+  <data name="Port_CenterY" xml:space="preserve">
+    <value>Center Y</value>
+  </data>
+  <data name="Port_CenterZ" xml:space="preserve">
+    <value>Center Z</value>
+  </data>
+  <data name="Port_Depth" xml:space="preserve">
+    <value>Depth</value>
+  </data>
+  <data name="Port_Duration" xml:space="preserve">
+    <value>Duration</value>
+  </data>
+  <data name="Port_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Port_Expression" xml:space="preserve">
+    <value>Expression</value>
+  </data>
+  <data name="Port_False" xml:space="preserve">
+    <value>False</value>
+  </data>
+  <data name="Port_Fill" xml:space="preserve">
+    <value>Fill</value>
+  </data>
+  <data name="Port_Geometry" xml:space="preserve">
+    <value>Geometry</value>
+  </data>
+  <data name="Port_Height" xml:space="preserve">
+    <value>Height</value>
+  </data>
+  <data name="Port_Input" xml:space="preserve">
+    <value>Input</value>
+  </data>
+  <data name="Port_Inputs" xml:space="preserve">
+    <value>Inputs</value>
+  </data>
+  <data name="Port_Matrix" xml:space="preserve">
+    <value>Matrix</value>
+  </data>
+  <data name="Port_Maximum" xml:space="preserve">
+    <value>Maximum</value>
+  </data>
+  <data name="Port_Minimum" xml:space="preserve">
+    <value>Minimum</value>
+  </data>
+  <data name="Port_Output" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="Port_Pen" xml:space="preserve">
+    <value>Pen</value>
+  </data>
+  <data name="Port_PixelPoint" xml:space="preserve">
+    <value>Pixel point</value>
+  </data>
+  <data name="Port_PixelRect" xml:space="preserve">
+    <value>Pixel rectangle</value>
+  </data>
+  <data name="Port_PixelSize" xml:space="preserve">
+    <value>Pixel size</value>
+  </data>
+  <data name="Port_Point" xml:space="preserve">
+    <value>Point</value>
+  </data>
+  <data name="Port_Position" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="Port_Preview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="Port_Progress" xml:space="preserve">
+    <value>Progress</value>
+  </data>
+  <data name="Port_Rect" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="Port_RelativePoint" xml:space="preserve">
+    <value>Relative point</value>
+  </data>
+  <data name="Port_RelativeRect" xml:space="preserve">
+    <value>Relative rectangle</value>
+  </data>
+  <data name="Port_Rotation" xml:space="preserve">
+    <value>Rotation</value>
+  </data>
+  <data name="Port_RotationX" xml:space="preserve">
+    <value>Rotation X</value>
+  </data>
+  <data name="Port_RotationY" xml:space="preserve">
+    <value>Rotation Y</value>
+  </data>
+  <data name="Port_RotationZ" xml:space="preserve">
+    <value>Rotation Z</value>
+  </data>
+  <data name="Port_Scale" xml:space="preserve">
+    <value>Scale</value>
+  </data>
+  <data name="Port_ScaleX" xml:space="preserve">
+    <value>Scale X</value>
+  </data>
+  <data name="Port_ScaleY" xml:space="preserve">
+    <value>Scale Y</value>
+  </data>
+  <data name="Port_Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Port_SkewX" xml:space="preserve">
+    <value>Skew X</value>
+  </data>
+  <data name="Port_SkewY" xml:space="preserve">
+    <value>Skew Y</value>
+  </data>
+  <data name="Port_Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Port_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Port_Switch" xml:space="preserve">
+    <value>Switch</value>
+  </data>
+  <data name="Port_Time" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="Port_TopLeft" xml:space="preserve">
+    <value>Top left</value>
+  </data>
+  <data name="Port_True" xml:space="preserve">
+    <value>True</value>
+  </data>
+  <data name="Port_Unit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="Port_Value" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="Port_Width" xml:space="preserve">
+    <value>Width</value>
+  </data>
+  <data name="Port_X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="Port_Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
 </root>

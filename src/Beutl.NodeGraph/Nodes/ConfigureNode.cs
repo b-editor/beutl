@@ -7,8 +7,8 @@ public abstract partial class ConfigureNode : GraphNode
 {
     public ConfigureNode()
     {
-        OutputPort = AddOutput<ContainerRenderNode?>("Output");
-        InputPort = AddListInput<RenderNode?>("Input");
+        OutputPort = AddOutput<ContainerRenderNode?>("Output", NodePortDisplays.Output);
+        InputPort = AddListInput<RenderNode?>("Input", NodePortDisplays.Input);
     }
 
     protected OutputPort<ContainerRenderNode?> OutputPort { get; }

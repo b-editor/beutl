@@ -7,7 +7,7 @@ public partial class FilterEffectInputNode : GraphNode
 {
     public FilterEffectInputNode()
     {
-        Output = AddOutput<RenderNode?>("Output");
+        Output = AddOutput<RenderNode?>("Output", NodePortDisplays.Output);
     }
 
     public OutputPort<RenderNode?> Output { get; }

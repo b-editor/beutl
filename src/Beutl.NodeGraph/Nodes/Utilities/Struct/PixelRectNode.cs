@@ -7,9 +7,9 @@ public partial class PixelRectNode : GraphNode
 {
     public PixelRectNode()
     {
-        Value = AddOutput<PixelRect>("PixelRect");
-        Position = AddInput<PixelPoint>("Position");
-        Size = AddInput<PixelSize>("Size");
+        Value = AddOutput<PixelRect>("PixelRect", NodePortDisplays.PixelRect);
+        Position = AddInput<PixelPoint>("Position", NodePortDisplays.Position);
+        Size = AddInput<PixelSize>("Size", NodePortDisplays.Size);
     }
 
     public OutputPort<PixelRect> Value { get; }

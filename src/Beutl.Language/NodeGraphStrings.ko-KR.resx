@@ -114,4 +114,151 @@
   <data name="PixelRectangle" xml:space="preserve">
     <value>픽셀 사각형</value>
   </data>
+  <data name="Port_CenterX" xml:space="preserve">
+    <value>중심 X</value>
+  </data>
+  <data name="Port_CenterY" xml:space="preserve">
+    <value>중심 Y</value>
+  </data>
+  <data name="Port_CenterZ" xml:space="preserve">
+    <value>중심 Z</value>
+  </data>
+  <data name="Port_Depth" xml:space="preserve">
+    <value>깊이</value>
+  </data>
+  <data name="Port_Duration" xml:space="preserve">
+    <value>지속 시간</value>
+  </data>
+  <data name="Port_Error" xml:space="preserve">
+    <value>오류</value>
+  </data>
+  <data name="Port_Expression" xml:space="preserve">
+    <value>수식</value>
+  </data>
+  <data name="Port_False" xml:space="preserve">
+    <value>거짓</value>
+  </data>
+  <data name="Port_Fill" xml:space="preserve">
+    <value>채우기</value>
+  </data>
+  <data name="Port_Geometry" xml:space="preserve">
+    <value>도형</value>
+  </data>
+  <data name="Port_Height" xml:space="preserve">
+    <value>높이</value>
+  </data>
+  <data name="Port_Input" xml:space="preserve">
+    <value>입력</value>
+  </data>
+  <data name="Port_Inputs" xml:space="preserve">
+    <value>여러 입력</value>
+  </data>
+  <data name="Port_Matrix" xml:space="preserve">
+    <value>행렬</value>
+  </data>
+  <data name="Port_Maximum" xml:space="preserve">
+    <value>최댓값</value>
+  </data>
+  <data name="Port_Minimum" xml:space="preserve">
+    <value>최솟값</value>
+  </data>
+  <data name="Port_Output" xml:space="preserve">
+    <value>출력</value>
+  </data>
+  <data name="Port_Pen" xml:space="preserve">
+    <value>펜</value>
+  </data>
+  <data name="Port_PixelPoint" xml:space="preserve">
+    <value>픽셀 좌표</value>
+  </data>
+  <data name="Port_PixelRect" xml:space="preserve">
+    <value>픽셀 사각형</value>
+  </data>
+  <data name="Port_PixelSize" xml:space="preserve">
+    <value>픽셀 크기</value>
+  </data>
+  <data name="Port_Point" xml:space="preserve">
+    <value>점</value>
+  </data>
+  <data name="Port_Position" xml:space="preserve">
+    <value>위치</value>
+  </data>
+  <data name="Port_Preview" xml:space="preserve">
+    <value>미리 보기</value>
+  </data>
+  <data name="Port_Progress" xml:space="preserve">
+    <value>진행률</value>
+  </data>
+  <data name="Port_Rect" xml:space="preserve">
+    <value>사각형</value>
+  </data>
+  <data name="Port_RelativePoint" xml:space="preserve">
+    <value>상대 좌표</value>
+  </data>
+  <data name="Port_RelativeRect" xml:space="preserve">
+    <value>상대 사각형</value>
+  </data>
+  <data name="Port_Rotation" xml:space="preserve">
+    <value>회전</value>
+  </data>
+  <data name="Port_RotationX" xml:space="preserve">
+    <value>X축 회전</value>
+  </data>
+  <data name="Port_RotationY" xml:space="preserve">
+    <value>Y축 회전</value>
+  </data>
+  <data name="Port_RotationZ" xml:space="preserve">
+    <value>Z축 회전</value>
+  </data>
+  <data name="Port_Scale" xml:space="preserve">
+    <value>배율</value>
+  </data>
+  <data name="Port_ScaleX" xml:space="preserve">
+    <value>X 배율</value>
+  </data>
+  <data name="Port_ScaleY" xml:space="preserve">
+    <value>Y 배율</value>
+  </data>
+  <data name="Port_Size" xml:space="preserve">
+    <value>크기</value>
+  </data>
+  <data name="Port_SkewX" xml:space="preserve">
+    <value>X 기울기</value>
+  </data>
+  <data name="Port_SkewY" xml:space="preserve">
+    <value>Y 기울기</value>
+  </data>
+  <data name="Port_Source" xml:space="preserve">
+    <value>소스</value>
+  </data>
+  <data name="Port_Start" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="Port_Switch" xml:space="preserve">
+    <value>전환</value>
+  </data>
+  <data name="Port_Time" xml:space="preserve">
+    <value>시간</value>
+  </data>
+  <data name="Port_TopLeft" xml:space="preserve">
+    <value>왼쪽 위</value>
+  </data>
+  <data name="Port_True" xml:space="preserve">
+    <value>참</value>
+  </data>
+  <data name="Port_Unit" xml:space="preserve">
+    <value>단위</value>
+  </data>
+  <data name="Port_Value" xml:space="preserve">
+    <value>값</value>
+  </data>
+  <data name="Port_Width" xml:space="preserve">
+    <value>너비</value>
+  </data>
+  <data name="Port_X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="Port_Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
 </root>
