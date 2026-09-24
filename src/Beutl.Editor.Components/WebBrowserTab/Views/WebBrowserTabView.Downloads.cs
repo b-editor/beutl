@@ -21,7 +21,7 @@ internal partial class WebBrowserTabView
     private bool _mediaNavigationIntercepted;
     private Uri? _latestNavigationRequest;
     private readonly List<(Uri? Navigation, Uri Download)> _nativeDownloadFailures = [];
-    private readonly Queue<(Uri Uri, string SuggestedName, IBrowserDownloadSource Source)> _deferredNativeDownloads = new();
+    private readonly LinkedList<(Uri Uri, string? SuggestedName, IBrowserDownloadSource Source)> _deferredNativeDownloads = new();
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source);
@@ -48,20 +48,16 @@ internal partial class WebBrowserTabView
             return;
         }
         bool mainFrameDownload = trackNavigationFailure && _pageDownloadNavigationPending && _latestNavigationRequest == uri;
+        if (trackNavigationFailure && !_pageDownloadNavigationPending
+            && (_pendingPageDownloadRequest?.Source != null || _downloadCancellation != null))
+        {
+            DeferNativeDownload(uri, suggestedName, source);
+            return;
+        }
         if (trackNavigationFailure && _pageDownloadNavigationPending && !mainFrameDownload)
         {
             // An iframe's response belongs to the page that is still loading. Offer it after that page commits.
-            if (_pageDownloadRequestsSuppressed || _downloadCancellation != null)
-            {
-                source.Dispose();
-                return;
-            }
-            if (_deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
-            {
-                source.Dispose();
-                return;
-            }
-            _deferredNativeDownloads.Enqueue((uri, suggestedName, source));
+            DeferNativeDownload(uri, suggestedName, source);
             return;
         }
         if (mainFrameDownload)
@@ -78,7 +74,8 @@ internal partial class WebBrowserTabView
         _viewModel.RestoreCommittedPage();
         UpdateBlankPageState();
         // Keep history retries conservative; the current transfer retains the browser's original response.
-        QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
+        if (trackNavigationFailure && _downloadCancellation != null) DeferNativeDownload(uri, suggestedName, source);
+        else QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
         // The queued request keeps its conservative metadata; later links belong to the restored document.
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
     }
@@ -88,13 +85,37 @@ internal partial class WebBrowserTabView
         if (_deferredNativeDownloads.Count == 0 || _disposed || _viewModel == null
             || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
             || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
-        var deferred = _deferredNativeDownloads.Dequeue();
+        var deferred = _deferredNativeDownloads.First!.Value;
+        _deferredNativeDownloads.RemoveFirst();
         QueuePageDownloadRequest(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source);
+    }
+
+    private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source)
+    {
+        if (_pageDownloadRequestsSuppressed || _deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
+        {
+            source.Dispose();
+            return;
+        }
+        _deferredNativeDownloads.AddLast((uri, suggestedName, source));
+    }
+
+    private void PreservePendingNativeDownload()
+    {
+        if (_pendingPageDownloadRequest is not { Source: { } source } pending) return;
+        ClearPageDownloadRequest(disposeSource: false);
+        if (_deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
+        {
+            _deferredNativeDownloads.Last!.Value.Source.Dispose();
+            _deferredNativeDownloads.RemoveLast();
+        }
+        _deferredNativeDownloads.AddFirst((pending.Uri, pending.SuggestedName, source));
     }
 
     private void ClearDeferredNativeDownloads()
     {
-        while (_deferredNativeDownloads.TryDequeue(out var deferred)) deferred.Source.Dispose();
+        foreach (var deferred in _deferredNativeDownloads) deferred.Source.Dispose();
+        _deferredNativeDownloads.Clear();
     }
 
     private bool ConsumeNativeDownloadFailure(Uri? request, Uri fallback)

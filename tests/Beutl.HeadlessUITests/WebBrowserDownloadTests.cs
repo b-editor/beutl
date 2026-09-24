@@ -471,6 +471,80 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public void ConcurrentIframeDownloadsSurviveAnotherPageNavigation()
+    {
+        var page = new Uri("https://page.example/");
+        var next = new Uri("https://page.example/next");
+        var later = new Uri("https://page.example/later");
+        var firstUri = new Uri("https://files.example/first");
+        var secondUri = new Uri("https://files.example/second");
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        var first = new ResponseDownloadSource("First.mp3");
+        var second = new ResponseDownloadSource("Second.mp3");
+
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        view.OnWindowsNativeDownloadRequested(firstUri, "First.mp3", first);
+        view.OnWindowsNativeDownloadRequested(secondUri, "Second.mp3", second);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(firstUri.AbsoluteUri));
+
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = later });
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.IsDisposed, Is.False);
+            Assert.That(second.IsDisposed, Is.False);
+        });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = later, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(firstUri.AbsoluteUri));
+
+        view.FindControl<Button>("DismissDownloadStatusButton")!
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(first.IsDisposed, Is.True);
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(secondUri.AbsoluteUri));
+        Assert.That(second.IsDisposed, Is.False);
+        view.DataContext = null;
+        Assert.That(second.IsDisposed, Is.True);
+    }
+
+    [AvaloniaTest]
+    public void NativeDownloadDuringActiveOptionsFlowIsOfferedNext()
+    {
+        var page = new Uri("https://page.example/");
+        var firstUri = new Uri("https://files.example/first");
+        var secondUri = new Uri("https://files.example/second");
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
+        { DataContext = vm };
+        var first = new ResponseDownloadSource("First.mp3");
+        var second = new ResponseDownloadSource("Second.mp3");
+        view.DownloadOptionsSelector = (_, _) =>
+        {
+            view.OnWindowsNativeDownloadRequested(secondUri, "Second.mp3", second);
+            Assert.That(second.IsDisposed, Is.False);
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+
+        view.OnWindowsNativeDownloadRequested(firstUri, "First.mp3", first);
+        Dispatcher.UIThread.RunJobs();
+        view.FindControl<Button>("ConfirmPageDownloadButton")!
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(first.IsDisposed, Is.True);
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(secondUri.AbsoluteUri));
+        Assert.That(second.IsDisposed, Is.False);
+        view.DataContext = null;
+        Assert.That(second.IsDisposed, Is.True);
+    }
+
+    [AvaloniaTest]
     public void DestroyingAnAdapterClearsItsPendingNativeDownloadPrompt()
     {
         var page = new Uri("https://page.example/");

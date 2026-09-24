@@ -297,7 +297,6 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
-        if (!_pageDownloadNavigationPending) ClearDeferredNativeDownloads();
         _pageRevision++;
         _findRequest?.Cancel();
         if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri)
@@ -317,6 +316,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         if (e.Request is { } request)
         {
+            PreservePendingNativeDownload();
             InvalidatePageDownloadRequests(navigationStarted: true);
             _viewModel?.BeginNavigation(request);
         }
