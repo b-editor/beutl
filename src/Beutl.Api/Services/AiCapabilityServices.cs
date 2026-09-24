@@ -603,7 +603,7 @@ internal sealed class AiTranscriptionService(
                 var body = new MultipartFormDataContent();
                 var file = new StreamContent(stream);
                 file.Headers.ContentType = MediaTypeHeaderValue.Parse(request.Audio.MediaType);
-                body.Add(file, "\"file\"", AiMultipartFormData.Quote(request.Audio.FileName));
+                body.Add(file, "\"file\"", AiMultipartFormData.LegacyFileName(request.Audio.FileName));
                 file.Headers.ContentDisposition!.FileNameStar = request.Audio.FileName;
                 if (request.Language is not null)
                     body.Add(new StringContent(request.Language), "\"language\"");
