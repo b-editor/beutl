@@ -2,6 +2,7 @@
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -20,6 +21,9 @@ public partial class NodeGraphView : UserControl
     private bool _rangeSelectionPressed;
     private readonly List<(GraphNodeView GraphNode, bool IsSelectedOriginal)> _rangeSelection = [];
     private bool _matrixUpdating;
+    private ContextMenu? _portDropMenu;
+
+    internal ContextMenu? PortDropMenu => _portDropMenu;
 
     public NodeGraphView()
     {
@@ -181,6 +185,90 @@ public partial class NodeGraphView : UserControl
         }
     }
 
+    internal void ShowCompatibleNodeMenu(NodePortViewModel source, Point canvasPoint)
+    {
+        if (DataContext is not NodeGraphViewModel viewModel
+            || source.GraphNodeViewModel.NodeGraphViewModel != viewModel
+            || source.Model is not { } sourcePort
+            || canvas.TranslatePoint(canvasPoint, zoomBorder) is not { } viewportPoint
+            || !new Rect(zoomBorder.Bounds.Size).Contains(viewportPoint))
+            return;
+
+        _portDropMenu?.Close();
+        IList<GraphNodeRegistry.BaseRegistryItem> registered = GraphNodeRegistry.GetRegistered();
+        var candidates = CompatibleNodeFinder.Find(viewModel.NodeGraph, sourcePort, registered);
+        ContextMenu? menu = null;
+        var items = new List<MenuItem>();
+        foreach (GraphNodeRegistry.BaseRegistryItem registry in registered)
+        {
+            if (CreateMenuItem(registry) is { } item) items.Add(item);
+        }
+        if (items.Count == 0) return;
+
+        menu = new ContextMenu { ItemsSource = items, Placement = PlacementMode.Pointer };
+        menu.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_portDropMenu, menu)) _portDropMenu = null;
+        };
+        _portDropMenu = menu;
+        menu.Open(canvas);
+
+        MenuItem? CreateMenuItem(GraphNodeRegistry.BaseRegistryItem registry)
+        {
+            if (registry is GraphNodeRegistry.GroupableRegistryItem group)
+            {
+                var children = new List<MenuItem>();
+                foreach (GraphNodeRegistry.BaseRegistryItem child in group.Items)
+                {
+                    if (CreateMenuItem(child) is { } item) children.Add(item);
+                }
+                return children.Count == 0 ? null : new MenuItem
+                {
+                    Header = group.DisplayName,
+                    ItemsSource = children
+                };
+            }
+
+            if (registry is not GraphNodeRegistry.RegistryItem nodeRegistry
+                || !candidates.TryGetValue(nodeRegistry, out CompatibleNodeFinder.Candidate? candidate))
+                return null;
+
+            var nodeItem = new MenuItem { Header = nodeRegistry.DisplayName };
+            if (candidate.Ports.Count == 1)
+            {
+                INodePort? port = candidate.Ports[0];
+                nodeItem.Click += (_, _) => AddConnectedNode(candidate.Node, port);
+            }
+            else
+            {
+                var ports = new List<MenuItem>(candidate.Ports.Count);
+                foreach (INodePort? port in candidate.Ports)
+                {
+                    var portItem = new MenuItem { Header = PortDisplayName(port!) };
+                    portItem.Click += (_, _) => AddConnectedNode(candidate.Node, port);
+                    ports.Add(portItem);
+                }
+                nodeItem.ItemsSource = ports;
+            }
+            return nodeItem;
+        }
+
+        void AddConnectedNode(GraphNode node, INodePort? port)
+        {
+            if (DataContext == viewModel && source.Model == sourcePort)
+                viewModel.AddNodeAndConnect(node, new Point(canvasPoint.X - 215 / 2d, canvasPoint.Y), sourcePort, port);
+            menu?.Close();
+        }
+    }
+
+    private static string PortDisplayName(INodePort port)
+    {
+        string name = port.Display?.GetName() ?? port.Name;
+        if (port is INestedInputPort { RootMember.Value: { } root })
+            return $"{root.Display?.GetName() ?? root.Name} / {name}";
+        return name;
+    }
+
     private void Add(MenuItem menuItem, GraphNodeRegistry.GroupableRegistryItem list)
     {
         var alist = new AvaloniaList<MenuItem>();
@@ -311,6 +399,8 @@ public partial class NodeGraphView : UserControl
 
     private void OnDataContextDetached(NodeGraphViewModel obj)
     {
+        _portDropMenu?.Close();
+        _portDropMenu = null;
         _disposables.Clear();
         canvas.Children.Clear();
     }

@@ -19,21 +19,51 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(node);
 
-        if (graph is GraphGroup group)
-        {
-            // At most one GroupInput / GroupOutput per GraphGroup; silently
-            // reject duplicates so callers need not repeat the type-check.
-            if ((node is GroupInput && group.Nodes.Any(x => x is GroupInput))
-                || (node is GroupOutput && group.Nodes.Any(x => x is GroupOutput)))
-            {
-                return false;
-            }
-        }
+        if (!CanAddNode(graph, node)) return false;
 
         node.Position = (x, y);
         graph.Nodes.Add(node);
         _historyManager.Commit(CommandNames.AddNode);
         return true;
+    }
+
+    public bool AddNodeAndConnect(GraphModel graph, GraphNode node, double x, double y,
+        INodePort existingPort, INodePort? newPort)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(node);
+        ArgumentNullException.ThrowIfNull(existingPort);
+
+        if (!CanAddNode(graph, node)
+            || existingPort.FindHierarchicalParent<GraphNode>() is not { } existingNode
+            || existingNode.FindHierarchicalParent<GraphModel>() != graph
+            || newPort != null && newPort.FindHierarchicalParent<GraphNode>() != node
+            || existingPort is IInputPort { Connection.IsNull: false } and not IListInputPort)
+            return false;
+
+        try
+        {
+            _historyManager.ExecuteInTransaction(() =>
+            {
+                node.Position = (x, y);
+                graph.Nodes.Add(node);
+                if (ConnectCore(graph, existingNode, existingPort, node, newPort) == NodeConnectOutcome.None)
+                    throw new NodeConnectionRejectedException();
+            }, CommandNames.AddNode);
+            return true;
+        }
+        catch (NodeConnectionRejectedException)
+        {
+            return false;
+        }
+    }
+
+    private static bool CanAddNode(GraphModel graph, GraphNode node)
+    {
+        // At most one GroupInput / GroupOutput per GraphGroup.
+        return graph is not GraphGroup group
+               || (node is not GroupInput || group.Nodes.All(x => x is not GroupInput))
+               && (node is not GroupOutput || group.Nodes.All(x => x is not GroupOutput));
     }
 
     public void RemoveNode(GraphModel graph, GraphNode node)
@@ -144,6 +174,16 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         ArgumentNullException.ThrowIfNull(node1);
         ArgumentNullException.ThrowIfNull(node2);
 
+        NodeConnectOutcome outcome = ConnectCore(graph, node1, port1, node2, port2);
+        if (outcome == NodeConnectOutcome.PortAdded) _historyManager.Commit(CommandNames.AddPort);
+        else if (outcome == NodeConnectOutcome.Connected) _historyManager.Commit(CommandNames.ConnectPort);
+        return outcome;
+    }
+
+    private static NodeConnectOutcome ConnectCore(GraphModel graph,
+        GraphNode node1, INodePort? port1,
+        GraphNode node2, INodePort? port2)
+    {
         // Case 1: one side unset, the other a dynamic-port node — materialize
         // a new port on that node.
         if (port1 is null ^ port2 is null)
@@ -168,7 +208,6 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
             if (dynamicNode is not null && mate is not null && dynamicNode.AddNodePort(mate, out _))
             {
-                _historyManager.Commit(CommandNames.AddPort);
                 return NodeConnectOutcome.PortAdded;
             }
 
@@ -179,10 +218,11 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         if (port1 is not null && port2 is not null
             && SortPortDirection(port1, port2, out IInputPort? input, out IOutputPort? output))
         {
+            if (input is not IListInputPort && !input.Connection.IsNull)
+                return NodeConnectOutcome.None;
             if (input.FindHierarchicalParent<GraphNode>() is { } owner && !owner.CanConnectInput(input))
                 return NodeConnectOutcome.None;
             graph.Connect(input, output);
-            _historyManager.Commit(CommandNames.ConnectPort);
             return NodeConnectOutcome.Connected;
         }
 
@@ -282,4 +322,6 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         output = null;
         return false;
     }
+
+    private sealed class NodeConnectionRejectedException : Exception;
 }

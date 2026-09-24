@@ -101,6 +101,10 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
             .AddNode(NodeGraph, node, point.X, point.Y);
     }
 
+    public bool AddNodeAndConnect(GraphNode node, Point point, INodePort existingPort, INodePort? newPort)
+        => EditorContext.GetRequiredService<INodeGraphMutationService>()
+            .AddNodeAndConnect(NodeGraph, node, point.X, point.Y, existingPort, newPort);
+
     public void Dispose()
     {
         foreach (ConnectionViewModel conn in AllConnections)
