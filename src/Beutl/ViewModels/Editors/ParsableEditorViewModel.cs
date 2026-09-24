@@ -12,7 +12,7 @@ public interface IParsableEditorViewModel
 
     ReactivePropertySlim<string?> Description { get; }
 
-    ReadOnlyReactivePropertySlim<string?> HoverInfo { get; }
+    ReactivePropertySlim<string?> HoverInfo => Description;
 
     bool IsDisposed { get; }
 

@@ -51,10 +51,11 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         Description = new ReactivePropertySlim<string?>(property.Description).AddTo(Disposables);
         Type propertyType = property.PropertyType;
         Attribute[] attributes = property.GetAttributes();
-        HoverInfo = Description
+        HoverInfo = new ReactivePropertySlim<string?>().AddTo(Disposables);
+        Description
             .Select(description => PropertyHoverInfoFormatter.Format(propertyType, description, attributes))
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
+            .Subscribe(value => HoverInfo.Value = value)
+            .DisposeWith(Disposables);
 
         // Complete during disposal so stale clock writes are ignored.
         _currentTime = new Subject<TimeSpan>();
@@ -170,7 +171,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public ReactivePropertySlim<string?> Description { get; }
 
-    public ReadOnlyReactivePropertySlim<string?> HoverInfo { get; }
+    public ReactivePropertySlim<string?> HoverInfo { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 

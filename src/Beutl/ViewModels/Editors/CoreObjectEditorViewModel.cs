@@ -17,7 +17,7 @@ public interface ICoreObjectEditorViewModel : IServiceProvider
 
     ReactivePropertySlim<string?> Description { get; }
 
-    ReadOnlyReactivePropertySlim<string?> HoverInfo { get; }
+    ReactivePropertySlim<string?> HoverInfo => Description;
 
     IReadOnlyReactiveProperty<CoreObject?> Value { get; }
 

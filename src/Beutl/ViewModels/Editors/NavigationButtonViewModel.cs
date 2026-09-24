@@ -8,7 +8,7 @@ public interface INavigationButtonViewModel
 
     ReactivePropertySlim<string?> Description { get; }
 
-    ReadOnlyReactivePropertySlim<string?> HoverInfo { get; }
+    ReactivePropertySlim<string?> HoverInfo => Description;
 
     ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
