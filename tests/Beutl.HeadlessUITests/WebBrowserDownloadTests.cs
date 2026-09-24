@@ -326,8 +326,9 @@ public class WebBrowserDownloadTests
         view.OnNativeNavigationCommitted(page);
 
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = action });
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = file });
         view.OnWindowsNativeDownloadRequested(file, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
-        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = action, IsSuccess = false });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = file, IsSuccess = false });
         Dispatcher.UIThread.RunJobs();
         Assert.That(vm.CurrentUri, Is.EqualTo(page));
         Assert.That(vm.ErrorMessage.Value, Is.Null);
@@ -357,16 +358,18 @@ public class WebBrowserDownloadTests
         view.OnNativeNavigationCommitted(page);
 
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = firstAction });
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = firstFile });
         view.OnWindowsNativeDownloadRequested(firstFile, "First.mp3", new ResponseDownloadSource("First.mp3"));
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = secondAction });
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = secondFile });
         view.OnWindowsNativeDownloadRequested(secondFile, "Second.mp3", new ResponseDownloadSource("Second.mp3"));
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
 
-        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = firstAction, IsSuccess = false });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = firstFile, IsSuccess = false });
         Assert.That(vm.CurrentUri, Is.EqualTo(next));
         Assert.That(vm.IsLoading.Value, Is.True);
         Assert.That(vm.ErrorMessage.Value, Is.Null);
-        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = secondAction, IsSuccess = false });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = secondFile, IsSuccess = false });
         Assert.That(vm.CurrentUri, Is.EqualTo(next));
         Assert.That(vm.IsLoading.Value, Is.True);
         Assert.That(vm.ErrorMessage.Value, Is.Null);
@@ -393,6 +396,48 @@ public class WebBrowserDownloadTests
         view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
 
         Assert.That(vm.CurrentUri, Is.EqualTo(media));
+        Assert.That(vm.ErrorMessage.Value, Is.EqualTo(Beutl.Language.Strings.WebPageLoadFailed));
+    }
+
+    [AvaloniaTest]
+    public void CompletedParentNavigationExpiresAnOverlappingIframeDownloadMarker()
+    {
+        var page = new Uri("https://page.example/");
+        var next = new Uri("https://page.example/next");
+        var media = next;
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        view.OnNativeNavigationCommitted(page);
+
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        view.OnWindowsNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = media });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
+
+        Assert.That(vm.CurrentUri, Is.EqualTo(media));
+        Assert.That(vm.ErrorMessage.Value, Is.EqualTo(Beutl.Language.Strings.WebPageLoadFailed));
+    }
+
+    [AvaloniaTest]
+    public void ConcurrentIframeDownloadDoesNotHideParentNavigationFailure()
+    {
+        var page = new Uri("https://page.example/");
+        var next = new Uri("https://page.example/next");
+        var media = new Uri("https://files.example/download");
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        view.OnNativeNavigationCommitted(page);
+
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        view.OnWindowsNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+
+        Assert.That(vm.CurrentUri, Is.EqualTo(next));
         Assert.That(vm.ErrorMessage.Value, Is.EqualTo(Beutl.Language.Strings.WebPageLoadFailed));
     }
 

@@ -332,6 +332,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         {
             return;
         }
+        if (e.IsSuccess)
+        {
+            // An iframe download can overlap this page load without producing a top-level failure.
+            _nativeDownloadFailures.RemoveAll(item => item.Navigation == uri);
+        }
         if (uri == _latestNavigationRequest) _latestNavigationRequest = null;
         if (!e.IsSuccess && _mediaNavigationIntercepted) return;
 

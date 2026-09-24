@@ -45,10 +45,11 @@ internal partial class WebBrowserTabView
             source.Dispose();
             return;
         }
-        if (trackNavigationFailure && _pageDownloadNavigationPending && _latestNavigationRequest != null)
+        if (trackNavigationFailure && _pageDownloadNavigationPending && _latestNavigationRequest == uri)
         {
             // WebView2 forwards a canceled main-frame download navigation as a failure.
-            // A download from an iframe has no matching top-level completion to consume this marker.
+            // Redirects also raise NavigationStarting, so the final download URI must match
+            // the active main-frame request. An iframe download cannot borrow another URI's marker.
             _nativeDownloadFailures.Add((_latestNavigationRequest, uri));
             if (_nativeDownloadFailures.Count > 32) _nativeDownloadFailures.RemoveAt(0);
         }
