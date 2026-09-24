@@ -260,7 +260,7 @@ public sealed partial class AiCapabilityServiceTests
             new AiImageEditRequest(Upload("image.png", "image/png"), new AiImageEditTaskId("upscale")),
             CancellationToken.None);
         await app.GetResource<IAiTranscriptionService>().TranscribeAsync(
-            new AiTranscriptionRequest(Upload("audio.wav", "audio/wav"),
+            new AiTranscriptionRequest(Upload("audio\"clip.wav", "audio/wav"),
                 language: "en", model: new AiModelId("openai/whisper-large-v3-turbo")),
             CancellationToken.None);
         await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
@@ -307,7 +307,7 @@ public sealed partial class AiCapabilityServiceTests
         }
         RecordedRequest transcription = paid.Single(request => request.Path == "/api/v3/ai/transcriptions");
         Assert.That(transcription.Body, Does.Contain("name=\"language\"").And.Contain("name=\"model\""));
-        Assert.That(transcription.Body, Does.Contain("filename*=utf-8''audio.wav"));
+        Assert.That(transcription.Body, Does.Contain("filename*=utf-8''audio%22clip.wav"));
     }
 
     [Test]
@@ -1133,6 +1133,7 @@ public sealed partial class AiCapabilityServiceTests
 
     [TestCase("shapes.png")]
     [TestCase("背景画像.png")]
+    [TestCase("draft\"one.png")]
     public async Task ImageEdit_GivesEveryMultipartPartAFormFieldName(string fileName)
     {
         using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """

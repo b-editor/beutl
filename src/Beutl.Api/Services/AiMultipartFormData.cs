@@ -15,6 +15,12 @@ internal static class AiMultipartFormData
     public static string Quote(string value)
         => $"\"{value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
 
+    // .NET rejects an embedded quote in the legacy filename parameter. Keep
+    // that parameter syntactically safe while filename* carries the original
+    // UTF-8 name (including quotes) for parsers that support RFC 5987.
+    public static string LegacyFileName(string value)
+        => Quote(value.Replace('"', '_').Replace('\r', '_').Replace('\n', '_'));
+
     private sealed class QuotedFilePart : StreamPart
     {
         private readonly string _fileName;
@@ -33,7 +39,7 @@ internal static class AiMultipartFormData
             content.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
             {
                 Name = Quote(_fieldName),
-                FileName = Quote(_fileName),
+                FileName = LegacyFileName(_fileName),
                 FileNameStar = _fileName,
             };
             return content;
