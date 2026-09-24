@@ -307,6 +307,7 @@ public sealed partial class AiCapabilityServiceTests
         }
         RecordedRequest transcription = paid.Single(request => request.Path == "/api/v3/ai/transcriptions");
         Assert.That(transcription.Body, Does.Contain("name=\"language\"").And.Contain("name=\"model\""));
+        Assert.That(transcription.Body, Does.Contain("filename=\"audio_clip.wav\""));
         Assert.That(transcription.Body, Does.Contain("filename*=utf-8''audio%22clip.wav"));
     }
 
@@ -1131,10 +1132,12 @@ public sealed partial class AiCapabilityServiceTests
         }
     }
 
-    [TestCase("shapes.png")]
-    [TestCase("背景画像.png")]
-    [TestCase("draft\"one.png")]
-    public async Task ImageEdit_GivesEveryMultipartPartAFormFieldName(string fileName)
+    [TestCase("shapes.png", "shapes.png")]
+    [TestCase("背景画像.png", null)]
+    [TestCase("draft\"one.png", "draft_one.png")]
+    [TestCase("draft\vone.png", "draft_one.png")]
+    [TestCase("draft\0one.png", "draft_one.png")]
+    public async Task ImageEdit_GivesEveryMultipartPartAFormFieldName(string fileName, string? legacyFileName)
     {
         using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
             {
@@ -1166,6 +1169,8 @@ public sealed partial class AiCapabilityServiceTests
         Match extendedFileName = Regex.Match(fileDisposition, @"filename\*=utf-8''([^;\s]+)", RegexOptions.IgnoreCase);
         Assert.That(extendedFileName.Success, Is.True, fileDisposition);
         Assert.That(Uri.UnescapeDataString(extendedFileName.Groups[1].Value), Is.EqualTo(fileName));
+        if (legacyFileName is not null)
+            Assert.That(fileDisposition, Does.Contain($"filename=\"{legacyFileName}\""));
     }
 
     [Test]
