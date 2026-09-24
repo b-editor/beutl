@@ -322,6 +322,26 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         }
     }
 
+    public void OpenInFileManager(FileSystemItemViewModel item)
+    {
+        string path = item.FullPath;
+        if (item.IsDirectory ? !Directory.Exists(path) : !File.Exists(path))
+        {
+            NotificationService.ShowError(FileManagerLauncher.MenuHeader, MessageStrings.FileDoesNotExist);
+            return;
+        }
+
+        try
+        {
+            Process.Start(FileManagerLauncher.CreateStartInfo(path, item.IsDirectory));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open {Path} in file manager", path);
+            NotificationService.ShowError(FileManagerLauncher.MenuHeader, MessageStrings.OperationFailed);
+        }
+    }
+
     private bool CanMutateItem(FileSystemItemViewModel item)
     {
         if (_disposed) return false;

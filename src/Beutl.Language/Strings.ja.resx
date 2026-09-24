@@ -3130,4 +3130,13 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="BrowserAdBlockLoading" xml:space="preserve">
     <value>フィルターを読み込んでいます...</value>
   </data>
+  <data name="OpenInFinder" xml:space="preserve">
+    <value>Finderで開く</value>
+  </data>
+  <data name="OpenInExplorer" xml:space="preserve">
+    <value>エクスプローラーで開く</value>
+  </data>
+  <data name="OpenInFileManager" xml:space="preserve">
+    <value>ファイルマネージャーで開く</value>
+  </data>
 </root>

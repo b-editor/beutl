@@ -3135,4 +3135,13 @@ when history recording is enabled.</value>
   <data name="BrowserAdBlockLoading" xml:space="preserve">
     <value>Loading filters...</value>
   </data>
+  <data name="OpenInFinder" xml:space="preserve">
+    <value>Open in Finder</value>
+  </data>
+  <data name="OpenInExplorer" xml:space="preserve">
+    <value>Open in File Explorer</value>
+  </data>
+  <data name="OpenInFileManager" xml:space="preserve">
+    <value>Open in File Manager</value>
+  </data>
 </root>
