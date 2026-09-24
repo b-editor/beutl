@@ -153,10 +153,10 @@ public partial class FileBrowserTabView : UserControl
         }
     }
 
-    private void OnOpenInFileManagerClick(object? sender, RoutedEventArgs e)
+    private async void OnOpenInFileManagerClick(object? sender, RoutedEventArgs e)
     {
-        if (GetItemFromMenuItem(sender) is { } item)
-            ViewModel?.OpenInFileManager(item);
+        if (GetItemFromMenuItem(sender) is { } item && ViewModel is { } vm)
+            await vm.OpenInFileManagerAsync(item);
     }
 
     private async void OnDeleteClick(object? sender, RoutedEventArgs e)

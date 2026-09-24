@@ -1,9 +1,11 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
 internal static class FileManagerLauncher
 {
+    private static readonly TimeSpan s_launchWaitTimeout = TimeSpan.FromSeconds(10);
+
     internal static string MenuHeader => GetMenuHeader(CurrentPlatform);
 
     internal static ProcessStartInfo CreateStartInfo(string path, bool isDirectory)
@@ -43,6 +45,25 @@ internal static class FileManagerLauncher
         var linuxStartInfo = new ProcessStartInfo("xdg-open") { UseShellExecute = false };
         linuxStartInfo.ArgumentList.Add(isDirectory ? path : Path.GetDirectoryName(path)!);
         return linuxStartInfo;
+    }
+
+    internal static async Task<bool> LaunchAsync(ProcessStartInfo startInfo)
+    {
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("The file manager process did not start.");
+        using var timeout = new CancellationTokenSource(s_launchWaitTimeout);
+
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            // xdg-open may remain attached to the opened application for its entire lifetime.
+            return !process.HasExited || process.ExitCode == 0;
+        }
+
+        return process.ExitCode == 0;
     }
 
     private static OSPlatform CurrentPlatform => OperatingSystem.IsMacOS() ? OSPlatform.OSX
