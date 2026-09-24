@@ -294,9 +294,10 @@ public class WebBrowserDownloadTests
         var next = retrySameUri ? media : new Uri("https://failed.example/");
         using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: true)
+            navigationStartedIncludesSubframes: false)
         { DataContext = vm };
         view.OnNativeNavigationCommitted(page);
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = media });
         view.OnWindowsNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
         Dispatcher.UIThread.RunJobs();
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
@@ -376,6 +377,26 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public void SubframeDownloadDoesNotSuppressLaterNavigationToTheSameUri()
+    {
+        var page = new Uri("https://page.example/");
+        var media = new Uri("https://files.example/download");
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        view.OnNativeNavigationCommitted(page);
+
+        // WebView2 raises DownloadStarting for an iframe without starting a top-level navigation.
+        view.OnWindowsNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = media });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
+
+        Assert.That(vm.CurrentUri, Is.EqualTo(media));
+        Assert.That(vm.ErrorMessage.Value, Is.EqualTo(Beutl.Language.Strings.WebPageLoadFailed));
+    }
+
+    [AvaloniaTest]
     public void MacNativeDownloadDoesNotSuppressARealFailureToTheSameUri()
     {
         var page = new Uri("https://page.example/");
@@ -410,6 +431,7 @@ public class WebBrowserDownloadTests
         }, () => (true, null, false), navigationStartedIncludesSubframes: false)
         { DataContext = first };
 
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = media });
         view.OnWindowsNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
         view.DataContext = null;
         view.DataContext = second;
