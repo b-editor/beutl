@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="Beutl.Views.Tools.AiJobCenterView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:live="using:Beutl.Controls"
              xmlns:btl="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -40,9 +41,9 @@
                                   Margin="8,0"
                                   DataContext="{CompiledBinding Usage}" />
 
-        <TextBlock Grid.Row="2"
+        <live:SafeLiveRegionTextBlock Grid.Row="2"
                    Margin="8"
-                   AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
+                   AutomationProperties.LiveSetting="Assertive"
                    AutomationProperties.Name="{CompiledBinding Error.Value}"
                    Foreground="{DynamicResource SystemFillColorCautionBrush}"
                    IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
@@ -59,7 +60,7 @@
             <StackPanel Spacing="8">
                 <TextBlock FontWeight="SemiBold"
                            Text="{CompiledBinding ConfirmationTitle.Value}" />
-                <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
+                <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Polite"
                            AutomationProperties.Name="{CompiledBinding ConfirmationMessage.Value}"
                            Text="{CompiledBinding ConfirmationMessage.Value}"
                            TextWrapping="Wrap" />
@@ -86,8 +87,8 @@
         </Border>
 
         <Grid Grid.Row="4">
-            <TextBlock Margin="16"
-                       AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
+            <live:SafeLiveRegionTextBlock Margin="16"
+                       AutomationProperties.LiveSetting="Polite"
                        AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_Empty}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
@@ -140,7 +141,7 @@
                                                     Padding="6,2"
                                                     Background="{DynamicResource ControlFillColorSecondaryBrush}"
                                                     CornerRadius="8">
-                                                <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
+                                                <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Polite"
                                                            AutomationProperties.Name="{CompiledBinding StatusDisplayName}"
                                                            FontSize="10"
                                                            Text="{CompiledBinding StatusDisplayName}" />
@@ -159,7 +160,7 @@
                                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                    Text="{CompiledBinding CreatedAtText}"
                                                    ToolTip.Tip="{CompiledBinding CreatedAtTooltip}" />
-                                        <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
+                                        <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Assertive"
                                                    AutomationProperties.Name="{CompiledBinding Error}"
                                                    Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                                                    IsVisible="{CompiledBinding IsFailed}"

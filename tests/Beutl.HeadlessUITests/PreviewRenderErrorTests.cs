@@ -431,9 +431,7 @@ public class PreviewRenderErrorTests
                 "The error overlay must remain a sibling of the transformed preview panel.");
             Assert.That(
                 AutomationProperties.GetLiveSetting(message),
-                Is.EqualTo(OperatingSystem.IsMacOS()
-                    ? AutomationLiveSetting.Off
-                    : AutomationLiveSetting.Assertive));
+                Is.EqualTo(AutomationLiveSetting.Assertive));
             Assert.That(overlay.IsVisible, Is.False);
 
             editor.Player.SetPreviewRenderError(Beutl.Language.MessageStrings.FrameDrawingException);

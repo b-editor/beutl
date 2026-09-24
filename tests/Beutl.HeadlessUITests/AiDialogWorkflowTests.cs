@@ -5457,9 +5457,7 @@ public sealed partial class AiDialogWorkflowTests
                     Is.EqualTo(Strings.AiSubtitle_Transcribing));
                 Assert.That(
                     AutomationProperties.GetLiveSetting(status),
-                    Is.EqualTo(OperatingSystem.IsMacOS()
-                        ? AutomationLiveSetting.Off
-                        : AutomationLiveSetting.Polite));
+                    Is.EqualTo(AutomationLiveSetting.Polite));
             }
         }
         finally

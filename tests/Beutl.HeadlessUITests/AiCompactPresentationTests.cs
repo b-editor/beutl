@@ -157,7 +157,7 @@ public sealed class AiCompactPresentationTests
     }
 
     [AvaloniaTest]
-    public async Task ImageEdit_ClearingAnErrorUsesSafeMacOsLiveSetting()
+    public async Task ImageEdit_ClearingAnErrorKeepsAMacSafeLiveRegion()
     {
         await TestReset.ResetShellAsync();
         BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
@@ -171,10 +171,7 @@ public sealed class AiCompactPresentationTests
             HeadlessTestHelpers.Render();
             TextBlock error = view.FindControl<TextBlock>("ImageEditErrorMessage")!;
             AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(error);
-            Assert.That(AutomationProperties.GetLiveSetting(error),
-                Is.EqualTo(OperatingSystem.IsMacOS()
-                    ? AutomationLiveSetting.Off
-                    : AutomationLiveSetting.Assertive));
+            Assert.That(AutomationProperties.GetLiveSetting(error), Is.EqualTo(AutomationLiveSetting.Assertive));
 
             viewModel.Error.Value = "A test error";
             HeadlessTestHelpers.Render();
@@ -186,7 +183,8 @@ public sealed class AiCompactPresentationTests
             {
                 Assert.That(error.IsVisible, Is.False);
                 Assert.That(error.Text, Is.Null);
-                Assert.That(peer.GetName(), Is.Empty);
+                Assert.That(peer.GetName(),
+                    Is.EqualTo(OperatingSystem.IsMacOS() ? "\u200B" : string.Empty));
             }
         }
         finally
@@ -777,9 +775,7 @@ public sealed class AiCompactPresentationTests
                     Is.EqualTo(Strings.AiSubtitle_Transcribing));
                 Assert.That(
                     AutomationProperties.GetLiveSetting(status),
-                    Is.EqualTo(OperatingSystem.IsMacOS()
-                        ? AutomationLiveSetting.Off
-                        : AutomationLiveSetting.Polite));
+                    Is.EqualTo(AutomationLiveSetting.Polite));
                 Assert.That(
                     automationChanges.Any(change =>
                         ReferenceEquals(

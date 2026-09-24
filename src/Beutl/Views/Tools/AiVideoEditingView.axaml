@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="Beutl.Views.Tools.AiVideoEditingView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:live="using:Beutl.Controls"
              xmlns:ai="using:Beutl.Services.AI"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -64,9 +65,9 @@
                              Text="{CompiledBinding Prompt.Value}" MaxLength="{CompiledBinding MaxPromptLength.Value}"
                              PlaceholderText="{x:Static lang:Strings.AiVideoEditPromptPlaceholder}"
                              AutomationProperties.Name="{x:Static lang:Strings.AiPrompt}" />
-                    <TextBlock Text="{CompiledBinding VisiblePromptValidationError.Value}" TextWrapping="Wrap"
+                    <live:SafeLiveRegionTextBlock Text="{CompiledBinding VisiblePromptValidationError.Value}" TextWrapping="Wrap"
                                IsVisible="{CompiledBinding VisiblePromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                               Foreground="{DynamicResource SystemFillColorCautionBrush}" AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}" />
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}" AutomationProperties.LiveSetting="Assertive" />
                 </StackPanel>
                 <StackPanel x:Name="DurationField" Spacing="4" IsVisible="{CompiledBinding CanChooseDuration}">
                     <Grid ColumnDefinitions="*,Auto">
@@ -101,7 +102,7 @@
                                   SelectedItem="{CompiledBinding Quality.Value}" AutomationProperties.Name="{x:Static lang:Strings.AiMotionQuality}" />
                     </StackPanel>
                 </StackPanel>
-                <TextBlock Text="{CompiledBinding InputError.Value}" TextWrapping="Wrap" AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
+                <live:SafeLiveRegionTextBlock Text="{CompiledBinding InputError.Value}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                            Foreground="{DynamicResource SystemFillColorCautionBrush}"
                            IsVisible="{CompiledBinding InputError.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
             <StackPanel Spacing="8">
@@ -135,8 +136,8 @@
                         <icons:FluentIcon FontSize="24"
                                            Icon="VideoClipWand"
                                            Opacity="0.6" />
-                        <TextBlock HorizontalAlignment="Center"
-                                   AutomationProperties.LiveSetting="{OnPlatform Default=Polite, macOS=Off}"
+                        <live:SafeLiveRegionTextBlock HorizontalAlignment="Center"
+                                   AutomationProperties.LiveSetting="Polite"
                                    AutomationProperties.Name="{CompiledBinding StatusText.Value}"
                                    Opacity="0.6"
                                    Text="{CompiledBinding StatusText.Value}"
@@ -151,7 +152,7 @@
                 </Grid>
             </Border>
 
-            <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
+            <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Assertive"
                        AutomationProperties.Name="{CompiledBinding Error.Value}"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"

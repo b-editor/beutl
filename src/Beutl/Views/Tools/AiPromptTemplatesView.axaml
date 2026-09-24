@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Tools.AiPromptTemplatesView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:live="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -30,7 +31,7 @@
                     Command="{CompiledBinding SaveTemplate}"
                     Content="{x:Static lang:Strings.AiPromptSaveTemplate}" />
         </Grid>
-        <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
+        <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Assertive"
                    AutomationProperties.Name="{CompiledBinding Error.Value}"
                    Foreground="{DynamicResource SystemFillColorCautionBrush}"
                    IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"

@@ -260,7 +260,8 @@ public sealed partial class AiCapabilityServiceTests
             new AiImageEditRequest(Upload("image.png", "image/png"), new AiImageEditTaskId("upscale")),
             CancellationToken.None);
         await app.GetResource<IAiTranscriptionService>().TranscribeAsync(
-            new AiTranscriptionRequest(Upload("audio.wav", "audio/wav")),
+            new AiTranscriptionRequest(Upload("audio.wav", "audio/wav"),
+                language: "en", model: new AiModelId("openai/whisper-large-v3-turbo")),
             CancellationToken.None);
         await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
             new AiCaptionTranslationRequest(
@@ -304,6 +305,8 @@ public sealed partial class AiCapabilityServiceTests
         {
             AssertQuotedMultipartNames(request);
         }
+        RecordedRequest transcription = paid.Single(request => request.Path == "/api/v3/ai/transcriptions");
+        Assert.That(transcription.Body, Does.Contain("name=\"language\"").And.Contain("name=\"model\""));
     }
 
     [Test]

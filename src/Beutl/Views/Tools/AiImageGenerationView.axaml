@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="Beutl.Views.Tools.AiImageGenerationView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:live="using:Beutl.Controls"
              xmlns:btl="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -60,7 +61,7 @@
                          Text="{CompiledBinding Prompt.Value}"
                          TextWrapping="Wrap"
                          PlaceholderText="{x:Static lang:Strings.AiPrompt_Placeholder}" />
-                <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
+                <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Assertive"
                            Foreground="{DynamicResource SystemFillColorCautionBrush}"
                            IsVisible="{CompiledBinding VisiblePromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                            Text="{CompiledBinding VisiblePromptValidationError.Value}"
@@ -237,7 +238,7 @@
                 </StackPanel>
             </Border>
 
-            <TextBlock AutomationProperties.LiveSetting="{OnPlatform Default=Assertive, macOS=Off}"
+            <live:SafeLiveRegionTextBlock AutomationProperties.LiveSetting="Assertive"
                        AutomationProperties.Name="{CompiledBinding Error.Value}"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
