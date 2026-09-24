@@ -189,6 +189,7 @@ public partial class NodeGraphView : UserControl
     {
         if (DataContext is not NodeGraphViewModel viewModel
             || source.GraphNodeViewModel.NodeGraphViewModel != viewModel
+            || !viewModel.SupportsConnectedNodeCreation
             || source.Model is not { } sourcePort
             || canvas.TranslatePoint(canvasPoint, zoomBorder) is not { } viewportPoint
             || !new Rect(zoomBorder.Bounds.Size).Contains(viewportPoint))
@@ -236,16 +237,16 @@ public partial class NodeGraphView : UserControl
             var nodeItem = new MenuItem { Header = nodeRegistry.DisplayName };
             if (candidate.Ports.Count == 1)
             {
-                INodePort? port = candidate.Ports[0];
-                nodeItem.Click += (_, _) => AddConnectedNode(candidate.Node, port);
+                CompatibleNodeFinder.PortChoice? port = candidate.Ports[0];
+                nodeItem.Click += (_, _) => AddConnectedNode(candidate, port);
             }
             else
             {
                 var ports = new List<MenuItem>(candidate.Ports.Count);
-                foreach (INodePort? port in candidate.Ports)
+                foreach (CompatibleNodeFinder.PortChoice? port in candidate.Ports)
                 {
-                    var portItem = new MenuItem { Header = PortDisplayName(port!) };
-                    portItem.Click += (_, _) => AddConnectedNode(candidate.Node, port);
+                    var portItem = new MenuItem { Header = port!.DisplayName };
+                    portItem.Click += (_, _) => AddConnectedNode(candidate, port);
                     ports.Add(portItem);
                 }
                 nodeItem.ItemsSource = ports;
@@ -253,20 +254,14 @@ public partial class NodeGraphView : UserControl
             return nodeItem;
         }
 
-        void AddConnectedNode(GraphNode node, INodePort? port)
+        void AddConnectedNode(CompatibleNodeFinder.Candidate candidate, CompatibleNodeFinder.PortChoice? choice)
         {
-            if (DataContext == viewModel && source.Model == sourcePort)
-                viewModel.AddNodeAndConnect(node, new Point(canvasPoint.X - 215 / 2d, canvasPoint.Y), sourcePort, port);
+            if (DataContext == viewModel && source.Model == sourcePort
+                && CompatibleNodeFinder.TryCreateSelection(candidate, choice, sourcePort,
+                    out GraphNode? node, out INodePort? port))
+                viewModel.AddNodeAndConnect(node!, new Point(canvasPoint.X - 215 / 2d, canvasPoint.Y), sourcePort, port);
             menu?.Close();
         }
-    }
-
-    private static string PortDisplayName(INodePort port)
-    {
-        string name = port.Display?.GetName() ?? port.Name;
-        if (port is INestedInputPort { RootMember.Value: { } root })
-            return $"{root.Display?.GetName() ?? root.Name} / {name}";
-        return name;
     }
 
     private void Add(MenuItem menuItem, GraphNodeRegistry.GroupableRegistryItem list)

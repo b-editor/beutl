@@ -5,7 +5,7 @@ using Beutl.NodeGraph.Nodes.Group;
 
 namespace Beutl.Editor.Services;
 
-public sealed class NodeGraphMutationService : INodeGraphMutationService
+public sealed class NodeGraphMutationService : INodeGraphConnectedNodeMutationService
 {
     private readonly HistoryManager _historyManager;
 
@@ -190,21 +190,24 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         {
             IDynamicPortNode? dynamicNode = null;
             INodePort? mate = null;
-            if (node1 is IDynamicPortNode d1)
+            if (port1 is null && node1 is IDynamicPortNode d1)
             {
                 dynamicNode = d1;
                 mate = port2;
             }
-            else if (node2 is IDynamicPortNode d2)
+            else if (port2 is null && node2 is IDynamicPortNode d2)
             {
                 dynamicNode = d2;
                 mate = port1;
             }
 
             if (mate is IInputPort nestedInput
-                && nestedInput.FindHierarchicalParent<GraphNode>() is { } owner
-                && !owner.CanConnectInput(nestedInput))
+                && (nestedInput is not IListInputPort && !nestedInput.Connection.IsNull
+                    || nestedInput.FindHierarchicalParent<GraphNode>() is { } owner
+                    && !owner.CanConnectInput(nestedInput)))
+            {
                 return NodeConnectOutcome.None;
+            }
 
             if (dynamicNode is not null && mate is not null && dynamicNode.AddNodePort(mate, out _))
             {

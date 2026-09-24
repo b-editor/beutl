@@ -105,10 +105,13 @@ public partial class GroupNode : GraphNode
 
     private void AddOutput(int index, IInputPort item)
     {
-        IOutputPort? outputNodePort = CreateOutput(item.Name, item.AssociatedType!);
-
-        _outputNodePortDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)
-            .Subscribe(v => outputNodePort.Name = v));
+        IOutputPort? outputNodePort = CreateOutput(item.Name, item.AssociatedType!, item.Display);
+        var subscriptions = new CompositeDisposable();
+        ((CoreObject)item).GetObservable(NameProperty)
+            .Subscribe(v => outputNodePort.Name = v).DisposeWith(subscriptions);
+        ((NodeMember)item).GetObservable(NodeMember.DisplayProperty)
+            .Subscribe(v => ((NodeMember)outputNodePort).Display = v).DisposeWith(subscriptions);
+        _outputNodePortDisposable.Insert(index, subscriptions);
         Items.Insert(index, outputNodePort);
     }
 
@@ -182,8 +185,12 @@ public partial class GroupNode : GraphNode
             inputNodePort.Property?.SetValue(value);
         }
 
-        _inputNodePortDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)
-            .Subscribe(v => inputNodePort.Name = v));
+        var subscriptions = new CompositeDisposable();
+        ((CoreObject)item).GetObservable(NameProperty)
+            .Subscribe(v => inputNodePort.Name = v).DisposeWith(subscriptions);
+        ((NodeMember)item).GetObservable(NodeMember.DisplayProperty)
+            .Subscribe(v => ((NodeMember)inputNodePort).Display = v).DisposeWith(subscriptions);
+        _inputNodePortDisposable.Insert(index, subscriptions);
         var outputNodePortCount = Group.Output?.Items.Count ?? 0;
         Items.Insert(outputNodePortCount + index, inputNodePort);
     }

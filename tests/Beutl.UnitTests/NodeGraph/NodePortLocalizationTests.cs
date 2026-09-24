@@ -1,9 +1,13 @@
+﻿using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.NodeGraph.Nodes.Utilities;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -58,6 +62,59 @@ public class NodePortLocalizationTests
             INodeMember port = groupInput.Items.Single();
             Assert.That(port.Name, Is.EqualTo("Maximum"));
             Assert.That(port.Display?.GetName(), Is.EqualTo("最大値"));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    [Test]
+    public void GroupNodeOutputPreservesTheInnerPortsLocalizedDisplay()
+    {
+        CultureInfo previous = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
+        try
+        {
+            using var scene = new SceneHistoryHarness("group-port-display");
+            var application = new BeutlApplication();
+            application.Items.Add(scene.Scene);
+            var root = new GraphModel();
+            var drawable = new NodeGraphDrawable();
+            drawable.Model.CurrentValue = root;
+            scene.AddElement().AddObject(drawable);
+            var group = new GroupNode();
+            root.Nodes.Add(group);
+            var source = new RandomSingleNode();
+            var innerOutput = new GroupOutput();
+            group.Group.Nodes.Add(source);
+            group.Group.Nodes.Add(innerOutput);
+
+            Assert.That(innerOutput.AddNodePort(source.Value, out _), Is.True);
+            INodeMember outerPort = group.Items.Single();
+            Assert.That(outerPort.Name, Is.EqualTo("Value"));
+            Assert.That(outerPort.Display?.GetName(), Is.EqualTo("値"));
+
+            ((NodeMember)innerOutput.Items.Single()).Display = new DisplayAttribute
+            {
+                Name = nameof(NodeGraphStrings.Port_Maximum),
+                ResourceType = typeof(NodeGraphStrings)
+            };
+            Assert.That(outerPort.Display?.GetName(), Is.EqualTo("最大値"));
+
+            var consumer = new RandomSingleNode();
+            var innerInput = new GroupInput();
+            group.Group.Nodes.Add(consumer);
+            group.Group.Nodes.Add(innerInput);
+            Assert.That(innerInput.AddNodePort(consumer.Maximum, out _), Is.True);
+            INodeMember outerInput = group.Items.OfType<IInputPort>().Single();
+            Assert.That(outerInput.Display?.GetName(), Is.EqualTo("最大値"));
+            ((NodeMember)innerInput.Items.Single()).Display = new DisplayAttribute
+            {
+                Name = nameof(NodeGraphStrings.Port_Minimum),
+                ResourceType = typeof(NodeGraphStrings)
+            };
+            Assert.That(outerInput.Display?.GetName(), Is.EqualTo("最小値"));
         }
         finally
         {

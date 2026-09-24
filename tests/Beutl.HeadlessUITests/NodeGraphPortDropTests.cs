@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
 using Avalonia.Headless;
@@ -25,8 +25,10 @@ namespace Beutl.HeadlessUITests;
 public class NodeGraphPortDropTests
 {
     [AvaloniaTest]
+    [TestCase(0.5d)]
     [TestCase(1d)]
     [TestCase(1.5d)]
+    [TestCase(2d)]
     public async Task OutputDroppedOnEmptyGraph_OffersCompatibleNodesAndConnectsSelectedNode(double scale)
     {
         var graph = new GraphModel();
@@ -181,6 +183,81 @@ public class NodeGraphPortDropTests
             history.Undo();
             Assert.That(graph.Nodes, Has.Count.EqualTo(1));
             Assert.That(graph.AllConnections, Is.Empty);
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void PortDropWithLegacyMutationService_DoesNotOfferNonAtomicCreation()
+    {
+        var graph = new GraphModel();
+        var source = new FilterEffectInputNode { Position = (20, 40) };
+        graph.Nodes.Add(source);
+        using var vm = CreateViewModel(graph, new Mock<INodeGraphMutationService>().Object);
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window { Content = view, Width = 800, Height = 550 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var socket = view.GetVisualDescendants().OfType<NodePortPoint>()
+                .Single(p => p.DataContext is OutputPortViewModel output && output.Model == source.Output);
+            Point from = socket.TranslatePoint(new Point(5, 5), window)!.Value;
+            Point to = new(440, 210);
+
+            window.MouseMove(from);
+            window.MouseDown(from, MouseButton.Left);
+            window.MouseMove(to, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(to, MouseButton.Left);
+            HeadlessTestHelpers.Render(3);
+
+            Assert.That(view.PortDropMenu, Is.Null);
+            Assert.That(graph.Nodes, Has.Count.EqualTo(1));
+            Assert.That(graph.AllConnections, Is.Empty);
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(0.5d)]
+    [TestCase(2d)]
+    public void FourPixelPortDrag_DoesNotOpenPickerAtDifferentZoomLevels(double scale)
+    {
+        var graph = new GraphModel();
+        var source = new FilterEffectInputNode { Position = (20, 40) };
+        graph.Nodes.Add(source);
+        using var vm = CreateViewModel(graph, new Mock<INodeGraphConnectedNodeMutationService>().Object);
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window { Content = view, Width = 800, Height = 550 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var zoom = view.FindControl<ZoomBorder>("zoomBorder")!;
+            zoom.EnableAnimations = false;
+            zoom.SetMatrix(new Matrix(scale, 0, 0, scale, 0, 0), true);
+            HeadlessTestHelpers.Render(3);
+            var socket = view.GetVisualDescendants().OfType<NodePortPoint>()
+                .Single(p => p.DataContext is OutputPortViewModel output && output.Model == source.Output);
+            Point from = socket.TranslatePoint(new Point(5, 5), window)!.Value;
+            Point to = from + new Vector(4, 0);
+
+            window.MouseMove(from);
+            window.MouseDown(from, MouseButton.Left);
+            window.MouseMove(to, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(to, MouseButton.Left);
+            HeadlessTestHelpers.Render(3);
+
+            Assert.That(view.PortDropMenu?.IsOpen, Is.Not.True);
+            Assert.That(graph.Nodes, Has.Count.EqualTo(1));
         }
         finally
         {

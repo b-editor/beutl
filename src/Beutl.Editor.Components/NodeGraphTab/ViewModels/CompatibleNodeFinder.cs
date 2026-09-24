@@ -1,17 +1,49 @@
-using System.Reflection;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 
 internal static class CompatibleNodeFinder
 {
-    internal sealed record Candidate(GraphNode Node, IReadOnlyList<INodePort?> Ports);
+    internal sealed record Candidate(GraphNodeRegistry.RegistryItem Registry, IReadOnlyList<PortChoice?> Ports);
+
+    internal sealed record PortChoice(
+        int Index,
+        string Name,
+        Type? AssociatedType,
+        bool IsInput,
+        bool IsOutput,
+        bool CanConnectInput,
+        DisplayAttribute? Display,
+        string? RootName,
+        DisplayAttribute? RootDisplay)
+    {
+        public string DisplayName
+        {
+            get
+            {
+                string name = Display?.GetName() ?? Name;
+                return RootName is null ? name : $"{RootDisplay?.GetName() ?? RootName} / {name}";
+            }
+        }
+    }
+
+    private sealed record NodeDescriptor(IReadOnlyList<PortChoice> Ports, NodePortLocation? DynamicLocation)
+    {
+        public static NodeDescriptor Empty { get; } = new([], null);
+    }
+
+    private static readonly ConditionalWeakTable<Type, NodeDescriptor> s_descriptors = new();
+    private static readonly ILogger s_logger = Log.CreateLogger(typeof(CompatibleNodeFinder));
 
     private static readonly HashSet<Type> s_numericTypes =
     [
@@ -59,23 +91,103 @@ internal static class CompatibleNodeFinder
                     || (type != typeof(object) && !typeof(RenderNode).IsAssignableFrom(type))))
                 return;
 
+            NodeDescriptor descriptor = s_descriptors.GetValue(registry.Type, CreateDescriptor);
+            PortChoice?[] ports = descriptor.Ports.Where(port => CanConnect(source, port))
+                .Cast<PortChoice?>().ToArray();
+            if (ports.Length == 0 && descriptor.DynamicLocation is { } location
+                && (source is IOutputPort && location.HasFlag(NodePortLocation.Left)
+                    || source is IInputPort && location.HasFlag(NodePortLocation.Right)))
+                ports = [null];
+            if (ports.Length > 0) result.Add(registry, new Candidate(registry, ports));
+        }
+    }
+
+    private static NodeDescriptor CreateDescriptor(Type type)
+    {
+        GraphNode? node = null;
+        try
+        {
+            node = Activator.CreateInstance(type) as GraphNode;
+            if (node == null) return NodeDescriptor.Empty;
+            PortChoice[] ports = node.EnumerateMembers().OfType<INodePort>()
+                .Select((port, index) =>
+                {
+                    NodeMember? root = (port as INestedInputPort)?.RootMember.Value;
+                    bool canConnectInput = port is IInputPort input
+                        && (input is IListInputPort || input.Connection.IsNull)
+                        && node.CanConnectInput(input);
+                    return new PortChoice(index, port.Name, port.AssociatedType,
+                        port is IInputPort, port is IOutputPort, canConnectInput,
+                        port.Display, root?.Name, root?.Display);
+                }).ToArray();
+            return new NodeDescriptor(ports, (node as IDynamicPortNode)?.PossibleLocation);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            s_logger.LogWarning(ex, "Skipping unavailable node type {NodeType} in the port drop picker", type);
+            return NodeDescriptor.Empty;
+        }
+        finally
+        {
             try
             {
-                if (Activator.CreateInstance(registry.Type) is not GraphNode node) return;
-                INodePort?[] ports = node.EnumerateMembers().OfType<INodePort>()
-                    .Where(port => CanConnect(source, port)).Cast<INodePort?>().ToArray();
-                if (ports.Length == 0 && node is IDynamicPortNode dynamic
-                    && (source is IOutputPort && dynamic.PossibleLocation.HasFlag(NodePortLocation.Left)
-                        || source is IInputPort && dynamic.PossibleLocation.HasFlag(NodePortLocation.Right)))
-                    ports = [null];
-                if (ports.Length > 0) result.Add(registry, new Candidate(node, ports));
+                (node as IDisposable)?.Dispose();
             }
-            catch (Exception ex) when (ex is TargetInvocationException or MissingMethodException
-                                       or MemberAccessException or TypeLoadException)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                // An unloaded or broken extension must not prevent the rest of the picker from opening.
+                s_logger.LogWarning(ex, "Failed to dispose node metadata probe {NodeType}", type);
             }
         }
+    }
+
+    internal static bool TryCreateSelection(Candidate candidate, PortChoice? choice, INodePort source,
+        out GraphNode? node, out INodePort? port)
+    {
+        node = null;
+        port = null;
+        bool selected = false;
+        try
+        {
+            node = Activator.CreateInstance(candidate.Registry.Type) as GraphNode;
+            if (node == null) return false;
+            if (choice == null) return selected = node is IDynamicPortNode;
+
+            port = node.EnumerateMembers().OfType<INodePort>().ElementAtOrDefault(choice.Index);
+            return selected = port != null && port.Name == choice.Name
+                && port.AssociatedType == choice.AssociatedType && CanConnect(source, port);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            s_logger.LogWarning(ex, "Failed to create selected node type {NodeType}", candidate.Registry.Type);
+            return false;
+        }
+        finally
+        {
+            if (!selected)
+            {
+                try
+                {
+                    (node as IDisposable)?.Dispose();
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    s_logger.LogWarning(ex, "Failed to dispose rejected node type {NodeType}", candidate.Registry.Type);
+                }
+                node = null;
+                port = null;
+            }
+        }
+    }
+
+    private static bool CanConnect(INodePort source, PortChoice candidate)
+    {
+        if (source.AssociatedType is not { } sourceType
+            || candidate.AssociatedType is not { } candidateType) return false;
+        if (source is IOutputPort && candidate.IsInput && candidate.CanConnectInput)
+            return CanPropagate(sourceType, candidateType);
+        if (source is IInputPort && candidate.IsOutput)
+            return CanPropagate(candidateType, sourceType);
+        return false;
     }
 
     internal static bool CanConnect(INodePort source, INodePort candidate)

@@ -16,34 +16,6 @@ public interface INodeGraphMutationService
     /// in a <see cref="GraphGroup"/>; commits <c>AddNode</c> on success.</summary>
     bool AddNode(GraphModel graph, GraphNode node, double x, double y);
 
-    /// <summary>Adds a node and connects one of its ports to an existing port.
-    /// Pass <paramref name="newPort"/> as null for a dynamic-port node. The built-in service
-    /// commits this as one undo entry; the default implementation keeps other implementations
-    /// source-compatible by using their existing add/connect operations.</summary>
-    bool AddNodeAndConnect(GraphModel graph, GraphNode node, double x, double y,
-        INodePort existingPort, INodePort? newPort)
-    {
-        ArgumentNullException.ThrowIfNull(graph);
-        ArgumentNullException.ThrowIfNull(node);
-        ArgumentNullException.ThrowIfNull(existingPort);
-        if (existingPort.FindHierarchicalParent<GraphNode>() is not { } existingNode
-            || existingNode.FindHierarchicalParent<GraphModel>() != graph
-            || newPort != null && newPort.FindHierarchicalParent<GraphNode>() != node
-            || !AddNode(graph, node, x, y))
-            return false;
-
-        bool connected = false;
-        try
-        {
-            connected = TryConnect(graph, existingNode, existingPort, node, newPort) != NodeConnectOutcome.None;
-            return connected;
-        }
-        finally
-        {
-            if (!connected) RemoveNode(graph, node);
-        }
-    }
-
     /// <summary>Cascade-disconnects every connection touching
     /// <paramref name="node"/>, removes it, and commits one <c>RemoveNode</c>.</summary>
     void RemoveNode(GraphModel graph, GraphNode node);
@@ -93,6 +65,16 @@ public interface INodeGraphMutationService
     /// <summary>Disconnects a specific known <see cref="Connection"/>.
     /// Commits <c>DisconnectPort</c>.</summary>
     void DisconnectConnection(GraphModel graph, Connection connection);
+}
+
+/// <summary>Optional atomic node creation capability for a port drop on empty graph space.
+/// Implementations of <see cref="INodeGraphMutationService"/> are not required to support it.</summary>
+public interface INodeGraphConnectedNodeMutationService : INodeGraphMutationService
+{
+    /// <summary>Adds a node and connects it in one undo entry. Pass <paramref name="newPort"/>
+    /// as null for a dynamic-port node. Returns false without adding an undo entry when rejected.</summary>
+    bool AddNodeAndConnect(GraphModel graph, GraphNode node, double x, double y,
+        INodePort existingPort, INodePort? newPort);
 }
 
 public enum NodeConnectOutcome

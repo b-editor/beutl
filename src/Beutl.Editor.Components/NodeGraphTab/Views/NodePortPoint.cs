@@ -22,6 +22,7 @@ public sealed class NodePortPoint : Control
     private bool _doubleClick;
     private Canvas? _canvas;
     private Point _dragStart;
+    private Visual? _dragCoordinateSpace;
 
     static NodePortPoint()
     {
@@ -94,7 +95,10 @@ public sealed class NodePortPoint : Control
                 _line.SetNodePort(viewModel);
                 _canvas.Children.Insert(0, _line);
 
-                _dragStart = point.Position;
+                // Measure the gesture in window coordinates so zoom does not change its threshold.
+                Visual coordinateSpace = (Visual?)TopLevel.GetTopLevel(this) ?? _canvas;
+                _dragCoordinateSpace = coordinateSpace;
+                _dragStart = e.GetPosition(coordinateSpace);
                 e.Handled = true;
                 _captured = true;
                 e.Pointer.Capture(this);
@@ -148,6 +152,7 @@ public sealed class NodePortPoint : Control
         {
             Canvas? canvas = _canvas;
             Point releasePoint = canvas != null ? e.GetPosition(canvas) : default;
+            Point releaseInWindow = _dragCoordinateSpace != null ? e.GetPosition(_dragCoordinateSpace) : default;
             bool connected = TryConnect(e);
             Disconnect();
 
@@ -155,9 +160,10 @@ public sealed class NodePortPoint : Control
             e.Handled = true;
             _captured = false;
             e.Pointer.Capture(null);
+            _dragCoordinateSpace = null;
 
             if (!connected && canvas != null && DataContext is NodePortViewModel { Model: not null } source
-                && Math.Max(Math.Abs(releasePoint.X - _dragStart.X), Math.Abs(releasePoint.Y - _dragStart.Y)) >= 5
+                && Math.Max(Math.Abs(releaseInWindow.X - _dragStart.X), Math.Abs(releaseInWindow.Y - _dragStart.Y)) >= 5
                 && IsBlankDropTarget(canvas.InputHitTest(releasePoint)))
                 this.FindAncestorOfType<NodeGraphView>()?.ShowCompatibleNodeMenu(source, releasePoint);
         }
