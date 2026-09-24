@@ -5830,7 +5830,7 @@ public sealed partial class AiDialogWorkflowTests
 
     private static string? ModelOfMultipart(string body)
     {
-        const string Marker = "name=model";
+        const string Marker = "name=\"model\"";
         int at = body.IndexOf(Marker, StringComparison.Ordinal);
         if (at < 0) return null;
 
