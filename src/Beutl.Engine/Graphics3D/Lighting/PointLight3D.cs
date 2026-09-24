@@ -20,7 +20,7 @@ public partial class PointLight3D : Light3D
     /// Gets the position of the light in world space.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
-    [NumberStep(0.1, 0.01)]
+    [NumberStep(1, 0.1)]
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
@@ -35,21 +35,21 @@ public partial class PointLight3D : Light3D
     /// Gets the linear attenuation factor.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PointLight3D_LinearAttenuation), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> LinearAttenuation { get; } = Property.CreateAnimatable(0.09f);
+    [Range(0f, float.MaxValue), NumberStep(0.0001, 0.00001)]
+    public IProperty<float> LinearAttenuation { get; } = Property.CreateAnimatable(0.0009f);
 
     /// <summary>
     /// Gets the quadratic attenuation factor.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PointLight3D_QuadraticAttenuation), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> QuadraticAttenuation { get; } = Property.CreateAnimatable(0.032f);
+    [Range(0f, float.MaxValue), NumberStep(0.000001, 0.0000001)]
+    public IProperty<float> QuadraticAttenuation { get; } = Property.CreateAnimatable(0.0000032f);
 
     /// <summary>
     /// Gets the maximum range of the light.
     /// Objects beyond this distance will not be lit.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PointLight3D_Range), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> Range { get; } = Property.CreateAnimatable(50f);
+    [Range(0f, float.MaxValue), NumberStep(10, 1)]
+    public IProperty<float> Range { get; } = Property.CreateAnimatable(5000f);
 }

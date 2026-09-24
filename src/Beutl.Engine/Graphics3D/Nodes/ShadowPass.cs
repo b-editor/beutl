@@ -179,7 +179,7 @@ void main() {
     {
         var direction = light.Direction;
         if (direction == Vector3.Zero)
-            direction = new Vector3(0, -1, 0);
+            direction = Vector3.UnitY;
         direction = Vector3.Normalize(direction);
 
         // Position the light "camera" behind the scene, looking at the center
@@ -205,7 +205,7 @@ void main() {
         var position = light.Position;
         var direction = light.Direction;
         if (direction == Vector3.Zero)
-            direction = new Vector3(0, -1, 0);
+            direction = Vector3.UnitY;
         direction = Vector3.Normalize(direction);
 
         // Create view matrix from light position looking in light direction
@@ -221,7 +221,7 @@ void main() {
         LightProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(
             fovRadians,
             1.0f,  // Square shadow map
-            0.1f,
+            1f,
             light.Range);
     }
 

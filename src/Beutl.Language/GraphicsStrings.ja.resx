@@ -1243,6 +1243,15 @@
   <data name="TransparentMaterial_Roughness" xml:space="preserve">
     <value>粗さ</value>
   </data>
+  <data name="UnlitMaterial" xml:space="preserve">
+    <value>アンリットマテリアル</value>
+  </data>
+  <data name="UnlitMaterial_ColorMap" xml:space="preserve">
+    <value>カラーマップ</value>
+  </data>
+  <data name="DrawableObject3D" xml:space="preserve">
+    <value>2D描画オブジェクト</value>
+  </data>
   <data name="Amount" xml:space="preserve">
     <value>量</value>
   </data>

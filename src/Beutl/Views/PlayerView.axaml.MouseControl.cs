@@ -1130,8 +1130,8 @@ public partial class PlayerView
         private GizmoAxis _selectedGizmoAxis;
 
         private const float RotationSpeed = 0.005f;
-        private const float MoveSpeed = 0.1f;
-        private const float ObjectMoveSpeed = 0.01f;
+        // World units are pixels: 10 px per movement tick, 30 px per wheel notch.
+        private const float MoveSpeed = 10f;
         private const float ObjectRotateSpeed = 0.5f;
         private const float ObjectScaleSpeed = 0.01f;
 
@@ -1335,13 +1335,13 @@ public partial class PlayerView
 
                 if (_camera != null)
                 {
-                    // カメラの方向からYawとPitchを計算する
+                    // カメラの方向からYawとPitchを計算する（+Yが下向きなので、Pitchが増えると下を向く）
                     var position = _camera.Position.GetValue(CompositionContext);
                     var target = _camera.Target.GetValue(CompositionContext);
                     var forward = Vector3.Normalize(target - position);
 
                     _yaw = MathF.Atan2(forward.X, forward.Z);
-                    _pitch = MathF.Asin(-forward.Y);
+                    _pitch = MathF.Asin(Math.Clamp(forward.Y, -1f, 1f));
 
                     // キーフレームを探す
                     _positionKeyFrame = FindKeyFramePairOrNull(_camera.Position);
@@ -1377,7 +1377,7 @@ public partial class PlayerView
                             {
                                 // マウス移動をカメラ平面上の移動に変換
                                 var screenMovement = (right * (float)delta.X + cameraUp * -(float)delta.Y) *
-                                                     ObjectMoveSpeed;
+                                                     GetWorldUnitsPerViewPixel(_selectedObject);
 
                                 if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
                                 {
@@ -1414,7 +1414,8 @@ public partial class PlayerView
                             else
                             {
                                 // 自由移動: カメラ平面上を移動
-                                movement = (right * (float)delta.X + cameraUp * -(float)delta.Y) * ObjectMoveSpeed;
+                                movement = (right * (float)delta.X + cameraUp * -(float)delta.Y)
+                                           * GetWorldUnitsPerViewPixel(_selectedObject);
                             }
 
                             if (!SetKeyFrameValue(_objectPositionKeyFrame, movement))
@@ -1498,8 +1499,8 @@ public partial class PlayerView
             }
             else if (_rightPressed && _camera != null)
             {
-                // マウスの動きに応じてYawとPitchを更新
-                _yaw += (float)delta.X * RotationSpeed;
+                // マウスの動きに応じてYawとPitchを更新（ドラッグした方向へシーンを掴んで回す）
+                _yaw -= (float)delta.X * RotationSpeed;
                 _pitch += (float)delta.Y * RotationSpeed;
 
                 _pitch = Math.Clamp(_pitch, (-MathF.PI / 2) + 0.1f, (MathF.PI / 2) - 0.1f);
@@ -1507,14 +1508,16 @@ public partial class PlayerView
                 // 新しいforward directionを計算する
                 var forward = new Vector3(
                     MathF.Sin(_yaw) * MathF.Cos(_pitch),
-                    -MathF.Sin(_pitch),
+                    MathF.Sin(_pitch),
                     MathF.Cos(_yaw) * MathF.Cos(_pitch)
                 );
 
-                // カメラのターゲットを更新する
+                // カメラのターゲットを、注視点までの距離を保ったまま更新する
                 var cameraPosition = _camera.Position.GetValue(CompositionContext);
-                var newTarget = cameraPosition + forward;
-                var targetDelta = newTarget - _camera.Target.GetValue(CompositionContext);
+                var currentTarget = _camera.Target.GetValue(CompositionContext);
+                float targetDistance = MathF.Max(Vector3.Distance(cameraPosition, currentTarget), 1f);
+                var newTarget = cameraPosition + forward * targetDistance;
+                var targetDelta = newTarget - currentTarget;
 
                 if (!SetKeyFrameValue(_targetKeyFrame, targetDelta))
                 {
@@ -1696,6 +1699,38 @@ public partial class PlayerView
             }
 
             ProcessMovement();
+        }
+
+        // The world distance one pixel of the preview covers at the object's depth, so a drag moves the
+        // object with the pointer.
+        private float GetWorldUnitsPerViewPixel(Object3D obj)
+        {
+            if (_camera == null || _scene3D == null)
+                return 1f;
+
+            double viewHeight = Image.Bounds.Height;
+            if (viewHeight <= 0)
+                return 1f;
+
+            Scene scene = EditViewModel.Scene;
+            float sceneHeight = scene.FrameSize.Height;
+            float renderHeight = _scene3D.RenderHeight.GetValue(CompositionContext);
+            float renderWidth = _scene3D.RenderWidth.GetValue(CompositionContext);
+            // The 3D render is drawn at its own size into the scene, which the preview then fits to the view.
+            double renderPixelsPerViewPixel = sceneHeight / viewHeight;
+            float worldPerRenderPixel = _camera switch
+            {
+                PerspectiveCamera perspective => 2
+                    * MathF.Max(Vector3.Distance(
+                        _camera.Position.GetValue(CompositionContext),
+                        obj.Position.GetValue(CompositionContext)), 1f)
+                    * MathF.Tan(perspective.FieldOfView.GetValue(CompositionContext) * MathF.PI / 360f)
+                    / renderHeight,
+                OrthographicCamera orthographic => orthographic.Width.GetValue(CompositionContext) / renderWidth,
+                _ => 1f,
+            };
+
+            return (float)(worldPerRenderPixel * renderPixelsPerViewPixel);
         }
 
         private void FindScene3DAndCamera()

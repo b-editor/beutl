@@ -1244,6 +1244,15 @@
   <data name="TransparentMaterial_Roughness" xml:space="preserve">
     <value>Rugosidad</value>
   </data>
+  <data name="UnlitMaterial" xml:space="preserve">
+    <value>Material sin iluminación</value>
+  </data>
+  <data name="UnlitMaterial_ColorMap" xml:space="preserve">
+    <value>Mapa de color</value>
+  </data>
+  <data name="DrawableObject3D" xml:space="preserve">
+    <value>Dibujable 2D</value>
+  </data>
   <data name="Amount" xml:space="preserve">
     <value>Cantidad</value>
   </data>

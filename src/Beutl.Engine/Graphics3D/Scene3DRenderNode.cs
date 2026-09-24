@@ -120,6 +120,14 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         }
 
         Object3D.Resource[] objects = scene.Objects.Where(static item => item.IsEnabled).ToArray();
+        // A 2D card lays its drawables out on a canvas the size of this scene, as a 2D scene that size would.
+        var canvasSize = new Size(width, height);
+        foreach (Object3D.Resource obj in EnumerateObjects(objects))
+        {
+            if (obj is DrawableObject3D.Resource card)
+                card.UpdateLayout(canvasSize, workingScale);
+        }
+
         Light3D.Resource[] lights = scene.Lights.Where(static item => item.IsEnabled).ToArray();
         Object3D.Resource? gizmoTarget = scene.GizmoTarget is { } targetId
             ? FindObjectById(objects, targetId)
@@ -169,7 +177,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         IEnumerable<Object3D.Resource> objects,
         float outputScale)
     {
-        var seen = new HashSet<DrawableTextureSource.Resource>(ReferenceEqualityComparer.Instance);
+        var seen = new HashSet<IRecordedTextureSource>(ReferenceEqualityComparer.Instance);
         var result = new List<SceneTextureBinding>();
         foreach (Object3D.Resource obj in EnumerateObjects(objects))
         {
@@ -177,14 +185,14 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             if (material is null)
                 continue;
 
-            foreach (DrawableTextureSource.Resource source in material
+            foreach (IRecordedTextureSource source in material
                          .EnumerateTextureSources()
-                         .OfType<DrawableTextureSource.Resource>())
+                         .OfType<IRecordedTextureSource>())
             {
                 if (!seen.Add(source))
                     continue;
                 float textureDensity = source.ResolveDensity(outputScale);
-                DrawableRenderNode? root = source.RecordDrawable(textureDensity);
+                RenderNode? root = source.RecordContent(textureDensity);
                 if (root is null)
                     continue;
 
@@ -252,7 +260,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         SceneTextureBinding[] TextureBindings);
 
     private sealed record SceneTextureBinding(
-        DrawableTextureSource.Resource Source,
+        IRecordedTextureSource Source,
         RenderResource<NestedRenderTargetBinding> Binding);
 
     private static void Render(OpaqueRenderSession session, SceneExecutionSnapshot snapshot)

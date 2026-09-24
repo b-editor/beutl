@@ -308,7 +308,8 @@ public class ModelSource : EngineObject, IFileSource
                 tangent = new Vector4(t, handedness);
             }
 
-            vertices.Add(new Vertex3D(position, normal, texCoord, tangent));
+            // Model files are Y-up; Assimp does not change their up axis.
+            vertices.Add(CoordinateSystem3D.FromYUp(new Vertex3D(position, normal, texCoord, tangent)));
         }
 
         // Extract index data from faces

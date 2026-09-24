@@ -20,22 +20,22 @@ public sealed partial class CubeMesh : Mesh
     /// Gets the width of the cube (X-axis).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> Width { get; } = Property.CreateAnimatable(1f);
+    [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
+    public IProperty<float> Width { get; } = Property.CreateAnimatable(200f);
 
     /// <summary>
     /// Gets the height of the cube (Y-axis).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> Height { get; } = Property.CreateAnimatable(1f);
+    [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
+    public IProperty<float> Height { get; } = Property.CreateAnimatable(200f);
 
     /// <summary>
     /// Gets the depth of the cube (Z-axis).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Depth), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> Depth { get; } = Property.CreateAnimatable(1f);
+    [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
+    public IProperty<float> Depth { get; } = Property.CreateAnimatable(200f);
 
     public partial class Resource
     {
@@ -119,5 +119,7 @@ public sealed partial class CubeMesh : Mesh
             // Left (looking at X-, CCW)
             20, 22, 21, 20, 23, 22
         ];
+
+        CoordinateSystem3D.ConvertFromYUp(vertices);
     }
 }

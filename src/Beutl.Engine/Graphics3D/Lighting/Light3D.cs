@@ -48,8 +48,8 @@ public abstract partial class Light3D : EngineObject
     /// Gets the normal bias for shadow mapping to prevent shadow acne on surfaces facing away from the light.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Light3D_ShadowNormalBias), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 0.1f), NumberStep(0.01, 0.001)]
-    public IProperty<float> ShadowNormalBias { get; } = Property.CreateAnimatable(0.02f);
+    [Range(0f, 10f), NumberStep(1, 0.1)]
+    public IProperty<float> ShadowNormalBias { get; } = Property.CreateAnimatable(2f);
 
     /// <summary>
     /// Gets the shadow strength (0 = no shadow, 1 = full shadow).

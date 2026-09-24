@@ -26,7 +26,7 @@ public abstract partial class Object3D : EngineObject
     /// Gets the position of the object in world space.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
-    [NumberStep(0.1, 0.01)]
+    [NumberStep(1, 0.1)]
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
@@ -69,9 +69,18 @@ public abstract partial class Object3D : EngineObject
         {
             var scale = Matrix4x4.CreateScale(Scale);
             var rotation = Matrix4x4.CreateFromYawPitchRoll(MathUtilities.Deg2Rad(Rotation.Y), MathUtilities.Deg2Rad(Rotation.X), MathUtilities.Deg2Rad(Rotation.Z));
-            var translation = Matrix4x4.CreateTranslation(Position);
-            return scale * rotation * translation;
+            var translation = Matrix4x4.CreateTranslation(Position + ContentOffset);
+            return ContentMatrix * scale * rotation * translation;
         }
+
+        /// <summary>Shapes the object's own geometry before <see cref="Scale"/> and <see cref="Rotation"/> apply.</summary>
+        internal virtual Matrix4x4 ContentMatrix => Matrix4x4.Identity;
+
+        /// <summary>
+        /// Moves the object from its <see cref="Position"/> after rotation, so <see cref="Rotation"/> and
+        /// <see cref="Scale"/> keep acting about the content rather than the origin.
+        /// </summary>
+        internal virtual Vector3 ContentOffset => Vector3.Zero;
 
         /// <summary>
         /// Gets the mesh resource for this object.

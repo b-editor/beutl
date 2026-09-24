@@ -6,6 +6,7 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Graphics3D.Meshes;
 using Beutl.Graphics3D.Nodes;
 using Beutl.Media;
 using SkiaSharp;
@@ -364,38 +365,47 @@ internal sealed class Renderer3D : IRenderer3D
     /// </summary>
     private static (Vector3 Center, float Radius) CalculateSceneBounds(IReadOnlyList<Object3D.Resource> objects)
     {
-        if (objects.Count == 0)
-            return (Vector3.Zero, 10f);
-
-        // Calculate bounding box from all object positions
         var min = new Vector3(float.MaxValue);
         var max = new Vector3(float.MinValue);
 
-        foreach (var obj in objects)
+        foreach (Object3D.Resource obj in objects)
         {
-            if (!obj.IsEnabled)
-                continue;
-
-            var pos = obj.Position;
-            var scale = obj.Scale;
-
-            // Approximate object bounds (position ± scale)
-            min = Vector3.Min(min, pos - scale);
-            max = Vector3.Max(max, pos + scale);
+            Include(obj, Matrix4x4.Identity);
         }
 
-        // If no visible objects, return default bounds
         if (min.X == float.MaxValue)
-            return (Vector3.Zero, 10f);
+            return (Vector3.Zero, 1f);
 
-        // Calculate center and radius
         var center = (min + max) * 0.5f;
-        var radius = Vector3.Distance(min, max) * 0.5f;
-
-        // Ensure minimum radius
-        radius = Math.Max(radius, 5f);
-
+        var radius = Math.Max(Vector3.Distance(min, max) * 0.5f, 1f);
         return (center, radius);
+
+        void Include(Object3D.Resource obj, Matrix4x4 parentMatrix)
+        {
+            if (!obj.IsEnabled)
+                return;
+
+            Matrix4x4 world = obj.GetWorldMatrix() * parentMatrix;
+            if (obj.GetMesh() is { VertexCount: > 0 } mesh)
+            {
+                BoundingBox box = mesh.GetBoundingBox();
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = new Vector3(
+                        (i & 1) == 0 ? box.Min.X : box.Max.X,
+                        (i & 2) == 0 ? box.Min.Y : box.Max.Y,
+                        (i & 4) == 0 ? box.Min.Z : box.Max.Z);
+                    Vector3 transformed = Vector3.Transform(corner, world);
+                    min = Vector3.Min(min, transformed);
+                    max = Vector3.Max(max, transformed);
+                }
+            }
+
+            foreach (Object3D.Resource child in obj.GetChildResources())
+            {
+                Include(child, world);
+            }
+        }
     }
 
     private void CopyToOutputTexture()
@@ -455,7 +465,7 @@ internal sealed class Renderer3D : IRenderer3D
             Width,
             Height,
             _lastCamera,
-            gizmoTarget.Position,
+            gizmoTarget.GetWorldMatrix().Translation,
             gizmoTarget.Rotation,
             gizmoMode);
     }
