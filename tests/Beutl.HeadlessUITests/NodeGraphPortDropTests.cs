@@ -13,7 +13,9 @@ using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Media;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.Testing.Headless;
@@ -266,6 +268,33 @@ public class NodeGraphPortDropTests
         }
     }
 
+    [AvaloniaTest]
+    public void RejectedSuggestedNode_DisposesSelectionWithoutChangingGraph()
+    {
+        var graph = new GraphModel();
+        var source = new RandomSingleNode();
+        graph.Nodes.Add(source);
+        var mutation = new Mock<INodeGraphConnectedNodeMutationService>();
+        using var vm = CreateViewModel(graph, mutation.Object);
+        var item = new GraphNodeRegistry.RegistryItem("Disposable node", Colors.Teal,
+            typeof(DisposableCandidateNode));
+        var found = CompatibleNodeFinder.Find(graph, source.Value, [item]);
+        int probeDisposals = DisposableCandidateNode.Disposals;
+
+        bool added = vm.TryAddSuggestedNode(found[item], found[item].Ports.Single(), source.Value,
+            new Point(120, 80));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(added, Is.False);
+            Assert.That(DisposableCandidateNode.Disposals, Is.EqualTo(probeDisposals + 1));
+            Assert.That(graph.Nodes, Has.Count.EqualTo(1));
+            Assert.That(graph.AllConnections, Is.Empty);
+        });
+        mutation.Verify(s => s.AddNodeAndConnect(graph, It.IsAny<GraphNode>(), 120, 80,
+            source.Value, It.IsAny<INodePort>()), Times.Once);
+    }
+
     private static NodeGraphViewModel CreateViewModel(GraphModel graph, INodeGraphMutationService mutation)
     {
         var editor = new Mock<IEditorContext>();
@@ -281,5 +310,26 @@ public class NodeGraphPortDropTests
         Directory.CreateDirectory(directory);
         using var image = topLevel.CaptureRenderedFrame();
         image?.Save(Path.Combine(directory, $"{name}.png"), PngBitmapEncoderOptions.Default);
+    }
+}
+
+public sealed partial class DisposableCandidateNode : GraphNode, IDisposable
+{
+    public static int Disposals;
+
+    public DisposableCandidateNode()
+    {
+        Input = AddInput<float>("Input");
+    }
+
+    public InputPort<float> Input { get; }
+
+    public void Dispose() => Disposals++;
+
+    public partial class Resource
+    {
+        public override void Update(GraphCompositionContext context)
+        {
+        }
     }
 }

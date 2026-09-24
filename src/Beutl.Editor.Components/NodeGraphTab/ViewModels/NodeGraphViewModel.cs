@@ -105,6 +105,26 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         => EditorContext.GetRequiredService<INodeGraphMutationService>() is INodeGraphConnectedNodeMutationService service
            && service.AddNodeAndConnect(NodeGraph, node, point.X, point.Y, existingPort, newPort);
 
+    internal bool TryAddSuggestedNode(CompatibleNodeFinder.Candidate candidate,
+        CompatibleNodeFinder.PortChoice? choice, INodePort source, Point point)
+    {
+        if (!CompatibleNodeFinder.TryCreateSelection(candidate, choice, source,
+                out GraphNode? node, out INodePort? port) || node == null)
+            return false;
+
+        bool added = false;
+        try
+        {
+            added = AddNodeAndConnect(node, point, source, port);
+            return added;
+        }
+        finally
+        {
+            if (!added && node.FindHierarchicalParent<GraphModel>() is null)
+                CompatibleNodeFinder.DisposeRejectedNode(node, candidate.Registry.Type);
+        }
+    }
+
     public bool SupportsConnectedNodeCreation
         => EditorContext.GetService(typeof(INodeGraphMutationService)) is INodeGraphConnectedNodeMutationService;
 

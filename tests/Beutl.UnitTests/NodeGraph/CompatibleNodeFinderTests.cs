@@ -143,6 +143,26 @@ public class CompatibleNodeFinderTests
         Assert.That(found.ContainsKey(valid), Is.True);
     }
 
+    [Test]
+    public void Find_RetriesNodeAfterTemporaryConstructionFailure()
+    {
+        var graph = new GraphModel();
+        var source = new RandomSingleNode();
+        graph.Nodes.Add(source);
+        var item = Item<FlakyNode>("Flaky node");
+        FlakyNode.Fail = true;
+        try
+        {
+            Assert.That(CompatibleNodeFinder.Find(graph, source.Value, [item]).ContainsKey(item), Is.False);
+            FlakyNode.Fail = false;
+            Assert.That(CompatibleNodeFinder.Find(graph, source.Value, [item]).ContainsKey(item), Is.True);
+        }
+        finally
+        {
+            FlakyNode.Fail = false;
+        }
+    }
+
     private static GraphNodeRegistry.RegistryItem Item<T>(string name) where T : GraphNode
         => new(name, Colors.Teal, typeof(T));
 }
@@ -174,6 +194,26 @@ public sealed partial class BrokenNode : GraphNode
     public BrokenNode()
     {
     }
+
+    public partial class Resource
+    {
+        public override void Update(GraphCompositionContext context)
+        {
+        }
+    }
+}
+
+public sealed partial class FlakyNode : GraphNode
+{
+    public static bool Fail;
+
+    public FlakyNode()
+    {
+        if (Fail) throw new InvalidOperationException("Temporary node construction failure");
+        Input = AddInput<float>("Input");
+    }
+
+    public InputPort<float> Input { get; }
 
     public partial class Resource
     {

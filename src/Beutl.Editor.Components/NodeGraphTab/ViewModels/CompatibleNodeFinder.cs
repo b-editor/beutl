@@ -91,7 +91,17 @@ internal static class CompatibleNodeFinder
                     || (type != typeof(object) && !typeof(RenderNode).IsAssignableFrom(type))))
                 return;
 
-            NodeDescriptor descriptor = s_descriptors.GetValue(registry.Type, CreateDescriptor);
+            NodeDescriptor descriptor;
+            try
+            {
+                descriptor = s_descriptors.GetValue(registry.Type, CreateDescriptor);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // Failed callbacks are not cached, so transient extension failures can recover.
+                s_logger.LogWarning(ex, "Skipping unavailable node type {NodeType} in the port drop picker", registry.Type);
+                return;
+            }
             PortChoice?[] ports = descriptor.Ports.Where(port => CanConnect(source, port))
                 .Cast<PortChoice?>().ToArray();
             if (ports.Length == 0 && descriptor.DynamicLocation is { } location
@@ -122,21 +132,9 @@ internal static class CompatibleNodeFinder
                 }).ToArray();
             return new NodeDescriptor(ports, (node as IDynamicPortNode)?.PossibleLocation);
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            s_logger.LogWarning(ex, "Skipping unavailable node type {NodeType} in the port drop picker", type);
-            return NodeDescriptor.Empty;
-        }
         finally
         {
-            try
-            {
-                (node as IDisposable)?.Dispose();
-            }
-            catch (Exception ex) when (ex is not OutOfMemoryException)
-            {
-                s_logger.LogWarning(ex, "Failed to dispose node metadata probe {NodeType}", type);
-            }
+            DisposeRejectedNode(node, type);
         }
     }
 
@@ -165,17 +163,22 @@ internal static class CompatibleNodeFinder
         {
             if (!selected)
             {
-                try
-                {
-                    (node as IDisposable)?.Dispose();
-                }
-                catch (Exception ex) when (ex is not OutOfMemoryException)
-                {
-                    s_logger.LogWarning(ex, "Failed to dispose rejected node type {NodeType}", candidate.Registry.Type);
-                }
+                DisposeRejectedNode(node, candidate.Registry.Type);
                 node = null;
                 port = null;
             }
+        }
+    }
+
+    internal static void DisposeRejectedNode(GraphNode? node, Type type)
+    {
+        try
+        {
+            (node as IDisposable)?.Dispose();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            s_logger.LogWarning(ex, "Failed to dispose unused node type {NodeType}", type);
         }
     }
 

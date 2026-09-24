@@ -256,11 +256,16 @@ public partial class NodeGraphView : UserControl
 
         void AddConnectedNode(CompatibleNodeFinder.Candidate candidate, CompatibleNodeFinder.PortChoice? choice)
         {
-            if (DataContext == viewModel && source.Model == sourcePort
-                && CompatibleNodeFinder.TryCreateSelection(candidate, choice, sourcePort,
-                    out GraphNode? node, out INodePort? port))
-                viewModel.AddNodeAndConnect(node!, new Point(canvasPoint.X - 215 / 2d, canvasPoint.Y), sourcePort, port);
-            menu?.Close();
+            try
+            {
+                if (DataContext == viewModel && source.Model == sourcePort)
+                    viewModel.TryAddSuggestedNode(candidate, choice, sourcePort,
+                        new Point(canvasPoint.X - 215 / 2d, canvasPoint.Y));
+            }
+            finally
+            {
+                menu?.Close();
+            }
         }
     }
 
