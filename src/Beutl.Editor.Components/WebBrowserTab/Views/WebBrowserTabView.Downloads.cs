@@ -11,6 +11,7 @@ namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
 internal partial class WebBrowserTabView
 {
+    private const int MaxDeferredNativeDownloads = 32;
     private CancellationTokenSource? _downloadCancellation;
     private PageDownloadRequest? _pendingPageDownloadRequest;
     private int _pageDownloadDocumentId;
@@ -18,6 +19,9 @@ internal partial class WebBrowserTabView
     private bool _pageDownloadNavigationPending;
     private bool _pageDownloadReferrerUncertain;
     private bool _mediaNavigationIntercepted;
+    private Uri? _latestNavigationRequest;
+    private readonly List<(Uri? Navigation, Uri Download)> _nativeDownloadFailures = [];
+    private readonly LinkedList<(Uri Uri, string? SuggestedName, IBrowserDownloadSource Source)> _deferredNativeDownloads = new();
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source);
@@ -29,22 +33,100 @@ internal partial class WebBrowserTabView
             ? await manager.GetCookiesAsync().WaitAsync(cancellation) : [];
     internal sealed record BrowserDownloadOptions(string Directory, bool AddToTimeline);
 
-    internal void OnNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source)
+    internal void OnWindowsNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source) =>
+        OnNativeDownloadRequested(uri, suggestedName, source, trackNavigationFailure: true);
+
+    internal void OnNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source) =>
+        OnNativeDownloadRequested(uri, suggestedName, source, trackNavigationFailure: false);
+
+    private void OnNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source,
+        bool trackNavigationFailure)
     {
         if (_disposed || _viewModel == null)
         {
             source.Dispose();
             return;
         }
-        // A response belongs to the main frame, but the download has not replaced its document.
+        bool mainFrameDownload = trackNavigationFailure && _pageDownloadNavigationPending && _latestNavigationRequest == uri;
+        if (trackNavigationFailure && !_pageDownloadNavigationPending
+            && (_pendingPageDownloadRequest?.Source != null || _downloadCancellation != null))
+        {
+            DeferNativeDownload(uri, suggestedName, source);
+            return;
+        }
+        if (trackNavigationFailure && _pageDownloadNavigationPending && !mainFrameDownload)
+        {
+            // An iframe's response belongs to the page that is still loading. Offer it after that page commits.
+            DeferNativeDownload(uri, suggestedName, source);
+            return;
+        }
+        if (mainFrameDownload)
+        {
+            // WebView2 forwards a canceled main-frame download navigation as a failure.
+            // Redirects also raise NavigationStarting, so the final download URI must match
+            // the active main-frame request. An iframe download cannot borrow another URI's marker.
+            _nativeDownloadFailures.Add((_latestNavigationRequest, uri));
+            if (_nativeDownloadFailures.Count > 32) _nativeDownloadFailures.RemoveAt(0);
+        }
+        _latestNavigationRequest = null;
         if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
         else InvalidatePageDownloadRequests();
         _viewModel.RestoreCommittedPage();
         UpdateBlankPageState();
-        // Keep history retries conservative; the current transfer retains WebKit's original response.
-        QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
+        // Keep history retries conservative; the current transfer retains the browser's original response.
+        if (trackNavigationFailure && _downloadCancellation != null) DeferNativeDownload(uri, suggestedName, source);
+        else QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
         // The queued request keeps its conservative metadata; later links belong to the restored document.
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
+    }
+
+    private void OfferNextDeferredNativeDownload()
+    {
+        if (_deferredNativeDownloads.Count == 0 || _disposed || _viewModel == null
+            || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
+            || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
+        var deferred = _deferredNativeDownloads.First!.Value;
+        _deferredNativeDownloads.RemoveFirst();
+        QueuePageDownloadRequest(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source);
+    }
+
+    private void DeferNativeDownload(Uri uri, string? suggestedName, IBrowserDownloadSource source)
+    {
+        if (_pageDownloadRequestsSuppressed || _deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
+        {
+            source.Dispose();
+            return;
+        }
+        _deferredNativeDownloads.AddLast((uri, suggestedName, source));
+    }
+
+    private void PreservePendingNativeDownload()
+    {
+        if (_pendingPageDownloadRequest is not { Source: { } source } pending) return;
+        ClearPageDownloadRequest(disposeSource: false);
+        if (_deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
+        {
+            _deferredNativeDownloads.Last!.Value.Source.Dispose();
+            _deferredNativeDownloads.RemoveLast();
+        }
+        _deferredNativeDownloads.AddFirst((pending.Uri, pending.SuggestedName, source));
+    }
+
+    private void ClearDeferredNativeDownloads()
+    {
+        foreach (var deferred in _deferredNativeDownloads) deferred.Source.Dispose();
+        _deferredNativeDownloads.Clear();
+    }
+
+    private bool ConsumeNativeDownloadFailure(Uri? request, Uri fallback)
+    {
+        int index = _nativeDownloadFailures.FindIndex(item =>
+            request != null ? request == item.Navigation || request == item.Download : fallback == item.Download);
+        if (index < 0 && request == null && _latestNavigationRequest == null && _nativeDownloadFailures.Count > 0)
+            index = 0;
+        if (index < 0) return false;
+        _nativeDownloadFailures.RemoveAt(index);
+        return true;
     }
 
     // Capture explicit download links as well as media links added dynamically by the page.
@@ -234,9 +316,11 @@ internal partial class WebBrowserTabView
 
     private void OnDismissDownloadStatusClick(object? sender, RoutedEventArgs e)
     {
-        if (_pendingPageDownloadRequest != null) _pageDownloadRequestsSuppressed = true;
+        bool offerNext = _pendingPageDownloadRequest?.Source != null && _deferredNativeDownloads.Count > 0;
+        if (_pendingPageDownloadRequest != null && !offerNext) _pageDownloadRequestsSuppressed = true;
         ClearPageDownloadRequest();
         DownloadStatusPanel.IsVisible = false;
+        if (offerNext) OfferNextDeferredNativeDownload();
     }
 
     private void SetDownloadRunning(bool running)
@@ -349,6 +433,7 @@ internal partial class WebBrowserTabView
             source?.Dispose();
             _downloadCancellation = null;
             if (!_disposed) SetDownloadRunning(false);
+            OfferNextDeferredNativeDownload();
         }
     }
 }

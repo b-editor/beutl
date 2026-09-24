@@ -75,6 +75,7 @@ public class BrowserMediaDownloadTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
+    [TestCase("https://cdn.example.net/8e072?signature=short-lived", "Morning_2.mp3", "audio/mpeg", "Morning_2.mp3")]
     [TestCase("https://files.example/download?filepath=bgm%2Ftrack.mp3&filename=Morning.mp3", "Morning.mp3", "audio/mpeg", "Morning.mp3")]
     [TestCase("https://files.example/download", "Morning.mp3", "application/octet-stream", "Morning.mp3")]
     [TestCase("https://files.example/download", "Morning.mp3", "text/html", null)]
