@@ -74,6 +74,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _adBlockSession?.Dispose();
         _adBlockSession = null;
         _downloadCancellation?.Cancel();
+        ClearDeferredNativeDownload();
         ResetPageDownloadRequests();
         CloseBrowserPanel();
         _pageRevision++;
@@ -198,6 +199,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         NativeWebView webView = _webView;
         _nativeDownloadFailures.Clear();
         _latestNavigationRequest = null;
+        ClearDeferredNativeDownload();
         _nativeDownloadHandler?.Dispose();
         void OnDownload(Uri uri, string name, IBrowserDownloadSource source)
         {
@@ -227,6 +229,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _nativeDownloadHandlerVersion++;
         _nativeDownloadFailures.Clear();
         _latestNavigationRequest = null;
+        ClearDeferredNativeDownload();
         _nativeDownloadHandler?.Dispose();
         _nativeDownloadHandler = null;
     }
@@ -346,6 +349,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _findRequest?.Cancel();
         _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
         UpdateBlankPageState();
+        if (_deferredNativeDownload is { } deferred && !_pageDownloadNavigationPending)
+        {
+            _deferredNativeDownload = null;
+            QueuePageDownloadRequest(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source);
+        }
         if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage)
         {
             _ = UpdatePageTitleAsync(uri);
@@ -721,6 +729,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _nativeDownloadHandlerVersion++;
         _nativeDownloadFailures.Clear();
         _latestNavigationRequest = null;
+        ClearDeferredNativeDownload();
         _adBlockSession?.Dispose();
         _adBlockSession = null;
         if (_webView == null)

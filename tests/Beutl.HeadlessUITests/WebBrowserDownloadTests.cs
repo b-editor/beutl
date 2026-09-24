@@ -400,6 +400,36 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ConcurrentIframeDownloadSurvivesParentNavigationCompletion(bool success)
+    {
+        var page = new Uri("https://page.example/");
+        var next = new Uri("https://page.example/next");
+        var media = new Uri("https://files.example/download");
+        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        view.OnNativeNavigationCommitted(page);
+        var source = new ResponseDownloadSource("Morning.mp3");
+
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        view.OnWindowsNativeDownloadRequested(media, "Morning.mp3", source);
+        Assert.That(vm.IsLoading.Value, Is.True);
+        Assert.That(source.IsDisposed, Is.False);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = success });
+        Assert.That(source.IsDisposed, Is.False, "The native response must survive the parent completion.");
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(source.IsDisposed, Is.False);
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(media.AbsoluteUri));
+        view.DataContext = null;
+        Assert.That(source.IsDisposed, Is.True);
+    }
+
+    [AvaloniaTest]
     public void CompletedParentNavigationExpiresAnOverlappingIframeDownloadMarker()
     {
         var page = new Uri("https://page.example/");

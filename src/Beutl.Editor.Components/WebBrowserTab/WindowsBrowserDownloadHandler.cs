@@ -192,11 +192,30 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
             }
             finally
             {
-                _progressTimer?.Stop();
-                if (Directory.Exists(stagingDirectory))
+                // Release WebView2's file handle before removing a canceled or failed transfer.
+                Dispose();
+                await DeleteStagingDirectoryAsync(stagingDirectory);
+            }
+        }
+
+        private static async Task DeleteStagingDirectoryAsync(string path)
+        {
+            for (int attempt = 0; attempt < 10; attempt++)
+            {
+                if (!Directory.Exists(path)) return;
+                try
                 {
-                    try { Directory.Delete(stagingDirectory, recursive: true); }
-                    catch (IOException) { /* WebView2 may still be closing a canceled file. */ }
+                    Directory.Delete(path, recursive: true);
+                    return;
+                }
+                catch (IOException) when (attempt < 9)
+                {
+                    // WebView2 can finish closing a canceled file after the operation is released.
+                    await Task.Delay(100);
+                }
+                catch (IOException)
+                {
+                    Trace.TraceWarning("WebView2 staging cleanup could not complete after cancellation.");
                 }
             }
         }

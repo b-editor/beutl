@@ -20,6 +20,7 @@ internal partial class WebBrowserTabView
     private bool _mediaNavigationIntercepted;
     private Uri? _latestNavigationRequest;
     private readonly List<(Uri? Navigation, Uri Download)> _nativeDownloadFailures = [];
+    private (Uri Uri, string SuggestedName, IBrowserDownloadSource Source)? _deferredNativeDownload;
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source);
@@ -45,7 +46,20 @@ internal partial class WebBrowserTabView
             source.Dispose();
             return;
         }
-        if (trackNavigationFailure && _pageDownloadNavigationPending && _latestNavigationRequest == uri)
+        bool mainFrameDownload = trackNavigationFailure && _pageDownloadNavigationPending && _latestNavigationRequest == uri;
+        if (trackNavigationFailure && _pageDownloadNavigationPending && !mainFrameDownload)
+        {
+            // An iframe's response belongs to the page that is still loading. Offer it after that page commits.
+            if (_pageDownloadRequestsSuppressed || _downloadCancellation != null)
+            {
+                source.Dispose();
+                return;
+            }
+            ClearDeferredNativeDownload();
+            _deferredNativeDownload = (uri, suggestedName, source);
+            return;
+        }
+        if (mainFrameDownload)
         {
             // WebView2 forwards a canceled main-frame download navigation as a failure.
             // Redirects also raise NavigationStarting, so the final download URI must match
@@ -62,6 +76,12 @@ internal partial class WebBrowserTabView
         QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
         // The queued request keeps its conservative metadata; later links belong to the restored document.
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
+    }
+
+    private void ClearDeferredNativeDownload()
+    {
+        if (_deferredNativeDownload is { } deferred) deferred.Source.Dispose();
+        _deferredNativeDownload = null;
     }
 
     private bool ConsumeNativeDownloadFailure(Uri? request, Uri fallback)
