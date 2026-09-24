@@ -74,7 +74,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _adBlockSession?.Dispose();
         _adBlockSession = null;
         _downloadCancellation?.Cancel();
-        ClearDeferredNativeDownload();
+        ClearDeferredNativeDownloads();
         ResetPageDownloadRequests();
         CloseBrowserPanel();
         _pageRevision++;
@@ -199,7 +199,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         NativeWebView webView = _webView;
         _nativeDownloadFailures.Clear();
         _latestNavigationRequest = null;
-        ClearDeferredNativeDownload();
+        ClearDeferredNativeDownloads();
+        if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
         _nativeDownloadHandler?.Dispose();
         void OnDownload(Uri uri, string name, IBrowserDownloadSource source)
         {
@@ -229,7 +230,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _nativeDownloadHandlerVersion++;
         _nativeDownloadFailures.Clear();
         _latestNavigationRequest = null;
-        ClearDeferredNativeDownload();
+        ClearDeferredNativeDownloads();
+        if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
         _nativeDownloadHandler?.Dispose();
         _nativeDownloadHandler = null;
     }
@@ -295,6 +297,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
+        if (!_pageDownloadNavigationPending) ClearDeferredNativeDownloads();
         _pageRevision++;
         _findRequest?.Cancel();
         if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri)
@@ -349,11 +352,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _findRequest?.Cancel();
         _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
         UpdateBlankPageState();
-        if (_deferredNativeDownload is { } deferred && !_pageDownloadNavigationPending)
-        {
-            _deferredNativeDownload = null;
-            QueuePageDownloadRequest(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source);
-        }
+        OfferNextDeferredNativeDownload();
         if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage)
         {
             _ = UpdatePageTitleAsync(uri);
@@ -729,7 +728,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _nativeDownloadHandlerVersion++;
         _nativeDownloadFailures.Clear();
         _latestNavigationRequest = null;
-        ClearDeferredNativeDownload();
+        ClearDeferredNativeDownloads();
         _adBlockSession?.Dispose();
         _adBlockSession = null;
         if (_webView == null)

@@ -11,6 +11,7 @@ namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
 internal partial class WebBrowserTabView
 {
+    private const int MaxDeferredNativeDownloads = 32;
     private CancellationTokenSource? _downloadCancellation;
     private PageDownloadRequest? _pendingPageDownloadRequest;
     private int _pageDownloadDocumentId;
@@ -20,7 +21,7 @@ internal partial class WebBrowserTabView
     private bool _mediaNavigationIntercepted;
     private Uri? _latestNavigationRequest;
     private readonly List<(Uri? Navigation, Uri Download)> _nativeDownloadFailures = [];
-    private (Uri Uri, string SuggestedName, IBrowserDownloadSource Source)? _deferredNativeDownload;
+    private readonly Queue<(Uri Uri, string SuggestedName, IBrowserDownloadSource Source)> _deferredNativeDownloads = new();
 
     private sealed record PageDownloadRequest(Uri Uri, string? SuggestedName, Uri? Referrer, int DocumentId,
         BrowserReferrerPolicy ReferrerPolicy, IBrowserDownloadSource? Source);
@@ -55,8 +56,12 @@ internal partial class WebBrowserTabView
                 source.Dispose();
                 return;
             }
-            ClearDeferredNativeDownload();
-            _deferredNativeDownload = (uri, suggestedName, source);
+            if (_deferredNativeDownloads.Count >= MaxDeferredNativeDownloads)
+            {
+                source.Dispose();
+                return;
+            }
+            _deferredNativeDownloads.Enqueue((uri, suggestedName, source));
             return;
         }
         if (mainFrameDownload)
@@ -78,10 +83,18 @@ internal partial class WebBrowserTabView
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
     }
 
-    private void ClearDeferredNativeDownload()
+    private void OfferNextDeferredNativeDownload()
     {
-        if (_deferredNativeDownload is { } deferred) deferred.Source.Dispose();
-        _deferredNativeDownload = null;
+        if (_deferredNativeDownloads.Count == 0 || _disposed || _viewModel == null
+            || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
+            || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
+        var deferred = _deferredNativeDownloads.Dequeue();
+        QueuePageDownloadRequest(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source);
+    }
+
+    private void ClearDeferredNativeDownloads()
+    {
+        while (_deferredNativeDownloads.TryDequeue(out var deferred)) deferred.Source.Dispose();
     }
 
     private bool ConsumeNativeDownloadFailure(Uri? request, Uri fallback)
@@ -282,9 +295,11 @@ internal partial class WebBrowserTabView
 
     private void OnDismissDownloadStatusClick(object? sender, RoutedEventArgs e)
     {
-        if (_pendingPageDownloadRequest != null) _pageDownloadRequestsSuppressed = true;
+        bool offerNext = _pendingPageDownloadRequest?.Source != null && _deferredNativeDownloads.Count > 0;
+        if (_pendingPageDownloadRequest != null && !offerNext) _pageDownloadRequestsSuppressed = true;
         ClearPageDownloadRequest();
         DownloadStatusPanel.IsVisible = false;
+        if (offerNext) OfferNextDeferredNativeDownload();
     }
 
     private void SetDownloadRunning(bool running)
@@ -397,6 +412,7 @@ internal partial class WebBrowserTabView
             source?.Dispose();
             _downloadCancellation = null;
             if (!_disposed) SetDownloadRunning(false);
+            OfferNextDeferredNativeDownload();
         }
     }
 }
