@@ -969,9 +969,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
                 return false;
 
-            case ElementAccessExpressionSyntax access
-                when model.GetOperation(access, context.CancellationToken)
-                    is IImplicitIndexerReferenceOperation indexed:
+            // A conditional access spells the brackets as an element binding, which runs the same members.
+            case ExpressionSyntax access
+                when access is ElementAccessExpressionSyntax or ElementBindingExpressionSyntax
+                     && model.GetOperation(access, context.CancellationToken)
+                         is IImplicitIndexerReferenceOperation indexed:
                 Report(indexed.LengthSymbol, "an index or a range");
                 Report(indexed.IndexerSymbol, "an index or a range");
                 return true;
@@ -1003,8 +1005,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         bool throughInterface = false)
     {
         // A receiver of a sealed type, or a value type, is that exact type, so the member it inherits is
-        // the one that runs whatever the declaring type allows.
-        if (receiver is { IsSealed: true } or { IsValueType: true })
+        // the one that runs whatever the declaring type allows. A type parameter is not, even one
+        // constrained to structs: each instantiation can run a different implementation.
+        if (receiver is { TypeKind: not TypeKind.TypeParameter } and ({ IsSealed: true } or { IsValueType: true }))
             return;
 
         if (member is not null

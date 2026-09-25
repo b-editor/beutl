@@ -4375,6 +4375,63 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AConditionalIndexFromTheEndOverAMemberWithSource_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            """
+            Widths? items = new Widths();
+            width += items?[^1] ?? 0f;
+            """);
+
+        Assert.That(Unfollowed(diagnostics, "an index or a range"), Is.Not.Empty,
+            "a conditional access runs the same Length and indexer as the plain one");
+    }
+
+    [Test]
+    public void AForEachOverAStructConstrainedTypeParameter_IsReportedAsReplaceable()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal interface ISequence
+            {
+                Enumerator GetEnumerator();
+            }
+
+            internal struct Enumerator
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => false;
+            }
+
+            internal struct Sequence : ISequence
+            {
+                public Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal static class Helper
+            {
+                public static float Sum<T>(T items)
+                    where T : struct, ISequence
+                {
+                    float total = 0f;
+                    foreach (float item in items)
+                        total += item;
+
+                    return total;
+                }
+            }
+            """,
+            "width += Helper.Sum(new Sequence());");
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty,
+            "T can be any struct implementing ISequence, so its GetEnumerator is not one known body");
+    }
+
+    [Test]
     public void APositionalPatternOverADeconstructWithSource_IsReportedAsNotFollowed()
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
