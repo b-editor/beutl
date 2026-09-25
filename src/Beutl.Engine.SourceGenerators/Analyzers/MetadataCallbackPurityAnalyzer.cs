@@ -1078,7 +1078,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                       "GetAwaiter",
                       includeReducedExtensionMethods: true)
                   .OfType<IMethodSymbol>()
-                  .FirstOrDefault(static m => m.Parameters.Length == 0);
+                  .Where(static m => m.Parameters.Length == 0)
+                  // The compiler picks the extension whose receiver is nearest the awaitable's own type.
+                  .OrderBy(m => DistanceTo(awaitable, m.ReceiverType))
+                  .FirstOrDefault();
         if (getAwaiter is null)
             return;
 
@@ -1087,6 +1090,20 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         Report(FindInstanceMember<IPropertySymbol>(awaiter, "IsCompleted", static _ => true));
         Report(FindInstanceMember<IMethodSymbol>(awaiter, "GetResult", static m => m.Parameters.Length == 0));
         Report(GetContinuationMethod(context, awaiter));
+    }
+
+    /// <summary>How many base types separate <paramref name="type"/> from <paramref name="target"/>.</summary>
+    /// <remarks>An interface, or a type the walk never reaches, counts as farther than any base class.</remarks>
+    private static int DistanceTo(ITypeSymbol type, ITypeSymbol? target)
+    {
+        int distance = 0;
+        for (ITypeSymbol? current = type; current is not null; current = current.BaseType, distance++)
+        {
+            if (SymbolEqualityComparer.Default.Equals(current, target))
+                return distance;
+        }
+
+        return int.MaxValue;
     }
 
     private static T? FindInstanceMember<T>(ITypeSymbol? type, string name, Func<T, bool> accepts)

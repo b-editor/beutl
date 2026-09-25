@@ -5392,6 +5392,76 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AnAwaitUsingWithSeveralExtensionGetAwaiters_ReadsTheNearestOne()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Pending
+            {
+            }
+
+            internal sealed class LoudPending : Pending
+            {
+            }
+
+            internal static class PendingAwaiting
+            {
+                public static QuietAwaiter GetAwaiter(this Pending pending) => new QuietAwaiter();
+
+                public static LoudAwaiter GetAwaiter(this LoudPending pending) => new LoudAwaiter();
+            }
+
+            internal sealed class QuietAwaiter : System.Runtime.CompilerServices.INotifyCompletion
+            {
+                public bool IsCompleted => true;
+
+                public void GetResult()
+                {
+                }
+
+                public void OnCompleted(Action continuation) => continuation();
+            }
+
+            internal sealed class LoudAwaiter : System.Runtime.CompilerServices.INotifyCompletion
+            {
+                public bool IsCompleted => Settings.Offset > 0f;
+
+                public void GetResult()
+                {
+                }
+
+                public void OnCompleted(Action continuation) => continuation();
+            }
+
+            internal sealed class Resource
+            {
+                public LoudPending DisposeAsync() => new LoudPending();
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure()
+                {
+                    await using (new Resource())
+                    {
+                    }
+
+                    return 0f;
+                }
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        IEnumerable<string> messages = Unfollowed(diagnostics, "an await using").Select(static d => d.GetMessage());
+        Assert.Multiple(() =>
+        {
+            Assert.That(messages, Has.Some.Contains("LoudAwaiter"),
+                "the extension on LoudPending is the nearer one, so its awaiter is what the scope runs");
+            Assert.That(messages, Has.None.Contains("QuietAwaiter"));
+        });
+    }
+
+    [Test]
     public void AnAwaitForEachOverASourceAsyncEnumerator_IsReportedAsNotFollowed()
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
