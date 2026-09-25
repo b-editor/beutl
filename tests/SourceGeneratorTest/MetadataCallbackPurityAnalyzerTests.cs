@@ -4605,6 +4605,139 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             Is.Not.Empty);
     }
 
+    [Test]
+    public void AForEachOverASealedTypeInheritingAVirtualGetEnumerator_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Widths
+            {
+                public virtual Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal sealed class FixedWidths : Widths
+            {
+            }
+
+            internal struct Enumerator
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => false;
+            }
+
+            internal static class Source
+            {
+                public static FixedWidths Make() => new FixedWidths();
+            }
+            """,
+            """
+            FixedWidths items = Source.Make();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "a sealed receiver is exactly its type, so the inherited body is the one that runs");
+    }
+
+    [Test]
+    public void ADeconstructionOfAValueItMade_RunsTheOverrideAndIsNotReportedForTheBase()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Pair
+            {
+                public virtual void Deconstruct(out float first, out float second)
+                {
+                    first = Settings.Offset;
+                    second = 0f;
+                }
+            }
+
+            internal sealed class QuietPair : Pair
+            {
+                public override void Deconstruct(out float first, out float second)
+                {
+                    first = 0f;
+                    second = 0f;
+                }
+            }
+            """,
+            """
+            Pair pair = new QuietPair();
+            var (first, _) = pair;
+            width += first;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "the local holds a QuietPair for its whole life, so its override is the Deconstruct that runs");
+    }
+
+    [Test]
+    public void APositionalPatternOverARecordsGeneratedDeconstruct_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            "internal sealed record Pair(float First, float Second);",
+            "if (new Pair(1f, 2f) is (var first, _)) width += first;");
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "the compiler writes that Deconstruct, and it reads only the record's own properties");
+    }
+
+    [Test]
+    public void AnAwaitOnASourceAwaiterWhoseContinuationReadsState_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Awaitable
+            {
+                public Awaiter GetAwaiter() => new Awaiter();
+            }
+
+            internal sealed class Awaiter : System.Runtime.CompilerServices.INotifyCompletion
+            {
+                public bool IsCompleted => false;
+
+                public float GetResult() => 0f;
+
+                public void OnCompleted(Action continuation)
+                {
+                    _ = Settings.Offset;
+                    continuation();
+                }
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure() => await new Awaitable();
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        Assert.That(
+            Unfollowed(diagnostics, "an await").Select(static d => d.GetMessage()),
+            Has.Some.Contains("OnCompleted"),
+            "an awaiter that is not complete is handed the continuation, which is a call the await makes");
+    }
+
+    [Test]
+    public void AnAwaitOnAFrameworkTask_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure()
+                    => await System.Threading.Tasks.Task.FromResult(1f);
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "a Task's awaiter has no source here, which is the no-source case every call already has");
+    }
+
     /// <summary>Runs a loop over the sequence a case declares, inside a callback that reads its result.</summary>
     /// <remarks>
     /// Exactly one member of the sequence is impure in each reported case, so a report can only have come

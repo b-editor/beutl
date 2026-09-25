@@ -800,7 +800,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         {
             FollowDeconstruction(
                 context,
+                model,
+                body,
                 model.GetDeconstructionInfo(deconstruction),
+                deconstruction.Right,
                 node,
                 depth,
                 walked,
@@ -819,7 +822,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             {
                 FollowDeconstruction(
                     context,
+                    model,
+                    body,
                     model.GetDeconstructionInfo(deconstructing),
+                    null,
                     node,
                     depth,
                     walked,
@@ -902,7 +908,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     {
         void Report(ISymbol? member, string construct)
         {
-            if (member is not null && IsDeclaredInSource(member))
+            // A compiler-generated member, such as a positional record's Deconstruct, has no body anyone wrote.
+            if (member is not null && !member.IsImplicitlyDeclared && IsDeclaredInSource(member))
                 report(node, DescribeMemberKind(member), member, string.Format(NotFollowedWithoutAName, construct));
         }
 
@@ -931,6 +938,21 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 Report(info.GetAwaiterMethod, "an await");
                 Report(info.IsCompletedProperty, "an await");
                 Report(info.GetResultMethod, "an await");
+
+                // An awaiter that is not yet complete is handed the continuation, through the method the
+                // interface it implements declares.
+                if (info.GetAwaiterMethod?.ReturnType is { } awaiter)
+                {
+                    foreach (string name in s_continuationMethodNames)
+                    {
+                        foreach (ISymbol continuation in awaiter.GetMembers(name))
+                        {
+                            if (continuation is IMethodSymbol { IsStatic: false, Parameters.Length: 1 })
+                                Report(continuation, "an await");
+                        }
+                    }
+                }
+
                 return false;
 
             case ElementAccessExpressionSyntax access
@@ -956,10 +978,16 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static void ReportOverridable(
         SyntaxNode node,
+        ITypeSymbol? receiver,
         IMethodSymbol? member,
         string kind,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
+        // A receiver of a sealed type, or a value type, is that exact type, so the member it inherits is
+        // the one that runs whatever the declaring type allows.
+        if (receiver is { IsSealed: true } or { IsValueType: true })
+            return;
+
         if (member is not null && IsOverridable(member) && IsDeclaredInSource(member))
             report(node, kind, member, OverridableWithoutAMaking);
     }
@@ -989,6 +1017,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         IMethodSymbol method when RunsAStaticMethod(method) => "static method",
         _ => "method",
     };
+
+    private static readonly ImmutableArray<string> s_continuationMethodNames =
+        ImmutableArray.Create("OnCompleted", "UnsafeOnCompleted");
 
     private const string NotFollowedWithoutAName =
         "the callback runs it without naming it, through {0}, which this rule does not follow, so what it "
@@ -1104,7 +1135,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             FollowCall(context, runs, scope, "method", depth, walked, report);
 
             if (made is null)
-                ReportOverridable(scope, runs, "method", report);
+                ReportOverridable(scope, type, runs, "method", report);
         }
 
         if (declaration is not null)
@@ -1325,7 +1356,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             FollowCall(context, runs, node, kind, depth, walked, report);
 
             if (made is null)
-                ReportOverridable(node, runs, kind, report);
+            {
+                ITypeSymbol? receiver = on is null ? null : model.GetTypeInfo(on, context.CancellationToken).Type;
+                ReportOverridable(node, receiver, runs, kind, report);
+            }
         }
     }
 
@@ -1424,7 +1458,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             FollowCall(context, run, loop, kind, depth, walked, report);
 
             if (made is null)
-                ReportOverridable(loop, run, kind, report);
+                ReportOverridable(loop, receiver, run, kind, report);
         }
 
         Follow(sequence, madeSequence, iteration.GetEnumeratorMethod);
@@ -1449,9 +1483,16 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return receiver.FindImplementationForInterfaceMember(member) as IMethodSymbol ?? member;
     }
 
+    /// <param name="value">
+    /// The value being deconstructed where the source spells it, so a making it holds can pick the override
+    /// that runs; null for a loop's elements and for the parts of a nested deconstruction.
+    /// </param>
     private static void FollowDeconstruction(
         SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode body,
         DeconstructionInfo deconstruction,
+        ExpressionSyntax? value,
         SyntaxNode node,
         int depth,
         Dictionary<ISymbol, int> walked,
@@ -1459,13 +1500,31 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     {
         if (deconstruction.Method is { } deconstruct)
         {
-            string kind = RunsAStaticMethod(deconstruct) ? "static method" : "method";
-            FollowCall(context, deconstruct, node, kind, depth, walked, report);
-            ReportOverridable(node, deconstruct, kind, report);
+            INamedTypeSymbol? made = value is null
+                ? null
+                : FollowHeldCreation(
+                    context,
+                    GetCreationHeldBy(context, model, value),
+                    body,
+                    node,
+                    depth,
+                    walked,
+                    report);
+            IMethodSymbol runs = RunsAsMade(made, deconstruct);
+            string kind = RunsAStaticMethod(runs) ? "static method" : "method";
+            FollowCall(context, runs, node, kind, depth, walked, report);
+
+            if (made is null)
+            {
+                ITypeSymbol? receiver = value is null
+                    ? null
+                    : model.GetTypeInfo(value, context.CancellationToken).Type;
+                ReportOverridable(node, receiver, runs, kind, report);
+            }
         }
 
         foreach (DeconstructionInfo nested in deconstruction.Nested)
-            FollowDeconstruction(context, nested, node, depth, walked, report);
+            FollowDeconstruction(context, model, body, nested, null, node, depth, walked, report);
     }
 
     private static void FollowImplicitConversion(
