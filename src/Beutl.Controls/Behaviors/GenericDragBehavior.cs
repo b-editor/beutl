@@ -25,6 +25,7 @@ public class GenericDragBehavior : Behavior<Control>
     private int _targetIndex;
     private ItemsControl? _itemsControl;
     private Control? _draggedContainer;
+    private Control? _subscribedDragControl;
 
     public static readonly StyledProperty<Orientation> OrientationProperty =
         AvaloniaProperty.Register<GenericDragBehavior, Orientation>(nameof(Orientation));
@@ -66,27 +67,45 @@ public class GenericDragBehavior : Behavior<Control>
     protected override void OnAttached()
     {
         base.OnAttached();
-
-        if (DragControl is { })
-        {
-            DragControl.AddHandler(InputElement.PointerReleasedEvent, Released, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerPressedEvent, Pressed, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerMovedEvent, Moved, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerCaptureLostEvent, CaptureLost, RoutingStrategies.Tunnel);
-        }
+        UpdateDragControlHandlers(DragControl);
     }
 
     protected override void OnDetaching()
     {
+        UpdateDragControlHandlers(null);
         base.OnDetaching();
+    }
 
-        if (DragControl is { })
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == DragControlProperty && AssociatedObject != null)
         {
-            DragControl.RemoveHandler(InputElement.PointerReleasedEvent, Released);
-            DragControl.RemoveHandler(InputElement.PointerPressedEvent, Pressed);
-            DragControl.RemoveHandler(InputElement.PointerMovedEvent, Moved);
-            DragControl.RemoveHandler(InputElement.PointerCaptureLostEvent, CaptureLost);
+            UpdateDragControlHandlers(DragControl);
         }
+    }
+
+    private void UpdateDragControlHandlers(Control? control)
+    {
+        if (ReferenceEquals(_subscribedDragControl, control))
+            return;
+
+        if (_subscribedDragControl is { } previous)
+        {
+            previous.RemoveHandler(InputElement.PointerReleasedEvent, Released);
+            previous.RemoveHandler(InputElement.PointerPressedEvent, Pressed);
+            previous.RemoveHandler(InputElement.PointerMovedEvent, Moved);
+            previous.RemoveHandler(InputElement.PointerCaptureLostEvent, CaptureLost);
+        }
+
+        _subscribedDragControl = control;
+        if (control is null)
+            return;
+
+        control.AddHandler(InputElement.PointerReleasedEvent, Released, RoutingStrategies.Tunnel);
+        control.AddHandler(InputElement.PointerPressedEvent, Pressed, RoutingStrategies.Tunnel);
+        control.AddHandler(InputElement.PointerMovedEvent, Moved, RoutingStrategies.Tunnel);
+        control.AddHandler(InputElement.PointerCaptureLostEvent, CaptureLost, RoutingStrategies.Tunnel);
     }
 
     protected virtual ContentPresenter? OnFindDraggedContainer()

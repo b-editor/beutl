@@ -553,7 +553,8 @@ public sealed class FileTreeItem : TreeViewItem
             _isRenaming = false;
             string old = Info.FullName;
             string @new = Path.Combine(Info.DirectoryName ?? throw new InvalidOperationException("The file has no parent directory."), tb.Text ?? Info.Name);
-            if (File.Exists(@new))
+            bool isDifferentPath = !string.Equals(old, @new, StringComparison.OrdinalIgnoreCase);
+            if (isDifferentPath && File.Exists(@new))
             {
                 string content = MessageStrings.RenameConflict;
                 content = string.Format(content, Info.Name, tb.Text);
@@ -568,7 +569,7 @@ public sealed class FileTreeItem : TreeViewItem
 
                 await dialog.ShowAsync();
             }
-            else if (string.Compare(old, @new, StringComparison.OrdinalIgnoreCase) != 0)
+            else if (isDifferentPath)
             {
                 File.Move(old, @new);
                 _info = new FileInfo(@new);
@@ -785,7 +786,8 @@ public sealed class DirectoryTreeItem : TreeViewItem
             _isRenaming = false;
             string old = Info.FullName;
             string @new = Path.Combine(Info.Parent?.FullName ?? throw new InvalidOperationException("The directory has no parent."), tb.Text ?? Info.Name);
-            if (Directory.Exists(@new))
+            bool isDifferentPath = !string.Equals(old, @new, StringComparison.OrdinalIgnoreCase);
+            if (isDifferentPath && Directory.Exists(@new))
             {
                 string content = MessageStrings.RenameConflict;
                 content = string.Format(content, Info.Name, tb.Text);
@@ -800,7 +802,7 @@ public sealed class DirectoryTreeItem : TreeViewItem
 
                 await dialog.ShowAsync();
             }
-            else if (string.Compare(old, @new, StringComparison.OrdinalIgnoreCase) != 0)
+            else if (isDifferentPath)
             {
                 Directory.Move(old, @new);
                 _info = new DirectoryInfo(@new);
