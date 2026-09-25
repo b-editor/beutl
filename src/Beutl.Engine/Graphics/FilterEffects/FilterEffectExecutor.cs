@@ -718,7 +718,8 @@ public sealed class FilterEffectExecutor : IDisposable
                         Intent,
                         Purpose,
                         GetProgramAcquirer(),
-                        _renderTargetLeaseSession);
+                        _renderTargetLeaseSession,
+                        Budget);
                     break;
                 case FEItem_Geometry geometry:
                     Flush(false);
@@ -731,7 +732,8 @@ public sealed class FilterEffectExecutor : IDisposable
                         MaxWorkingScale,
                         Intent,
                         Purpose,
-                        _renderTargetLeaseSession);
+                        _renderTargetLeaseSession,
+                        Budget);
                     break;
             }
         }
@@ -842,7 +844,8 @@ public sealed class FilterEffectExecutor : IDisposable
             _drawableBrushMaterializer,
             _useExecutorManagedCanvas,
             _renderTargetLeaseSession,
-            targetDomain: _targetDomain);
+            _budget,
+            _targetDomain);
 
         executor.Apply(context);
         executor.Flush(false);
