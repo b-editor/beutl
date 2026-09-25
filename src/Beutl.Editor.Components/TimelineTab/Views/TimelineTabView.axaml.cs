@@ -49,11 +49,18 @@ public sealed partial class TimelineTabView : UserControl
     private const double MarkerDragThreshold = 4d;
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabView>();
     private readonly CompositeDisposable _disposables = [];
+    private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
     private ElementView? _selectedElement;
     private CancellationTokenSource? _scrollCts;
 
     public TimelineTabView()
+        : this(NativeScrollInput.UsesGestureAxes)
     {
+    }
+
+    internal TimelineTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes)
+    {
+        _usesGestureAxes = usesGestureAxes;
         InitializeComponent();
 
         gridSplitter.DragDelta += GridSplitter_DragDelta;
@@ -239,12 +246,14 @@ public sealed partial class TimelineTabView : UserControl
         }
         else
         {
-            if (OperatingSystem.IsWindows() && e.KeyModifiers == KeyModifiers.Shift)
+            bool gestureAxes = _usesGestureAxes(e);
+            if (!gestureAxes && OperatingSystem.IsWindows() && e.KeyModifiers == KeyModifiers.Shift)
             {
                 delta = new Avalonia.Vector(delta.Y, delta.X);
             }
 
-            if (GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection)
+            // Touchpad gestures already follow the gesture axes and OS direction.
+            if (gestureAxes || GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection)
             {
                 offset.Y -= (float)(delta.Y * 50);
                 offset.X -= (float)(delta.X * 50);
