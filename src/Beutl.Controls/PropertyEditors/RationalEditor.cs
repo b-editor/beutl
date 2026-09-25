@@ -25,7 +25,7 @@ public class RationalEditor : StringEditor
     private bool _headerPressed;
     private Point _headerDragStart;
     private double _scrubAccumulator;
-    private TextBlock _headerText;
+    private TextBlock? _headerText;
 
     public RationalEditor()
     {
@@ -48,6 +48,7 @@ public class RationalEditor : StringEditor
     {
         _disposables.Clear();
         base.OnApplyTemplate(e);
+        if (InnerTextBox == null) return;
         InnerTextBox.AddDisposableHandler(PointerWheelChangedEvent, OnTextBoxPointerWheelChanged, RoutingStrategies.Tunnel)
             .DisposeWith(_disposables);
 
@@ -64,14 +65,16 @@ public class RationalEditor : StringEditor
         }
     }
 
-    private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
+    private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (InnerTextBox == null) return;
+        if (_headerText is not { } headerText) return;
         if (!InnerTextBox.IsKeyboardFocusWithin && _headerPressed)
         {
-            Point point = e.GetPosition(_headerText);
+            Point point = e.GetPosition(headerText);
 
             // ポインタロック + デルタ取得
-            Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
+            Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
             double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
             int truncated = NumberEditorHelper.ConsumeScrubAccumulator<int>(ref _scrubAccumulator, scaledX);
             var delta = new Rational(truncated, 1);
@@ -89,7 +92,7 @@ public class RationalEditor : StringEditor
         }
     }
 
-    private void OnTextBlockPointerReleased(object sender, PointerReleasedEventArgs e)
+    private void OnTextBlockPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (_headerPressed)
         {
@@ -105,16 +108,18 @@ public class RationalEditor : StringEditor
         }
     }
 
-    private void OnTextBlockPointerPressed(object sender, PointerPressedEventArgs e)
+    private void OnTextBlockPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        PointerPoint pointerPoint = e.GetCurrentPoint(_headerText);
+        if (InnerTextBox == null) return;
+        if (_headerText is not { } headerText) return;
+        PointerPoint pointerPoint = e.GetCurrentPoint(headerText);
         if (pointerPoint.Properties.IsLeftButtonPressed
             && !DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;
             _headerDragStart = pointerPoint.Position;
             _scrubAccumulator = 0;
-            PointerLockHelper.Pressed(_headerText, _headerDragStart);
+            PointerLockHelper.Pressed(headerText, _headerDragStart);
             _headerPressed = true;
             e.Handled = true;
         }
@@ -122,6 +127,7 @@ public class RationalEditor : StringEditor
 
     protected override void OnTextBoxGotFocus(FocusChangedEventArgs e)
     {
+        if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;
@@ -130,6 +136,7 @@ public class RationalEditor : StringEditor
 
     protected override void OnTextBoxLostFocus(RoutedEventArgs e)
     {
+        if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && Value != _oldValue)
         {
@@ -160,6 +167,7 @@ public class RationalEditor : StringEditor
 
     private void UpdateErrors()
     {
+        if (InnerTextBox == null) return;
         if (Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _))
         {
             DataValidationErrors.ClearErrors(InnerTextBox);
@@ -170,8 +178,9 @@ public class RationalEditor : StringEditor
         }
     }
 
-    private void OnTextBoxPointerWheelChanged(object sender, PointerWheelEventArgs e)
+    private void OnTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
+        if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && InnerTextBox.IsKeyboardFocusWithin
             && Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out Rational value))

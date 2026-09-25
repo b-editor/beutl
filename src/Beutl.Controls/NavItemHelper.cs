@@ -10,22 +10,22 @@ namespace Beutl.Controls;
 
 public class NavItemHelper : Behavior<FANavigationViewItem>
 {
-    public static readonly StyledProperty<FAIconSource> RegularIconProperty
-        = AvaloniaProperty.Register<NavItemHelper, FAIconSource>("RegularIcon");
+    public static readonly StyledProperty<FAIconSource?> RegularIconProperty
+        = AvaloniaProperty.Register<NavItemHelper, FAIconSource?>("RegularIcon");
 
-    public static readonly StyledProperty<FAIconSource> FilledIconProperty
-        = AvaloniaProperty.Register<NavItemHelper, FAIconSource>("FilledIcon");
-    private IDisposable _disposable;
-    private FAIconSourceElement _regular;
-    private FAIconSourceElement _filled;
+    public static readonly StyledProperty<FAIconSource?> FilledIconProperty
+        = AvaloniaProperty.Register<NavItemHelper, FAIconSource?>("FilledIcon");
+    private IDisposable? _disposable;
+    private FAIconSourceElement? _regular;
+    private FAIconSourceElement? _filled;
 
-    public FAIconSource RegularIcon
+    public FAIconSource? RegularIcon
     {
         get => GetValue(RegularIconProperty);
         set => SetValue(RegularIconProperty, value);
     }
 
-    public FAIconSource FilledIcon
+    public FAIconSource? FilledIcon
     {
         get => GetValue(FilledIconProperty);
         set => SetValue(FilledIconProperty, value);
@@ -34,12 +34,13 @@ public class NavItemHelper : Behavior<FANavigationViewItem>
     protected override void OnAttached()
     {
         base.OnAttached();
+        if (AssociatedObject is not { } item) return;
         SetFontSize(RegularIcon);
         SetFontSize(FilledIcon);
-        _disposable = AssociatedObject.GetPropertyChangedObservable(ListBoxItem.IsSelectedProperty)
+        _disposable = item.GetPropertyChangedObservable(ListBoxItem.IsSelectedProperty)
             .Subscribe(e => SelectionChanged((FANavigationViewItem)e.Sender));
 
-        SelectionChanged(AssociatedObject);
+        SelectionChanged(item);
     }
 
     protected override void OnDetaching()
@@ -69,7 +70,7 @@ public class NavItemHelper : Behavior<FANavigationViewItem>
         }
     }
 
-    private static void SetFontSize(FAIconSource iconSource)
+    private static void SetFontSize(FAIconSource? iconSource)
     {
         if (iconSource is FAFontIconSource fontIcon)
         {

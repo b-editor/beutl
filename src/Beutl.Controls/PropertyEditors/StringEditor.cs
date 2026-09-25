@@ -1,4 +1,5 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Disposables;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -23,16 +24,17 @@ public class StringEditor : PropertyEditor
             defaultBindingMode: BindingMode.TwoWay);
 
     private readonly CompositeDisposable _disposables = [];
-    private string _text;
-    private string _oldValue;
+    private string _text = string.Empty;
+    private string _oldValue = string.Empty;
 
+    [AllowNull]
     public string Text
     {
         get => _text;
-        set => SetAndRaise(TextProperty, ref _text, value);
+        set => SetAndRaise(TextProperty, ref _text, value ?? string.Empty);
     }
 
-    protected TextBox InnerTextBox { get; set; }
+    protected TextBox? InnerTextBox { get; set; }
 
     protected override Type StyleKeyOverride => typeof(StringEditor);
 
@@ -52,7 +54,8 @@ public class StringEditor : PropertyEditor
                 {
                     if (e is AvaloniaPropertyChangedEventArgs<string> args)
                     {
-                        OnTextBoxTextChanged(args.NewValue.GetValueOrDefault(), args.OldValue.GetValueOrDefault());
+                        OnTextBoxTextChanged(args.NewValue.GetValueOrDefault() ?? string.Empty,
+                            args.OldValue.GetValueOrDefault() ?? string.Empty);
                     }
                 })
                 .DisposeWith(_disposables);

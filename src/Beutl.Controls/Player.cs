@@ -1,5 +1,4 @@
-﻿#nullable enable
-using System.Windows.Input;
+﻿using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -13,9 +12,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Controls;
 
-// nullable is enabled per-type because the surrounding Player class predates
-// nullable annotations; enabling at file scope would force a broad rewrite of
-// its private fields.
 /// <summary>
 /// Event args for <see cref="Player.CurrentTimeSubmitted"/>. Subscribers must call
 /// <see cref="Accept"/> to consume the submission (closes the editor) or
@@ -47,14 +43,12 @@ public sealed class TimecodeSubmittedEventArgs : EventArgs
         Error = error ?? string.Empty;
     }
 }
-#nullable restore
-
 public class Player : RangeBase
 {
-    public static readonly StyledProperty<string> DurationProperty = AvaloniaProperty.Register<Player, string>(nameof(Duration));
-    public static readonly StyledProperty<object> ContentProperty = AvaloniaProperty.Register<Player, object>(nameof(Content));
-    public static readonly StyledProperty<object> InnerLeftContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerLeftContent));
-    public static readonly StyledProperty<object> InnerRightContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerRightContent));
+    public static readonly StyledProperty<string?> DurationProperty = AvaloniaProperty.Register<Player, string?>(nameof(Duration));
+    public static readonly StyledProperty<object?> ContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(Content));
+    public static readonly StyledProperty<object?> InnerLeftContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(InnerLeftContent));
+    public static readonly StyledProperty<object?> InnerRightContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(InnerRightContent));
     public static readonly DirectProperty<Player, string> CurrentTimeProperty =
         AvaloniaProperty.RegisterDirect<Player, string>(
             nameof(CurrentTime),
@@ -73,38 +67,38 @@ public class Player : RangeBase
             (owner, obj) => owner.IsLoopEnabled = obj,
             defaultBindingMode: BindingMode.TwoWay);
 
-    public static readonly DirectProperty<Player, ICommand> PlayButtonCommandProperty =
-        AvaloniaProperty.RegisterDirect<Player, ICommand>(
+    public static readonly DirectProperty<Player, ICommand?> PlayButtonCommandProperty =
+        AvaloniaProperty.RegisterDirect<Player, ICommand?>(
             nameof(PlayButtonCommand),
             owner => owner.PlayButtonCommand,
             (owner, obj) => owner.PlayButtonCommand = obj);
 
-    public static readonly DirectProperty<Player, ICommand> NextButtonCommandProperty =
-        AvaloniaProperty.RegisterDirect<Player, ICommand>(
+    public static readonly DirectProperty<Player, ICommand?> NextButtonCommandProperty =
+        AvaloniaProperty.RegisterDirect<Player, ICommand?>(
             nameof(NextButtonCommand),
             owner => owner.NextButtonCommand,
             (owner, obj) => owner.NextButtonCommand = obj);
 
-    public static readonly DirectProperty<Player, ICommand> PreviousButtonCommandProperty =
-        AvaloniaProperty.RegisterDirect<Player, ICommand>(
+    public static readonly DirectProperty<Player, ICommand?> PreviousButtonCommandProperty =
+        AvaloniaProperty.RegisterDirect<Player, ICommand?>(
             nameof(PreviousButtonCommand),
             owner => owner.PreviousButtonCommand,
             (owner, obj) => owner.PreviousButtonCommand = obj);
 
-    public static readonly DirectProperty<Player, ICommand> EndButtonCommandProperty =
-        AvaloniaProperty.RegisterDirect<Player, ICommand>(
+    public static readonly DirectProperty<Player, ICommand?> EndButtonCommandProperty =
+        AvaloniaProperty.RegisterDirect<Player, ICommand?>(
             nameof(EndButtonCommand),
             owner => owner.EndButtonCommand,
             (owner, obj) => owner.EndButtonCommand = obj);
 
-    public static readonly DirectProperty<Player, ICommand> StartButtonCommandProperty =
-        AvaloniaProperty.RegisterDirect<Player, ICommand>(
+    public static readonly DirectProperty<Player, ICommand?> StartButtonCommandProperty =
+        AvaloniaProperty.RegisterDirect<Player, ICommand?>(
             nameof(StartButtonCommand),
             owner => owner.StartButtonCommand,
             (owner, obj) => owner.StartButtonCommand = obj);
 
-    public static readonly StyledProperty<IReadOnlyList<PlayerMarkerEntry>> MarkersProperty =
-        AvaloniaProperty.Register<Player, IReadOnlyList<PlayerMarkerEntry>>(nameof(Markers));
+    public static readonly StyledProperty<IReadOnlyList<PlayerMarkerEntry>?> MarkersProperty =
+        AvaloniaProperty.Register<Player, IReadOnlyList<PlayerMarkerEntry>?>(nameof(Markers));
 
     private static readonly ILogger s_logger = Beutl.Logging.Log.CreateLogger<Player>();
 
@@ -112,47 +106,47 @@ public class Player : RangeBase
     private string _editStartText = string.Empty;
     private bool _isPlaying;
     private bool _isLoopEnabled;
-    private ToggleButton _playButton;
-    private RepeatButton _nextButton;
-    private RepeatButton _previousButton;
-    private Button _endButton;
-    private Button _startButton;
-    private Slider _slider;
-    private ContentPresenter _innerLeftPresenter;
-    private ContentPresenter _contentPresenter;
-    private TextBlock _currentTimeTextBlock;
-    private TextBox _currentTimeTextBox;
-    private IDisposable _currentTimeTextBoxTextSubscription;
-    private Popup _markerPopup;
-    private ListBox _markerListBox;
-    private IDisposable _markersChangeSubscription;
-    private ICommand _playButtonCommand;
-    private ICommand _nextButtonCommand;
-    private ICommand _previousButtonCommand;
-    private ICommand _endButtonCommand;
-    private ICommand _startButtonCommand;
+    private ToggleButton? _playButton;
+    private RepeatButton? _nextButton;
+    private RepeatButton? _previousButton;
+    private Button? _endButton;
+    private Button? _startButton;
+    private Slider? _slider;
+    private ContentPresenter? _innerLeftPresenter;
+    private ContentPresenter? _contentPresenter;
+    private TextBlock? _currentTimeTextBlock;
+    private TextBox? _currentTimeTextBox;
+    private IDisposable? _currentTimeTextBoxTextSubscription;
+    private Popup? _markerPopup;
+    private ListBox? _markerListBox;
+    private IDisposable? _markersChangeSubscription;
+    private ICommand? _playButtonCommand;
+    private ICommand? _nextButtonCommand;
+    private ICommand? _previousButtonCommand;
+    private ICommand? _endButtonCommand;
+    private ICommand? _startButtonCommand;
 
-    public event EventHandler<TimecodeSubmittedEventArgs> CurrentTimeSubmitted;
+    public event EventHandler<TimecodeSubmittedEventArgs>? CurrentTimeSubmitted;
 
-    public string Duration
+    public string? Duration
     {
         get => GetValue(DurationProperty);
         set => SetValue(DurationProperty, value);
     }
 
-    public object Content
+    public object? Content
     {
         get => GetValue(ContentProperty);
         set => SetValue(ContentProperty, value);
     }
 
-    public object InnerLeftContent
+    public object? InnerLeftContent
     {
         get => GetValue(InnerLeftContentProperty);
         set => SetValue(InnerLeftContentProperty, value);
     }
 
-    public object InnerRightContent
+    public object? InnerRightContent
     {
         get => GetValue(InnerRightContentProperty);
         set => SetValue(InnerRightContentProperty, value);
@@ -176,37 +170,37 @@ public class Player : RangeBase
         set => SetAndRaise(IsLoopEnabledProperty, ref _isLoopEnabled, value);
     }
 
-    public ICommand PlayButtonCommand
+    public ICommand? PlayButtonCommand
     {
         get => _playButtonCommand;
         set => SetAndRaise(PlayButtonCommandProperty, ref _playButtonCommand, value);
     }
 
-    public ICommand NextButtonCommand
+    public ICommand? NextButtonCommand
     {
         get => _nextButtonCommand;
         set => SetAndRaise(NextButtonCommandProperty, ref _nextButtonCommand, value);
     }
 
-    public ICommand PreviousButtonCommand
+    public ICommand? PreviousButtonCommand
     {
         get => _previousButtonCommand;
         set => SetAndRaise(PreviousButtonCommandProperty, ref _previousButtonCommand, value);
     }
 
-    public ICommand EndButtonCommand
+    public ICommand? EndButtonCommand
     {
         get => _endButtonCommand;
         set => SetAndRaise(EndButtonCommandProperty, ref _endButtonCommand, value);
     }
 
-    public ICommand StartButtonCommand
+    public ICommand? StartButtonCommand
     {
         get => _startButtonCommand;
         set => SetAndRaise(StartButtonCommandProperty, ref _startButtonCommand, value);
     }
 
-    public IReadOnlyList<PlayerMarkerEntry> Markers
+    public IReadOnlyList<PlayerMarkerEntry>? Markers
     {
         get => GetValue(MarkersProperty);
         set => SetValue(MarkersProperty, value);
@@ -269,7 +263,7 @@ public class Player : RangeBase
 
     private bool IsMarkerPopupOpen => _markerPopup != null && _markerPopup.IsOpen;
 
-    private void UpdateMarkerPopup(string text)
+    private void UpdateMarkerPopup(string? text)
     {
         if (_markerPopup == null || _markerListBox == null) return;
         if (string.IsNullOrEmpty(text) || text[0] != '@')
@@ -281,7 +275,7 @@ public class Player : RangeBase
         // Match the prefix-trimming rule used by GotoTimecodeParser.TryParseMarker
         // so the popup never lists an entry the parser would reject.
         string prefix = text.Substring(1).TrimStart();
-        IReadOnlyList<PlayerMarkerEntry> source = Markers;
+        IReadOnlyList<PlayerMarkerEntry>? source = Markers;
         if (source == null || source.Count == 0)
         {
             _markerPopup.IsOpen = false;
@@ -314,7 +308,7 @@ public class Player : RangeBase
 
     private void CommitMarkerSelection()
     {
-        if (_markerListBox == null || _currentTimeTextBox == null) return;
+        if (_markerListBox == null || _currentTimeTextBox == null || _markerPopup == null) return;
         if (_markerListBox.SelectedItem is not PlayerMarkerEntry selected) return;
 
         _currentTimeTextBox.Text = "@" + (selected.Name ?? string.Empty);
@@ -414,11 +408,16 @@ public class Player : RangeBase
         _markerPopup = e.NameScope.Find<Popup>("PART_MarkerPopup");
         _markerListBox = e.NameScope.Find<ListBox>("PART_MarkerListBox");
 
-        _playButton.Click += (s, e) => PlayButtonCommand?.Execute(null);
-        _nextButton.Click += (s, e) => NextButtonCommand?.Execute(null);
-        _previousButton.Click += (s, e) => PreviousButtonCommand?.Execute(null);
-        _endButton.Click += (s, e) => EndButtonCommand?.Execute(null);
-        _startButton.Click += (s, e) => StartButtonCommand?.Execute(null);
+        if (_playButton != null)
+            _playButton.Click += (s, e) => PlayButtonCommand?.Execute(null);
+        if (_nextButton != null)
+            _nextButton.Click += (s, e) => NextButtonCommand?.Execute(null);
+        if (_previousButton != null)
+            _previousButton.Click += (s, e) => PreviousButtonCommand?.Execute(null);
+        if (_endButton != null)
+            _endButton.Click += (s, e) => EndButtonCommand?.Execute(null);
+        if (_startButton != null)
+            _startButton.Click += (s, e) => StartButtonCommand?.Execute(null);
 
         if (_currentTimeTextBlock != null)
         {
@@ -462,19 +461,19 @@ public class Player : RangeBase
             }
         });
 
-        _innerLeftPresenter.GetObservable(BoundsProperty).Subscribe(OnInnerLeftBoundsChanged);
+        _innerLeftPresenter?.GetObservable(BoundsProperty).Subscribe(OnInnerLeftBoundsChanged);
     }
 
-    private void OnCurrentTimeTextBlockPointerPressed(object sender, PointerPressedEventArgs e)
+    private void OnCurrentTimeTextBlockPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.GetCurrentPoint(_currentTimeTextBlock).Properties.IsLeftButtonPressed)
+        if (_currentTimeTextBlock != null && e.GetCurrentPoint(_currentTimeTextBlock).Properties.IsLeftButtonPressed)
         {
             BeginEditCurrentTime();
             e.Handled = true;
         }
     }
 
-    private void OnCurrentTimeTextBoxKeyDown(object sender, KeyEventArgs e)
+    private void OnCurrentTimeTextBoxKeyDown(object? sender, KeyEventArgs e)
     {
         // IME 変換中のキー入力は IME に委ね、ポップアップ操作・確定処理に横取りしない。
         if (e.Key == Key.ImeProcessed) return;
@@ -532,23 +531,24 @@ public class Player : RangeBase
         }
     }
 
-    private void OnMarkerListBoxPointerReleased(object sender, PointerReleasedEventArgs e)
+    private void OnMarkerListBoxPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (e.InitialPressMouseButton != MouseButton.Left) return;
         if (e.Source is not Visual source) return;
 
         // 起点アイテム経由で取得することで、SelectedItem 反映前のクリックでも誤確定しない。
-        ListBoxItem item = FindListBoxItem(source);
+        ListBoxItem? item = FindListBoxItem(source);
         if (item == null || item.DataContext is not PlayerMarkerEntry entry) return;
 
+        if (_markerListBox == null) return;
         _markerListBox.SelectedItem = entry;
         e.Handled = true;
         CommitMarkerSelection();
     }
 
-    private static ListBoxItem FindListBoxItem(Visual source)
+    private static ListBoxItem? FindListBoxItem(Visual source)
     {
-        Visual current = source;
+        Visual? current = source;
         while (current != null)
         {
             if (current is ListBoxItem item) return item;
@@ -557,7 +557,7 @@ public class Player : RangeBase
         return null;
     }
 
-    private void OnCurrentTimeTextBoxLostFocus(object sender, RoutedEventArgs e)
+    private void OnCurrentTimeTextBoxLostFocus(object? sender, RoutedEventArgs e)
     {
         if (_currentTimeTextBox != null && _currentTimeTextBox.IsVisible)
         {
@@ -567,7 +567,8 @@ public class Player : RangeBase
 
     private void OnInnerLeftBoundsChanged(Rect rect)
     {
-        _contentPresenter.Margin = new Thickness(rect.Width, 0);
+        if (_contentPresenter != null)
+            _contentPresenter.Margin = new Thickness(rect.Width, 0);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -591,7 +592,7 @@ public class Player : RangeBase
         }
     }
 
-    private void OnPlayButtonCommandCanExecuteChanged(object sender, EventArgs e)
+    private void OnPlayButtonCommandCanExecuteChanged(object? sender, EventArgs e)
     {
         if (_playButton != null && PlayButtonCommand != null)
         {

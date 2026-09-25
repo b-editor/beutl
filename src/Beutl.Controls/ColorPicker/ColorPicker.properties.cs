@@ -219,8 +219,8 @@ public partial class FAColorPicker
     /// <summary>
     /// Event raised when the <see cref="Color"/> property changes
     /// </summary>
-    public event TypedEventHandler<FAColorPicker, ColorChangedEventArgs> ColorChanged;
+    public event TypedEventHandler<FAColorPicker, ColorChangedEventArgs>? ColorChanged;
 
 
-    private IEnumerable<Color> _customPaletteColors;
+    private IEnumerable<Color> _customPaletteColors = Array.Empty<Color>();
 }

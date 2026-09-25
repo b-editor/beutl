@@ -26,7 +26,7 @@ public class OutputPickerItemBehavior : Behavior<ToggleButton>
         }
     }
 
-    private void OnClick(object sender, RoutedEventArgs e)
+    private void OnClick(object? sender, RoutedEventArgs e)
     {
         var parent = AssociatedObject?.FindAncestorOfType<OutputPickerFlyoutPresenter>();
         if (parent != null && AssociatedObject is { DataContext: PinnableOutputItem item })

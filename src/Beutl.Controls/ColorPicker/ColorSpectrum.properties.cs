@@ -16,7 +16,7 @@ public partial class ColorSpectrum
     /// <summary>
     /// Defines the <see cref="BorderBrush"/> property
     /// </summary>
-    public static readonly StyledProperty<IBrush> BorderBrushProperty =
+    public static readonly StyledProperty<IBrush?> BorderBrushProperty =
     Border.BorderBrushProperty.AddOwner<ColorSpectrum>();
 
     /// <summary>
@@ -28,7 +28,7 @@ public partial class ColorSpectrum
     /// <summary>
     /// Gets or sets the Brush used to render the border of this ColorSpectrum control
     /// </summary>
-    public IBrush BorderBrush
+    public IBrush? BorderBrush
     {
         get => GetValue(BorderBrushProperty);
         set => SetValue(BorderBrushProperty, value);

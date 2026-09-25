@@ -9,8 +9,8 @@ public sealed class RoundedClippingBehavior : Behavior<Control>
 {
     public static readonly StyledProperty<CornerRadius> CornerRadiusProperty
         = AvaloniaProperty.Register<RoundedClippingBehavior, CornerRadius>("CornerRadius");
-    private IDisposable _disposable;
-    private IDisposable _disposable1;
+    private IDisposable? _disposable;
+    private IDisposable? _disposable1;
 
     public CornerRadius CornerRadius
     {

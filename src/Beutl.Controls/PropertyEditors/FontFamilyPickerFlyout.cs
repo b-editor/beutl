@@ -10,13 +10,13 @@ namespace Beutl.Controls.PropertyEditors;
 
 public sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewModel) : FAPickerFlyoutBase
 {
-    public event TypedEventHandler<FontFamilyPickerFlyout, EventArgs> Confirmed;
+    public event TypedEventHandler<FontFamilyPickerFlyout, EventArgs>? Confirmed;
 
-    public event TypedEventHandler<FontFamilyPickerFlyout, EventArgs> Dismissed;
+    public event TypedEventHandler<FontFamilyPickerFlyout, EventArgs>? Dismissed;
 
-    public event TypedEventHandler<FontFamilyPickerFlyout, PinnableLibraryItem> Pinned;
+    public event TypedEventHandler<FontFamilyPickerFlyout, PinnableLibraryItem>? Pinned;
 
-    public event TypedEventHandler<FontFamilyPickerFlyout, PinnableLibraryItem> Unpinned;
+    public event TypedEventHandler<FontFamilyPickerFlyout, PinnableLibraryItem>? Unpinned;
 
     protected override Control CreatePresenter()
     {

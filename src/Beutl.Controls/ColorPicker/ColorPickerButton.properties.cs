@@ -169,7 +169,7 @@ public partial class ColorPickerButton
     /// </summary>
     public IEnumerable<Color> CustomPaletteColors
     {
-        get => _customPaletteColors ?? (CustomPaletteColors = new AvaloniaList<Color>());
+        get => _customPaletteColors;
         set => SetAndRaise(CustomPaletteColorsProperty, ref _customPaletteColors, value);
     }
 
@@ -206,27 +206,27 @@ public partial class ColorPickerButton
     /// <summary>
     /// Raised when the color change was confirmed and the flyout closes.
     /// </summary>
-    public event TypedEventHandler<ColorPickerButton, ColorButtonColorChangedEventArgs> FlyoutConfirmed;
+    public event TypedEventHandler<ColorPickerButton, ColorButtonColorChangedEventArgs>? FlyoutConfirmed;
 
     /// <summary>
     /// Raised when the color change was dismissed and the flyout closes.
     /// </summary>
-    public event TypedEventHandler<ColorPickerButton, EventArgs> FlyoutDismissed;
+    public event TypedEventHandler<ColorPickerButton, EventArgs>? FlyoutDismissed;
 
     /// <summary> Raised when the flyout opens.
     /// </summary>
-    public event TypedEventHandler<ColorPickerButton, EventArgs> FlyoutOpened;
+    public event TypedEventHandler<ColorPickerButton, EventArgs>? FlyoutOpened;
 
     /// <summary>
     /// Raised when the flyout closes regardless of confirmation or dismissal.
     /// </summary>
-    public event TypedEventHandler<ColorPickerButton, EventArgs> FlyoutClosed;
+    public event TypedEventHandler<ColorPickerButton, EventArgs>? FlyoutClosed;
 
     /// <summary>
     /// Fired when the current <see cref="Color"/> property changes
     /// </summary>
-    public event TypedEventHandler<ColorPickerButton, ColorButtonColorChangedEventArgs> ColorChanged;
+    public event TypedEventHandler<ColorPickerButton, ColorButtonColorChangedEventArgs>? ColorChanged;
 
-    private IEnumerable<Color> _customPaletteColors;
+    private IEnumerable<Color> _customPaletteColors = new AvaloniaList<Color>();
     private const string s_tpShowFlyoutButton = "ShowFlyoutButton";
 }

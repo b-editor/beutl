@@ -46,12 +46,14 @@ public class TimeSpanEditor : StringEditor
     {
         _disposables.Clear();
         base.OnApplyTemplate(e);
+        if (InnerTextBox == null) return;
         InnerTextBox.AddDisposableHandler(PointerWheelChangedEvent, OnTextBoxPointerWheelChanged, RoutingStrategies.Tunnel)
             .DisposeWith(_disposables);
     }
 
     protected override void OnTextBoxGotFocus(FocusChangedEventArgs e)
     {
+        if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;
@@ -60,6 +62,7 @@ public class TimeSpanEditor : StringEditor
 
     protected override void OnTextBoxLostFocus(RoutedEventArgs e)
     {
+        if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && Value != _oldValue)
         {
@@ -90,6 +93,7 @@ public class TimeSpanEditor : StringEditor
 
     private void UpdateErrors()
     {
+        if (InnerTextBox == null) return;
         if (TimeSpan.TryParse(InnerTextBox.Text, out _))
         {
             DataValidationErrors.ClearErrors(InnerTextBox);
@@ -100,8 +104,9 @@ public class TimeSpanEditor : StringEditor
         }
     }
 
-    private void OnTextBoxPointerWheelChanged(object sender, PointerWheelEventArgs e)
+    private void OnTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
+        if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && InnerTextBox.IsKeyboardFocusWithin
             && TimeSpan.TryParse(InnerTextBox.Text, out TimeSpan value))
