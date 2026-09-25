@@ -4832,6 +4832,79 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AQueryOperatorOnASealedResultOfTheOneBefore_IsNotReportedAsReplaceable()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual FixedWidths Where(Func<float, bool> predicate) => new FixedWidths();
+
+                public virtual float Select(Func<float, float> selector) => 0f;
+            }
+
+            internal sealed class FixedWidths : Widths
+            {
+            }
+
+            internal static class Source
+            {
+                public static Widths Make() => new Widths();
+            }
+            """,
+            """
+            Widths items = Source.Make();
+            width += from item in items where item > 0f select item + 1f;
+            """);
+
+        Assert.That(
+            diagnostics
+                .Where(static d => d.GetMessage().Contains("an override can replace it"))
+                .Select(static d => d.GetMessage()),
+            Has.None.Contains(".Select("),
+            "Where hands back a FixedWidths, which is sealed, so the Select it inherits is the one that runs");
+    }
+
+    [Test]
+    public void ADeconstructionOfARecordItMade_ReadsTheOverridingGetter()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal record Pair(float First, float Second)
+            {
+                public virtual float First
+                {
+                    get => Settings.Offset;
+                    init { }
+                }
+            }
+
+            internal sealed record QuietPair : Pair
+            {
+                public QuietPair()
+                    : base(1f, 2f)
+                {
+                }
+
+                public override float First
+                {
+                    get => 0f;
+                    init { }
+                }
+            }
+            """,
+            """
+            Pair pair = new QuietPair();
+            var (first, _) = pair;
+            width += first;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "the generated Deconstruct reads First through dispatch, and the value is a QuietPair whose "
+            + "getter reads nothing static");
+    }
+
+    [Test]
     public void AnAwaitOnAFrameworkTask_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(

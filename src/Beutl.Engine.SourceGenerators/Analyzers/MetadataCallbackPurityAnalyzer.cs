@@ -934,7 +934,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 when model.GetOperation(positional, context.CancellationToken)
                     is IRecursivePatternOperation pattern:
                 if (pattern.DeconstructSymbol is IMethodSymbol { IsImplicitlyDeclared: true } generated)
-                    FollowGeneratedDeconstruct(context, generated, node, depth, walked, report);
+                    FollowGeneratedDeconstruct(
+                        context, generated, null, pattern.NarrowedType, node, depth, walked, report);
                 else
                     Report(pattern.DeconstructSymbol, "a positional pattern");
                 // The property subpatterns beside it name their members and are walked as names.
@@ -1047,6 +1048,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     private static void FollowGeneratedDeconstruct(
         SyntaxNodeAnalysisContext context,
         IMethodSymbol deconstruct,
+        INamedTypeSymbol? made,
+        ITypeSymbol? receiver,
         SyntaxNode node,
         int depth,
         Dictionary<ISymbol, int> walked,
@@ -1062,7 +1065,13 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     continue;
                 }
 
-                FollowCall(context, getter, node, "property", depth, walked, report);
+                // A positional property can be virtual, and the generated body reads it through dispatch.
+                IMethodSymbol runs = RunsAsMade(made, getter);
+                FollowCall(context, runs, node, "property", depth, walked, report);
+
+                if (made is null)
+                    ReportOverridable(node, receiver, runs, "property", report);
+
                 break;
             }
         }
@@ -1366,6 +1375,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         // expression is that operator, and everything after it runs on what the Cast handed back.
         ExpressionSyntax? chain = query.FromClause.Expression;
 
+        // What the operator before this one handed back, which is the receiver of every operator the
+        // source does not spell a receiver for.
+        ITypeSymbol? previousResult = null;
+
         foreach ((SyntaxNode node, ISymbol? chosen, ExpressionSyntax? cast) in
                  GetQueryOperators(context, model, query))
         {
@@ -1404,9 +1417,13 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
             if (made is null)
             {
-                ITypeSymbol? receiver = on is null ? null : model.GetTypeInfo(on, context.CancellationToken).Type;
+                ITypeSymbol? receiver = on is null
+                    ? previousResult
+                    : model.GetTypeInfo(on, context.CancellationToken).Type;
                 ReportOverridable(node, receiver, runs, kind, report);
             }
+
+            previousResult = runs.ReturnType;
         }
     }
 
@@ -1562,7 +1579,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             string kind = RunsAStaticMethod(runs) ? "static method" : "method";
 
             if (runs.IsImplicitlyDeclared)
-                FollowGeneratedDeconstruct(context, runs, node, depth, walked, report);
+                FollowGeneratedDeconstruct(context, runs, made, receiver, node, depth, walked, report);
             else
                 FollowCall(context, runs, node, kind, depth, walked, report);
 
