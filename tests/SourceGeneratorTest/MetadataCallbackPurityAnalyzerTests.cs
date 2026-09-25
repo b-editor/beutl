@@ -5212,6 +5212,39 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AQueryOperatorOverriddenByTheSealedResultBeforeIt_ReadsTheOverride()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual Widths Where(Func<float, bool> predicate) => this;
+
+                public virtual float Select(Func<float, float> selector) => 0f;
+            }
+
+            internal sealed class LoudWidths : Widths
+            {
+                public override float Select(Func<float, float> selector) => Settings.Offset;
+            }
+
+            internal sealed class Source : Widths
+            {
+                public override LoudWidths Where(Func<float, bool> predicate) => new LoudWidths();
+            }
+            """,
+            """
+            Widths items = new Source();
+            width += from item in items where item > 0f select item + 1f;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "Where hands back a LoudWidths, which is sealed, so its Select override is what runs");
+    }
+
+    [Test]
     public void AnAwaitOnAFrameworkTask_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(

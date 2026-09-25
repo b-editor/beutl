@@ -1483,11 +1483,15 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     walked,
                     report);
 
-            IMethodSymbol runs = RunsAsMade(made, rewritten);
+            // An operator the chain runs on what the one before it handed back runs on exactly that type when
+            // it is sealed, and may be an override that type declares.
+            INamedTypeSymbol? exact = made
+                ?? (on is null && previousResult is INamedTypeSymbol { IsSealed: true } narrowed ? narrowed : null);
+            IMethodSymbol runs = RunsAsMade(exact, rewritten);
             string kind = RunsAStaticMethod(rewritten) ? "static method" : "method";
             FollowCall(context, runs, node, kind, depth, walked, report);
 
-            if (made is null)
+            if (exact is null)
             {
                 ITypeSymbol? receiver = on is null
                     ? previousResult
