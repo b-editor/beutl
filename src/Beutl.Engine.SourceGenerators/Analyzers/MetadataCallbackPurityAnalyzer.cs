@@ -922,7 +922,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             case ListPatternSyntax list
                 when model.GetOperation(list, context.CancellationToken) is IListPatternOperation pattern:
                 Report(pattern.LengthSymbol, "a list pattern");
-                Report(pattern.IndexerSymbol, "a list pattern");
+
+                // Only an element pattern reads through the indexer; [] and [..] test the length alone.
+                if (list.Patterns.Any(static element => element is not SlicePatternSyntax))
+                    Report(pattern.IndexerSymbol, "a list pattern");
+
                 return true;
 
             case SlicePatternSyntax slice
@@ -974,7 +978,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 when access is ElementAccessExpressionSyntax or ElementBindingExpressionSyntax
                      && model.GetOperation(access, context.CancellationToken)
                          is IImplicitIndexerReferenceOperation indexed:
-                Report(indexed.LengthSymbol, "an index or a range");
+                if (ReadsLength(context, model, access))
+                    Report(indexed.LengthSymbol, "an index or a range");
+
                 Report(indexed.IndexerSymbol, "an index or a range");
                 return true;
 
@@ -1043,6 +1049,35 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         IMethodSymbol method when RunsAStaticMethod(method) => "static method",
         _ => "method",
     };
+
+    /// <summary>Whether an implicit index or range reads the receiver's length.</summary>
+    /// <remarks>
+    /// A range whose both ends count from the start - <c>[1..2]</c>, <c>[..2]</c> - is lowered to a slice of
+    /// those bounds without asking for the length. Anything that can count from the end, or leaves the end
+    /// open, needs it.
+    /// </remarks>
+    private static bool ReadsLength(SyntaxNodeAnalysisContext context, SemanticModel model, ExpressionSyntax access)
+    {
+        BracketedArgumentListSyntax? arguments = access switch
+        {
+            ElementAccessExpressionSyntax element => element.ArgumentList,
+            ElementBindingExpressionSyntax binding => binding.ArgumentList,
+            _ => null,
+        };
+
+        if (arguments is not { Arguments.Count: 1 }
+            || arguments.Arguments[0].Expression is not RangeExpressionSyntax range
+            || range.RightOperand is null)
+        {
+            return true;
+        }
+
+        return !CountsFromStart(range.LeftOperand) || !CountsFromStart(range.RightOperand);
+
+        bool CountsFromStart(ExpressionSyntax? bound)
+            => bound is null
+               || model.GetTypeInfo(bound, context.CancellationToken).Type?.SpecialType == SpecialType.System_Int32;
+    }
 
     /// <summary>The method an await hands its continuation to on an awaiter of <paramref name="awaiter"/>.</summary>
     private static IMethodSymbol? GetContinuationMethod(SyntaxNodeAnalysisContext context, ITypeSymbol awaiter)
@@ -1548,10 +1583,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             walked,
             report);
 
-        void Follow(ITypeSymbol? receiver, INamedTypeSymbol? made, IMethodSymbol? member, string? kind = null)
+        IMethodSymbol? Follow(ITypeSymbol? receiver, INamedTypeSymbol? made, IMethodSymbol? member, string? kind = null)
         {
             if (RunsOn(receiver, member) is not { } bound)
-                return;
+                return null;
 
             IMethodSymbol run = RunsAsMade(made, bound);
             kind ??= RunsAStaticMethod(run) ? "static method" : "method";
@@ -1567,12 +1602,22 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     report,
                     member?.ContainingType is { TypeKind: TypeKind.Interface });
             }
+
+            return run;
         }
 
-        Follow(sequence, madeSequence, iteration.GetEnumeratorMethod);
-        Follow(enumerator, null, iteration.MoveNextMethod);
-        Follow(enumerator, null, iteration.CurrentProperty?.GetMethod, "property");
-        Follow(enumerator, null, iteration.DisposeMethod);
+        // An override can narrow GetEnumerator's return type. A sealed one is exactly the enumerator the loop
+        // then advances, whatever the binder's declaration returned.
+        ITypeSymbol? advanced = Follow(sequence, madeSequence, iteration.GetEnumeratorMethod)?.ReturnType
+                                ?? enumerator;
+        INamedTypeSymbol? exactEnumerator =
+            advanced is INamedTypeSymbol { IsSealed: true } narrowed
+            && !SymbolEqualityComparer.Default.Equals(narrowed, enumerator)
+                ? narrowed
+                : null;
+        Follow(advanced, exactEnumerator, iteration.MoveNextMethod);
+        Follow(advanced, exactEnumerator, iteration.CurrentProperty?.GetMethod, "property");
+        Follow(advanced, exactEnumerator, iteration.DisposeMethod);
     }
 
     /// <summary>The member that runs where the loop names one an interface declares.</summary>

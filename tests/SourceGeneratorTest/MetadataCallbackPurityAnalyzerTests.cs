@@ -4431,6 +4431,77 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "T can be any struct implementing ISequence, so its GetEnumerator is not one known body");
     }
 
+    [TestCase("[]")]
+    [TestCase("[..]")]
+    public void AListPatternWithNoElement_DoesNotReportTheIndexer(string pattern)
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            $"if (new Widths() is {pattern}) width += 1f;");
+
+        Assert.That(
+            Unfollowed(diagnostics, "a list pattern").Select(static d => d.GetMessage()),
+            Has.None.Contains("this[int]"),
+            "a pattern with no element tests the length alone and never reads through the indexer");
+    }
+
+    [Test]
+    public void ARangeBoundedFromTheStart_DoesNotReportLength()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            "width += new Widths()[1..2].Length;");
+
+        Assert.That(
+            Unfollowed(diagnostics, "an index or a range").Select(static d => d.GetMessage()),
+            Has.None.Contains(".Length'"),
+            "both ends count from the start, so the slice is taken without asking for the length");
+    }
+
+    [Test]
+    public void AForEachOverAMadeSequenceWithANarrowedEnumerator_AdvancesTheSealedEnumerator()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Widths
+            {
+                public virtual Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal sealed class QuietWidths : Widths
+            {
+                public override QuietEnumerator GetEnumerator() => new QuietEnumerator();
+            }
+
+            internal class Enumerator
+            {
+                public virtual float Current
+                {
+                    get
+                    {
+                        _ = Settings.Offset;
+                        return 0f;
+                    }
+                }
+
+                public virtual bool MoveNext() => false;
+            }
+
+            internal sealed class QuietEnumerator : Enumerator
+            {
+                public override float Current => 0f;
+            }
+            """,
+            """
+            Widths items = new QuietWidths();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "QuietWidths hands back a QuietEnumerator, which is sealed, so its Current is the one the loop reads");
+    }
+
     [Test]
     public void APositionalPatternOverADeconstructWithSource_IsReportedAsNotFollowed()
     {
