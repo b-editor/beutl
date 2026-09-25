@@ -4722,6 +4722,116 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AnAwaitOnACriticalAwaiter_ReportsOnlyUnsafeOnCompleted()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Awaitable
+            {
+                public Awaiter GetAwaiter() => new Awaiter();
+            }
+
+            internal sealed class Awaiter : System.Runtime.CompilerServices.ICriticalNotifyCompletion
+            {
+                public bool IsCompleted => false;
+
+                public float GetResult() => 0f;
+
+                public void OnCompleted(Action continuation)
+                {
+                    _ = Settings.Offset;
+                    continuation();
+                }
+
+                public void UnsafeOnCompleted(Action continuation) => continuation();
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure() => await new Awaitable();
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        IEnumerable<string> messages = diagnostics
+            .Where(static d => d.Id == "BESG004")
+            .Select(static d => d.GetMessage());
+        Assert.Multiple(() =>
+        {
+            Assert.That(messages, Has.Some.Contains("UnsafeOnCompleted"));
+            Assert.That(messages, Has.None.Contains(".OnCompleted("),
+                "an awaiter implementing ICriticalNotifyCompletion is handed the continuation through "
+                + "UnsafeOnCompleted, so OnCompleted never runs for this await");
+        });
+    }
+
+    [Test]
+    public void ANestedDeconstructionIntoASealedPart_IsNotReportedAsReplaceable()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Pair
+            {
+                public virtual void Deconstruct(out float first, out float second)
+                {
+                    first = 0f;
+                    second = 0f;
+                }
+            }
+
+            internal sealed class FixedPair : Pair
+            {
+            }
+
+            internal sealed class Outer
+            {
+                public void Deconstruct(out float width, out FixedPair inner)
+                {
+                    width = 0f;
+                    inner = new FixedPair();
+                }
+            }
+
+            internal static class Source
+            {
+                public static Outer Make() => new Outer();
+            }
+            """,
+            """
+            var (outerWidth, (first, _)) = Source.Make();
+            width += outerWidth + first;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.GetMessage().Contains("an override can replace it")),
+            Is.Empty,
+            "the inner part is handed out as a FixedPair, which is sealed, so the Deconstruct it inherits "
+            + "is the one that runs");
+    }
+
+    [Test]
+    public void APositionalPatternOverARecordWhoseGetterReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed record Pair(float First, float Second)
+            {
+                public float First
+                {
+                    get => Settings.Offset;
+                    init { }
+                }
+            }
+            """,
+            "if (new Pair(1f, 2f) is (var first, _)) width += first;");
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "the generated Deconstruct reads First through the getter the author wrote");
+    }
+
+    [Test]
     public void AnAwaitOnAFrameworkTask_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(

@@ -747,7 +747,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     {
         // These constructs run members this rule does not follow. A member with a body here could read
         // anything, so the walk says it did not look rather than letting silence stand for a verdict.
-        if (ReportUnfollowedConstruct(context, model, node, report))
+        if (ReportUnfollowedConstruct(context, model, node, depth, walked, report))
             return;
 
         // An indexer is spelled as brackets around an argument, so the name loop never sees it, and the
@@ -804,6 +804,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 body,
                 model.GetDeconstructionInfo(deconstruction),
                 deconstruction.Right,
+                model.GetTypeInfo(deconstruction.Right, context.CancellationToken).Type,
                 node,
                 depth,
                 walked,
@@ -826,6 +827,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     body,
                     model.GetDeconstructionInfo(deconstructing),
                     null,
+                    model.GetForEachStatementInfo(deconstructing).ElementType,
                     node,
                     depth,
                     walked,
@@ -904,6 +906,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
         SyntaxNode node,
+        int depth,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         void Report(ISymbol? member, string construct)
@@ -929,7 +933,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             case RecursivePatternSyntax { PositionalPatternClause: not null } positional
                 when model.GetOperation(positional, context.CancellationToken)
                     is IRecursivePatternOperation pattern:
-                Report(pattern.DeconstructSymbol, "a positional pattern");
+                if (pattern.DeconstructSymbol is IMethodSymbol { IsImplicitlyDeclared: true } generated)
+                    FollowGeneratedDeconstruct(context, generated, node, depth, walked, report);
+                else
+                    Report(pattern.DeconstructSymbol, "a positional pattern");
                 // The property subpatterns beside it name their members and are walked as names.
                 return false;
 
@@ -939,19 +946,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 Report(info.IsCompletedProperty, "an await");
                 Report(info.GetResultMethod, "an await");
 
-                // An awaiter that is not yet complete is handed the continuation, through the method the
-                // interface it implements declares.
+                // An awaiter that is not yet complete is handed the continuation, through UnsafeOnCompleted
+                // where it implements ICriticalNotifyCompletion and through OnCompleted otherwise.
                 if (info.GetAwaiterMethod?.ReturnType is { } awaiter)
-                {
-                    foreach (string name in s_continuationMethodNames)
-                    {
-                        foreach (ISymbol continuation in awaiter.GetMembers(name))
-                        {
-                            if (continuation is IMethodSymbol { IsStatic: false, Parameters.Length: 1 })
-                                Report(continuation, "an await");
-                        }
-                    }
-                }
+                    Report(GetContinuationMethod(context, awaiter), "an await");
 
                 return false;
 
@@ -1018,8 +1016,57 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         _ => "method",
     };
 
-    private static readonly ImmutableArray<string> s_continuationMethodNames =
-        ImmutableArray.Create("OnCompleted", "UnsafeOnCompleted");
+    /// <summary>The method an await hands its continuation to on an awaiter of <paramref name="awaiter"/>.</summary>
+    private static IMethodSymbol? GetContinuationMethod(SyntaxNodeAnalysisContext context, ITypeSymbol awaiter)
+    {
+        foreach ((string Interface, string Method) candidate in s_continuationMethods)
+        {
+            if (context.Compilation.GetTypeByMetadataName(candidate.Interface) is not { } completion
+                || !awaiter.AllInterfaces.Contains(completion, SymbolEqualityComparer.Default)
+                || completion.GetMembers(candidate.Method).FirstOrDefault() is not { } declared)
+            {
+                continue;
+            }
+
+            return awaiter.FindImplementationForInterfaceMember(declared) as IMethodSymbol;
+        }
+
+        return null;
+    }
+
+    private static readonly ImmutableArray<(string Interface, string Method)> s_continuationMethods =
+        ImmutableArray.Create(
+            ("System.Runtime.CompilerServices.ICriticalNotifyCompletion", "UnsafeOnCompleted"),
+            ("System.Runtime.CompilerServices.INotifyCompletion", "OnCompleted"));
+
+    /// <summary>Follows what a positional record's generated Deconstruct reads: the properties it hands out.</summary>
+    /// <remarks>
+    /// The compiler writes no body anyone can read, but it reads each positional property through its
+    /// getter, and a getter the author wrote is as much a body as any.
+    /// </remarks>
+    private static void FollowGeneratedDeconstruct(
+        SyntaxNodeAnalysisContext context,
+        IMethodSymbol deconstruct,
+        SyntaxNode node,
+        int depth,
+        Dictionary<ISymbol, int> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        foreach (IParameterSymbol parameter in deconstruct.Parameters)
+        {
+            for (INamedTypeSymbol? type = deconstruct.ContainingType; type is not null; type = type.BaseType)
+            {
+                if (type.GetMembers(parameter.Name).OfType<IPropertySymbol>().FirstOrDefault()
+                    is not { GetMethod: { } getter })
+                {
+                    continue;
+                }
+
+                FollowCall(context, getter, node, "property", depth, walked, report);
+                break;
+            }
+        }
+    }
 
     private const string NotFollowedWithoutAName =
         "the callback runs it without naming it, through {0}, which this rule does not follow, so what it "
@@ -1493,6 +1540,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SyntaxNode body,
         DeconstructionInfo deconstruction,
         ExpressionSyntax? value,
+        ITypeSymbol? receiver,
         SyntaxNode node,
         int depth,
         Dictionary<ISymbol, int> walked,
@@ -1512,19 +1560,32 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     report);
             IMethodSymbol runs = RunsAsMade(made, deconstruct);
             string kind = RunsAStaticMethod(runs) ? "static method" : "method";
-            FollowCall(context, runs, node, kind, depth, walked, report);
+
+            if (runs.IsImplicitlyDeclared)
+                FollowGeneratedDeconstruct(context, runs, node, depth, walked, report);
+            else
+                FollowCall(context, runs, node, kind, depth, walked, report);
 
             if (made is null)
-            {
-                ITypeSymbol? receiver = value is null
-                    ? null
-                    : model.GetTypeInfo(value, context.CancellationToken).Type;
                 ReportOverridable(node, receiver, runs, kind, report);
-            }
         }
 
-        foreach (DeconstructionInfo nested in deconstruction.Nested)
-            FollowDeconstruction(context, model, body, nested, null, node, depth, walked, report);
+        // Each nested part is deconstructed as the static type its slot hands out: a Deconstruct's out
+        // parameter, or a tuple's element.
+        ImmutableArray<ITypeSymbol> parts = deconstruction.Method is { } method
+            ? method.Parameters.Skip(RunsAStaticMethod(method) && method.ReducedFrom is null ? 1 : 0)
+                .Select(static parameter => parameter.Type)
+                .ToImmutableArray()
+            : receiver is INamedTypeSymbol { IsTupleType: true } tuple
+                ? tuple.TupleElements.Select(static element => element.Type).ToImmutableArray()
+                : ImmutableArray<ITypeSymbol>.Empty;
+
+        for (int index = 0; index < deconstruction.Nested.Length; index++)
+        {
+            ITypeSymbol? part = parts.Length == deconstruction.Nested.Length ? parts[index] : null;
+            FollowDeconstruction(
+                context, model, body, deconstruction.Nested[index], null, part, node, depth, walked, report);
+        }
     }
 
     private static void FollowImplicitConversion(
