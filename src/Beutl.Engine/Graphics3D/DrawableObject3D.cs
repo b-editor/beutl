@@ -72,6 +72,16 @@ public sealed partial class DrawableObject3D : Object3D, IFlowOperator
 
         public override Mesh.Resource? GetMesh() => _content.HasContent ? _meshResource : null;
 
+        // A click on the card counts only where the drawables show, so its transparent parts let clicks
+        // through. The unit plane's X runs across the content and its -Z down it.
+        internal override bool HitTestContent(Vector3 localPoint)
+        {
+            Rect bounds = _content.ContentBounds;
+            return _content.HitTest(new Point(
+                bounds.X + ((localPoint.X + 0.5f) * bounds.Width),
+                bounds.Y + ((0.5f - localPoint.Z) * bounds.Height)));
+        }
+
         /// <summary>Lays the drawables out on a 2D canvas of <paramref name="canvasSize"/>.</summary>
         internal void UpdateLayout(Size canvasSize, float density)
         {

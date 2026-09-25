@@ -300,7 +300,13 @@ internal sealed class Renderer3D : IRenderer3D
         if (gizmoTarget != null && gizmoMode != GizmoMode.None)
         {
             _gizmoPass.SetColorTexture(colorOutput!);
-            _gizmoPass.Execute(camera, gizmoTarget, GetWorldPosition(objects, gizmoTarget), gizmoMode, aspectRatio);
+            _gizmoPass.Execute(
+                camera,
+                gizmoTarget,
+                GetWorldPosition(objects, gizmoTarget),
+                GetWorldOrientation(objects, gizmoTarget),
+                gizmoMode,
+                aspectRatio);
             _gizmoPass.PrepareForSampling();
             colorOutput = _gizmoPass.OutputTexture;
         }
@@ -417,6 +423,21 @@ internal sealed class Renderer3D : IRenderer3D
     }
 
     /// <summary>
+    /// How <paramref name="target"/> is turned in the scene: its own rotation followed by the rotation of the
+    /// groups it is nested in, without their scale.
+    /// </summary>
+    internal static Quaternion GetWorldOrientation(IReadOnlyList<Object3D.Resource> roots, Object3D.Resource target)
+    {
+        Quaternion local = Quaternion.CreateFromYawPitchRoll(
+            target.Rotation.Y * MathF.PI / 180f,
+            target.Rotation.X * MathF.PI / 180f,
+            target.Rotation.Z * MathF.PI / 180f);
+        return Matrix4x4.Decompose(GetParentWorldMatrix(roots, target), out _, out Quaternion parent, out _)
+            ? Quaternion.Concatenate(local, parent)
+            : local;
+    }
+
+    /// <summary>
     /// The combined transform of the groups <paramref name="target"/> is nested in, or the identity for an
     /// object at the root.
     /// </summary>
@@ -507,7 +528,7 @@ internal sealed class Renderer3D : IRenderer3D
             Height,
             _lastCamera,
             GetWorldPosition(_lastObjects ?? [], gizmoTarget),
-            gizmoTarget.Rotation,
+            GetWorldOrientation(_lastObjects ?? [], gizmoTarget),
             gizmoMode);
     }
 

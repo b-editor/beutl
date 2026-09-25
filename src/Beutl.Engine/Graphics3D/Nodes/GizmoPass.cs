@@ -182,6 +182,7 @@ public sealed class GizmoPass : GraphicsNode3D
         Camera.Camera3D.Resource camera,
         Object3D.Resource? gizmoTarget,
         Vector3 position,
+        Quaternion orientation,
         GizmoMode gizmoMode,
         float aspectRatio)
     {
@@ -225,11 +226,7 @@ public sealed class GizmoPass : GraphicsNode3D
         if (gizmoMode is GizmoMode.Rotate or GizmoMode.Scale)
         {
             // Apply rotation then translation
-            var rotation = gizmoTarget.Rotation;
-            var rotationMatrix = Matrix4x4.CreateFromYawPitchRoll(
-                rotation.Y * MathF.PI / 180f,
-                rotation.X * MathF.PI / 180f,
-                rotation.Z * MathF.PI / 180f);
+            var rotationMatrix = Matrix4x4.CreateFromQuaternion(orientation);
             modelMatrix = scaleMatrix * rotationMatrix * Matrix4x4.CreateTranslation(position);
         }
         else

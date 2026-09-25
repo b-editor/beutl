@@ -54,6 +54,8 @@ public sealed partial class UnlitMaterial : Material3D
 
         public override bool IsTransparent => true;
 
+        internal override bool IsDoubleSided => true;
+
         protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
         {
             if (EffectiveColorMap is { } map)

@@ -83,6 +83,11 @@ public abstract partial class Object3D : EngineObject
         internal virtual Vector3 ContentOffset => Vector3.Zero;
 
         /// <summary>
+        /// Whether a hit at <paramref name="localPoint"/> on the object's mesh lands on something it shows.
+        /// </summary>
+        internal virtual bool HitTestContent(Vector3 localPoint) => true;
+
+        /// <summary>
         /// Gets the mesh resource for this object.
         /// </summary>
         /// <returns>The mesh resource, or null if not available.</returns>

@@ -57,7 +57,7 @@ public static class HitTester3D
             return null;
 
         // Create ray from screen point
-        if (!TryCreateRayFromScreen(screenPoint, width, height, camera, out var ray))
+        if (!TryCreateSegmentFromScreen(screenPoint, width, height, camera, out var ray, out float maxDistance))
             return null;
 
         // Test intersection with each object recursively
@@ -70,7 +70,7 @@ public static class HitTester3D
                 continue;
 
             // Recursively hit test this object and its children
-            var (hitObj, distance) = HitTestRecursive(ray, obj, Matrix4x4.Identity);
+            var (hitObj, distance) = HitTestRecursive(ray, maxDistance, obj, Matrix4x4.Identity);
             if (hitObj != null && distance < closestDistance)
             {
                 closestDistance = distance;
@@ -86,6 +86,7 @@ public static class HitTester3D
     /// </summary>
     private static (Object3D.Resource? obj, float distance) HitTestRecursive(
         Ray3D ray,
+        float maxDistance,
         Object3D.Resource obj,
         Matrix4x4 parentMatrix)
     {
@@ -102,7 +103,7 @@ public static class HitTester3D
         var children = obj.GetChildResources();
         foreach (var child in children)
         {
-            var (hitObj, distance) = HitTestRecursive(ray, child, worldMatrix);
+            var (hitObj, distance) = HitTestRecursive(ray, maxDistance, child, worldMatrix);
             if (hitObj != null && distance < closestDistance)
             {
                 closestDistance = distance;
@@ -111,27 +112,11 @@ public static class HitTester3D
         }
 
         // Test this object's mesh
-        var mesh = obj.GetMesh();
-        if (mesh != null)
+        if (TryHitObject(ray, maxDistance, obj, worldMatrix, out float meshDistance)
+            && meshDistance < closestDistance)
         {
-            if (Matrix4x4.Invert(worldMatrix, out var invWorld))
-            {
-                var localRay = TransformRay(ray, invWorld);
-                var bbox = mesh.GetBoundingBox();
-
-                if (RayIntersectsBoundingBox(localRay, bbox, out float bboxDistance))
-                {
-                    if (RayIntersectsMesh(localRay, mesh, out float meshDistance))
-                    {
-                        // Use mesh distance for more accurate sorting
-                        if (meshDistance < closestDistance)
-                        {
-                            closestDistance = meshDistance;
-                            closestObject = obj;
-                        }
-                    }
-                }
-            }
+            closestDistance = meshDistance;
+            closestObject = obj;
         }
 
         return (closestObject, closestDistance);
@@ -157,7 +142,7 @@ public static class HitTester3D
             return [];
 
         // Create ray from screen point
-        if (!TryCreateRayFromScreen(screenPoint, width, height, camera, out var ray))
+        if (!TryCreateSegmentFromScreen(screenPoint, width, height, camera, out var ray, out float maxDistance))
             return [];
 
         // Test intersection with each object recursively
@@ -171,7 +156,7 @@ public static class HitTester3D
 
             // Recursively hit test this object and its children, collecting the path
             var currentPath = new List<Object3D.Resource>();
-            var (hitPath, distance) = HitTestRecursiveWithPath(ray, obj, Matrix4x4.Identity, currentPath);
+            var (hitPath, distance) = HitTestRecursiveWithPath(ray, maxDistance, obj, Matrix4x4.Identity, currentPath);
             if (hitPath != null && distance < closestDistance)
             {
                 closestDistance = distance;
@@ -187,6 +172,7 @@ public static class HitTester3D
     /// </summary>
     private static (List<Object3D.Resource>? path, float distance) HitTestRecursiveWithPath(
         Ray3D ray,
+        float maxDistance,
         Object3D.Resource obj,
         Matrix4x4 parentMatrix,
         List<Object3D.Resource> currentPath)
@@ -209,7 +195,7 @@ public static class HitTester3D
         {
             // Create a copy of the current path for each child branch
             var childPath = new List<Object3D.Resource>(currentPath);
-            var (hitPath, distance) = HitTestRecursiveWithPath(ray, child, worldMatrix, childPath);
+            var (hitPath, distance) = HitTestRecursiveWithPath(ray, maxDistance, child, worldMatrix, childPath);
             if (hitPath != null && distance < closestDistance)
             {
                 closestDistance = distance;
@@ -217,28 +203,12 @@ public static class HitTester3D
             }
         }
 
-        // Test this object's mesh
-        var mesh = obj.GetMesh();
-        if (mesh != null)
+        // Test this object's mesh; if it is closer than any child hit, use this path
+        if (TryHitObject(ray, maxDistance, obj, worldMatrix, out float meshDistance)
+            && meshDistance < closestDistance)
         {
-            if (Matrix4x4.Invert(worldMatrix, out var invWorld))
-            {
-                var localRay = TransformRay(ray, invWorld);
-                var bbox = mesh.GetBoundingBox();
-
-                if (RayIntersectsBoundingBox(localRay, bbox, out float bboxDistance))
-                {
-                    if (RayIntersectsMesh(localRay, mesh, out float meshDistance))
-                    {
-                        // If this mesh is closer than any child hits, use this path
-                        if (meshDistance < closestDistance)
-                        {
-                            closestDistance = meshDistance;
-                            closestPath = new List<Object3D.Resource>(currentPath);
-                        }
-                    }
-                }
-            }
+            closestDistance = meshDistance;
+            closestPath = new List<Object3D.Resource>(currentPath);
         }
 
         return (closestPath, closestDistance);
@@ -260,7 +230,20 @@ public static class HitTester3D
         Camera3D.Resource camera,
         out Ray3D ray)
     {
+        return TryCreateSegmentFromScreen(screenPoint, width, height, camera, out ray, out _);
+    }
+
+    // The ray starts on the near plane; length is how far along it the far plane lies.
+    private static bool TryCreateSegmentFromScreen(
+        Point screenPoint,
+        int width,
+        int height,
+        Camera3D.Resource camera,
+        out Ray3D ray,
+        out float length)
+    {
         ray = default;
+        length = 0;
 
         // Convert screen coordinates to normalized device coordinates (-1 to 1)
         float ndcX = (2.0f * screenPoint.X / width) - 1.0f;
@@ -298,7 +281,39 @@ public static class HitTester3D
         var rayDirection = rayEnd - rayOrigin;
 
         ray = new Ray3D(rayOrigin, rayDirection);
+        length = rayDirection.Length();
         return true;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="ray"/> hits the object's own mesh before the far plane, and where.
+    /// </summary>
+    /// <remarks>
+    /// The distance is measured in world space, so objects under differently scaled parents compare
+    /// correctly. The object also gets to reject a hit on a part of its mesh that shows nothing.
+    /// </remarks>
+    private static bool TryHitObject(
+        Ray3D ray,
+        float maxDistance,
+        Object3D.Resource obj,
+        Matrix4x4 worldMatrix,
+        out float distance)
+    {
+        distance = float.MaxValue;
+        Mesh.Resource? mesh = obj.GetMesh();
+        if (mesh == null || !Matrix4x4.Invert(worldMatrix, out Matrix4x4 invWorld))
+            return false;
+
+        Ray3D localRay = TransformRay(ray, invWorld);
+        if (!RayIntersectsBoundingBox(localRay, mesh.GetBoundingBox(), out _)
+            || !RayIntersectsMesh(localRay, mesh, cullBackFaces: obj.Material?.IsDoubleSided != true, out float localDistance))
+        {
+            return false;
+        }
+
+        Vector3 localPoint = localRay.GetPoint(localDistance);
+        distance = Vector3.Distance(ray.Origin, Vector3.Transform(localPoint, worldMatrix));
+        return distance <= maxDistance && obj.HitTestContent(localPoint);
     }
 
     /// <summary>
@@ -385,6 +400,13 @@ public static class HitTester3D
     /// <param name="distance">The distance to the closest intersection point.</param>
     /// <returns>True if the ray intersects the mesh.</returns>
     public static bool RayIntersectsMesh(Ray3D ray, Mesh.Resource mesh, out float distance)
+        => RayIntersectsMesh(ray, mesh, cullBackFaces: false, out distance);
+
+    /// <summary>
+    /// Tests if a ray intersects with a mesh, skipping triangles that face away from the ray when
+    /// <paramref name="cullBackFaces"/> is set, as rendering does for one-sided materials.
+    /// </summary>
+    internal static bool RayIntersectsMesh(Ray3D ray, Mesh.Resource mesh, bool cullBackFaces, out float distance)
     {
         distance = float.MaxValue;
         bool hit = false;
@@ -395,9 +417,16 @@ public static class HitTester3D
         // Iterate through triangles
         for (int i = 0; i + 2 < indices.Length; i += 3)
         {
-            var v0 = vertices[(int)indices[i]].Position;
-            var v1 = vertices[(int)indices[i + 1]].Position;
-            var v2 = vertices[(int)indices[i + 2]].Position;
+            Vertex3D a = vertices[(int)indices[i]];
+            Vertex3D b = vertices[(int)indices[i + 1]];
+            Vertex3D c = vertices[(int)indices[i + 2]];
+            var v0 = a.Position;
+            var v1 = b.Position;
+            var v2 = c.Position;
+
+            // The authored normals point out of the front face.
+            if (cullBackFaces && Vector3.Dot(ray.Direction, a.Normal + b.Normal + c.Normal) >= 0)
+                continue;
 
             if (RayIntersectsTriangle(ray, v0, v1, v2, out float t))
             {

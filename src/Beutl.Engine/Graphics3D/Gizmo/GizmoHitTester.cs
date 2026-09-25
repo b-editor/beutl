@@ -68,7 +68,7 @@ public static class GizmoHitTester
     /// <param name="height">The viewport height.</param>
     /// <param name="camera">The camera resource.</param>
     /// <param name="gizmoPosition">The world position of the gizmo (target object's position).</param>
-    /// <param name="gizmoRotation">The rotation of the object (Euler angles in degrees). Used for Scale mode.</param>
+    /// <param name="gizmoOrientation">The object's orientation in world space. Used for Rotate and Scale modes.</param>
     /// <param name="gizmoMode">The current gizmo mode.</param>
     /// <returns>The axis that was hit, or None if no axis was hit.</returns>
     public static GizmoAxis HitTest(
@@ -77,7 +77,7 @@ public static class GizmoHitTester
         int height,
         Camera3D.Resource camera,
         Vector3 gizmoPosition,
-        Vector3 gizmoRotation,
+        Quaternion gizmoOrientation,
         GizmoMode gizmoMode)
     {
         if (gizmoMode == GizmoMode.None)
@@ -95,10 +95,7 @@ public static class GizmoHitTester
         if (gizmoMode is GizmoMode.Rotate or GizmoMode.Scale)
         {
             // For Rotate and Scale modes, apply inverse rotation to transform ray into object's local space
-            var rotationMatrix = Matrix4x4.CreateFromYawPitchRoll(
-                gizmoRotation.Y * MathF.PI / 180f,
-                gizmoRotation.X * MathF.PI / 180f,
-                gizmoRotation.Z * MathF.PI / 180f);
+            var rotationMatrix = Matrix4x4.CreateFromQuaternion(gizmoOrientation);
 
             // Invert the rotation matrix
             Matrix4x4.Invert(rotationMatrix, out var inverseRotation);

@@ -34,6 +34,9 @@ public abstract partial class Material3D : EngineObject
         /// </summary>
         public virtual bool IsTransparent => false;
 
+        /// <summary>Whether both sides of a surface are drawn; otherwise its back faces are culled.</summary>
+        internal virtual bool IsDoubleSided => false;
+
         /// <summary>
         /// Enumerates the texture resources that must be available while this material is rendered.
         /// </summary>

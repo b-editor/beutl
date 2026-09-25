@@ -40,6 +40,28 @@ public class GizmoPlacementTests
         Assert.That(position, Is.EqualTo(new Vector3(110, 20, 30)));
     }
 
+    // Handles line up with the axes a nested object actually turns about.
+    [Test]
+    public void WorldOrientation_IncludesTheGroupsRotation()
+    {
+        var child = new Cube3D();
+        child.Rotation.CurrentValue = new Vector3(0, 30, 0);
+        var group = new Group3D();
+        group.Rotation.CurrentValue = new Vector3(0, 45, 0);
+        group.Scale.CurrentValue = new Vector3(2);
+        group.Children.Add(child);
+        using var groupResource = (Group3D.Resource)group.ToResource(CompositionContext.Default);
+        Object3D.Resource childResource = groupResource.GetChildResources().Single();
+
+        Quaternion orientation = Renderer3D.GetWorldOrientation([groupResource], childResource);
+
+        Vector3 turned = Vector3.Transform(Vector3.UnitX, orientation);
+        Vector3 expected = Vector3.Transform(
+            Vector3.UnitX,
+            Quaternion.CreateFromYawPitchRoll(75 * MathF.PI / 180, 0, 0));
+        Assert.That(Vector3.Distance(turned, expected), Is.LessThan(1e-4f));
+    }
+
     // A drag measured in world space is applied to the child's local Position through the parent's inverse.
     [Test]
     public void ParentWorldMatrix_IsTheGroupTransform_OrIdentityAtTheRoot()

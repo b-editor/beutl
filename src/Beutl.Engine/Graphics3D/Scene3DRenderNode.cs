@@ -165,7 +165,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 current => Render(session, current)),
             bounds: OpaqueRenderBoundsContract.Source(bounds),
             hitTest: RenderHitTestContract.Custom(
-                new SceneHitTest(camera, objects, bounds, scene.BackgroundColor.A > 0),
+                new SceneHitTest(camera, objects, bounds, workingScale, scene.BackgroundColor.A > 0),
                 static (state, context, point) => state.HitTest(context, point)),
             valueCardinality: RenderValueCardinality.ZeroOrOne,
             scale: RenderScaleContract.MaterializeAtWorkingScale,
@@ -267,6 +267,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         Camera3D.Resource Camera,
         Object3D.Resource[] Objects,
         Rect Bounds,
+        float WorkingScale,
         bool HasBackground)
     {
         public bool HitTest(RenderHitTestContext context, Point point)
@@ -277,10 +278,13 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             if (HasBackground)
                 return true;
 
+            // Test in the device pixels the scene is rendered at, so the camera's aspect ratio is the one
+            // the rendering used.
+            (int width, int height) = ResolveDeviceFootprint(Bounds, WorkingScale);
             return HitTester3D.HitTest(
-                new Point(point.X - Bounds.X, point.Y - Bounds.Y),
-                (int)MathF.Ceiling(Bounds.Width),
-                (int)MathF.Ceiling(Bounds.Height),
+                new Point((point.X - Bounds.X) * WorkingScale, (point.Y - Bounds.Y) * WorkingScale),
+                width,
+                height,
                 Camera,
                 Objects) is not null;
         }

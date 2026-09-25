@@ -59,6 +59,23 @@ internal sealed class DrawableContentTexture : TextureSource.Resource, IRecorded
             : default;
     }
 
+    /// <summary>Whether the drawables cover <paramref name="canvasPoint"/>, as a 2D hit test would answer.</summary>
+    public bool HitTest(Point canvasPoint)
+    {
+        if (!HasContent)
+            return false;
+
+        RenderNode root = Record(1f);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = new Rect(CanvasSize),
+            });
+        return renderer.HitTest(canvasPoint);
+    }
+
     public float ResolveDensity(float density)
     {
         float sanitizedDensity = RenderScaleUtilities.SanitizeOutputScale(density);
