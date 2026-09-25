@@ -923,8 +923,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 when model.GetOperation(list, context.CancellationToken) is IListPatternOperation pattern:
                 Report(pattern.LengthSymbol, "a list pattern");
 
-                // Only an element pattern reads through the indexer; [] and [..] test the length alone.
-                if (list.Patterns.Any(static element => element is not SlicePatternSyntax))
+                // Only an element pattern reads through the indexer; [], [..] and [_, ..] test the length alone.
+                if (list.Patterns.Any(static element => element is not (SlicePatternSyntax or DiscardPatternSyntax)))
                     Report(pattern.IndexerSymbol, "a list pattern");
 
                 return true;
@@ -1049,6 +1049,51 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         IMethodSymbol method when RunsAStaticMethod(method) => "static method",
         _ => "method",
     };
+
+    /// <summary>
+    /// Reports the await-pattern members an <c>await foreach</c> or <c>await using</c> runs on
+    /// <paramref name="awaitable"/> without an await expression anywhere in the source.
+    /// </summary>
+    private static void ReportImplicitAwait(
+        SyntaxNodeAnalysisContext context,
+        ITypeSymbol? awaitable,
+        SyntaxNode node,
+        string construct,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        void Report(ISymbol? member)
+        {
+            if (member is not null && !member.IsImplicitlyDeclared && IsDeclaredInSource(member))
+                report(node, DescribeMemberKind(member), member, string.Format(NotFollowedWithoutAName, construct));
+        }
+
+        if (FindInstanceMember<IMethodSymbol>(awaitable, "GetAwaiter", static m => m.Parameters.Length == 0)
+            is not { } getAwaiter)
+        {
+            return;
+        }
+
+        ITypeSymbol awaiter = getAwaiter.ReturnType;
+        Report(getAwaiter);
+        Report(FindInstanceMember<IPropertySymbol>(awaiter, "IsCompleted", static _ => true));
+        Report(FindInstanceMember<IMethodSymbol>(awaiter, "GetResult", static m => m.Parameters.Length == 0));
+        Report(GetContinuationMethod(context, awaiter));
+    }
+
+    private static T? FindInstanceMember<T>(ITypeSymbol? type, string name, Func<T, bool> accepts)
+        where T : class, ISymbol
+    {
+        for (ITypeSymbol? current = type; current is not null; current = current.BaseType)
+        {
+            foreach (ISymbol member in current.GetMembers(name))
+            {
+                if (member is T { IsStatic: false } typed && accepts(typed))
+                    return typed;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>Whether an implicit index or range reads the receiver's length.</summary>
     /// <remarks>
@@ -1263,6 +1308,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 ? dispose
                 : RunsAsMade(made, GetDisposeMethod(context, made, asynchronous) ?? dispose);
             FollowCall(context, runs, scope, "method", depth, walked, report);
+
+            // An await using awaits what DisposeAsync hands back, with no await written anywhere.
+            if (asynchronous)
+                ReportImplicitAwait(context, runs.ReturnType, scope, "an await using", report);
 
             if (made is null)
             {
@@ -1495,7 +1544,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             // it is sealed, and may be an override that type declares.
             INamedTypeSymbol? exact = made
                 ?? (on is null && previousResult is INamedTypeSymbol { IsSealed: true } narrowed ? narrowed : null);
-            IMethodSymbol runs = RunsAsMade(exact, rewritten);
+
+            // An unsealed narrowed result still guarantees at least its own overrides; the report below says
+            // that a type derived from it may replace them again.
+            INamedTypeSymbol? dispatch = exact ?? (on is null ? previousResult as INamedTypeSymbol : null);
+            IMethodSymbol runs = RunsAsMade(dispatch, rewritten);
             string kind = RunsAStaticMethod(rewritten) ? "static method" : "method";
             FollowCall(context, runs, node, kind, depth, walked, report);
 
@@ -1599,7 +1652,12 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             walked,
             report);
 
-        IMethodSymbol? Follow(ITypeSymbol? receiver, INamedTypeSymbol? made, IMethodSymbol? member, string? kind = null)
+        IMethodSymbol? Follow(
+            ITypeSymbol? receiver,
+            INamedTypeSymbol? made,
+            IMethodSymbol? member,
+            string? kind = null,
+            INamedTypeSymbol? dispatch = null)
         {
             // A member reached through an interface is resolved on the type the value was made as, which can
             // reimplement the interface and run a body the static type's mapping never names.
@@ -1609,7 +1667,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             if (RunsOn(dispatchedOn, member) is not { } bound)
                 return null;
 
-            IMethodSymbol run = RunsAsMade(made, bound);
+            IMethodSymbol run = RunsAsMade(made ?? dispatch, bound);
             kind ??= RunsAStaticMethod(run) ? "static method" : "method";
             FollowCall(context, run, loop, kind, depth, walked, report);
 
@@ -1636,9 +1694,25 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             && !SymbolEqualityComparer.Default.Equals(narrowed, enumerator)
                 ? narrowed
                 : null;
-        Follow(advanced, exactEnumerator, iteration.MoveNextMethod);
-        Follow(advanced, exactEnumerator, iteration.CurrentProperty?.GetMethod, "property");
-        Follow(advanced, exactEnumerator, iteration.DisposeMethod);
+        // An unsealed narrowed enumerator still guarantees at least its own overrides.
+        INamedTypeSymbol? narrowedEnumerator =
+            exactEnumerator is null
+            && advanced is INamedTypeSymbol unsealed
+            && !SymbolEqualityComparer.Default.Equals(unsealed, enumerator)
+                ? unsealed
+                : null;
+        IMethodSymbol? advance = Follow(
+            advanced, exactEnumerator, iteration.MoveNextMethod, dispatch: narrowedEnumerator);
+        Follow(advanced, exactEnumerator, iteration.CurrentProperty?.GetMethod, "property", narrowedEnumerator);
+        IMethodSymbol? disposal = Follow(
+            advanced, exactEnumerator, iteration.DisposeMethod, dispatch: narrowedEnumerator);
+
+        // An await foreach awaits what MoveNextAsync and DisposeAsync hand back, with no await written.
+        if (iteration.IsAsynchronous)
+        {
+            ReportImplicitAwait(context, advance?.ReturnType, loop, "an await foreach", report);
+            ReportImplicitAwait(context, disposal?.ReturnType, loop, "an await foreach", report);
+        }
     }
 
     /// <summary>The member that runs where the loop names one an interface declares.</summary>

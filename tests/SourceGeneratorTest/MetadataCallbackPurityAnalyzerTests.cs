@@ -4433,6 +4433,8 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
     [TestCase("[]")]
     [TestCase("[..]")]
+    [TestCase("[_]")]
+    [TestCase("[_, ..]")]
     public void AListPatternWithNoElement_DoesNotReportTheIndexer(string pattern)
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
@@ -5276,6 +5278,175 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
             Is.Not.Empty,
             "the clone is a LoudBox, so its init accessor is the one the initializer runs");
+    }
+
+    private const string LoudAwaitable = """
+        internal sealed class Awaitable
+        {
+            public Awaiter GetAwaiter() => new Awaiter();
+        }
+
+        internal sealed class Awaiter : System.Runtime.CompilerServices.INotifyCompletion
+        {
+            public bool IsCompleted => Settings.Offset > 0f;
+
+            public void GetResult()
+            {
+            }
+
+            public void OnCompleted(Action continuation) => continuation();
+        }
+
+        internal sealed class BoolAwaitable
+        {
+            public BoolAwaiter GetAwaiter() => new BoolAwaiter();
+        }
+
+        internal sealed class BoolAwaiter : System.Runtime.CompilerServices.INotifyCompletion
+        {
+            public bool IsCompleted => Settings.Offset > 0f;
+
+            public bool GetResult() => false;
+
+            public void OnCompleted(Action continuation) => continuation();
+        }
+        """;
+
+    [Test]
+    public void AnAwaitUsingWhoseDisposeAsyncReturnsASourceAwaitable_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            LoudAwaitable + """
+
+            internal sealed class Resource
+            {
+                public Awaitable DisposeAsync() => new Awaitable();
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure()
+                {
+                    await using (new Resource())
+                    {
+                    }
+
+                    return 0f;
+                }
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        Assert.That(Unfollowed(diagnostics, "an await using"), Is.Not.Empty,
+            "the scope awaits what DisposeAsync hands back, which is an await written nowhere");
+    }
+
+    [Test]
+    public void AnAwaitForEachOverASourceAsyncEnumerator_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            LoudAwaitable + """
+
+            internal sealed class Widths
+            {
+                public Enumerator GetAsyncEnumerator() => new Enumerator();
+            }
+
+            internal sealed class Enumerator
+            {
+                public float Current => 0f;
+
+                public BoolAwaitable MoveNextAsync() => new BoolAwaitable();
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure()
+                {
+                    float total = 0f;
+                    await foreach (float item in new Widths())
+                        total += item;
+
+                    return total;
+                }
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        Assert.That(Unfollowed(diagnostics, "an await foreach"), Is.Not.Empty,
+            "the loop awaits what MoveNextAsync hands back, which is an await written nowhere");
+    }
+
+    [Test]
+    public void AQueryOperatorOverriddenByAnUnsealedNarrowedResult_ReadsTheOverride()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual Widths Where(Func<float, bool> predicate) => this;
+
+                public virtual float Select(Func<float, float> selector) => 0f;
+            }
+
+            internal class LoudWidths : Widths
+            {
+                public override float Select(Func<float, float> selector) => Settings.Offset;
+            }
+
+            internal sealed class Source : Widths
+            {
+                public override LoudWidths Where(Func<float, bool> predicate) => new LoudWidths();
+            }
+            """,
+            """
+            Widths items = new Source();
+            width += from item in items where item > 0f select item + 1f;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "Where hands back at least a LoudWidths, so its Select override is at least what runs");
+    }
+
+    [Test]
+    public void AForEachOverAnUnsealedNarrowedEnumerator_ReadsItsOverride()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Widths
+            {
+                public virtual Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal sealed class LoudWidths : Widths
+            {
+                public override LoudEnumerator GetEnumerator() => new LoudEnumerator();
+            }
+
+            internal class Enumerator
+            {
+                public virtual float Current => 0f;
+
+                public virtual bool MoveNext() => false;
+            }
+
+            internal class LoudEnumerator : Enumerator
+            {
+                public override float Current => Settings.Offset;
+            }
+            """,
+            """
+            Widths items = new LoudWidths();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "GetEnumerator hands back at least a LoudEnumerator, so its Current override is at least what runs");
     }
 
     [Test]
