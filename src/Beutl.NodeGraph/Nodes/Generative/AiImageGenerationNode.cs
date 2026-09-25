@@ -29,9 +29,6 @@ public sealed partial class AiImageGenerationNode : GenerativeNode
     {
         Output = AddOutput<ImageSourceRenderNode?>("Image", NodePortDisplays.Image);
         Prompt = AddInput<string>("Prompt", NodePortDisplays.Prompt);
-        Style = AddInput<string>("Style", NodePortDisplays.Style);
-        Composition = AddInput<string>("Composition", NodePortDisplays.Composition);
-        Exclusions = AddInput<string>("Exclusions", NodePortDisplays.Exclusions);
         References = AddListInput<RenderNode?>("References", NodePortDisplays.References);
         Model = AddInput<string>("Model", NodePortDisplays.Model);
         AspectRatio = AddInput<string>("AspectRatio", NodePortDisplays.AspectRatio);
@@ -41,9 +38,6 @@ public sealed partial class AiImageGenerationNode : GenerativeNode
         AddGenerativeMonitors(NodePortDisplays.Preview, NodePortDisplays.Status);
 
         Prompt.Property?.SetValue(string.Empty);
-        Style.Property?.SetValue(string.Empty);
-        Composition.Property?.SetValue(string.Empty);
-        Exclusions.Property?.SetValue(string.Empty);
         Model.Property?.SetValue(string.Empty);
         AspectRatio.Property?.SetValue("1:1");
         Background.Property?.SetValue("auto");
@@ -54,13 +48,8 @@ public sealed partial class AiImageGenerationNode : GenerativeNode
 
     public OutputPort<ImageSourceRenderNode?> Output { get; }
 
+    /// <summary>The prompt text; connect a prompt node for style, composition and exclusions.</summary>
     public InputPort<string> Prompt { get; }
-
-    public InputPort<string> Style { get; }
-
-    public InputPort<string> Composition { get; }
-
-    public InputPort<string> Exclusions { get; }
 
     public ListInputPort<RenderNode?> References { get; }
 
@@ -92,9 +81,6 @@ public sealed partial class AiImageGenerationNode : GenerativeNode
         return new AiImageGenerationNodeRequest(this)
         {
             Prompt = r.Prompt!.Trim(),
-            Style = r.Style?.Trim() ?? string.Empty,
-            Composition = r.Composition?.Trim() ?? string.Empty,
-            Exclusions = r.Exclusions?.Trim() ?? string.Empty,
             AspectRatio = string.IsNullOrWhiteSpace(r.AspectRatio) ? "1:1" : r.AspectRatio!.Trim(),
             Background = string.IsNullOrWhiteSpace(r.Background) ? "auto" : r.Background!.Trim(),
             Seed = SeedFor(r),
@@ -126,7 +112,7 @@ public sealed partial class AiImageGenerationNode : GenerativeNode
 
     public partial class Resource
     {
-        private (string?, string?, string?, string?, string?, string?, string?, int?) _lastParameters;
+        private (string?, string?, string?, string?, int?) _lastParameters;
         private string? _lastParameterFingerprint;
 
         public override void Update(GraphCompositionContext context)
@@ -138,8 +124,7 @@ public sealed partial class AiImageGenerationNode : GenerativeNode
 
         internal string ComputeParameterFingerprint()
         {
-            var parameters = (Prompt?.Trim(), Style?.Trim(), Composition?.Trim(), Exclusions?.Trim(),
-                Model?.Trim(), AspectRatio?.Trim(), Background?.Trim(), SeedFor(this));
+            var parameters = (Prompt?.Trim(), Model?.Trim(), AspectRatio?.Trim(), Background?.Trim(), SeedFor(this));
             if (_lastParameterFingerprint is not null && parameters == _lastParameters)
                 return _lastParameterFingerprint;
 
@@ -150,10 +135,7 @@ public sealed partial class AiImageGenerationNode : GenerativeNode
                 parameters.Item2,
                 parameters.Item3,
                 parameters.Item4,
-                parameters.Item5,
-                parameters.Item6,
-                parameters.Item7,
-                parameters.Item8?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                parameters.Item5?.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ]);
         }
     }

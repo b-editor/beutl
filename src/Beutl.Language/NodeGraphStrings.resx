@@ -342,4 +342,7 @@
   <data name="Generative_ExecutorUnavailable" xml:space="preserve">
     <value>AI generation is not available in this window</value>
   </data>
+  <data name="AiPrompt" xml:space="preserve">
+    <value>Prompt</value>
+  </data>
 </root>

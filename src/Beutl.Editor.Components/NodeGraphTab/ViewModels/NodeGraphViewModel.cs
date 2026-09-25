@@ -44,6 +44,13 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
                 })
             .DisposeWith(_disposables);
 
+        CanRunGenerative = HasGenerativeNodes
+            .CombineLatest(IsGenerating, (has, running) => has && !running)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        HasGenerativeNodes.Value = graph.Nodes.Any(node => node is GenerativeNode);
+        graph.Nodes.CollectionChanged += OnNodesChanged;
+
         graph.AllConnections.ForEachItem(
                 item =>
                 {
@@ -78,6 +85,12 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
     /// <summary>True while a queue of generative nodes is running.</summary>
     public ReactivePropertySlim<bool> IsGenerating { get; } = new();
+
+    /// <summary>True when the graph holds at least one AI node.</summary>
+    public ReactivePropertySlim<bool> HasGenerativeNodes { get; } = new();
+
+    /// <summary>Whether "Run AI nodes" can start now.</summary>
+    public ReadOnlyReactivePropertySlim<bool> CanRunGenerative { get; }
 
     /// <summary>A reason the last queue could not start, for the toolbar.</summary>
     public ReactivePropertySlim<string?> GenerativeError { get; } = new();
@@ -121,6 +134,9 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     }
 
     public void CancelGenerative() => _generativeCts?.Cancel();
+
+    private void OnNodesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        => HasGenerativeNodes.Value = NodeGraph.Nodes.Any(node => node is GenerativeNode);
 
     public CoreList<GraphNodeViewModel> Nodes { get; } = [];
 
@@ -183,6 +199,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     public void Dispose()
     {
         _generativeCts?.Cancel();
+        NodeGraph.Nodes.CollectionChanged -= OnNodesChanged;
         foreach (ConnectionViewModel conn in AllConnections)
         {
             conn.Dispose();

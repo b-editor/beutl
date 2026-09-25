@@ -150,6 +150,51 @@ public sealed class GenerativeGraphRunnerTests
         });
     }
 
+    [Test]
+    public async Task PromptNodeSendsTheSectionsTheDialogWouldSend()
+    {
+        var model = new GraphModel();
+        var prompt = new AiPromptNode();
+        prompt.Prompt.Property!.SetValue("  a   cat ");
+        prompt.Style.Property!.SetValue("watercolor");
+        prompt.Exclusions.Property!.SetValue("text,\n watermark");
+        var image = new AiImageGenerationNode();
+        model.Nodes.Add(prompt);
+        model.Nodes.Add(image);
+        model.Connect(image.Prompt, prompt.Output);
+        var executor = new FakeExecutor(_directory);
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
+
+        var request = (AiImageGenerationNodeRequest)executor.Requests.Single();
+        Assert.That(request.Prompt, Is.EqualTo("a cat\nStyle: watercolor\nAvoid: text, watermark"));
+        Assert.That(
+            request.Prompt,
+            Is.EqualTo(PromptSections.Compose("  a   cat ", "watercolor", exclusions: "text,\n watermark")));
+    }
+
+    [Test]
+    public async Task EditingAConnectedPromptNodeMakesTheImageStale()
+    {
+        var model = new GraphModel();
+        var prompt = new AiPromptNode();
+        prompt.Prompt.Property!.SetValue("a cat");
+        var image = new AiImageGenerationNode();
+        model.Nodes.Add(prompt);
+        model.Nodes.Add(image);
+        model.Connect(image.Prompt, prompt.Output);
+        var executor = new FakeExecutor(_directory);
+        var runner = new GenerativeGraphRunner(executor, new InlineHost());
+        await runner.RunAsync(model, null, force: false, CancellationToken.None);
+        executor.Requests.Clear();
+
+        prompt.Composition.Property!.SetValue("close-up");
+        await runner.RunAsync(model, null, force: false, CancellationToken.None);
+
+        Assert.That(executor.Requests, Has.Count.EqualTo(1));
+        Assert.That(((AiImageGenerationNodeRequest)executor.Requests[0]).Prompt, Is.EqualTo("a cat\nComposition: close-up"));
+    }
+
     private static (GraphModel Model, AiImageGenerationNode Upstream, AiImageGenerationNode Downstream) CreateChain()
     {
         var model = new GraphModel();

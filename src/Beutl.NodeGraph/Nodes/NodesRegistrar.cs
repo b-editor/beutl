@@ -20,6 +20,7 @@ public static class NodesRegistrar
         GraphNodeRegistry.RegisterNode<TransformNode>(GraphicsStrings.Transform, Colors.MediumPurple);
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.AiGeneration, Colors.DeepPink)
+            .Add<AiPromptNode>(NodeGraphStrings.AiPrompt)
             .Add<AiImageGenerationNode>(NodeGraphStrings.AiImageGeneration)
             .Register();
 

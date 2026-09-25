@@ -41,11 +41,10 @@ internal sealed class AiGenerativeNodeExecutor(
         IProgress<GenerativeProgress> progress,
         CancellationToken cancellationToken)
     {
-        string prompt = AiPromptComposer.Compose(new AiPromptParts(
-            request.Prompt,
-            request.Style,
-            request.Composition,
-            Exclusions: request.Exclusions));
+        // Already written out by a prompt node (or typed directly); only the limit is checked.
+        string prompt = request.Prompt;
+        if (prompt.Length > AiRequestLimits.MaxPromptLength)
+            throw new GenerativeExecutionException(AiPromptComposer.PromptTooLongMessage);
         AiModelId? model = request.ModelId is { } id ? new AiModelId(id) : null;
         AiUploadSource[] references = request.References
             .Select(reference => AiUploadSource.FromBytes(reference.Name, reference.EncodedPng))

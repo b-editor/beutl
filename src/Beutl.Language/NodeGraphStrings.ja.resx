@@ -342,4 +342,7 @@
   <data name="Generative_ExecutorUnavailable" xml:space="preserve">
     <value>このウィンドウではAI生成を使用できません</value>
   </data>
+  <data name="AiPrompt" xml:space="preserve">
+    <value>プロンプト</value>
+  </data>
 </root>

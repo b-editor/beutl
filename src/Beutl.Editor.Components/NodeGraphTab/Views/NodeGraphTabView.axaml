@@ -2,7 +2,6 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.NodeGraphTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -50,12 +49,6 @@
                            IsVisible="{Binding NodeGraph.Value.GenerativeError.Value, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}"
                            Text="{Binding NodeGraph.Value.GenerativeError.Value, FallbackValue={x:Null}}"
                            TextTrimming="CharacterEllipsis" />
-                <Button Click="RunGenerativeClick"
-                        Content="{x:Static lang:NodeGraphStrings.Generative_RunQueue}"
-                        IsEnabled="{Binding !NodeGraph.Value.IsGenerating.Value, FallbackValue=False}" />
-                <Button Click="StopGenerativeClick"
-                        Content="{x:Static lang:NodeGraphStrings.Generative_StopQueue}"
-                        IsVisible="{Binding NodeGraph.Value.IsGenerating.Value, FallbackValue=False}" />
             </StackPanel>
             </Grid>
         </Border>

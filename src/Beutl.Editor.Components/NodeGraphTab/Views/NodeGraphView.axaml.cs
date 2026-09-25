@@ -299,6 +299,17 @@ public partial class NodeGraphView : UserControl
         }
     }
 
+    private void RunGenerativeClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is NodeGraphViewModel viewModel)
+            _ = viewModel.RunGenerativeAsync(null, force: false);
+    }
+
+    private void StopGenerativeClick(object? sender, RoutedEventArgs e)
+    {
+        (DataContext as NodeGraphViewModel)?.CancelGenerative();
+    }
+
     private void ResetZoomClick(object? sender, RoutedEventArgs e)
     {
         zoomBorder.Zoom(1, zoomBorder.OffsetX, zoomBorder.OffsetY);

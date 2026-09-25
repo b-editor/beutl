@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Editor.Components.NodeGraphTab.Views.NodeGraphView"
+﻿<UserControl x:Class="Beutl.Editor.Components.NodeGraphTab.Views.NodeGraphView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -36,6 +36,13 @@
                     <ContextMenu>
                         <MenuItem x:Name="addNode" Header="{x:Static lang:Strings.AddNode}" />
                         <MenuItem Click="ResetZoomClick" Header="{x:Static lang:Strings.ResetZoom}" />
+                        <Separator />
+                        <MenuItem Click="RunGenerativeClick"
+                                  Header="{x:Static lang:NodeGraphStrings.Generative_RunQueue}"
+                                  IsEnabled="{Binding CanRunGenerative.Value}" />
+                        <MenuItem Click="StopGenerativeClick"
+                                  Header="{x:Static lang:NodeGraphStrings.Generative_StopQueue}"
+                                  IsVisible="{Binding IsGenerating.Value}" />
                     </ContextMenu>
                 </paz:ZoomBorder.ContextMenu>
                 <Canvas x:Name="canvas" />

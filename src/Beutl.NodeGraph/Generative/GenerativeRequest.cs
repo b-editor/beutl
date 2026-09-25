@@ -62,12 +62,6 @@ public sealed record AiImageGenerationNodeRequest : GenerativeRequest
 
     public required string Prompt { get; init; }
 
-    public string Style { get; init; } = string.Empty;
-
-    public string Composition { get; init; } = string.Empty;
-
-    public string Exclusions { get; init; } = string.Empty;
-
     public required string AspectRatio { get; init; }
 
     public string Background { get; init; } = "auto";
