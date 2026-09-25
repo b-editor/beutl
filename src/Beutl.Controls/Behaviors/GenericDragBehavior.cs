@@ -35,8 +35,8 @@ public class GenericDragBehavior : Behavior<Control>
     public static readonly StyledProperty<double> VerticalDragThresholdProperty =
         AvaloniaProperty.Register<GenericDragBehavior, double>(nameof(VerticalDragThreshold), 3);
 
-    public static readonly StyledProperty<Control> DragControlProperty =
-        AvaloniaProperty.Register<GenericDragBehavior, Control>(nameof(DragControl));
+    public static readonly StyledProperty<Control?> DragControlProperty =
+        AvaloniaProperty.Register<GenericDragBehavior, Control?>(nameof(DragControl));
 
     public Orientation Orientation
     {
@@ -57,7 +57,7 @@ public class GenericDragBehavior : Behavior<Control>
     }
 
     [ResolveByName]
-    public Control DragControl
+    public Control? DragControl
     {
         get => GetValue(DragControlProperty);
         set => SetValue(DragControlProperty, value);

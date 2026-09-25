@@ -190,10 +190,13 @@ public class FileInputArea : ContentControl
     {
         foreach (IStorageItem item in files)
         {
-            if (item is IStorageFile file && file.TryGetLocalPath() is string path)
+            if (item is IStorageFile file)
             {
                 if (acceptAnyFile)
                     return file;
+
+                if (file.TryGetLocalPath() is not string path)
+                    continue;
 
                 var fi = new FileInfo(path);
                 var fiWrapper = new FileInfoWrapper(fi);

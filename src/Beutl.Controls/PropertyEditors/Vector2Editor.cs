@@ -373,10 +373,10 @@ public class Vector2Editor : PropertyEditor
             o => o.SecondText,
             (o, v) => o.SecondText = v);
 
-    public static readonly StyledProperty<string> FirstHeaderProperty =
+    public static readonly StyledProperty<string?> FirstHeaderProperty =
         Vector4Editor.FirstHeaderProperty.AddOwner<Vector2Editor>();
 
-    public static readonly StyledProperty<string> SecondHeaderProperty =
+    public static readonly StyledProperty<string?> SecondHeaderProperty =
         Vector4Editor.SecondHeaderProperty.AddOwner<Vector2Editor>();
 
     public static readonly StyledProperty<bool> IsUniformProperty =
@@ -407,13 +407,13 @@ public class Vector2Editor : PropertyEditor
         set => SetAndRaise(SecondTextProperty, ref _secondText, value);
     }
 
-    public string FirstHeader
+    public string? FirstHeader
     {
         get => GetValue(FirstHeaderProperty);
         set => SetValue(FirstHeaderProperty, value);
     }
 
-    public string SecondHeader
+    public string? SecondHeader
     {
         get => GetValue(SecondHeaderProperty);
         set => SetValue(SecondHeaderProperty, value);

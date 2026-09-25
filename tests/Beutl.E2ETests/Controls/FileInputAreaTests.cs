@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
@@ -83,5 +84,48 @@ public class FileInputAreaTests
             window.Close();
             File.Delete(path);
         }
+    }
+
+    [AvaloniaTest]
+    public void Dropping_a_virtual_file_without_a_filter_selects_it()
+    {
+        IStorageFile file = DispatchProxy.Create<IStorageFile, VirtualFileProxy>();
+        Assert.That(file.TryGetLocalPath(), Is.Null);
+
+        var input = new FileInputArea();
+        var window = new Window { Content = input, Width = 400, Height = 200 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            var data = new DataTransfer();
+            data.Add(DataTransferItem.CreateFile(file));
+            var enter = new DragEventArgs(DragDrop.DragEnterEvent, data, input, new Point(10, 10), KeyModifiers.None);
+            input.RaiseEvent(enter);
+            Assert.That(enter.DragEffects, Is.EqualTo(DragDropEffects.Copy));
+
+            var drop = new DragEventArgs(DragDrop.DropEvent, data, input, new Point(10, 10), KeyModifiers.None)
+            {
+                DragEffects = enter.DragEffects,
+            };
+            input.RaiseEvent(drop);
+            Assert.That(input.SelectedFile, Is.SameAs(file));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    public class VirtualFileProxy : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+            => targetMethod?.Name switch
+            {
+                "get_Path" => new Uri("https://example.com/virtual.txt"),
+                "get_Name" => "virtual.txt",
+                _ => throw new NotSupportedException(targetMethod?.Name),
+            };
     }
 }

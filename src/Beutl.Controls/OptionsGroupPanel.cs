@@ -12,8 +12,8 @@ public sealed class OptionsGroupPanel : StackPanel
     public static readonly AttachedProperty<bool> IsGroupedProperty =
         AvaloniaProperty.RegisterAttached<OptionsGroupPanel, Control, bool>("IsGrouped", inherits: true);
 
-    public static readonly StyledProperty<IBrush> SeparatorBrushProperty =
-        AvaloniaProperty.Register<OptionsGroupPanel, IBrush>(nameof(SeparatorBrush));
+    public static readonly StyledProperty<IBrush?> SeparatorBrushProperty =
+        AvaloniaProperty.Register<OptionsGroupPanel, IBrush?>(nameof(SeparatorBrush));
 
     private double[] _separatorPositions = [];
     private readonly SeparatorLayer _separatorLayer;
@@ -31,7 +31,7 @@ public sealed class OptionsGroupPanel : StackPanel
 
     public static void SetIsGrouped(Control control, bool value) => control.SetValue(IsGroupedProperty, value);
 
-    public IBrush SeparatorBrush
+    public IBrush? SeparatorBrush
     {
         get => GetValue(SeparatorBrushProperty);
         set => SetValue(SeparatorBrushProperty, value);

@@ -42,7 +42,7 @@ public partial class ColorSpectrum : ColorPickerComponent
         if (Shape == ColorSpectrumShape.Triangle)
         {
             var minD = Math.Min(Bounds.Width, Bounds.Height) - WheelPadding;
-            if (minD <= 0)
+            if (minD < 1)
                 return;
             _lastWheelRect = new Rect(Bounds.Width / 2 - minD / 2, Bounds.Height / 2 - minD / 2,
                 minD, minD);

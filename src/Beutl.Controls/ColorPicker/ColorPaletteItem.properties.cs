@@ -24,14 +24,14 @@ public partial class ColorPaletteItem
     /// <summary>
     /// Defines the <see cref="BorderBrushPointerOver"/> property
     /// </summary>
-    public static readonly StyledProperty<IBrush> BorderBrushPointerOverProperty =
-        AvaloniaProperty.Register<ColorPaletteItem, IBrush>(nameof(BorderBrushPointerOver));
+    public static readonly StyledProperty<IBrush?> BorderBrushPointerOverProperty =
+        AvaloniaProperty.Register<ColorPaletteItem, IBrush?>(nameof(BorderBrushPointerOver));
 
     /// <summary>
     /// Defines the <see cref="BorderBrushPressed"/> property
     /// </summary>
-    public static readonly StyledProperty<IBrush> BorderBrushPressedProperty =
-        AvaloniaProperty.Register<ColorPaletteItem, IBrush>(nameof(BorderBrushPressed));
+    public static readonly StyledProperty<IBrush?> BorderBrushPressedProperty =
+        AvaloniaProperty.Register<ColorPaletteItem, IBrush?>(nameof(BorderBrushPressed));
 
     /// <summary>
     /// Defines the <see cref="BorderThickness"/> property
@@ -88,7 +88,7 @@ public partial class ColorPaletteItem
     /// Gets or sets the Border Brush this item should use when rendering and the
     /// pointer is over the item
     /// </summary>
-    public IBrush BorderBrushPointerOver
+    public IBrush? BorderBrushPointerOver
     {
         get => GetValue(BorderBrushPointerOverProperty);
         set => SetValue(BorderBrushPointerOverProperty, value);
@@ -98,7 +98,7 @@ public partial class ColorPaletteItem
     /// Gets or sets the Border Brush this item should use when rendering and the
     /// pointer is pressed on the item
     /// </summary>
-    public IBrush BorderBrushPressed
+    public IBrush? BorderBrushPressed
     {
         get => GetValue(BorderBrushPressedProperty);
         set => SetValue(BorderBrushPressedProperty, value);

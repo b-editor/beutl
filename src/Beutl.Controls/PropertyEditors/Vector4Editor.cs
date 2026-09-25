@@ -459,17 +459,17 @@ public class Vector4Editor : PropertyEditor
             (o, v) => o.FourthText = v,
             defaultBindingMode: BindingMode.TwoWay);
 
-    public static readonly StyledProperty<string> FirstHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string>(nameof(FirstHeader));
+    public static readonly StyledProperty<string?> FirstHeaderProperty =
+        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(FirstHeader));
 
-    public static readonly StyledProperty<string> SecondHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string>(nameof(SecondHeader));
+    public static readonly StyledProperty<string?> SecondHeaderProperty =
+        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(SecondHeader));
 
-    public static readonly StyledProperty<string> ThirdHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string>(nameof(ThirdHeader));
+    public static readonly StyledProperty<string?> ThirdHeaderProperty =
+        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(ThirdHeader));
 
-    public static readonly StyledProperty<string> FourthHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string>(nameof(FourthHeader));
+    public static readonly StyledProperty<string?> FourthHeaderProperty =
+        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(FourthHeader));
 
     public static readonly StyledProperty<bool> IsUniformProperty =
         AvaloniaProperty.Register<Vector4Editor, bool>(nameof(IsUniform));
@@ -517,25 +517,25 @@ public class Vector4Editor : PropertyEditor
         set => SetAndRaise(FourthTextProperty, ref _fourthText, value);
     }
 
-    public string FirstHeader
+    public string? FirstHeader
     {
         get => GetValue(FirstHeaderProperty);
         set => SetValue(FirstHeaderProperty, value);
     }
 
-    public string SecondHeader
+    public string? SecondHeader
     {
         get => GetValue(SecondHeaderProperty);
         set => SetValue(SecondHeaderProperty, value);
     }
 
-    public string ThirdHeader
+    public string? ThirdHeader
     {
         get => GetValue(ThirdHeaderProperty);
         set => SetValue(ThirdHeaderProperty, value);
     }
 
-    public string FourthHeader
+    public string? FourthHeader
     {
         get => GetValue(FourthHeaderProperty);
         set => SetValue(FourthHeaderProperty, value);

@@ -17,8 +17,8 @@ public class EnumItem(string? displayName, string? description, object value)
 
 public class EnumEditor : PropertyEditor
 {
-    public static readonly StyledProperty<IReadOnlyList<EnumItem>> ItemsProperty =
-        AvaloniaProperty.Register<EnumEditor, IReadOnlyList<EnumItem>>(nameof(Items));
+    public static readonly StyledProperty<IReadOnlyList<EnumItem>?> ItemsProperty =
+        AvaloniaProperty.Register<EnumEditor, IReadOnlyList<EnumItem>?>(nameof(Items));
 
     public static readonly DirectProperty<EnumEditor, int> SelectedIndexProperty =
         SelectingItemsControl.SelectedIndexProperty.AddOwner<EnumEditor>(
@@ -27,7 +27,7 @@ public class EnumEditor : PropertyEditor
     private int _selectedIndex;
     private IDisposable? _disposable;
 
-    public IReadOnlyList<EnumItem> Items
+    public IReadOnlyList<EnumItem>? Items
     {
         get => GetValue(ItemsProperty);
         set => SetValue(ItemsProperty, value);

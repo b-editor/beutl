@@ -426,13 +426,13 @@ public class Vector3Editor : PropertyEditor
             o => o.ThirdText,
             (o, v) => o.ThirdText = v);
 
-    public static readonly StyledProperty<string> FirstHeaderProperty =
+    public static readonly StyledProperty<string?> FirstHeaderProperty =
         Vector4Editor.FirstHeaderProperty.AddOwner<Vector3Editor>();
 
-    public static readonly StyledProperty<string> SecondHeaderProperty =
+    public static readonly StyledProperty<string?> SecondHeaderProperty =
         Vector4Editor.SecondHeaderProperty.AddOwner<Vector3Editor>();
 
-    public static readonly StyledProperty<string> ThirdHeaderProperty =
+    public static readonly StyledProperty<string?> ThirdHeaderProperty =
         Vector4Editor.ThirdHeaderProperty.AddOwner<Vector3Editor>();
 
     public static readonly StyledProperty<bool> IsUniformProperty =
@@ -471,19 +471,19 @@ public class Vector3Editor : PropertyEditor
         set => SetAndRaise(ThirdTextProperty, ref _thirdText, value);
     }
 
-    public string FirstHeader
+    public string? FirstHeader
     {
         get => GetValue(FirstHeaderProperty);
         set => SetValue(FirstHeaderProperty, value);
     }
 
-    public string SecondHeader
+    public string? SecondHeader
     {
         get => GetValue(SecondHeaderProperty);
         set => SetValue(SecondHeaderProperty, value);
     }
 
-    public string ThirdHeader
+    public string? ThirdHeader
     {
         get => GetValue(ThirdHeaderProperty);
         set => SetValue(ThirdHeaderProperty, value);

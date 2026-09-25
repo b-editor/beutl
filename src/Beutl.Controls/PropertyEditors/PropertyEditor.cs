@@ -30,11 +30,11 @@ public enum PropertyEditorStyle
 [TemplatePart("PART_ReorderHandle", typeof(Control))]
 public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, IListItemEditor
 {
-    public static readonly StyledProperty<string> HeaderProperty =
-        AvaloniaProperty.Register<PropertyEditor, string>(nameof(Header));
+    public static readonly StyledProperty<string?> HeaderProperty =
+        AvaloniaProperty.Register<PropertyEditor, string?>(nameof(Header));
 
-    public static readonly StyledProperty<string> DescriptionProperty =
-        AvaloniaProperty.Register<PropertyEditor, string>(nameof(Description));
+    public static readonly StyledProperty<string?> DescriptionProperty =
+        AvaloniaProperty.Register<PropertyEditor, string?>(nameof(Description));
 
     public static readonly StyledProperty<string?> HoverInfoProperty =
         AvaloniaProperty.Register<PropertyEditor, string?>(nameof(HoverInfo));
@@ -51,8 +51,8 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     public static readonly StyledProperty<object?> MenuContentProperty =
         AvaloniaProperty.Register<PropertyEditor, object?>(nameof(MenuContent));
 
-    public static readonly StyledProperty<IDataTemplate> MenuContentTemplateProperty =
-        AvaloniaProperty.Register<PropertyEditor, IDataTemplate>(nameof(MenuContentTemplate));
+    public static readonly StyledProperty<IDataTemplate?> MenuContentTemplateProperty =
+        AvaloniaProperty.Register<PropertyEditor, IDataTemplate?>(nameof(MenuContentTemplate));
 
     public static readonly StyledProperty<float> KeyFrameIndexProperty =
         AvaloniaProperty.Register<PropertyEditor, float>(nameof(KeyFrameIndex), 0);
@@ -77,13 +77,13 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         MarginProperty.OverrideDefaultValue<PropertyEditor>(new(4, 0));
     }
 
-    public string Header
+    public string? Header
     {
         get => GetValue(HeaderProperty);
         set => SetValue(HeaderProperty, value);
     }
 
-    public string Description
+    public string? Description
     {
         get => GetValue(DescriptionProperty);
         set => SetValue(DescriptionProperty, value);
@@ -115,7 +115,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         set => SetValue(MenuContentProperty, value);
     }
 
-    public IDataTemplate MenuContentTemplate
+    public IDataTemplate? MenuContentTemplate
     {
         get => GetValue(MenuContentTemplateProperty);
         set => SetValue(MenuContentTemplateProperty, value);

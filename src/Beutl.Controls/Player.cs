@@ -45,10 +45,10 @@ public sealed class TimecodeSubmittedEventArgs : EventArgs
 }
 public class Player : RangeBase
 {
-    public static readonly StyledProperty<string> DurationProperty = AvaloniaProperty.Register<Player, string>(nameof(Duration));
-    public static readonly StyledProperty<object> ContentProperty = AvaloniaProperty.Register<Player, object>(nameof(Content));
-    public static readonly StyledProperty<object> InnerLeftContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerLeftContent));
-    public static readonly StyledProperty<object> InnerRightContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerRightContent));
+    public static readonly StyledProperty<string?> DurationProperty = AvaloniaProperty.Register<Player, string?>(nameof(Duration));
+    public static readonly StyledProperty<object?> ContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(Content));
+    public static readonly StyledProperty<object?> InnerLeftContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(InnerLeftContent));
+    public static readonly StyledProperty<object?> InnerRightContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(InnerRightContent));
     public static readonly DirectProperty<Player, string> CurrentTimeProperty =
         AvaloniaProperty.RegisterDirect<Player, string>(
             nameof(CurrentTime),
@@ -128,25 +128,25 @@ public class Player : RangeBase
 
     public event EventHandler<TimecodeSubmittedEventArgs>? CurrentTimeSubmitted;
 
-    public string Duration
+    public string? Duration
     {
         get => GetValue(DurationProperty);
         set => SetValue(DurationProperty, value);
     }
 
-    public object Content
+    public object? Content
     {
         get => GetValue(ContentProperty);
         set => SetValue(ContentProperty, value);
     }
 
-    public object InnerLeftContent
+    public object? InnerLeftContent
     {
         get => GetValue(InnerLeftContentProperty);
         set => SetValue(InnerLeftContentProperty, value);
     }
 
-    public object InnerRightContent
+    public object? InnerRightContent
     {
         get => GetValue(InnerRightContentProperty);
         set => SetValue(InnerRightContentProperty, value);
