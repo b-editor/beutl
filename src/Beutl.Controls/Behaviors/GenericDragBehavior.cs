@@ -26,6 +26,7 @@ public class GenericDragBehavior : Behavior<Control>
     private ItemsControl? _itemsControl;
     private Control? _draggedContainer;
     private Control? _subscribedDragControl;
+    private IPointer? _activePointer;
 
     public static readonly StyledProperty<Orientation> OrientationProperty =
         AvaloniaProperty.Register<GenericDragBehavior, Orientation>(nameof(Orientation));
@@ -92,6 +93,13 @@ public class GenericDragBehavior : Behavior<Control>
 
         if (_subscribedDragControl is { } previous)
         {
+            // A control switch cancels the current gesture before its capture-lost handler is removed.
+            _dragStarted = false;
+            if (_activePointer is { } pointer && ReferenceEquals(pointer.Captured, previous))
+                pointer.Capture(null);
+            Released();
+            _activePointer = null;
+
             previous.RemoveHandler(InputElement.PointerReleasedEvent, Released);
             previous.RemoveHandler(InputElement.PointerPressedEvent, Pressed);
             previous.RemoveHandler(InputElement.PointerMovedEvent, Moved);
@@ -143,6 +151,7 @@ public class GenericDragBehavior : Behavior<Control>
             AddTransforms(_itemsControl);
 
             e.Pointer.Capture(DragControl);
+            _activePointer = e.Pointer;
             e.Handled = true;
         }
     }
@@ -210,6 +219,7 @@ public class GenericDragBehavior : Behavior<Control>
         _itemsControl = null;
 
         _draggedContainer = null;
+        _activePointer = null;
     }
 
     private static void AddTransforms(ItemsControl? itemsControl)
