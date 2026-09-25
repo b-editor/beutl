@@ -1752,11 +1752,15 @@ public partial class PlayerView
             return position ?? obj.Position.GetValue(CompositionContext);
         }
 
-        // Searches nested objects too: a hit test can select an object inside a group.
+        // Searches nested objects too: a hit test can select an object inside a group. Disabled objects are
+        // not drawn, so they are not found.
         private static Object3D.Resource? FindObjectResource(IReadOnlyList<Object3D.Resource> objects, Guid id)
         {
             foreach (Object3D.Resource item in objects)
             {
+                if (!item.IsEnabled)
+                    continue;
+
                 if (item.GetOriginal()?.Id == id)
                     return item;
 
