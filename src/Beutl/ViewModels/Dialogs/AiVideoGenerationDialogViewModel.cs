@@ -1561,40 +1561,23 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             // choosing another model is enough to delete it.
             HoldFramesFor(name, firstFramePath, lastFramePath);
 
-            // Before it goes out. A name that ends here reached nothing.
-            try
-            {
-                // Not for a repeat: the server looks up the job this name
-                // already made before it looks at the balance, so refusing here
-                // would refuse to collect something already paid for.
-                if (!name.IsRepeat
-                    && !await _availabilityTracker.CheckNowAsync(
-                        new AiOperationAvailabilityRequest.Video(
-                            Operation,
-                            durationSeconds,
-                            model),
-                        operation.CancellationToken))
-                {
-                    throw new AiUsageLimitExceededException();
-                }
-            }
-            catch
-            {
-                WithdrawRequestName(name);
-                throw;
-            }
-
-            AiVideoGenerationResult response;
-            try
-            {
-                _requestKey.MarkClaimDispatched(claim);
-                response = SourceMode is { } mode
+            AiVideoGenerationResult response = await AiMeteredDispatch.SendAsync(
+                _requestKey,
+                name,
+                claim,
+                token => _availabilityTracker.CheckNowAsync(
+                    new AiOperationAvailabilityRequest.Video(
+                        Operation,
+                        durationSeconds,
+                        model),
+                    token),
+                async token => SourceMode is { } mode
                     ? await _videos.CreateFromSourceAsync(new AiSourceVideoRequest(mode, prompt,
                         sourceVideo: inputs.FirstOrDefault(input => input.Role == "source-video")?.Upload
                             ?? throw new InvalidDataException(Strings.AiVideoInputUnavailable),
                         durationSeconds: mode == AiSourceVideoMode.Edit ? null : durationSeconds,
                         characterImage: inputs.FirstOrDefault(input => input.Role == "character-image")?.Upload,
-                        orientation: orientation, quality: quality, model: model, idempotencyKey: name.Key), operation.CancellationToken)
+                        orientation: orientation, quality: quality, model: model, idempotencyKey: name.Key), token)
                     : await _videos.CreateAsync(
                     new AiVideoGenerationRequest(
                         prompt,
@@ -1608,13 +1591,9 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                         model: model,
                         idempotencyKey: name.Key,
                         inputReferences: inputs.Select(input => input.Upload).ToArray()),
-                    operation.CancellationToken);
-            }
-            catch (Exception ex) when (AiRequestOutcome.CanWithdraw(name, ex))
-            {
-                WithdrawRequestName(name);
-                throw;
-            }
+                    token),
+                WithdrawRequestName,
+                operation.CancellationToken);
 
             // Past here the clip has been reserved and paid for. Whatever goes
             // wrong while it is waited on, the name stays: it is the way back.
@@ -1643,78 +1622,14 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             }
         }
         // Every refusal that reserves nothing withdrew its name where it was
-        // raised, next to the request that never left. These only say what
-        // happened.
-        catch (AuthenticationRequiredException)
+        // raised, next to the request that never left.
+        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
         {
-            operation.TryPublish(() => Error.Value = Strings.AiAuthenticationRequired);
-        }
-        catch (AiPlanRequiredException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiProRequired);
-        }
-        catch (AiUsageLimitExceededException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiUsageLimitExceeded);
-        }
-        // Charged for and still the server's; asking again under the same name
-        // is what recovers it, so the key stays.
-        catch (AiResultUnavailableException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiResultUnavailable);
-        }
-        catch (AiModelUnavailableException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiModelUnavailable);
-        }
-        // Refused before the operation was reserved, so nothing was charged;
-        // what has to change is the model or the shape of the request.
-        catch (AiModelDoesNotSupportRequestException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiModelDoesNotSupportRequest);
-        }
-        // The server settled this job as failed and refunded it. Its name would
-        // keep answering with that failure, so the next attempt takes a new one.
-        catch (AiProviderErrorException)
-        {
-            RetireRequestName(issued);
-            operation.TryPublish(() => Error.Value = Strings.AiProviderError);
-        }
-        // Reachable because a request keeps its name across attempts: asking
-        // again for one the server is still working on is how its result is
-        // recovered rather than bought twice, and until it finishes the answer
-        // is this. The key stays — it is still the way back to that job.
-        catch (AiRequestInProgressException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiRequestInProgress);
-        }
-        // The job that key created is gone, so the key can only ever answer
-        // with that. The next attempt has to be a new request.
-        // The issued name belongs to a different request. Keep it so restoring the form can
-        // resend that request; discarding it could close the only route to an already-paid job.
-        catch (AiRequestChangedException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiRequestChanged);
-        }
-        catch (AiRequestWasDeletedException)
-        {
-            RetireRequestName(issued);
-            operation.TryPublish(() => Error.Value = Strings.AiRequestWasDeleted);
-        }
-        catch (AiJobNotFoundException)
-        {
-            // The create key points at a job the server no longer retains. Keeping the
-            // key would make every poll/retry return the same terminal absence.
-            RetireRequestName(issued);
-            operation.TryPublish(() => Error.Value = Strings.AiRequestWasDeleted);
-        }
-        catch (AiJobLimitReachedException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiVideoJobLimitReached);
-        }
-        catch (AiFileTooLargeException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
+            if (failure.RetiresName)
+                RetireRequestName(issued);
+            if (failure.IsResultDownloadFailure)
+                _logger.LogError(ex, "Failed to download the AI result.");
+            operation.TryPublish(() => Error.Value = failure.Message);
         }
         catch (VideoInputException ex)
         {

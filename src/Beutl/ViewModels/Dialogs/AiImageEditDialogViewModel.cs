@@ -1050,54 +1050,30 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
                 return;
             }
 
-            // Before it goes out. A name that ends here reached nothing.
-            try
-            {
-                // Not for a repeat: the server looks up the job this name
-                // already made before it looks at the balance, so refusing here
-                // would refuse to collect something already paid for.
-                if (!name.IsRepeat
-                    && !await _availability.CheckAsync(
-                        new AiOperationAvailabilityRequest.Fixed(editOperation, model),
-                        operation.CancellationToken))
-                {
-                    throw new AiUsageLimitExceededException();
-                }
-            }
-            catch
-            {
-                WithdrawRequestName(name);
-                throw;
-            }
-
-            AiImageResult response;
-            try
-            {
-                _requestKey.MarkClaimDispatched(claim);
-                response = await _images.EditAsync(
+            AiImageResult response = await AiMeteredDispatch.SendAsync(
+                _requestKey,
+                name,
+                claim,
+                token => _availability.CheckAsync(
+                    new AiOperationAvailabilityRequest.Fixed(editOperation, model),
+                    token),
+                token => _images.EditAsync(
                     new AiImageEditRequest(
                         AiUploadSource.FromBytes(uploadName, uploadBytes),
                         new AiImageEditTaskId(task),
                         prompt,
                         model,
                         name.Key),
-                    operation.CancellationToken);
-            }
-            catch (Exception ex) when (AiRequestOutcome.CanWithdraw(name, ex))
-            {
-                WithdrawRequestName(name);
-                throw;
-            }
+                    token),
+                WithdrawRequestName,
+                operation.CancellationToken);
 
             // Past here the picture has been paid for. Whatever goes wrong
             // while it is fetched, the name stays: it is the way back to it.
-            using var stream = new SizeLimitedMemoryStream(
-                checked((int)AiRequestLimits.MaxImageUploadBytes));
-            await _content.CopyToAsync(response.ContentUri, stream, operation.CancellationToken);
-            operation.CancellationToken.ThrowIfCancellationRequested();
-            stream.Position = 0;
-            AiImageDecodeValidator.ValidateEncoded(stream, AiRequestLimits.MaxImageUploadBytes);
-            var resultImage = Ref<Bitmap>.Create(Bitmap.FromStream(stream));
+            Ref<Bitmap> resultImage = await AiImageResultDownload.DownloadBitmapAsync(
+                _content,
+                response.ContentUri,
+                operation.CancellationToken);
             RetireRequestName(name);
             if (!operation.TryPublish(() =>
                 {
@@ -1114,76 +1090,14 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
             }
         }
         // Every refusal that reserves nothing withdrew its name where it was
-        // raised, next to the request that never left. These only say what
-        // happened.
-        catch (AuthenticationRequiredException)
+        // raised, next to the request that never left.
+        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
         {
-            operation.TryPublish(() => Error.Value = Strings.AiAuthenticationRequired);
-        }
-        catch (AiPlanRequiredException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiProRequired);
-        }
-        catch (AiUsageLimitExceededException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiUsageLimitExceeded);
-        }
-        catch (AiFileTooLargeException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
-        }
-        // The job ran and was charged for; only fetching what it produced
-        // failed, and that is still waiting in the job history.
-        catch (AiContentUnavailableException ex)
-        {
-            _logger.LogError(ex, "Failed to download the AI result.");
-            operation.TryPublish(() => Error.Value = Strings.AiResultDownloadFailed);
-        }
-        // Settled and refunded server-side: the key that named it would keep
-        // answering with that failure, so the next attempt asks under a new one.
-        // Charged for and still the server's; asking again under the same name
-        // is what recovers it, so the key stays.
-        catch (AiResultUnavailableException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiResultUnavailable);
-        }
-        catch (AiModelUnavailableException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiModelUnavailable);
-        }
-        // Refused before the operation was reserved, so nothing was charged;
-        // what has to change is the model or the shape of the request.
-        catch (AiModelDoesNotSupportRequestException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiModelDoesNotSupportRequest);
-        }
-        // The server settled this job as failed and refunded it. Its name would
-        // keep answering with that failure, so the next attempt takes a new one.
-        catch (AiProviderErrorException)
-        {
-            RetireRequestName(issued);
-            operation.TryPublish(() => Error.Value = Strings.AiProviderError);
-        }
-        // Reachable because a request keeps its name across attempts: asking
-        // again for one the server is still working on is how its result is
-        // recovered rather than bought twice, and until it finishes the answer
-        // is this. The key stays — it is still the way back to that job.
-        catch (AiRequestInProgressException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiRequestInProgress);
-        }
-        // The job that key created is gone, so the key can only ever answer
-        // with that. The next attempt has to be a new request.
-        // The issued name belongs to a different request. Keep it so restoring the form can
-        // resend that request; discarding it could close the only route to an already-paid job.
-        catch (AiRequestChangedException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiRequestChanged);
-        }
-        catch (AiRequestWasDeletedException)
-        {
-            RetireRequestName(issued);
-            operation.TryPublish(() => Error.Value = Strings.AiRequestWasDeleted);
+            if (failure.RetiresName)
+                RetireRequestName(issued);
+            if (failure.IsResultDownloadFailure)
+                _logger.LogError(ex, "Failed to download the AI result.");
+            operation.TryPublish(() => Error.Value = failure.Message);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
