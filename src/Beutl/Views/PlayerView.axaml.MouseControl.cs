@@ -1231,7 +1231,7 @@ public partial class PlayerView
                     var existingTarget = RenderThread.Dispatcher.Invoke(() =>
                     {
                         var objects = sceneResource.Objects.Where(o => o.IsEnabled).ToList();
-                        return objects.FirstOrDefault(o => o.GetOriginal()?.Id == currentGizmoTarget.Value);
+                        return FindObjectResource(objects, currentGizmoTarget.Value);
                     });
 
                     if (existingTarget != null)
@@ -1743,27 +1743,28 @@ public partial class PlayerView
                 ? null
                 : RenderThread.Dispatcher.Invoke(() =>
                 {
-                    Object3D.Resource? target = FindResource(sceneResource.Objects, obj.Id);
+                    Object3D.Resource? target = FindObjectResource(sceneResource.Objects, obj.Id);
                     return target == null
                         ? (Vector3?)null
                         : Renderer3D.GetWorldPosition(sceneResource.Objects, target);
                 });
 
             return position ?? obj.Position.GetValue(CompositionContext);
+        }
 
-            static Object3D.Resource? FindResource(IReadOnlyList<Object3D.Resource> objects, Guid id)
+        // Searches nested objects too: a hit test can select an object inside a group.
+        private static Object3D.Resource? FindObjectResource(IReadOnlyList<Object3D.Resource> objects, Guid id)
+        {
+            foreach (Object3D.Resource item in objects)
             {
-                foreach (Object3D.Resource item in objects)
-                {
-                    if (item.GetOriginal()?.Id == id)
-                        return item;
+                if (item.GetOriginal()?.Id == id)
+                    return item;
 
-                    if (FindResource(item.GetChildResources(), id) is { } child)
-                        return child;
-                }
-
-                return null;
+                if (FindObjectResource(item.GetChildResources(), id) is { } child)
+                    return child;
             }
+
+            return null;
         }
 
         private void FindScene3DAndCamera()
