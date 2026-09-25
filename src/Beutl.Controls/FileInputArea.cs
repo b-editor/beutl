@@ -92,10 +92,12 @@ public class FileInputArea : ContentControl
 
     private void OnDragEnter(object? sender, DragEventArgs e)
     {
-        if (_patternContexts != null
-            && e.DataTransfer.TryGetFiles() is { } files)
+        if (e.DataTransfer.TryGetFiles() is { } files)
         {
-            _matchResult = Match(_patternContexts, files);
+            FilePickerOpenOptions options = OpenOptions ?? s_defaultOptions;
+            _patternContexts ??= BuildPatternContexts(options);
+            bool acceptAnyFile = options.FileTypeFilter == null || options.FileTypeFilter.Count == 0;
+            _matchResult = Match(_patternContexts, files, acceptAnyFile);
             if (_matchResult != null)
             {
                 e.DragEffects = DragDropEffects.Copy;
@@ -184,12 +186,15 @@ public class FileInputArea : ContentControl
         }
     }
 
-    private static IStorageFile? Match(List<IPatternContext> patternContexts, IEnumerable<IStorageItem> files)
+    private static IStorageFile? Match(List<IPatternContext> patternContexts, IEnumerable<IStorageItem> files, bool acceptAnyFile)
     {
         foreach (IStorageItem item in files)
         {
             if (item is IStorageFile file && file.TryGetLocalPath() is string path)
             {
+                if (acceptAnyFile)
+                    return file;
+
                 var fi = new FileInfo(path);
                 var fiWrapper = new FileInfoWrapper(fi);
                 if (fi.Directory is not { } directory)

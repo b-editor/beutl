@@ -260,12 +260,13 @@ public partial class FAColorPicker : TemplatedControl
 
     private void OnDisplayItemChanged(object? sender, SelectionChangedEventArgs? e)
     {
-        if (!_templateApplied || _displayItemTabControl == null || _spectrum == null)
+        if (!_templateApplied || _displayItemTabControl == null)
             return;
 
         int selIndex = _displayItemTabControl.SelectedIndex;
         if (selIndex == 0)
         {
+            if (_spectrum == null) return;
             _spectrum.Shape = ColorSpectrumShape.Spectrum;
             UpdatePickerComponents();
 
@@ -277,6 +278,7 @@ public partial class FAColorPicker : TemplatedControl
         }
         else if (selIndex == 1)
         {
+            if (_spectrum == null) return;
             _spectrum.Shape = ColorSpectrumShape.Wheel;
 
             if (_thirdComponentSlider != null)
@@ -292,6 +294,7 @@ public partial class FAColorPicker : TemplatedControl
         }
         else if (selIndex == 2)
         {
+            if (_spectrum == null) return;
             _spectrum.Shape = ColorSpectrumShape.Triangle;
             PseudoClasses.Set(":spectrum", false);
             PseudoClasses.Set(":wheel", false);

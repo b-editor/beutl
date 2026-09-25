@@ -271,7 +271,10 @@ public class RelativeRectEditor : Vector4Editor
     private void UpdateErrors()
     {
         if (TryParse(InnerFirstTextBox.Text, out _, out _)
-            && (IsUniform || TryParse(InnerSecondTextBox?.Text, out _, out _) || TryParse(InnerThirdTextBox?.Text, out _, out _) || TryParse(InnerFourthTextBox?.Text, out _, out _)))
+            && (IsUniform
+                || (TryParse(InnerSecondTextBox?.Text, out _, out _)
+                    && TryParse(InnerThirdTextBox?.Text, out _, out _)
+                    && TryParse(InnerFourthTextBox?.Text, out _, out _))))
         {
             DataValidationErrors.ClearErrors(this);
         }

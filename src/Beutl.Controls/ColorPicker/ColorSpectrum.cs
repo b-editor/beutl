@@ -39,6 +39,15 @@ public partial class ColorSpectrum : ColorPickerComponent
 
     public override void Render(DrawingContext context)
     {
+        if (Shape == ColorSpectrumShape.Triangle)
+        {
+            var minD = Math.Min(Bounds.Width, Bounds.Height) - WheelPadding;
+            if (minD <= 0)
+                return;
+            _lastWheelRect = new Rect(Bounds.Width / 2 - minD / 2, Bounds.Height / 2 - minD / 2,
+                minD, minD);
+        }
+
         if (_tempBitmap == null)
             CreateBitmap();
         if (_tempBitmap is not { } bitmap)
@@ -77,9 +86,6 @@ public partial class ColorSpectrum : ColorPickerComponent
             }
             else if (Shape == ColorSpectrumShape.Triangle)
             {
-                var minD = Math.Min(Bounds.Width, Bounds.Height) - WheelPadding;
-                _lastWheelRect = new Rect(Bounds.Width / 2 - minD / 2, Bounds.Height / 2 - minD / 2,
-                        minD, minD);
                 if (_triangleDirty || _tempBitmap == null)
                 {
                     CreateBitmap();
