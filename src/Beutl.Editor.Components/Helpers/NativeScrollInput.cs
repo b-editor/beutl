@@ -1,12 +1,20 @@
 ﻿using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
+using Avalonia.Threading;
 
 namespace Beutl.Editor.Components.Helpers;
 
 internal static partial class NativeScrollInput
 {
+    public static IDisposable? Attach(TopLevel root)
+    {
+        return OperatingSystem.IsWindows() && root.TryGetPlatformHandle()?.HandleDescriptor == "HWND"
+            ? Windows.Attach(root) : null;
+    }
+
     // Call synchronously from PointerWheelChanged: both APIs describe the native
     // event currently being dispatched, not the last device used by the application.
     public static bool UsesGestureAxes(PointerWheelEventArgs e)
@@ -34,25 +42,133 @@ internal static partial class NativeScrollInput
     {
         private const uint Touchpad = 0x10; // IMDT_TOUCHPAD
         private static readonly Func<bool, bool>? s_registerTouchpadThread = LoadTouchpadRegistration();
+        private static ThreadRegistration? s_registration;
 
         static Windows() { }
 
-        internal static bool IsTouchpadScroll() => IsTouchpadScroll(s_registerTouchpadThread, GetCurrentDeviceType);
+        internal static bool IsTouchpadScroll() => IsTouchpadScroll(GetCurrentDeviceType);
 
-        internal static bool IsTouchpadScroll(Func<bool, bool>? registerThread, Func<uint?> getDeviceType)
+        internal static bool IsTouchpadScroll(Func<uint?> getCurrentDeviceType) => getCurrentDeviceType() == Touchpad;
+
+        internal static IDisposable? Attach(TopLevel root)
         {
-            // Without opting in, Windows can report touchpad-originated mouse messages as IMDT_MOUSE.
-            // Register only while querying: do not change the window's normal WM_POINTER delivery.
-            bool registered = registerThread?.Invoke(true) == true;
+            Dispatcher.UIThread.VerifyAccess();
+            if (s_registration == null)
+            {
+                var registration = new ThreadRegistration();
+                if (!registration.Start(root)) return null;
+                s_registration = registration;
+            }
+
+            return s_registration.Acquire(root);
+        }
+
+        internal static IDisposable? RegisterInput(Func<bool, bool>? registerThread, Action installHooks, Action removeHooks)
+        {
+            if (registerThread == null) return null;
+            bool registered = false;
             try
             {
-                return getDeviceType() == Touchpad;
+                installHooks();
+                registered = registerThread(true);
+                if (!registered) return null;
+                return System.Reactive.Disposables.Disposable.Create(() =>
+                {
+                    try { registerThread(false); }
+                    finally { removeHooks(); }
+                });
             }
             finally
             {
-                if (registered) registerThread!(false);
+                if (!registered) removeHooks();
             }
         }
+
+        private sealed class ThreadRegistration
+        {
+            private readonly HashSet<TopLevel> _roots = [];
+            private IDisposable? _visibilitySubscription;
+            private IDisposable? _inputRegistration;
+            private int _owners;
+
+            public bool Start(TopLevel root)
+            {
+                _inputRegistration = RegisterInput(s_registerTouchpadThread, () =>
+                {
+                    // Thread registration affects other windows and native popups too.
+                    // Hook them before enabling delivery and track subsequently shown top levels.
+                    _visibilitySubscription = Visual.IsVisibleProperty.Changed.AddClassHandler<TopLevel>((topLevel, _) =>
+                    {
+                        if (topLevel.IsVisible) Track(topLevel);
+                    });
+                    Track(root);
+                    if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
+                        foreach (Window window in lifetime.Windows) Track(window);
+                }, RemoveHooks);
+                return _inputRegistration != null;
+            }
+
+            public IDisposable Acquire(TopLevel root)
+            {
+                Track(root);
+                _owners++;
+                return System.Reactive.Disposables.Disposable.Create(() =>
+                {
+                    Dispatcher.UIThread.VerifyAccess();
+                    if (--_owners != 0) return;
+                    s_registration = null;
+                    _inputRegistration?.Dispose();
+                });
+            }
+
+            private void Track(TopLevel root)
+            {
+                if (root.TryGetPlatformHandle()?.HandleDescriptor != "HWND" || !_roots.Add(root)) return;
+                Win32Properties.AddWndProcHookCallback(root, ForwardTouchpadMessage);
+                root.Closed += OnClosed;
+            }
+
+            private void OnClosed(object? sender, EventArgs e)
+            {
+                if (sender is TopLevel root) Untrack(root);
+            }
+
+            private void Untrack(TopLevel root)
+            {
+                if (!_roots.Remove(root)) return;
+                root.Closed -= OnClosed;
+                Win32Properties.RemoveWndProcHookCallback(root, ForwardTouchpadMessage);
+            }
+
+            private void RemoveHooks()
+            {
+                _visibilitySubscription?.Dispose();
+                foreach (TopLevel root in _roots.ToArray()) Untrack(root);
+            }
+        }
+
+        private static nint ForwardTouchpadMessage(nint hwnd, uint message, nint wParam, nint lParam, ref bool handled)
+            => ForwardTouchpadMessage(hwnd, message, wParam, lParam, ref handled, GetPointerDeviceType, DefWindowProc);
+
+        internal static nint ForwardTouchpadMessage(nint hwnd, uint message, nint wParam, nint lParam,
+            ref bool handled, Func<uint, uint?> getPointerType, Func<nint, uint, nint, nint, nint> defaultProc)
+        {
+            if (!handled && IsPointerMessage(message)
+                && getPointerType((uint)((nuint)wParam & 0xffff)) == 5) // PT_TOUCHPAD
+            {
+                // Avalonia 12 treats unknown pointer types as mouse button/move input.
+                // Let Windows recognize the gesture and generate its normal wheel messages instead.
+                handled = true;
+                return defaultProc(hwnd, message, wParam, lParam);
+            }
+            return 0;
+        }
+
+        private static uint? GetPointerDeviceType(uint id) => GetPointerType(id, out uint type) ? type : null;
+
+        private static bool IsPointerMessage(uint message) => message is
+            0x0241 or 0x0242 or 0x0243 or 0x0245 or 0x0246 or 0x0247 or
+            0x0249 or 0x024a or 0x024b or 0x024c or 0x024e or 0x024f or 0x0251 or 0x0252 or 0x0253;
 
         private static uint? GetCurrentDeviceType()
         {
@@ -91,6 +207,13 @@ internal static partial class NativeScrollInput
         [LibraryImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool GetCurrentInputMessageSource(out InputMessageSource source);
+
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool GetPointerType(uint pointerId, out uint pointerType);
+
+        [LibraryImport("user32.dll", EntryPoint = "DefWindowProcW")]
+        private static partial nint DefWindowProc(nint hwnd, uint message, nint wParam, nint lParam);
 
         [LibraryImport("kernel32.dll", EntryPoint = "GetModuleHandleW", StringMarshalling = StringMarshalling.Utf16)]
         private static partial nint GetModuleHandle(string module);

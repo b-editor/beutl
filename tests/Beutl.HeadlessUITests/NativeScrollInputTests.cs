@@ -1,56 +1,152 @@
 ﻿using System.Runtime.InteropServices;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TimelineTab.Views;
 
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
 public partial class NativeScrollInputTests
 {
+    [AvaloniaTest]
+    public void Timeline_registers_before_input_and_releases_on_detach_and_window_close()
+    {
+        bool registered = false;
+        int registrations = 0;
+        int removals = 0;
+        var view = new TimelineTabView(_ => false, _ => NativeScrollInput.Windows.RegisterInput(enable =>
+        {
+            registered = enable;
+            if (enable) registrations++;
+            else removals++;
+            return true;
+        }, () => { }, () => { }));
+        var first = new Window { Content = view };
+        var second = new Window();
+        try
+        {
+            first.Show();
+            Assert.That(registered, Is.True, "The native registration must precede the first input event.");
+            first.Content = null;
+            Assert.That(registered, Is.False);
+            second.Content = view;
+            second.Show();
+            Assert.That(registered, Is.True);
+            second.Close();
+            Assert.Multiple(() =>
+            {
+                Assert.That(registered, Is.False);
+                Assert.That(registrations, Is.EqualTo(2));
+                Assert.That(removals, Is.EqualTo(2));
+            });
+        }
+        finally
+        {
+            first.Close();
+            second.Close();
+        }
+    }
+
     [Test]
     [TestCase(0x10, true)]
     [TestCase(0x02, false)]
     [TestCase(-1, false)]
-    public void Windows_registration_is_limited_to_the_source_query(int deviceType, bool expected)
+    public void Windows_registration_is_active_before_native_message_delivery(int deviceType, bool expected)
     {
         List<string> calls = [];
-        bool result = NativeScrollInput.Windows.IsTouchpadScroll(enable =>
+        bool registered = false;
+        IDisposable? registration = NativeScrollInput.Windows.RegisterInput(enable =>
         {
             calls.Add(enable ? "register" : "unregister");
+            registered = enable;
             return true;
-        }, () =>
+        }, () => calls.Add("hook"), () => calls.Add("unhook"));
+
+        calls.Add("dispatch");
+        uint? recordedSource = !registered ? 0x02u : deviceType < 0 ? null : (uint)deviceType;
+        bool result = NativeScrollInput.Windows.IsTouchpadScroll(() =>
         {
             calls.Add("query");
-            return deviceType < 0 ? null : (uint)deviceType;
+            return recordedSource;
         });
+        Assert.That(registered, Is.True);
+        registration!.Dispose();
+        registration.Dispose();
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.EqualTo(expected));
-            Assert.That(calls, Is.EqualTo(new[] { "register", "query", "unregister" }));
+            Assert.That(registered, Is.False);
+            Assert.That(calls, Is.EqualTo(new[] { "hook", "register", "dispatch", "query", "unregister", "unhook" }));
         });
     }
 
     [Test]
     public void Windows_does_not_unregister_when_registration_is_unavailable_or_fails()
     {
-        Assert.That(NativeScrollInput.Windows.IsTouchpadScroll(null, () => 0x02), Is.False);
-        Assert.That(NativeScrollInput.Windows.IsTouchpadScroll(enable =>
+        List<string> calls = [];
+        Assert.That(NativeScrollInput.Windows.RegisterInput(null, () => calls.Add("hook"), () => calls.Add("unhook")), Is.Null);
+        Assert.That(calls, Is.Empty);
+        Assert.That(NativeScrollInput.Windows.RegisterInput(enable =>
         {
             Assert.That(enable, Is.True, "Failed registration must not decrement the thread's registration count.");
             return false;
-        }, () => 0x02), Is.False);
+        }, () => calls.Add("hook"), () => calls.Add("unhook")), Is.Null);
+        Assert.That(calls, Is.EqualTo(new[] { "hook", "unhook" }));
     }
 
     [Test]
     public void Windows_restores_thread_registration_when_query_throws()
     {
         List<bool> calls = [];
-        Assert.Throws<InvalidOperationException>(() => NativeScrollInput.Windows.IsTouchpadScroll(enable =>
+        Assert.Throws<InvalidOperationException>(() =>
         {
-            calls.Add(enable);
-            return true;
-        }, () => throw new InvalidOperationException()));
+            using IDisposable? registration = NativeScrollInput.Windows.RegisterInput(enable =>
+            {
+                calls.Add(enable);
+                return true;
+            }, () => { }, () => { });
+            NativeScrollInput.Windows.IsTouchpadScroll(() => throw new InvalidOperationException());
+        });
         Assert.That(calls, Is.EqualTo(new[] { true, false }));
+    }
+
+    [Test]
+    [TestCase(0x0245u)] // WM_POINTERUPDATE
+    [TestCase(0x0246u)] // WM_POINTERDOWN
+    [TestCase(0x0247u)] // WM_POINTERUP
+    public void Windows_touchpad_contacts_use_default_processing_before_Avalonia(uint message)
+    {
+        bool handled = false;
+        int conversions = 0;
+        nint result = NativeScrollInput.Windows.ForwardTouchpadMessage(123, message, 0x12340007, 456,
+            ref handled, id => { Assert.That(id, Is.EqualTo(7)); return 5; }, (hwnd, msg, wParam, lParam) =>
+            {
+                conversions++;
+                Assert.That((hwnd, msg, wParam, lParam), Is.EqualTo(((nint)123, message, (nint)0x12340007, (nint)456)));
+                return 789;
+            });
+        Assert.Multiple(() =>
+        {
+            Assert.That(handled, Is.True);
+            Assert.That(conversions, Is.EqualTo(1));
+            Assert.That(result, Is.EqualTo((nint)789));
+        });
+    }
+
+    [Test]
+    [TestCase(0x020au, 5)] // Converted WM_MOUSEWHEEL must reach Avalonia.
+    [TestCase(0x020eu, 5)] // Converted WM_MOUSEHWHEEL must reach Avalonia.
+    [TestCase(0x0246u, 2)] // Touchscreen.
+    [TestCase(0x0246u, 3)] // Pen.
+    [TestCase(0x0246u, 4)] // Mouse.
+    [TestCase(0x0246u, -1)] // Unknown source.
+    public void Windows_preserves_other_pointer_and_wheel_delivery(uint message, int type)
+    {
+        bool handled = false;
+        NativeScrollInput.Windows.ForwardTouchpadMessage(0, message, 1, 0, ref handled,
+            _ => type < 0 ? null : (uint)type, (_, _, _, _) => throw new AssertionException("Unexpected gesture conversion."));
+        Assert.That(handled, Is.False);
     }
 
     [AvaloniaTest]

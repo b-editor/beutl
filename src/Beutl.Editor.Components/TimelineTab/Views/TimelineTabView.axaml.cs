@@ -50,6 +50,9 @@ public sealed partial class TimelineTabView : UserControl
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabView>();
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
+    private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
+    private TopLevel? _nativeInputRoot;
+    private IDisposable? _nativeInputRegistration;
     private ElementView? _selectedElement;
     private CancellationTokenSource? _scrollCts;
 
@@ -58,9 +61,10 @@ public sealed partial class TimelineTabView : UserControl
     {
     }
 
-    internal TimelineTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes)
+    internal TimelineTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes, Func<TopLevel, IDisposable?>? attachNativeInput = null)
     {
         _usesGestureAxes = usesGestureAxes;
+        _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
         InitializeComponent();
 
         gridSplitter.DragDelta += GridSplitter_DragDelta;
@@ -80,6 +84,34 @@ public sealed partial class TimelineTabView : UserControl
         {
             contextFlyout.Opening += (_, _) => PopulateAddFromTemplateSubMenu();
         }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        DetachNativeInput();
+        if (TopLevel.GetTopLevel(this) is { } root)
+        {
+            _nativeInputRegistration = _attachNativeInput(root);
+            _nativeInputRoot = root;
+            root.Closed += OnNativeInputRootClosed;
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        DetachNativeInput();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnNativeInputRootClosed(object? sender, EventArgs e) => DetachNativeInput();
+
+    private void DetachNativeInput()
+    {
+        if (_nativeInputRoot != null) _nativeInputRoot.Closed -= OnNativeInputRootClosed;
+        _nativeInputRoot = null;
+        _nativeInputRegistration?.Dispose();
+        _nativeInputRegistration = null;
     }
 
     private void OnDataContextDetached(TimelineTabViewModel obj)
