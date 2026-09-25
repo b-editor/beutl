@@ -9,6 +9,7 @@ using Beutl.Controls;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Group;
 using FluentAvalonia.UI.Media;
 using Microsoft.Extensions.DependencyInjection;
@@ -99,6 +100,15 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
     public ReactiveProperty<bool> IsExpanded { get; }
 
     public ReactiveCommand Delete { get; } = new();
+
+    public bool IsGenerative => GraphNode is GenerativeNode;
+
+    /// <summary>Generates this node again even when its inputs are unchanged.</summary>
+    public void Regenerate()
+    {
+        if (GraphNode is GenerativeNode node)
+            _ = NodeGraphViewModel.RunGenerativeAsync([node], force: true);
+    }
 
     public CoreList<NodeMemberViewModel> Items { get; } = [];
 

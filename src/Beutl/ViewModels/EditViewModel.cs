@@ -959,6 +959,8 @@ public sealed partial class EditViewModel
         }
     }
 
+    private Beutl.NodeGraph.Generative.IGenerativeNodeExecutor? _generativeNodeExecutor;
+
     public object? GetService(Type serviceType)
     {
         if (serviceType == typeof(Beutl.Editor.Services.IEditorFileUsage))
@@ -1056,6 +1058,19 @@ public sealed partial class EditViewModel
 
         if (serviceType.IsAssignableTo(typeof(IKeyFrameClipboardService)))
             return _keyFrameClipboardService ??= new KeyFrameClipboardService(HistoryManager);
+
+        if (serviceType == typeof(Beutl.NodeGraph.Generative.IGenerativeNodeExecutor))
+        {
+            // The API clients live on the main window's view model, as for the AI tool tabs.
+            if (_generativeNodeExecutor is null
+                && Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime lifetime
+                && lifetime.MainWindow?.DataContext is MainViewModel main)
+            {
+                _generativeNodeExecutor = main.CreateGenerativeNodeExecutor(Scene);
+            }
+
+            return _generativeNodeExecutor;
+        }
 
         if (serviceType.IsAssignableTo(typeof(INodeGraphMutationService)))
             return _nodeGraphMutationService ??= new NodeGraphMutationService(HistoryManager);

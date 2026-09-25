@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Editor.Components.NodeGraphTab.Views.GraphNodeView"
+﻿<UserControl x:Class="Beutl.Editor.Components.NodeGraphTab.Views.GraphNodeView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -53,6 +53,13 @@
                                        Text="{x:Static lang:Strings.Delete}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Delete" />
+                        </ui:FAMenuFlyoutItem.IconSource>
+                    </ui:FAMenuFlyoutItem>
+                    <ui:FAMenuFlyoutItem Click="RegenerateClick"
+                                       IsVisible="{Binding IsGenerative}"
+                                       Text="{x:Static lang:NodeGraphStrings.Generative_RegenerateNode}">
+                        <ui:FAMenuFlyoutItem.IconSource>
+                            <icons:FluentIconSource Icon="Sparkle" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
                     <ui:FAMenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">

@@ -20,4 +20,16 @@ public partial class NodeGraphTabView : UserControl
             viewModel.NavigateTo(args.Index);
         }
     }
+
+    private void RunGenerativeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is NodeGraphTabViewModel { NodeGraph.Value: { } graph })
+            _ = graph.RunGenerativeAsync(null, force: false);
+    }
+
+    private void StopGenerativeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is NodeGraphTabViewModel { NodeGraph.Value: { } graph })
+            graph.CancelGenerative();
+    }
 }

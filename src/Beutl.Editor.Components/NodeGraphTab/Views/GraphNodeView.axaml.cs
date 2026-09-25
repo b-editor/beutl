@@ -385,6 +385,11 @@ public partial class GraphNodeView : UserControl
         }
     }
 
+    private void RegenerateClick(object? sender, RoutedEventArgs e)
+    {
+        (DataContext as GraphNodeViewModel)?.Regenerate();
+    }
+
     private void RenameClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is GraphNodeViewModel viewModel)

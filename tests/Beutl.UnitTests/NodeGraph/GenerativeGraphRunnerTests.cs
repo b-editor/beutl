@@ -1,0 +1,206 @@
+﻿using Beutl.Graphics;
+using Beutl.Media;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Generative;
+using Beutl.NodeGraph.Nodes.Generative;
+using Beutl.Serialization;
+
+namespace Beutl.UnitTests.NodeGraph;
+
+[TestFixture]
+public sealed class GenerativeGraphRunnerTests
+{
+    private string _directory = null!;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _directory = Path.Combine(Path.GetTempPath(), "beutl-generative-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_directory);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        try { Directory.Delete(_directory, recursive: true); }
+        catch (IOException) { }
+    }
+
+    [Test]
+    public async Task RunsUpstreamFirstAndFeedsItsResultDownstream()
+    {
+        var (model, upstream, downstream) = CreateChain();
+        var executor = new FakeExecutor(_directory);
+        var host = new InlineHost();
+
+        await new GenerativeGraphRunner(executor, host).RunAsync(model, [downstream], force: false, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { upstream, downstream }));
+            var downstreamRequest = (AiImageGenerationNodeRequest)executor.Requests[1];
+            Assert.That(downstreamRequest.References, Has.Count.EqualTo(1), "The upstream result is the downstream reference.");
+            Assert.That(upstream.ActiveGeneration?.Image, Is.Not.Null);
+            Assert.That(downstream.ActiveGeneration?.Image, Is.Not.Null);
+            Assert.That(host.Commits, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public async Task ReusesResultsWhoseRequestIsUnchanged()
+    {
+        var (model, upstream, downstream) = CreateChain();
+        var executor = new FakeExecutor(_directory);
+        var runner = new GenerativeGraphRunner(executor, new InlineHost());
+        await runner.RunAsync(model, null, force: false, CancellationToken.None);
+        executor.Requests.Clear();
+
+        await runner.RunAsync(model, null, force: false, CancellationToken.None);
+        Assert.That(executor.Requests, Is.Empty, "Nothing changed, so nothing is bought again.");
+
+        downstream.Prompt.Property!.SetValue("a different prompt");
+        await runner.RunAsync(model, null, force: false, CancellationToken.None);
+        Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { downstream }));
+    }
+
+    [Test]
+    public async Task ForceRegeneratesOnlyTheTarget()
+    {
+        var (model, upstream, downstream) = CreateChain();
+        var executor = new FakeExecutor(_directory);
+        var runner = new GenerativeGraphRunner(executor, new InlineHost());
+        await runner.RunAsync(model, null, force: false, CancellationToken.None);
+        executor.Requests.Clear();
+
+        await runner.RunAsync(model, [downstream], force: true, CancellationToken.None);
+
+        Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { downstream }));
+        Assert.That(downstream.Generations, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public async Task FailureBlocksDependentsAndIsReported()
+    {
+        var (model, upstream, downstream) = CreateChain();
+        var executor = new FakeExecutor(_directory) { FailFor = upstream };
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(upstream.Status, Is.EqualTo(GenerativeNodeStatus.Failed));
+            Assert.That(upstream.StatusMessage, Is.EqualTo("refused"));
+            Assert.That(downstream.Status, Is.EqualTo(GenerativeNodeStatus.Blocked));
+            Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { upstream }));
+        });
+    }
+
+    [Test]
+    public async Task EmptyPromptFailsWithoutCallingTheExecutor()
+    {
+        var model = new GraphModel();
+        var node = new AiImageGenerationNode();
+        model.Nodes.Add(node);
+        var executor = new FakeExecutor(_directory);
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
+
+        Assert.That(executor.Requests, Is.Empty);
+        Assert.That(node.Status, Is.EqualTo(GenerativeNodeStatus.Failed));
+    }
+
+    [Test]
+    public async Task SeedControlAdvancesTheSeedAfterGenerating()
+    {
+        var model = new GraphModel();
+        var node = new AiImageGenerationNode();
+        node.Prompt.Property!.SetValue("a cat");
+        node.Seed.Property!.SetValue(10);
+        node.SeedControl.Property!.SetValue(GenerativeSeedControl.Increment);
+        model.Nodes.Add(node);
+
+        await new GenerativeGraphRunner(new FakeExecutor(_directory), new InlineHost())
+            .RunAsync(model, null, force: false, CancellationToken.None);
+
+        Assert.That(node.ActiveGeneration?.Seed, Is.EqualTo(10));
+        Assert.That(node.Seed.Property!.GetValue(), Is.EqualTo(11));
+    }
+
+    [Test]
+    public async Task GenerationsSurviveSerialization()
+    {
+        var model = new GraphModel();
+        var node = new AiImageGenerationNode();
+        node.Prompt.Property!.SetValue("a cat");
+        model.Nodes.Add(node);
+        await new GenerativeGraphRunner(new FakeExecutor(_directory), new InlineHost())
+            .RunAsync(model, null, force: false, CancellationToken.None);
+
+        var json = CoreSerializer.SerializeToJsonObject(model);
+        var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+        var restoredNode = restored.Nodes.OfType<AiImageGenerationNode>().Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restoredNode.RequestKeySeed, Is.EqualTo(node.RequestKeySeed));
+            Assert.That(restoredNode.Generations, Has.Count.EqualTo(1));
+            Assert.That(restoredNode.ActiveGeneration?.Fingerprint, Is.EqualTo(node.ActiveGeneration!.Fingerprint));
+            Assert.That(restoredNode.ActiveGeneration?.Image?.Uri, Is.EqualTo(node.ActiveGeneration.Image!.Uri));
+            Assert.That(restoredNode.IsStale, Is.False);
+        });
+    }
+
+    private static (GraphModel Model, AiImageGenerationNode Upstream, AiImageGenerationNode Downstream) CreateChain()
+    {
+        var model = new GraphModel();
+        var upstream = new AiImageGenerationNode();
+        upstream.Prompt.Property!.SetValue("a cat");
+        var downstream = new AiImageGenerationNode();
+        downstream.Prompt.Property!.SetValue("the same cat, in watercolor");
+        model.Nodes.Add(upstream);
+        model.Nodes.Add(downstream);
+        model.Connect(downstream.References, upstream.Output);
+        return (model, upstream, downstream);
+    }
+
+    private sealed class FakeExecutor(string directory) : IGenerativeNodeExecutor
+    {
+        public List<GenerativeRequest> Requests { get; } = [];
+
+        public GenerativeNode? FailFor { get; init; }
+
+        public Task<GenerativeExecutionResult> ExecuteAsync(
+            GenerativeRequest request,
+            IProgress<GenerativeProgress> progress,
+            CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            if (ReferenceEquals(request.Node, FailFor))
+                throw new GenerativeExecutionException("refused");
+
+            string path = Path.Combine(directory, $"{Guid.NewGuid():N}.png");
+            using (var bitmap = new Bitmap(8, 8))
+            using (var stream = File.Create(path))
+                bitmap.Save(stream, EncodedImageFormat.Png);
+            var image = (AiImageGenerationNodeRequest)request;
+            return Task.FromResult(new GenerativeExecutionResult(new Uri(path), request.ModelId, image.Seed));
+        }
+    }
+
+    private sealed class InlineHost : IGenerativeRunHost
+    {
+        public int Commits { get; private set; }
+
+        public TimeSpan CurrentTime => TimeSpan.Zero;
+
+        public Task<T> InvokeOnRenderThreadAsync<T>(Func<T> func) => Task.FromResult(func());
+
+        public Task InvokeOnUIThreadAsync(Action action)
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
+        public void CommitHistory(string name) => Commits++;
+    }
+}

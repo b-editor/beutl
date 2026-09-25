@@ -62,4 +62,16 @@ internal static class NodePortDisplays
     public static DisplayAttribute Width => Create(nameof(NodeGraphStrings.Port_Width));
     public static DisplayAttribute X => Create(nameof(NodeGraphStrings.Port_X));
     public static DisplayAttribute Y => Create(nameof(NodeGraphStrings.Port_Y));
+    public static DisplayAttribute Prompt => Create(nameof(NodeGraphStrings.Port_Prompt));
+    public static DisplayAttribute Style => Create(nameof(NodeGraphStrings.Port_Style));
+    public static DisplayAttribute Composition => Create(nameof(NodeGraphStrings.Port_Composition));
+    public static DisplayAttribute Exclusions => Create(nameof(NodeGraphStrings.Port_Exclusions));
+    public static DisplayAttribute AspectRatio => Create(nameof(NodeGraphStrings.Port_AspectRatio));
+    public static DisplayAttribute Background => Create(nameof(NodeGraphStrings.Port_Background));
+    public static DisplayAttribute Seed => Create(nameof(NodeGraphStrings.Port_Seed));
+    public static DisplayAttribute SeedControl => Create(nameof(NodeGraphStrings.Port_SeedControl));
+    public static DisplayAttribute Model => Create(nameof(NodeGraphStrings.Port_Model));
+    public static DisplayAttribute References => Create(nameof(NodeGraphStrings.Port_References));
+    public static DisplayAttribute Image => Create(nameof(NodeGraphStrings.Port_Image));
+    public static DisplayAttribute Status => Create(nameof(NodeGraphStrings.Port_Status));
 }

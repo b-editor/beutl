@@ -261,4 +261,85 @@
   <data name="Port_Y" xml:space="preserve">
     <value>Y</value>
   </data>
+  <data name="AiGeneration" xml:space="preserve">
+    <value>Generación con IA</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>Generar imagen</value>
+  </data>
+  <data name="Generative_Stale" xml:space="preserve">
+    <value>Las entradas cambiaron: ponlo en cola para regenerar</value>
+  </data>
+  <data name="Generative_Queued" xml:space="preserve">
+    <value>En cola</value>
+  </data>
+  <data name="Generative_Running" xml:space="preserve">
+    <value>Generando…</value>
+  </data>
+  <data name="Generative_Failed" xml:space="preserve">
+    <value>La generación falló</value>
+  </data>
+  <data name="Generative_Blocked" xml:space="preserve">
+    <value>Omitido porque falló una generación anterior</value>
+  </data>
+  <data name="Generative_Canceled" xml:space="preserve">
+    <value>Cancelado</value>
+  </data>
+  <data name="Generative_InputRenderFailed" xml:space="preserve">
+    <value>No se pudo renderizar una imagen de entrada</value>
+  </data>
+  <data name="Generative_PromptRequired" xml:space="preserve">
+    <value>Introduce un prompt</value>
+  </data>
+  <data name="Generative_CachedResult" xml:space="preserve">
+    <value>Actualizado: se reutilizó el resultado anterior</value>
+  </data>
+  <data name="Port_Prompt" xml:space="preserve">
+    <value>Prompt</value>
+  </data>
+  <data name="Port_Style" xml:space="preserve">
+    <value>Estilo</value>
+  </data>
+  <data name="Port_Composition" xml:space="preserve">
+    <value>Composición</value>
+  </data>
+  <data name="Port_Exclusions" xml:space="preserve">
+    <value>Exclusiones</value>
+  </data>
+  <data name="Port_AspectRatio" xml:space="preserve">
+    <value>Relación de aspecto</value>
+  </data>
+  <data name="Port_Background" xml:space="preserve">
+    <value>Fondo</value>
+  </data>
+  <data name="Port_Seed" xml:space="preserve">
+    <value>Semilla</value>
+  </data>
+  <data name="Port_SeedControl" xml:space="preserve">
+    <value>Semilla tras generar</value>
+  </data>
+  <data name="Port_Model" xml:space="preserve">
+    <value>Modelo</value>
+  </data>
+  <data name="Port_References" xml:space="preserve">
+    <value>Referencias</value>
+  </data>
+  <data name="Port_Image" xml:space="preserve">
+    <value>Imagen</value>
+  </data>
+  <data name="Port_Status" xml:space="preserve">
+    <value>Estado</value>
+  </data>
+  <data name="Generative_RunQueue" xml:space="preserve">
+    <value>Ejecutar nodos de IA</value>
+  </data>
+  <data name="Generative_StopQueue" xml:space="preserve">
+    <value>Detener</value>
+  </data>
+  <data name="Generative_RegenerateNode" xml:space="preserve">
+    <value>Volver a generar este nodo</value>
+  </data>
+  <data name="Generative_ExecutorUnavailable" xml:space="preserve">
+    <value>La generación con IA no está disponible en esta ventana</value>
+  </data>
 </root>

@@ -1,7 +1,11 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Beutl.Editor.Services;
+using Beutl.Language;
+using Beutl.Logging;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Generative;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -9,7 +13,9 @@ namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 
 public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<NodeGraphViewModel>();
     private readonly CompositeDisposable _disposables = [];
+    private CancellationTokenSource? _generativeCts;
 
     public NodeGraphViewModel(GraphModel graph, IEditorContext editorContext)
     {
@@ -69,6 +75,52 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     }
 
     public IEditorContext EditorContext { get; }
+
+    /// <summary>True while a queue of generative nodes is running.</summary>
+    public ReactivePropertySlim<bool> IsGenerating { get; } = new();
+
+    /// <summary>A reason the last queue could not start, for the toolbar.</summary>
+    public ReactivePropertySlim<string?> GenerativeError { get; } = new();
+
+    /// <summary>
+    /// Runs <paramref name="targets"/> (every generative node when null) and the generative
+    /// nodes they depend on. Nodes whose request is unchanged reuse their result unless forced.
+    /// </summary>
+    public async Task RunGenerativeAsync(IReadOnlyCollection<GenerativeNode>? targets, bool force)
+    {
+        if (IsGenerating.Value)
+            return;
+        if (EditorContext.GetService<IGenerativeNodeExecutor>() is not { } executor)
+        {
+            GenerativeError.Value = NodeGraphStrings.Generative_ExecutorUnavailable;
+            return;
+        }
+
+        GenerativeError.Value = null;
+        IsGenerating.Value = true;
+        using var cts = new CancellationTokenSource();
+        _generativeCts = cts;
+        try
+        {
+            var runner = new GenerativeGraphRunner(executor, new EditorGenerativeRunHost(EditorContext));
+            await runner.RunAsync(NodeGraph, targets, force, cts.Token);
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogError(ex, "Failed to run generative nodes.");
+            GenerativeError.Value = ex.Message;
+        }
+        finally
+        {
+            _generativeCts = null;
+            IsGenerating.Value = false;
+        }
+    }
+
+    public void CancelGenerative() => _generativeCts?.Cancel();
 
     public CoreList<GraphNodeViewModel> Nodes { get; } = [];
 
@@ -130,6 +182,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
     public void Dispose()
     {
+        _generativeCts?.Cancel();
         foreach (ConnectionViewModel conn in AllConnections)
         {
             conn.Dispose();

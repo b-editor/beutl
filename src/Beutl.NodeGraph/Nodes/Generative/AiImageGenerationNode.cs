@@ -1,0 +1,160 @@
+﻿using Beutl.Graphics.Rendering;
+using Beutl.Language;
+using Beutl.NodeGraph.Composition;
+using Beutl.NodeGraph.Generative;
+
+namespace Beutl.NodeGraph.Nodes.Generative;
+
+/// <summary>What happens to the seed after each generation, as in ComfyUI.</summary>
+public enum GenerativeSeedControl
+{
+    /// <summary>Keep the seed; queueing again reuses the result.</summary>
+    Fixed,
+    /// <summary>Add one after each generation, so the next queue makes a new variation.</summary>
+    Increment,
+    /// <summary>Pick a new random seed after each generation.</summary>
+    Randomize,
+    /// <summary>Send no seed and let the model choose.</summary>
+    ModelDefault,
+}
+
+/// <summary>Generates a picture from a prompt and optional reference pictures.</summary>
+public sealed partial class AiImageGenerationNode : GenerativeNode
+{
+    // Matches the range the API accepts (AiRequestLimits in Beutl.Api).
+    internal const int MinSeed = 0;
+    internal const int MaxSeed = int.MaxValue;
+
+    public AiImageGenerationNode()
+    {
+        Output = AddOutput<ImageSourceRenderNode?>("Image", NodePortDisplays.Image);
+        Prompt = AddInput<string>("Prompt", NodePortDisplays.Prompt);
+        Style = AddInput<string>("Style", NodePortDisplays.Style);
+        Composition = AddInput<string>("Composition", NodePortDisplays.Composition);
+        Exclusions = AddInput<string>("Exclusions", NodePortDisplays.Exclusions);
+        References = AddListInput<RenderNode?>("References", NodePortDisplays.References);
+        Model = AddInput<string>("Model", NodePortDisplays.Model);
+        AspectRatio = AddInput<string>("AspectRatio", NodePortDisplays.AspectRatio);
+        Background = AddInput<string>("Background", NodePortDisplays.Background);
+        Seed = AddInput<int>("Seed", NodePortDisplays.Seed);
+        SeedControl = AddInput<GenerativeSeedControl>("SeedControl", NodePortDisplays.SeedControl);
+        AddGenerativeMonitors(NodePortDisplays.Preview, NodePortDisplays.Status);
+
+        Prompt.Property?.SetValue(string.Empty);
+        Style.Property?.SetValue(string.Empty);
+        Composition.Property?.SetValue(string.Empty);
+        Exclusions.Property?.SetValue(string.Empty);
+        Model.Property?.SetValue(string.Empty);
+        AspectRatio.Property?.SetValue("1:1");
+        Background.Property?.SetValue("auto");
+        Seed.Property?.SetValue(Random.Shared.Next(MinSeed, MaxSeed));
+    }
+
+    public override GenerativeOperation Operation => GenerativeOperation.ImageGeneration;
+
+    public OutputPort<ImageSourceRenderNode?> Output { get; }
+
+    public InputPort<string> Prompt { get; }
+
+    public InputPort<string> Style { get; }
+
+    public InputPort<string> Composition { get; }
+
+    public InputPort<string> Exclusions { get; }
+
+    public ListInputPort<RenderNode?> References { get; }
+
+    /// <summary>A model id from the catalog; empty for the server's default.</summary>
+    public InputPort<string> Model { get; }
+
+    public InputPort<string> AspectRatio { get; }
+
+    public InputPort<string> Background { get; }
+
+    public InputPort<int> Seed { get; }
+
+    public InputPort<GenerativeSeedControl> SeedControl { get; }
+
+    protected internal override GenerativeRequest BuildRequest(GraphNode.Resource resource, GraphCompositionContext context)
+    {
+        var r = (Resource)resource;
+        if (string.IsNullOrWhiteSpace(r.Prompt))
+            throw new GenerativeExecutionException(NodeGraphStrings.Generative_PromptRequired);
+
+        List<RenderNode?> referenceNodes = context.CollectListInputValues(References);
+        var references = new List<GenerativeImageInput>(referenceNodes.Count);
+        for (int i = 0; i < referenceNodes.Count; i++)
+        {
+            if (RasterizeInput(referenceNodes[i], $"reference-{i + 1}", context) is { } input)
+                references.Add(input);
+        }
+
+        return new AiImageGenerationNodeRequest(this)
+        {
+            Prompt = r.Prompt!.Trim(),
+            Style = r.Style?.Trim() ?? string.Empty,
+            Composition = r.Composition?.Trim() ?? string.Empty,
+            Exclusions = r.Exclusions?.Trim() ?? string.Empty,
+            AspectRatio = string.IsNullOrWhiteSpace(r.AspectRatio) ? "1:1" : r.AspectRatio!.Trim(),
+            Background = string.IsNullOrWhiteSpace(r.Background) ? "auto" : r.Background!.Trim(),
+            Seed = SeedFor(r),
+            ModelId = string.IsNullOrWhiteSpace(r.Model) ? null : r.Model!.Trim(),
+            References = references,
+            RequestKeySeed = RequestKeySeed,
+            ParameterFingerprint = r.ComputeParameterFingerprint(),
+        };
+    }
+
+    protected internal override void OnGenerated(GenerationRecord record)
+    {
+        GenerativeSeedControl control = SeedControl.Property?.GetValue() ?? GenerativeSeedControl.Fixed;
+        if (Seed.Property is not { } seed)
+            return;
+        switch (control)
+        {
+            case GenerativeSeedControl.Increment:
+                seed.SetValue(seed.GetValue() == MaxSeed ? MinSeed : seed.GetValue() + 1);
+                break;
+            case GenerativeSeedControl.Randomize:
+                seed.SetValue(Random.Shared.Next(MinSeed, MaxSeed));
+                break;
+        }
+    }
+
+    private static int? SeedFor(Resource r)
+        => r.SeedControl == GenerativeSeedControl.ModelDefault ? null : r.Seed;
+
+    public partial class Resource
+    {
+        private (string?, string?, string?, string?, string?, string?, string?, int?) _lastParameters;
+        private string? _lastParameterFingerprint;
+
+        public override void Update(GraphCompositionContext context)
+        {
+            var node = RequireOriginal();
+            Output = UpdateActiveImageOutput(context);
+            node.ReportParameterFingerprint(ComputeParameterFingerprint());
+        }
+
+        internal string ComputeParameterFingerprint()
+        {
+            var parameters = (Prompt?.Trim(), Style?.Trim(), Composition?.Trim(), Exclusions?.Trim(),
+                Model?.Trim(), AspectRatio?.Trim(), Background?.Trim(), SeedFor(this));
+            if (_lastParameterFingerprint is not null && parameters == _lastParameters)
+                return _lastParameterFingerprint;
+
+            _lastParameters = parameters;
+            return _lastParameterFingerprint = GenerativeFingerprint.Combine(
+            [
+                parameters.Item1,
+                parameters.Item2,
+                parameters.Item3,
+                parameters.Item4,
+                parameters.Item5,
+                parameters.Item6,
+                parameters.Item7,
+                parameters.Item8?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ]);
+        }
+    }
+}

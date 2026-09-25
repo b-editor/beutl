@@ -261,4 +261,85 @@
   <data name="Port_Y" xml:space="preserve">
     <value>Y</value>
   </data>
+  <data name="AiGeneration" xml:space="preserve">
+    <value>AI 생성</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>이미지 생성</value>
+  </data>
+  <data name="Generative_Stale" xml:space="preserve">
+    <value>입력이 변경됨 — 대기열에 넣으면 다시 생성합니다</value>
+  </data>
+  <data name="Generative_Queued" xml:space="preserve">
+    <value>대기 중</value>
+  </data>
+  <data name="Generative_Running" xml:space="preserve">
+    <value>생성 중…</value>
+  </data>
+  <data name="Generative_Failed" xml:space="preserve">
+    <value>생성 실패</value>
+  </data>
+  <data name="Generative_Blocked" xml:space="preserve">
+    <value>상위 생성이 실패하여 건너뛰었습니다</value>
+  </data>
+  <data name="Generative_Canceled" xml:space="preserve">
+    <value>취소됨</value>
+  </data>
+  <data name="Generative_InputRenderFailed" xml:space="preserve">
+    <value>입력 이미지를 렌더링할 수 없습니다</value>
+  </data>
+  <data name="Generative_PromptRequired" xml:space="preserve">
+    <value>프롬프트를 입력하세요</value>
+  </data>
+  <data name="Generative_CachedResult" xml:space="preserve">
+    <value>최신 상태 — 이전 결과를 재사용했습니다</value>
+  </data>
+  <data name="Port_Prompt" xml:space="preserve">
+    <value>프롬프트</value>
+  </data>
+  <data name="Port_Style" xml:space="preserve">
+    <value>스타일</value>
+  </data>
+  <data name="Port_Composition" xml:space="preserve">
+    <value>구도</value>
+  </data>
+  <data name="Port_Exclusions" xml:space="preserve">
+    <value>제외</value>
+  </data>
+  <data name="Port_AspectRatio" xml:space="preserve">
+    <value>화면비</value>
+  </data>
+  <data name="Port_Background" xml:space="preserve">
+    <value>배경</value>
+  </data>
+  <data name="Port_Seed" xml:space="preserve">
+    <value>시드</value>
+  </data>
+  <data name="Port_SeedControl" xml:space="preserve">
+    <value>생성 후 시드</value>
+  </data>
+  <data name="Port_Model" xml:space="preserve">
+    <value>모델</value>
+  </data>
+  <data name="Port_References" xml:space="preserve">
+    <value>참조 이미지</value>
+  </data>
+  <data name="Port_Image" xml:space="preserve">
+    <value>이미지</value>
+  </data>
+  <data name="Port_Status" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="Generative_RunQueue" xml:space="preserve">
+    <value>AI 노드 실행</value>
+  </data>
+  <data name="Generative_StopQueue" xml:space="preserve">
+    <value>중지</value>
+  </data>
+  <data name="Generative_RegenerateNode" xml:space="preserve">
+    <value>이 노드 다시 생성</value>
+  </data>
+  <data name="Generative_ExecutorUnavailable" xml:space="preserve">
+    <value>이 창에서는 AI 생성을 사용할 수 없습니다</value>
+  </data>
 </root>

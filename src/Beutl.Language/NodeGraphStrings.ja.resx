@@ -261,4 +261,85 @@
   <data name="Port_Y" xml:space="preserve">
     <value>Y</value>
   </data>
+  <data name="AiGeneration" xml:space="preserve">
+    <value>AI生成</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>画像を生成</value>
+  </data>
+  <data name="Generative_Stale" xml:space="preserve">
+    <value>入力が変更されました。キューに入れると再生成します</value>
+  </data>
+  <data name="Generative_Queued" xml:space="preserve">
+    <value>待機中</value>
+  </data>
+  <data name="Generative_Running" xml:space="preserve">
+    <value>生成中…</value>
+  </data>
+  <data name="Generative_Failed" xml:space="preserve">
+    <value>生成に失敗しました</value>
+  </data>
+  <data name="Generative_Blocked" xml:space="preserve">
+    <value>上流の生成が失敗したためスキップしました</value>
+  </data>
+  <data name="Generative_Canceled" xml:space="preserve">
+    <value>キャンセルしました</value>
+  </data>
+  <data name="Generative_InputRenderFailed" xml:space="preserve">
+    <value>入力画像をレンダリングできませんでした</value>
+  </data>
+  <data name="Generative_PromptRequired" xml:space="preserve">
+    <value>プロンプトを入力してください</value>
+  </data>
+  <data name="Generative_CachedResult" xml:space="preserve">
+    <value>最新です。前回の結果を再利用しました</value>
+  </data>
+  <data name="Port_Prompt" xml:space="preserve">
+    <value>プロンプト</value>
+  </data>
+  <data name="Port_Style" xml:space="preserve">
+    <value>スタイル</value>
+  </data>
+  <data name="Port_Composition" xml:space="preserve">
+    <value>構図</value>
+  </data>
+  <data name="Port_Exclusions" xml:space="preserve">
+    <value>除外</value>
+  </data>
+  <data name="Port_AspectRatio" xml:space="preserve">
+    <value>アスペクト比</value>
+  </data>
+  <data name="Port_Background" xml:space="preserve">
+    <value>背景</value>
+  </data>
+  <data name="Port_Seed" xml:space="preserve">
+    <value>シード</value>
+  </data>
+  <data name="Port_SeedControl" xml:space="preserve">
+    <value>生成後のシード</value>
+  </data>
+  <data name="Port_Model" xml:space="preserve">
+    <value>モデル</value>
+  </data>
+  <data name="Port_References" xml:space="preserve">
+    <value>参照画像</value>
+  </data>
+  <data name="Port_Image" xml:space="preserve">
+    <value>画像</value>
+  </data>
+  <data name="Port_Status" xml:space="preserve">
+    <value>状態</value>
+  </data>
+  <data name="Generative_RunQueue" xml:space="preserve">
+    <value>AIノードを実行</value>
+  </data>
+  <data name="Generative_StopQueue" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Generative_RegenerateNode" xml:space="preserve">
+    <value>このノードを再生成</value>
+  </data>
+  <data name="Generative_ExecutorUnavailable" xml:space="preserve">
+    <value>このウィンドウではAI生成を使用できません</value>
+  </data>
 </root>

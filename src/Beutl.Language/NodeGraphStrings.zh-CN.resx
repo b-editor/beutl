@@ -261,4 +261,85 @@
   <data name="Port_Y" xml:space="preserve">
     <value>Y</value>
   </data>
+  <data name="AiGeneration" xml:space="preserve">
+    <value>AI 生成</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>生成图像</value>
+  </data>
+  <data name="Generative_Stale" xml:space="preserve">
+    <value>输入已更改 — 加入队列以重新生成</value>
+  </data>
+  <data name="Generative_Queued" xml:space="preserve">
+    <value>排队中</value>
+  </data>
+  <data name="Generative_Running" xml:space="preserve">
+    <value>正在生成…</value>
+  </data>
+  <data name="Generative_Failed" xml:space="preserve">
+    <value>生成失败</value>
+  </data>
+  <data name="Generative_Blocked" xml:space="preserve">
+    <value>因上游生成失败而跳过</value>
+  </data>
+  <data name="Generative_Canceled" xml:space="preserve">
+    <value>已取消</value>
+  </data>
+  <data name="Generative_InputRenderFailed" xml:space="preserve">
+    <value>无法渲染输入图像</value>
+  </data>
+  <data name="Generative_PromptRequired" xml:space="preserve">
+    <value>请输入提示词</value>
+  </data>
+  <data name="Generative_CachedResult" xml:space="preserve">
+    <value>已是最新 — 复用了上次的结果</value>
+  </data>
+  <data name="Port_Prompt" xml:space="preserve">
+    <value>提示词</value>
+  </data>
+  <data name="Port_Style" xml:space="preserve">
+    <value>风格</value>
+  </data>
+  <data name="Port_Composition" xml:space="preserve">
+    <value>构图</value>
+  </data>
+  <data name="Port_Exclusions" xml:space="preserve">
+    <value>排除</value>
+  </data>
+  <data name="Port_AspectRatio" xml:space="preserve">
+    <value>宽高比</value>
+  </data>
+  <data name="Port_Background" xml:space="preserve">
+    <value>背景</value>
+  </data>
+  <data name="Port_Seed" xml:space="preserve">
+    <value>种子</value>
+  </data>
+  <data name="Port_SeedControl" xml:space="preserve">
+    <value>生成后的种子</value>
+  </data>
+  <data name="Port_Model" xml:space="preserve">
+    <value>模型</value>
+  </data>
+  <data name="Port_References" xml:space="preserve">
+    <value>参考图像</value>
+  </data>
+  <data name="Port_Image" xml:space="preserve">
+    <value>图像</value>
+  </data>
+  <data name="Port_Status" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="Generative_RunQueue" xml:space="preserve">
+    <value>运行 AI 节点</value>
+  </data>
+  <data name="Generative_StopQueue" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Generative_RegenerateNode" xml:space="preserve">
+    <value>重新生成此节点</value>
+  </data>
+  <data name="Generative_ExecutorUnavailable" xml:space="preserve">
+    <value>此窗口中无法使用 AI 生成</value>
+  </data>
 </root>
