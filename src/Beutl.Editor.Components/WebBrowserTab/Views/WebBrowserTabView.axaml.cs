@@ -26,6 +26,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private NativeWebView? _webView;
     private BrowserAdBlockSession? _adBlockSession;
     private IDisposable? _nativeDownloadHandler;
+    private int _nativeDownloadHandlerVersion;
     private WebBrowserTabViewModel? _viewModel;
     private bool _disposed;
 
@@ -73,6 +74,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _adBlockSession?.Dispose();
         _adBlockSession = null;
         _downloadCancellation?.Cancel();
+        ClearDeferredNativeDownloads();
         ResetPageDownloadRequests();
         CloseBrowserPanel();
         _pageRevision++;
@@ -192,17 +194,44 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         UpdateHistoryState();
+        _nativeDownloadHandlerVersion++;
+        int handlerVersion = _nativeDownloadHandlerVersion;
+        NativeWebView webView = _webView;
+        _nativeDownloadFailures.Clear();
+        _latestNavigationRequest = null;
+        ClearDeferredNativeDownloads();
+        if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
+        _nativeDownloadHandler?.Dispose();
+        void OnDownload(Uri uri, string name, IBrowserDownloadSource source)
+        {
+            if (handlerVersion != _nativeDownloadHandlerVersion || !ReferenceEquals(webView, _webView))
+            {
+                source.Dispose();
+                return;
+            }
+            if (OperatingSystem.IsWindows()) OnWindowsNativeDownloadRequested(uri, name, source);
+            else OnNativeDownloadRequested(uri, name, source);
+        }
         if (OperatingSystem.IsMacOS())
         {
-            _nativeDownloadHandler?.Dispose();
-            _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnNativeDownloadRequested,
+            _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
                 OnNativeNavigationCommitted, OnNativeNavigationStarted);
+        }
+        else if (OperatingSystem.IsWindows())
+        {
+            _nativeDownloadHandler = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload);
         }
         ScheduleLinuxSizeRefresh(_webView);
     }
 
     private void OnAdapterDestroyed(object? sender, WebViewAdapterEventArgs e)
     {
+        if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
+        _nativeDownloadHandlerVersion++;
+        _nativeDownloadFailures.Clear();
+        _latestNavigationRequest = null;
+        ClearDeferredNativeDownloads();
+        if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
         _nativeDownloadHandler?.Dispose();
         _nativeDownloadHandler = null;
     }
@@ -245,6 +274,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
+        if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
         if (e.Cancel) return;
         if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
@@ -253,6 +283,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             if (!_navigationStartedIncludesSubframes) _viewModel?.BeginNavigation(unsupportedRequest);
             return;
         }
+
+        _latestNavigationRequest = e.Request;
 
         // The macOS WebView adapter forwards policy decisions for every target frame through this event,
         // without exposing IsMainFrame. Only completed navigation identifies the top-level URL.
@@ -267,9 +299,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         _pageRevision++;
         _findRequest?.Cancel();
-        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
+        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri)
+            && _nativeDownloadHandler is not WindowsBrowserDownloadHandler)
         {
             e.Cancel = true;
+            _latestNavigationRequest = null;
             // A redirect can turn an in-flight page navigation into a download. Its document
             // origin is no longer confirmed, and cancellation must release the request gate.
             if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
@@ -282,6 +316,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         if (e.Request is { } request)
         {
+            PreservePendingNativeDownload();
             InvalidatePageDownloadRequests(navigationStarted: true);
             _viewModel?.BeginNavigation(request);
         }
@@ -289,6 +324,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     internal void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
     {
+        if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
         if (_adBlockSession?.IsPreparing == true) return;
         if (_viewModel == null || _webView == null)
         {
@@ -298,6 +334,16 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         // The canceled media never replaced the document. Its failure may arrive even after
         // the offer is dismissed or downloaded, so track it independently of the confirmation UI.
         Uri uri = e.Request ?? _webView.Source;
+        if (!e.IsSuccess && ConsumeNativeDownloadFailure(e.Request, uri))
+        {
+            return;
+        }
+        if (e.IsSuccess)
+        {
+            // An iframe download can overlap this page load without producing a top-level failure.
+            _nativeDownloadFailures.RemoveAll(item => item.Navigation == uri);
+        }
+        if (uri == _latestNavigationRequest) _latestNavigationRequest = null;
         if (!e.IsSuccess && _mediaNavigationIntercepted) return;
 
         if (e.IsSuccess) ResetPageDownloadRequests();
@@ -306,12 +352,16 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _findRequest?.Cancel();
         _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
         UpdateBlankPageState();
+        OfferNextDeferredNativeDownload();
         if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage)
         {
             _ = UpdatePageTitleAsync(uri);
             _ = InstallDownloadLinkHandlerAsync(_webView);
             _ = SetPageZoomAsync(_zoomPercent);
             if (FindPanel.IsVisible) _ = FindInPageAsync(0);
+            // WebView2 handles attachment responses itself; an inline media page still offers a download.
+            if (_nativeDownloadHandler is WindowsBrowserDownloadHandler && BrowserMediaDownload.IsMediaLink(uri))
+                QueuePageDownloadRequest(uri, null);
         }
     }
 
@@ -675,6 +725,10 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     private void DisposeWebView()
     {
+        _nativeDownloadHandlerVersion++;
+        _nativeDownloadFailures.Clear();
+        _latestNavigationRequest = null;
+        ClearDeferredNativeDownloads();
         _adBlockSession?.Dispose();
         _adBlockSession = null;
         if (_webView == null)

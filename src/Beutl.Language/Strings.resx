@@ -3141,4 +3141,13 @@ when history recording is enabled.</value>
   <data name="PropertyHover_Range" xml:space="preserve">
     <value>Value range: {0} – {1}</value>
   </data>
+  <data name="OpenInFinder" xml:space="preserve">
+    <value>Open in Finder</value>
+  </data>
+  <data name="OpenInExplorer" xml:space="preserve">
+    <value>Open in File Explorer</value>
+  </data>
+  <data name="OpenInFileManager" xml:space="preserve">
+    <value>Open in File Manager</value>
+  </data>
 </root>

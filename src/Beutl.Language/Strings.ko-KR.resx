@@ -1639,4 +1639,13 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="PropertyHover_Range" xml:space="preserve">
     <value>값 범위: {0} ~ {1}</value>
   </data>
+  <data name="OpenInFinder" xml:space="preserve">
+    <value>Finder에서 열기</value>
+  </data>
+  <data name="OpenInExplorer" xml:space="preserve">
+    <value>파일 탐색기에서 열기</value>
+  </data>
+  <data name="OpenInFileManager" xml:space="preserve">
+    <value>파일 관리자에서 열기</value>
+  </data>
 </root>

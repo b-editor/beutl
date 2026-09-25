@@ -1639,4 +1639,13 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="PropertyHover_Range" xml:space="preserve">
     <value>Rango de valores: {0} – {1}</value>
   </data>
+  <data name="OpenInFinder" xml:space="preserve">
+    <value>Abrir en Finder</value>
+  </data>
+  <data name="OpenInExplorer" xml:space="preserve">
+    <value>Abrir en el Explorador de archivos</value>
+  </data>
+  <data name="OpenInFileManager" xml:space="preserve">
+    <value>Abrir en el gestor de archivos</value>
+  </data>
 </root>

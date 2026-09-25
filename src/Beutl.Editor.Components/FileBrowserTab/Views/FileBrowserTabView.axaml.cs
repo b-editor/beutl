@@ -10,6 +10,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Controls;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
@@ -152,6 +153,12 @@ public partial class FileBrowserTabView : UserControl
         }
     }
 
+    private async void OnOpenInFileManagerClick(object? sender, RoutedEventArgs e)
+    {
+        if (GetItemFromMenuItem(sender) is { } item && ViewModel is { } vm)
+            await vm.OpenInFileManagerAsync(item);
+    }
+
     private async void OnDeleteClick(object? sender, RoutedEventArgs e)
     {
         if (ViewModel == null)
@@ -188,6 +195,10 @@ public partial class FileBrowserTabView : UserControl
                 {
                     bool isFavorite = ViewModel.Favorites.Contains(item.FullPath);
                     menuItem.Header = isFavorite ? Strings.RemoveFromFavorites : Strings.AddToFavorites;
+                }
+                else if (menuItem.Tag is "OpenInFileManager")
+                {
+                    menuItem.Header = FileManagerLauncher.MenuHeader;
                 }
             }
         }

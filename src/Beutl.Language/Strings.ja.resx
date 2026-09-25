@@ -3136,4 +3136,13 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="PropertyHover_Range" xml:space="preserve">
     <value>値の範囲: {0} ～ {1}</value>
   </data>
+  <data name="OpenInFinder" xml:space="preserve">
+    <value>Finderで開く</value>
+  </data>
+  <data name="OpenInExplorer" xml:space="preserve">
+    <value>エクスプローラーで開く</value>
+  </data>
+  <data name="OpenInFileManager" xml:space="preserve">
+    <value>ファイルマネージャーで開く</value>
+  </data>
 </root>

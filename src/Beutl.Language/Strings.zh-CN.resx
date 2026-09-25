@@ -1639,4 +1639,13 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="PropertyHover_Range" xml:space="preserve">
     <value>取值范围：{0}～{1}</value>
   </data>
+  <data name="OpenInFinder" xml:space="preserve">
+    <value>在访达中打开</value>
+  </data>
+  <data name="OpenInExplorer" xml:space="preserve">
+    <value>在文件资源管理器中打开</value>
+  </data>
+  <data name="OpenInFileManager" xml:space="preserve">
+    <value>在文件管理器中打开</value>
+  </data>
 </root>
