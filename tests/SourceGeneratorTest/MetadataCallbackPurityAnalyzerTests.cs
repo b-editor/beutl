@@ -4326,6 +4326,285 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "makes");
     }
 
+    // The constructs below run members without naming them, and the rule does not follow them. A member
+    // with a body in this compilation could read anything, so the rule says it did not look.
+    private const string ListSource = """
+        internal sealed class Widths
+        {
+            public int Length => 2;
+
+            public float this[int index] => Settings.Offset;
+
+            public Widths Slice(int start, int length) => this;
+        }
+        """;
+
+    private static IEnumerable<Diagnostic> Unfollowed(ImmutableArray<Diagnostic> diagnostics, string construct)
+        => diagnostics.Where(d => d.Id == "BESG004" && d.GetMessage().Contains($"through {construct},"));
+
+    [Test]
+    public void AListPatternOverAMemberWithSource_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            "if (new Widths() is [var first, _]) width += first;");
+
+        Assert.That(Unfollowed(diagnostics, "a list pattern"), Is.Not.Empty,
+            "a list pattern asks for Length and the indexer, and the rule reads neither body");
+    }
+
+    [Test]
+    public void ASlicePatternOverAMemberWithSource_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            "if (new Widths() is [_, .. var rest]) width += rest.Length;");
+
+        Assert.That(Unfollowed(diagnostics, "a slice pattern"), Is.Not.Empty);
+    }
+
+    [Test]
+    public void AnIndexFromTheEndOverAMemberWithSource_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            "width += new Widths()[^1];");
+
+        Assert.That(Unfollowed(diagnostics, "an index or a range"), Is.Not.Empty,
+            "^1 runs Length and the int indexer, neither of which is named");
+    }
+
+    [Test]
+    public void APositionalPatternOverADeconstructWithSource_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Pair
+            {
+                public void Deconstruct(out float first, out float second)
+                {
+                    first = Settings.Offset;
+                    second = 0f;
+                }
+            }
+            """,
+            "if (new Pair() is (var first, _)) width += first;");
+
+        Assert.That(Unfollowed(diagnostics, "a positional pattern"), Is.Not.Empty);
+    }
+
+    [Test]
+    public void ConstructsOverMembersWithoutSource_AreNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            "",
+            """
+            float[] values = { 1f, 2f };
+            if (values is [var first, .. var rest]) width += first + rest.Length;
+            width += values[^1];
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "an array has no member body anywhere, which is the no-source case every call already has");
+    }
+
+    // A member an override can replace is followed as the binder bound it, which is only one of the bodies
+    // that can run unless the callback shows where the value was made.
+    private const string OverridableSource = """
+        internal class Widths
+        {
+            public virtual Enumerator GetEnumerator() => new Enumerator();
+        }
+
+        internal sealed class LoudWidths : Widths
+        {
+            public override Enumerator GetEnumerator()
+            {
+                _ = Settings.Offset;
+                return new Enumerator();
+            }
+        }
+
+        internal struct Enumerator
+        {
+            public float Current => 0f;
+
+            public bool MoveNext() => false;
+        }
+
+        internal static class Source
+        {
+            public static Widths Make() => new LoudWidths();
+        }
+        """;
+
+    [Test]
+    public void AForEachWhoseGetEnumeratorAnOverrideCanReplace_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            OverridableSource,
+            """
+            Widths items = Source.Make();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty,
+            "the base body is pure, but the value came from somewhere the rule cannot read and the override "
+            + "that runs here is not");
+    }
+
+    [Test]
+    public void AForEachOverASequenceItMade_RunsTheOverrideAndIsNotReportedForTheBase()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Widths
+            {
+                public virtual Enumerator GetEnumerator()
+                {
+                    _ = Settings.Offset;
+                    return new Enumerator();
+                }
+            }
+
+            internal sealed class QuietWidths : Widths
+            {
+                public override Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal struct Enumerator
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => false;
+            }
+            """,
+            """
+            Widths items = new QuietWidths();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "the local holds a QuietWidths for its whole life, so its override is the body that runs");
+    }
+
+    [Test]
+    public void AUsingWhoseDisposeAnOverrideCanReplace_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Resource : IDisposable
+            {
+                public virtual void Dispose()
+                {
+                }
+            }
+
+            internal static class Source
+            {
+                public static Resource Make() => new Resource();
+            }
+            """,
+            "using (Resource resource = Source.Make()) width += 1f;");
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty);
+    }
+
+    [Test]
+    public void AUsingOverASealedResource_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Resource : IDisposable
+            {
+                public void Dispose()
+                {
+                }
+            }
+
+            internal static class Source
+            {
+                public static Resource Make() => new Resource();
+            }
+            """,
+            "using (Resource resource = Source.Make()) width += 1f;");
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "nothing can replace a sealed type's Dispose, so the body the rule read is the one that runs");
+    }
+
+    [Test]
+    public void AWithOnARecordThatCanBeDerivedFrom_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal record Box(float Width);
+
+            internal static class Source
+            {
+                public static Box Make() => new Box(1f);
+            }
+            """,
+            "width += (Source.Make() with { Width = 2f }).Width;");
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty,
+            "a with copies through a virtual clone, so a derived record's copy constructor may be what runs");
+    }
+
+    [Test]
+    public void AWithOnASealedRecord_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed record Box(float Width);
+
+            internal static class Source
+            {
+                public static Box Make() => new Box(1f);
+            }
+            """,
+            "width += (Source.Make() with { Width = 2f }).Width;");
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty);
+    }
+
+    [Test]
+    public void ADeconstructionAnOverrideCanReplace_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Pair
+            {
+                public virtual void Deconstruct(out float first, out float second)
+                {
+                    first = 0f;
+                    second = 0f;
+                }
+            }
+
+            internal static class Source
+            {
+                public static Pair Make() => new Pair();
+            }
+            """,
+            """
+            var (first, _) = Source.Make();
+            width += first;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty);
+    }
+
     /// <summary>Runs a loop over the sequence a case declares, inside a callback that reads its result.</summary>
     /// <remarks>
     /// Exactly one member of the sequence is impure in each reported case, so a report can only have come

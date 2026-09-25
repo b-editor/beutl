@@ -745,6 +745,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
+        // These constructs run members this rule does not follow. A member with a body here could read
+        // anything, so the walk says it did not look rather than letting silence stand for a verdict.
+        if (ReportUnfollowedConstruct(context, model, node, report))
+            return;
+
         // An indexer is spelled as brackets around an argument, so the name loop never sees it, and the
         // accessor it runs is a body like any other.
         if (node is ExpressionSyntax element
@@ -783,7 +788,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
         if (node is WithExpressionSyntax with)
         {
-            FollowWithExpression(context, model, with, depth, walked, report);
+            FollowWithExpression(context, model, body, with, depth, walked, report);
             return;
         }
 
@@ -808,7 +813,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         // the Deconstruct it runs on each element - and that is a separate question from the iteration.
         if (node is CommonForEachStatementSyntax loop)
         {
-            FollowIteration(context, model, loop, depth, walked, report);
+            FollowIteration(context, model, body, loop, depth, walked, report);
 
             if (loop is ForEachVariableStatementSyntax deconstructing)
             {
@@ -830,7 +835,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         if (node is UsingStatementSyntax
             or LocalDeclarationStatementSyntax { UsingKeyword.RawKind: (int)SyntaxKind.UsingKeyword })
         {
-            FollowDisposal(context, model, node, depth, walked, report);
+            FollowDisposal(context, model, body, node, depth, walked, report);
             return;
         }
 
@@ -885,19 +890,147 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    /// <summary>
+    /// Reports the members a construct runs without naming them, where this rule does not follow that
+    /// construct, and says whether <paramref name="node"/> was one.
+    /// </summary>
+    private static bool ReportUnfollowedConstruct(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode node,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        void Report(ISymbol? member, string construct)
+        {
+            if (member is not null && IsDeclaredInSource(member))
+                report(node, DescribeMemberKind(member), member, string.Format(NotFollowedWithoutAName, construct));
+        }
+
+        switch (node)
+        {
+            case ListPatternSyntax list
+                when model.GetOperation(list, context.CancellationToken) is IListPatternOperation pattern:
+                Report(pattern.LengthSymbol, "a list pattern");
+                Report(pattern.IndexerSymbol, "a list pattern");
+                return true;
+
+            case SlicePatternSyntax slice
+                when model.GetOperation(slice, context.CancellationToken) is ISlicePatternOperation pattern:
+                Report(pattern.SliceSymbol, "a slice pattern");
+                return true;
+
+            case RecursivePatternSyntax { PositionalPatternClause: not null } positional
+                when model.GetOperation(positional, context.CancellationToken)
+                    is IRecursivePatternOperation pattern:
+                Report(pattern.DeconstructSymbol, "a positional pattern");
+                // The property subpatterns beside it name their members and are walked as names.
+                return false;
+
+            case AwaitExpressionSyntax awaited:
+                AwaitExpressionInfo info = model.GetAwaitExpressionInfo(awaited);
+                Report(info.GetAwaiterMethod, "an await");
+                Report(info.IsCompletedProperty, "an await");
+                Report(info.GetResultMethod, "an await");
+                return false;
+
+            case ElementAccessExpressionSyntax access
+                when model.GetOperation(access, context.CancellationToken)
+                    is IImplicitIndexerReferenceOperation indexed:
+                Report(indexed.LengthSymbol, "an index or a range");
+                Report(indexed.IndexerSymbol, "an index or a range");
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Reports a member a construct runs without naming it, where an override the rule cannot see past
+    /// may replace the body it followed.
+    /// </summary>
+    /// <remarks>
+    /// Only a receiver whose making is readable carries an instance of one known type; anywhere else the
+    /// declaration the binder picked is only one of the bodies that can run. The declaration is still
+    /// followed, since it is the likeliest body, and the report says that it may not be the one.
+    /// </remarks>
+    private static void ReportOverridable(
+        SyntaxNode node,
+        IMethodSymbol? member,
+        string kind,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (member is not null && IsOverridable(member) && IsDeclaredInSource(member))
+            report(node, kind, member, OverridableWithoutAMaking);
+    }
+
+    private static bool IsOverridable(IMethodSymbol member)
+        => !member.IsStatic
+           && member.ContainingType is { } type
+           && (type.TypeKind == TypeKind.Interface
+               || (!type.IsSealed
+                   && (member.IsVirtual || member.IsAbstract || (member.IsOverride && !member.IsSealed))));
+
+    private static bool IsDeclaredInSource(ISymbol member)
+    {
+        foreach (Location location in member.OriginalDefinition.Locations)
+        {
+            if (location.IsInSource)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static string DescribeMemberKind(ISymbol member) => member switch
+    {
+        IPropertySymbol { IsIndexer: true } => "indexer",
+        IPropertySymbol => "property",
+        IMethodSymbol method when RunsAStaticMethod(method) => "static method",
+        _ => "method",
+    };
+
+    private const string NotFollowedWithoutAName =
+        "the callback runs it without naming it, through {0}, which this rule does not follow, so what it "
+        + "reads was never looked at; spell the call out where the callback can be read, or keep the "
+        + "member free of state that changes";
+
+    private const string OverridableWithoutAMaking =
+        "the callback runs it without naming it, on a value whose making this rule cannot read, and an "
+        + "override can replace it, so the body this rule read is not necessarily the one that runs; make "
+        + "the value where the callback can see it, or seal the member";
+
     private static void FollowWithExpression(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
+        SyntaxNode body,
         WithExpressionSyntax with,
         int depth,
         Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         if (model.GetTypeInfo(with.Expression, context.CancellationToken).Type
-            is INamedTypeSymbol { TypeKind: TypeKind.Class } copied
-            && GetCopyConstructor(copied) is { } copy)
+            is INamedTypeSymbol { TypeKind: TypeKind.Class } copied)
         {
-            FollowCall(context, copy, with, "constructor", depth, walked, report);
+            // A record copies itself through a virtual clone, so the copy constructor that runs is the one
+            // of the type the value was made as.
+            INamedTypeSymbol? made = FollowHeldCreation(
+                context,
+                GetCreationHeldBy(context, model, with.Expression),
+                body,
+                with,
+                depth,
+                walked,
+                report);
+            INamedTypeSymbol runs = made ?? copied;
+
+            if (GetCopyConstructor(runs) is { } copy)
+            {
+                FollowCall(context, copy, with, "constructor", depth, walked, report);
+
+                if (made is null && !copied.IsSealed && IsDeclaredInSource(copy))
+                    report(with, "constructor", copy, OverridableWithoutAMaking);
+            }
         }
 
         foreach (ExpressionSyntax assigned in with.Initializer.Expressions)
@@ -925,6 +1058,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     private static void FollowDisposal(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
+        SyntaxNode body,
         SyntaxNode scope,
         int depth,
         Dictionary<ISymbol, int> walked,
@@ -950,10 +1084,27 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 return;
         }
 
-        void Follow(ITypeSymbol? type)
+        void Follow(ITypeSymbol? type, ExpressionSyntax? value)
         {
-            if (type is not null && GetDisposeMethod(context, type, asynchronous) is { } dispose)
-                FollowCall(context, dispose, scope, "method", depth, walked, report);
+            if (type is null || GetDisposeMethod(context, type, asynchronous) is not { } dispose)
+                return;
+
+            INamedTypeSymbol? made = value is null
+                ? null
+                : FollowHeldCreation(
+                    context,
+                    GetCreationHeldBy(context, model, value),
+                    body,
+                    scope,
+                    depth,
+                    walked,
+                    report);
+
+            IMethodSymbol runs = RunsAsMade(made, dispose);
+            FollowCall(context, runs, scope, "method", depth, walked, report);
+
+            if (made is null)
+                ReportOverridable(scope, runs, "method", report);
         }
 
         if (declaration is not null)
@@ -961,12 +1112,12 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             foreach (VariableDeclaratorSyntax declarator in declaration.Variables)
             {
                 if (model.GetDeclaredSymbol(declarator, context.CancellationToken) is ILocalSymbol declared)
-                    Follow(declared.Type);
+                    Follow(declared.Type, declarator.Initializer?.Value);
             }
         }
 
         if (resource is not null)
-            Follow(model.GetTypeInfo(resource, context.CancellationToken).Type);
+            Follow(model.GetTypeInfo(resource, context.CancellationToken).Type, resource);
     }
 
     /// <summary>The disposal the compiler runs on a resource of <paramref name="type"/>.</summary>
@@ -1169,14 +1320,12 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     walked,
                     report);
 
-            FollowCall(
-                context,
-                RunsAsMade(made, rewritten),
-                node,
-                RunsAStaticMethod(rewritten) ? "static method" : "method",
-                depth,
-                walked,
-                report);
+            IMethodSymbol runs = RunsAsMade(made, rewritten);
+            string kind = RunsAStaticMethod(rewritten) ? "static method" : "method";
+            FollowCall(context, runs, node, kind, depth, walked, report);
+
+            if (made is null)
+                ReportOverridable(node, runs, kind, report);
         }
     }
 
@@ -1244,6 +1393,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     private static void FollowIteration(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
+        SyntaxNode body,
         CommonForEachStatementSyntax loop,
         int depth,
         Dictionary<ISymbol, int> walked,
@@ -1253,25 +1403,34 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol? sequence = model.GetTypeInfo(loop.Expression, context.CancellationToken).Type;
         ITypeSymbol? enumerator = iteration.GetEnumeratorMethod?.ReturnType;
 
-        void Follow(ITypeSymbol? receiver, IMethodSymbol? member, string? kind = null)
+        // Only the sequence is a value the callback can be shown the making of; the enumerator is whatever
+        // GetEnumerator handed back.
+        INamedTypeSymbol? madeSequence = FollowHeldCreation(
+            context,
+            GetCreationHeldBy(context, model, loop.Expression),
+            body,
+            loop,
+            depth,
+            walked,
+            report);
+
+        void Follow(ITypeSymbol? receiver, INamedTypeSymbol? made, IMethodSymbol? member, string? kind = null)
         {
-            if (RunsOn(receiver, member) is not { } run)
+            if (RunsOn(receiver, member) is not { } bound)
                 return;
 
-            FollowCall(
-                context,
-                run,
-                loop,
-                kind ?? (RunsAStaticMethod(run) ? "static method" : "method"),
-                depth,
-                walked,
-                report);
+            IMethodSymbol run = RunsAsMade(made, bound);
+            kind ??= RunsAStaticMethod(run) ? "static method" : "method";
+            FollowCall(context, run, loop, kind, depth, walked, report);
+
+            if (made is null)
+                ReportOverridable(loop, run, kind, report);
         }
 
-        Follow(sequence, iteration.GetEnumeratorMethod);
-        Follow(enumerator, iteration.MoveNextMethod);
-        Follow(enumerator, iteration.CurrentProperty?.GetMethod, "property");
-        Follow(enumerator, iteration.DisposeMethod);
+        Follow(sequence, madeSequence, iteration.GetEnumeratorMethod);
+        Follow(enumerator, null, iteration.MoveNextMethod);
+        Follow(enumerator, null, iteration.CurrentProperty?.GetMethod, "property");
+        Follow(enumerator, null, iteration.DisposeMethod);
     }
 
     /// <summary>The member that runs where the loop names one an interface declares.</summary>
@@ -1300,14 +1459,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     {
         if (deconstruction.Method is { } deconstruct)
         {
-            FollowCall(
-                context,
-                deconstruct,
-                node,
-                RunsAStaticMethod(deconstruct) ? "static method" : "method",
-                depth,
-                walked,
-                report);
+            string kind = RunsAStaticMethod(deconstruct) ? "static method" : "method";
+            FollowCall(context, deconstruct, node, kind, depth, walked, report);
+            ReportOverridable(node, deconstruct, kind, report);
         }
 
         foreach (DeconstructionInfo nested in deconstruction.Nested)
