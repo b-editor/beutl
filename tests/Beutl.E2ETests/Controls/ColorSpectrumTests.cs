@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
+using PickerColorComponent = FluentAvalonia.UI.Controls.ColorComponent;
 
 namespace Beutl.E2ETests.Controls;
 
@@ -54,6 +55,39 @@ public class ColorSpectrumTests
                 .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .GetValue(spectrum);
             Assert.That(bitmap, Is.Null);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Spectrum_rebuilds_its_bitmap_for_each_component()
+    {
+        var spectrum = new ColorSpectrum();
+        var window = new Window { Width = 260, Height = 260, Content = spectrum };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var bitmapField = typeof(ColorSpectrum)
+                .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+            foreach (PickerColorComponent component in new[]
+            {
+                PickerColorComponent.Hue,
+                PickerColorComponent.Saturation,
+                PickerColorComponent.Value,
+                PickerColorComponent.Red,
+                PickerColorComponent.Green,
+                PickerColorComponent.Blue,
+            })
+            {
+                spectrum.Component = component;
+                HeadlessTestHelpers.Render();
+                Assert.That(bitmapField.GetValue(spectrum), Is.Not.Null, $"Missing {component} bitmap.");
+            }
         }
         finally
         {

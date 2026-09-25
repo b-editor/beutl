@@ -86,6 +86,112 @@ public class DirectoryTreeViewTests
         }
     }
 
+    [AvaloniaTest]
+    public void Case_only_rename_updates_file_and_folder_names()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"beutl-tree-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        string filePath = Path.Combine(root, "Foo.txt");
+        string folderPath = Path.Combine(root, "Folder");
+        File.WriteAllText(filePath, "seed");
+        Directory.CreateDirectory(folderPath);
+
+        using var watcher = new FileSystemWatcher(root);
+        try
+        {
+            var file = new FileTreeItem(new FileInfo(filePath));
+            file.StartRename();
+            ((TextBox)file.Header!).Text = "foo.txt";
+            file.EndRename();
+            Assert.That(file.Info.Name, Is.EqualTo("foo.txt"));
+            Assert.That(Directory.GetFiles(root).Select(Path.GetFileName), Does.Contain("foo.txt"));
+
+            var folder = new DirectoryTreeItem(new DirectoryInfo(folderPath), watcher);
+            folder.StartRename();
+            ((TextBox)folder.Header!).Text = "folder";
+            folder.EndRename();
+            Assert.That(folder.Info.Name, Is.EqualTo("folder"));
+            Assert.That(Directory.GetDirectories(root).Select(Path.GetFileName), Does.Contain("folder"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Test]
+    public void Case_variant_destination_is_a_conflict_only_when_it_is_a_distinct_entry()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"beutl-tree-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            string file = Path.Combine(root, "Foo.txt");
+            string caseVariantFile = Path.Combine(root, "foo.txt");
+            File.WriteAllText(file, "first");
+            bool fileSystemDistinguishesFiles = !File.Exists(caseVariantFile);
+            if (fileSystemDistinguishesFiles)
+                File.WriteAllText(caseVariantFile, "second");
+            Assert.That(DirectoryTreeRename.HasDistinctDestination(file, caseVariantFile),
+                Is.EqualTo(fileSystemDistinguishesFiles));
+            string otherFile = Path.Combine(root, "other.txt");
+            File.WriteAllText(otherFile, "other");
+            Assert.That(DirectoryTreeRename.HasDistinctDestination(file, otherFile), Is.True);
+
+            string folder = Path.Combine(root, "Folder");
+            string caseVariantFolder = Path.Combine(root, "folder");
+            Directory.CreateDirectory(folder);
+            bool fileSystemDistinguishesFolders = !Directory.Exists(caseVariantFolder);
+            if (fileSystemDistinguishesFolders)
+                Directory.CreateDirectory(caseVariantFolder);
+            Assert.That(DirectoryTreeRename.HasDistinctDestination(folder, caseVariantFolder),
+                Is.EqualTo(fileSystemDistinguishesFolders));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
+    public void Sort_tolerates_null_text_and_nonstring_headers()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"beutl-tree-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        string folderPath = Path.Combine(root, "folder");
+        Directory.CreateDirectory(folderPath);
+        File.WriteAllText(Path.Combine(root, "root.txt"), "root");
+        File.WriteAllText(Path.Combine(folderPath, "nested.txt"), "nested");
+
+        using var watcher = new FileSystemWatcher(root);
+        try
+        {
+            var tree = new DirectoryTreeView(watcher);
+            var items = tree.ItemsSource!.Cast<TreeViewItem>().ToArray();
+            var file = items.OfType<FileTreeItem>().Single();
+            var folder = items.OfType<DirectoryTreeItem>().Single();
+
+            file.Header = new TextBlock { Text = null };
+            folder.Header = new TextBlock { Text = null };
+            Assert.DoesNotThrow(tree.Sort);
+            file.Header = new Border();
+            folder.Header = new Border();
+            Assert.DoesNotThrow(tree.Sort);
+
+            folder.IsExpanded = true;
+            HeadlessTestHelpers.Settle();
+            var nested = folder.ItemsSource!.Cast<TreeViewItem>().OfType<FileTreeItem>().Single();
+            nested.Header = new TextBlock { Text = null };
+            Assert.DoesNotThrow(folder.Sort);
+            nested.Header = new Border();
+            Assert.DoesNotThrow(folder.Sort);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static async Task WaitUntil(Func<bool> condition)
     {
         for (int attempt = 0; attempt < 250; attempt++)

@@ -553,8 +553,8 @@ public sealed class FileTreeItem : TreeViewItem
             _isRenaming = false;
             string old = Info.FullName;
             string @new = Path.Combine(Info.DirectoryName ?? throw new InvalidOperationException("The file has no parent directory."), tb.Text ?? Info.Name);
-            bool isDifferentPath = !string.Equals(old, @new, StringComparison.OrdinalIgnoreCase);
-            if (isDifferentPath && File.Exists(@new))
+            bool isDifferentPath = !string.Equals(old, @new, StringComparison.Ordinal);
+            if (isDifferentPath && DirectoryTreeRename.HasDistinctDestination(old, @new))
             {
                 string content = MessageStrings.RenameConflict;
                 content = string.Format(content, Info.Name, tb.Text);
@@ -786,8 +786,8 @@ public sealed class DirectoryTreeItem : TreeViewItem
             _isRenaming = false;
             string old = Info.FullName;
             string @new = Path.Combine(Info.Parent?.FullName ?? throw new InvalidOperationException("The directory has no parent."), tb.Text ?? Info.Name);
-            bool isDifferentPath = !string.Equals(old, @new, StringComparison.OrdinalIgnoreCase);
-            if (isDifferentPath && Directory.Exists(@new))
+            bool isDifferentPath = !string.Equals(old, @new, StringComparison.Ordinal);
+            if (isDifferentPath && DirectoryTreeRename.HasDistinctDestination(old, @new))
             {
                 string content = MessageStrings.RenameConflict;
                 content = string.Format(content, Info.Name, tb.Text);
@@ -911,5 +911,25 @@ public sealed class DirectoryTreeItem : TreeViewItem
 
             Sort();
         });
+    }
+}
+
+internal static class DirectoryTreeRename
+{
+    public static bool HasDistinctDestination(string source, string destination)
+    {
+        if (!File.Exists(destination) && !Directory.Exists(destination))
+            return false;
+
+        if (!string.Equals(source, destination, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        string? parent = Path.GetDirectoryName(destination);
+        if (parent is null)
+            return false;
+
+        string targetName = Path.GetFileName(destination);
+        return Directory.EnumerateFileSystemEntries(parent)
+            .Any(entry => string.Equals(Path.GetFileName(entry), targetName, StringComparison.Ordinal));
     }
 }
