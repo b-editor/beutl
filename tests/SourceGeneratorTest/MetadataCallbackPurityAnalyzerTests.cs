@@ -5245,6 +5245,40 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AWithOnAMadeRecord_RunsTheOverridingInitSetter()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal record Box
+            {
+                public virtual float Width
+                {
+                    get => 0f;
+                    init { }
+                }
+            }
+
+            internal sealed record LoudBox : Box
+            {
+                public override float Width
+                {
+                    get => 0f;
+                    init => _ = Settings.Offset;
+                }
+            }
+            """,
+            """
+            Box box = new LoudBox();
+            width += (box with { Width = 2f }).Width;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "the clone is a LoudBox, so its init accessor is the one the initializer runs");
+    }
+
+    [Test]
     public void AnAwaitOnAFrameworkTask_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(

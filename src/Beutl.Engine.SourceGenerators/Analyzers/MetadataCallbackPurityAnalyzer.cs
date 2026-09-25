@@ -1158,12 +1158,14 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        if (model.GetTypeInfo(with.Expression, context.CancellationToken).Type
-            is INamedTypeSymbol { TypeKind: TypeKind.Class } copied)
+        ITypeSymbol? copiedType = model.GetTypeInfo(with.Expression, context.CancellationToken).Type;
+        INamedTypeSymbol? made = null;
+
+        if (copiedType is INamedTypeSymbol { TypeKind: TypeKind.Class } copied)
         {
             // A record copies itself through a virtual clone, so the copy constructor that runs is the one
             // of the type the value was made as.
-            INamedTypeSymbol? made = FollowHeldCreation(
+            made = FollowHeldCreation(
                 context,
                 GetCreationHeldBy(context, model, with.Expression),
                 body,
@@ -1188,7 +1190,13 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 && model.GetSymbolInfo(target, context.CancellationToken).Symbol
                     is IPropertySymbol { IsStatic: false, SetMethod: { } setter })
             {
-                FollowCall(context, setter, target, "property", depth, walked, report);
+                // The initializer assigns the clone, which is an instance of the type the value was made as,
+                // so a virtual init accessor runs as that type overrides it.
+                IMethodSymbol runs = RunsAsMade(made, setter);
+                FollowCall(context, runs, target, "property", depth, walked, report);
+
+                if (made is null)
+                    ReportOverridable(target, copiedType, runs, "property", report);
             }
         }
     }
