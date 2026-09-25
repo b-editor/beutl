@@ -1056,6 +1056,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// </summary>
     private static void ReportImplicitAwait(
         SyntaxNodeAnalysisContext context,
+        SemanticModel model,
         ITypeSymbol? awaitable,
         SyntaxNode node,
         string construct,
@@ -1067,11 +1068,19 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 report(node, DescribeMemberKind(member), member, string.Format(NotFollowedWithoutAName, construct));
         }
 
-        if (FindInstanceMember<IMethodSymbol>(awaitable, "GetAwaiter", static m => m.Parameters.Length == 0)
-            is not { } getAwaiter)
-        {
+        // GetAwaiter can be an extension method, which is found where the construct is written.
+        IMethodSymbol? getAwaiter = awaitable is null
+            ? null
+            : FindInstanceMember<IMethodSymbol>(awaitable, "GetAwaiter", static m => m.Parameters.Length == 0)
+              ?? model.LookupSymbols(
+                      node.SpanStart,
+                      awaitable,
+                      "GetAwaiter",
+                      includeReducedExtensionMethods: true)
+                  .OfType<IMethodSymbol>()
+                  .FirstOrDefault(static m => m.Parameters.Length == 0);
+        if (getAwaiter is null)
             return;
-        }
 
         ITypeSymbol awaiter = getAwaiter.ReturnType;
         Report(getAwaiter);
@@ -1311,7 +1320,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
             // An await using awaits what DisposeAsync hands back, with no await written anywhere.
             if (asynchronous)
-                ReportImplicitAwait(context, runs.ReturnType, scope, "an await using", report);
+                ReportImplicitAwait(context, model, runs.ReturnType, scope, "an await using", report);
 
             if (made is null)
             {
@@ -1710,8 +1719,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         // An await foreach awaits what MoveNextAsync and DisposeAsync hand back, with no await written.
         if (iteration.IsAsynchronous)
         {
-            ReportImplicitAwait(context, advance?.ReturnType, loop, "an await foreach", report);
-            ReportImplicitAwait(context, disposal?.ReturnType, loop, "an await foreach", report);
+            ReportImplicitAwait(context, model, advance?.ReturnType, loop, "an await foreach", report);
+            ReportImplicitAwait(context, model, disposal?.ReturnType, loop, "an await foreach", report);
         }
     }
 

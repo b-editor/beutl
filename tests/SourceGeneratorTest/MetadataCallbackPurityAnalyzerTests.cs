@@ -5342,6 +5342,56 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AnAwaitUsingWhoseAwaitableHasAnExtensionGetAwaiter_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Pending
+            {
+            }
+
+            internal static class PendingAwaiting
+            {
+                public static Awaiter GetAwaiter(this Pending pending) => new Awaiter();
+            }
+
+            internal sealed class Awaiter : System.Runtime.CompilerServices.INotifyCompletion
+            {
+                public bool IsCompleted => Settings.Offset > 0f;
+
+                public void GetResult()
+                {
+                }
+
+                public void OnCompleted(Action continuation) => continuation();
+            }
+
+            internal sealed class Resource
+            {
+                public Pending DisposeAsync() => new Pending();
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure()
+                {
+                    await using (new Resource())
+                    {
+                    }
+
+                    return 0f;
+                }
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        Assert.That(
+            Unfollowed(diagnostics, "an await using").Select(static d => d.GetMessage()),
+            Has.Some.Contains("IsCompleted"),
+            "the extension GetAwaiter is what the scope runs, and the awaiter it hands back is read too");
+    }
+
+    [Test]
     public void AnAwaitForEachOverASourceAsyncEnumerator_IsReportedAsNotFollowed()
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
