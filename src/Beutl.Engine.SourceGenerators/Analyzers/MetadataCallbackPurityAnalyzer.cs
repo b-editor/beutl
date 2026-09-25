@@ -1249,7 +1249,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     walked,
                     report);
 
-            IMethodSymbol runs = RunsAsMade(made, dispose);
+            // Resolved again on the made type rather than only mapped from the static one, because the made
+            // type can reimplement the disposal interface with a body the static type's mapping never names.
+            IMethodSymbol runs = made is null
+                ? dispose
+                : RunsAsMade(made, GetDisposeMethod(context, made, asynchronous) ?? dispose);
             FollowCall(context, runs, scope, "method", depth, walked, report);
 
             if (made is null)
@@ -1585,7 +1589,12 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
         IMethodSymbol? Follow(ITypeSymbol? receiver, INamedTypeSymbol? made, IMethodSymbol? member, string? kind = null)
         {
-            if (RunsOn(receiver, member) is not { } bound)
+            // A member reached through an interface is resolved on the type the value was made as, which can
+            // reimplement the interface and run a body the static type's mapping never names.
+            ITypeSymbol? dispatchedOn = made is not null && member?.ContainingType is { TypeKind: TypeKind.Interface }
+                ? made
+                : receiver;
+            if (RunsOn(dispatchedOn, member) is not { } bound)
                 return null;
 
             IMethodSymbol run = RunsAsMade(made, bound);

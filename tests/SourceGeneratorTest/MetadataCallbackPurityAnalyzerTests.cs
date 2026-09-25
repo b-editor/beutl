@@ -5150,6 +5150,68 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AUsingOverAMadeValueThatReimplementsIDisposable_ReadsTheReimplementation()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Resource : IDisposable
+            {
+                public void Dispose()
+                {
+                }
+            }
+
+            internal sealed class LoudResource : Resource, IDisposable
+            {
+                public new void Dispose() => _ = Settings.Offset;
+            }
+            """,
+            """
+            Resource resource = new LoudResource();
+            using (resource) width += 1f;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "using disposes through IDisposable, and LoudResource reimplements it with a body that reads "
+            + "a mutable static");
+    }
+
+    [Test]
+    public void AForEachOverAMadeValueThatReimplementsIEnumerable_ReadsTheReimplementation()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Widths : IEnumerable<float>
+            {
+                IEnumerator<float> IEnumerable<float>.GetEnumerator() => new List<float>().GetEnumerator();
+
+                IEnumerator IEnumerable.GetEnumerator() => new List<float>().GetEnumerator();
+            }
+
+            internal sealed class LoudWidths : Widths, IEnumerable<float>
+            {
+                IEnumerator<float> IEnumerable<float>.GetEnumerator()
+                {
+                    _ = Settings.Offset;
+                    return new List<float>().GetEnumerator();
+                }
+            }
+            """,
+            """
+            Widths items = new LoudWidths();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "the loop asks IEnumerable<float> for the enumerator, and LoudWidths reimplements it");
+    }
+
+    [Test]
     public void AnAwaitOnAFrameworkTask_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
