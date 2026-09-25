@@ -12,7 +12,7 @@ public partial class FactoryNode<T> : GraphNode
     public FactoryNode()
     {
         Object = new T();
-        OutputPort = AddOutput<T>("Output");
+        OutputPort = AddOutput<T>("Output", NodePortDisplays.Output);
         foreach (IProperty property in Object.Properties)
         {
             AddInput(Object, property);

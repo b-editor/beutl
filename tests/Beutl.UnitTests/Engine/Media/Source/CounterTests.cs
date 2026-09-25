@@ -170,13 +170,15 @@ public class CounterTests
         const int Trials = 200;
         const int ConsumerIterations = 5_000;
         int totalTryAddRefSuccesses = 0;
+        using var firstAcquired = new ManualResetEventSlim();
+        using var initialReleased = new ManualResetEventSlim();
 
         for (int trial = 0; trial < Trials; trial++)
         {
             var fake = new Fake();
             var counter = new Counter<Fake>(fake, null);
 
-            var barrier = new Barrier(2);
+            using var barrier = new Barrier(2);
             int observedDisposed = 0;
             int tryAddRefSuccesses = 0;
 
@@ -193,6 +195,15 @@ public class CounterTests
                     Interlocked.Increment(ref tryAddRefSuccesses);
                     try
                     {
+                        if (trial == 0 && i == 0)
+                        {
+                            // Guarantee one successful acquisition while the initial
+                            // reference is released. Later trials race without ordering.
+                            firstAcquired.Set();
+                            if (!initialReleased.Wait(TimeSpan.FromSeconds(30)))
+                                throw new TimeoutException("The initial reference was not released.");
+                        }
+
                         Fake value = counter.Value;
                         if (Volatile.Read(ref value.DisposeCount) != 0)
                         {
@@ -209,10 +220,15 @@ public class CounterTests
             var releaser = Task.Run(() =>
             {
                 barrier.SignalAndWait();
-                // Yield once so the consumer typically reaches its TryAddRef
-                // loop before the unbalanced Release lands. This keeps the
-                // TOCTOU window observable on schedulers that would otherwise
-                // let the releaser win the lock first on every trial.
+                if (trial == 0)
+                {
+                    if (!firstAcquired.Wait(TimeSpan.FromSeconds(30)))
+                        throw new TimeoutException("The consumer did not acquire a reference.");
+                    counter.Release();
+                    initialReleased.Set();
+                    return;
+                }
+
                 Thread.Yield();
                 counter.Release();
             });
@@ -224,17 +240,10 @@ public class CounterTests
             totalTryAddRefSuccesses += tryAddRefSuccesses;
         }
 
-        // Sanity guard that the race actually exercised the TryAddRef path
-        // rather than the consumer always losing to the unbalanced Release
-        // (which would make the assertions above pass vacuously). How many
-        // hits land is a pure scheduling artifact — the consumer's head start
-        // depends on thread-pool injection timing and core count, so it swings
-        // from a handful to hundreds of thousands across machines. Requiring a
-        // proportional threshold here couples the test to the scheduler and is
-        // flaky on warm-pool / low-core CI runners; one success across the
-        // Trials x ConsumerIterations attempts is enough to prove the window
-        // is reachable.
+        // The first trial must exercise Value while another thread releases
+        // the initial reference, even on runners where the releaser wins all
+        // of the subsequent scheduling races.
         Assert.That(totalTryAddRefSuccesses, Is.GreaterThan(0),
-            $"Race window collapsed: no TryAddRef hits across {Trials} trials ({(long)Trials * ConsumerIterations} attempts)");
+            "TryAddRef did not acquire the live initial reference.");
     }
 }

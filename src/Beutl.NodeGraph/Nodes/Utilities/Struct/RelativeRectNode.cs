@@ -7,12 +7,12 @@ public partial class RelativeRectNode : GraphNode
 {
     public RelativeRectNode()
     {
-        Value = AddOutput<RelativeRect>("RelativeRect");
-        Unit = AddProperty<RelativeUnit>("Unit");
-        X = AddInput<float>("X");
-        Y = AddInput<float>("Y");
-        Width = AddInput<float>("Width");
-        Height = AddInput<float>("Height");
+        Value = AddOutput<RelativeRect>("RelativeRect", NodePortDisplays.RelativeRect);
+        Unit = AddProperty<RelativeUnit>("Unit", NodePortDisplays.Unit);
+        X = AddInput<float>("X", NodePortDisplays.X);
+        Y = AddInput<float>("Y", NodePortDisplays.Y);
+        Width = AddInput<float>("Width", NodePortDisplays.Width);
+        Height = AddInput<float>("Height", NodePortDisplays.Height);
         Width.Property?.SetValue(1);
         Height.Property?.SetValue(1);
     }

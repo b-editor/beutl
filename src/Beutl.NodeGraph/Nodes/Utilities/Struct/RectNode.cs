@@ -7,9 +7,9 @@ public partial class RectNode : GraphNode
 {
     public RectNode()
     {
-        Value = AddOutput<Rect>("Rect");
-        Position = AddInput<Point>("TopLeft");
-        Size = AddInput<Size>("Size");
+        Value = AddOutput<Rect>("Rect", NodePortDisplays.Rect);
+        Position = AddInput<Point>("TopLeft", NodePortDisplays.TopLeft);
+        Size = AddInput<Size>("Size", NodePortDisplays.Size);
     }
 
     public OutputPort<Rect> Value { get; }

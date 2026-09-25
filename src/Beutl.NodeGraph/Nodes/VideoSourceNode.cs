@@ -9,9 +9,9 @@ public sealed partial class VideoSourceNode : GraphNode
 {
     public VideoSourceNode()
     {
-        Output = AddOutput<VideoSourceRenderNode?>("Output");
-        Source = AddInput<VideoSource?>("Source");
-        Time = AddInput<TimeSpan>("Time");
+        Output = AddOutput<VideoSourceRenderNode?>("Output", NodePortDisplays.Output);
+        Source = AddInput<VideoSource?>("Source", NodePortDisplays.Source);
+        Time = AddInput<TimeSpan>("Time", NodePortDisplays.Time);
     }
 
     public OutputPort<VideoSourceRenderNode?> Output { get; }

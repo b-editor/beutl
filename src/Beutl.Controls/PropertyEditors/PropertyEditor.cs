@@ -11,6 +11,8 @@ using Avalonia.LogicalTree;
 using Beutl.Extensibility;
 using Beutl.Reactive;
 
+#nullable enable annotations
+
 namespace Beutl.Controls.PropertyEditors;
 
 public enum PropertyEditorStyle
@@ -33,6 +35,12 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 
     public static readonly StyledProperty<string> DescriptionProperty =
         AvaloniaProperty.Register<PropertyEditor, string>(nameof(Description));
+
+    public static readonly StyledProperty<string?> HoverInfoProperty =
+        AvaloniaProperty.Register<PropertyEditor, string?>(nameof(HoverInfo));
+
+    public static readonly DirectProperty<PropertyEditor, string?> HeaderTooltipProperty =
+        AvaloniaProperty.RegisterDirect<PropertyEditor, string?>(nameof(HeaderTooltip), o => o.HeaderTooltip);
 
     public static readonly StyledProperty<bool> IsReadOnlyProperty =
         TextBox.IsReadOnlyProperty.AddOwner<PropertyEditor>();
@@ -62,6 +70,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueConfirmed), RoutingStrategies.Bubble);
 
     private readonly CompositeDisposable _eventRevokers = new(3);
+    private string? _headerTooltip;
 
     static PropertyEditor()
     {
@@ -79,6 +88,14 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         get => GetValue(DescriptionProperty);
         set => SetValue(DescriptionProperty, value);
     }
+
+    public string? HoverInfo
+    {
+        get => GetValue(HoverInfoProperty);
+        set => SetValue(HoverInfoProperty, value);
+    }
+
+    public string? HeaderTooltip => _headerTooltip;
 
     public bool IsReadOnly
     {
@@ -184,6 +201,10 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
             || change.Property == KeyFrameCountProperty)
         {
             UpdateKeyFrameProperty();
+        }
+        else if (change.Property == DescriptionProperty || change.Property == HoverInfoProperty)
+        {
+            SetAndRaise(HeaderTooltipProperty, ref _headerTooltip, HoverInfo ?? Description);
         }
     }
 

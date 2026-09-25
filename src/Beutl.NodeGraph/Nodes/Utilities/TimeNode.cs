@@ -6,10 +6,10 @@ public partial class TimeNode : GraphNode
 {
     public TimeNode()
     {
-        Time = AddOutput<float>("Time");
-        Start = AddOutput<float>("Start");
-        Duration = AddOutput<float>("Duration");
-        Progress = AddOutput<float>("Progress");
+        Time = AddOutput<float>("Time", NodePortDisplays.Time);
+        Start = AddOutput<float>("Start", NodePortDisplays.Start);
+        Duration = AddOutput<float>("Duration", NodePortDisplays.Duration);
+        Progress = AddOutput<float>("Progress", NodePortDisplays.Progress);
     }
 
     public OutputPort<float> Time { get; }

@@ -8,11 +8,11 @@ public partial class MeasureNode : GraphNode
 {
     public MeasureNode()
     {
-        X = AddOutput<float>("X");
-        Y = AddOutput<float>("Y");
-        Width = AddOutput<float>("Width");
-        Height = AddOutput<float>("Height");
-        Input = AddInput<RenderNode>("Output");
+        X = AddOutput<float>("X", NodePortDisplays.X);
+        Y = AddOutput<float>("Y", NodePortDisplays.Y);
+        Width = AddOutput<float>("Width", NodePortDisplays.Width);
+        Height = AddOutput<float>("Height", NodePortDisplays.Height);
+        Input = AddInput<RenderNode>("Output", NodePortDisplays.Output);
     }
 
     public OutputPort<float> X { get; }

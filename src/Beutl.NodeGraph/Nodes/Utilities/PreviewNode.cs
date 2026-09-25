@@ -12,8 +12,8 @@ public partial class PreviewNode : GraphNode
 
     public PreviewNode()
     {
-        Input = AddInput<RenderNode>("Input");
-        _preview = AddImageMonitor("Preview");
+        Input = AddInput<RenderNode>("Input", NodePortDisplays.Input);
+        _preview = AddImageMonitor("Preview", NodePortDisplays.Preview);
     }
 
     public InputPort<RenderNode> Input { get; }

@@ -25,8 +25,7 @@ public class BrowserAdBlockFilterStoreTests
             if (restart) store = new BrowserAdBlockFilterStore(path, client);
             BrowserAdBlockRules selected = await store.GetAsync([SelectedUrl]);
             Assert.That(handler.Requests, Is.EqualTo(new[] { OriginalUrl, SelectedUrl }));
-            Assert.That(selected.ShouldBlock(new Uri("https://selected-ad.test/banner"), null, "image"), Is.True);
-            Assert.That(selected.ShouldBlock(new Uri("https://original-ad.test/banner"), null, "image"), Is.False);
+            AssertSelectedRules(selected);
             using var cache = JsonDocument.Parse(await File.ReadAllTextAsync(path));
             Assert.That(cache.RootElement.GetProperty("Urls")[0].GetString(), Is.EqualTo(SelectedUrl));
             Assert.That(await store.GetAsync([SelectedUrl]), Is.SameAs(selected));
@@ -55,9 +54,16 @@ public class BrowserAdBlockFilterStoreTests
             handler.FailSelected = false;
             var rules = await store.GetAsync([SelectedUrl]);
             Assert.That(handler.Requests, Is.EqualTo(new[] { OriginalUrl, SelectedUrl, SelectedUrl }));
-            Assert.That(rules.ShouldBlock(new Uri("https://selected-ad.test/banner"), null, "image"), Is.True);
+            AssertSelectedRules(rules);
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private static void AssertSelectedRules(BrowserAdBlockRules rules)
+    {
+        var expected = BrowserAdBlockRules.Parse("[Adblock Plus 2.0]\n||selected-ad.test^");
+        Assert.That(rules.SupportedCount, Is.EqualTo(1));
+        Assert.That(rules.ToWebKitJson(), Is.EqualTo(expected.ToWebKitJson()));
     }
 
     private sealed class ResponseHandler : HttpMessageHandler

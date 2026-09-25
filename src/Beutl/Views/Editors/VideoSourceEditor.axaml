@@ -17,7 +17,8 @@
                                   KeyFrameIndex="{Binding KeyFrameIndex.Value}"
                                   IsReadOnly="{Binding IsReadOnly.Value}"
                                   Header="{Binding Header, Mode=OneTime}"
-                                  Description="{Binding Description.Value}">
+                                  Description="{Binding Description.Value}"
+                                  HoverInfo="{Binding HoverInfo.Value}">
             <editor:StorageFileEditor.MenuContent>
                 <local:PropertyEditorMenu />
             </editor:StorageFileEditor.MenuContent>

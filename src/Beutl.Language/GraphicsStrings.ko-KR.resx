@@ -1472,4 +1472,7 @@
   <data name="WaveformShape_DotMode" xml:space="preserve">
     <value>점 모드</value>
   </data>
+  <data name="TransformEffect_ApplyToTarget" xml:space="preserve">
+    <value>대상에 적용</value>
+  </data>
 </root>

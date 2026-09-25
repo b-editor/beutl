@@ -6,10 +6,10 @@ public partial class SwitchNode : GraphNode
 {
     public SwitchNode()
     {
-        Output = AddOutput<object?>("Output");
-        Switch = AddInput<bool>("Switch");
-        True = AddInput<object?>("True");
-        False = AddInput<object?>("False");
+        Output = AddOutput<object?>("Output", NodePortDisplays.Output);
+        Switch = AddInput<bool>("Switch", NodePortDisplays.Switch);
+        True = AddInput<object?>("True", NodePortDisplays.True);
+        False = AddInput<object?>("False", NodePortDisplays.False);
     }
 
     public OutputPort<object?> Output { get; }

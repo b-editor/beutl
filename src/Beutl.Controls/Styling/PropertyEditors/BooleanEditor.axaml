@@ -27,6 +27,7 @@
                         <CheckBox Name="PART_CheckBox"
                                   Margin="4,0,0,0"
                                   Content="{TemplateBinding Header}"
+                                  ToolTip.Tip="{TemplateBinding HeaderTooltip}"
                                   IsChecked="{TemplateBinding Value, Mode=TwoWay}"
                                   IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}" />
 
@@ -89,7 +90,7 @@
             <Setter Property="Margin" Value="0" />
             <Setter Property="Template">
                 <ControlTemplate>
-                    <OptionsDisplayItem Padding="{TemplateBinding Padding}"
+                    <OptionsDisplayItem ToolTip.Tip="{TemplateBinding HeaderTooltip}" Padding="{TemplateBinding Padding}"
                                         BorderBrush="{TemplateBinding BorderBrush}"
                                         BorderThickness="{TemplateBinding BorderThickness}"
                                         Clickable="False"

@@ -12,10 +12,10 @@ public partial class ExpressionNode : GraphNode
 
     public ExpressionNode()
     {
-        InputPort = AddListInput<object?>("Inputs");
-        Expression = AddProperty<string>("Expression");
-        Output = AddOutput<object?>("Output");
-        ErrorMonitor = AddTextMonitor("Error");
+        InputPort = AddListInput<object?>("Inputs", NodePortDisplays.Inputs);
+        Expression = AddProperty<string>("Expression", NodePortDisplays.Expression);
+        Output = AddOutput<object?>("Output", NodePortDisplays.Output);
+        ErrorMonitor = AddTextMonitor("Error", NodePortDisplays.Error);
     }
 
     public ListInputPort<object?> InputPort { get; }

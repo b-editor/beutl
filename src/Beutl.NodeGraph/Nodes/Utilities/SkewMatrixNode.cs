@@ -8,8 +8,8 @@ public partial class SkewMatrixNode : MatrixNode
 {
     public SkewMatrixNode()
     {
-        SkewX = AddInput<float>("SkewX");
-        SkewY = AddInput<float>("SkewY");
+        SkewX = AddInput<float>("SkewX", NodePortDisplays.SkewX);
+        SkewY = AddInput<float>("SkewY", NodePortDisplays.SkewY);
     }
 
     public InputPort<float> SkewX { get; }

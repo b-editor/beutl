@@ -9,25 +9,25 @@ public static class NodesRegistrar
 {
     public static void RegisterAll()
     {
-        GraphNodeRegistry.RegisterNode<LayerInputNode>("Layer input", Colors.Crimson);
-        GraphNodeRegistry.RegisterNode<OutputNode>("Layer output", Colors.Crimson);
-        GraphNodeRegistry.RegisterNode<FilterEffectInputNode>("Effect Input", Colors.Crimson);
+        GraphNodeRegistry.RegisterNode<LayerInputNode>(NodeGraphStrings.GraphInputs, Colors.Crimson);
+        GraphNodeRegistry.RegisterNode<OutputNode>(NodeGraphStrings.GraphOutput, Colors.Crimson);
+        GraphNodeRegistry.RegisterNode<FilterEffectInputNode>(NodeGraphStrings.EffectInput, Colors.Crimson);
         GraphNodeRegistry.RegisterNode<GeometryShapeNode>(GraphicsStrings.GeometryShape, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<TextNode>(GraphicsStrings.TextBlock, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<ImageSourceNode>(GraphicsStrings.SourceImage, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<VideoSourceNode>(GraphicsStrings.SourceVideo, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<TransformNode>(GraphicsStrings.Transform, Colors.MediumPurple);
 
-        GraphNodeRegistry.RegisterNodes("Geometry", Colors.ForestGreen)
+        GraphNodeRegistry.RegisterNodes(NodeGraphStrings.Shapes, Colors.ForestGreen)
             .Add<RectGeometryNode>(GraphicsStrings.RectShape)
             .Add<EllipseGeometryNode>(GraphicsStrings.EllipseShape)
             .Add<RoundedRectGeometryNode>(GraphicsStrings.RoundedRectShape)
             .Register();
 
-        GraphNodeRegistry.RegisterNodes("Group", Colors.Gold)
-            .Add<GroupInput>("Group Input")
-            .Add<GroupOutput>("Group Output")
-            .Add<GroupNode>("Group GraphNode")
+        GraphNodeRegistry.RegisterNodes(NodeGraphStrings.Groups, Colors.Gold)
+            .Add<GroupInput>(NodeGraphStrings.GroupInputs)
+            .Add<GroupOutput>(NodeGraphStrings.GroupOutputs)
+            .Add<GroupNode>(NodeGraphStrings.Group)
             .Register();
 
         GraphNodeRegistry.RegisterNodes(GraphicsStrings.FilterEffect, Colors.DodgerBlue)
@@ -81,34 +81,34 @@ public static class NodesRegistrar
             .Add<FactoryNode<DrawableBrush>>(GraphicsStrings.Drawable)
             .Register();
 
-        GraphNodeRegistry.RegisterNodes("Utilities")
-            .Add<Utilities.SwitchNode>("Switch")
-            .Add<Utilities.MeasureNode>("Measure")
-            .Add<Utilities.PreviewNode>("Preview")
-            .Add<Utilities.TimeNode>("Time")
-            .Add<Utilities.ExpressionNode>("Expression")
-            .AddGroup("Matrix", o => o
-                .Add<Utilities.TranslateMatrixNode>("Translate")
-                .Add<Utilities.RotationMatrixNode>("Rotation")
-                .Add<Utilities.Rotation3DMatrixNode>("Rotation 3D")
-                .Add<Utilities.ScaleMatrixNode>("Scale")
-                .Add<Utilities.SkewMatrixNode>("Skew")
+        GraphNodeRegistry.RegisterNodes(NodeGraphStrings.ToolsAndValues)
+            .Add<Utilities.SwitchNode>(NodeGraphStrings.ConditionalSwitch)
+            .Add<Utilities.MeasureNode>(NodeGraphStrings.MeasureBounds)
+            .Add<Utilities.PreviewNode>(NodeGraphStrings.ImagePreview)
+            .Add<Utilities.TimeNode>(NodeGraphStrings.TimelineTime)
+            .Add<Utilities.ExpressionNode>(NodeGraphStrings.CSharpExpression)
+            .AddGroup(NodeGraphStrings.TransformMatrices, o => o
+                .Add<Utilities.TranslateMatrixNode>(NodeGraphStrings.TranslationMatrix)
+                .Add<Utilities.RotationMatrixNode>(NodeGraphStrings.RotationMatrix)
+                .Add<Utilities.Rotation3DMatrixNode>(NodeGraphStrings.Rotation3DMatrix)
+                .Add<Utilities.ScaleMatrixNode>(NodeGraphStrings.ScaleMatrix)
+                .Add<Utilities.SkewMatrixNode>(NodeGraphStrings.SkewMatrix)
                 .Register())
-            .AddGroup("Random", o => o
-                .Add<Utilities.RandomSingleNode>("Random Float")
-                .Add<Utilities.RandomDoubleNode>("Random Double")
-                .Add<Utilities.RandomInt32Node>("Random 32-bit signed integer")
-                .Add<Utilities.RandomInt64Node>("Random 64-bit signed integer")
+            .AddGroup(NodeGraphStrings.RandomNumbers, o => o
+                .Add<Utilities.RandomSingleNode>(NodeGraphStrings.RandomFloat32)
+                .Add<Utilities.RandomDoubleNode>(NodeGraphStrings.RandomFloat64)
+                .Add<Utilities.RandomInt32Node>(NodeGraphStrings.RandomInt32)
+                .Add<Utilities.RandomInt64Node>(NodeGraphStrings.RandomInt64)
                 .Register())
-            .AddGroup("Struct", o => o
-                .Add<Utilities.Struct.PointNode>("Point")
-                .Add<Utilities.Struct.SizeNode>("Size")
-                .Add<Utilities.Struct.RectNode>("Rect")
-                .Add<Utilities.Struct.RelativePointNode>("Relative Point")
-                .Add<Utilities.Struct.RelativeRectNode>("Relative Rect")
-                .Add<Utilities.Struct.PixelPointNode>("Pixel Point")
-                .Add<Utilities.Struct.PixelSizeNode>("Pixel Size")
-                .Add<Utilities.Struct.PixelRectNode>("Pixel Rect")
+            .AddGroup(NodeGraphStrings.CoordinatesAndSizes, o => o
+                .Add<Utilities.Struct.PointNode>(NodeGraphStrings.Point)
+                .Add<Utilities.Struct.SizeNode>(NodeGraphStrings.Size)
+                .Add<Utilities.Struct.RectNode>(NodeGraphStrings.Rectangle)
+                .Add<Utilities.Struct.RelativePointNode>(NodeGraphStrings.RelativePoint)
+                .Add<Utilities.Struct.RelativeRectNode>(NodeGraphStrings.RelativeRectangle)
+                .Add<Utilities.Struct.PixelPointNode>(NodeGraphStrings.PixelPoint)
+                .Add<Utilities.Struct.PixelSizeNode>(NodeGraphStrings.PixelSize)
+                .Add<Utilities.Struct.PixelRectNode>(NodeGraphStrings.PixelRectangle)
                 .Register())
             .Register();
     }

@@ -506,6 +506,7 @@ public class VersionControlSaveTests
 
             Project project = TestShell.Project.CurrentProject.Value!;
             string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            string? repositoryRoot = TestShell.VersionControl.CurrentService?.Repository?.ProjectRoot;
             int commits = await CountCommitsAsync(gitPath, projectRoot);
             string status = await RunGitAsync(gitPath, projectRoot, "status", "--porcelain");
             Assert.Multiple(() =>
@@ -515,8 +516,8 @@ public class VersionControlSaveTests
                 Assert.That(status.Trim(), Is.Empty);
                 Assert.That(TestShell.VersionControl.IsTracked.Value, Is.True);
                 Assert.That(
-                    TestShell.VersionControl.CurrentService?.Repository?.ProjectRoot,
-                    Is.EqualTo(projectRoot));
+                    repositoryRoot is not null && FilePathComparison.AreSameCanonicalPath(repositoryRoot, projectRoot),
+                    Is.True, $"Repository root '{repositoryRoot}' should match project root '{projectRoot}'.");
                 // The editor opens once, behind the progress view, and is never disabled for Git.
                 Assert.That(
                     editorStates,

@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="GraphInputs" xml:space="preserve">
+    <value>节点图输入</value>
+  </data>
+  <data name="GraphOutput" xml:space="preserve">
+    <value>节点图输出</value>
+  </data>
+  <data name="EffectInput" xml:space="preserve">
+    <value>效果输入</value>
+  </data>
+  <data name="Shapes" xml:space="preserve">
+    <value>形状</value>
+  </data>
+  <data name="Groups" xml:space="preserve">
+    <value>分组</value>
+  </data>
+  <data name="GroupInputs" xml:space="preserve">
+    <value>分组输入</value>
+  </data>
+  <data name="GroupOutputs" xml:space="preserve">
+    <value>分组输出</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>组</value>
+  </data>
+  <data name="ToolsAndValues" xml:space="preserve">
+    <value>工具与数值</value>
+  </data>
+  <data name="ConditionalSwitch" xml:space="preserve">
+    <value>条件切换</value>
+  </data>
+  <data name="MeasureBounds" xml:space="preserve">
+    <value>测量绘制范围</value>
+  </data>
+  <data name="ImagePreview" xml:space="preserve">
+    <value>图像预览</value>
+  </data>
+  <data name="TimelineTime" xml:space="preserve">
+    <value>时间轴时间</value>
+  </data>
+  <data name="CSharpExpression" xml:space="preserve">
+    <value>C# 表达式</value>
+  </data>
+  <data name="TransformMatrices" xml:space="preserve">
+    <value>变换矩阵</value>
+  </data>
+  <data name="TranslationMatrix" xml:space="preserve">
+    <value>平移矩阵</value>
+  </data>
+  <data name="RotationMatrix" xml:space="preserve">
+    <value>旋转矩阵</value>
+  </data>
+  <data name="Rotation3DMatrix" xml:space="preserve">
+    <value>3D 旋转矩阵</value>
+  </data>
+  <data name="ScaleMatrix" xml:space="preserve">
+    <value>缩放矩阵</value>
+  </data>
+  <data name="SkewMatrix" xml:space="preserve">
+    <value>倾斜矩阵</value>
+  </data>
+  <data name="RandomNumbers" xml:space="preserve">
+    <value>随机数</value>
+  </data>
+  <data name="RandomFloat32" xml:space="preserve">
+    <value>随机浮点数（32 位）</value>
+  </data>
+  <data name="RandomFloat64" xml:space="preserve">
+    <value>随机浮点数（64 位）</value>
+  </data>
+  <data name="RandomInt32" xml:space="preserve">
+    <value>随机整数（32 位）</value>
+  </data>
+  <data name="RandomInt64" xml:space="preserve">
+    <value>随机整数（64 位）</value>
+  </data>
+  <data name="CoordinatesAndSizes" xml:space="preserve">
+    <value>坐标与尺寸</value>
+  </data>
+  <data name="Point" xml:space="preserve">
+    <value>点</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>尺寸</value>
+  </data>
+  <data name="Rectangle" xml:space="preserve">
+    <value>矩形</value>
+  </data>
+  <data name="RelativePoint" xml:space="preserve">
+    <value>相对坐标</value>
+  </data>
+  <data name="RelativeRectangle" xml:space="preserve">
+    <value>相对矩形</value>
+  </data>
+  <data name="PixelPoint" xml:space="preserve">
+    <value>像素坐标</value>
+  </data>
+  <data name="PixelSize" xml:space="preserve">
+    <value>像素尺寸</value>
+  </data>
+  <data name="PixelRectangle" xml:space="preserve">
+    <value>像素矩形</value>
+  </data>
+  <data name="Port_CenterX" xml:space="preserve">
+    <value>中心 X</value>
+  </data>
+  <data name="Port_CenterY" xml:space="preserve">
+    <value>中心 Y</value>
+  </data>
+  <data name="Port_CenterZ" xml:space="preserve">
+    <value>中心 Z</value>
+  </data>
+  <data name="Port_Depth" xml:space="preserve">
+    <value>深度</value>
+  </data>
+  <data name="Port_Duration" xml:space="preserve">
+    <value>持续时间</value>
+  </data>
+  <data name="Port_Error" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="Port_Expression" xml:space="preserve">
+    <value>表达式</value>
+  </data>
+  <data name="Port_False" xml:space="preserve">
+    <value>假</value>
+  </data>
+  <data name="Port_Fill" xml:space="preserve">
+    <value>填充</value>
+  </data>
+  <data name="Port_Geometry" xml:space="preserve">
+    <value>几何图形</value>
+  </data>
+  <data name="Port_Height" xml:space="preserve">
+    <value>高度</value>
+  </data>
+  <data name="Port_Input" xml:space="preserve">
+    <value>输入</value>
+  </data>
+  <data name="Port_Inputs" xml:space="preserve">
+    <value>多个输入</value>
+  </data>
+  <data name="Port_Matrix" xml:space="preserve">
+    <value>矩阵</value>
+  </data>
+  <data name="Port_Maximum" xml:space="preserve">
+    <value>最大值</value>
+  </data>
+  <data name="Port_Minimum" xml:space="preserve">
+    <value>最小值</value>
+  </data>
+  <data name="Port_Output" xml:space="preserve">
+    <value>输出</value>
+  </data>
+  <data name="Port_Pen" xml:space="preserve">
+    <value>画笔</value>
+  </data>
+  <data name="Port_PixelPoint" xml:space="preserve">
+    <value>像素坐标</value>
+  </data>
+  <data name="Port_PixelRect" xml:space="preserve">
+    <value>像素矩形</value>
+  </data>
+  <data name="Port_PixelSize" xml:space="preserve">
+    <value>像素尺寸</value>
+  </data>
+  <data name="Port_Point" xml:space="preserve">
+    <value>坐标点</value>
+  </data>
+  <data name="Port_Position" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="Port_Preview" xml:space="preserve">
+    <value>预览</value>
+  </data>
+  <data name="Port_Progress" xml:space="preserve">
+    <value>进度</value>
+  </data>
+  <data name="Port_Rect" xml:space="preserve">
+    <value>矩形</value>
+  </data>
+  <data name="Port_RelativePoint" xml:space="preserve">
+    <value>相对坐标</value>
+  </data>
+  <data name="Port_RelativeRect" xml:space="preserve">
+    <value>相对矩形</value>
+  </data>
+  <data name="Port_Rotation" xml:space="preserve">
+    <value>旋转</value>
+  </data>
+  <data name="Port_RotationX" xml:space="preserve">
+    <value>X 轴旋转</value>
+  </data>
+  <data name="Port_RotationY" xml:space="preserve">
+    <value>Y 轴旋转</value>
+  </data>
+  <data name="Port_RotationZ" xml:space="preserve">
+    <value>Z 轴旋转</value>
+  </data>
+  <data name="Port_Scale" xml:space="preserve">
+    <value>缩放</value>
+  </data>
+  <data name="Port_ScaleX" xml:space="preserve">
+    <value>X 轴缩放</value>
+  </data>
+  <data name="Port_ScaleY" xml:space="preserve">
+    <value>Y 轴缩放</value>
+  </data>
+  <data name="Port_Size" xml:space="preserve">
+    <value>尺寸</value>
+  </data>
+  <data name="Port_SkewX" xml:space="preserve">
+    <value>X 轴倾斜</value>
+  </data>
+  <data name="Port_SkewY" xml:space="preserve">
+    <value>Y 轴倾斜</value>
+  </data>
+  <data name="Port_Source" xml:space="preserve">
+    <value>来源</value>
+  </data>
+  <data name="Port_Start" xml:space="preserve">
+    <value>开始</value>
+  </data>
+  <data name="Port_Switch" xml:space="preserve">
+    <value>切换</value>
+  </data>
+  <data name="Port_Time" xml:space="preserve">
+    <value>时间</value>
+  </data>
+  <data name="Port_TopLeft" xml:space="preserve">
+    <value>左上角</value>
+  </data>
+  <data name="Port_True" xml:space="preserve">
+    <value>真</value>
+  </data>
+  <data name="Port_Unit" xml:space="preserve">
+    <value>单位</value>
+  </data>
+  <data name="Port_Value" xml:space="preserve">
+    <value>值</value>
+  </data>
+  <data name="Port_Width" xml:space="preserve">
+    <value>宽度</value>
+  </data>
+  <data name="Port_X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="Port_Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+</root>

@@ -1633,6 +1633,12 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>从磁盘彻底删除</value>
   </data>
+  <data name="PropertyHover_Type" xml:space="preserve">
+    <value>类型：{0}</value>
+  </data>
+  <data name="PropertyHover_Range" xml:space="preserve">
+    <value>取值范围：{0}～{1}</value>
+  </data>
   <data name="OpenInFinder" xml:space="preserve">
     <value>在访达中打开</value>
   </data>

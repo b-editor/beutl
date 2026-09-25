@@ -49,6 +49,13 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
         Header = property.DisplayName;
         Description = new ReactivePropertySlim<string?>(property.Description).AddTo(Disposables);
+        Type propertyType = property.PropertyType;
+        Attribute[] attributes = property.GetAttributes();
+        HoverInfo = new ReactivePropertySlim<string?>().AddTo(Disposables);
+        Description
+            .Select(description => PropertyHoverInfoFormatter.Format(propertyType, description, attributes))
+            .Subscribe(value => HoverInfo.Value = value)
+            .DisposeWith(Disposables);
 
         // Complete during disposal so stale clock writes are ignored.
         _currentTime = new Subject<TimeSpan>();
@@ -163,6 +170,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     public string Header { get; }
 
     public ReactivePropertySlim<string?> Description { get; }
+
+    public ReactivePropertySlim<string?> HoverInfo { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
@@ -292,6 +301,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             editor[!PropertyEditor.IsReadOnlyProperty] = IsReadOnly.ToBinding();
             editor.Header = Header;
             editor[!PropertyEditor.DescriptionProperty] = Description.ToBinding();
+            editor[!PropertyEditor.HoverInfoProperty] = HoverInfo.ToBinding();
             if (PropertyAdapter is IAnimatablePropertyAdapter animatableProperty)
             {
                 editor[!PropertyEditor.KeyFrameCountProperty] = KeyFrameCount.ToBinding();

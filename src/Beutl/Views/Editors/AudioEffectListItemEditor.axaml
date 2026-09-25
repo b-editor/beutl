@@ -18,7 +18,7 @@
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}"
                           Theme="{StaticResource ListEditorMiniExpanderToggleButton}"
-                          ToolTip.Tip="{Binding Description.Value}" />
+                          ToolTip.Tip="{Binding HoverInfo.Value}" />
 
             <ToggleButton Grid.Column="1"
                           Margin="4,0,0,0"

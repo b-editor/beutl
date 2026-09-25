@@ -17,7 +17,7 @@
         <TextBlock Margin="8,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Center"
-                   ToolTip.Tip="{Binding Description.Value}"
+                   ToolTip.Tip="{Binding HoverInfo.Value}"
                    Text="{Binding Header}" />
 
         <Button Grid.Column="1"

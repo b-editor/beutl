@@ -8,7 +8,7 @@ public partial class RotationMatrixNode : MatrixNode
 {
     public RotationMatrixNode()
     {
-        Rotation = AddInput<float>("Rotation");
+        Rotation = AddInput<float>("Rotation", NodePortDisplays.Rotation);
     }
 
     public InputPort<float> Rotation { get; }

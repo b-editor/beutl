@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -77,6 +78,152 @@ public class NodeGraphMutationServiceTests
         bool added = _service.AddNode(_graph, new GroupOutput(), 0, 0);
 
         Assert.That(added, Is.False);
+    }
+
+    [Test]
+    public void AddNodeAndConnect_AddsAndConnectsInOneUndoStep()
+    {
+        var source = new FilterEffectInputNode();
+        _graph.Nodes.Add(source);
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+        var output = new OutputNode();
+
+        bool added = _service.AddNodeAndConnect(_graph, output, 120, 80, source.Output, output.InputPort);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(added, Is.True);
+            Assert.That(output.Position, Is.EqualTo((120d, 80d)));
+            Assert.That(_graph.Nodes, Does.Contain(output));
+            Assert.That(_graph.AllConnections, Has.Count.EqualTo(1));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+
+        _history.Undo();
+        Assert.That(_graph.Nodes, Does.Not.Contain(output));
+        Assert.That(_graph.AllConnections, Is.Empty);
+    }
+
+    [Test]
+    public void AddNodeAndConnect_MaterializesDynamicPortInOneUndoStep()
+    {
+        var output = new OutputNode();
+        _graph.Nodes.Add(output);
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+        var input = new GroupInput();
+
+        bool added = _service.AddNodeAndConnect(_graph, input, 120, 80, output.InputPort, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(added, Is.True);
+            Assert.That(input.Items, Has.Count.EqualTo(1));
+            Assert.That(_graph.AllConnections, Has.Count.EqualTo(1));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+
+        _history.Undo();
+        Assert.That(_graph.Nodes, Does.Not.Contain(input));
+        Assert.That(_graph.AllConnections, Is.Empty);
+    }
+
+    [Test]
+    public void AddNodeAndConnect_FromExistingDynamicOutput_ConnectsNewGroupOutputInOneUndoStep()
+    {
+        var sink = new OutputNode();
+        var groupInput = new GroupInput();
+        _graph.Nodes.Add(sink);
+        _graph.Nodes.Add(groupInput);
+        Assert.That(groupInput.AddNodePort(sink.InputPort, out _), Is.True);
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+        var sourcePort = (IOutputPort)groupInput.Items.Single();
+        var groupOutput = new GroupOutput();
+
+        bool added = _service.AddNodeAndConnect(_graph, groupOutput, 120, 80, sourcePort, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(added, Is.True);
+            Assert.That(groupOutput.Items, Has.Count.EqualTo(1));
+            Assert.That(_graph.AllConnections, Has.Count.EqualTo(2));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+
+        _history.Undo();
+        Assert.That(_graph.Nodes, Does.Not.Contain(groupOutput));
+        Assert.That(_graph.AllConnections, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void AddNodeAndConnect_RejectedConnectionRollsBackNode()
+    {
+        var source = new FilterEffectInputNode();
+        _graph.Nodes.Add(source);
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+
+        bool added = _service.AddNodeAndConnect(_graph, new OutputNode(), 120, 80, source.Output, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(added, Is.False);
+            Assert.That(_graph.Nodes, Has.Count.EqualTo(1));
+            Assert.That(_graph.AllConnections, Is.Empty);
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
+    }
+
+    [Test]
+    public void TryConnect_OccupiedSingleInput_DoesNotAddPartialConnection()
+    {
+        var first = new FilterEffectInputNode();
+        var second = new FilterEffectInputNode();
+        var target = new OutputNode();
+        _graph.Nodes.Add(first);
+        _graph.Nodes.Add(second);
+        _graph.Nodes.Add(target);
+        _history.Commit("Seed");
+        Assert.That(_service.TryConnect(_graph, first, first.Output, target, target.InputPort),
+            Is.EqualTo(NodeConnectOutcome.Connected));
+        int beforeUndo = _history.UndoCount;
+
+        NodeConnectOutcome outcome = _service.TryConnect(_graph, second, second.Output, target, target.InputPort);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(NodeConnectOutcome.None));
+            Assert.That(_graph.AllConnections, Has.Count.EqualTo(1));
+            Assert.That(second.Output.Connections, Is.Empty);
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
+    }
+
+    [Test]
+    public void TryConnect_DynamicOutputToOccupiedInput_DoesNotAddPartialPort()
+    {
+        var source = new FilterEffectInputNode();
+        var dynamicSource = new GroupInput();
+        var target = new OutputNode();
+        _graph.Nodes.Add(source);
+        _graph.Nodes.Add(dynamicSource);
+        _graph.Nodes.Add(target);
+        _history.Commit("Seed");
+        Assert.That(_service.TryConnect(_graph, source, source.Output, target, target.InputPort),
+            Is.EqualTo(NodeConnectOutcome.Connected));
+        int beforeUndo = _history.UndoCount;
+
+        NodeConnectOutcome outcome = _service.TryConnect(_graph, dynamicSource, null, target, target.InputPort);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(NodeConnectOutcome.None));
+            Assert.That(dynamicSource.Items, Is.Empty);
+            Assert.That(_graph.AllConnections, Has.Count.EqualTo(1));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
     }
 
     [Test]

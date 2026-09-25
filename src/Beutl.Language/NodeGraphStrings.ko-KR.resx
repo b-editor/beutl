@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="GraphInputs" xml:space="preserve">
+    <value>그래프 입력</value>
+  </data>
+  <data name="GraphOutput" xml:space="preserve">
+    <value>그래프 출력</value>
+  </data>
+  <data name="EffectInput" xml:space="preserve">
+    <value>효과 입력</value>
+  </data>
+  <data name="Shapes" xml:space="preserve">
+    <value>도형</value>
+  </data>
+  <data name="Groups" xml:space="preserve">
+    <value>그룹</value>
+  </data>
+  <data name="GroupInputs" xml:space="preserve">
+    <value>그룹 입력</value>
+  </data>
+  <data name="GroupOutputs" xml:space="preserve">
+    <value>그룹 출력</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>그룹</value>
+  </data>
+  <data name="ToolsAndValues" xml:space="preserve">
+    <value>도구와 값</value>
+  </data>
+  <data name="ConditionalSwitch" xml:space="preserve">
+    <value>조건부 전환</value>
+  </data>
+  <data name="MeasureBounds" xml:space="preserve">
+    <value>그리기 영역 측정</value>
+  </data>
+  <data name="ImagePreview" xml:space="preserve">
+    <value>이미지 미리 보기</value>
+  </data>
+  <data name="TimelineTime" xml:space="preserve">
+    <value>타임라인 시간</value>
+  </data>
+  <data name="CSharpExpression" xml:space="preserve">
+    <value>C# 식</value>
+  </data>
+  <data name="TransformMatrices" xml:space="preserve">
+    <value>변환 행렬</value>
+  </data>
+  <data name="TranslationMatrix" xml:space="preserve">
+    <value>이동 행렬</value>
+  </data>
+  <data name="RotationMatrix" xml:space="preserve">
+    <value>회전 행렬</value>
+  </data>
+  <data name="Rotation3DMatrix" xml:space="preserve">
+    <value>3D 회전 행렬</value>
+  </data>
+  <data name="ScaleMatrix" xml:space="preserve">
+    <value>크기 조절 행렬</value>
+  </data>
+  <data name="SkewMatrix" xml:space="preserve">
+    <value>기울이기 행렬</value>
+  </data>
+  <data name="RandomNumbers" xml:space="preserve">
+    <value>난수</value>
+  </data>
+  <data name="RandomFloat32" xml:space="preserve">
+    <value>난수(32비트 실수)</value>
+  </data>
+  <data name="RandomFloat64" xml:space="preserve">
+    <value>난수(64비트 실수)</value>
+  </data>
+  <data name="RandomInt32" xml:space="preserve">
+    <value>난수(32비트 정수)</value>
+  </data>
+  <data name="RandomInt64" xml:space="preserve">
+    <value>난수(64비트 정수)</value>
+  </data>
+  <data name="CoordinatesAndSizes" xml:space="preserve">
+    <value>좌표와 크기</value>
+  </data>
+  <data name="Point" xml:space="preserve">
+    <value>점</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>크기</value>
+  </data>
+  <data name="Rectangle" xml:space="preserve">
+    <value>사각형</value>
+  </data>
+  <data name="RelativePoint" xml:space="preserve">
+    <value>상대 좌표</value>
+  </data>
+  <data name="RelativeRectangle" xml:space="preserve">
+    <value>상대 사각형</value>
+  </data>
+  <data name="PixelPoint" xml:space="preserve">
+    <value>픽셀 좌표</value>
+  </data>
+  <data name="PixelSize" xml:space="preserve">
+    <value>픽셀 크기</value>
+  </data>
+  <data name="PixelRectangle" xml:space="preserve">
+    <value>픽셀 사각형</value>
+  </data>
+  <data name="Port_CenterX" xml:space="preserve">
+    <value>중심 X</value>
+  </data>
+  <data name="Port_CenterY" xml:space="preserve">
+    <value>중심 Y</value>
+  </data>
+  <data name="Port_CenterZ" xml:space="preserve">
+    <value>중심 Z</value>
+  </data>
+  <data name="Port_Depth" xml:space="preserve">
+    <value>깊이</value>
+  </data>
+  <data name="Port_Duration" xml:space="preserve">
+    <value>지속 시간</value>
+  </data>
+  <data name="Port_Error" xml:space="preserve">
+    <value>오류</value>
+  </data>
+  <data name="Port_Expression" xml:space="preserve">
+    <value>수식</value>
+  </data>
+  <data name="Port_False" xml:space="preserve">
+    <value>거짓</value>
+  </data>
+  <data name="Port_Fill" xml:space="preserve">
+    <value>채우기</value>
+  </data>
+  <data name="Port_Geometry" xml:space="preserve">
+    <value>도형</value>
+  </data>
+  <data name="Port_Height" xml:space="preserve">
+    <value>높이</value>
+  </data>
+  <data name="Port_Input" xml:space="preserve">
+    <value>입력</value>
+  </data>
+  <data name="Port_Inputs" xml:space="preserve">
+    <value>여러 입력</value>
+  </data>
+  <data name="Port_Matrix" xml:space="preserve">
+    <value>행렬</value>
+  </data>
+  <data name="Port_Maximum" xml:space="preserve">
+    <value>최댓값</value>
+  </data>
+  <data name="Port_Minimum" xml:space="preserve">
+    <value>최솟값</value>
+  </data>
+  <data name="Port_Output" xml:space="preserve">
+    <value>출력</value>
+  </data>
+  <data name="Port_Pen" xml:space="preserve">
+    <value>펜</value>
+  </data>
+  <data name="Port_PixelPoint" xml:space="preserve">
+    <value>픽셀 좌표</value>
+  </data>
+  <data name="Port_PixelRect" xml:space="preserve">
+    <value>픽셀 사각형</value>
+  </data>
+  <data name="Port_PixelSize" xml:space="preserve">
+    <value>픽셀 크기</value>
+  </data>
+  <data name="Port_Point" xml:space="preserve">
+    <value>점</value>
+  </data>
+  <data name="Port_Position" xml:space="preserve">
+    <value>위치</value>
+  </data>
+  <data name="Port_Preview" xml:space="preserve">
+    <value>미리 보기</value>
+  </data>
+  <data name="Port_Progress" xml:space="preserve">
+    <value>진행률</value>
+  </data>
+  <data name="Port_Rect" xml:space="preserve">
+    <value>사각형</value>
+  </data>
+  <data name="Port_RelativePoint" xml:space="preserve">
+    <value>상대 좌표</value>
+  </data>
+  <data name="Port_RelativeRect" xml:space="preserve">
+    <value>상대 사각형</value>
+  </data>
+  <data name="Port_Rotation" xml:space="preserve">
+    <value>회전</value>
+  </data>
+  <data name="Port_RotationX" xml:space="preserve">
+    <value>X축 회전</value>
+  </data>
+  <data name="Port_RotationY" xml:space="preserve">
+    <value>Y축 회전</value>
+  </data>
+  <data name="Port_RotationZ" xml:space="preserve">
+    <value>Z축 회전</value>
+  </data>
+  <data name="Port_Scale" xml:space="preserve">
+    <value>배율</value>
+  </data>
+  <data name="Port_ScaleX" xml:space="preserve">
+    <value>X 배율</value>
+  </data>
+  <data name="Port_ScaleY" xml:space="preserve">
+    <value>Y 배율</value>
+  </data>
+  <data name="Port_Size" xml:space="preserve">
+    <value>크기</value>
+  </data>
+  <data name="Port_SkewX" xml:space="preserve">
+    <value>X 기울기</value>
+  </data>
+  <data name="Port_SkewY" xml:space="preserve">
+    <value>Y 기울기</value>
+  </data>
+  <data name="Port_Source" xml:space="preserve">
+    <value>소스</value>
+  </data>
+  <data name="Port_Start" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="Port_Switch" xml:space="preserve">
+    <value>전환</value>
+  </data>
+  <data name="Port_Time" xml:space="preserve">
+    <value>시간</value>
+  </data>
+  <data name="Port_TopLeft" xml:space="preserve">
+    <value>왼쪽 위</value>
+  </data>
+  <data name="Port_True" xml:space="preserve">
+    <value>참</value>
+  </data>
+  <data name="Port_Unit" xml:space="preserve">
+    <value>단위</value>
+  </data>
+  <data name="Port_Value" xml:space="preserve">
+    <value>값</value>
+  </data>
+  <data name="Port_Width" xml:space="preserve">
+    <value>너비</value>
+  </data>
+  <data name="Port_X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="Port_Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+</root>

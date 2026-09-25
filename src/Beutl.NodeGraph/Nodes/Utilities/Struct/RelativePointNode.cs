@@ -7,10 +7,10 @@ public partial class RelativePointNode : GraphNode
 {
     public RelativePointNode()
     {
-        Value = AddOutput<RelativePoint>("RelativePoint");
-        Unit = AddProperty<RelativeUnit>("Unit");
-        X = AddInput<float>("X");
-        Y = AddInput<float>("Y");
+        Value = AddOutput<RelativePoint>("RelativePoint", NodePortDisplays.RelativePoint);
+        Unit = AddProperty<RelativeUnit>("Unit", NodePortDisplays.Unit);
+        X = AddInput<float>("X", NodePortDisplays.X);
+        Y = AddInput<float>("Y", NodePortDisplays.Y);
     }
 
     public OutputPort<RelativePoint> Value { get; }

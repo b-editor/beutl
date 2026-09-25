@@ -8,7 +8,7 @@ public partial class TransformNode : ConfigureNode
 {
     public TransformNode()
     {
-        Matrix = AddInput<Matrix>("Matrix");
+        Matrix = AddInput<Matrix>("Matrix", NodePortDisplays.Matrix);
     }
 
     public InputPort<Matrix> Matrix { get; }

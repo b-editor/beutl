@@ -17,7 +17,7 @@
         <TextBlock Margin="4,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Top"
-                   ToolTip.Tip="{Binding Description.Value}"
+                   ToolTip.Tip="{Binding HoverInfo.Value}"
                    Text="{Binding Header}" />
 
         <pe:GradientStopsSlider Name="slider"

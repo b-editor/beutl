@@ -22,7 +22,7 @@
                       Content="{Binding Header, FallbackValue=Pen}"
                       IsChecked="{Binding IsExpanded.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
-                      ToolTip.Tip="{Binding Description.Value}">
+                      ToolTip.Tip="{Binding HoverInfo.Value}">
             <ToggleButton.Tag>
                 <Button x:Name="ExpandMenuButton"
                         Width="24"

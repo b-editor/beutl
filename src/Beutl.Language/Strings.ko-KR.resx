@@ -1633,6 +1633,12 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>디스크에서 완전히 삭제</value>
   </data>
+  <data name="PropertyHover_Type" xml:space="preserve">
+    <value>형식: {0}</value>
+  </data>
+  <data name="PropertyHover_Range" xml:space="preserve">
+    <value>값 범위: {0} ~ {1}</value>
+  </data>
   <data name="OpenInFinder" xml:space="preserve">
     <value>Finder에서 열기</value>
   </data>

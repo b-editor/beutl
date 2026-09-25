@@ -7,9 +7,9 @@ public partial class PixelSizeNode : GraphNode
 {
     public PixelSizeNode()
     {
-        Value = AddOutput<PixelSize>("PixelSize");
-        Width = AddInput<int>("Width");
-        Height = AddInput<int>("Height");
+        Value = AddOutput<PixelSize>("PixelSize", NodePortDisplays.PixelSize);
+        Width = AddInput<int>("Width", NodePortDisplays.Width);
+        Height = AddInput<int>("Height", NodePortDisplays.Height);
     }
 
     public OutputPort<PixelSize> Value { get; }

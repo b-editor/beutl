@@ -1472,4 +1472,7 @@
   <data name="WaveformShape_DotMode" xml:space="preserve">
     <value>Modo de punto</value>
   </data>
+  <data name="TransformEffect_ApplyToTarget" xml:space="preserve">
+    <value>Aplicar al destino</value>
+  </data>
 </root>
