@@ -1418,6 +1418,8 @@ public partial class PlayerView
                                            * GetWorldUnitsPerViewPixel(_selectedObject);
                             }
 
+                            // The movement is in world space; Position is in the parent group's space.
+                            movement = ToParentSpace(_selectedObject, movement);
                             if (!SetKeyFrameValue(_objectPositionKeyFrame, movement))
                             {
                                 _selectedObject.Position.CurrentValue += movement;
@@ -1750,6 +1752,23 @@ public partial class PlayerView
                 });
 
             return position ?? obj.Position.GetValue(CompositionContext);
+        }
+
+        // Converts a world-space direction into the space of the groups the object is nested in.
+        private Vector3 ToParentSpace(Object3D obj, Vector3 worldDelta)
+        {
+            Scene3D.Resource? sceneResource = _scene3D != null ? FindScene3DResource() : null;
+            if (sceneResource == null)
+                return worldDelta;
+
+            Matrix4x4 parent = RenderThread.Dispatcher.Invoke(() =>
+                FindObjectResource(sceneResource.Objects, obj.Id) is { } target
+                    ? Renderer3D.GetParentWorldMatrix(sceneResource.Objects, target)
+                    : Matrix4x4.Identity);
+
+            return Matrix4x4.Invert(parent, out Matrix4x4 inverse)
+                ? Vector3.TransformNormal(worldDelta, inverse)
+                : worldDelta;
         }
 
         // Searches nested objects too: a hit test can select an object inside a group. Disabled objects are

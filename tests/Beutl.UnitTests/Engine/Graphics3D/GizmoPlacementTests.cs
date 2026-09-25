@@ -39,4 +39,25 @@ public class GizmoPlacementTests
 
         Assert.That(position, Is.EqualTo(new Vector3(110, 20, 30)));
     }
+
+    // A drag measured in world space is applied to the child's local Position through the parent's inverse.
+    [Test]
+    public void ParentWorldMatrix_IsTheGroupTransform_OrIdentityAtTheRoot()
+    {
+        var child = new Cube3D();
+        var group = new Group3D();
+        group.Scale.CurrentValue = new Vector3(2);
+        group.Children.Add(child);
+        using var groupResource = (Group3D.Resource)group.ToResource(CompositionContext.Default);
+        Object3D.Resource childResource = groupResource.GetChildResources().Single();
+
+        Matrix4x4 parent = Renderer3D.GetParentWorldMatrix([groupResource], childResource);
+        Matrix4x4 root = Renderer3D.GetParentWorldMatrix([groupResource], groupResource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Vector3.TransformNormal(new Vector3(10, 0, 0), parent), Is.EqualTo(new Vector3(20, 0, 0)));
+            Assert.That(root, Is.EqualTo(Matrix4x4.Identity));
+        });
+    }
 }

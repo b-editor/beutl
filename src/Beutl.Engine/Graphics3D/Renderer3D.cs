@@ -413,30 +413,38 @@ internal sealed class Renderer3D : IRenderer3D
     /// </summary>
     internal static Vector3 GetWorldPosition(IReadOnlyList<Object3D.Resource> roots, Object3D.Resource target)
     {
-        return TryGetWorldMatrix(roots, target, Matrix4x4.Identity, out Matrix4x4 world)
-            ? world.Translation
-            : target.GetWorldMatrix().Translation;
+        return (target.GetWorldMatrix() * GetParentWorldMatrix(roots, target)).Translation;
+    }
 
-        static bool TryGetWorldMatrix(
+    /// <summary>
+    /// The combined transform of the groups <paramref name="target"/> is nested in, or the identity for an
+    /// object at the root.
+    /// </summary>
+    internal static Matrix4x4 GetParentWorldMatrix(IReadOnlyList<Object3D.Resource> roots, Object3D.Resource target)
+    {
+        return TryFindParentMatrix(roots, target, Matrix4x4.Identity, out Matrix4x4 parent)
+            ? parent
+            : Matrix4x4.Identity;
+
+        static bool TryFindParentMatrix(
             IReadOnlyList<Object3D.Resource> objects,
             Object3D.Resource target,
             Matrix4x4 parentMatrix,
-            out Matrix4x4 world)
+            out Matrix4x4 parent)
         {
             foreach (Object3D.Resource obj in objects)
             {
-                Matrix4x4 matrix = obj.GetWorldMatrix() * parentMatrix;
                 if (ReferenceEquals(obj, target))
                 {
-                    world = matrix;
+                    parent = parentMatrix;
                     return true;
                 }
 
-                if (TryGetWorldMatrix(obj.GetChildResources(), target, matrix, out world))
+                if (TryFindParentMatrix(obj.GetChildResources(), target, obj.GetWorldMatrix() * parentMatrix, out parent))
                     return true;
             }
 
-            world = default;
+            parent = default;
             return false;
         }
     }
