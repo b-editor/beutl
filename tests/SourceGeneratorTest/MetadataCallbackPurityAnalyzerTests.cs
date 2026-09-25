@@ -4905,6 +4905,123 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AClauseLocalCast_DoesNotReplaceTheChainsResultType()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual FixedWidths Where(Func<float, bool> predicate) => new FixedWidths();
+
+                public virtual float SelectMany(
+                    Func<float, OtherWidths> collection,
+                    Func<float, float, float> result) => 0f;
+            }
+
+            internal sealed class FixedWidths : Widths
+            {
+            }
+
+            internal class Others
+            {
+                public virtual OtherWidths Cast<T>() => new OtherWidths();
+            }
+
+            internal class OtherWidths
+            {
+            }
+
+            internal static class Source
+            {
+                public static Widths Make() => new Widths();
+
+                public static Others MakeOthers() => new Others();
+            }
+            """,
+            """
+            Widths items = Source.Make();
+            Others others = Source.MakeOthers();
+            width += from item in items where item > 0f from float other in others select item + other;
+            """);
+
+        Assert.That(
+            diagnostics
+                .Where(static d => d.GetMessage().Contains("an override can replace it"))
+                .Select(static d => d.GetMessage()),
+            Has.None.Contains(".SelectMany("),
+            "the Cast runs on the second from's own source, so SelectMany still runs on the FixedWidths "
+            + "Where handed back");
+    }
+
+    [Test]
+    public void AUsingThroughAnInterfaceADerivedClassCanReimplement_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Resource : IDisposable
+            {
+                public void Dispose()
+                {
+                }
+            }
+
+            internal static class Source
+            {
+                public static Resource Make() => new Resource();
+            }
+            """,
+            "using (Resource resource = Source.Make()) width += 1f;");
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty,
+            "using disposes through IDisposable, which a derived class can reimplement even though this "
+            + "Dispose is not virtual");
+    }
+
+    [Test]
+    public void ABasePositionalPatternOverASealedDerivedRecord_ReadsTheDerivedGetter()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal record Pair(float First, float Second)
+            {
+                public virtual float First
+                {
+                    get => Settings.Offset;
+                    init { }
+                }
+            }
+
+            internal sealed record QuietPair : Pair
+            {
+                public QuietPair()
+                    : base(1f, 2f)
+                {
+                }
+
+                public override float First
+                {
+                    get => 0f;
+                    init { }
+                }
+            }
+
+            internal static class Source
+            {
+                public static QuietPair Make() => new QuietPair();
+            }
+            """,
+            """
+            QuietPair quiet = Source.Make();
+            if (quiet is Pair(var first, _)) width += first;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "the value is a QuietPair, which is sealed, so its getter is the one the generated body runs");
+    }
+
+    [Test]
     public void AnAwaitOnAFrameworkTask_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(

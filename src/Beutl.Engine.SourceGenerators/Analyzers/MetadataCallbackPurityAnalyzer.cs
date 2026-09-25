@@ -934,8 +934,23 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 when model.GetOperation(positional, context.CancellationToken)
                     is IRecursivePatternOperation pattern:
                 if (pattern.DeconstructSymbol is IMethodSymbol { IsImplicitlyDeclared: true } generated)
+                {
+                    // A value of a sealed type matched against a base record's pattern is still exactly
+                    // that type, so its own getters are the ones the generated body dispatches to.
+                    INamedTypeSymbol? exact = pattern.InputType is INamedTypeSymbol { IsSealed: true } input
+                                              && IsHeldBy(input, pattern.NarrowedType)
+                        ? input
+                        : null;
                     FollowGeneratedDeconstruct(
-                        context, generated, null, pattern.NarrowedType, node, depth, walked, report);
+                        context,
+                        generated,
+                        exact,
+                        exact ?? pattern.NarrowedType,
+                        node,
+                        depth,
+                        walked,
+                        report);
+                }
                 else
                     Report(pattern.DeconstructSymbol, "a positional pattern");
                 // The property subpatterns beside it name their members and are walked as names.
@@ -975,20 +990,29 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// declaration the binder picked is only one of the bodies that can run. The declaration is still
     /// followed, since it is the likeliest body, and the report says that it may not be the one.
     /// </remarks>
+    /// <param name="throughInterface">
+    /// Whether the construct calls the member through an interface, where a derived class can reimplement
+    /// the interface and run its own body even for a member that is not virtual.
+    /// </param>
     private static void ReportOverridable(
         SyntaxNode node,
         ITypeSymbol? receiver,
         IMethodSymbol? member,
         string kind,
-        Action<SyntaxNode, string, ISymbol, string> report)
+        Action<SyntaxNode, string, ISymbol, string> report,
+        bool throughInterface = false)
     {
         // A receiver of a sealed type, or a value type, is that exact type, so the member it inherits is
         // the one that runs whatever the declaring type allows.
         if (receiver is { IsSealed: true } or { IsValueType: true })
             return;
 
-        if (member is not null && IsOverridable(member) && IsDeclaredInSource(member))
+        if (member is not null
+            && (IsOverridable(member) || (throughInterface && receiver is { TypeKind: TypeKind.Class }))
+            && IsDeclaredInSource(member))
+        {
             report(node, kind, member, OverridableWithoutAMaking);
+        }
     }
 
     private static bool IsOverridable(IMethodSymbol member)
@@ -1191,7 +1215,13 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             FollowCall(context, runs, scope, "method", depth, walked, report);
 
             if (made is null)
-                ReportOverridable(scope, type, runs, "method", report);
+            {
+                bool throughInterface =
+                    context.Compilation.GetTypeByMetadataName(
+                        asynchronous ? AsyncDisposableTypeName : DisposableTypeName) is { } disposable
+                    && type.AllInterfaces.Contains(disposable, SymbolEqualityComparer.Default);
+                ReportOverridable(scope, type, runs, "method", report, throughInterface);
+            }
         }
 
         if (declaration is not null)
@@ -1423,7 +1453,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 ReportOverridable(node, receiver, runs, kind, report);
             }
 
-            previousResult = runs.ReturnType;
+            // A Cast a second from or a join runs on its own source hands its result to that clause, not
+            // to the chain the operators after it run on.
+            if (cast is null || cast == query.FromClause.Expression)
+                previousResult = runs.ReturnType;
         }
     }
 
@@ -1522,7 +1555,15 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             FollowCall(context, run, loop, kind, depth, walked, report);
 
             if (made is null)
-                ReportOverridable(loop, receiver, run, kind, report);
+            {
+                ReportOverridable(
+                    loop,
+                    receiver,
+                    run,
+                    kind,
+                    report,
+                    member?.ContainingType is { TypeKind: TypeKind.Interface });
+            }
         }
 
         Follow(sequence, madeSequence, iteration.GetEnumeratorMethod);
