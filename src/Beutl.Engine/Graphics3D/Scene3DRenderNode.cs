@@ -164,7 +164,9 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 token,
                 current => Render(session, current)),
             bounds: OpaqueRenderBoundsContract.Source(bounds),
-            hitTest: RenderHitTestContract.OutputBounds,
+            hitTest: RenderHitTestContract.Custom(
+                new SceneHitTest(camera, objects, bounds, scene.BackgroundColor.A > 0),
+                static (state, context, point) => state.HitTest(context, point)),
             valueCardinality: RenderValueCardinality.ZeroOrOne,
             scale: RenderScaleContract.MaterializeAtWorkingScale,
             deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
@@ -258,6 +260,31 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         Object3D.Resource? GizmoTarget,
         GizmoMode GizmoMode,
         SceneTextureBinding[] TextureBindings);
+
+    // A transparent background shows what lies beneath the scene, so there only the scene's objects answer;
+    // an opaque one covers its whole rectangle.
+    private sealed record SceneHitTest(
+        Camera3D.Resource Camera,
+        Object3D.Resource[] Objects,
+        Rect Bounds,
+        bool HasBackground)
+    {
+        public bool HitTest(RenderHitTestContext context, Point point)
+        {
+            if (!context.OutputBounds.Contains(point))
+                return false;
+
+            if (HasBackground)
+                return true;
+
+            return HitTester3D.HitTest(
+                new Point(point.X - Bounds.X, point.Y - Bounds.Y),
+                (int)MathF.Ceiling(Bounds.Width),
+                (int)MathF.Ceiling(Bounds.Height),
+                Camera,
+                Objects) is not null;
+        }
+    }
 
     private sealed record SceneTextureBinding(
         IRecordedTextureSource Source,

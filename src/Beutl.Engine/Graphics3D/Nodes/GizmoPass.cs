@@ -181,6 +181,7 @@ public sealed class GizmoPass : GraphicsNode3D
     public void Execute(
         Camera.Camera3D.Resource camera,
         Object3D.Resource? gizmoTarget,
+        Vector3 position,
         GizmoMode gizmoMode,
         float aspectRatio)
     {
@@ -219,7 +220,6 @@ public sealed class GizmoPass : GraphicsNode3D
 
         // Create model matrix
         // For Rotate and Scale modes, apply object's rotation so the gizmo aligns with the object
-        Vector3 position = gizmoTarget.GetWorldMatrix().Translation;
         var scaleMatrix = Matrix4x4.CreateScale(GizmoHitTester.GetWorldScale(camera, position, aspectRatio));
         Matrix4x4 modelMatrix;
         if (gizmoMode is GizmoMode.Rotate or GizmoMode.Scale)

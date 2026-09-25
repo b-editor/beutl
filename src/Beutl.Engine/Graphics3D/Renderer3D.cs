@@ -300,7 +300,7 @@ internal sealed class Renderer3D : IRenderer3D
         if (gizmoTarget != null && gizmoMode != GizmoMode.None)
         {
             _gizmoPass.SetColorTexture(colorOutput!);
-            _gizmoPass.Execute(camera, gizmoTarget, gizmoMode, aspectRatio);
+            _gizmoPass.Execute(camera, gizmoTarget, GetWorldPosition(objects, gizmoTarget), gizmoMode, aspectRatio);
             _gizmoPass.PrepareForSampling();
             colorOutput = _gizmoPass.OutputTexture;
         }
@@ -408,6 +408,39 @@ internal sealed class Renderer3D : IRenderer3D
         }
     }
 
+    /// <summary>
+    /// Where <paramref name="target"/> sits in the scene, with the transforms of the groups it is nested in.
+    /// </summary>
+    internal static Vector3 GetWorldPosition(IReadOnlyList<Object3D.Resource> roots, Object3D.Resource target)
+    {
+        return TryGetWorldMatrix(roots, target, Matrix4x4.Identity, out Matrix4x4 world)
+            ? world.Translation
+            : target.GetWorldMatrix().Translation;
+
+        static bool TryGetWorldMatrix(
+            IReadOnlyList<Object3D.Resource> objects,
+            Object3D.Resource target,
+            Matrix4x4 parentMatrix,
+            out Matrix4x4 world)
+        {
+            foreach (Object3D.Resource obj in objects)
+            {
+                Matrix4x4 matrix = obj.GetWorldMatrix() * parentMatrix;
+                if (ReferenceEquals(obj, target))
+                {
+                    world = matrix;
+                    return true;
+                }
+
+                if (TryGetWorldMatrix(obj.GetChildResources(), target, matrix, out world))
+                    return true;
+            }
+
+            world = default;
+            return false;
+        }
+    }
+
     private void CopyToOutputTexture()
     {
         if (_flipPass?.OutputTexture == null || _outputTexture == null)
@@ -465,7 +498,7 @@ internal sealed class Renderer3D : IRenderer3D
             Width,
             Height,
             _lastCamera,
-            gizmoTarget.GetWorldMatrix().Translation,
+            GetWorldPosition(_lastObjects ?? [], gizmoTarget),
             gizmoTarget.Rotation,
             gizmoMode);
     }

@@ -87,11 +87,10 @@ public sealed partial class UnlitMaterial : Material3D
                 new(1, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment),
             };
 
-            // Both faces are drawn so a turned card shows its back. Depth is written for the texels the
-            // fragment shader keeps, so cards occlude what the transparent pass draws after them.
+            // Both faces are drawn so a turned card shows its back. Like other transparent surfaces it does
+            // not write depth, so a translucent card never hides another card behind it.
             PipelineOptions options = PipelineOptions.Transparent;
             options.CullMode = CullMode.None;
-            options.DepthWriteEnabled = true;
 
             _pipeline = graphicsContext.CreatePipeline3D(
                 context.RenderPass,

@@ -218,11 +218,13 @@ void main() {
         // Perspective projection based on spot light cone angle
         var fovRadians = light.OuterConeAngle * 2f * MathF.PI / 180f;
         fovRadians = Math.Clamp(fovRadians, 0.1f, MathF.PI - 0.1f);
+        // The near plane stays in front of the far plane for short ranges.
+        float nearPlane = Math.Clamp(light.Range * 0.1f, 0.001f, 1f);
         LightProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(
             fovRadians,
             1.0f,  // Square shadow map
-            1f,
-            light.Range);
+            nearPlane,
+            MathF.Max(light.Range, nearPlane * 2));
     }
 
     /// <summary>

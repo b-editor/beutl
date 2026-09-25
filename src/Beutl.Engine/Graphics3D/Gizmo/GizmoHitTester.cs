@@ -38,13 +38,26 @@ public static class GizmoHitTester
         float viewHeight = camera switch
         {
             PerspectiveCamera.Resource perspective => 2
-                * MathF.Max(Vector3.Distance(camera.Position, position), camera.NearPlane)
+                * GetViewDepth(camera.Position, camera.Target, camera.NearPlane, position)
                 * MathF.Tan(perspective.FieldOfView * MathF.PI / 360f),
             OrthographicCamera.Resource orthographic => orthographic.Width / MathF.Max(aspectRatio, float.Epsilon),
             _ => 1,
         };
 
         return MathF.Max(viewHeight * ViewHeightFraction, float.Epsilon);
+    }
+
+    /// <summary>
+    /// The depth of <paramref name="position"/> along the camera's view direction, which is what a
+    /// perspective projection scales by, kept at least <paramref name="nearPlane"/>.
+    /// </summary>
+    internal static float GetViewDepth(Vector3 cameraPosition, Vector3 cameraTarget, float nearPlane, Vector3 position)
+    {
+        Vector3 forward = cameraTarget - cameraPosition;
+        float depth = forward == Vector3.Zero
+            ? Vector3.Distance(cameraPosition, position)
+            : Vector3.Dot(position - cameraPosition, Vector3.Normalize(forward));
+        return MathF.Max(depth, nearPlane);
     }
 
     /// <summary>

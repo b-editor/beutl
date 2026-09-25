@@ -1721,9 +1721,11 @@ public partial class PlayerView
             float worldPerRenderPixel = _camera switch
             {
                 PerspectiveCamera perspective => 2
-                    * MathF.Max(Vector3.Distance(
+                    * GizmoHitTester.GetViewDepth(
                         _camera.Position.GetValue(CompositionContext),
-                        obj.Position.GetValue(CompositionContext)), 1f)
+                        _camera.Target.GetValue(CompositionContext),
+                        _camera.NearPlane.GetValue(CompositionContext),
+                        GetWorldPosition(obj))
                     * MathF.Tan(perspective.FieldOfView.GetValue(CompositionContext) * MathF.PI / 360f)
                     / renderHeight,
                 OrthographicCamera orthographic => orthographic.Width.GetValue(CompositionContext) / renderWidth,
@@ -1731,6 +1733,37 @@ public partial class PlayerView
             };
 
             return (float)(worldPerRenderPixel * renderPixelsPerViewPixel);
+        }
+
+        // Where the object is drawn, including the groups it is nested in; its Position alone is local.
+        private Vector3 GetWorldPosition(Object3D obj)
+        {
+            Scene3D.Resource? sceneResource = _scene3D != null ? FindScene3DResource() : null;
+            Vector3? position = sceneResource == null
+                ? null
+                : RenderThread.Dispatcher.Invoke(() =>
+                {
+                    Object3D.Resource? target = FindResource(sceneResource.Objects, obj.Id);
+                    return target == null
+                        ? (Vector3?)null
+                        : Renderer3D.GetWorldPosition(sceneResource.Objects, target);
+                });
+
+            return position ?? obj.Position.GetValue(CompositionContext);
+
+            static Object3D.Resource? FindResource(IReadOnlyList<Object3D.Resource> objects, Guid id)
+            {
+                foreach (Object3D.Resource item in objects)
+                {
+                    if (item.GetOriginal()?.Id == id)
+                        return item;
+
+                    if (FindResource(item.GetChildResources(), id) is { } child)
+                        return child;
+                }
+
+                return null;
+            }
         }
 
         private void FindScene3DAndCamera()
