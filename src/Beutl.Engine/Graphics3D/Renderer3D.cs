@@ -392,7 +392,11 @@ internal sealed class Renderer3D : IRenderer3D
                 return;
 
             Matrix4x4 world = obj.GetWorldMatrix() * parentMatrix;
-            if (obj.GetMesh() is { VertexCount: > 0 } mesh)
+            // Only shadow casters and lit receivers need to be in the shadow map; a transparent surface such
+            // as a 2D card does not sample it.
+            bool takesPartInShadows = obj.CastShadows
+                || (obj.ReceiveShadows && obj.Material?.IsTransparent != true);
+            if (takesPartInShadows && obj.GetMesh() is { VertexCount: > 0 } mesh)
             {
                 BoundingBox box = mesh.GetBoundingBox();
                 for (int i = 0; i < 8; i++)
@@ -432,9 +436,30 @@ internal sealed class Renderer3D : IRenderer3D
             target.Rotation.Y * MathF.PI / 180f,
             target.Rotation.X * MathF.PI / 180f,
             target.Rotation.Z * MathF.PI / 180f);
-        return Matrix4x4.Decompose(GetParentWorldMatrix(roots, target), out _, out Quaternion parent, out _)
-            ? Quaternion.Concatenate(local, parent)
-            : local;
+        return Quaternion.Concatenate(local, GetRotation(GetParentWorldMatrix(roots, target)));
+    }
+
+    // The rotation part of a transform that may also scale unevenly or shear: its axes made orthonormal.
+    private static Quaternion GetRotation(Matrix4x4 matrix)
+    {
+        var x = new Vector3(matrix.M11, matrix.M12, matrix.M13);
+        var y = new Vector3(matrix.M21, matrix.M22, matrix.M23);
+        if (x.LengthSquared() < 1e-12f || y.LengthSquared() < 1e-12f)
+            return Quaternion.Identity;
+
+        x = Vector3.Normalize(x);
+        y -= x * Vector3.Dot(x, y);
+        if (y.LengthSquared() < 1e-12f)
+            return Quaternion.Identity;
+
+        y = Vector3.Normalize(y);
+        Vector3 z = Vector3.Cross(x, y);
+        var rotation = new Matrix4x4(
+            x.X, x.Y, x.Z, 0,
+            y.X, y.Y, y.Z, 0,
+            z.X, z.Y, z.Z, 0,
+            0, 0, 0, 1);
+        return Quaternion.Normalize(Quaternion.CreateFromRotationMatrix(rotation));
     }
 
     /// <summary>

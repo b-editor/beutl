@@ -39,13 +39,17 @@ public class HitTester3DVisibilityTests
     }
 
     // A plane is one-sided: turned toward the camera it is drawn and hit; turned away it is culled and missed.
-    [TestCase(90f, true)]
-    [TestCase(-90f, false)]
-    public void OneSidedPlane_IsHitOnlyFromItsFront(float rotationX, bool expected)
+    // Mirroring reverses its winding, so rendering then shows the other side (checked against a GPU render).
+    [TestCase(90f, 1f, true)]
+    [TestCase(-90f, 1f, false)]
+    [TestCase(90f, -1f, false)]
+    [TestCase(-90f, -1f, true)]
+    public void OneSidedPlane_IsHitOnlyOnTheSideRenderingShows(float rotationX, float scaleX, bool expected)
     {
         using var camera = CreateCamera(farPlane: 10000);
         var plane = new Plane3D();
         plane.Rotation.CurrentValue = new Vector3(rotationX, 0, 0);
+        plane.Scale.CurrentValue = new Vector3(scaleX, 1, 1);
         using var resource = (Object3D.Resource)plane.ToResource(CompositionContext.Default);
 
         Object3D.Resource? hit = HitTester3D.HitTest(s_center, 1920, 1080, camera, [resource]);

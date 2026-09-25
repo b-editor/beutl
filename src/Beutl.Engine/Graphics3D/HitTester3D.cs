@@ -306,7 +306,12 @@ public static class HitTester3D
 
         Ray3D localRay = TransformRay(ray, invWorld);
         if (!RayIntersectsBoundingBox(localRay, mesh.GetBoundingBox(), out _)
-            || !RayIntersectsMesh(localRay, mesh, cullBackFaces: obj.Material?.IsDoubleSided != true, out float localDistance))
+            || !RayIntersectsMesh(
+                localRay,
+                mesh,
+                cullBackFaces: obj.Material?.IsDoubleSided != true,
+                mirrored: worldMatrix.GetDeterminant() < 0,
+                out float localDistance))
         {
             return false;
         }
@@ -400,13 +405,22 @@ public static class HitTester3D
     /// <param name="distance">The distance to the closest intersection point.</param>
     /// <returns>True if the ray intersects the mesh.</returns>
     public static bool RayIntersectsMesh(Ray3D ray, Mesh.Resource mesh, out float distance)
-        => RayIntersectsMesh(ray, mesh, cullBackFaces: false, out distance);
+        => RayIntersectsMesh(ray, mesh, cullBackFaces: false, mirrored: false, out distance);
 
     /// <summary>
     /// Tests if a ray intersects with a mesh, skipping triangles that face away from the ray when
     /// <paramref name="cullBackFaces"/> is set, as rendering does for one-sided materials.
     /// </summary>
-    internal static bool RayIntersectsMesh(Ray3D ray, Mesh.Resource mesh, bool cullBackFaces, out float distance)
+    /// <param name="mirrored">
+    /// Whether the mesh is drawn through a mirroring transform, which reverses its winding and so swaps which
+    /// side rendering culls.
+    /// </param>
+    internal static bool RayIntersectsMesh(
+        Ray3D ray,
+        Mesh.Resource mesh,
+        bool cullBackFaces,
+        bool mirrored,
+        out float distance)
     {
         distance = float.MaxValue;
         bool hit = false;
@@ -424,9 +438,12 @@ public static class HitTester3D
             var v1 = b.Position;
             var v2 = c.Position;
 
-            // The authored normals point out of the front face.
-            if (cullBackFaces && Vector3.Dot(ray.Direction, a.Normal + b.Normal + c.Normal) >= 0)
+            // The authored normals point out of the front face; a mirroring transform culls the other side.
+            if (cullBackFaces
+                && (Vector3.Dot(ray.Direction, a.Normal + b.Normal + c.Normal) >= 0) != mirrored)
+            {
                 continue;
+            }
 
             if (RayIntersectsTriangle(ray, v0, v1, v2, out float t))
             {

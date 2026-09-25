@@ -62,6 +62,30 @@ public class GizmoPlacementTests
         Assert.That(Vector3.Distance(turned, expected), Is.LessThan(1e-4f));
     }
 
+    // Nested groups that rotate and scale unevenly shear the parent transform; the handles still follow the
+    // direction the child's X axis is drawn along.
+    [Test]
+    public void WorldOrientation_FollowsASheared_ParentTransform()
+    {
+        var child = new Cube3D();
+        var inner = new Group3D();
+        inner.Rotation.CurrentValue = new Vector3(0, 0, 40);
+        inner.Children.Add(child);
+        var outer = new Group3D();
+        outer.Rotation.CurrentValue = new Vector3(0, 30, 0);
+        outer.Scale.CurrentValue = new Vector3(2, 1, 1);
+        outer.Children.Add(inner);
+        using var outerResource = (Group3D.Resource)outer.ToResource(CompositionContext.Default);
+        Object3D.Resource childResource = outerResource.GetChildResources().Single().GetChildResources().Single();
+
+        Quaternion orientation = Renderer3D.GetWorldOrientation([outerResource], childResource);
+        Matrix4x4 parent = Renderer3D.GetParentWorldMatrix([outerResource], childResource);
+
+        Vector3 handleX = Vector3.Transform(Vector3.UnitX, orientation);
+        Vector3 drawnX = Vector3.Normalize(Vector3.TransformNormal(Vector3.UnitX, parent));
+        Assert.That(Vector3.Distance(handleX, drawnX), Is.LessThan(1e-4f));
+    }
+
     // A drag measured in world space is applied to the child's local Position through the parent's inverse.
     [Test]
     public void ParentWorldMatrix_IsTheGroupTransform_OrIdentityAtTheRoot()
