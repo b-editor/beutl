@@ -41,6 +41,8 @@ public partial class ColorSpectrum : ColorPickerComponent
     {
         if (_tempBitmap == null)
             CreateBitmap();
+        if (_tempBitmap is not { } bitmap)
+            return;
 
         Rect rect = new Rect(Bounds.Size);
 
@@ -48,7 +50,7 @@ public partial class ColorSpectrum : ColorPickerComponent
         {
             if (Shape == ColorSpectrumShape.Spectrum)
             {
-                context.DrawImage(_tempBitmap, new Rect(_tempBitmap.Size), rect);
+                context.DrawImage(bitmap, new Rect(bitmap.Size), rect);
 
                 RenderSelectorRects(context, rect.Width, rect.Height);
 
@@ -71,7 +73,7 @@ public partial class ColorSpectrum : ColorPickerComponent
                 // Value by drawing a Black ellipse behind the image and the using the Value as the opacity
                 // to draw the bitmap
                 using (context.PushOpacity(Color.Valuef))
-                    context.DrawImage(_tempBitmap, new Rect(_tempBitmap.Size), _lastWheelRect);
+                    context.DrawImage(bitmap, new Rect(bitmap.Size), _lastWheelRect);
             }
             else if (Shape == ColorSpectrumShape.Triangle)
             {
@@ -83,7 +85,8 @@ public partial class ColorSpectrum : ColorPickerComponent
                     CreateBitmap();
                 }
 
-                context.DrawImage(_tempBitmap, new Rect(_tempBitmap.Size), _lastWheelRect);
+                if (_tempBitmap is { } triangleBitmap)
+                    context.DrawImage(triangleBitmap, new Rect(triangleBitmap.Size), _lastWheelRect);
 
                 RenderTriangleSelector(context);
             }
@@ -302,9 +305,15 @@ public partial class ColorSpectrum : ColorPickerComponent
         }
     }
 
+    private WriteableBitmap GetWriteableBitmap()
+        => _tempBitmap as WriteableBitmap ?? throw new InvalidOperationException("The spectrum bitmap is unavailable.");
+
+    private RenderTargetBitmap GetRenderTargetBitmap()
+        => _tempBitmap as RenderTargetBitmap ?? throw new InvalidOperationException("The wheel bitmap is unavailable.");
+
     private void DrawValueSaturationBitmap()
     {
-        using (var lok = (_tempBitmap as WriteableBitmap).Lock())
+        using (var lok = GetWriteableBitmap().Lock())
         {
             unsafe
             {
@@ -332,7 +341,7 @@ public partial class ColorSpectrum : ColorPickerComponent
 
     private void DrawValueHueBitmap()
     {
-        using (var lok = (_tempBitmap as WriteableBitmap).Lock())
+        using (var lok = GetWriteableBitmap().Lock())
         {
             unsafe
             {
@@ -361,7 +370,7 @@ public partial class ColorSpectrum : ColorPickerComponent
 
     private void DrawSaturationHueBitmap()
     {
-        using (var lok = (_tempBitmap as WriteableBitmap).Lock())
+        using (var lok = GetWriteableBitmap().Lock())
         {
             unsafe
             {
@@ -390,7 +399,7 @@ public partial class ColorSpectrum : ColorPickerComponent
 
     private void DrawBlueGreenBitmap()
     {
-        using (var lok = (_tempBitmap as WriteableBitmap).Lock())
+        using (var lok = GetWriteableBitmap().Lock())
         {
             unsafe
             {
@@ -418,7 +427,7 @@ public partial class ColorSpectrum : ColorPickerComponent
 
     private void DrawBlueRedBitmap()
     {
-        using (var lok = (_tempBitmap as WriteableBitmap).Lock())
+        using (var lok = GetWriteableBitmap().Lock())
         {
             unsafe
             {
@@ -446,7 +455,7 @@ public partial class ColorSpectrum : ColorPickerComponent
 
     private void DrawGreenRedBitmap()
     {
-        using (var lok = (_tempBitmap as WriteableBitmap).Lock())
+        using (var lok = GetWriteableBitmap().Lock())
         {
             unsafe
             {
@@ -474,7 +483,7 @@ public partial class ColorSpectrum : ColorPickerComponent
 
     private void DrawWheelBitmap()
     {
-        using (var dc = (_tempBitmap as RenderTargetBitmap).CreateDrawingContext())
+        using (var dc = GetRenderTargetBitmap().CreateDrawingContext())
         {
             //var leaseFeature = dc.GetFeature<ISkiaSharpApiLeaseFeature>();
             //if (leaseFeature == null)
@@ -526,7 +535,7 @@ public partial class ColorSpectrum : ColorPickerComponent
 
     private void DrawTriangleWheelBitmap()
     {
-        using (var dc = (_tempBitmap as RenderTargetBitmap).CreateDrawingContext())
+        using (var dc = GetRenderTargetBitmap().CreateDrawingContext())
         {
             //var leaseFeature = dc.GetFeature<ISkiaSharpApiLeaseFeature>();
             //if (leaseFeature == null)
@@ -1011,11 +1020,11 @@ public partial class ColorSpectrum : ColorPickerComponent
     private readonly int _defBitmapSize = 500;
     private bool _triangleDirty;
 
-    private Bitmap _tempBitmap;
+    private Bitmap? _tempBitmap;
     private Rect _lastWheelRect;
     private readonly double WheelPadding = 4;
     private readonly float TriangleWheelThickness = 50f;
-    private IPen _borderPen;
+    private IPen? _borderPen;
 
     private enum HitTestResult
     {

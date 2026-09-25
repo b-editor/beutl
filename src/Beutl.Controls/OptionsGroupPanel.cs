@@ -48,7 +48,7 @@ public sealed class OptionsGroupPanel : StackPanel
     {
         Size result = base.ArrangeOverride(finalSize);
         List<double> positions = [];
-        Control previous = null;
+        Control? previous = null;
         foreach (Control child in Children)
         {
             if (!child.IsVisible || child.Bounds.Height <= 0)

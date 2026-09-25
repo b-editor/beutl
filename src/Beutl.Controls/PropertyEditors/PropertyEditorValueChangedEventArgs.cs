@@ -14,13 +14,13 @@ public abstract class PropertyEditorValueChangedEventArgs : RoutedEventArgs
     {
     }
 
-    public object NewValue => GetNewValue();
+    public object? NewValue => GetNewValue();
 
-    public object OldValue => GetOldValue();
+    public object? OldValue => GetOldValue();
 
-    protected abstract object GetNewValue();
+    protected abstract object? GetNewValue();
 
-    protected abstract object GetOldValue();
+    protected abstract object? GetOldValue();
 }
 
 public class PropertyEditorValueChangedEventArgs<TValue> : PropertyEditorValueChangedEventArgs
@@ -43,7 +43,7 @@ public class PropertyEditorValueChangedEventArgs<TValue> : PropertyEditorValueCh
 
     public new TValue OldValue { get; }
 
-    protected override object GetNewValue() => NewValue;
+    protected override object? GetNewValue() => NewValue;
 
-    protected override object GetOldValue() => OldValue;
+    protected override object? GetOldValue() => OldValue;
 }

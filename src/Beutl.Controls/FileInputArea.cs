@@ -15,39 +15,39 @@ namespace Beutl.Controls;
 [TemplatePart("PART_SelectedFileDisplay", typeof(TextBlock))]
 public class FileInputArea : ContentControl
 {
-    public static readonly StyledProperty<IStorageFile> SelectedFileProperty
-        = AvaloniaProperty.Register<FileInputArea, IStorageFile>(
+    public static readonly StyledProperty<IStorageFile?> SelectedFileProperty
+        = AvaloniaProperty.Register<FileInputArea, IStorageFile?>(
             nameof(SelectedFile),
             defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
 
-    public static readonly StyledProperty<FilePickerOpenOptions> OpenOptionsProperty
-        = AvaloniaProperty.Register<FileInputArea, FilePickerOpenOptions>(
+    public static readonly StyledProperty<FilePickerOpenOptions?> OpenOptionsProperty
+        = AvaloniaProperty.Register<FileInputArea, FilePickerOpenOptions?>(
             nameof(OpenOptions),
             validate: x => x?.AllowMultiple != true);
 
-    public static readonly StyledProperty<string> TextProperty
-        = TextBlock.TextProperty.AddOwner<FileInputArea>(new StyledPropertyMetadata<string>(DefaultTextValue));
+    public static readonly StyledProperty<string?> TextProperty
+        = TextBlock.TextProperty.AddOwner<FileInputArea>(new StyledPropertyMetadata<string?>(DefaultTextValue));
 
     private const string DefaultTextValue = "To open the file, drop it here or click here.";
     private static readonly FilePickerOpenOptions s_defaultOptions = new();
-    private Button _button;
-    private TextBlock _selectedFileDisplay;
-    private List<IPatternContext> _patternContexts;
-    private IStorageFile _matchResult;
+    private Button? _button;
+    private TextBlock? _selectedFileDisplay;
+    private List<IPatternContext>? _patternContexts;
+    private IStorageFile? _matchResult;
 
-    public IStorageFile SelectedFile
+    public IStorageFile? SelectedFile
     {
         get => GetValue(SelectedFileProperty);
         set => SetValue(SelectedFileProperty, value);
     }
 
-    public FilePickerOpenOptions OpenOptions
+    public FilePickerOpenOptions? OpenOptions
     {
         get => GetValue(OpenOptionsProperty);
         set => SetValue(OpenOptionsProperty, value);
     }
 
-    public string Text
+    public string? Text
     {
         get => GetValue(TextProperty);
         set => SetValue(TextProperty, value);
@@ -68,7 +68,7 @@ public class FileInputArea : ContentControl
         OnSelectedFileChanged();
     }
 
-    private void OnDrop(object sender, DragEventArgs e)
+    private void OnDrop(object? sender, DragEventArgs e)
     {
         try
         {
@@ -84,13 +84,13 @@ public class FileInputArea : ContentControl
         }
     }
 
-    private void OnDragLeave(object sender, DragEventArgs e)
+    private void OnDragLeave(object? sender, DragEventArgs e)
     {
         e.DragEffects = DragDropEffects.None;
         _matchResult = null;
     }
 
-    private void OnDragEnter(object sender, DragEventArgs e)
+    private void OnDragEnter(object? sender, DragEventArgs e)
     {
         if (_patternContexts != null
             && e.DataTransfer.TryGetFiles() is { } files)
@@ -107,7 +107,7 @@ public class FileInputArea : ContentControl
         }
     }
 
-    private async void OnButtonClick(object sender, RoutedEventArgs e)
+    private async void OnButtonClick(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this) is TopLevel toplevel)
         {
@@ -174,9 +174,9 @@ public class FileInputArea : ContentControl
 
     private void OnOpenOptionsChanged()
     {
-        if (OpenOptions != null)
+        if (OpenOptions is { } options)
         {
-            _patternContexts = BuildPatternContexts(OpenOptions);
+            _patternContexts = BuildPatternContexts(options);
         }
         else
         {
@@ -184,7 +184,7 @@ public class FileInputArea : ContentControl
         }
     }
 
-    private static IStorageFile Match(List<IPatternContext> patternContexts, IEnumerable<IStorageItem> files)
+    private static IStorageFile? Match(List<IPatternContext> patternContexts, IEnumerable<IStorageItem> files)
     {
         foreach (IStorageItem item in files)
         {
@@ -192,7 +192,9 @@ public class FileInputArea : ContentControl
             {
                 var fi = new FileInfo(path);
                 var fiWrapper = new FileInfoWrapper(fi);
-                var diWrapper = new DirectoryInfoWrapper(fi.Directory);
+                if (fi.Directory is not { } directory)
+                    continue;
+                var diWrapper = new DirectoryInfoWrapper(directory);
 
                 foreach (IPatternContext ctx in patternContexts)
                 {
@@ -215,9 +217,9 @@ public class FileInputArea : ContentControl
         var builder = new PatternBuilder(StringComparison.OrdinalIgnoreCase);
         var list = new List<IPatternContext>();
 
-        foreach (FilePickerFileType item in options.FileTypeFilter)
+        foreach (FilePickerFileType item in options.FileTypeFilter ?? [])
         {
-            foreach (string patternStr in item.Patterns)
+            foreach (string patternStr in item.Patterns ?? [])
             {
                 IPattern pattern = builder.Build(patternStr);
 

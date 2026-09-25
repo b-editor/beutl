@@ -56,15 +56,15 @@ public class Vector4Editor<TElement> : Vector4Editor
             defaultValue: TElement.One);
 
     private readonly CompositeDisposable _disposables = [];
-    private TElement _firstValue;
-    private TElement _oldFirstValue;
-    private TElement _secondValue;
-    private TElement _oldSecondValue;
-    private TElement _thirdValue;
-    private TElement _oldThirdValue;
-    private TElement _fourthValue;
-    private TElement _oldFourthValue;
-    private TextBlock _headerText;
+    private TElement _firstValue = TElement.Zero;
+    private TElement _oldFirstValue = TElement.Zero;
+    private TElement _secondValue = TElement.Zero;
+    private TElement _oldSecondValue = TElement.Zero;
+    private TElement _thirdValue = TElement.Zero;
+    private TElement _oldThirdValue = TElement.Zero;
+    private TElement _fourthValue = TElement.Zero;
+    private TElement _oldFourthValue = TElement.Zero;
+    private TextBlock? _headerText;
     private Point _headerDragStart;
     private bool _headerPressed;
     private double _scrubAccumulator;
@@ -139,7 +139,7 @@ public class Vector4Editor<TElement> : Vector4Editor
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
-        void SubscribeEvents(TextBox textBox)
+        void SubscribeEvents(TextBox? textBox)
         {
             if (textBox != null)
             {
@@ -190,18 +190,19 @@ public class Vector4Editor<TElement> : Vector4Editor
         UpdateErrors();
     }
 
-    private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
+    private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (_headerText is not { } headerText) return;
         if (!(InnerFirstTextBox.IsKeyboardFocusWithin
             || InnerSecondTextBox?.IsKeyboardFocusWithin == true
             || InnerThirdTextBox?.IsKeyboardFocusWithin == true
             || InnerFourthTextBox?.IsKeyboardFocusWithin == true)
             && _headerPressed)
         {
-            Point point = e.GetPosition(_headerText);
+            Point point = e.GetPosition(headerText);
 
             // ポインタロック + デルタ取得
-            Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
+            Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
             double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
             TElement delta = NumberEditorHelper.ConsumeScrubAccumulator<TElement>(ref _scrubAccumulator, scaledX) * SmallChange;
 
@@ -222,7 +223,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         }
     }
 
-    private void OnTextBlockPointerReleased(object sender, PointerReleasedEventArgs e)
+    private void OnTextBlockPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (_headerPressed)
         {
@@ -242,9 +243,10 @@ public class Vector4Editor<TElement> : Vector4Editor
         }
     }
 
-    private void OnTextBlockPointerPressed(object sender, PointerPressedEventArgs e)
+    private void OnTextBlockPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        PointerPoint pointerPoint = e.GetCurrentPoint(_headerText);
+        if (_headerText is not { } headerText) return;
+        PointerPoint pointerPoint = e.GetCurrentPoint(headerText);
         if (pointerPoint.Properties.IsLeftButtonPressed
             && !DataValidationErrors.GetHasErrors(this))
         {
@@ -252,13 +254,13 @@ public class Vector4Editor<TElement> : Vector4Editor
             _oldSecondValue = SecondValue;
             _headerDragStart = pointerPoint.Position;
             _scrubAccumulator = 0;
-            PointerLockHelper.Pressed(_headerText, _headerDragStart);
+            PointerLockHelper.Pressed(headerText, _headerDragStart);
             _headerPressed = true;
             e.Handled = true;
         }
     }
 
-    private void OnInnerTextBoxGotFocus(object sender, FocusChangedEventArgs e)
+    private void OnInnerTextBoxGotFocus(object? sender, FocusChangedEventArgs e)
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
@@ -269,7 +271,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         }
     }
 
-    private void OnInnerTextBoxLostFocus(object sender, RoutedEventArgs e)
+    private void OnInnerTextBoxLostFocus(object? sender, RoutedEventArgs e)
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
@@ -286,16 +288,20 @@ public class Vector4Editor<TElement> : Vector4Editor
         }
     }
 
-    private void OnInnerTextBoxTextChanged(TextBox sender, string newValue, string oldValue)
+    private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
         if (sender.IsKeyboardFocusWithin
-            && TElement.TryParse(newValue, CultureInfo.CurrentCulture, out TElement newValue2))
+            && TElement.TryParse(newValue, CultureInfo.CurrentCulture, out TElement? newValue2)
+            && newValue2 is not null)
         {
-            bool invalidOldValue = !TElement.TryParse(oldValue, CultureInfo.CurrentCulture, out TElement oldValue2);
+            bool invalidOldValue = !TElement.TryParse(oldValue, CultureInfo.CurrentCulture, out TElement? oldValue2)
+                || oldValue2 is null;
             if (invalidOldValue)
             {
                 oldValue2 = newValue2;
             }
+
+            oldValue2 ??= newValue2;
 
             if (invalidOldValue || newValue2 != oldValue2)
             {
@@ -348,9 +354,9 @@ public class Vector4Editor<TElement> : Vector4Editor
     {
         if (TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentCulture, out _)
             && (IsUniform
-            || (TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentCulture, out _)
-            && TElement.TryParse(InnerThirdTextBox.Text, CultureInfo.CurrentCulture, out _)
-            && TElement.TryParse(InnerFourthTextBox.Text, CultureInfo.CurrentCulture, out _))))
+            || (TElement.TryParse(InnerSecondTextBox?.Text, CultureInfo.CurrentCulture, out _)
+            && TElement.TryParse(InnerThirdTextBox?.Text, CultureInfo.CurrentCulture, out _)
+            && TElement.TryParse(InnerFourthTextBox?.Text, CultureInfo.CurrentCulture, out _))))
         {
             DataValidationErrors.ClearErrors(this);
         }
@@ -360,12 +366,13 @@ public class Vector4Editor<TElement> : Vector4Editor
         }
     }
 
-    private void OnInnerTextBoxPointerWheelChanged(object sender, PointerWheelEventArgs e)
+    private void OnInnerTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (!DataValidationErrors.GetHasErrors(this)
             && sender is TextBox textBox
             && textBox.IsKeyboardFocusWithin
-            && TElement.TryParse(textBox.Text, CultureInfo.CurrentCulture, out TElement value))
+            && TElement.TryParse(textBox.Text, CultureInfo.CurrentCulture, out TElement? value)
+            && value is not null)
         {
             TElement delta = LargeChange;
             double wheelDelta = e.Delta.Y;
@@ -467,8 +474,8 @@ public class Vector4Editor : PropertyEditor
     public static readonly StyledProperty<bool> IsUniformProperty =
         AvaloniaProperty.Register<Vector4Editor, bool>(nameof(IsUniform));
 
-    public static readonly StyledProperty<string> NumberFormatProperty =
-        AvaloniaProperty.Register<Vector4Editor, string>(
+    public static readonly StyledProperty<string?> NumberFormatProperty =
+        AvaloniaProperty.Register<Vector4Editor, string?>(
             nameof(NumberFormat),
             defaultValue: null);
 
@@ -480,11 +487,11 @@ public class Vector4Editor : PropertyEditor
     private const string BorderPointerOver = ":border-pointerover";
     private const string Uniform = ":uniform";
     private readonly CompositeDisposable _disposables = [];
-    private Border _backgroundBorder;
-    private string _firstText;
-    private string _secondText;
-    private string _thirdText;
-    private string _fourthText;
+    private Border? _backgroundBorder;
+    private string _firstText = string.Empty;
+    private string _secondText = string.Empty;
+    private string _thirdText = string.Empty;
+    private string _fourthText = string.Empty;
 
     public string FirstText
     {
@@ -540,25 +547,25 @@ public class Vector4Editor : PropertyEditor
         set => SetValue(IsUniformProperty, value);
     }
 
-    public string NumberFormat
+    public string? NumberFormat
     {
         get => GetValue(NumberFormatProperty);
         set => SetValue(NumberFormatProperty, value);
     }
 
-    protected TextBox InnerFirstTextBox { get; private set; }
+    protected TextBox InnerFirstTextBox { get; private set; } = null!;
 
-    protected TextBox InnerSecondTextBox { get; private set; }
+    protected TextBox? InnerSecondTextBox { get; private set; }
 
-    protected TextBox InnerThirdTextBox { get; private set; }
+    protected TextBox? InnerThirdTextBox { get; private set; }
 
-    protected TextBox InnerFourthTextBox { get; private set; }
+    protected TextBox? InnerFourthTextBox { get; private set; }
 
     protected override Type StyleKeyOverride => typeof(Vector4Editor);
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
-        void SubscribeEvents(TextBox textBox)
+        void SubscribeEvents(TextBox? textBox)
         {
             if (textBox != null)
             {
@@ -639,12 +646,12 @@ public class Vector4Editor : PropertyEditor
         }
     }
 
-    private void OnInnerTextBoxGotFocus(object sender, FocusChangedEventArgs e)
+    private void OnInnerTextBoxGotFocus(object? sender, FocusChangedEventArgs e)
     {
         UpdateFocusState();
     }
 
-    private void OnInnerTextBoxLostFocus(object sender, RoutedEventArgs e)
+    private void OnInnerTextBoxLostFocus(object? sender, RoutedEventArgs e)
     {
         UpdateFocusState();
     }

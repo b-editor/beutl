@@ -26,7 +26,7 @@ public class LibraryItemPickerItemBehavior : Behavior<ToggleButton>
         }
     }
 
-    private void OnClick(object sender, RoutedEventArgs e)
+    private void OnClick(object? sender, RoutedEventArgs e)
     {
         var parent = AssociatedObject?.FindAncestorOfType<LibraryItemPickerFlyoutPresenter>();
         if (parent != null && AssociatedObject is { DataContext: PinnableLibraryItem item })

@@ -9,7 +9,7 @@ public sealed class MultiplyConverter : IMultiValueConverter
 {
     public static readonly MultiplyConverter Instance = new();
 
-    public object Convert(IList<object> values, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
     {
         if (!values.All(x => x is double or UnsetValueType or null))
         {

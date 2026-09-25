@@ -30,7 +30,7 @@ public class BooleanEditor : PropertyEditor
         toggleButton.Click += OnCheckBoxClick;
     }
 
-    private void OnCheckBoxClick(object sender, RoutedEventArgs e)
+    private void OnCheckBoxClick(object? sender, RoutedEventArgs e)
     {
         if (sender is ToggleButton toggleButton
             && toggleButton.IsChecked.HasValue)

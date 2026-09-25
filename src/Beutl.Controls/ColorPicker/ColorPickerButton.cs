@@ -54,9 +54,12 @@ public partial class ColorPickerButton : TemplatedControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        _flyout.Closed -= OnFlyoutClosed;
-        _flyout.Confirmed -= OnFlyoutConfirmed;
-        _flyout.Dismissed -= OnFlyoutDismissed;
+        if (_flyout != null)
+        {
+            _flyout.Closed -= OnFlyoutClosed;
+            _flyout.Confirmed -= OnFlyoutConfirmed;
+            _flyout.Dismissed -= OnFlyoutDismissed;
+        }
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -70,8 +73,9 @@ public partial class ColorPickerButton : TemplatedControl
         }
     }
 
-    private void OnButtonClick(object sender, RoutedEventArgs e)
+    private void OnButtonClick(object? sender, RoutedEventArgs e)
     {
+        if (_flyout == null) return;
         // ColorPicker is a large control, so the flyout is shared among all the ColorButton instances
         // So we need to make sure the ColorPicker is properly set for this button
         var color = Color;
@@ -124,16 +128,17 @@ public partial class ColorPickerButton : TemplatedControl
         if (_flyoutActive)
         {
             var oldColor = Color;
-            Color = _flyout.ColorPicker.Color;
+            Color = sender.ColorPicker.Color;
             FlyoutConfirmed?.Invoke(this, new ColorButtonColorChangedEventArgs(oldColor, Color));
         }
     }
 
-    private void OnFlyoutClosed(object sender, EventArgs e)
+    private void OnFlyoutClosed(object? sender, EventArgs e)
     {
         if (!ShowAcceptDismissButtons)
         {
-            _flyout.ColorPicker.ColorChanged -= OnColorPickerColorChanged;
+            if (_flyout != null)
+                _flyout.ColorPicker.ColorChanged -= OnColorPickerColorChanged;
         }
 
         if (_flyoutActive)
@@ -143,9 +148,8 @@ public partial class ColorPickerButton : TemplatedControl
         }
     }
 
-    private static ColorPickerFlyout _flyout;
+    private static ColorPickerFlyout? _flyout;
 
     private bool _flyoutActive;
-    private Button _button;
+    private Button? _button;
 }
-

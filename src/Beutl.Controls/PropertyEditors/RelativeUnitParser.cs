@@ -4,7 +4,7 @@ namespace Beutl.Controls.PropertyEditors;
 
 internal static class RelativeUnitParser
 {
-    public static bool TryParse(string s, out float result, out RelativeUnit unit)
+    public static bool TryParse(string? s, out float result, out RelativeUnit unit)
     {
         if (s == null)
         {

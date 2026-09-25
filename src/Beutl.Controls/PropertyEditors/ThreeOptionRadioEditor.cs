@@ -13,9 +13,9 @@ public abstract class ThreeOptionRadioEditor<T> : PropertyEditor
     where T : struct
 {
     private readonly CompositeDisposable _disposables = [];
-    private RadioButton _buttonA;
-    private RadioButton _buttonB;
-    private RadioButton _buttonC;
+    private RadioButton? _buttonA;
+    private RadioButton? _buttonB;
+    private RadioButton? _buttonC;
 
     protected T _value;
 
@@ -78,8 +78,8 @@ public abstract class ThreeOptionRadioEditor<T> : PropertyEditor
         PseudoClasses.Remove(PseudoClassA);
         PseudoClasses.Remove(PseudoClassB);
         PseudoClasses.Remove(PseudoClassC);
-        string pseudoClass = null;
-        RadioButton radioButton = null;
+        string? pseudoClass = null;
+        RadioButton? radioButton = null;
 
         var comparer = EqualityComparer<T>.Default;
         if (comparer.Equals(_value, ButtonAValue))
@@ -109,7 +109,7 @@ public abstract class ThreeOptionRadioEditor<T> : PropertyEditor
         }
     }
 
-    private void OnButtonClick(object sender, RoutedEventArgs e)
+    private void OnButtonClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button button)
             return;

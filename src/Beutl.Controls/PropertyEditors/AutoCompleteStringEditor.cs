@@ -22,8 +22,8 @@ public class AutoCompleteStringEditor : StringEditor
             nameof(FilterMode));
 
     private readonly CompositeDisposable _acDisposables = [];
-    private AutoCompleteBox _autoCompleteBox;
-    private string _acOldValue;
+    private AutoCompleteBox? _autoCompleteBox;
+    private string _acOldValue = string.Empty;
 
     public IEnumerable ItemsSource
     {

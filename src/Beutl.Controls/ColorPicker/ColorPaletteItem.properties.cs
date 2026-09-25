@@ -18,7 +18,7 @@ public partial class ColorPaletteItem
     /// <summary>
     /// Defines the <see cref="BorderBrush"/> property
     /// </summary>
-    public static readonly StyledProperty<IBrush> BorderBrushProperty =
+    public static readonly StyledProperty<IBrush?> BorderBrushProperty =
         Border.BorderBrushProperty.AddOwner<ColorPaletteItem>();
 
     /// <summary>
@@ -78,7 +78,7 @@ public partial class ColorPaletteItem
     /// <summary>
     /// Gets or sets the Border Brush this item should use when rendering
     /// </summary>
-    public IBrush BorderBrush
+    public IBrush? BorderBrush
     {
         get => GetValue(BorderBrushProperty);
         set => SetValue(BorderBrushProperty, value);

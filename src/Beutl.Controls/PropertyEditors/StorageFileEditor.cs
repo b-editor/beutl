@@ -13,16 +13,16 @@ public class StorageFileEditor : StringEditor
     public static readonly StyledProperty<FilePickerOpenOptions> OpenOptionsProperty =
         AvaloniaProperty.Register<StorageFileEditor, FilePickerOpenOptions>(nameof(OpenOptions));
 
-    public static readonly DirectProperty<StorageFileEditor, FileInfo> ValueProperty =
-        AvaloniaProperty.RegisterDirect<StorageFileEditor, FileInfo>(
+    public static readonly DirectProperty<StorageFileEditor, FileInfo?> ValueProperty =
+        AvaloniaProperty.RegisterDirect<StorageFileEditor, FileInfo?>(
             nameof(Value),
             o => o.Value,
             (o, v) => o.Value = v,
             defaultBindingMode: BindingMode.TwoWay);
 
-    private FileInfo _value;
-    private FileInfo _oldValue;
-    private string _oldText;
+    private FileInfo? _value;
+    private FileInfo? _oldValue;
+    private string _oldText = string.Empty;
 
     public StorageFileEditor()
     {
@@ -35,14 +35,14 @@ public class StorageFileEditor : StringEditor
         set => SetValue(OpenOptionsProperty, value);
     }
 
-    public FileInfo Value
+    public FileInfo? Value
     {
         get => _value;
         set
         {
             if (SetAndRaise(ValueProperty, ref _value, value))
             {
-                Text = value.FullName;
+                Text = value?.FullName ?? string.Empty;
             }
         }
     }
@@ -58,22 +58,23 @@ public class StorageFileEditor : StringEditor
         UpdateErrors();
     }
 
-    private async void OnButtonClick(object sender, RoutedEventArgs e)
+    private async void OnButtonClick(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this) is TopLevel { StorageProvider: { } storage })
         {
             IReadOnlyList<IStorageFile> result = await storage.OpenFilePickerAsync(OpenOptions);
             if (result is [var file] && file.TryGetLocalPath() is string localPath)
             {
-                FileInfo oldValue = Value;
+                FileInfo? oldValue = Value;
                 Value = new FileInfo(localPath);
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo>(Value, oldValue, ValueConfirmedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(Value, oldValue, ValueConfirmedEvent));
             }
         }
     }
 
     protected override void OnTextBoxGotFocus(FocusChangedEventArgs e)
     {
+        if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldText = Text;
@@ -83,12 +84,13 @@ public class StorageFileEditor : StringEditor
 
     protected override void OnTextBoxLostFocus(RoutedEventArgs e)
     {
+        if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             Value = GetStorageFile(Text);
             if (Text != _oldText)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo>(Value, _oldValue, ValueConfirmedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(Value, _oldValue, ValueConfirmedEvent));
             }
         }
     }
@@ -98,7 +100,7 @@ public class StorageFileEditor : StringEditor
         UpdateErrors();
     }
 
-    private static bool FileExists(string value)
+    private static bool FileExists(string? value)
     {
         if (string.IsNullOrEmpty(value))
         {
@@ -113,7 +115,7 @@ public class StorageFileEditor : StringEditor
         return false;
     }
 
-    private static FileInfo GetStorageFile(string value)
+    private static FileInfo? GetStorageFile(string value)
     {
         if (File.Exists(value))
         {
@@ -125,6 +127,7 @@ public class StorageFileEditor : StringEditor
 
     private void UpdateErrors()
     {
+        if (InnerTextBox == null) return;
         if (FileExists(InnerTextBox.Text))
         {
             DataValidationErrors.ClearErrors(InnerTextBox);
