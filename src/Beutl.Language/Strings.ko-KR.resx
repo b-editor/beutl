@@ -1633,4 +1633,13 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>디스크에서 완전히 삭제</value>
   </data>
+  <data name="OpenInFinder" xml:space="preserve">
+    <value>Finder에서 열기</value>
+  </data>
+  <data name="OpenInExplorer" xml:space="preserve">
+    <value>파일 탐색기에서 열기</value>
+  </data>
+  <data name="OpenInFileManager" xml:space="preserve">
+    <value>파일 관리자에서 열기</value>
+  </data>
 </root>

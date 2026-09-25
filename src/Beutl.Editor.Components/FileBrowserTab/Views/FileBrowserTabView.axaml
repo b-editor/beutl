@@ -28,6 +28,13 @@
                             <icons:FluentIcon Icon="Open" />
                         </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem Click="OnOpenInFileManagerClick"
+                              Header="{x:Static lang:Strings.OpenInFileManager}"
+                              Tag="OpenInFileManager">
+                        <MenuItem.Icon>
+                            <icons:FluentIcon Icon="OpenFolder" />
+                        </MenuItem.Icon>
+                    </MenuItem>
                     <Separator />
                     <MenuItem Click="OnRenameClick" Header="{x:Static lang:Strings.Rename}">
                         <MenuItem.Icon>

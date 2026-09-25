@@ -1633,4 +1633,13 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>从磁盘彻底删除</value>
   </data>
+  <data name="OpenInFinder" xml:space="preserve">
+    <value>在访达中打开</value>
+  </data>
+  <data name="OpenInExplorer" xml:space="preserve">
+    <value>在文件资源管理器中打开</value>
+  </data>
+  <data name="OpenInFileManager" xml:space="preserve">
+    <value>在文件管理器中打开</value>
+  </data>
 </root>

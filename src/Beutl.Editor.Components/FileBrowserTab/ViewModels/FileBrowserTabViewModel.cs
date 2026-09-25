@@ -47,6 +47,8 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     internal Func<FAContentDialog, Task<FAContentDialogResult>> ConfirmAsync { get; set; } =
         static dialog => dialog.ShowAsync();
 
+    internal Func<ProcessStartInfo, Task<bool>> LaunchFileManagerAsync { get; set; } = FileManagerLauncher.LaunchAsync;
+
     public FileBrowserTabViewModel(IEditorContext editorContext)
         : this(editorContext, editorContext.GetService<FileBrowserStorageProviderRegistry>())
     {
@@ -319,6 +321,30 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         {
             _logger.LogError(ex, "Failed to open file {Path}", path);
             NotificationService.ShowError(Strings.Open, MessageStrings.OperationFailed);
+        }
+    }
+
+    public async Task OpenInFileManagerAsync(FileSystemItemViewModel item)
+    {
+        string path = item.FullPath;
+        if (item.IsDirectory ? !Directory.Exists(path) : !File.Exists(path))
+        {
+            NotificationService.ShowError(FileManagerLauncher.MenuHeader, MessageStrings.FileDoesNotExist);
+            return;
+        }
+
+        try
+        {
+            if (!await LaunchFileManagerAsync(FileManagerLauncher.CreateStartInfo(path, item.IsDirectory)))
+            {
+                _logger.LogWarning("File manager exited unsuccessfully for {Path}", path);
+                NotificationService.ShowError(FileManagerLauncher.MenuHeader, MessageStrings.OperationFailed);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open {Path} in file manager", path);
+            NotificationService.ShowError(FileManagerLauncher.MenuHeader, MessageStrings.OperationFailed);
         }
     }
 
