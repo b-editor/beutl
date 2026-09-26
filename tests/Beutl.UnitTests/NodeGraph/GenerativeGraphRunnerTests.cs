@@ -346,6 +346,59 @@ public sealed class GenerativeGraphRunnerTests
         Assert.That(executor.Requests, Is.Empty);
     }
 
+    [Test]
+    public async Task VideoNodeUsesAnUpstreamPictureAsItsFirstFrameAndSetsReferencesAside()
+    {
+        var model = new GraphModel();
+        var image = new AiImageGenerationNode();
+        image.Prompt.Property!.SetValue("a cat");
+        var reference = new AiImageGenerationNode();
+        reference.Prompt.Property!.SetValue("a dog");
+        var video = new AiVideoGenerationNode();
+        video.Prompt.Property!.SetValue("the cat walks");
+        model.Nodes.AddRange([image, reference, video]);
+        model.Connect(video.FirstFrame, image.Output);
+        model.Connect(video.ImageReferences, reference.Output);
+        var executor = new FakeExecutor(_directory);
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, [video], force: false, CancellationToken.None);
+
+        var request = executor.Requests.OfType<AiVideoGenerationNodeRequest>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.FirstFrame, Is.Not.Null);
+            Assert.That(request.ImageReferences, Is.Empty, "As in the AI tab, a first frame sets references aside.");
+            Assert.That(request.DurationSeconds, Is.EqualTo(6));
+            Assert.That(request.Resolution, Is.EqualTo("720p"));
+            Assert.That(request.AspectRatio, Is.EqualTo("16:9"));
+            Assert.That(request.GenerateAudio, Is.True);
+            Assert.That(video.ActiveGeneration?.Video, Is.Not.Null);
+            Assert.That(video.ActiveGeneration?.Image, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task VideoNodeSendsReferencesWithoutAFirstFrameAndRejectsALoneLastFrame()
+    {
+        var model = new GraphModel();
+        var reference = new AiImageGenerationNode();
+        reference.Prompt.Property!.SetValue("a dog");
+        var video = new AiVideoGenerationNode();
+        video.Prompt.Property!.SetValue("the dog runs");
+        model.Nodes.AddRange([reference, video]);
+        model.Connect(video.ImageReferences, reference.Output);
+        var executor = new FakeExecutor(_directory);
+        var runner = new GenerativeGraphRunner(executor, new InlineHost());
+
+        await runner.RunAsync(model, [video], force: false, CancellationToken.None);
+        Assert.That(executor.Requests.OfType<AiVideoGenerationNodeRequest>().Single().ImageReferences, Has.Count.EqualTo(1));
+
+        model.Disconnect(video.ImageReferences.Connections.Single().Value!);
+        model.Connect(video.LastFrame, reference.Output);
+        await runner.RunAsync(model, [video], force: true, CancellationToken.None);
+        Assert.That(video.Status, Is.EqualTo(GenerativeNodeStatus.Failed));
+    }
+
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
     {
         var model = new GraphModel();
@@ -394,7 +447,8 @@ public sealed class GenerativeGraphRunnerTests
             using (var stream = File.Create(path))
                 bitmap.Save(stream, EncodedImageFormat.Png);
             int? seed = (request as AiImageGenerationNodeRequest)?.Seed;
-            return Task.FromResult(new GenerativeExecutionResult(new Uri(path), request.ModelId, seed));
+            return Task.FromResult(new GenerativeExecutionResult(
+                new Uri(path), request.ModelId, seed, IsVideo: request is AiVideoGenerationNodeRequest));
         }
     }
 

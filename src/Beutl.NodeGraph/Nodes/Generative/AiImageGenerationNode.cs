@@ -117,10 +117,13 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
         };
     }
 
-    protected internal override void OnGenerated(GenerationRecord record)
+    protected internal override void OnGenerated(GenerationRecord record) => AdvanceSeed(Seed, SeedControl);
+
+    /// <summary>Moves the seed on after a generation, as the seed control says.</summary>
+    internal static void AdvanceSeed(InputPort<int> seedPort, InputPort<GenerativeSeedControl> controlPort)
     {
-        GenerativeSeedControl control = SeedControl.Property?.GetValue() ?? GenerativeSeedControl.Fixed;
-        if (Seed.Property is not { } seed)
+        GenerativeSeedControl control = controlPort.Property?.GetValue() ?? GenerativeSeedControl.Fixed;
+        if (seedPort.Property is not { } seed)
             return;
         switch (control)
         {

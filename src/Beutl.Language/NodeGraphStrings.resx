@@ -396,4 +396,28 @@
   <data name="SeedControl_ModelDefault" xml:space="preserve">
     <value>Let the model choose</value>
   </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>Generate Video</value>
+  </data>
+  <data name="Port_Video" xml:space="preserve">
+    <value>Video</value>
+  </data>
+  <data name="Port_Resolution" xml:space="preserve">
+    <value>Resolution</value>
+  </data>
+  <data name="Port_GenerateAudio" xml:space="preserve">
+    <value>Generate Audio</value>
+  </data>
+  <data name="Port_FirstFrame" xml:space="preserve">
+    <value>First Frame</value>
+  </data>
+  <data name="Port_LastFrame" xml:space="preserve">
+    <value>Last Frame</value>
+  </data>
+  <data name="Port_ImageReferences" xml:space="preserve">
+    <value>Reference Images</value>
+  </data>
+  <data name="Port_VideoReferences" xml:space="preserve">
+    <value>Reference Videos</value>
+  </data>
 </root>

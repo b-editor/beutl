@@ -142,7 +142,7 @@ public abstract partial class GenerativeNode : GraphNode
     public virtual IPropertyAdapter<string>? ModelProperty => null;
 
     /// <summary>Marks a text input as a choice from the model catalog.</summary>
-    protected void RegisterChoice(InputPort<string> port, GenerativeChoiceKind kind)
+    protected void RegisterChoice(INodeMember port, GenerativeChoiceKind kind)
     {
         if (port.Property is { } property)
             GenerativeChoices.Register(property, new GenerativeChoice(this, kind));
@@ -238,11 +238,8 @@ public abstract partial class GenerativeNode : GraphNode
     /// <summary>Adds a finished generation and makes it the one the node outputs.</summary>
     internal GenerationRecord AddGeneration(GenerativeRequest request, GenerativeExecutionResult result)
     {
-        var image = new ImageSource();
-        image.ReadFrom(result.ResultFile);
         var record = new GenerationRecord
         {
-            Image = image,
             Fingerprint = request.Fingerprint,
             ParameterFingerprint = request.ParameterFingerprint,
             ModelId = result.ModelId,
@@ -250,6 +247,19 @@ public abstract partial class GenerativeNode : GraphNode
             Summary = request.Summary,
             CreatedAt = DateTimeOffset.Now,
         };
+        if (result.IsVideo)
+        {
+            var video = new VideoSource();
+            video.ReadFrom(result.ResultFile);
+            record.Video = video;
+        }
+        else
+        {
+            var image = new ImageSource();
+            image.ReadFrom(result.ResultFile);
+            record.Image = image;
+        }
+
         _generations.Add(record);
         ActiveGenerationId = record.Id;
         return record;
@@ -270,14 +280,19 @@ public abstract partial class GenerativeNode : GraphNode
     }
 
     /// <summary>The picture the node outputs, safe to read from the render thread.</summary>
-    protected ImageSource? ActiveImage => Volatile.Read(ref _active)?.Image;
+    protected ImageSource? ActiveImage => Volatile.Read(ref _active)?.Media as ImageSource;
+
+    /// <summary>The clip the node outputs, safe to read from the render thread.</summary>
+    protected VideoSource? ActiveVideo => Volatile.Read(ref _active)?.Media as VideoSource;
 
     private void RefreshActive()
     {
         GenerationRecord? record = ActiveGeneration;
         Volatile.Write(
             ref _active,
-            record?.Image is { } image ? new ActiveSnapshot(record.Id, image, record.ParameterFingerprint) : null);
+            record is not null && (record.Image ?? (MediaSource?)record.Video) is { } media
+                ? new ActiveSnapshot(record.Id, media, record.ParameterFingerprint)
+                : null);
         UpdateBusy();
         _statusMonitor?.Value = FormatStatus();
         StatusChanged?.Invoke(this, EventArgs.Empty);
@@ -359,6 +374,30 @@ public abstract partial class GenerativeNode : GraphNode
         SwapPreview(bitmap is null ? null : Ref<Bitmap>.Create(bitmap), activeId);
     }
 
+    /// <summary>Reads a clip handed to a generation as input.</summary>
+    protected static GenerativeFileInput? ReadVideoInput(VideoSource? source, string name)
+    {
+        if (source is not { HasUri: true } || !source.Uri.IsFile)
+            return null;
+
+        string path = source.Uri.LocalPath;
+        string extension = Path.GetExtension(path).ToLowerInvariant();
+        string mediaType = extension switch
+        {
+            ".mp4" => "video/mp4",
+            ".webm" => "video/webm",
+            _ => throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable),
+        };
+        try
+        {
+            return new GenerativeFileInput($"{name}{extension}", mediaType, File.ReadAllBytes(path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable, ex);
+        }
+    }
+
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
@@ -380,7 +419,7 @@ public abstract partial class GenerativeNode : GraphNode
             ActiveGenerationId = context.GetValue<Guid>(nameof(ActiveGenerationId));
     }
 
-    private sealed record ActiveSnapshot(Guid Id, ImageSource Image, string ParameterFingerprint);
+    private sealed record ActiveSnapshot(Guid Id, MediaSource Media, string ParameterFingerprint);
 
     public partial class Resource
     {
@@ -419,6 +458,54 @@ public abstract partial class GenerativeNode : GraphNode
             return _cachedOutput;
         }
 
+        private VideoSource.Resource? _videoResource;
+        private VideoSource? _lastVideo;
+        private VideoSourceRenderNode? _videoPreview;
+
+        /// <summary>
+        /// The active clip, and its first frame in the preview monitor. The frame is
+        /// decoded once per generation, not on every evaluation.
+        /// </summary>
+        protected VideoSource? UpdateActiveVideoOutput(GraphCompositionContext context)
+        {
+            GenerativeNode node = RequireOriginal();
+            VideoSource? source = node.ActiveVideo;
+            if (source is null)
+            {
+                ReleaseVideo();
+                node.RefreshActivePreview(null, context);
+                return null;
+            }
+
+            if (!ReferenceEquals(_lastVideo, source))
+            {
+                ReleaseVideo();
+                _videoResource = source.ToResource(context);
+                _lastVideo = source;
+            }
+            else
+            {
+                bool updateOnly = false;
+                _videoResource!.Update(source, context, ref updateOnly);
+            }
+
+            if (_videoPreview is null)
+                _videoPreview = new VideoSourceRenderNode(_videoResource, 0, Brushes.Resource.White, null);
+            else
+                _videoPreview.Update(_videoResource, 0, Brushes.Resource.White, null);
+            node.RefreshActivePreview(_videoPreview, context);
+            return source;
+        }
+
+        private void ReleaseVideo()
+        {
+            _videoPreview?.Dispose();
+            _videoPreview = null;
+            _videoResource?.Dispose();
+            _videoResource = null;
+            _lastVideo = null;
+        }
+
         private void ReleaseOutput()
         {
             _cachedOutput?.Dispose();
@@ -431,7 +518,10 @@ public abstract partial class GenerativeNode : GraphNode
         partial void PostDispose(bool disposing)
         {
             if (disposing)
+            {
                 ReleaseOutput();
+                ReleaseVideo();
+            }
         }
     }
 }

@@ -39,7 +39,8 @@ internal sealed class AiGenerativeModelCatalog(
                 new AiModelPickerOption(model, available).ToString(),
                 model.IsDefault,
                 available,
-                ToCapabilities(model.Image)));
+                ToCapabilities(model.Image),
+                ToVideoCapabilities(model.Video)));
         }
 
         return (loaded, models);
@@ -65,6 +66,27 @@ internal sealed class AiGenerativeModelCatalog(
 
         // A model that takes no picture cannot generate from one.
         return model.Image is not { } image || image.CanServeAnything(false);
+    }
+
+    private static GenerativeVideoCapabilities ToVideoCapabilities(AiVideoModelCapabilities? video)
+    {
+        AiVideoModelCapabilities c = video ?? AiVideoModelCapabilities.Unrestricted;
+        return new GenerativeVideoCapabilities(
+            c.DurationsSeconds.IsSpecified ? [.. c.DurationsSeconds.Values] : null,
+            c.Resolutions.IsSpecified ? [.. c.Resolutions.Values] : null,
+            c.AspectRatios.IsSpecified ? [.. c.AspectRatios.Values] : null,
+            c.SupportsAudio,
+            c.SupportsSeed,
+            c.SupportsFirstFrame,
+            // A last frame is only ever sent alongside a first one.
+            c.SupportsFirstFrame && c.SupportsLastFrame,
+            c.SupportsPromptToVideo,
+            c.SupportsInputReferences,
+            c.MaxInputReferences,
+            c.MaxInputReferenceBytes,
+            c.MaxVideoReferences,
+            c.MaxVideoReferenceBytes,
+            c.MaxPromptLength);
     }
 
     private static GenerativeImageCapabilities ToCapabilities(AiImageModelCapabilities? image)

@@ -15,7 +15,7 @@ public sealed class GenerativeChoicePropertyExtension : PropertyEditorExtension
     {
         foreach (IPropertyAdapter property in properties)
         {
-            if (property is IPropertyAdapter<string> && GenerativeChoices.TryGet(property, out _))
+            if (GenerativeChoices.TryGet(property, out _))
                 return [property];
         }
 
@@ -28,7 +28,7 @@ public sealed class GenerativeChoicePropertyExtension : PropertyEditorExtension
     {
         context = null;
         if (properties.Count == 1
-            && properties[0] is IPropertyAdapter<string> property
+            && properties[0] is { } property
             && GenerativeChoices.TryGet(property, out GenerativeChoice? choice))
         {
             context = new GenerativeChoiceEditorViewModel(property, choice, this);

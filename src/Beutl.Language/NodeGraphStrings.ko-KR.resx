@@ -396,4 +396,28 @@
   <data name="SeedControl_ModelDefault" xml:space="preserve">
     <value>모델에 맡기기</value>
   </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>동영상 생성</value>
+  </data>
+  <data name="Port_Video" xml:space="preserve">
+    <value>동영상</value>
+  </data>
+  <data name="Port_Resolution" xml:space="preserve">
+    <value>해상도</value>
+  </data>
+  <data name="Port_GenerateAudio" xml:space="preserve">
+    <value>오디오 생성</value>
+  </data>
+  <data name="Port_FirstFrame" xml:space="preserve">
+    <value>첫 프레임</value>
+  </data>
+  <data name="Port_LastFrame" xml:space="preserve">
+    <value>마지막 프레임</value>
+  </data>
+  <data name="Port_ImageReferences" xml:space="preserve">
+    <value>참조 이미지</value>
+  </data>
+  <data name="Port_VideoReferences" xml:space="preserve">
+    <value>참조 동영상</value>
+  </data>
 </root>

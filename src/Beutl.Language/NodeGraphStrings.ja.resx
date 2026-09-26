@@ -396,4 +396,28 @@
   <data name="SeedControl_ModelDefault" xml:space="preserve">
     <value>モデルに任せる</value>
   </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>動画を生成</value>
+  </data>
+  <data name="Port_Video" xml:space="preserve">
+    <value>動画</value>
+  </data>
+  <data name="Port_Resolution" xml:space="preserve">
+    <value>解像度</value>
+  </data>
+  <data name="Port_GenerateAudio" xml:space="preserve">
+    <value>音声を生成</value>
+  </data>
+  <data name="Port_FirstFrame" xml:space="preserve">
+    <value>最初のフレーム</value>
+  </data>
+  <data name="Port_LastFrame" xml:space="preserve">
+    <value>最後のフレーム</value>
+  </data>
+  <data name="Port_ImageReferences" xml:space="preserve">
+    <value>参照画像</value>
+  </data>
+  <data name="Port_VideoReferences" xml:space="preserve">
+    <value>参照動画</value>
+  </data>
 </root>

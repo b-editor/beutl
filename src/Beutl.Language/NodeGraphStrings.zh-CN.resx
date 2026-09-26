@@ -396,4 +396,28 @@
   <data name="SeedControl_ModelDefault" xml:space="preserve">
     <value>由模型决定</value>
   </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>生成视频</value>
+  </data>
+  <data name="Port_Video" xml:space="preserve">
+    <value>视频</value>
+  </data>
+  <data name="Port_Resolution" xml:space="preserve">
+    <value>分辨率</value>
+  </data>
+  <data name="Port_GenerateAudio" xml:space="preserve">
+    <value>生成音频</value>
+  </data>
+  <data name="Port_FirstFrame" xml:space="preserve">
+    <value>首帧</value>
+  </data>
+  <data name="Port_LastFrame" xml:space="preserve">
+    <value>尾帧</value>
+  </data>
+  <data name="Port_ImageReferences" xml:space="preserve">
+    <value>参考图像</value>
+  </data>
+  <data name="Port_VideoReferences" xml:space="preserve">
+    <value>参考视频</value>
+  </data>
 </root>

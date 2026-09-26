@@ -13,6 +13,7 @@ namespace Beutl.NodeGraph.Generative;
 public sealed class GenerationRecord : Hierarchical
 {
     public static readonly CoreProperty<ImageSource?> ImageProperty;
+    public static readonly CoreProperty<VideoSource?> VideoProperty;
     public static readonly CoreProperty<string> FingerprintProperty;
     public static readonly CoreProperty<string> ParameterFingerprintProperty;
     public static readonly CoreProperty<string?> ModelIdProperty;
@@ -25,6 +26,9 @@ public sealed class GenerationRecord : Hierarchical
     {
         ImageProperty = ConfigureProperty<ImageSource?, GenerationRecord>(nameof(Image))
             .Accessor(o => o.Image, (o, v) => o.Image = v)
+            .Register();
+        VideoProperty = ConfigureProperty<VideoSource?, GenerationRecord>(nameof(Video))
+            .Accessor(o => o.Video, (o, v) => o.Video = v)
             .Register();
         FingerprintProperty = ConfigureProperty<string, GenerationRecord>(nameof(Fingerprint))
             .Accessor(o => o.Fingerprint, (o, v) => o.Fingerprint = v)
@@ -56,6 +60,13 @@ public sealed class GenerationRecord : Hierarchical
     {
         get;
         set => SetAndRaise(ImageProperty, ref field, value);
+    }
+
+    /// <summary>The generated clip, for a video generation.</summary>
+    public VideoSource? Video
+    {
+        get;
+        set => SetAndRaise(VideoProperty, ref field, value);
     }
 
     /// <summary>Identifies the complete request, reference pictures included.</summary>

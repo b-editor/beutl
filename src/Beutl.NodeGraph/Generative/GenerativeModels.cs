@@ -9,6 +9,8 @@ public enum GenerativeChoiceKind
     Model,
     AspectRatio,
     Background,
+    Resolution,
+    Duration,
 }
 
 /// <summary>Marks a node input as a choice from the model catalog.</summary>
@@ -54,7 +56,44 @@ public sealed record GenerativeModelInfo(
     string Label,
     bool IsDefault,
     bool IsAvailable,
-    GenerativeImageCapabilities? Image);
+    GenerativeImageCapabilities? Image,
+    GenerativeVideoCapabilities? Video = null);
+
+/// <summary>What one video model takes. A null list means the model publishes none.</summary>
+public sealed record GenerativeVideoCapabilities(
+    IReadOnlyList<int>? DurationsSeconds,
+    IReadOnlyList<string>? Resolutions,
+    IReadOnlyList<string>? AspectRatios,
+    bool SupportsAudio,
+    bool SupportsSeed,
+    bool SupportsFirstFrame,
+    bool SupportsLastFrame,
+    bool SupportsPromptToVideo,
+    bool SupportsInputReferences,
+    int MaxImageReferences,
+    long MaxImageReferenceBytes,
+    int MaxVideoReferences,
+    long MaxVideoReferenceBytes,
+    int MaxPromptLength)
+{
+    /// <summary>What the AI tab offers for a model that publishes none, and its starting choice.</summary>
+    public static IReadOnlyList<int> DefaultDurations { get; } = [4, 6, 8];
+
+    public const int DefaultDuration = 6;
+
+    public static IReadOnlyList<string> DefaultResolutions { get; } = ["720p", "1080p"];
+
+    public static IReadOnlyList<string> DefaultAspectRatios { get; } = ["16:9", "9:16"];
+
+    public static GenerativeVideoCapabilities Unrestricted { get; } =
+        new(null, null, null, true, true, true, true, true, false, 0, 0, 0, 0, int.MaxValue);
+
+    public IReadOnlyList<int> DurationChoices => DurationsSeconds ?? DefaultDurations;
+
+    public IReadOnlyList<string> ResolutionChoices => Resolutions ?? DefaultResolutions;
+
+    public IReadOnlyList<string> AspectRatioChoices => AspectRatios ?? DefaultAspectRatios;
+}
 
 /// <summary>The models the editor can offer to generative nodes. Implemented by the application.</summary>
 public interface IGenerativeModelCatalog

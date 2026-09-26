@@ -310,6 +310,181 @@ public sealed class GenerativeNodeModelTests
         Assert.That(node.Model.Property!.GetValue(), Is.Empty, "Another task's model would be refused.");
     }
 
+    [AvaloniaTest]
+    public async Task VideoIsWaitedForAndSavedLeavingOutWhatTheModelDoesNotTake()
+    {
+        var videos = new FakeVideos(AiJobStatuses.Succeeded);
+        AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos);
+
+        GenerativeExecutionResult result = await executor.ExecuteAsync(
+            VideoRequest(duration: 4, audio: true, seed: 9),
+            new Progress<GenerativeProgress>(),
+            CancellationToken.None);
+
+        AiVideoGenerationRequest sent = videos.Requests.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(sent.GenerateAudio, Is.False, "The model takes no audio.");
+            Assert.That(sent.Seed, Is.Null, "The model takes no seed.");
+            Assert.That(sent.DurationSeconds, Is.EqualTo(4));
+            Assert.That(videos.Polls, Is.EqualTo(2), "Polled until the job succeeded.");
+            Assert.That(result.IsVideo, Is.True);
+            Assert.That(Path.GetDirectoryName(result.ResultFile.LocalPath),
+                Is.EqualTo(Path.Combine(_directory, "resources", "ai")));
+            Assert.That(File.ReadAllBytes(result.ResultFile.LocalPath), Is.EqualTo(FakeVideos.Clip));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task VideoLengthTheModelDoesNotOfferIsRefusedBeforeAnythingIsSent()
+    {
+        var videos = new FakeVideos(AiJobStatuses.Succeeded);
+        AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos);
+
+        string? message = null;
+        try
+        {
+            await executor.ExecuteAsync(VideoRequest(duration: 6, audio: false, seed: null),
+                new Progress<GenerativeProgress>(), CancellationToken.None);
+        }
+        catch (GenerativeExecutionException ex)
+        {
+            message = ex.Message;
+        }
+
+        Assert.That(message, Is.EqualTo(Strings.AiModelDoesNotSupportRequest));
+        Assert.That(videos.Requests, Is.Empty);
+    }
+
+    [AvaloniaTest]
+    public async Task FailedVideoJobReportsTheServersReason()
+    {
+        var videos = new FakeVideos(AiJobStatuses.Failed);
+        AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos);
+
+        string? message = null;
+        try
+        {
+            await executor.ExecuteAsync(VideoRequest(duration: 4, audio: false, seed: null),
+                new Progress<GenerativeProgress>(), CancellationToken.None);
+        }
+        catch (GenerativeExecutionException ex)
+        {
+            message = ex.Message;
+        }
+
+        Assert.That(message, Is.EqualTo(Strings.AiProviderError));
+    }
+
+    [AvaloniaTest]
+    public async Task VideoLengthMovesToTheNearestOneTheNewModelOffers()
+    {
+        AiModelOption Model(string id, bool isDefault, params int[] durations) => new(
+            new AiModelId(id), id, null, isDefault,
+            Video: new AiVideoModelCapabilities(
+                AiCapabilityDimension<int>.Supported(durations),
+                AiCapabilityDimension<string>.Unspecified,
+                AiCapabilityDimension<string>.Unspecified,
+                true,
+                true));
+        var catalog = new AiGenerativeModelCatalog(
+            new FixedCatalog(new AiModelCatalog(
+            [
+                KeyValuePair.Create(AiOperations.VideoGeneration,
+                    ImmutableArray.Create(Model("even", true, 4, 6, 8), Model("odd", false, 5, 10))),
+            ])),
+            new StubEntitlements());
+        var node = new AiVideoGenerationNode();
+        using var vm = CreateEditor(node.Duration.Property!);
+        EnumEditor editor = await ShowAsync(vm, catalog, e => e.Items.Count == 3);
+        Assert.That(editor.Items.Select(i => i.DisplayName).First(), Is.EqualTo($"4 {Strings.AiVideoSeconds}"));
+        Assert.That(editor.SelectedIndex, Is.EqualTo(1), "The AI tab starts on 6 seconds.");
+
+        node.Model.Property!.SetValue("odd");
+        HeadlessTestHelpers.Render(3);
+
+        Assert.That(node.Duration.Property!.GetValue(), Is.EqualTo(5));
+        Assert.That(editor.Items.Select(i => i.Value), Is.EqualTo(new object[] { 5, 10 }));
+    }
+
+    private AiGenerativeNodeExecutor CreateVideoExecutor(FakeVideos videos)
+    {
+        var quiet = new AiModelOption(new AiModelId("quiet"), "Quiet", null, true,
+            Video: new AiVideoModelCapabilities(
+                AiCapabilityDimension<int>.Supported([4, 8]),
+                AiCapabilityDimension<string>.Unspecified,
+                AiCapabilityDimension<string>.Unspecified,
+                SupportsAudio: false,
+                SupportsSeed: false));
+        var catalog = new AiGenerativeModelCatalog(
+            new FixedCatalog(new AiModelCatalog(
+                [KeyValuePair.Create(AiOperations.VideoGeneration, ImmutableArray.Create(quiet))])),
+            new StubEntitlements());
+        var kinds = new Moq.Mock<IAiJobKindRegistry>();
+        kinds.Setup(x => x.GetStatus(Moq.It.IsAny<AiJobKindId>(), Moq.It.IsAny<AiJobStatusId>()))
+            .Returns((AiJobKindId _, AiJobStatusId status) =>
+                status == AiJobStatuses.Succeeded ? new AiJobStatusSemantics(true, false, AiJobOutcomes.Succeeded)
+                : status == AiJobStatuses.Failed ? new AiJobStatusSemantics(true, false, AiJobOutcomes.Failed)
+                : new AiJobStatusSemantics(false, true));
+        var scene = new Scene(640, 480, "nodes") { Uri = new Uri(Path.Combine(_directory, "scene.scene")) };
+        return new AiGenerativeNodeExecutor(
+            scene, catalog, new CapturingImages(), new AlwaysAvailable(), new ClipContent(),
+            videos: videos, jobKinds: kinds.Object)
+        {
+            PollInterval = TimeSpan.Zero,
+        };
+    }
+
+    private static AiVideoGenerationNodeRequest VideoRequest(int duration, bool audio, int? seed)
+        => new(new AiVideoGenerationNode())
+        {
+            Prompt = "the cat walks",
+            DurationSeconds = duration,
+            Resolution = "720p",
+            AspectRatio = "16:9",
+            GenerateAudio = audio,
+            Seed = seed,
+            RequestKeySeed = Guid.NewGuid().ToString("N"),
+            ParameterFingerprint = "p",
+        };
+
+    private sealed class FakeVideos(AiJobStatusId outcome) : IAiVideoService
+    {
+        public static readonly byte[] Clip = [0, 0, 0, 24, 102, 116, 121, 112];
+
+        public List<AiVideoGenerationRequest> Requests { get; } = [];
+
+        public int Polls { get; private set; }
+
+        public Task<AiVideoGenerationResult> CreateAsync(AiVideoGenerationRequest request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new AiVideoGenerationResult(new AiJobId("job"), AiJobStatuses.Queued));
+        }
+
+        public Task<AiVideoJob> GetAsync(AiJobId jobId, CancellationToken cancellationToken)
+        {
+            Polls++;
+            AiJobStatusId status = Polls < 2 ? AiJobStatuses.Queued : outcome;
+            return Task.FromResult(new AiVideoJob(
+                jobId,
+                status,
+                null,
+                status == AiJobStatuses.Succeeded ? new Uri("https://beutl.test/content/clip") : null,
+                null,
+                new AiContentMetadata("clip.mp4", "video/mp4")));
+        }
+    }
+
+    private sealed class ClipContent : IAuthenticatedContentService
+    {
+        public async Task<AiContentDownload> CopyToAsync(Uri contentUri, Stream destination, CancellationToken cancellationToken)
+        {
+            await destination.WriteAsync(FakeVideos.Clip, cancellationToken);
+            return new AiContentDownload(new AiContentMetadata("clip.mp4", "video/mp4"));
+        }
+    }
+
     private static AiImageGenerationNodeRequest Request(
         GenerativeNode node, string? model, string aspectRatio, int? seed = null)
         => new(node)

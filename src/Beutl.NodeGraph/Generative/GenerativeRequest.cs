@@ -169,7 +169,54 @@ public sealed record AiImageEditNodeRequest : GenerativeRequest
 }
 
 /// <summary>What the executor produced: a file it saved and the parameters that made it.</summary>
-public sealed record GenerativeExecutionResult(Uri ResultFile, string? ModelId, int? Seed);
+public sealed record GenerativeExecutionResult(Uri ResultFile, string? ModelId, int? Seed, bool IsVideo = false);
+
+/// <summary>A media file handed to a generation as input, read at queue time.</summary>
+public sealed record GenerativeFileInput(string Name, string MediaType, byte[] Content)
+{
+    public string ContentHash { get; } = GenerativeFingerprint.Hash(Content);
+}
+
+public sealed record AiVideoGenerationNodeRequest : GenerativeRequest
+{
+    public AiVideoGenerationNodeRequest(GenerativeNode node) : base(node)
+    {
+    }
+
+    public override GenerativeOperation Operation => GenerativeOperation.VideoGeneration;
+
+    public required string Prompt { get; init; }
+
+    public required int DurationSeconds { get; init; }
+
+    public required string Resolution { get; init; }
+
+    public required string AspectRatio { get; init; }
+
+    public bool GenerateAudio { get; init; }
+
+    public int? Seed { get; init; }
+
+    public GenerativeImageInput? FirstFrame { get; init; }
+
+    public GenerativeImageInput? LastFrame { get; init; }
+
+    public IReadOnlyList<GenerativeImageInput> ImageReferences { get; init; } = [];
+
+    public IReadOnlyList<GenerativeFileInput> VideoReferences { get; init; } = [];
+
+    public override string Fingerprint => GenerativeFingerprint.Combine(
+        [
+            nameof(GenerativeOperation.VideoGeneration),
+            ParameterFingerprint,
+            FirstFrame?.ContentHash,
+            LastFrame?.ContentHash,
+            .. ImageReferences.Select(reference => reference.ContentHash),
+            .. VideoReferences.Select(reference => reference.ContentHash),
+        ]);
+
+    public override string Summary => Prompt.Length <= 80 ? Prompt : string.Concat(Prompt.AsSpan(0, 79), "…");
+}
 
 /// <summary>A report from a running generation: what it is doing and a rough picture.</summary>
 /// <remarks>The receiver owns <see cref="Preview"/> and must dispose it.</remarks>

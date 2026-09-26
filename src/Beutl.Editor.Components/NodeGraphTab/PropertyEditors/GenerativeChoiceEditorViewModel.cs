@@ -19,12 +19,12 @@ namespace Beutl.Editor.Components.NodeGraphTab.PropertyEditors;
 internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger<GenerativeChoiceEditorViewModel>();
-    private readonly IPropertyAdapter<string> _property;
+    private readonly IPropertyAdapter _property;
     private readonly GenerativeChoice _choice;
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<int> _selectedIndex = new(-1);
     private IReadOnlyList<GenerativeModelInfo> _models = [];
-    private string[] _values = [];
+    private object[] _values = [];
     private IReadOnlyList<EnumItem> _items = [];
     private WeakReference<EnumEditor>? _editorRef;
     private bool _loadStarted;
@@ -33,7 +33,7 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
     private bool _disposed;
 
     public GenerativeChoiceEditorViewModel(
-        IPropertyAdapter<string> property,
+        IPropertyAdapter property,
         GenerativeChoice choice,
         PropertyEditorExtension extension)
     {
@@ -124,41 +124,54 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
         if (_disposed)
             return;
 
-        string current = _property.GetValue() ?? string.Empty;
-        List<(string Value, string Label)> options = _choice.Kind switch
+        object current = _property.GetValue() ?? (_choice.Kind == GenerativeChoiceKind.Duration ? 0 : string.Empty);
+        GenerativeModelInfo? model = CurrentModel();
+        GenerativeVideoCapabilities? video = _choice.Node.Operation is GenerativeOperation.VideoGeneration or GenerativeOperation.VideoEdit
+            ? model?.Video ?? GenerativeVideoCapabilities.Unrestricted
+            : null;
+        GenerativeImageCapabilities image = model?.Image ?? new GenerativeImageCapabilities(null, null, true, int.MaxValue);
+        List<(object Value, string Label)> options = _choice.Kind switch
         {
             // As in the AI tab, there is no "default" entry: an input left empty shows and
             // runs on the model the picker would start on.
-            GenerativeChoiceKind.Model => _models.Select(model => (model.Id, model.Label)).ToList(),
+            GenerativeChoiceKind.Model => _models.Select(m => ((object)m.Id, m.Label)).ToList(),
             GenerativeChoiceKind.AspectRatio =>
-                Capabilities().AspectRatioChoices.Select(value => (value, value)).ToList(),
-            _ => Capabilities().BackgroundChoices.Select(value => (value, BackgroundLabel(value))).ToList(),
+                (video?.AspectRatioChoices ?? image.AspectRatioChoices).Select(v => ((object)v, v)).ToList(),
+            GenerativeChoiceKind.Resolution =>
+                (video ?? GenerativeVideoCapabilities.Unrestricted).ResolutionChoices.Select(v => ((object)v, v)).ToList(),
+            GenerativeChoiceKind.Duration =>
+                (video ?? GenerativeVideoCapabilities.Unrestricted).DurationChoices
+                    .Select(v => ((object)v, $"{v} {Strings.AiVideoSeconds}")).ToList(),
+            _ => image.BackgroundChoices.Select(v => ((object)v, BackgroundLabel(v))).ToList(),
         };
 
+        bool offered = options.Any(option => Equals(option.Value, current));
         if (_choice.Kind == GenerativeChoiceKind.Model)
         {
-            if (modelChanged && _catalogLoaded && current.Length > 0 && !options.Any(option => option.Value == current))
+            if (modelChanged && _catalogLoaded && current is string { Length: > 0 } && !offered)
             {
                 // Another task's model would be refused; fall back to this task's default.
                 _property.SetValue(string.Empty);
                 return;
             }
         }
-        else if (modelChanged && _catalogLoaded && options.Count > 0 && !options.Any(option => option.Value == current))
+        else if (modelChanged && _catalogLoaded && options.Count > 0 && !offered)
         {
             // As the dialog does: a value the new model does not take would only be
-            // refused, so fall back to the first one it does.
-            _property.SetValue(options[0].Value);
+            // refused, so fall back to one it does — the nearest length, or the first shape.
+            _property.SetValue(current is int seconds
+                ? options.Select(option => (int)option.Value).MinBy(value => Math.Abs(value - seconds))
+                : options[0].Value);
             return;
         }
 
-        string shown = current;
-        if (_choice.Kind == GenerativeChoiceKind.Model && current.Length == 0)
+        object shown = current;
+        if (_choice.Kind == GenerativeChoiceKind.Model && current is string { Length: 0 })
             shown = DefaultModel()?.Id ?? string.Empty;
 
         // A saved value the list no longer holds is still shown, so it is never silently lost.
-        if (shown.Length > 0 && !options.Any(option => option.Value == shown))
-            options.Add((shown, shown));
+        if (shown is not string { Length: 0 } && !options.Any(option => Equals(option.Value, shown)))
+            options.Add((shown, shown is int s2 ? $"{s2} {Strings.AiVideoSeconds}" : shown.ToString() ?? string.Empty));
 
         _values = options.Select(option => option.Value).ToArray();
         _items = options.Select(option => new EnumItem(option.Label, string.Empty, option.Value)).ToArray();
@@ -168,13 +181,12 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
         _selectedIndex.Value = Array.IndexOf(_values, shown);
     }
 
-    private GenerativeImageCapabilities Capabilities()
+    private GenerativeModelInfo? CurrentModel()
     {
         string? modelId = _choice.Node.ModelProperty?.GetValue();
-        GenerativeModelInfo? model = string.IsNullOrEmpty(modelId)
+        return string.IsNullOrEmpty(modelId)
             ? DefaultModel()
             : _models.FirstOrDefault(m => m.Id == modelId);
-        return model?.Image ?? new GenerativeImageCapabilities(null, null, true, int.MaxValue);
     }
 
     // The model the AI tab's picker starts on, which the executor also runs an empty input on.

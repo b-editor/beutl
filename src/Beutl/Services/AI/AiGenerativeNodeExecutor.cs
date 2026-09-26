@@ -23,7 +23,9 @@ internal sealed class AiGenerativeNodeExecutor(
     IAiOperationAvailabilityService availability,
     IAuthenticatedContentService content,
     IGenerativePromptLibrary? promptLibrary = null,
-    IAiImageEditingService? editing = null) : IGenerativeNodeExecutor
+    IAiImageEditingService? editing = null,
+    IAiVideoService? videos = null,
+    IAiJobKindRegistry? jobKinds = null) : IGenerativeNodeExecutor
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AiGenerativeNodeExecutor>();
 
@@ -37,6 +39,7 @@ internal sealed class AiGenerativeNodeExecutor(
         {
             AiImageGenerationNodeRequest image => GenerateImageAsync(image, progress, cancellationToken),
             AiImageEditNodeRequest edit => EditImageAsync(edit, progress, cancellationToken),
+            AiVideoGenerationNodeRequest video => GenerateVideoAsync(video, progress, cancellationToken),
             _ => throw new NotSupportedException($"{request.Operation} is not supported."),
         };
     }
@@ -162,6 +165,223 @@ internal sealed class AiGenerativeNodeExecutor(
         if (request.Prompt is { } typed)
             promptLibrary?.Record(request.Operation, typed);
         return new GenerativeExecutionResult(new Uri(path), model?.Value, null);
+    }
+
+    /// <summary>How long to wait between looks at a running clip, as the AI tab waits.</summary>
+    internal TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(5);
+
+    internal TimeSpan MaximumTransientPollDelay { get; init; } = TimeSpan.FromSeconds(30);
+
+    private async Task<GenerativeExecutionResult> GenerateVideoAsync(
+        AiVideoGenerationNodeRequest request,
+        IProgress<GenerativeProgress> progress,
+        CancellationToken cancellationToken)
+    {
+        if (videos is null || jobKinds is null)
+            throw new GenerativeExecutionException(Beutl.Language.NodeGraphStrings.Generative_ExecutorUnavailable);
+
+        (_, IReadOnlyList<GenerativeModelInfo> offered) =
+            await models.LoadAsync(request.CatalogOperationId, cancellationToken);
+        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
+        GenerativeVideoCapabilities limits = chosen?.Video ?? GenerativeVideoCapabilities.Unrestricted;
+        AiModelId? model = chosen is not null ? new AiModelId(chosen.Id) : null;
+
+        // Checked as the AI tab's controls check it, before anything is reserved.
+        string prompt = request.Prompt;
+        if (prompt.Length > Math.Min(limits.MaxPromptLength, AiRequestLimits.MaxPromptLength))
+            throw new GenerativeExecutionException(AiPromptComposer.PromptTooLongMessage);
+        if (!limits.DurationChoices.Contains(request.DurationSeconds)
+            || !limits.ResolutionChoices.Contains(request.Resolution, StringComparer.Ordinal)
+            || !limits.AspectRatioChoices.Contains(request.AspectRatio, StringComparer.Ordinal)
+            || (request.FirstFrame is not null && !limits.SupportsFirstFrame)
+            || (request.LastFrame is not null && !limits.SupportsLastFrame))
+        {
+            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
+        }
+
+        var references = new List<(string Role, AiUploadSource Upload, byte[] Bytes)>();
+        for (int i = 0; i < request.ImageReferences.Count; i++)
+        {
+            GenerativeImageInput image = request.ImageReferences[i];
+            references.Add(($"reference-image-{i}", AiUploadSource.FromBytes(image.Name, "image/png", image.EncodedPng), image.EncodedPng));
+        }
+
+        for (int i = 0; i < request.VideoReferences.Count; i++)
+        {
+            GenerativeFileInput video = request.VideoReferences[i];
+            references.Add(($"reference-video-{i}", AiUploadSource.FromBytes(video.Name, video.MediaType, video.Content), video.Content));
+        }
+
+        if (references.Count > 0
+            && (!limits.SupportsInputReferences
+                || request.ImageReferences.Count > limits.MaxImageReferences
+                || request.VideoReferences.Count > limits.MaxVideoReferences
+                || request.ImageReferences.Any(image => image.EncodedPng.LongLength > limits.MaxImageReferenceBytes)
+                || request.VideoReferences.Any(video => video.Content.LongLength > limits.MaxVideoReferenceBytes)))
+        {
+            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
+        }
+
+        if (request.FirstFrame is null && references.Count == 0 && !limits.SupportsPromptToVideo)
+            throw new GenerativeExecutionException(Strings.AiChooseVideoInput);
+        if (prompt.Length == 0 && request.FirstFrame is null && references.Count == 0)
+            throw new GenerativeExecutionException(Strings.AiPromptRequired);
+        try
+        {
+            AiVideoInputLimits.ValidateReferences(references.Select(reference => reference.Upload).ToArray());
+        }
+        catch (AiFileTooLargeException)
+        {
+            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
+        }
+        catch (ArgumentException)
+        {
+            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
+        }
+
+        // What a model does not take is left out, as the AI tab switches the control off.
+        bool generateAudio = limits.SupportsAudio && request.GenerateAudio;
+        int? seed = limits.SupportsSeed ? request.Seed : null;
+        AiUploadSource? firstFrame = request.FirstFrame is { } first
+            ? AiUploadSource.FromBytes(first.Name, first.EncodedPng)
+            : null;
+        AiUploadSource? lastFrame = request.LastFrame is { } last
+            ? AiUploadSource.FromBytes(last.Name, last.EncodedPng)
+            : null;
+
+        // Laid out as the dialog lays out its key.
+        string?[] parts =
+        [
+            prompt,
+            request.DurationSeconds.ToString(CultureInfo.InvariantCulture),
+            request.Resolution,
+            request.AspectRatio,
+            generateAudio ? "audio" : "silent",
+            seed?.ToString(CultureInfo.InvariantCulture),
+            model?.Value,
+            request.FirstFrame is { } f ? AiRequestKey.ContentStamp(f.EncodedPng) : string.Empty,
+            request.LastFrame is { } l ? AiRequestKey.ContentStamp(l.EncodedPng) : string.Empty,
+        ];
+        if (references.Count > 0)
+        {
+            parts =
+            [
+                .. parts,
+                null,
+                null,
+                null,
+                .. references.Select(reference =>
+                    reference.Role + ":" + reference.Upload.MediaType + ":" + AiRequestKey.ContentStamp(reference.Bytes)),
+            ];
+        }
+
+        using var requestKey = new AiRequestKey(seed: request.RequestKeySeed, operation: "video.generate");
+        AiRequestName name = requestKey.NameFor(parts);
+        try
+        {
+            progress.Report(new GenerativeProgress(Strings.AiVideoSubmitting));
+            AiVideoGenerationResult response = await AiMeteredDispatch.SendAsync(
+                requestKey,
+                name,
+                null,
+                token => availability.CheckAsync(
+                    new AiOperationAvailabilityRequest.Video(AiOperations.VideoGeneration, request.DurationSeconds, model),
+                    token),
+                token => videos.CreateAsync(
+                    new AiVideoGenerationRequest(
+                        prompt,
+                        request.DurationSeconds,
+                        new AiVideoResolutionId(request.Resolution),
+                        new AiVideoAspectRatioId(request.AspectRatio),
+                        generateAudio,
+                        seed: seed,
+                        firstFrame: firstFrame,
+                        lastFrame: lastFrame,
+                        model: model,
+                        idempotencyKey: name.Key,
+                        inputReferences: references.Select(reference => reference.Upload).ToArray()),
+                    token),
+                n => requestKey.WithdrawAfterNoReservation(n),
+                cancellationToken);
+
+            // Past here the clip has been reserved and paid for; the key is the way back.
+            string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
+            promptLibrary?.Record(request.Operation, prompt);
+            return new GenerativeExecutionResult(new Uri(path), model?.Value, seed, IsVideo: true);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
+        {
+            if (failure.RetiresName)
+                requestKey.Retire(name);
+            if (failure.IsResultDownloadFailure)
+                s_logger.LogError(ex, "Failed to download the AI result.");
+            throw new GenerativeExecutionException(failure.Message, ex);
+        }
+        catch (Exception ex) when (ex is not GenerativeExecutionException)
+        {
+            s_logger.LogError(ex, "Failed to run a generative node.");
+            throw new GenerativeExecutionException(Strings.AiUnexpectedError, ex);
+        }
+    }
+
+    /// <summary>
+    /// Waits for a clip as the AI tab waits for it and saves it next to the scene. The name
+    /// is retired only once the server has settled the job.
+    /// </summary>
+    private async Task<string> WaitAndSaveVideoAsync(
+        AiJobId jobId,
+        AiRequestKey requestKey,
+        AiRequestName name,
+        IProgress<GenerativeProgress> progress,
+        CancellationToken cancellationToken)
+    {
+        (AiVideoJob job, AiJobStatusSemantics status) = await AiVideoJobWaiter.WaitAsync(
+            videos!,
+            jobKinds!,
+            jobId,
+            () => progress.Report(new GenerativeProgress(Strings.AiVideoProcessing)),
+            PollInterval,
+            MaximumTransientPollDelay,
+            Task.Delay,
+            cancellationToken);
+        if (status.Outcome == AiJobOutcomes.Succeeded)
+        {
+            if (job.ContentUri is not { } contentUri)
+                throw new InvalidOperationException("A successful video job did not provide content.");
+
+            progress.Report(new GenerativeProgress(Beutl.Language.NodeGraphStrings.Generative_Loading));
+            string downloaded = await AiVideoResultDownload.DownloadAsync(
+                content, contentUri, job.ContentMetadata, cancellationToken);
+            try
+            {
+                string directory = AiResultImporter.GetResourceDirectory(scene);
+                Directory.CreateDirectory(directory);
+                string destination = Path.Combine(directory, $"{Guid.NewGuid():N}{Path.GetExtension(downloaded)}");
+                File.Move(downloaded, destination);
+                requestKey.Retire(name);
+                return destination;
+            }
+            catch
+            {
+                if (File.Exists(downloaded))
+                    File.Delete(downloaded);
+                throw;
+            }
+        }
+
+        if (status.IsTerminal)
+        {
+            // Settled and refunded: the name would only ever answer with this failure.
+            requestKey.Retire(name);
+            throw new GenerativeExecutionException(AiErrorMessage.Localize(job.Error) ?? Strings.AiProviderError);
+        }
+
+        // An unknown status is not an outcome; the key stays so queueing again collects it.
+        throw new GenerativeExecutionException(Strings.AiResultUnavailable);
     }
 
     internal static byte[] ExpandCanvas(byte[] encodedPng, int expansionPercent)
