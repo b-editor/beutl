@@ -104,18 +104,25 @@ public class GLSLShaderTests
                 using EffectTarget baseline = context.CreateNativeTargetLike(input);
                 using EffectTarget warmup = shader.Render(context, inputs, input.Bounds, new DummyPush());
             }
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < iterations; i++)
+            // The declined-allocation path also logs warnings. Sample its steady-state minimum so
+            // one-off runtime/logging initialization cannot be mistaken for a per-pass allocation.
+            long baselineBytes = long.MaxValue;
+            long renderBytes = long.MaxValue;
+            for (int sample = 0; sample < 5; sample++)
             {
-                using EffectTarget baseline = context.CreateNativeTargetLike(input);
+                long before = GC.GetAllocatedBytesForCurrentThread();
+                for (int i = 0; i < iterations; i++)
+                {
+                    using EffectTarget baseline = context.CreateNativeTargetLike(input);
+                }
+                baselineBytes = Math.Min(baselineBytes, GC.GetAllocatedBytesForCurrentThread() - before);
+                before = GC.GetAllocatedBytesForCurrentThread();
+                for (int i = 0; i < iterations; i++)
+                {
+                    using EffectTarget result = shader.Render(context, inputs, input.Bounds, new DummyPush());
+                }
+                renderBytes = Math.Min(renderBytes, GC.GetAllocatedBytesForCurrentThread() - before);
             }
-            long baselineBytes = GC.GetAllocatedBytesForCurrentThread() - before;
-            before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < iterations; i++)
-            {
-                using EffectTarget result = shader.Render(context, inputs, input.Bounds, new DummyPush());
-            }
-            long renderBytes = GC.GetAllocatedBytesForCurrentThread() - before;
             Assert.That(renderBytes, Is.EqualTo(baselineBytes),
                 "input storage and constant binding must not allocate in a warmed render loop");
             Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
