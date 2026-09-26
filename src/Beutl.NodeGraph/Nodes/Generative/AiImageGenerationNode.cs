@@ -26,21 +26,25 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
     internal const int MinSeed = 0;
     internal const int MaxSeed = int.MaxValue;
 
+    // The AI tab's fallback when the scene gives no better shape.
+    internal const string DefaultAspectRatio = "16:9";
+
     public AiImageGenerationNode()
     {
         Output = AddOutput<ImageSourceRenderNode?>("Image", NodePortDisplays.Image);
+        // In the AI tab's order. Members are matched by name when loading, so reordering is safe.
         Prompt = AddInput<string>("Prompt", NodePortDisplays.Prompt);
-        References = AddListInput<RenderNode?>("References", NodePortDisplays.References);
-        Model = AddInput<string>("Model", NodePortDisplays.Model);
         AspectRatio = AddInput<string>("AspectRatio", NodePortDisplays.AspectRatio);
+        Model = AddInput<string>("Model", NodePortDisplays.Model);
         Background = AddInput<string>("Background", NodePortDisplays.Background);
         Seed = AddInput<int>("Seed", NodePortDisplays.Seed);
         SeedControl = AddInput<GenerativeSeedControl>("SeedControl", NodePortDisplays.SeedControl);
+        References = AddListInput<RenderNode?>("References", NodePortDisplays.References);
         AddGenerativeMonitors(NodePortDisplays.Preview, NodePortDisplays.Status);
 
         Prompt.Property?.SetValue(string.Empty);
         Model.Property?.SetValue(string.Empty);
-        AspectRatio.Property?.SetValue("1:1");
+        AspectRatio.Property?.SetValue(DefaultAspectRatio);
         Background.Property?.SetValue("auto");
         Seed.Property?.SetValue(Random.Shared.Next(MinSeed, MaxSeed));
         UseMultilineEditor(Prompt);
@@ -96,7 +100,7 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
         return new AiImageGenerationNodeRequest(this)
         {
             Prompt = r.Prompt!.Trim(),
-            AspectRatio = string.IsNullOrWhiteSpace(r.AspectRatio) ? "1:1" : r.AspectRatio!.Trim(),
+            AspectRatio = string.IsNullOrWhiteSpace(r.AspectRatio) ? DefaultAspectRatio : r.AspectRatio!.Trim(),
             Background = string.IsNullOrWhiteSpace(r.Background) ? "auto" : r.Background!.Trim(),
             Seed = SeedFor(r),
             ModelId = string.IsNullOrWhiteSpace(r.Model) ? null : r.Model!.Trim(),

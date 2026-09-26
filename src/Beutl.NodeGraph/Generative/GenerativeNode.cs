@@ -154,6 +154,7 @@ public abstract partial class GenerativeNode : GraphNode
     {
         Status = status;
         StatusMessage = message;
+        UpdateBusy();
         _statusMonitor?.Value = FormatStatus();
         StatusChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -178,6 +179,28 @@ public abstract partial class GenerativeNode : GraphNode
         }
 
         previous?.Dispose();
+        UpdateBusy();
+    }
+
+    /// <summary>
+    /// A ring while generating, and "loading" while the active generation has not reached
+    /// the preview yet — after opening a project or switching to another kept result.
+    /// </summary>
+    private void UpdateBusy()
+    {
+        if (_previewMonitor is null)
+            return;
+        if (Status == GenerativeNodeStatus.Running)
+        {
+            _previewMonitor.SetBusy(true);
+            return;
+        }
+
+        Guid activeId = Volatile.Read(ref _active)?.Id ?? Guid.Empty;
+        bool loading;
+        lock (_previewLock)
+            loading = activeId != Guid.Empty && _previewShownFor != activeId;
+        _previewMonitor.SetBusy(loading, loading ? NodeGraphStrings.Generative_Loading : null);
     }
 
     /// <summary>Makes a kept generation the one the node outputs.</summary>
@@ -244,6 +267,7 @@ public abstract partial class GenerativeNode : GraphNode
         Volatile.Write(
             ref _active,
             record?.Image is { } image ? new ActiveSnapshot(record.Id, image, record.ParameterFingerprint) : null);
+        UpdateBusy();
         _statusMonitor?.Value = FormatStatus();
         StatusChanged?.Invoke(this, EventArgs.Empty);
     }

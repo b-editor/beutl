@@ -345,9 +345,6 @@
   <data name="AiPrompt" xml:space="preserve">
     <value>プロンプト</value>
   </data>
-  <data name="Generative_ModelDefault" xml:space="preserve">
-    <value>既定のモデル</value>
-  </data>
   <data name="Generative_History" xml:space="preserve">
     <value>生成履歴</value>
   </data>
@@ -371,5 +368,8 @@
   </data>
   <data name="Generative_SaveTemplate" xml:space="preserve">
     <value>テンプレートとして保存…</value>
+  </data>
+  <data name="Generative_Loading" xml:space="preserve">
+    <value>読み込み中...</value>
   </data>
 </root>

@@ -112,11 +112,9 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
         string current = _property.GetValue() ?? string.Empty;
         List<(string Value, string Label)> options = _choice.Kind switch
         {
-            GenerativeChoiceKind.Model =>
-            [
-                (string.Empty, NodeGraphStrings.Generative_ModelDefault),
-                .. _models.Select(model => (model.Id, model.Label)),
-            ],
+            // As in the AI tab, there is no "default" entry: an input left empty shows and
+            // runs on the model the picker would start on.
+            GenerativeChoiceKind.Model => _models.Select(model => (model.Id, model.Label)).ToList(),
             GenerativeChoiceKind.AspectRatio =>
                 Capabilities().AspectRatioChoices.Select(value => (value, value)).ToList(),
             _ => Capabilities().BackgroundChoices.Select(value => (value, BackgroundLabel(value))).ToList(),
@@ -130,26 +128,34 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
             return;
         }
 
+        string shown = current;
+        if (_choice.Kind == GenerativeChoiceKind.Model && current.Length == 0)
+            shown = DefaultModel()?.Id ?? string.Empty;
+
         // A saved value the list no longer holds is still shown, so it is never silently lost.
-        if (!options.Any(option => option.Value == current))
-            options.Add((current, current.Length == 0 ? NodeGraphStrings.Generative_ModelDefault : current));
+        if (shown.Length > 0 && !options.Any(option => option.Value == shown))
+            options.Add((shown, shown));
 
         _values = options.Select(option => option.Value).ToArray();
         _items = options.Select(option => new EnumItem(option.Label, string.Empty, option.Value)).ToArray();
         if (_editorRef?.TryGetTarget(out EnumEditor? editor) == true)
             editor.Items = _items;
         _selectedIndex.Value = -1;
-        _selectedIndex.Value = Array.IndexOf(_values, current);
+        _selectedIndex.Value = Array.IndexOf(_values, shown);
     }
 
     private GenerativeImageCapabilities Capabilities()
     {
         string? modelId = _choice.Node.ModelProperty?.GetValue();
         GenerativeModelInfo? model = string.IsNullOrEmpty(modelId)
-            ? _models.FirstOrDefault(m => m.IsAvailable && m.IsDefault) ?? _models.FirstOrDefault(m => m.IsAvailable)
+            ? DefaultModel()
             : _models.FirstOrDefault(m => m.Id == modelId);
         return model?.Image ?? new GenerativeImageCapabilities(null, null, true, int.MaxValue);
     }
+
+    // The model the AI tab's picker starts on, which the executor also runs an empty input on.
+    private GenerativeModelInfo? DefaultModel()
+        => _models.FirstOrDefault(m => m.IsAvailable && m.IsDefault) ?? _models.FirstOrDefault(m => m.IsAvailable);
 
     private static string BackgroundLabel(string value) => value switch
     {

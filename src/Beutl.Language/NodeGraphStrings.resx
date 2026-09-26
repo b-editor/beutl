@@ -345,9 +345,6 @@
   <data name="AiPrompt" xml:space="preserve">
     <value>Prompt</value>
   </data>
-  <data name="Generative_ModelDefault" xml:space="preserve">
-    <value>Default model</value>
-  </data>
   <data name="Generative_History" xml:space="preserve">
     <value>Generation History</value>
   </data>
@@ -371,5 +368,8 @@
   </data>
   <data name="Generative_SaveTemplate" xml:space="preserve">
     <value>Save as Template…</value>
+  </data>
+  <data name="Generative_Loading" xml:space="preserve">
+    <value>Loading...</value>
   </data>
 </root>

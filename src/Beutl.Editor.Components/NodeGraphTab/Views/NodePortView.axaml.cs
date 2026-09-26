@@ -444,8 +444,33 @@ public partial class NodePortView : UserControl
                     Disposable.Create(() => monitorObj.ImageInvalidated -= OnImageInvalidated)
                         .DisposeWith(_disposables);
 
-                    Grid.SetColumn(bitmapView, 1);
-                    grid.Children.Add(bitmapView);
+                    var ring = new ProgressRing
+                    {
+                        Width = 32,
+                        Height = 32,
+                        IsIndeterminate = true,
+                    };
+                    var busyText = new TextBlock
+                    {
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                    };
+                    var busy = new StackPanel
+                    {
+                        Margin = new Thickness(8),
+                        Spacing = 4,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        Children = { ring, busyText },
+                    };
+                    busy.Bind(IsVisibleProperty, monitorObj.IsBusy.ToBinding()).DisposeWith(_disposables);
+                    busyText.Bind(TextBlock.TextProperty, monitorObj.BusyText.ToBinding()).DisposeWith(_disposables);
+                    busyText.Bind(
+                            IsVisibleProperty,
+                            monitorObj.BusyText.Select(text => !string.IsNullOrEmpty(text)).ToBinding())
+                        .DisposeWith(_disposables);
+                    var content = new Panel { Children = { bitmapView, busy } };
+                    Grid.SetColumn(content, 1);
+                    grid.Children.Add(content);
                     break;
                 }
         }

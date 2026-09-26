@@ -6,5 +6,9 @@ public interface INodeMonitor : INodeMember
 
     bool IsEnabled { get; set; }
 
+    bool IsBusy => false;
+
+    string? BusyText => null;
+
     event EventHandler? ContentChanged;
 }

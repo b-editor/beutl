@@ -6,6 +6,7 @@ using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
+using Beutl.Controls;
 using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
@@ -151,6 +152,46 @@ public class NodeGraphGenerativeMenuTests
 
             ((GraphNodeViewModel)promptView.DataContext!).SavePromptTemplate(" Mine ");
             Assert.That(library.Saved, Is.EqualTo(new[] { ("Mine", prompt.ComposePrompt()) }));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void PreviewShowsAProgressRingAndLoadingTextWhileBusy()
+    {
+        var graph = new GraphModel();
+        var node = new AiImageGenerationNode();
+        graph.Nodes.Add(node);
+        using var vm = new NodeGraphViewModel(graph, CreateEditor().Object);
+        var view = new NodeGraphView { DataContext = vm };
+        var window = new Window { Content = view, Width = 900, Height = 700 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var preview = (NodeMonitor<Beutl.Media.Source.Ref<Beutl.Media.Bitmap>?>)node.Items.OfType<INodeMonitor>()
+                .Single(m => m.Name == "GenerationPreview");
+            ProgressRing ring = view.GetVisualDescendants().OfType<ProgressRing>().Single();
+            Assert.That(ring.IsEffectivelyVisible, Is.False);
+
+            preview.SetBusy(true, NodeGraphStrings.Generative_Loading);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(ring.IsEffectivelyVisible, Is.True);
+            Assert.That(view.GetVisualDescendants().OfType<TextBlock>()
+                .Any(t => t.IsEffectivelyVisible && t.Text == NodeGraphStrings.Generative_Loading), Is.True);
+
+            preview.SetBusy(true);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(ring.IsEffectivelyVisible, Is.True);
+            Assert.That(view.GetVisualDescendants().OfType<TextBlock>()
+                .Any(t => t.IsEffectivelyVisible && t.Text == NodeGraphStrings.Generative_Loading), Is.False);
+
+            preview.SetBusy(false);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(ring.IsEffectivelyVisible, Is.False);
         }
         finally
         {

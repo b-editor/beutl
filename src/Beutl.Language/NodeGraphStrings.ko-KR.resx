@@ -345,9 +345,6 @@
   <data name="AiPrompt" xml:space="preserve">
     <value>프롬프트</value>
   </data>
-  <data name="Generative_ModelDefault" xml:space="preserve">
-    <value>기본 모델</value>
-  </data>
   <data name="Generative_History" xml:space="preserve">
     <value>생성 기록</value>
   </data>
@@ -371,5 +368,8 @@
   </data>
   <data name="Generative_SaveTemplate" xml:space="preserve">
     <value>템플릿으로 저장…</value>
+  </data>
+  <data name="Generative_Loading" xml:space="preserve">
+    <value>불러오는 중...</value>
   </data>
 </root>

@@ -249,6 +249,36 @@ public sealed class GenerativeGraphRunnerTests
         Assert.That(value?.Value.Width, Is.EqualTo(8));
     }
 
+    [Test]
+    public async Task PreviewIsBusyWhileGeneratingAndLoadingUntilTheResultIsShown()
+    {
+        var model = new GraphModel();
+        var node = new AiImageGenerationNode();
+        node.Prompt.Property!.SetValue("a cat");
+        model.Nodes.Add(node);
+        var preview = (NodeMonitor<Beutl.Media.Source.Ref<Bitmap>?>)node.Items.OfType<INodeMonitor>()
+            .Single(m => m.Name == "GenerationPreview");
+        preview.IsEnabled = true;
+        var busyWhileRunning = new List<(bool, string?)>();
+        var executor = new FakeExecutor(_directory)
+        {
+            OnExecute = () => busyWhileRunning.Add((preview.IsBusy, preview.BusyText)),
+        };
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
+
+        Assert.That(busyWhileRunning, Is.EqualTo(new[] { (true, (string?)null) }), "A bare ring while generating.");
+        Assert.That(preview.IsBusy, Is.True, "Generated, but not shown yet.");
+        Assert.That(preview.BusyText, Is.EqualTo(Beutl.Language.NodeGraphStrings.Generative_Loading));
+
+        using var snapshot = new GraphSnapshot();
+        snapshot.Build(model, CompositionContext.Default);
+        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+
+        Assert.That(preview.IsBusy, Is.False);
+        Assert.That(preview.BusyText, Is.Null);
+    }
+
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
     {
         var model = new GraphModel();
@@ -280,12 +310,15 @@ public sealed class GenerativeGraphRunnerTests
 
         public GenerativeNode? FailFor { get; init; }
 
+        public Action? OnExecute { get; init; }
+
         public Task<GenerativeExecutionResult> ExecuteAsync(
             GenerativeRequest request,
             IProgress<GenerativeProgress> progress,
             CancellationToken cancellationToken)
         {
             Requests.Add(request);
+            OnExecute?.Invoke();
             if (ReferenceEquals(request.Node, FailFor))
                 throw new GenerativeExecutionException("refused");
 

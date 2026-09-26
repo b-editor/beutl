@@ -63,22 +63,22 @@ public sealed class GenerativeNodeModelTests
     {
         var node = new AiImageGenerationNode();
         using var vm = CreateEditor(node.Model.Property!);
-        EnumEditor editor = await ShowAsync(vm, CreateCatalog());
+        EnumEditor editor = await ShowAsync(vm, CreateCatalog(), e => e.Items.Count == 2);
 
         Assert.That(editor.Items.Select(item => item.DisplayName), Is.EqualTo(new[]
         {
-            NodeGraphStrings.Generative_ModelDefault,
             $"Wide — {Strings.AiModelCostLow}",
             $"Square — {Strings.AiModelCostHigh}",
-        }));
-        Assert.That(editor.SelectedIndex, Is.Zero, "An empty model is the default model.");
+        }), "No separate default entry, as in the AI tab.");
+        Assert.That(editor.SelectedIndex, Is.Zero, "An empty model shows the model the picker starts on.");
+        Assert.That(node.Model.Property!.GetValue(), Is.Empty, "Showing the default does not edit the project.");
     }
 
     [AvaloniaTest]
     public async Task ChoosingANarrowerModelNarrowsAndResetsTheAspectRatio()
     {
         var node = new AiImageGenerationNode();
-        node.AspectRatio.Property!.SetValue("16:9");
+        Assert.That(node.AspectRatio.Property!.GetValue(), Is.EqualTo("16:9"), "The AI tab's default shape.");
         using var vm = CreateEditor(node.AspectRatio.Property!);
         EnumEditor editor = await ShowAsync(vm, CreateCatalog(), e => e.Items.Count == 2);
         Assert.That(editor.Items.Select(item => item.Value), Is.EqualTo(new[] { "16:9", "1:1" }),
@@ -219,6 +219,17 @@ public sealed class GenerativeNodeModelTests
         var single = new StringEditor();
         aspect.Accept(single);
         Assert.That(single.Classes.Contains("multiline"), Is.False, "Only prompts are multi-line.");
+    }
+
+    [Test]
+    public void InputsFollowTheAiTabsOrder()
+    {
+        var node = new AiImageGenerationNode();
+        string[] inputs = node.Items.OfType<IInputPort>().Select(port => port.Name).ToArray();
+        Assert.That(inputs, Is.EqualTo(new[]
+        {
+            "Prompt", "AspectRatio", "Model", "Background", "Seed", "SeedControl", "References",
+        }));
     }
 
     private static AiImageGenerationNodeRequest Request(

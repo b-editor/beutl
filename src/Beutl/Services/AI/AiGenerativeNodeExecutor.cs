@@ -111,6 +111,7 @@ internal sealed class AiGenerativeNodeExecutor(
                 cancellationToken);
 
             // Past here the picture has been paid for; the key stays the way back to it.
+            progress.Report(new GenerativeProgress(Beutl.Language.NodeGraphStrings.Generative_Loading));
             byte[] encoded = await AiImageResultDownload.DownloadEncodedAsync(
                 content,
                 response.ContentUri,
