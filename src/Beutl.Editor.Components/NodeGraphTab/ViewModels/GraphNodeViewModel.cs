@@ -8,6 +8,7 @@ using Avalonia.Media.Immutable;
 using Beutl.Controls;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
+using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Group;
@@ -102,6 +103,33 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
     public ReactiveCommand Delete { get; } = new();
 
     public bool IsGenerative => GraphNode is GenerativeNode;
+
+    public void SelectGeneration(Guid id)
+    {
+        if (GraphNode is GenerativeNode node && node.ActiveGenerationId != id)
+        {
+            node.SelectGeneration(id);
+            CommitGenerationEdit();
+        }
+    }
+
+    public void ToggleActivePinned()
+    {
+        if (GraphNode is GenerativeNode { ActiveGeneration: { } active })
+        {
+            active.IsPinned = !active.IsPinned;
+            CommitGenerationEdit();
+        }
+    }
+
+    public void PruneGenerations()
+    {
+        if (GraphNode is GenerativeNode node && node.PruneGenerations() > 0)
+            CommitGenerationEdit();
+    }
+
+    private void CommitGenerationEdit()
+        => EditorContext.GetService<HistoryManager>()?.Commit(NodeGraphStrings.Generative_History);
 
     /// <summary>Generates this node again even when its inputs are unchanged.</summary>
     public void Regenerate()

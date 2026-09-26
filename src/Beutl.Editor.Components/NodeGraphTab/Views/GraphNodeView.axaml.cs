@@ -6,7 +6,9 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using FluentAvalonia.UI.Controls;
 using Beutl.Controls;
+using Beutl.Language;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.NodeGraph;
@@ -383,6 +385,49 @@ public partial class GraphNodeView : UserControl
         {
             tabViewModel.NavigateTo(groupNode.Group);
         }
+    }
+
+    // Rebuilt each time the menu opens: the history changes with every generation and undo.
+    private void NodeMenuOpening(object? sender, EventArgs e)
+    {
+        if (DataContext is not GraphNodeViewModel { GraphNode: Beutl.NodeGraph.Generative.GenerativeNode node } viewModel)
+            return;
+
+        var items = new List<object>();
+        Beutl.NodeGraph.Generative.GenerationRecord? active = node.ActiveGeneration;
+        foreach (Beutl.NodeGraph.Generative.GenerationRecord record in node.Generations.Reverse())
+        {
+            Guid id = record.Id;
+            string text = $"{record.CreatedAt.LocalDateTime:g}  {record.Summary}";
+            if (record.IsPinned)
+                text += $"  ({NodeGraphStrings.Generative_Pinned})";
+            var item = new FAToggleMenuFlyoutItem { Text = text, IsChecked = ReferenceEquals(record, active) };
+            item.Click += (_, _) => viewModel.SelectGeneration(id);
+            items.Add(item);
+        }
+
+        if (items.Count == 0)
+            items.Add(new FAMenuFlyoutItem { Text = NodeGraphStrings.Generative_NoHistory, IsEnabled = false });
+
+        items.Add(new FAMenuFlyoutSeparator());
+        var pin = new FAMenuFlyoutItem
+        {
+            Text = active?.IsPinned == true ? NodeGraphStrings.Generative_Unpin : NodeGraphStrings.Generative_Pin,
+            IsEnabled = active is not null,
+        };
+        pin.Click += (_, _) => viewModel.ToggleActivePinned();
+        items.Add(pin);
+        var prune = new FAMenuFlyoutItem
+        {
+            Text = NodeGraphStrings.Generative_PruneHistory,
+            IsEnabled = node.Generations.Any(record => !record.IsPinned && !ReferenceEquals(record, active)),
+        };
+        prune.Click += (_, _) => viewModel.PruneGenerations();
+        items.Add(prune);
+
+        GenerationHistoryMenu.Items.Clear();
+        foreach (object item in items)
+            GenerationHistoryMenu.Items.Add(item);
     }
 
     private void RegenerateClick(object? sender, RoutedEventArgs e)

@@ -348,4 +348,22 @@
   <data name="Generative_ModelDefault" xml:space="preserve">
     <value>默认模型</value>
   </data>
+  <data name="Generative_History" xml:space="preserve">
+    <value>生成历史</value>
+  </data>
+  <data name="Generative_NoHistory" xml:space="preserve">
+    <value>尚未生成</value>
+  </data>
+  <data name="Generative_Pin" xml:space="preserve">
+    <value>固定当前生成结果</value>
+  </data>
+  <data name="Generative_Unpin" xml:space="preserve">
+    <value>取消固定当前生成结果</value>
+  </data>
+  <data name="Generative_Pinned" xml:space="preserve">
+    <value>已固定</value>
+  </data>
+  <data name="Generative_PruneHistory" xml:space="preserve">
+    <value>删除未固定的旧记录</value>
+  </data>
 </root>

@@ -1,4 +1,8 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Editor;
+using Beutl.Editor.Observers;
+using Beutl.Graphics;
+using Beutl.NodeGraph.Composition;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
@@ -193,6 +197,68 @@ public sealed class GenerativeGraphRunnerTests
 
         Assert.That(executor.Requests, Has.Count.EqualTo(1));
         Assert.That(((AiImageGenerationNodeRequest)executor.Requests[0]).Prompt, Is.EqualTo("a cat\nComposition: close-up"));
+    }
+
+    [Test]
+    public async Task PruneKeepsPinnedAndActiveGenerations()
+    {
+        var (model, node) = await GenerateTimesAsync(3);
+        GenerationRecord first = node.Generations[0];
+        first.IsPinned = true;
+
+        int removed = node.PruneGenerations();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.EqualTo(1));
+            Assert.That(node.Generations, Is.EqualTo(new[] { first, node.ActiveGeneration }));
+        });
+    }
+
+    [Test]
+    public async Task SelectingAnEarlierGenerationIsUndoable()
+    {
+        var (model, node) = await GenerateTimesAsync(2);
+        GenerationRecord first = node.Generations[0];
+        GenerationRecord latest = node.Generations[1];
+        var sequence = new OperationSequenceGenerator();
+        using var history = new HistoryManager(model, sequence);
+        using var observer = new CoreObjectOperationObserver(null, model, sequence);
+        history.Subscribe(observer);
+
+        node.SelectGeneration(first.Id);
+        history.Commit("select");
+        Assert.That(node.ActiveGeneration, Is.SameAs(first));
+
+        history.Undo();
+        Assert.That(node.ActiveGeneration, Is.SameAs(latest));
+    }
+
+    [Test]
+    public async Task PreviewMonitorShowsTheActiveGeneration()
+    {
+        var (model, node) = await GenerateTimesAsync(1);
+        INodeMonitor preview = node.Items.OfType<INodeMonitor>().Single(m => m.Name == "GenerationPreview");
+        preview.IsEnabled = true;
+
+        using var snapshot = new GraphSnapshot();
+        snapshot.Build(model, CompositionContext.Default);
+        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+
+        var value = ((NodeMonitor<Beutl.Media.Source.Ref<Bitmap>?>)preview).Value;
+        Assert.That(value?.Value.Width, Is.EqualTo(8));
+    }
+
+    private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
+    {
+        var model = new GraphModel();
+        var node = new AiImageGenerationNode();
+        node.Prompt.Property!.SetValue("a cat");
+        model.Nodes.Add(node);
+        var runner = new GenerativeGraphRunner(new FakeExecutor(_directory), new InlineHost());
+        for (int i = 0; i < count; i++)
+            await runner.RunAsync(model, [node], force: true, CancellationToken.None);
+        return (model, node);
     }
 
     private static (GraphModel Model, AiImageGenerationNode Upstream, AiImageGenerationNode Downstream) CreateChain()

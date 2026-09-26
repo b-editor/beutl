@@ -348,4 +348,22 @@
   <data name="Generative_ModelDefault" xml:space="preserve">
     <value>Modelo predeterminado</value>
   </data>
+  <data name="Generative_History" xml:space="preserve">
+    <value>Historial de generación</value>
+  </data>
+  <data name="Generative_NoHistory" xml:space="preserve">
+    <value>Aún no hay generaciones</value>
+  </data>
+  <data name="Generative_Pin" xml:space="preserve">
+    <value>Fijar la generación actual</value>
+  </data>
+  <data name="Generative_Unpin" xml:space="preserve">
+    <value>Desfijar la generación actual</value>
+  </data>
+  <data name="Generative_Pinned" xml:space="preserve">
+    <value>Fijado</value>
+  </data>
+  <data name="Generative_PruneHistory" xml:space="preserve">
+    <value>Eliminar generaciones anteriores no fijadas</value>
+  </data>
 </root>

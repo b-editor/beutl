@@ -39,6 +39,8 @@ public abstract partial class GenerativeNode : GraphNode
     private Guid _activeGenerationId;
     private ActiveSnapshot? _active;
     private volatile string? _currentParameterFingerprint;
+    private readonly object _previewLock = new();
+    private Guid _previewShownFor;
     private NodeMonitor<Ref<Bitmap>?>? _previewMonitor;
     private NodeMonitor<string?>? _statusMonitor;
 
@@ -156,7 +158,10 @@ public abstract partial class GenerativeNode : GraphNode
         StatusChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    internal void ShowPreview(Ref<Bitmap>? preview)
+    /// <summary>Shows a picture in the preview monitor; the monitor takes ownership.</summary>
+    internal void ShowPreview(Ref<Bitmap>? preview) => SwapPreview(preview, Guid.Empty);
+
+    private void SwapPreview(Ref<Bitmap>? preview, Guid shownFor)
     {
         if (_previewMonitor is null)
         {
@@ -164,9 +169,36 @@ public abstract partial class GenerativeNode : GraphNode
             return;
         }
 
-        Ref<Bitmap>? previous = _previewMonitor.Value;
-        _previewMonitor.Value = preview;
+        Ref<Bitmap>? previous;
+        lock (_previewLock)
+        {
+            previous = _previewMonitor.Value;
+            _previewMonitor.Value = preview;
+            _previewShownFor = shownFor;
+        }
+
         previous?.Dispose();
+    }
+
+    /// <summary>Makes a kept generation the one the node outputs.</summary>
+    public void SelectGeneration(Guid id)
+    {
+        if (_generations.Any(record => record.Id == id))
+            ActiveGenerationId = id;
+    }
+
+    /// <summary>
+    /// Removes generations that are neither pinned nor active. Their files stay on disk,
+    /// because undoing the removal brings the records back.
+    /// </summary>
+    public int PruneGenerations()
+    {
+        GenerationRecord[] removable = _generations
+            .Where(record => !record.IsPinned && record.Id != _activeGenerationId)
+            .ToArray();
+        foreach (GenerationRecord record in removable)
+            _generations.Remove(record);
+        return removable.Length;
     }
 
     /// <summary>Adds a finished generation and makes it the one the node outputs.</summary>
@@ -211,7 +243,7 @@ public abstract partial class GenerativeNode : GraphNode
         GenerationRecord? record = ActiveGeneration;
         Volatile.Write(
             ref _active,
-            record?.Image is { } image ? new ActiveSnapshot(image, record.ParameterFingerprint) : null);
+            record?.Image is { } image ? new ActiveSnapshot(record.Id, image, record.ParameterFingerprint) : null);
         _statusMonitor?.Value = FormatStatus();
         StatusChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -236,17 +268,28 @@ public abstract partial class GenerativeNode : GraphNode
     /// </summary>
     protected static GenerativeImageInput? RasterizeInput(RenderNode? node, string name, GraphCompositionContext context)
     {
+        using Bitmap? bitmap = Rasterize(node, context);
+        if (bitmap is null)
+            return null;
+
+        using var stream = new MemoryStream();
+        if (!bitmap.Save(stream, EncodedImageFormat.Png))
+            throw new GenerativeExecutionException(NodeGraphStrings.Generative_InputRenderFailed);
+        return new GenerativeImageInput($"{name}.png", stream.ToArray());
+    }
+
+    private static Bitmap? Rasterize(RenderNode? node, GraphCompositionContext context)
+    {
         if (node is null)
             return null;
 
-        Bitmap? bitmap;
         try
         {
             using var renderer = new RenderNodeRenderer(
                 node,
                 new RenderNodeRenderRequest { Intent = RenderIntent.Preview, ManageCacheLifecycle = false });
             using RenderNodeRasterization rasterization = renderer.Rasterize();
-            bitmap = rasterization.Bitmap?.Clone();
+            return rasterization.Bitmap?.Clone();
         }
         catch (RenderTargetDomainRequiredException) when (context.TargetDomain is { } domain)
         {
@@ -257,18 +300,28 @@ public abstract partial class GenerativeNode : GraphNode
                 ManageCacheLifecycle = false,
             });
             using RenderNodeRasterization rasterization = renderer.Rasterize();
-            bitmap = rasterization.Bitmap?.Clone();
+            return rasterization.Bitmap?.Clone();
+        }
+    }
+
+    /// <summary>
+    /// Shows the active generation in the preview monitor, once per generation and only
+    /// while the monitor is visible, so the node itself shows what it outputs.
+    /// </summary>
+    private void RefreshActivePreview(RenderNode? output, GraphCompositionContext context)
+    {
+        if (_previewMonitor is not { IsEnabled: true } || Status == GenerativeNodeStatus.Running)
+            return;
+
+        Guid activeId = Volatile.Read(ref _active)?.Id ?? Guid.Empty;
+        lock (_previewLock)
+        {
+            if (_previewShownFor == activeId && (activeId != Guid.Empty || _previewMonitor.Value is null))
+                return;
         }
 
-        if (bitmap is null)
-            return null;
-        using (bitmap)
-        {
-            using var stream = new MemoryStream();
-            if (!bitmap.Save(stream, EncodedImageFormat.Png))
-                throw new GenerativeExecutionException(NodeGraphStrings.Generative_InputRenderFailed);
-            return new GenerativeImageInput($"{name}.png", stream.ToArray());
-        }
+        Bitmap? bitmap = activeId == Guid.Empty ? null : Rasterize(output, context);
+        SwapPreview(bitmap is null ? null : Ref<Bitmap>.Create(bitmap), activeId);
     }
 
     public override void Serialize(ICoreSerializationContext context)
@@ -292,7 +345,7 @@ public abstract partial class GenerativeNode : GraphNode
             ActiveGenerationId = context.GetValue<Guid>(nameof(ActiveGenerationId));
     }
 
-    private sealed record ActiveSnapshot(ImageSource Image, string ParameterFingerprint);
+    private sealed record ActiveSnapshot(Guid Id, ImageSource Image, string ParameterFingerprint);
 
     public partial class Resource
     {
@@ -307,6 +360,7 @@ public abstract partial class GenerativeNode : GraphNode
             if (source is null)
             {
                 ReleaseOutput();
+                RequireOriginal().RefreshActivePreview(null, context);
                 return null;
             }
 
@@ -326,6 +380,7 @@ public abstract partial class GenerativeNode : GraphNode
                 _cachedOutput = new ImageSourceRenderNode(_sourceResource, Brushes.Resource.White, null);
             else
                 _cachedOutput.Update(_sourceResource, Brushes.Resource.White, null);
+            RequireOriginal().RefreshActivePreview(_cachedOutput, context);
             return _cachedOutput;
         }
 

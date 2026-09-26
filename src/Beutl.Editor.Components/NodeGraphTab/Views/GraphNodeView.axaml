@@ -47,7 +47,7 @@
                 Focusable="True"
                 ToolTip.Tip="{Binding NodeName.Value}">
             <Border.ContextFlyout>
-                <ui:FAMenuFlyout>
+                <ui:FAMenuFlyout Opening="NodeMenuOpening">
                     <ui:FAMenuFlyoutItem Command="{Binding Delete}"
                                        InputGesture="Delete"
                                        Text="{x:Static lang:Strings.Delete}">
@@ -62,6 +62,13 @@
                             <icons:FluentIconSource Icon="Sparkle" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
+                    <ui:FAMenuFlyoutSubItem x:Name="GenerationHistoryMenu"
+                                            IsVisible="{Binding IsGenerative}"
+                                            Text="{x:Static lang:NodeGraphStrings.Generative_History}">
+                        <ui:FAMenuFlyoutSubItem.IconSource>
+                            <icons:FluentIconSource Icon="History" />
+                        </ui:FAMenuFlyoutSubItem.IconSource>
+                    </ui:FAMenuFlyoutSubItem>
                     <ui:FAMenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Rename" />

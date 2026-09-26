@@ -348,4 +348,22 @@
   <data name="Generative_ModelDefault" xml:space="preserve">
     <value>기본 모델</value>
   </data>
+  <data name="Generative_History" xml:space="preserve">
+    <value>생성 기록</value>
+  </data>
+  <data name="Generative_NoHistory" xml:space="preserve">
+    <value>아직 생성한 항목이 없습니다</value>
+  </data>
+  <data name="Generative_Pin" xml:space="preserve">
+    <value>현재 생성 결과 고정</value>
+  </data>
+  <data name="Generative_Unpin" xml:space="preserve">
+    <value>현재 생성 결과 고정 해제</value>
+  </data>
+  <data name="Generative_Pinned" xml:space="preserve">
+    <value>고정됨</value>
+  </data>
+  <data name="Generative_PruneHistory" xml:space="preserve">
+    <value>고정되지 않은 이전 기록 삭제</value>
+  </data>
 </root>

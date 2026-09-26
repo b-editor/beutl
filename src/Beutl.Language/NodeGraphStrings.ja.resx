@@ -348,4 +348,22 @@
   <data name="Generative_ModelDefault" xml:space="preserve">
     <value>既定のモデル</value>
   </data>
+  <data name="Generative_History" xml:space="preserve">
+    <value>生成履歴</value>
+  </data>
+  <data name="Generative_NoHistory" xml:space="preserve">
+    <value>まだ生成していません</value>
+  </data>
+  <data name="Generative_Pin" xml:space="preserve">
+    <value>現在の生成結果をピン留め</value>
+  </data>
+  <data name="Generative_Unpin" xml:space="preserve">
+    <value>現在の生成結果のピン留めを解除</value>
+  </data>
+  <data name="Generative_Pinned" xml:space="preserve">
+    <value>ピン留め</value>
+  </data>
+  <data name="Generative_PruneHistory" xml:space="preserve">
+    <value>ピン留めしていない古い履歴を削除</value>
+  </data>
 </root>
