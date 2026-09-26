@@ -404,7 +404,7 @@ internal sealed class Renderer3D : IRenderer3D
             Matrix4x4 world = obj.GetWorldMatrix() * parentMatrix;
             // Only shadow casters and lit receivers need to be in the shadow map; a transparent surface such
             // as a 2D card does not sample it.
-            bool takesPartInShadows = obj.CastShadows
+            bool takesPartInShadows = obj.CastsVisibleShadow
                 || (obj.ReceiveShadows && obj.Material?.IsTransparent != true);
             if (takesPartInShadows && obj.GetMesh() is { VertexCount: > 0 } mesh)
             {

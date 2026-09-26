@@ -87,6 +87,9 @@ public abstract partial class Object3D : EngineObject
         /// </summary>
         internal virtual bool HitTestContent(Vector3 localPoint) => true;
 
+        /// <summary>Whether the object casts shadows and draws something that could cast them.</summary>
+        internal bool CastsVisibleShadow => CastShadows && Material?.IsInvisible != true;
+
         /// <summary>
         /// Gets the mesh resource for this object.
         /// </summary>

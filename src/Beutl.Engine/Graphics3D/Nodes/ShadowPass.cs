@@ -267,8 +267,9 @@ void main() {
             RenderObject(child, lightVP, worldMatrix);
         }
 
-        // CastShadows is per object; enabled children still traverse a non-casting parent.
-        if (obj.CastShadows)
+        // CastShadows is per object; enabled children still traverse a non-casting parent. A fully transparent
+        // material draws nothing, so it casts nothing either.
+        if (obj.CastsVisibleShadow)
             RenderMesh(obj, lightVP, worldMatrix);
     }
 

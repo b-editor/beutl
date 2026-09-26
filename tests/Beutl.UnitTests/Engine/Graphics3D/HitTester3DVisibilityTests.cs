@@ -99,6 +99,21 @@ public class HitTester3DVisibilityTests
         Assert.That(HitTester3D.HitTest(s_center, 1920, 1080, camera, [resource]), Is.Null);
     }
 
+    [Test]
+    public void Mesh_WithAFullyTransparentUnlitMaterial_CastsNoShadow()
+    {
+        var cube = new Cube3D();
+        cube.Material.CurrentValue = new Beutl.Graphics3D.Materials.UnlitMaterial { Opacity = { CurrentValue = 0 } };
+        using var hidden = (Object3D.Resource)cube.ToResource(CompositionContext.Default);
+        using var shown = (Object3D.Resource)new Cube3D().ToResource(CompositionContext.Default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hidden.CastsVisibleShadow, Is.False);
+            Assert.That(shown.CastsVisibleShadow, Is.True);
+        });
+    }
+
     // Overlapping unmoved cards lie at the same depth; the later one is drawn on top and takes the click.
     [Test]
     public void CoplanarCards_TheLaterOneTakesTheHit()
