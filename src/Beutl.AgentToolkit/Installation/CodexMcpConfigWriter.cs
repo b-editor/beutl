@@ -10,8 +10,11 @@ internal static class CodexMcpConfigWriter
     public static async Task WriteAsync(
         string path,
         AgentToolkitInstallOptions options,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<Stream, string, CancellationToken, Task>? writeContents = null)
     {
+        // Replace the resolved target, preserving an existing config symlink.
+        path = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(path));
         string text = File.Exists(path)
             ? await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false)
             : "";
@@ -73,9 +76,20 @@ internal static class CodexMcpConfigWriter
         string updated = CodexMcpConfigEditor.Update(text, root, options.McpServersPropertyName, servers);
         cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await using FileStream? existingStream = File.Exists(path)
+            ? new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None)
+            : null;
+        // Restrict existing files before writing a token, including no-op
+        // reinstalls of configurations created by an earlier version.
+        if (existingStream is not null && !OperatingSystem.IsWindows())
+            File.SetUnixFileMode(existingStream.SafeFileHandle, OwnerReadWrite);
+        if (updated == text)
+            return;
+
+        string temporaryPath = Path.Combine(Path.GetDirectoryName(path)!, $".beutl-mcp-{Guid.NewGuid():N}.tmp");
         var streamOptions = new FileStreamOptions
         {
-            Mode = FileMode.OpenOrCreate,
+            Mode = FileMode.CreateNew,
             Access = FileAccess.Write,
             Share = FileShare.None,
             Options = FileOptions.Asynchronous,
@@ -83,17 +97,32 @@ internal static class CodexMcpConfigWriter
         if (!OperatingSystem.IsWindows())
             streamOptions.UnixCreateMode = OwnerReadWrite;
 
-        await using var stream = new FileStream(path, streamOptions);
-        // Restrict existing files before writing a token, including no-op
-        // reinstalls of configurations created by an earlier version.
-        if (!OperatingSystem.IsWindows())
-            File.SetUnixFileMode(stream.SafeFileHandle, OwnerReadWrite);
-        if (updated == text)
-            return;
+        try
+        {
+            await using (var temporary = new FileStream(temporaryPath, streamOptions))
+            {
+                if (!OperatingSystem.IsWindows())
+                    File.SetUnixFileMode(temporary.SafeFileHandle, OwnerReadWrite);
+                await (writeContents ?? WriteContentsAsync)(temporary, updated, cancellationToken).ConfigureAwait(false);
+                temporary.Flush(flushToDisk: true);
+            }
 
-        stream.SetLength(0);
-        await using var writer = new StreamWriter(stream);
-        await writer.WriteAsync(updated.AsMemory(), cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (existingStream is not null)
+                await existingStream.DisposeAsync().ConfigureAwait(false);
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporaryPath);
+        }
+    }
+
+    private static async Task WriteContentsAsync(Stream stream, string text, CancellationToken cancellationToken)
+    {
+        await using var writer = new StreamWriter(stream, leaveOpen: true);
+        await writer.WriteAsync(text.AsMemory(), cancellationToken).ConfigureAwait(false);
+        await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static TomlTable ToTable(IReadOnlyDictionary<string, string> values)

@@ -97,6 +97,62 @@ public sealed class CodexMcpConfigWriterTests
         Assert.That(((TomlTable)servers["beutl-live"])["url"], Is.EqualTo(options.LiveMcpUri!.ToString()));
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task Failed_or_cancelled_writes_preserve_the_original_and_remove_temporary_files(bool exists, bool cancel)
+    {
+        const string original = "# User configuration\nmodel = 'custom'\n\n[mcp_servers.other]\ncommand = 'keep this'\n";
+        if (exists)
+            await File.WriteAllTextAsync(ConfigPath, original);
+        using var cancellation = new CancellationTokenSource();
+
+        Task Write() => CodexMcpConfigWriter.WriteAsync(ConfigPath, Options, cancellation.Token,
+            async (stream, _, token) =>
+            {
+                await stream.WriteAsync("partial"u8.ToArray(), CancellationToken.None);
+                if (cancel)
+                {
+                    cancellation.Cancel();
+                    token.ThrowIfCancellationRequested();
+                }
+
+                throw new IOException("Simulated write failure.");
+            });
+
+        if (cancel)
+            Assert.ThrowsAsync<OperationCanceledException>(Write);
+        else
+            Assert.ThrowsAsync<IOException>(Write);
+        Assert.That(File.Exists(ConfigPath), Is.EqualTo(exists));
+        if (exists)
+            Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(original));
+        Assert.That(Directory.EnumerateFiles(Path.GetDirectoryName(ConfigPath)!, "*.tmp"), Is.Empty);
+    }
+
+    [Test]
+    public async Task Installation_preserves_a_config_symlink_and_updates_its_target()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Creating symlinks requires additional Windows privileges.");
+            return;
+        }
+
+        string target = Path.Combine(_root, "managed-config.toml");
+        await File.WriteAllTextAsync(target, "model = 'custom'\n");
+        File.CreateSymbolicLink(ConfigPath, target);
+
+        await AgentToolkitInstaller.InstallAsync(Options, []);
+
+        Assert.That(new FileInfo(ConfigPath).LinkTarget, Is.EqualTo(target));
+        TomlTable root = TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(target))!;
+        Assert.That(root["model"], Is.EqualTo("custom"));
+        Assert.That(((TomlTable)root["mcp_servers"]).ContainsKey("beutl-live"), Is.True);
+        Assert.That(File.GetUnixFileMode(target), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+    }
+
     [Test]
     public async Task Fresh_live_install_uses_explicit_server_and_header_tables()
     {
