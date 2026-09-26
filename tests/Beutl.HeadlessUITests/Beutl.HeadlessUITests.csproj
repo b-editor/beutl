@@ -3,6 +3,8 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <OutputType>Exe</OutputType>
+    <StartupObject>Beutl.HeadlessUITests.NativeTimelineTestHost</StartupObject>
     <TargetFrameworks>net10.0</TargetFrameworks>
   </PropertyGroup>
 
