@@ -69,7 +69,7 @@ For media-driven types, inventory sources before schema authoring, then `get_sch
 
 #### Source grounding
 
-When the work depends on layout, transform composition, bounds, text measurement, render scale, effect units, reconciliation, or live-session semantics — and especially when a rendered result contradicts the plan — load and follow the installed `beutl-agent-source-grounding` skill, then do narrow `rg`/read passes over what it points at. Note the assumption, evidence, derived rule, and remaining uncertainty before the first dependent `apply_edit`. Skip if the user forbade source reading.
+When layout, transforms, bounds, render scale, units, or session behavior need verification, follow the installed `beutl-agent-source-grounding` skill using runtime schemas, `measure_object_bounds`, and small render probes. A source checkout is optional: inspect it only when available and permitted. Record the assumption, evidence, derived rule, and remaining uncertainty; do not block editing because production provides no Beutl source code.
 
 #### What is worth deciding before you author
 

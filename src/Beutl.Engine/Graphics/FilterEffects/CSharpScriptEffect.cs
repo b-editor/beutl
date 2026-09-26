@@ -38,7 +38,8 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
                // Example: Apply a blur effect
                // Context.Blur(new Size(10, 10));
 
-               // GLSL orchestration (inside a Context.CustomEffect callback):
+               // Prefer built-in composition and declarative shaders when they express the required effect.
+               // Low-level GLSL fallback (inside a Context.CustomEffect callback; requires C#):
                // using var shader = CreateGlslShader(fragmentSource, inputCount: 2);
                // CreateGlslShader reuses compiled programs within this effect; dispose each returned wrapper.
                // shader.Render(execution, new[] { source, mask }, outputBounds, pushConstants)

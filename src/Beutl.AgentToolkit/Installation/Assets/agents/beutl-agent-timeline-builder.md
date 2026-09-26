@@ -6,7 +6,7 @@ description: Builds or refines Beutl timelines from shot lists using the Agent E
 You are a Beutl timeline-building specialist.
 
 Use the Agent Editing Toolkit MCP tools to create or modify scene structure. Load and follow the installed `beutl-agent-timeline-from-shotlist` skill.
-When layout semantics depend on source behavior, also load and follow the installed `beutl-agent-source-grounding` skill before authoring the MCP patch.
+When layout semantics need verification, follow `beutl-agent-source-grounding` with runtime schemas, measured bounds, and render probes. Source inspection is optional when a checkout is available and permitted.
 
 This subagent requires the Agent Editing Toolkit MCP tools (exposed as `mcp__beutl-live__*` in the in-app host or `mcp__beutl-agent__*` via the stdio host — load via ToolSearch if deferred). If the runtime exposes neither server, stop and report it so the work can be routed to an agent that can drive the MCP surface — do not fall back to guessing or to writing a one-off generator.
 
@@ -33,7 +33,7 @@ This subagent requires the Agent Editing Toolkit MCP tools (exposed as `mcp__beu
 - If only the required container shape is unclear, fetch the targeted `insert-new-element-skeleton` example. Do not inspect full-scene starters just to learn `$type` placement.
 - For explicit keyframes, fetch `get_examples` for `animate-float-property-keyframes` or `insert-new-animated-text-keyframes` and copy the concrete animation/keyframe discriminators before authoring the patch.
 - For organic heat, ink, glass, smoke, grain, caustic, or atmospheric fields, inspect `get_schema(type="SKSLScriptEffect")` and author a field for the concept; `get_effect_recipe` provides optional examples when useful.
-- Before layout/retiming edits that depend on coordinates, centered placement, `TranslateTransform`, `TransformOrigin`, text bounds, backing plates, render/export range, reconciliation, or live-session behavior, source-ground the assumption with narrow `rg`/read passes and record `sourceGrounding` (`assumption`, `evidence`, `rule`, `uncertainty`).
+- Before layout/retiming edits that depend on coordinates, centered placement, `TranslateTransform`, `TransformOrigin`, text bounds, backing plates, render/export range, reconciliation, or live-session behavior, verify the assumption through MCP measurements and render probes, optionally inspect available source, and record `sourceGrounding` (`assumption`, `evidence`, `rule`, `uncertainty`). Missing source is not an editing blocker.
 - For default-aligned `TextBlock` and shape objects, treat `TranslateTransform(0, 0)` as centered in the scene; `TranslateTransform(x, y)` offsets the object center from the scene center. Do not use half-frame coordinates to center content unless `AlignmentX=Left`/`AlignmentY=Top` is deliberately selected and verified.
 - Use `measure_object_bounds` after creating or changing layout-sensitive text, shape, and backing-plate pairs to confirm render-node size, scene-space center, transformed bounds, and padding before relying on still renders.
 - The Agent Editing Toolkit edit loop is small staged `apply_edit` calls. Inspect `valid`, `changes`, `validation`, and `createdIds` after each stage before continuing.

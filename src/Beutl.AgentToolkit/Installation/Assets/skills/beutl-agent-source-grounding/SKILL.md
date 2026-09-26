@@ -1,29 +1,31 @@
 ---
 name: beutl-agent-source-grounding
-description: Ground Beutl Agent Editing Toolkit MCP edits in Beutl source code. Use before or during Beutl Live MCP / Agent Editing Toolkit work when an edit depends on coordinates, centered placement, transforms, bounds, text measurement, shape sizing, render scale, effect parameter units, serialization/reconciliation behavior, undo scope, export range, or live-editor session semantics; also use when rendered output or user feedback contradicts an MCP edit assumption.
+description: Verify Beutl MCP editing assumptions through runtime schemas, measured bounds, and render probes, with optional source inspection when a checkout is available. Use for coordinates, transforms, bounds, units, session semantics, or rendered output that contradicts an editing assumption. Beutl source code is not required.
 ---
 
 # Beutl Agent Source Grounding
 
-Use this skill as a source-code check layer for Beutl Agent Editing Toolkit work. MCP schemas describe the serializable document shape; they do not fully define runtime semantics such as alignment, transform order, coordinate origin, measured bounds, render scale, or effect units.
+Use this skill to verify behavior needed by the next Beutl edit. Production agents may have only the installed application and MCP tools. Start from runtime schemas, documented contracts, measured bounds, and a small rendered prototype. A source checkout is optional; do not require cloning or rebuilding Beutl to edit a scene. Schemas alone do not fully define alignment, transform order, measured bounds, or effect units.
 
 ## Workflow
 
 1. Name the behavior assumption before editing, for example `centered TextBlock TranslateTransform coordinates`.
-2. Search narrowly with `rg` for the relevant runtime type, test helper, or toolkit analyzer.
-3. Read the implementation and at least one nearby test, analyzer, or schema example when available.
+2. Use targeted `get_schema`, `read_document`, and `measure_object_bounds` to inspect the running application's contract and actual values.
+3. Resolve remaining uncertainty with a small `apply_edit`/`render_still` probe. If source is available and reading it is permitted, optionally search narrowly with `rg` and read the relevant implementation plus a nearby test. Do not guess undocumented C# APIs from type names.
 4. Record a `sourceGrounding` note before the relevant `apply_edit`:
    - `assumption`: the behavior being relied on.
-   - `evidence`: source/test paths and symbols read.
+   - `evidence`: tool responses, measurements, render results, or optional source/test paths and symbols read.
    - `rule`: the editing rule derived from the evidence.
    - `uncertainty`: anything still unverified.
 5. Author the smallest MCP patch that applies the rule.
 6. When measuring layout-sensitive objects, call `measure_object_bounds` before or after the patch to inspect render-node size, transform translation, scene-space bounds, center, and padding.
 7. Verify with `read_document_summary`, representative `render_still`, and the relevant evaluator before export.
 
-If the user explicitly forbids source-code reading, do not use this skill. Record that source grounding was skipped and keep the MCP edit conservative.
+If source is unavailable or the user forbids reading it, continue with MCP evidence. Identify the specific behavior still unverified rather than treating missing source as an editing blocker.
 
-## Source Map
+## Optional Source Map
+
+Use these paths only when a matching checkout is available. The running application's schema and measured behavior take precedence over a checkout from another version.
 
 | Topic | Start here | What to verify |
 |---|---|---|
@@ -67,7 +69,7 @@ Use the same coordinate rule for a text/backing-plate pair: share the same inten
 - `TransformGroup` appearing to drop a `Scale` for `[Scale, Translate]` order: `TransformGroup.CreateMatrix` composes both orders correctly.
 - `TransformEffect(ApplyToTarget=false)` before `LayerEffect` producing blur/mosaic when scaling a group up: `TransformEffect.ApplyTo` uses `context.Transform(...)` (resolution-independent) for `ApplyToTarget=false`, and `LayerEffect.ApplyTo` bakes the CTM scale from the target density in `ctx.Open` — so scaling before the LayerEffect is the intended crisp path.
 
-Before authoring a workaround for an animation/transform/effect anomaly, rebuild the editor and confirm against `KeyFrameAnimation{T}.GetAnimatedValue`, `TransformGroup.CreateMatrix`, `TransformEffect.ApplyTo`, and `LayerEffect.ApplyTo`.
+Before authoring a workaround, verify the running version and reproduce the anomaly with a small MCP render. In a development checkout, rebuilding and checking `KeyFrameAnimation{T}.GetAnimatedValue`, `TransformGroup.CreateMatrix`, `TransformEffect.ApplyTo`, and `LayerEffect.ApplyTo` can distinguish stale binaries from current behavior; production editing does not require this step.
 
 **Genuine current-code behaviors (source-verified):**
 
