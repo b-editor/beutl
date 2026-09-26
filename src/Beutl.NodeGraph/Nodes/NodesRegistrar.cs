@@ -21,6 +21,7 @@ public static class NodesRegistrar
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.AiGeneration, Colors.DeepPink)
             .Add<AiPromptNode>(NodeGraphStrings.AiPrompt)
+            .Add<SceneFrameNode>(NodeGraphStrings.SceneFrame)
             .Add<AiImageGenerationNode>(NodeGraphStrings.AiImageGeneration)
             .Add<AiImageEditNode>(NodeGraphStrings.AiImageEdit)
             .Add<AiVideoGenerationNode>(NodeGraphStrings.AiVideoGeneration)

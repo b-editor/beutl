@@ -432,4 +432,13 @@
   <data name="Port_Quality" xml:space="preserve">
     <value>质量</value>
   </data>
+  <data name="SceneFrame" xml:space="preserve">
+    <value>场景帧</value>
+  </data>
+  <data name="Port_UseCurrentTime" xml:space="preserve">
+    <value>使用播放位置</value>
+  </data>
+  <data name="Generative_Capturing" xml:space="preserve">
+    <value>正在捕获场景…</value>
+  </data>
 </root>

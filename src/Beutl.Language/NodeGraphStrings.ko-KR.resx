@@ -432,4 +432,13 @@
   <data name="Port_Quality" xml:space="preserve">
     <value>품질</value>
   </data>
+  <data name="SceneFrame" xml:space="preserve">
+    <value>장면 프레임</value>
+  </data>
+  <data name="Port_UseCurrentTime" xml:space="preserve">
+    <value>재생 위치 시간 사용</value>
+  </data>
+  <data name="Generative_Capturing" xml:space="preserve">
+    <value>장면을 캡처하는 중…</value>
+  </data>
 </root>

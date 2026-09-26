@@ -87,4 +87,5 @@ internal static class NodePortDisplays
     public static DisplayAttribute CharacterImage => Create(nameof(NodeGraphStrings.Port_CharacterImage));
     public static DisplayAttribute Orientation => Create(nameof(NodeGraphStrings.Port_Orientation));
     public static DisplayAttribute Quality => Create(nameof(NodeGraphStrings.Port_Quality));
+    public static DisplayAttribute UseCurrentTime => Create(nameof(NodeGraphStrings.Port_UseCurrentTime));
 }

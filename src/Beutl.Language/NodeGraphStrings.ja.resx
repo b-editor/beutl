@@ -432,4 +432,13 @@
   <data name="Port_Quality" xml:space="preserve">
     <value>品質</value>
   </data>
+  <data name="SceneFrame" xml:space="preserve">
+    <value>シーンのフレーム</value>
+  </data>
+  <data name="Port_UseCurrentTime" xml:space="preserve">
+    <value>再生位置の時刻を使う</value>
+  </data>
+  <data name="Generative_Capturing" xml:space="preserve">
+    <value>シーンを描画しています…</value>
+  </data>
 </root>

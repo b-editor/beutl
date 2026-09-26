@@ -443,6 +443,57 @@ public sealed class GenerativeGraphRunnerTests
         Assert.That(motion.StatusMessage, Is.EqualTo(Beutl.Language.Strings.AiChooseCharacterImage));
     }
 
+    [Test]
+    public async Task SceneFrameIsRecapturedEachRunButOnlyAChangedFrameRegeneratesDownstream()
+    {
+        var model = new GraphModel();
+        var frame = new SceneFrameNode();
+        var edit = new AiImageEditNode();
+        model.Nodes.AddRange([frame, edit]);
+        model.Connect(edit.Source, frame.Output);
+        var executor = new FakeExecutor(_directory);
+        var host = new InlineHost { CurrentTime = TimeSpan.FromSeconds(3) };
+        var runner = new GenerativeGraphRunner(executor, host);
+
+        await runner.RunAsync(model, null, force: false, CancellationToken.None);
+        Assert.That(((SceneFrameNodeRequest)executor.Requests[0]).Time, Is.EqualTo(TimeSpan.FromSeconds(3)),
+            "Captured at the playhead, as the AI tab's current frame is.");
+        Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { frame, edit }));
+        GenerationRecord first = frame.ActiveGeneration!;
+
+        executor.Requests.Clear();
+        await runner.RunAsync(model, null, force: false, CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { frame }),
+                "Recaptured, and the unchanged frame bought nothing downstream.");
+            Assert.That(frame.Generations, Has.Count.EqualTo(1));
+            Assert.That(frame.ActiveGeneration, Is.SameAs(first));
+        });
+
+        executor.Requests.Clear();
+        executor.SceneSize = 9;
+        await runner.RunAsync(model, null, force: false, CancellationToken.None);
+        Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { frame, edit }));
+        Assert.That(frame.Generations, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public void SceneFrameCanBeCapturedAtAFixedTime()
+    {
+        var model = new GraphModel();
+        var frame = new SceneFrameNode();
+        frame.UseCurrentTime.Property!.SetValue(false);
+        frame.Time.Property!.SetValue(TimeSpan.FromSeconds(1.5));
+        model.Nodes.Add(frame);
+        var executor = new FakeExecutor(_directory);
+
+        new GenerativeGraphRunner(executor, new InlineHost { CurrentTime = TimeSpan.FromSeconds(9) })
+            .RunAsync(model, null, force: false, CancellationToken.None).GetAwaiter().GetResult();
+
+        Assert.That(((SceneFrameNodeRequest)executor.Requests.Single()).Time, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+    }
+
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
     {
         var model = new GraphModel();
@@ -476,6 +527,9 @@ public sealed class GenerativeGraphRunnerTests
 
         public Action? OnExecute { get; init; }
 
+        /// <summary>How big the captured scene is; changing it is a change in the scene.</summary>
+        public int SceneSize { get; set; } = 8;
+
         public Task<GenerativeExecutionResult> ExecuteAsync(
             GenerativeRequest request,
             IProgress<GenerativeProgress> progress,
@@ -494,13 +548,17 @@ public sealed class GenerativeGraphRunnerTests
             }
             else
             {
-                using var bitmap = new Bitmap(8, 8);
+                int size = request is SceneFrameNodeRequest ? SceneSize : 8;
+                using var bitmap = new Bitmap(size, size);
                 using var stream = File.Create(path);
                 bitmap.Save(stream, EncodedImageFormat.Png);
             }
             int? seed = (request as AiImageGenerationNodeRequest)?.Seed;
             return Task.FromResult(new GenerativeExecutionResult(
-                new Uri(path), request.ModelId, seed, IsVideo: video));
+                new Uri(path), request.ModelId, seed, IsVideo: video,
+                ContentFingerprint: request is SceneFrameNodeRequest
+                    ? GenerativeFingerprint.Hash(File.ReadAllBytes(path))
+                    : null));
         }
 
         public static readonly byte[] Clip = [0, 0, 0, 24, 102, 116, 121, 112];
@@ -510,7 +568,7 @@ public sealed class GenerativeGraphRunnerTests
     {
         public int Commits { get; private set; }
 
-        public TimeSpan CurrentTime => TimeSpan.Zero;
+        public TimeSpan CurrentTime { get; set; } = TimeSpan.Zero;
 
         public Task<T> InvokeOnRenderThreadAsync<T>(Func<T> func) => Task.FromResult(func());
 

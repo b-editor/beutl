@@ -432,4 +432,13 @@
   <data name="Port_Quality" xml:space="preserve">
     <value>Quality</value>
   </data>
+  <data name="SceneFrame" xml:space="preserve">
+    <value>Scene Frame</value>
+  </data>
+  <data name="Port_UseCurrentTime" xml:space="preserve">
+    <value>Use Playhead Time</value>
+  </data>
+  <data name="Generative_Capturing" xml:space="preserve">
+    <value>Capturing the scene…</value>
+  </data>
 </root>
