@@ -55,6 +55,8 @@ void main() {
     }
 
     private IPipeline3D? _shadowPipeline;
+    private IPipeline3D? _doubleSidedShadowPipeline;
+    private IPipeline3D? _boundPipeline;
     private byte[]? _vertexShaderSpirv;
     private byte[]? _fragmentShaderSpirv;
 
@@ -152,6 +154,7 @@ void main() {
             return;
 
         _shadowPipeline?.Dispose();
+        _doubleSidedShadowPipeline?.Dispose();
 
         // No descriptor bindings needed - we only use push constants
         var descriptorBindings = Array.Empty<DescriptorBinding>();
@@ -160,10 +163,21 @@ void main() {
         {
             DepthTestEnabled = true,
             DepthWriteEnabled = true,
+            // Casters cull the sides their material culls when drawn, so a one-sided surface seen from behind
+            // casts nothing; double-sided materials use the no-cull variant.
             CullMode = CullMode.Back
         };
 
         _shadowPipeline = Context.CreatePipeline3D(
+            RenderPass,
+            _vertexShaderSpirv,
+            _fragmentShaderSpirv,
+            descriptorBindings,
+            Vertex3D.GetVertexInputDescription(),
+            options);
+
+        options.CullMode = CullMode.None;
+        _doubleSidedShadowPipeline = Context.CreatePipeline3D(
             RenderPass,
             _vertexShaderSpirv,
             _fragmentShaderSpirv,
@@ -179,7 +193,7 @@ void main() {
     {
         var direction = light.Direction;
         if (direction == Vector3.Zero)
-            direction = new Vector3(0, -1, 0);
+            direction = Vector3.UnitY;
         direction = Vector3.Normalize(direction);
 
         // Position the light "camera" behind the scene, looking at the center
@@ -205,7 +219,7 @@ void main() {
         var position = light.Position;
         var direction = light.Direction;
         if (direction == Vector3.Zero)
-            direction = new Vector3(0, -1, 0);
+            direction = Vector3.UnitY;
         direction = Vector3.Normalize(direction);
 
         // Create view matrix from light position looking in light direction
@@ -218,11 +232,13 @@ void main() {
         // Perspective projection based on spot light cone angle
         var fovRadians = light.OuterConeAngle * 2f * MathF.PI / 180f;
         fovRadians = Math.Clamp(fovRadians, 0.1f, MathF.PI - 0.1f);
+        // The near plane stays in front of the far plane for short ranges.
+        float nearPlane = Math.Clamp(light.Range * 0.1f, 0.001f, 1f);
         LightProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(
             fovRadians,
             1.0f,  // Square shadow map
-            0.1f,
-            light.Range);
+            nearPlane,
+            MathF.Max(light.Range, nearPlane * 2));
     }
 
     /// <summary>
@@ -230,14 +246,14 @@ void main() {
     /// </summary>
     public void Execute(IReadOnlyList<Object3D.Resource> objects)
     {
-        if (Framebuffer == null || RenderPass == null || _shadowPipeline == null)
+        if (Framebuffer == null || RenderPass == null || _shadowPipeline == null || _doubleSidedShadowPipeline == null)
             return;
 
         // Begin shadow pass with clear (clear to max depth)
         Span<Color> clearColors = [new Color(255, 255, 255, 255)]; // Dummy color
         using (UsePass(clearColors))
         {
-            RenderPass.BindPipeline(_shadowPipeline);
+            _boundPipeline = null;
 
             var lightVP = LightViewProjection;
 
@@ -263,8 +279,9 @@ void main() {
             RenderObject(child, lightVP, worldMatrix);
         }
 
-        // CastShadows is per object; enabled children still traverse a non-casting parent.
-        if (obj.CastShadows)
+        // CastShadows is per object; enabled children still traverse a non-casting parent. A fully transparent
+        // material draws nothing, so it casts nothing either.
+        if (obj.CastsVisibleShadow)
             RenderMesh(obj, lightVP, worldMatrix);
     }
 
@@ -273,6 +290,13 @@ void main() {
         var meshResource = MeshDrawHelper.Prepare(Context, obj);
         if (meshResource == null)
             return;
+
+        IPipeline3D pipeline = obj.Material?.IsDoubleSided == true ? _doubleSidedShadowPipeline! : _shadowPipeline!;
+        if (!ReferenceEquals(pipeline, _boundPipeline))
+        {
+            RenderPass!.BindPipeline(pipeline);
+            _boundPipeline = pipeline;
+        }
 
         // Set push constants with model and light VP matrices
         var pushConstants = new ShadowPushConstants
@@ -296,6 +320,7 @@ void main() {
     protected override void OnDispose()
     {
         _shadowPipeline?.Dispose();
+        _doubleSidedShadowPipeline?.Dispose();
         DisposeShadowMap();
     }
 }

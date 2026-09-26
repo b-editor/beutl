@@ -22,8 +22,8 @@ public sealed partial class SphereMesh : Mesh
     /// Gets the radius of the sphere.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Radius), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> Radius { get; } = Property.CreateAnimatable(0.5f);
+    [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
+    public IProperty<float> Radius { get; } = Property.CreateAnimatable(100f);
 
     /// <summary>
     /// Gets the number of horizontal segments (longitude).
@@ -127,5 +127,7 @@ public sealed partial class SphereMesh : Mesh
 
         vertices = vertexList.ToArray();
         indices = indexList.ToArray();
+
+        CoordinateSystem3D.ConvertFromYUp(vertices);
     }
 }

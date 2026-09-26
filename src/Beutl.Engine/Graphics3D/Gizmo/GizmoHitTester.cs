@@ -12,6 +12,9 @@ public static class GizmoHitTester
 {
     // Gizmo dimensions (must match GizmoMesh)
     private const float ArrowLength = 1.0f;
+
+    // The gizmo's unit-sized geometry spans this share of the view height wherever the target is.
+    private const float ViewHeightFraction = 0.17f;
     private const float ArrowRadius = 0.08f; // Larger than visual for easier clicking
     private const float RotateRingRadius = 0.8f;
     private const float RotateRingThickness = 0.08f; // Larger than visual for easier clicking
@@ -27,6 +30,37 @@ public static class GizmoHitTester
     private const float CenterCubeSize = 0.15f; // Slightly larger for easier clicking
 
     /// <summary>
+    /// The world size of one gizmo unit at <paramref name="position"/>, which keeps the gizmo the same size on
+    /// screen at any distance and in any unit scale.
+    /// </summary>
+    internal static float GetWorldScale(Camera3D.Resource camera, Vector3 position, float aspectRatio)
+    {
+        float viewHeight = camera switch
+        {
+            PerspectiveCamera.Resource perspective => 2
+                * GetViewDepth(camera.Position, camera.Target, camera.NearPlane, position)
+                * MathF.Tan(perspective.FieldOfView * MathF.PI / 360f),
+            OrthographicCamera.Resource orthographic => orthographic.Width / MathF.Max(aspectRatio, float.Epsilon),
+            _ => 1,
+        };
+
+        return MathF.Max(viewHeight * ViewHeightFraction, float.Epsilon);
+    }
+
+    /// <summary>
+    /// The depth of <paramref name="position"/> along the camera's view direction, which is what a
+    /// perspective projection scales by, kept at least <paramref name="nearPlane"/>.
+    /// </summary>
+    internal static float GetViewDepth(Vector3 cameraPosition, Vector3 cameraTarget, float nearPlane, Vector3 position)
+    {
+        Vector3 forward = cameraTarget - cameraPosition;
+        float depth = forward == Vector3.Zero
+            ? Vector3.Distance(cameraPosition, position)
+            : Vector3.Dot(position - cameraPosition, Vector3.Normalize(forward));
+        return MathF.Max(depth, nearPlane);
+    }
+
+    /// <summary>
     /// Performs a hit test on the gizmo at the specified screen point.
     /// </summary>
     /// <param name="screenPoint">The point in screen coordinates.</param>
@@ -34,7 +68,7 @@ public static class GizmoHitTester
     /// <param name="height">The viewport height.</param>
     /// <param name="camera">The camera resource.</param>
     /// <param name="gizmoPosition">The world position of the gizmo (target object's position).</param>
-    /// <param name="gizmoRotation">The rotation of the object (Euler angles in degrees). Used for Scale mode.</param>
+    /// <param name="gizmoOrientation">The object's orientation in world space. Used for Rotate and Scale modes.</param>
     /// <param name="gizmoMode">The current gizmo mode.</param>
     /// <returns>The axis that was hit, or None if no axis was hit.</returns>
     public static GizmoAxis HitTest(
@@ -43,7 +77,7 @@ public static class GizmoHitTester
         int height,
         Camera3D.Resource camera,
         Vector3 gizmoPosition,
-        Vector3 gizmoRotation,
+        Quaternion gizmoOrientation,
         GizmoMode gizmoMode)
     {
         if (gizmoMode == GizmoMode.None)
@@ -53,28 +87,28 @@ public static class GizmoHitTester
         if (!HitTester3D.TryCreateRayFromScreen(screenPoint, width, height, camera, out var ray))
             return GizmoAxis.None;
 
+        // Hit tests run in the gizmo's unit-sized geometry, so scale the ray origin into it.
+        float scale = GetWorldScale(camera, gizmoPosition, (float)width / height);
+
         // Transform ray to gizmo local space
         Ray3D localRay;
         if (gizmoMode is GizmoMode.Rotate or GizmoMode.Scale)
         {
             // For Rotate and Scale modes, apply inverse rotation to transform ray into object's local space
-            var rotationMatrix = Matrix4x4.CreateFromYawPitchRoll(
-                gizmoRotation.Y * MathF.PI / 180f,
-                gizmoRotation.X * MathF.PI / 180f,
-                gizmoRotation.Z * MathF.PI / 180f);
+            var rotationMatrix = Matrix4x4.CreateFromQuaternion(gizmoOrientation);
 
             // Invert the rotation matrix
             Matrix4x4.Invert(rotationMatrix, out var inverseRotation);
 
             // Transform ray origin and direction by inverse rotation
-            var localOrigin = Vector3.Transform(ray.Origin - gizmoPosition, inverseRotation);
+            var localOrigin = Vector3.Transform(ray.Origin - gizmoPosition, inverseRotation) / scale;
             var localDirection = Vector3.TransformNormal(ray.Direction, inverseRotation);
             localRay = new Ray3D(localOrigin, Vector3.Normalize(localDirection));
         }
         else
         {
             // For Translate mode, gizmo is world-aligned
-            localRay = new Ray3D(ray.Origin - gizmoPosition, ray.Direction);
+            localRay = new Ray3D((ray.Origin - gizmoPosition) / scale, ray.Direction);
         }
 
         GizmoAxis closestAxis = GizmoAxis.None;

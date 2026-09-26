@@ -1130,8 +1130,8 @@ public partial class PlayerView
         private GizmoAxis _selectedGizmoAxis;
 
         private const float RotationSpeed = 0.005f;
-        private const float MoveSpeed = 0.1f;
-        private const float ObjectMoveSpeed = 0.01f;
+        // World units are pixels: 10 px per movement tick, 30 px per wheel notch.
+        private const float MoveSpeed = 10f;
         private const float ObjectRotateSpeed = 0.5f;
         private const float ObjectScaleSpeed = 0.01f;
 
@@ -1231,7 +1231,7 @@ public partial class PlayerView
                     var existingTarget = RenderThread.Dispatcher.Invoke(() =>
                     {
                         var objects = sceneResource.Objects.Where(o => o.IsEnabled).ToList();
-                        return objects.FirstOrDefault(o => o.GetOriginal()?.Id == currentGizmoTarget.Value);
+                        return FindObjectResource(objects, currentGizmoTarget.Value);
                     });
 
                     if (existingTarget != null)
@@ -1335,13 +1335,13 @@ public partial class PlayerView
 
                 if (_camera != null)
                 {
-                    // カメラの方向からYawとPitchを計算する
+                    // カメラの方向からYawとPitchを計算する（+Yが下向きなので、Pitchが増えると下を向く）
                     var position = _camera.Position.GetValue(CompositionContext);
                     var target = _camera.Target.GetValue(CompositionContext);
                     var forward = Vector3.Normalize(target - position);
 
                     _yaw = MathF.Atan2(forward.X, forward.Z);
-                    _pitch = MathF.Asin(-forward.Y);
+                    _pitch = MathF.Asin(Math.Clamp(forward.Y, -1f, 1f));
 
                     // キーフレームを探す
                     _positionKeyFrame = FindKeyFramePairOrNull(_camera.Position);
@@ -1377,7 +1377,7 @@ public partial class PlayerView
                             {
                                 // マウス移動をカメラ平面上の移動に変換
                                 var screenMovement = (right * (float)delta.X + cameraUp * -(float)delta.Y) *
-                                                     ObjectMoveSpeed;
+                                                     GetWorldUnitsPerViewPixel(_selectedObject);
 
                                 if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
                                 {
@@ -1414,9 +1414,12 @@ public partial class PlayerView
                             else
                             {
                                 // 自由移動: カメラ平面上を移動
-                                movement = (right * (float)delta.X + cameraUp * -(float)delta.Y) * ObjectMoveSpeed;
+                                movement = (right * (float)delta.X + cameraUp * -(float)delta.Y)
+                                           * GetWorldUnitsPerViewPixel(_selectedObject);
                             }
 
+                            // The movement is in world space; Position is in the parent group's space.
+                            movement = ToParentSpace(_selectedObject, movement);
                             if (!SetKeyFrameValue(_objectPositionKeyFrame, movement))
                             {
                                 _selectedObject.Position.CurrentValue += movement;
@@ -1498,8 +1501,8 @@ public partial class PlayerView
             }
             else if (_rightPressed && _camera != null)
             {
-                // マウスの動きに応じてYawとPitchを更新
-                _yaw += (float)delta.X * RotationSpeed;
+                // マウスの動きに応じてYawとPitchを更新（ドラッグした方向へシーンを掴んで回す）
+                _yaw -= (float)delta.X * RotationSpeed;
                 _pitch += (float)delta.Y * RotationSpeed;
 
                 _pitch = Math.Clamp(_pitch, (-MathF.PI / 2) + 0.1f, (MathF.PI / 2) - 0.1f);
@@ -1507,14 +1510,16 @@ public partial class PlayerView
                 // 新しいforward directionを計算する
                 var forward = new Vector3(
                     MathF.Sin(_yaw) * MathF.Cos(_pitch),
-                    -MathF.Sin(_pitch),
+                    MathF.Sin(_pitch),
                     MathF.Cos(_yaw) * MathF.Cos(_pitch)
                 );
 
-                // カメラのターゲットを更新する
+                // カメラのターゲットを、注視点までの距離を保ったまま更新する
                 var cameraPosition = _camera.Position.GetValue(CompositionContext);
-                var newTarget = cameraPosition + forward;
-                var targetDelta = newTarget - _camera.Target.GetValue(CompositionContext);
+                var currentTarget = _camera.Target.GetValue(CompositionContext);
+                float targetDistance = MathF.Max(Vector3.Distance(cameraPosition, currentTarget), 1f);
+                var newTarget = cameraPosition + forward * targetDistance;
+                var targetDelta = newTarget - currentTarget;
 
                 if (!SetKeyFrameValue(_targetKeyFrame, targetDelta))
                 {
@@ -1698,6 +1703,93 @@ public partial class PlayerView
             ProcessMovement();
         }
 
+        // The world distance one pixel of the preview covers at the object's depth, so a drag moves the
+        // object with the pointer.
+        private float GetWorldUnitsPerViewPixel(Object3D obj)
+        {
+            if (_camera == null || _scene3D == null)
+                return 1f;
+
+            double viewHeight = Image.Bounds.Height;
+            if (viewHeight <= 0)
+                return 1f;
+
+            Scene scene = EditViewModel.Scene;
+            float sceneHeight = scene.FrameSize.Height;
+            float renderHeight = _scene3D.RenderHeight.GetValue(CompositionContext);
+            float renderWidth = _scene3D.RenderWidth.GetValue(CompositionContext);
+            // The 3D render is drawn at its own size into the scene, which the preview then fits to the view.
+            double renderPixelsPerViewPixel = sceneHeight / viewHeight;
+            float worldPerRenderPixel = _camera switch
+            {
+                PerspectiveCamera perspective => 2
+                    * GizmoHitTester.GetViewDepth(
+                        _camera.Position.GetValue(CompositionContext),
+                        _camera.Target.GetValue(CompositionContext),
+                        _camera.NearPlane.GetValue(CompositionContext),
+                        GetWorldPosition(obj))
+                    * MathF.Tan(perspective.FieldOfView.GetValue(CompositionContext) * MathF.PI / 360f)
+                    / renderHeight,
+                OrthographicCamera orthographic => orthographic.Width.GetValue(CompositionContext) / renderWidth,
+                _ => 1f,
+            };
+
+            return (float)(worldPerRenderPixel * renderPixelsPerViewPixel);
+        }
+
+        // Where the object is drawn, including the groups it is nested in; its Position alone is local.
+        private Vector3 GetWorldPosition(Object3D obj)
+        {
+            Scene3D.Resource? sceneResource = _scene3D != null ? FindScene3DResource() : null;
+            Vector3? position = sceneResource == null
+                ? null
+                : RenderThread.Dispatcher.Invoke(() =>
+                {
+                    Object3D.Resource? target = FindObjectResource(sceneResource.Objects, obj.Id);
+                    return target == null
+                        ? (Vector3?)null
+                        : Renderer3D.GetWorldPosition(sceneResource.Objects, target);
+                });
+
+            return position ?? obj.Position.GetValue(CompositionContext);
+        }
+
+        // Converts a world-space direction into the space of the groups the object is nested in.
+        private Vector3 ToParentSpace(Object3D obj, Vector3 worldDelta)
+        {
+            Scene3D.Resource? sceneResource = _scene3D != null ? FindScene3DResource() : null;
+            if (sceneResource == null)
+                return worldDelta;
+
+            Matrix4x4 parent = RenderThread.Dispatcher.Invoke(() =>
+                FindObjectResource(sceneResource.Objects, obj.Id) is { } target
+                    ? Renderer3D.GetParentWorldMatrix(sceneResource.Objects, target)
+                    : Matrix4x4.Identity);
+
+            return Matrix4x4.Invert(parent, out Matrix4x4 inverse)
+                ? Vector3.TransformNormal(worldDelta, inverse)
+                : worldDelta;
+        }
+
+        // Searches nested objects too: a hit test can select an object inside a group. Disabled objects are
+        // not drawn, so they are not found.
+        private static Object3D.Resource? FindObjectResource(IReadOnlyList<Object3D.Resource> objects, Guid id)
+        {
+            foreach (Object3D.Resource item in objects)
+            {
+                if (!item.IsEnabled)
+                    continue;
+
+                if (item.GetOriginal()?.Id == id)
+                    return item;
+
+                if (FindObjectResource(item.GetChildResources(), id) is { } child)
+                    return child;
+            }
+
+            return null;
+        }
+
         private void FindScene3DAndCamera()
         {
             _scene3D = null;
@@ -1723,9 +1815,31 @@ public partial class PlayerView
 
             var drawable = RenderThread.Dispatcher.Invoke(() =>
             {
-                var compositor = EditViewModel.Renderer.Value.Compositor;
-                var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
-                return EditViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPos.X, (float)scaledPos.Y));
+                var renderer = EditViewModel.Renderer.Value;
+                var compositionFrame = renderer.Compositor.EvaluateGraphics(Clock.CurrentTime.Value);
+                var point = new Point((float)scaledPos.X, (float)scaledPos.Y);
+                Drawable? hit = renderer.HitTest(compositionFrame, point);
+                if (hit is Scene3D)
+                    return hit;
+
+                // A scene with a transparent background lets clicks on its empty areas through, but the camera
+                // is still controlled from there: fall back to the topmost scene whose area holds the point,
+                // among those drawn over whatever the hit test found.
+                for (int i = compositionFrame.Objects.Length - 1; i >= 0; i--)
+                {
+                    EngineObject? original = compositionFrame.Objects[i].GetOriginal();
+                    if (hit != null && ReferenceEquals(original, hit))
+                        break;
+
+                    if (original is Scene3D candidate
+                        && renderer.GetBoundary(candidate) is { } bounds
+                        && bounds.Contains(point))
+                    {
+                        return candidate;
+                    }
+                }
+
+                return hit;
             });
 
             if (drawable is Scene3D scene3D)

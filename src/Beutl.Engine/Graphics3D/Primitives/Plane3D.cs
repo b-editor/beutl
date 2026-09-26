@@ -21,15 +21,15 @@ public sealed partial class Plane3D : Object3D
     /// Gets the width of the plane (X-axis).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> Width { get; } = Property.CreateAnimatable(1f);
+    [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
+    public IProperty<float> Width { get; } = Property.CreateAnimatable(1000f);
 
     /// <summary>
     /// Gets the height of the plane (Z-axis).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> Height { get; } = Property.CreateAnimatable(1f);
+    [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
+    public IProperty<float> Height { get; } = Property.CreateAnimatable(1000f);
 
     /// <summary>
     /// Gets the number of segments along the width (X-axis).

@@ -120,6 +120,14 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         }
 
         Object3D.Resource[] objects = scene.Objects.Where(static item => item.IsEnabled).ToArray();
+        // A 2D card lays its drawables out on a canvas the size of this scene, as a 2D scene that size would.
+        var canvasSize = new Size(width, height);
+        foreach (Object3D.Resource obj in EnumerateObjects(objects))
+        {
+            if (obj is DrawableObject3D.Resource card)
+                card.UpdateLayout(canvasSize, workingScale);
+        }
+
         Light3D.Resource[] lights = scene.Lights.Where(static item => item.IsEnabled).ToArray();
         Object3D.Resource? gizmoTarget = scene.GizmoTarget is { } targetId
             ? FindObjectById(objects, targetId)
@@ -156,7 +164,9 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 token,
                 current => Render(session, current)),
             bounds: OpaqueRenderBoundsContract.Source(bounds),
-            hitTest: RenderHitTestContract.OutputBounds,
+            hitTest: RenderHitTestContract.Custom(
+                new SceneHitTest(camera, objects, bounds, workingScale, scene.BackgroundColor.A > 0),
+                static (state, context, point) => state.HitTest(context, point)),
             valueCardinality: RenderValueCardinality.ZeroOrOne,
             scale: RenderScaleContract.MaterializeAtWorkingScale,
             deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
@@ -169,7 +179,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         IEnumerable<Object3D.Resource> objects,
         float outputScale)
     {
-        var seen = new HashSet<DrawableTextureSource.Resource>(ReferenceEqualityComparer.Instance);
+        var seen = new HashSet<IRecordedTextureSource>(ReferenceEqualityComparer.Instance);
         var result = new List<SceneTextureBinding>();
         foreach (Object3D.Resource obj in EnumerateObjects(objects))
         {
@@ -177,14 +187,14 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             if (material is null)
                 continue;
 
-            foreach (DrawableTextureSource.Resource source in material
+            foreach (IRecordedTextureSource source in material
                          .EnumerateTextureSources()
-                         .OfType<DrawableTextureSource.Resource>())
+                         .OfType<IRecordedTextureSource>())
             {
                 if (!seen.Add(source))
                     continue;
                 float textureDensity = source.ResolveDensity(outputScale);
-                DrawableRenderNode? root = source.RecordDrawable(textureDensity);
+                RenderNode? root = source.RecordContent(textureDensity);
                 if (root is null)
                     continue;
 
@@ -251,8 +261,37 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         GizmoMode GizmoMode,
         SceneTextureBinding[] TextureBindings);
 
+    // A transparent background shows what lies beneath the scene, so there only the scene's objects answer;
+    // an opaque one covers its whole rectangle.
+    private sealed record SceneHitTest(
+        Camera3D.Resource Camera,
+        Object3D.Resource[] Objects,
+        Rect Bounds,
+        float WorkingScale,
+        bool HasBackground)
+    {
+        public bool HitTest(RenderHitTestContext context, Point point)
+        {
+            if (!context.OutputBounds.Contains(point))
+                return false;
+
+            if (HasBackground)
+                return true;
+
+            // Test in the device pixels the scene is rendered at, so the camera's aspect ratio is the one
+            // the rendering used.
+            (int width, int height) = ResolveDeviceFootprint(Bounds, WorkingScale);
+            return HitTester3D.HitTest(
+                new Point((point.X - Bounds.X) * WorkingScale, (point.Y - Bounds.Y) * WorkingScale),
+                width,
+                height,
+                Camera,
+                Objects) is not null;
+        }
+    }
+
     private sealed record SceneTextureBinding(
-        DrawableTextureSource.Resource Source,
+        IRecordedTextureSource Source,
         RenderResource<NestedRenderTargetBinding> Binding);
 
     private static void Render(OpaqueRenderSession session, SceneExecutionSnapshot snapshot)

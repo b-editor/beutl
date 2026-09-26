@@ -15,6 +15,7 @@ public abstract partial class Mesh : EngineObject
         private int? _capturedVersion;
         private Vertex3D[]? _cachedVertices;
         private uint[]? _cachedIndices;
+        private BoundingBox? _cachedBoundingBox;
 
         /// <summary>
         /// Gets or sets the vertex buffer. Set by Renderer3D.
@@ -100,9 +101,11 @@ public abstract partial class Mesh : EngineObject
         public BoundingBox GetBoundingBox()
         {
             EnsureCached();
+            if (_cachedBoundingBox is { } cached)
+                return cached;
 
             if (_cachedVertices == null || _cachedVertices.Length == 0)
-                return new BoundingBox(Vector3.Zero, Vector3.Zero);
+                return (_cachedBoundingBox = new BoundingBox(Vector3.Zero, Vector3.Zero)).Value;
 
             var min = _cachedVertices[0].Position;
             var max = _cachedVertices[0].Position;
@@ -113,7 +116,7 @@ public abstract partial class Mesh : EngineObject
                 max = Vector3.Max(max, vertex.Position);
             }
 
-            return new BoundingBox(min, max);
+            return (_cachedBoundingBox = new BoundingBox(min, max)).Value;
         }
 
         private void EnsureCached()
@@ -126,6 +129,7 @@ public abstract partial class Mesh : EngineObject
                 ApplyTo(out Vertex3D[] vertices, out uint[] indices);
                 _cachedVertices = vertices;
                 _cachedIndices = indices;
+                _cachedBoundingBox = null;
                 _capturedVersion = version;
                 BuffersDirty = true;
             }

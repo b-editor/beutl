@@ -47,6 +47,7 @@ public class ModelSource : EngineObject, IFileSource
     private string? _basePath;
     private readonly List<MeshData> _meshDataList = [];
     private readonly List<MaterialData> _materialDataList = [];
+    private Matrix4x4 _toYUp = Matrix4x4.Identity;
 
     public new Uri Uri
     {
@@ -115,12 +116,50 @@ public class ModelSource : EngineObject, IFileSource
         }
 
         // Process materials first
+        _toYUp = GetRotationToYUp(scene, path);
+
         ProcessMaterials(assimp, scene);
 
         // Process nodes and meshes
         ProcessNode(scene->MRootNode, scene);
 
         assimp.FreeScene(scene);
+    }
+
+    // The rotation that turns the file's up axis into +Y. Formats that record it (FBX among them) say so in
+    // the scene metadata; 3DS and Blender files are Z-up by convention; anything else is taken as Y-up.
+    private static unsafe Matrix4x4 GetRotationToYUp(Scene* scene, string path)
+    {
+        int? upAxis = null;
+        int upSign = 1;
+        Metadata* metadata = scene->MMetaData;
+        if (metadata != null)
+        {
+            for (uint i = 0; i < metadata->MNumProperties; i++)
+            {
+                MetadataEntry entry = metadata->MValues[i];
+                if (entry.MType != MetadataType.Int32 || entry.MData == null)
+                    continue;
+
+                string key = metadata->MKeys[i].AsString;
+                if (key == "UpAxis")
+                    upAxis = *(int*)entry.MData;
+                else if (key == "UpAxisSign")
+                    upSign = *(int*)entry.MData < 0 ? -1 : 1;
+            }
+        }
+
+        upAxis ??= System.IO.Path.GetExtension(path).ToLowerInvariant() is ".3ds" or ".blend" ? 2 : 1;
+        float half = MathF.PI / 2;
+        return (upAxis, upSign) switch
+        {
+            (0, 1) => Matrix4x4.CreateRotationZ(half),
+            (0, _) => Matrix4x4.CreateRotationZ(-half),
+            (2, 1) => Matrix4x4.CreateRotationX(-half),
+            (2, _) => Matrix4x4.CreateRotationX(half),
+            (_, -1) => Matrix4x4.CreateRotationX(MathF.PI),
+            _ => Matrix4x4.Identity,
+        };
     }
 
     private unsafe void ProcessMaterials(Assimp assimp, Scene* scene)
@@ -308,7 +347,13 @@ public class ModelSource : EngineObject, IFileSource
                 tangent = new Vector4(t, handedness);
             }
 
-            vertices.Add(new Vertex3D(position, normal, texCoord, tangent));
+            // Assimp keeps the file's own up axis; turn it to Y-up, then into Beutl's Y-down space.
+            Vector3 tangentDirection = Vector3.TransformNormal(new Vector3(tangent.X, tangent.Y, tangent.Z), _toYUp);
+            vertices.Add(CoordinateSystem3D.FromYUp(new Vertex3D(
+                Vector3.Transform(position, _toYUp),
+                Vector3.TransformNormal(normal, _toYUp),
+                texCoord,
+                new Vector4(tangentDirection, tangent.W))));
         }
 
         // Extract index data from faces
