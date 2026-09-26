@@ -623,4 +623,7 @@
     <value>다시 설치</value>
     <comment />
   </data>
+  <data name="AiAgents_CodexHomeMustBeAbsolute" xml:space="preserve">
+    <value>Codex MCP를 설치하려면 CODEX_HOME을 절대 경로로 설정하세요.</value>
+  </data>
 </root>

@@ -154,7 +154,7 @@
 
                         <ui:FAInfoBar IsClosable="False"
                                     IsOpen="{Binding !CanInstallMcp.Value}"
-                                    Message="{x:Static lang:SettingsStrings.AiAgents_McpManual}"
+                                    Message="{Binding McpUnavailableMessage.Value}"
                                     Severity="Informational" />
 
                         <ui:FAInfoBar IsClosable="False"
@@ -213,12 +213,14 @@
                                             <TextBox MinWidth="250" MaxWidth="360" Text="{Binding SubagentsDirectory.Value}" />
                                         </ctrls:OptionsDisplayItem.ActionButton>
                                     </ctrls:OptionsDisplayItem>
-                                    <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_McpConfigFileName}">
+                                    <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_McpConfigFileName}"
+                                                              IsVisible="{Binding CanCustomizeMcpConfig.Value}">
                                         <ctrls:OptionsDisplayItem.ActionButton>
                                             <TextBox MinWidth="250" MaxWidth="360" Text="{Binding McpConfigFileName.Value}" />
                                         </ctrls:OptionsDisplayItem.ActionButton>
                                     </ctrls:OptionsDisplayItem>
-                                    <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_McpServersPropertyName}">
+                                    <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.AiAgents_McpServersPropertyName}"
+                                                              IsVisible="{Binding CanCustomizeMcpConfig.Value}">
                                         <ctrls:OptionsDisplayItem.ActionButton>
                                             <TextBox MinWidth="250" MaxWidth="360" Text="{Binding McpServersPropertyName.Value}" />
                                         </ctrls:OptionsDisplayItem.ActionButton>

@@ -738,4 +738,7 @@
     <value>Loading AI plan…</value>
     <comment/>
   </data>
+  <data name="AiAgents_CodexHomeMustBeAbsolute" xml:space="preserve">
+    <value>Set CODEX_HOME to an absolute path before installing Codex MCP.</value>
+  </data>
 </root>

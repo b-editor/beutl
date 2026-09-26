@@ -75,6 +75,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         IsProjectFolderVisible = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         CanInstallSubagents = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         CanInstallMcp = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
+        CanCustomizeMcpConfig = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
+        McpUnavailableMessage = new ReactivePropertySlim<string>().DisposeWith(_disposables);
         CanInstallStdioMcp = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         CanInstallLiveMcp = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         IsStdioCommandMissing = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
@@ -150,6 +152,10 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
     public ReactivePropertySlim<bool> CanInstallMcp { get; }
 
+    public ReactivePropertySlim<bool> CanCustomizeMcpConfig { get; }
+
+    public ReactivePropertySlim<string> McpUnavailableMessage { get; }
+
     public ReactivePropertySlim<bool> CanInstallStdioMcp { get; }
 
     public ReactivePropertySlim<bool> CanInstallLiveMcp { get; }
@@ -180,6 +186,9 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         string? SubagentsDirectory,
         SubagentFileFormat SubagentFormat,
         string? McpConfigFileName,
+        string McpConfigRoot,
+        McpConfigFormat McpConfigFormat,
+        string? McpConfigurationError,
         string McpServersPropertyName,
         string? StdioTypeValue,
         string? LiveUrlPropertyName,
@@ -205,11 +214,33 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             : agent is null ? "agents" : agent.SubagentsDirectory(scope);
 
         AgentMcpLocation? mcp = agent?.Mcp(scope);
-        string? mcpFile = !string.IsNullOrWhiteSpace(McpConfigFileName.Value)
+        bool codex = mcp?.Format == McpConfigFormat.CodexToml;
+        // Codex's path and root table are fixed. Shared JSON overrides belong
+        // to other agents and must not redirect a Codex installation.
+        string? mcpFile = codex ? mcp!.ConfigFileName
+            : !string.IsNullOrWhiteSpace(McpConfigFileName.Value)
             ? McpConfigFileName.Value
             : agent is null ? ".mcp.json" : mcp?.ConfigFileName;
 
-        string mcpProperty = FirstNonEmpty(
+        string mcpRoot = root;
+        string? mcpError = null;
+        if (codex
+            && scope == AgentInstallScope.Global
+            && Environment.GetEnvironmentVariable("CODEX_HOME") is { Length: > 0 } codexHome)
+        {
+            if (Path.IsPathFullyQualified(codexHome))
+            {
+                mcpRoot = Path.GetFullPath(codexHome);
+                mcpFile = "config.toml";
+            }
+            else
+            {
+                mcpFile = null;
+                mcpError = SettingsStrings.AiAgents_CodexHomeMustBeAbsolute;
+            }
+        }
+
+        string mcpProperty = codex ? mcp!.ServersPropertyName : FirstNonEmpty(
             McpServersPropertyName.Value,
             mcp?.ServersPropertyName ?? "mcpServers");
 
@@ -219,14 +250,15 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         string? liveUrlProperty = mcp is null ? "url" : mcp.RemoteUrlPropertyName;
         string? liveType = mcp is null ? "http" : mcp.RemoteTypeValue;
 
-        bool useCli = mcpFile is null
+        bool useCli = mcpError is null && mcpFile is null
                       && AgentMcpCliCommands.SupportsStdio(SelectedAgent.Value.Id, scope);
         bool cliRemote = useCli
                          && AgentMcpCliCommands.SupportsRemote(SelectedAgent.Value.Id, scope);
 
         return new ResolvedTargets(
             root, skills, subagents, agent?.SubagentFormat ?? SubagentFileFormat.Markdown,
-            mcpFile, mcpProperty, stdioType, liveUrlProperty, liveType, useCli, cliRemote);
+            mcpFile, mcpRoot, mcp?.Format ?? McpConfigFormat.Json, mcpError,
+            mcpProperty, stdioType, liveUrlProperty, liveType, useCli, cliRemote);
     }
 
     private McpCliCommand? BuildCliStdioCommand()
@@ -273,6 +305,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         bool stdioCommandAvailable = !string.IsNullOrWhiteSpace(McpCommand.Value);
         CanInstallSubagents.Value = targets.SubagentsDirectory is not null;
         CanInstallMcp.Value = targets.McpConfigFileName is not null || targets.UseCliForMcp;
+        CanCustomizeMcpConfig.Value = targets.McpConfigFormat != McpConfigFormat.CodexToml;
+        McpUnavailableMessage.Value = targets.McpConfigurationError ?? SettingsStrings.AiAgents_McpManual;
         CanInstallStdioMcp.Value = CanInstallMcp.Value && stdioCommandAvailable;
         IsStdioCommandMissing.Value = !stdioCommandAvailable;
         CanInstallLiveMcp.Value = IsLiveMcpAvailable.Value
@@ -283,11 +317,11 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         ResolvedSubagentsPath.Value = targets.SubagentsDirectory is null
             ? SettingsStrings.AiAgents_NotSupported
             : DisplayPath(targets.Root, targets.SubagentsDirectory);
-        ResolvedMcpConfigPath.Value = targets.McpConfigFileName is not null
-            ? DisplayPath(targets.Root, targets.McpConfigFileName)
+        ResolvedMcpConfigPath.Value = targets.McpConfigurationError ?? (targets.McpConfigFileName is not null
+            ? DisplayPath(targets.McpConfigRoot, targets.McpConfigFileName)
             : targets.UseCliForMcp && BuildCliPreview(targets) is { } cliPreview
                 ? cliPreview
-                : SettingsStrings.AiAgents_NotSupported;
+                : targets.UseCliForMcp ? "—" : SettingsStrings.AiAgents_NotSupported);
     }
 
     private string? BuildCliPreview(ResolvedTargets targets)
@@ -310,11 +344,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                 BuildLiveMcpHeaders()) is { } remote)
         {
             lines.Add("$ " + remote.ToDisplayString());
-        }
-
-        if (lines.Count == 0 && stdioCommandAvailable && BuildCliStdioCommand() is { } fallback)
-        {
-            lines.Add("$ " + fallback.ToDisplayString());
         }
 
         return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
@@ -355,6 +384,14 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             RecomputeTargets();
 
             ResolvedTargets targets = Resolve();
+            bool installSubagents = InstallSubagents.Value && targets.SubagentsDirectory is not null;
+            string? mcpError = InstallStdioMcp.Value || InstallLiveMcp.Value ? targets.McpConfigurationError : null;
+            if (mcpError is not null && !InstallSkills.Value && !installSubagents)
+            {
+                Status.Value = mcpError;
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(targets.Root))
             {
                 Status.Value = SettingsStrings.AiAgents_ProjectFolderMissing;
@@ -372,7 +409,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                                   && liveMcpUri is not null;
 
             IReadOnlyList<AgentToolkitAsset> assets = BundledAgentToolkitAssets.Load();
-            bool installSubagents = InstallSubagents.Value && targets.SubagentsDirectory is not null;
             AgentToolkitInstallResult result = await AgentToolkitInstaller.InstallAsync(
                 new AgentToolkitInstallOptions
                 {
@@ -385,6 +421,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                     InstallStdioMcp = installStdioMcp,
                     InstallLiveMcp = installLiveMcp,
                     McpConfigFileName = targets.McpConfigFileName ?? ".mcp.json",
+                    McpConfigRoot = targets.McpConfigRoot,
+                    McpConfigFormat = targets.McpConfigFormat,
                     McpServersPropertyName = targets.McpServersPropertyName,
                     StdioMcpTypeValue = targets.StdioTypeValue,
                     LiveMcpUrlPropertyName = targets.LiveUrlPropertyName ?? "url",
@@ -415,6 +453,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
             HasInstalledFiles.Value = InstalledFiles.Count > 0;
             Status.Value = string.Format(SettingsStrings.AiAgents_InstallCompleted, InstalledFiles.Count);
+            if (mcpError is not null)
+                Status.Value += Environment.NewLine + mcpError;
             if (cliErrors.Count > 0)
             {
                 Status.Value += Environment.NewLine + string.Format(

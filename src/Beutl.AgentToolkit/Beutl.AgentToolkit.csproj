@@ -45,6 +45,7 @@
 
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Tomlyn" />
   </ItemGroup>
 
 </Project>

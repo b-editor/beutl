@@ -7,8 +7,8 @@ public enum AgentInstallScope
 }
 
 /// <summary>
-/// A JSON MCP config file the installer can merge servers into.
-/// Agents whose MCP config is not a mergeable JSON file (TOML, YAML,
+/// An MCP config file the installer can merge servers into.
+/// Agents whose MCP config is not a supported file format (YAML,
 /// non-standard server shapes, app-managed storage) have no location and
 /// require manual registration.
 /// <para>
@@ -26,7 +26,8 @@ public sealed record AgentMcpLocation(
     string ServersPropertyName,
     string? StdioTypeValue = null,
     string? RemoteUrlPropertyName = "url",
-    string? RemoteTypeValue = null);
+    string? RemoteTypeValue = null,
+    McpConfigFormat Format = McpConfigFormat.Json);
 
 /// <summary>
 /// Install conventions for one AI coding agent. Directory values are
@@ -61,6 +62,9 @@ public static class AgentCatalog
     private static readonly AgentMcpLocation s_repoRootMcpJson =
         new(".mcp.json", "mcpServers", RemoteTypeValue: "http");
 
+    private static readonly AgentMcpLocation s_codexMcpToml =
+        new(Path.Combine(".codex", "config.toml"), "mcp_servers", Format: McpConfigFormat.CodexToml);
+
     public static IReadOnlyList<AgentDefinition> Agents { get; } =
     [
         // Global MCP deliberately absent: ~/.claude.json is Claude Code's live
@@ -71,14 +75,15 @@ public static class AgentCatalog
             ProjectSubagentsDirectory: Path.Combine(".claude", "agents"),
             GlobalSubagentsDirectory: Path.Combine(".claude", "agents"),
             ProjectMcp: s_repoRootMcpJson),
-        // Codex MCP config is TOML (~/.codex/config.toml) — registration goes
-        // through `codex mcp add` (AgentMcpCliCommands) instead of a file merge.
-        // Subagents are TOML and get converted at install time.
+        // Write TOML directly so Live MCP's static Authorization header works
+        // without requiring the Codex CLI or an inherited environment variable.
         new("codex", "Codex",
             ProjectSkillsDirectory: Path.Combine(".agents", "skills"),
             GlobalSkillsDirectory: Path.Combine(".agents", "skills"),
             ProjectSubagentsDirectory: Path.Combine(".codex", "agents"),
             GlobalSubagentsDirectory: Path.Combine(".codex", "agents"),
+            ProjectMcp: s_codexMcpToml,
+            GlobalMcp: s_codexMcpToml,
             SubagentFormat: SubagentFileFormat.CodexToml),
         new("opencode", "OpenCode",
             ProjectSkillsDirectory: Path.Combine(".agents", "skills"),
