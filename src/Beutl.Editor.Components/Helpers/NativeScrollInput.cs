@@ -38,11 +38,19 @@ internal static partial class NativeScrollInput
         return false;
     }
 
+    internal static bool IsMacGestureScroll(ulong timestamp, double nativeTimestamp, bool precise, nint phase, nint momentumPhase)
+    {
+        if ((ulong)(nativeTimestamp * 1000) != timestamp || !precise) return false;
+        // High-resolution wheels can be precise without belonging to a touch gesture.
+        return phase != 0 || momentumPhase != 0;
+    }
+
     internal static partial class Windows
     {
         private const uint Touchpad = 0x10; // IMDT_TOUCHPAD
         private static readonly Func<bool, bool>? s_registerTouchpadThread = LoadTouchpadRegistration();
-        private static ThreadRegistration? s_registration;
+        private static readonly RegistrationManager s_registration = new(s_registerTouchpadThread, AttachHook,
+            () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Windows ?? []);
 
         static Windows() { }
 
@@ -50,17 +58,35 @@ internal static partial class NativeScrollInput
 
         internal static bool IsTouchpadScroll(Func<uint?> getCurrentDeviceType) => getCurrentDeviceType() == Touchpad;
 
-        internal static IDisposable? Attach(TopLevel root)
-        {
-            Dispatcher.UIThread.VerifyAccess();
-            if (s_registration == null)
-            {
-                var registration = new ThreadRegistration();
-                if (!registration.Start(root)) return null;
-                s_registration = registration;
-            }
+        internal static IDisposable? Attach(TopLevel root) => s_registration.Attach(root);
 
-            return s_registration.Acquire(root);
+        internal sealed class RegistrationManager(
+            Func<bool, bool>? registerThread,
+            Func<TopLevel, IDisposable?> attachHook,
+            Func<IEnumerable<Window>> getOpenWindows)
+        {
+            private ThreadRegistration? _current;
+
+            public IDisposable? Attach(TopLevel root)
+            {
+                Dispatcher.UIThread.VerifyAccess();
+                if (_current == null)
+                {
+                    var registration = new ThreadRegistration(registerThread, attachHook, getOpenWindows, () => _current = null);
+                    if (!registration.Start(root)) return null;
+                    _current = registration;
+                }
+
+                return _current.Acquire(root);
+            }
+        }
+
+        private static IDisposable? AttachHook(TopLevel root)
+        {
+            if (root.TryGetPlatformHandle()?.HandleDescriptor != "HWND") return null;
+            Win32Properties.AddWndProcHookCallback(root, ForwardTouchpadMessage);
+            return System.Reactive.Disposables.Disposable.Create(
+                () => Win32Properties.RemoveWndProcHookCallback(root, ForwardTouchpadMessage));
         }
 
         internal static IDisposable? RegisterInput(Func<bool, bool>? registerThread, Action installHooks, Action removeHooks)
@@ -84,16 +110,20 @@ internal static partial class NativeScrollInput
             }
         }
 
-        private sealed class ThreadRegistration
+        private sealed class ThreadRegistration(
+            Func<bool, bool>? registerThread,
+            Func<TopLevel, IDisposable?> attachHook,
+            Func<IEnumerable<Window>> getOpenWindows,
+            Action onReleased)
         {
-            private readonly HashSet<TopLevel> _roots = [];
+            private readonly Dictionary<TopLevel, IDisposable> _roots = [];
             private IDisposable? _visibilitySubscription;
             private IDisposable? _inputRegistration;
             private int _owners;
 
             public bool Start(TopLevel root)
             {
-                _inputRegistration = RegisterInput(s_registerTouchpadThread, () =>
+                _inputRegistration = RegisterInput(registerThread, () =>
                 {
                     // Thread registration affects other windows and native popups too.
                     // Hook them before enabling delivery and track subsequently shown top levels.
@@ -102,8 +132,7 @@ internal static partial class NativeScrollInput
                         if (topLevel.IsVisible) Track(topLevel);
                     });
                     Track(root);
-                    if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
-                        foreach (Window window in lifetime.Windows) Track(window);
+                    foreach (Window window in getOpenWindows()) Track(window);
                 }, RemoveHooks);
                 return _inputRegistration != null;
             }
@@ -116,15 +145,15 @@ internal static partial class NativeScrollInput
                 {
                     Dispatcher.UIThread.VerifyAccess();
                     if (--_owners != 0) return;
-                    s_registration = null;
+                    onReleased();
                     _inputRegistration?.Dispose();
                 });
             }
 
             private void Track(TopLevel root)
             {
-                if (root.TryGetPlatformHandle()?.HandleDescriptor != "HWND" || !_roots.Add(root)) return;
-                Win32Properties.AddWndProcHookCallback(root, ForwardTouchpadMessage);
+                if (_roots.ContainsKey(root) || attachHook(root) is not { } hook) return;
+                _roots.Add(root, hook);
                 root.Closed += OnClosed;
             }
 
@@ -135,15 +164,15 @@ internal static partial class NativeScrollInput
 
             private void Untrack(TopLevel root)
             {
-                if (!_roots.Remove(root)) return;
+                if (!_roots.Remove(root, out IDisposable? hook)) return;
                 root.Closed -= OnClosed;
-                Win32Properties.RemoveWndProcHookCallback(root, ForwardTouchpadMessage);
+                hook.Dispose();
             }
 
             private void RemoveHooks()
             {
                 _visibilitySubscription?.Dispose();
-                foreach (TopLevel root in _roots.ToArray()) Untrack(root);
+                foreach (TopLevel root in _roots.Keys.ToArray()) Untrack(root);
             }
         }
 
@@ -178,14 +207,21 @@ internal static partial class NativeScrollInput
         private static Func<bool, bool>? LoadTouchpadRegistration()
         {
             if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000)) return null;
-            nint user32 = GetModuleHandle("user32.dll");
+            return LoadTouchpadRegistration(GetModuleHandle("user32.dll"),
+                (module, name) => NativeLibrary.TryGetExport(module, name, out nint address) ? address : 0, GetProcAddress);
+        }
+
+        internal static Func<bool, bool>? LoadTouchpadRegistration(nint user32,
+            Func<nint, string, nint> getNamedExport, Func<nint, nint, nint> getOrdinalExport)
+        {
             if (user32 == 0) return null;
 
             // Windows 11 exposes this optional API by ordinal on some versions.
             // https://learn.microsoft.com/windows/win32/input-precisiontouchpad/registertouchpadcapable
-            if (!NativeLibrary.TryGetExport(user32, "RegisterTouchpadCapableThread", out nint address))
+            nint address = getNamedExport(user32, "RegisterTouchpadCapableThread");
+            if (address == 0)
             {
-                address = GetProcAddress(user32, 2688);
+                address = getOrdinalExport(user32, 2688);
             }
 
             if (address == 0) return null;
@@ -195,7 +231,7 @@ internal static partial class NativeScrollInput
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private delegate bool RegisterTouchpadThread([MarshalAs(UnmanagedType.Bool)] bool enable);
+        internal delegate bool RegisterTouchpadThread([MarshalAs(UnmanagedType.Bool)] bool enable);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct InputMessageSource
@@ -252,11 +288,9 @@ internal static partial class NativeScrollInput
             // Avalonia.Native also converts NSEvent.timestamp from seconds to milliseconds.
             return currentEvent != 0
                 && Send(currentEvent, s_type) == ScrollWheel
-                && (ulong)(SendDouble(currentEvent, s_timestamp) * 1000) == timestamp
-                && SendByte(currentEvent, s_hasPreciseScrollingDeltas) != 0
-                // High-resolution mouse wheels can also provide precise deltas.
-                // Preserve axes only for a gesture or its momentum, not precision alone.
-                && (Send(currentEvent, s_phase) != 0 || Send(currentEvent, s_momentumPhase) != 0);
+                && IsMacGestureScroll(timestamp, SendDouble(currentEvent, s_timestamp),
+                    SendByte(currentEvent, s_hasPreciseScrollingDeltas) != 0,
+                    Send(currentEvent, s_phase), Send(currentEvent, s_momentumPhase));
         }
 
         [LibraryImport(ObjC, EntryPoint = "objc_getClass", StringMarshalling = StringMarshalling.Utf8)]

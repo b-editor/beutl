@@ -76,16 +76,19 @@ internal static partial class NativeTimelineTestHost
             Border ruler = view.FindControl<Border>("RulerBar")!;
             int events = 0;
             bool expectedGesture = false;
+            Point expectedPosition = default;
             view.AddHandler(InputElement.PointerWheelChangedEvent, (_, e) =>
             {
                 Assert.That(NativeScrollInput.UsesGestureAxes(e), Is.EqualTo(expectedGesture));
+                Point actualPosition = e.GetPosition(window);
+                // PointToScreen returns integer coordinates, so allow its pixel rounding.
+                Assert.That(actualPosition.X, Is.EqualTo(expectedPosition.X).Within(1));
+                Assert.That(actualPosition.Y, Is.EqualTo(expectedPosition.Y).Within(1));
                 events++;
             }, RoutingStrategies.Tunnel);
 
-            foreach (bool swap in new[] { false, true })
-                foreach (Control target in new Control[] { content, ruler })
-                    foreach (var sample in new[]
-                    {
+            var samples = new[]
+            {
                 (X: -10, Y: 0, Phase: 1L, Momentum: 0L, Gesture: true),
                 (X: 0, Y: -10, Phase: 2L, Momentum: 0L, Gesture: true),
                 (X: 0, Y: 0, Phase: 4L, Momentum: 0L, Gesture: true),
@@ -93,23 +96,39 @@ internal static partial class NativeTimelineTestHost
                 (X: -10, Y: -5, Phase: 0L, Momentum: 2L, Gesture: true),
                 (X: 0, Y: 0, Phase: 0L, Momentum: 3L, Gesture: true),
                 (X: 0, Y: -10, Phase: 0L, Momentum: 0L, Gesture: false)
-            })
+            };
+            var actualWindowPositions = new HashSet<PixelPoint>();
+            foreach (PixelPoint windowPosition in new[] { new PixelPoint(120, 120), new PixelPoint(420, 260) })
+            {
+                window.Position = windowPosition;
+                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+                actualWindowPositions.Add(window.Position);
+                Assert.That(window.Position, Is.Not.EqualTo(PixelPoint.Origin));
+                foreach (bool swap in new[] { false, true })
+                {
+                    foreach (Control target in new Control[] { content, ruler })
                     {
-                        GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection = swap;
-                        model.Options.Value = model.Options.Value with { Scale = 1, Offset = new System.Numerics.Vector2(300, 200) };
-                        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
-                        Assert.That(content.Offset, Is.EqualTo(new Vector(300, 200)));
-                        expectedGesture = sample.Gesture;
-                        int before = events;
-                        Point position = target.TranslatePoint(new Point(100, ReferenceEquals(target, ruler) ? 4 : 80), window)!.Value;
-                        DispatchScroll(window, position, sample.X, sample.Y, sample.Phase, sample.Momentum);
-                        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
-                        int expectedEvents = sample.X == 0 && sample.Y == 0 ? 0 : 1;
-                        Assert.That(events, Is.EqualTo(before + expectedEvents), "AppKit must deliver nonzero wheel deltas exactly once.");
-                        bool keepAxes = sample.Gesture || swap;
-                        Assert.That(content.Offset.X, Is.EqualTo(300 - (keepAxes ? sample.X : sample.Y)).Within(0.001));
-                        Assert.That(content.Offset.Y, Is.EqualTo(200 - (keepAxes ? sample.Y : sample.X)).Within(0.001));
+                        foreach (var sample in samples)
+                        {
+                            GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection = swap;
+                            model.Options.Value = model.Options.Value with { Scale = 1, Offset = new System.Numerics.Vector2(300, 200) };
+                            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+                            Assert.That(content.Offset, Is.EqualTo(new Vector(300, 200)));
+                            expectedGesture = sample.Gesture;
+                            int before = events;
+                            expectedPosition = target.TranslatePoint(new Point(100, ReferenceEquals(target, ruler) ? 4 : 80), window)!.Value;
+                            DispatchScroll(window, expectedPosition, sample.X, sample.Y, sample.Phase, sample.Momentum);
+                            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+                            int expectedEvents = sample.X == 0 && sample.Y == 0 ? 0 : 1;
+                            Assert.That(events, Is.EqualTo(before + expectedEvents), "AppKit must deliver nonzero wheel deltas exactly once.");
+                            bool keepAxes = sample.Gesture || swap;
+                            Assert.That(content.Offset.X, Is.EqualTo(300 - (keepAxes ? sample.X : sample.Y)).Within(0.001));
+                            Assert.That(content.Offset.Y, Is.EqualTo(200 - (keepAxes ? sample.Y : sample.X)).Within(0.001));
+                        }
                     }
+                }
+            }
+            Assert.That(actualWindowPositions, Has.Count.EqualTo(2), "Exercise two distinct non-origin window locations.");
             Console.WriteLine($"Native timeline scroll: {events} AppKit events passed.");
             exitCode = 0;
         }
@@ -134,9 +153,13 @@ internal static partial class NativeTimelineTestHost
         try
         {
             double screenHeight = CGDisplayBounds(CGMainDisplayID()).Height;
-            // A process-local CGEvent has no WindowServer-assigned target window.
-            // Give it window-local Cocoa coordinates and dispatch to Avalonia's real NSView below.
-            CGEventSetLocation(cgEvent, new NativePoint(position.X, screenHeight - window.ClientSize.Height + position.Y));
+            PixelPoint screenPosition = window.PointToScreen(position);
+            NativePoint windowPoint = ConvertPoint(handle.NSWindow, Selector("convertPointFromScreen:"),
+                new NativePoint(screenPosition.X, screenHeight - screenPosition.Y));
+            // A process-local CGEvent has no associated NSWindow: locationInWindow then returns
+            // screen coordinates. Encode the converted window point in that field because we
+            // dispatch directly to NSView.scrollWheel:, which expects window-base coordinates.
+            CGEventSetLocation(cgEvent, new NativePoint(windowPoint.X, screenHeight - windowPoint.Y));
             CGEventSetFlags(cgEvent, 0);
             // Include fractional milliseconds to exercise Avalonia.Native's timestamp conversion.
             CGEventSetTimestamp(cgEvent, s_eventTimestamp += 1_234_567);
@@ -144,6 +167,7 @@ internal static partial class NativeTimelineTestHost
             CGEventSetIntegerValueField(cgEvent, 123, momentum);
             nint nativeEvent = Send(GetClass("NSEvent"), Selector("eventWithCGEvent:"), cgEvent);
             Assert.That(nativeEvent, Is.Not.EqualTo(nint.Zero));
+            Assert.That(Send(nativeEvent, Selector("window")), Is.EqualTo(nint.Zero), "This fixture dispatches a windowless event directly to NSView.");
             PostEvent(app, Selector("postEvent:atStart:"), nativeEvent, 1);
             nint nextEvent = NextEvent(app, Selector("nextEventMatchingMask:untilDate:inMode:dequeue:"),
                 1UL << 22, Send(GetClass("NSDate"), Selector("distantPast")), CreateString("kCFRunLoopDefaultMode"), 1);
@@ -177,6 +201,8 @@ internal static partial class NativeTimelineTestHost
     private static partial nint Send(nint receiver, nint selector);
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
     private static partial nint Send(nint receiver, nint selector, nint argument);
+    [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
+    private static partial NativePoint ConvertPoint(nint receiver, nint selector, NativePoint point);
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend", StringMarshalling = StringMarshalling.Utf8)]
     private static partial nint String(nint receiver, nint selector, string value);
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
@@ -225,6 +251,6 @@ public class NativeTimelineIntegrationTests
             throw;
         }
         Assert.That(process.ExitCode, Is.Zero, await output + "\n" + await error);
-        Assert.That(await output, Does.Contain("20 AppKit events passed."));
+        Assert.That(await output, Does.Contain("40 AppKit events passed."));
     }
 }

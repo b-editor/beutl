@@ -1,6 +1,8 @@
 ﻿using System.Runtime.InteropServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Views;
 
@@ -9,6 +11,79 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public partial class NativeScrollInputTests
 {
+    [Test]
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Windows_optional_api_prefers_name_and_falls_back_to_documented_ordinal(bool namedExport)
+    {
+        List<bool> calls = [];
+        NativeScrollInput.Windows.RegisterTouchpadThread native = enable => { calls.Add(enable); return true; };
+        nint pointer = Marshal.GetFunctionPointerForDelegate(native);
+        int ordinalLookups = 0;
+        Func<bool, bool>? register = NativeScrollInput.Windows.LoadTouchpadRegistration(123, (module, name) =>
+        {
+            Assert.That(module, Is.EqualTo((nint)123));
+            Assert.That(name, Is.EqualTo("RegisterTouchpadCapableThread"));
+            return namedExport ? pointer : 0;
+        }, (module, ordinal) =>
+        {
+            ordinalLookups++;
+            Assert.That(module, Is.EqualTo((nint)123));
+            Assert.That(ordinal, Is.EqualTo((nint)2688));
+            return pointer;
+        });
+        Assert.That(register, Is.Not.Null);
+        Assert.That(register!(true), Is.True);
+        Assert.That(register(false), Is.True);
+        Assert.That(calls, Is.EqualTo(new[] { true, false }));
+        Assert.That(ordinalLookups, Is.EqualTo(namedExport ? 0 : 1));
+        GC.KeepAlive(native);
+    }
+
+    [Test]
+    public void Windows_missing_module_or_entry_point_keeps_registration_optional()
+    {
+        Assert.That(NativeScrollInput.Windows.LoadTouchpadRegistration(0,
+            (_, _) => throw new AssertionException("A missing module must not be queried."),
+            (_, _) => throw new AssertionException("A missing module must not be queried.")), Is.Null);
+        Assert.That(NativeScrollInput.Windows.LoadTouchpadRegistration(123, (_, _) => 0, (_, _) => 0), Is.Null);
+    }
+
+    [Test]
+    [TestCase(12345, 12.345678901, true, 1, 0, true)]
+    [TestCase(12345, 12.345678901, true, 0, 1, true)]
+    [TestCase(12345, 12.345678901, true, 0, 0, false)]
+    [TestCase(12345, 12.345678901, false, 1, 0, false)]
+    [TestCase(12344, 12.345678901, true, 1, 0, false)]
+    [TestCase(12346, 12.345678901, true, 1, 0, false)]
+    public void Gesture_metadata_requires_matching_timestamp_precision_and_a_gesture_phase(
+        int timestamp, double nativeTimestamp, bool precise, int phase, int momentum, bool expected)
+    {
+        Assert.That(NativeScrollInput.IsMacGestureScroll((ulong)timestamp, nativeTimestamp, precise, phase, momentum),
+            Is.EqualTo(expected));
+    }
+
+    [AvaloniaTest]
+    public void Missing_or_closed_event_roots_use_mouse_axes_without_native_access()
+    {
+        using var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, true);
+        var window = new Window();
+        var detached = new Border();
+        try
+        {
+            foreach (object? source in new object?[] { null, new object(), detached })
+            {
+                var e = new PointerWheelEventArgs(source, pointer, detached, default, 1, default, KeyModifiers.None, new Vector(0, 1));
+                Assert.That(NativeScrollInput.UsesGestureAxes(e), Is.False);
+            }
+            window.Show();
+            window.Close();
+            var closedEvent = new PointerWheelEventArgs(window, pointer, window, default, 1, default, KeyModifiers.None, new Vector(0, 1));
+            Assert.That(NativeScrollInput.UsesGestureAxes(closedEvent), Is.False);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTest]
     public void Timeline_registers_before_input_and_releases_on_detach_and_window_close()
     {
