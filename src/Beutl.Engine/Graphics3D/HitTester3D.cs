@@ -71,8 +71,7 @@ public static class HitTester3D
 
             // Recursively hit test this object and its children
             var (hitObj, distance) = HitTestRecursive(ray, maxDistance, obj, Matrix4x4.Identity);
-            // At equal depth the later object is drawn on top, so it takes the hit.
-            if (hitObj != null && distance <= closestDistance)
+            if (hitObj != null && IsCloser(hitObj, distance, closestObject, closestDistance))
             {
                 closestDistance = distance;
                 closestObject = hitObj;
@@ -105,8 +104,7 @@ public static class HitTester3D
         foreach (var child in children)
         {
             var (hitObj, distance) = HitTestRecursive(ray, maxDistance, child, worldMatrix);
-            // At equal depth the later object is drawn on top, so it takes the hit.
-            if (hitObj != null && distance <= closestDistance)
+            if (hitObj != null && IsCloser(hitObj, distance, closestObject, closestDistance))
             {
                 closestDistance = distance;
                 closestObject = hitObj;
@@ -159,8 +157,7 @@ public static class HitTester3D
             // Recursively hit test this object and its children, collecting the path
             var currentPath = new List<Object3D.Resource>();
             var (hitPath, distance) = HitTestRecursiveWithPath(ray, maxDistance, obj, Matrix4x4.Identity, currentPath);
-            // At equal depth the later object is drawn on top, so it takes the hit.
-            if (hitPath != null && distance <= closestDistance)
+            if (hitPath != null && IsCloser(hitPath[^1], distance, closestPath?[^1], closestDistance))
             {
                 closestDistance = distance;
                 closestPath = hitPath;
@@ -199,8 +196,7 @@ public static class HitTester3D
             // Create a copy of the current path for each child branch
             var childPath = new List<Object3D.Resource>(currentPath);
             var (hitPath, distance) = HitTestRecursiveWithPath(ray, maxDistance, child, worldMatrix, childPath);
-            // At equal depth the later object is drawn on top, so it takes the hit.
-            if (hitPath != null && distance <= closestDistance)
+            if (hitPath != null && IsCloser(hitPath[^1], distance, closestPath?[^1], closestDistance))
             {
                 closestDistance = distance;
                 closestPath = hitPath;
@@ -287,6 +283,20 @@ public static class HitTester3D
         ray = new Ray3D(rayOrigin, rayDirection);
         length = rayDirection.Length();
         return true;
+    }
+
+    // Opaque objects write depth and pass only when strictly nearer, so at equal depth the earlier one shows.
+    // Transparent objects write none and are drawn in order, so there the later one shows on top.
+    private static bool IsCloser(
+        Object3D.Resource candidate,
+        float distance,
+        Object3D.Resource? current,
+        float currentDistance)
+    {
+        return distance < currentDistance
+               || (distance == currentDistance
+                   && candidate.Material?.IsTransparent == true
+                   && current?.Material?.IsTransparent == true);
     }
 
     /// <summary>

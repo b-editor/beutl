@@ -124,6 +124,23 @@ public class HitTester3DVisibilityTests
         });
     }
 
+    // Opaque objects write depth and pass only when nearer, so of two in the same place the earlier shows.
+    [Test]
+    public void CoincidentOpaqueMeshes_TheEarlierOneTakesTheHit()
+    {
+        using var camera = CreateCamera(farPlane: 10000);
+        using var first = (Object3D.Resource)new Cube3D().ToResource(CompositionContext.Default);
+        using var second = (Object3D.Resource)new Cube3D().ToResource(CompositionContext.Default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(HitTester3D.HitTest(s_center, 1920, 1080, camera, [first, second]), Is.SameAs(first));
+            Assert.That(
+                HitTester3D.HitTestWithPath(s_center, 1920, 1080, camera, [first, second]).Last(),
+                Is.SameAs(first));
+        });
+    }
+
     private static RectShape CreateSquare(float x)
     {
         var rect = new RectShape();
