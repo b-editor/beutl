@@ -21,11 +21,13 @@ internal static class EffectTargetAllocation
         float density,
         PixelRect deviceBounds,
         Vector deviceGridOffset,
-        bool preserveImperativeRasterPlacement = false)
+        bool preserveImperativeRasterPlacement = false,
+        bool preferLease = false,
+        bool clearContents = true)
     {
-        if (leaseSession is { HasTargetFactory: true })
+        if (leaseSession is not null && (leaseSession.HasTargetFactory || preferLease))
         {
-            RenderTargetLease? lease = leaseSession.TryAcquire(deviceBounds.Size);
+            RenderTargetLease? lease = leaseSession.TryAcquire(deviceBounds.Size, clearContents);
             if (lease is null)
                 return null;
 

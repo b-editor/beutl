@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -10,11 +11,19 @@ public sealed class GLSLShader : IDisposable
     private const string No3DRenderingMessage = "Vulkan 3D rendering is not supported on this platform.";
 
     private readonly GLSLFilterPipeline _pipeline;
+    private readonly IDisposable _pipelineLifetime;
     private bool _disposed;
 
     private GLSLShader(GLSLFilterPipeline pipeline)
     {
         _pipeline = pipeline;
+        _pipelineLifetime = pipeline;
+    }
+
+    internal GLSLShader(ProgramCacheLease<GLSLFilterPipeline> lease)
+    {
+        _pipeline = lease.Program;
+        _pipelineLifetime = lease;
     }
 
     /// <summary>Gets the shared graphics context, or <see langword="null"/> when it cannot run a pipeline.</summary>
@@ -27,19 +36,100 @@ public sealed class GLSLShader : IDisposable
         => TryGetGraphicsContext() ?? throw new InvalidOperationException(No3DRenderingMessage);
 
     public static GLSLShader Create(string fragmentShaderSource)
+        => Create(fragmentShaderSource, 1);
+
+    /// <summary>Creates a GLSL fragment program with consecutive sampler2D bindings in set 0.</summary>
+    /// <param name="fragmentShaderSource">GLSL source whose output is linear, premultiplied RGBA.</param>
+    /// <param name="inputCount">Number of input samplers, starting at binding 0.</param>
+    public static GLSLShader Create(string fragmentShaderSource, int inputCount)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(inputCount, 1);
         IGraphicsContext context = RequireGraphicsContext();
 
         GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
             context,
             fragmentShaderSource,
-            ShaderOutputCoverage.MayLeavePixelsUnwritten);
+            ShaderOutputCoverage.MayLeavePixelsUnwritten,
+            inputCount: inputCount);
         if (pipeline == null)
         {
             throw new InvalidOperationException("Failed to compile GLSL shader.");
         }
 
         return new GLSLShader(pipeline);
+    }
+
+    /// <summary>Gets the number of input targets required by Render.</summary>
+    public int InputCount => Pipeline.InputCount;
+
+    /// <summary>Renders one GLSL pass into a new target without replacing or disposing its inputs.</summary>
+    /// <remarks>
+    /// Call inside Context.CustomEffect. The caller owns the result: dispose intermediates and return the
+    /// final target from CustomFilterEffectContext.ForEach to replace the source. Pass earlier results back
+    /// as inputs to build multiple passes. The shader receives normalized fragCoord over the destination;
+    /// each sampler addresses its own complete input texture. Use input/output RasterBounds and Scale to
+    /// map effect-local positions between textures, including padding and different resolutions.
+    /// Push constants follow the shader's declared layout, with a 4-byte-aligned size of at most 128 bytes.
+    /// An empty result means preview allocation was declined; keep the input in that case. Delivery throws.
+    /// </remarks>
+    public EffectTarget Render<T>(
+        CustomFilterEffectContext context,
+        IReadOnlyList<EffectTarget> inputs,
+        Rect outputBounds,
+        T pushConstants) where T : unmanaged
+        => Render(context, inputs, outputBounds, _ => pushConstants);
+
+    /// <summary>Renders a pass with constants derived from the actual destination size and clamped density.</summary>
+    /// <inheritdoc cref="Render{T}(CustomFilterEffectContext, IReadOnlyList{EffectTarget}, Rect, T)" path="/remarks"/>
+    public EffectTarget Render<T>(
+        CustomFilterEffectContext context,
+        IReadOnlyList<EffectTarget> inputs,
+        Rect outputBounds,
+        Func<EffectTarget, T> createPushConstants) where T : unmanaged
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(inputs);
+        ArgumentNullException.ThrowIfNull(createPushConstants);
+        if (inputs.Count != _pipeline.InputCount)
+            throw new ArgumentException($"The shader requires {_pipeline.InputCount} input targets.", nameof(inputs));
+        RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(outputBounds));
+        if (outputBounds.Width <= 0 || outputBounds.Height <= 0)
+            throw new ArgumentException("Output dimensions must be positive.", nameof(outputBounds));
+        int constantSize = Unsafe.SizeOf<T>();
+        if (constantSize > 128 || constantSize % 4 != 0)
+            throw new ArgumentException("Push constants must occupy a multiple of 4 bytes, up to 128 bytes.", nameof(createPushConstants));
+
+        var textures = new ITexture2D[inputs.Count];
+        for (int i = 0; i < inputs.Count; i++)
+        {
+            EffectTarget input = inputs[i];
+            if (input?.RenderTarget?.Texture is not { } texture)
+                throw new ArgumentException($"Input {i} must have a materialized GPU texture.", nameof(inputs));
+            textures[i] = texture;
+        }
+
+        EffectTarget output = outputBounds == inputs[0].Bounds
+            ? context.CreateNativeTargetLike(inputs[0])
+            : context.CreateNativeTarget(outputBounds);
+        if (output.IsEmpty)
+            return output;
+        try
+        {
+            if (output.RenderTarget?.Texture is not { } destination)
+                throw new InvalidOperationException("The destination must have a GPU texture.");
+            T constants = createPushConstants(output);
+            foreach (EffectTarget input in inputs)
+                input.RenderTarget!.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+            _pipeline.Execute(textures, destination, constants);
+            _pipeline.SubmitPendingCommands();
+            return output;
+        }
+        catch
+        {
+            output.Dispose();
+            throw;
+        }
     }
 
     // Creates a shader that reads from two textures (binding 0 = source, binding 1 = mask)
@@ -388,6 +478,6 @@ public sealed class GLSLShader : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _pipeline.Dispose();
+        _pipelineLifetime.Dispose();
     }
 }

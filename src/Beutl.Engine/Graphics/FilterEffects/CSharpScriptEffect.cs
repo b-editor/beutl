@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics.Shaders;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.CodeAnalysis;
@@ -36,6 +37,16 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
 
                // Example: Apply a blur effect
                // Context.Blur(new Size(10, 10));
+
+               // GLSL orchestration (inside a Context.CustomEffect callback):
+               // using var shader = CreateGlslShader(fragmentSource, inputCount: 2);
+               // CreateGlslShader reuses compiled programs within this effect; dispose each returned wrapper.
+               // shader.Render(execution, new[] { source, mask }, outputBounds, pushConstants)
+               // returns an owned EffectTarget without changing its inputs. Dispose intermediate targets;
+               // return the final target from execution.ForEach. If IsEmpty, dispose it and keep the source.
+               // Use the Render overload with a destination callback for size/scale-dependent constants.
+               // GLSL sampler2D inputs use set=0, bindings 0..inputCount-1; constants use layout(push_constant).
+               // Constants must match the GLSL layout and occupy a multiple of 4 bytes, at most 128 bytes.
                """;
     }
 
@@ -92,7 +103,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
         if (r._scriptRunner == null)
             return;
 
-        var globals = new CSharpScriptEffectGlobals(context, r.Progress, r.Duration, r.Time);
+        var globals = new CSharpScriptEffectGlobals(context, r.Progress, r.Duration, r.Time, r.GlslPrograms);
         r._scriptRunner(globals).GetAwaiter().GetResult();
     }
 
@@ -101,6 +112,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
         internal ScriptRunner<object>? _scriptRunner;
         internal string? _compiledScript;
         internal string? _compileError;
+        internal ScriptGlslProgramCache GlslPrograms { get; } = new();
 
         public float Progress { get; private set; }
 
@@ -126,6 +138,11 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
             Progress = progress;
 
             CompileScript(Script);
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            GlslPrograms.Dispose();
         }
 
         private void CompileScript(string script)

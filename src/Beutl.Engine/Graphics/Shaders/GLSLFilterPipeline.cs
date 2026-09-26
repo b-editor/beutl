@@ -47,9 +47,9 @@ internal sealed class GLSLFilterPipeline : IDisposable
     private readonly ShaderOutputCoverage _outputCoverage;
     private bool _disposed;
 
-    private readonly bool _hasMaskTexture;
+    internal int InputCount { get; }
 
-    internal bool HasMaskTexture => _hasMaskTexture;
+    internal bool HasMaskTexture => InputCount == 2;
 
     /// <summary>
     /// Gets the compiled-bytecode weight used to bound the cache. Driver-owned pipeline memory is not observable.
@@ -64,7 +64,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         byte[] vertexShaderSpirv,
         byte[] fragmentShaderSpirv,
         ShaderOutputCoverage outputCoverage,
-        bool hasMaskTexture = false)
+        int inputCount)
     {
         _context = context;
         _renderPass = renderPass;
@@ -74,7 +74,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
             1,
             checked((long)vertexShaderSpirv.Length + fragmentShaderSpirv.Length));
         _outputCoverage = outputCoverage;
-        _hasMaskTexture = hasMaskTexture;
+        InputCount = inputCount;
     }
 
     /// <summary>
@@ -91,13 +91,17 @@ internal sealed class GLSLFilterPipeline : IDisposable
     /// </param>
     /// <param name="specializationConstants">Immutable values applied when the pipeline is created.</param>
     /// <param name="hasMaskTexture">Whether the shader reads a second texture at binding 1.</param>
+    /// <param name="inputCount">Optional explicit number of consecutive sampler bindings in set 0.</param>
     public static GLSLFilterPipeline? Create(
         IGraphicsContext context,
         string fragmentShaderSource,
         ShaderOutputCoverage outputCoverage,
         ImmutableArray<SpecializationConstant> specializationConstants = default,
-        bool hasMaskTexture = false)
+        bool hasMaskTexture = false,
+        int? inputCount = null)
     {
+        int textureCount = inputCount ?? (hasMaskTexture ? 2 : 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(textureCount, 1);
         if (!context.Supports3DRendering)
         {
             s_logger.LogWarning("3D rendering is not supported on this platform.");
@@ -134,13 +138,12 @@ internal sealed class GLSLFilterPipeline : IDisposable
                 SamplerAddressMode.ClampToEdge,
                 SamplerAddressMode.ClampToEdge);
 
-            // Define descriptor bindings (1 or 2 textures)
-            DescriptorBinding[] descriptorBindings = hasMaskTexture
-                ? [
-                    new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment),
-                    new(1, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)
-                  ]
-                : [new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)];
+            var descriptorBindings = new DescriptorBinding[textureCount];
+            for (int i = 0; i < textureCount; i++)
+            {
+                descriptorBindings[i] = new(
+                    (uint)i, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment);
+            }
 
             // Create pipeline with fullscreen options
             PipelineOptions pipelineOptions = PipelineOptions.Fullscreen;
@@ -161,7 +164,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
                 vertexShaderSpirv,
                 fragmentShaderSpirv,
                 outputCoverage,
-                hasMaskTexture);
+                textureCount);
             renderPass = null;
             pipeline = null;
             sampler = null;
@@ -212,46 +215,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         ITexture2D sourceTexture,
         ITexture2D destinationTexture,
         T pushConstants) where T : unmanaged
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (_hasMaskTexture)
-            throw new InvalidOperationException("This pipeline requires a mask texture. Use the dual-texture Execute overload.");
-
-        // Prepare textures for their respective operations
-        sourceTexture.PrepareForSampling();
-        PrepareDestination(destinationTexture);
-
-        // Create framebuffer
-        using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(
-            _renderPass,
-            [destinationTexture],
-            depthTexture: null);
-
-        // Create descriptor set and bind source texture
-        using IDescriptorSet descriptorSet = _context.CreateDescriptorSet(
-            _pipeline,
-            [new DescriptorPoolSize(DescriptorType.CombinedImageSampler, 1)]);
-        descriptorSet.UpdateTexture(0, sourceTexture, _sampler);
-
-        // The pass holds a render-pass scope on the context-wide recording batch, so a body that
-        // throws has to release it or every later transfer in the process is diverted.
-        _renderPass.Begin(framebuffer, [default]);
-        try
-        {
-            _renderPass.BindPipeline(_pipeline);
-            _renderPass.BindDescriptorSet(_pipeline, descriptorSet);
-            _renderPass.SetPushConstants(pushConstants);
-            _renderPass.Draw(3); // Fullscreen triangle
-        }
-        finally
-        {
-            _renderPass.End();
-        }
-
-        // Prepare destination for sampling (next stage)
-        destinationTexture.PrepareForSampling();
-    }
+        => Execute([sourceTexture], destinationTexture, pushConstants);
 
     // Overload for dual-texture pipelines (source + mask)
     public void Execute<T>(
@@ -259,15 +223,20 @@ internal sealed class GLSLFilterPipeline : IDisposable
         ITexture2D maskTexture,
         ITexture2D destinationTexture,
         T pushConstants) where T : unmanaged
+        => Execute([sourceTexture, maskTexture], destinationTexture, pushConstants);
+
+    public void Execute<T>(
+        ReadOnlySpan<ITexture2D> inputTextures,
+        ITexture2D destinationTexture,
+        T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (!_hasMaskTexture)
-            throw new InvalidOperationException("This pipeline was not created with mask texture support.");
+        if (inputTextures.Length != InputCount)
+            throw new ArgumentException($"The shader requires {InputCount} input textures.", nameof(inputTextures));
 
         // Prepare textures for their respective operations
-        sourceTexture.PrepareForSampling();
-        maskTexture.PrepareForSampling();
+        foreach (ITexture2D texture in inputTextures)
+            texture.PrepareForSampling();
         PrepareDestination(destinationTexture);
 
         // Create framebuffer
@@ -276,12 +245,12 @@ internal sealed class GLSLFilterPipeline : IDisposable
             [destinationTexture],
             depthTexture: null);
 
-        // Create descriptor set and bind both textures
+        // Bind each input at its corresponding set-0 sampler binding.
         using IDescriptorSet descriptorSet = _context.CreateDescriptorSet(
             _pipeline,
-            [new DescriptorPoolSize(DescriptorType.CombinedImageSampler, 2)]);
-        descriptorSet.UpdateTexture(0, sourceTexture, _sampler);
-        descriptorSet.UpdateTexture(1, maskTexture, _sampler);
+            [new DescriptorPoolSize(DescriptorType.CombinedImageSampler, (uint)InputCount)]);
+        for (int i = 0; i < inputTextures.Length; i++)
+            descriptorSet.UpdateTexture(i, inputTextures[i], _sampler);
 
         // The pass holds a render-pass scope on the context-wide recording batch, so a body that
         // throws has to release it or every later transfer in the process is diverted.
