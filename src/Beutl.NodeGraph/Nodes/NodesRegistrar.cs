@@ -22,6 +22,7 @@ public static class NodesRegistrar
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.AiGeneration, Colors.DeepPink)
             .Add<AiPromptNode>(NodeGraphStrings.AiPrompt)
             .Add<AiImageGenerationNode>(NodeGraphStrings.AiImageGeneration)
+            .Add<AiImageEditNode>(NodeGraphStrings.AiImageEdit)
             .Register();
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.Shapes, Colors.ForestGreen)

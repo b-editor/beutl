@@ -372,4 +372,28 @@
   <data name="Generative_Loading" xml:space="preserve">
     <value>読み込み中...</value>
   </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>画像を編集</value>
+  </data>
+  <data name="Port_Task" xml:space="preserve">
+    <value>タスク</value>
+  </data>
+  <data name="Port_OutpaintExpansion" xml:space="preserve">
+    <value>拡張量</value>
+  </data>
+  <data name="Port_Motion" xml:space="preserve">
+    <value>モーション</value>
+  </data>
+  <data name="SeedControl_Fixed" xml:space="preserve">
+    <value>固定</value>
+  </data>
+  <data name="SeedControl_Increment" xml:space="preserve">
+    <value>インクリメント</value>
+  </data>
+  <data name="SeedControl_Randomize" xml:space="preserve">
+    <value>ランダム</value>
+  </data>
+  <data name="SeedControl_ModelDefault" xml:space="preserve">
+    <value>モデルに任せる</value>
+  </data>
 </root>

@@ -372,4 +372,28 @@
   <data name="Generative_Loading" xml:space="preserve">
     <value>正在加载...</value>
   </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>编辑图像</value>
+  </data>
+  <data name="Port_Task" xml:space="preserve">
+    <value>任务</value>
+  </data>
+  <data name="Port_OutpaintExpansion" xml:space="preserve">
+    <value>扩展量</value>
+  </data>
+  <data name="Port_Motion" xml:space="preserve">
+    <value>运动</value>
+  </data>
+  <data name="SeedControl_Fixed" xml:space="preserve">
+    <value>固定</value>
+  </data>
+  <data name="SeedControl_Increment" xml:space="preserve">
+    <value>递增</value>
+  </data>
+  <data name="SeedControl_Randomize" xml:space="preserve">
+    <value>随机</value>
+  </data>
+  <data name="SeedControl_ModelDefault" xml:space="preserve">
+    <value>由模型决定</value>
+  </data>
 </root>

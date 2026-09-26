@@ -80,6 +80,8 @@ internal sealed class AiGenerativePromptLibrary(IPromptLibrary library) : IGener
     private static PromptTaskKind ToTaskKind(GenerativeOperation operation) => operation switch
     {
         GenerativeOperation.ImageGeneration => PromptTaskKind.Image,
+        GenerativeOperation.ImageEdit => PromptTaskKind.ImageEdit,
+        GenerativeOperation.VideoGeneration or GenerativeOperation.VideoEdit => PromptTaskKind.Video,
         _ => throw new ArgumentOutOfRangeException(nameof(operation)),
     };
 

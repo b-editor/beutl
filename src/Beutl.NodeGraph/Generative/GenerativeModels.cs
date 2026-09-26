@@ -59,8 +59,11 @@ public sealed record GenerativeModelInfo(
 /// <summary>The models the editor can offer to generative nodes. Implemented by the application.</summary>
 public interface IGenerativeModelCatalog
 {
-    /// <summary>The models for an operation; empty when the server offers none or cannot be reached.</summary>
+    /// <summary>
+    /// The models for an operation such as <c>image.generate</c> or <c>image.edit.upscale</c>;
+    /// empty when the server offers none or cannot be reached.
+    /// </summary>
     Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(
-        GenerativeOperation operation,
+        string operationId,
         CancellationToken cancellationToken);
 }

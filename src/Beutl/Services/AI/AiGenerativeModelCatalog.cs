@@ -13,16 +13,16 @@ internal sealed class AiGenerativeModelCatalog(
     IAiEntitlementService entitlements) : IGenerativeModelCatalog
 {
     public async Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(
-        GenerativeOperation operation,
+        string operationId,
         CancellationToken cancellationToken)
-        => (await LoadAsync(operation, cancellationToken)).Models;
+        => (await LoadAsync(operationId, cancellationToken)).Models;
 
     internal async Task<(AiModelCatalog Catalog, IReadOnlyList<GenerativeModelInfo> Models)> LoadAsync(
-        GenerativeOperation operation,
+        string operationId,
         CancellationToken cancellationToken)
     {
         AiModelCatalog loaded = await catalog.GetAsync(cancellationToken);
-        AiOperationId id = ToOperationId(operation);
+        var id = new AiOperationId(operationId);
         AiEntitlements? current = entitlements.Entitlements.Value;
         // Only a reported refusal rules the operation out, as in the picker.
         bool operationIsAvailable = current is not null
@@ -30,8 +30,7 @@ internal sealed class AiGenerativeModelCatalog(
         var models = new List<GenerativeModelInfo>();
         foreach (AiModelOption model in loaded.ModelsFor(id))
         {
-            // A model that takes no picture cannot generate from one.
-            if (model.Image is { } image && !image.CanServeAnything(false))
+            if (!IsOffered(operationId, model))
                 continue;
 
             bool available = current?.ModelAvailability.CanStart(id, model.Id, operationIsAvailable) ?? false;
@@ -46,11 +45,27 @@ internal sealed class AiGenerativeModelCatalog(
         return (loaded, models);
     }
 
-    internal static AiOperationId ToOperationId(GenerativeOperation operation) => operation switch
+    /// <summary>The filters the AI dialogs put on their model pickers, per operation.</summary>
+    internal static bool IsOffered(string operationId, AiModelOption model)
     {
-        GenerativeOperation.ImageGeneration => AiOperations.ImageGeneration,
-        _ => throw new ArgumentOutOfRangeException(nameof(operation)),
-    };
+        if (operationId.StartsWith("image.edit.", StringComparison.Ordinal))
+        {
+            // Every edit hands the model a picture; an upscale also asks for a size, and
+            // removing a background asks for a transparent one.
+            string task = operationId["image.edit.".Length..];
+            return model.Image is not { } edit
+                || edit.CanServeAnything(
+                    requiresReferenceImages: true,
+                    requiresResolution: task == "upscale",
+                    requiredBackground: task == "remove_background" ? "transparent" : null);
+        }
+
+        if (operationId.StartsWith("video.", StringComparison.Ordinal))
+            return model.Video is not { } video || video.CanServeAnything();
+
+        // A model that takes no picture cannot generate from one.
+        return model.Image is not { } image || image.CanServeAnything(false);
+    }
 
     private static GenerativeImageCapabilities ToCapabilities(AiImageModelCapabilities? image)
     {

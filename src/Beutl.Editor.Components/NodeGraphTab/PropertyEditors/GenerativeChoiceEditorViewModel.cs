@@ -28,6 +28,7 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
     private IReadOnlyList<EnumItem> _items = [];
     private WeakReference<EnumEditor>? _editorRef;
     private bool _loadStarted;
+    private IGenerativeModelCatalog? _catalog;
     private bool _catalogLoaded;
     private bool _disposed;
 
@@ -82,17 +83,25 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
 
     private async Task LoadAsync(IGenerativeModelCatalog catalog)
     {
+        if (_catalog is null)
+        {
+            _catalog = catalog;
+            _choice.Node.CatalogOperationChanged += OnCatalogOperationChanged;
+        }
+
         try
         {
             IReadOnlyList<GenerativeModelInfo> models =
-                await catalog.GetModelsAsync(_choice.Node.Operation, CancellationToken.None);
+                await catalog.GetModelsAsync(_choice.Node.CatalogOperationId, CancellationToken.None);
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (_disposed)
                     return;
+                bool reloaded = _catalogLoaded;
                 _models = models;
                 _catalogLoaded = true;
-                Rebuild();
+                // A reload follows a change of task, whose models are a different list.
+                Rebuild(modelChanged: reloaded);
             });
         }
         catch (Exception ex)
@@ -100,6 +109,12 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
             // The defaults stay on offer; the executor checks the request again anyway.
             s_logger.LogWarning(ex, "Failed to load the AI model catalog for a node editor.");
         }
+    }
+
+    private void OnCatalogOperationChanged(object? sender, EventArgs e)
+    {
+        if (_catalog is { } catalog)
+            Dispatcher.UIThread.Post(() => _ = LoadAsync(catalog));
     }
 
     private void Rebuild() => Rebuild(modelChanged: false);
@@ -120,7 +135,16 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
             _ => Capabilities().BackgroundChoices.Select(value => (value, BackgroundLabel(value))).ToList(),
         };
 
-        if (modelChanged && _catalogLoaded && options.Count > 0 && !options.Any(option => option.Value == current))
+        if (_choice.Kind == GenerativeChoiceKind.Model)
+        {
+            if (modelChanged && _catalogLoaded && current.Length > 0 && !options.Any(option => option.Value == current))
+            {
+                // Another task's model would be refused; fall back to this task's default.
+                _property.SetValue(string.Empty);
+                return;
+            }
+        }
+        else if (modelChanged && _catalogLoaded && options.Count > 0 && !options.Any(option => option.Value == current))
         {
             // As the dialog does: a value the new model does not take would only be
             // refused, so fall back to the first one it does.
@@ -186,6 +210,7 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
     public void Dispose()
     {
         _disposed = true;
+        _choice.Node.CatalogOperationChanged -= OnCatalogOperationChanged;
         _disposables.Dispose();
         _editorRef = null;
     }

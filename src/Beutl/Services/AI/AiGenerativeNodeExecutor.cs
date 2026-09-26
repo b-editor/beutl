@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using Beutl.Api.Services;
+using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
@@ -21,7 +22,8 @@ internal sealed class AiGenerativeNodeExecutor(
     IAiImageGenerationService images,
     IAiOperationAvailabilityService availability,
     IAuthenticatedContentService content,
-    IGenerativePromptLibrary? promptLibrary = null) : IGenerativeNodeExecutor
+    IGenerativePromptLibrary? promptLibrary = null,
+    IAiImageEditingService? editing = null) : IGenerativeNodeExecutor
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AiGenerativeNodeExecutor>();
 
@@ -34,6 +36,7 @@ internal sealed class AiGenerativeNodeExecutor(
         return request switch
         {
             AiImageGenerationNodeRequest image => GenerateImageAsync(image, progress, cancellationToken),
+            AiImageEditNodeRequest edit => EditImageAsync(edit, progress, cancellationToken),
             _ => throw new NotSupportedException($"{request.Operation} is not supported."),
         };
     }
@@ -50,7 +53,7 @@ internal sealed class AiGenerativeNodeExecutor(
         // Checked against the catalog before anything is reserved, as the dialog's controls
         // are: a request the model would refuse is refused here, for free.
         (AiModelCatalog catalog, IReadOnlyList<GenerativeModelInfo> offered) =
-            await models.LoadAsync(request.Operation, cancellationToken);
+            await models.LoadAsync(request.CatalogOperationId, cancellationToken);
         GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
         GenerativeImageCapabilities? capabilities = chosen?.Image;
         if (capabilities is not null)
@@ -81,9 +84,116 @@ internal sealed class AiGenerativeNodeExecutor(
                 AiRequestKey.FileStamp(reference.Name, reference.EncodedPng)),
         ];
 
-        // The node's persisted seed makes the key stable across sessions: a request that
-        // never reported back is collected, not bought again, the next time it is queued.
-        using var requestKey = new AiRequestKey(seed: request.RequestKeySeed, operation: "image.generate");
+        string path = await RunImageAsync(
+            request.RequestKeySeed,
+            "image.generate",
+            parts,
+            token => availability.CheckAsync(
+                new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration, model),
+                token),
+            (key, token) => images.GenerateAsync(
+                new AiImageGenerationRequest(
+                    prompt,
+                    new AiImageAspectRatioId(request.AspectRatio),
+                    new AiImageBackgroundId(request.Background),
+                    seed: seed,
+                    references: references,
+                    model: model,
+                    idempotencyKey: key,
+                    referenceLimits: referenceLimits),
+                new Progress<AiImagePreview>(preview => ReportPreview(preview, progress)),
+                token),
+            progress,
+            cancellationToken);
+        // As the dialog does once a picture is in hand.
+        promptLibrary?.Record(request.Operation, prompt);
+        return new GenerativeExecutionResult(new Uri(path), model?.Value, seed);
+    }
+
+    private async Task<GenerativeExecutionResult> EditImageAsync(
+        AiImageEditNodeRequest request,
+        IProgress<GenerativeProgress> progress,
+        CancellationToken cancellationToken)
+    {
+        if (editing is null)
+            throw new GenerativeExecutionException(Beutl.Language.NodeGraphStrings.Generative_ExecutorUnavailable);
+
+        string task = request.Task.ToId();
+        (_, IReadOnlyList<GenerativeModelInfo> offered) =
+            await models.LoadAsync(request.CatalogOperationId, cancellationToken);
+        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
+        AiModelId? model = chosen is not null ? new AiModelId(chosen.Id) : null;
+
+        // Prepared as the AI tab prepares it: an outpaint sends the canvas already widened,
+        // under a name derived from the source, with the instruction in front of the prompt.
+        string uploadName = request.Image.Name;
+        byte[] uploadBytes = request.Image.EncodedPng;
+        string? prompt = request.Prompt;
+        if (request.Task == AiImageEditTask.Outpaint)
+        {
+            uploadBytes = ExpandCanvas(uploadBytes, request.OutpaintExpansionPercent ?? 25);
+            uploadName = $"{Path.GetFileNameWithoutExtension(uploadName)}-outpaint.png";
+            prompt = $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt}";
+        }
+
+        if (uploadBytes.Length > AiRequestLimits.MaxImageUploadBytes)
+            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
+        if (prompt is not null && prompt.Length > AiRequestLimits.MaxPromptLength)
+            throw new GenerativeExecutionException(AiPromptComposer.PromptTooLongMessage);
+
+        // Laid out as the dialog lays out its key.
+        string?[] parts = [task, prompt, model?.Value, AiRequestKey.FileStamp(uploadName, uploadBytes)];
+        AiOperationId operation = AiOperations.ImageEdit(new AiImageEditTaskId(task));
+        string path = await RunImageAsync(
+            request.RequestKeySeed,
+            "image.edit",
+            parts,
+            token => availability.CheckAsync(new AiOperationAvailabilityRequest.Fixed(operation, model), token),
+            (key, token) => editing.EditAsync(
+                new AiImageEditRequest(
+                    AiUploadSource.FromBytes(uploadName, uploadBytes),
+                    new AiImageEditTaskId(task),
+                    prompt,
+                    model,
+                    key),
+                token),
+            progress,
+            cancellationToken);
+        if (request.Prompt is { } typed)
+            promptLibrary?.Record(request.Operation, typed);
+        return new GenerativeExecutionResult(new Uri(path), model?.Value, null);
+    }
+
+    internal static byte[] ExpandCanvas(byte[] encodedPng, int expansionPercent)
+    {
+        using var input = new MemoryStream(encodedPng, writable: false);
+        using Bitmap source = Bitmap.FromStream(input);
+        (_, _, int horizontal, int vertical) =
+            Beutl.ViewModels.Dialogs.AiImageEditDialogViewModel.GetOutpaintDimensions(
+                source.Width,
+                source.Height,
+                expansionPercent);
+        using Bitmap expanded = source.MakeBorder(vertical, vertical, horizontal, horizontal);
+        using var output = new MemoryStream();
+        expanded.Save(output, EncodedImageFormat.Png);
+        return output.ToArray();
+    }
+
+    /// <summary>
+    /// Sends one metered picture request through the dialogs' safeguards and saves what
+    /// comes back next to the scene. The node's persisted seed makes the key stable across
+    /// sessions: a request that never reported back is collected, not bought again.
+    /// </summary>
+    private async Task<string> RunImageAsync(
+        string keySeed,
+        string keyOperation,
+        string?[] parts,
+        Func<CancellationToken, Task<bool>> checkAvailability,
+        Func<string, CancellationToken, Task<AiImageResult>> send,
+        IProgress<GenerativeProgress> progress,
+        CancellationToken cancellationToken)
+    {
+        using var requestKey = new AiRequestKey(seed: keySeed, operation: keyOperation);
         AiRequestName name = requestKey.NameFor(parts);
         try
         {
@@ -92,21 +202,8 @@ internal sealed class AiGenerativeNodeExecutor(
                 requestKey,
                 name,
                 null,
-                token => availability.CheckAsync(
-                    new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration, model),
-                    token),
-                token => images.GenerateAsync(
-                    new AiImageGenerationRequest(
-                        prompt,
-                        new AiImageAspectRatioId(request.AspectRatio),
-                        new AiImageBackgroundId(request.Background),
-                        seed: seed,
-                        references: references,
-                        model: model,
-                        idempotencyKey: name.Key,
-                        referenceLimits: referenceLimits),
-                    new Progress<AiImagePreview>(preview => ReportPreview(preview, progress)),
-                    token),
+                checkAvailability,
+                token => send(name.Key, token),
                 n => requestKey.WithdrawAfterNoReservation(n),
                 cancellationToken);
 
@@ -116,11 +213,9 @@ internal sealed class AiGenerativeNodeExecutor(
                 content,
                 response.ContentUri,
                 cancellationToken);
-            string path = await SaveAsync(encoded, cancellationToken);
+            string path = await SaveAsync(encoded, ".png", cancellationToken);
             requestKey.Retire(name);
-            // As the dialog does once a picture is in hand.
-            promptLibrary?.Record(request.Operation, prompt);
-            return new GenerativeExecutionResult(new Uri(path), model?.Value, seed);
+            return path;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -175,11 +270,11 @@ internal sealed class AiGenerativeNodeExecutor(
         }
     }
 
-    private async Task<string> SaveAsync(byte[] encoded, CancellationToken cancellationToken)
+    private async Task<string> SaveAsync(byte[] encoded, string extension, CancellationToken cancellationToken)
     {
         string directory = AiResultImporter.GetResourceDirectory(scene);
         Directory.CreateDirectory(directory);
-        string destination = Path.Combine(directory, $"{Guid.NewGuid():N}.png");
+        string destination = Path.Combine(directory, $"{Guid.NewGuid():N}{extension}");
         string temporary = Path.Combine(directory, $".{Guid.NewGuid():N}.tmp");
         try
         {

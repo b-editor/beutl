@@ -279,6 +279,73 @@ public sealed class GenerativeGraphRunnerTests
         Assert.That(preview.BusyText, Is.Null);
     }
 
+    [Test]
+    public async Task EditNodeEditsTheUpstreamGenerationAndFollowsItsTask()
+    {
+        var model = new GraphModel();
+        var image = new AiImageGenerationNode();
+        image.Prompt.Property!.SetValue("a cat");
+        var edit = new AiImageEditNode();
+        model.Nodes.Add(image);
+        model.Nodes.Add(edit);
+        model.Connect(edit.Source, image.Output);
+        edit.Prompt.Property!.SetValue("ignored for this task");
+        var executor = new FakeExecutor(_directory);
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, [edit], force: false, CancellationToken.None);
+
+        var request = (AiImageEditNodeRequest)executor.Requests[1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(executor.Requests[0].Node, Is.SameAs(image));
+            Assert.That(request.Image.EncodedPng, Is.Not.Empty, "The upstream result is the picture edited.");
+            Assert.That(request.Task, Is.EqualTo(AiImageEditTask.RemoveBackground));
+            Assert.That(request.Prompt, Is.Null, "Removing a background takes no prompt.");
+            Assert.That(request.CatalogOperationId, Is.EqualTo("image.edit.remove_background"));
+        });
+
+        int changes = 0;
+        edit.CatalogOperationChanged += (_, _) => changes++;
+        edit.Task.Property!.SetValue(AiImageEditTask.Outpaint);
+        Assert.That(changes, Is.EqualTo(1));
+        Assert.That(edit.CatalogOperationId, Is.EqualTo("image.edit.outpaint"));
+    }
+
+    [Test]
+    public async Task EditTasksThatTakeAPromptRequireOne()
+    {
+        var model = new GraphModel();
+        var source = new AiImageGenerationNode();
+        source.Prompt.Property!.SetValue("a cat");
+        var edit = new AiImageEditNode();
+        edit.Task.Property!.SetValue(AiImageEditTask.Restyle);
+        model.Nodes.Add(source);
+        model.Nodes.Add(edit);
+        model.Connect(edit.Source, source.Output);
+        var executor = new FakeExecutor(_directory);
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
+
+        Assert.That(edit.Status, Is.EqualTo(GenerativeNodeStatus.Failed));
+        Assert.That(edit.StatusMessage, Is.EqualTo(Beutl.Language.Strings.AiPromptRequired));
+        Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { source }));
+    }
+
+    [Test]
+    public void EditNodeWithoutASourceFailsWithTheTabsMessage()
+    {
+        var edit = new AiImageEditNode();
+        var model = new GraphModel();
+        model.Nodes.Add(edit);
+        var executor = new FakeExecutor(_directory);
+
+        new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None)
+            .GetAwaiter().GetResult();
+
+        Assert.That(edit.StatusMessage, Is.EqualTo(Beutl.Language.Strings.AiEditSelectSource));
+        Assert.That(executor.Requests, Is.Empty);
+    }
+
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
     {
         var model = new GraphModel();
@@ -326,8 +393,8 @@ public sealed class GenerativeGraphRunnerTests
             using (var bitmap = new Bitmap(8, 8))
             using (var stream = File.Create(path))
                 bitmap.Save(stream, EncodedImageFormat.Png);
-            var image = (AiImageGenerationNodeRequest)request;
-            return Task.FromResult(new GenerativeExecutionResult(new Uri(path), request.ModelId, image.Seed));
+            int? seed = (request as AiImageGenerationNodeRequest)?.Seed;
+            return Task.FromResult(new GenerativeExecutionResult(new Uri(path), request.ModelId, seed));
         }
     }
 

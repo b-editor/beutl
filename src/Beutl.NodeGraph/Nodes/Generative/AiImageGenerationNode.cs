@@ -1,4 +1,5 @@
-﻿using Beutl.Extensibility;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Extensibility;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.NodeGraph.Composition;
@@ -10,12 +11,16 @@ namespace Beutl.NodeGraph.Nodes.Generative;
 public enum GenerativeSeedControl
 {
     /// <summary>Keep the seed; queueing again reuses the result.</summary>
+    [Display(Name = nameof(NodeGraphStrings.SeedControl_Fixed), ResourceType = typeof(NodeGraphStrings))]
     Fixed,
     /// <summary>Add one after each generation, so the next queue makes a new variation.</summary>
+    [Display(Name = nameof(NodeGraphStrings.SeedControl_Increment), ResourceType = typeof(NodeGraphStrings))]
     Increment,
     /// <summary>Pick a new random seed after each generation.</summary>
+    [Display(Name = nameof(NodeGraphStrings.SeedControl_Randomize), ResourceType = typeof(NodeGraphStrings))]
     Randomize,
     /// <summary>Send no seed and let the model choose.</summary>
+    [Display(Name = nameof(NodeGraphStrings.SeedControl_ModelDefault), ResourceType = typeof(NodeGraphStrings))]
     ModelDefault,
 }
 
@@ -64,6 +69,8 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
     public void ApplyPrompt(string prompt) => Prompt.Property?.SetValue(prompt);
 
     public override GenerativeOperation Operation => GenerativeOperation.ImageGeneration;
+
+    public override string CatalogOperationId => "image.generate";
 
     public OutputPort<ImageSourceRenderNode?> Output { get; }
 

@@ -127,6 +127,17 @@ public abstract partial class GenerativeNode : GraphNode
         _statusMonitor = AddTextMonitor("GenerationStatus", statusDisplay);
     }
 
+    /// <summary>
+    /// The operation whose models the node offers, as the server names it. Edit nodes
+    /// change it with their task, since each task registers its own models.
+    /// </summary>
+    public abstract string CatalogOperationId { get; }
+
+    /// <summary>Raised when <see cref="CatalogOperationId"/> changes.</summary>
+    public event EventHandler? CatalogOperationChanged;
+
+    protected void RaiseCatalogOperationChanged() => CatalogOperationChanged?.Invoke(this, EventArgs.Empty);
+
     /// <summary>The input that names the model, when the node has one.</summary>
     public virtual IPropertyAdapter<string>? ModelProperty => null;
 

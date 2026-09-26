@@ -1,5 +1,7 @@
-﻿using System.Security.Cryptography;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
 using System.Text;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
 
@@ -9,6 +11,9 @@ namespace Beutl.NodeGraph.Generative;
 public enum GenerativeOperation
 {
     ImageGeneration,
+    ImageEdit,
+    VideoGeneration,
+    VideoEdit,
 }
 
 /// <summary>
@@ -28,9 +33,13 @@ public abstract record GenerativeRequest
     protected GenerativeRequest(GenerativeNode node)
     {
         Node = node ?? throw new ArgumentNullException(nameof(node));
+        CatalogOperationId = node.CatalogOperationId;
     }
 
     public GenerativeNode Node { get; }
+
+    /// <summary>The operation whose models apply, captured with the rest of the inputs.</summary>
+    public string CatalogOperationId { get; init; }
 
     public abstract GenerativeOperation Operation { get; }
 
@@ -78,6 +87,85 @@ public sealed record AiImageGenerationNodeRequest : GenerativeRequest
         ]);
 
     public override string Summary => Prompt.Length <= 80 ? Prompt : string.Concat(Prompt.AsSpan(0, 79), "…");
+}
+
+public enum AiImageEditTask
+{
+    [Display(Name = nameof(Strings.AiEditRemoveBackground), ResourceType = typeof(Strings))]
+    RemoveBackground,
+    [Display(Name = nameof(Strings.AiEditUpscale), ResourceType = typeof(Strings))]
+    Upscale,
+    [Display(Name = nameof(Strings.AiEditRestyle), ResourceType = typeof(Strings))]
+    Restyle,
+    [Display(Name = nameof(Strings.AiEditRemoveObject), ResourceType = typeof(Strings))]
+    RemoveObject,
+    [Display(Name = nameof(Strings.AiEditOutpaint), ResourceType = typeof(Strings))]
+    Outpaint,
+}
+
+public enum AiOutpaintExpansion
+{
+    [Display(Name = "10%")]
+    Percent10,
+    [Display(Name = "25%")]
+    Percent25,
+    [Display(Name = "50%")]
+    Percent50,
+}
+
+public static class AiImageEditTasks
+{
+    /// <summary>The task as the server names it.</summary>
+    public static string ToId(this AiImageEditTask task) => task switch
+    {
+        AiImageEditTask.RemoveBackground => "remove_background",
+        AiImageEditTask.Upscale => "upscale",
+        AiImageEditTask.Restyle => "restyle",
+        AiImageEditTask.RemoveObject => "remove_object",
+        AiImageEditTask.Outpaint => "outpaint",
+        _ => throw new ArgumentOutOfRangeException(nameof(task)),
+    };
+
+    /// <summary>The tasks the AI tab asks a prompt for.</summary>
+    public static bool RequiresPrompt(this AiImageEditTask task)
+        => task is AiImageEditTask.Restyle or AiImageEditTask.RemoveObject or AiImageEditTask.Outpaint;
+
+    public static int ToPercent(this AiOutpaintExpansion expansion) => expansion switch
+    {
+        AiOutpaintExpansion.Percent10 => 10,
+        AiOutpaintExpansion.Percent50 => 50,
+        _ => 25,
+    };
+}
+
+public sealed record AiImageEditNodeRequest : GenerativeRequest
+{
+    public AiImageEditNodeRequest(GenerativeNode node) : base(node)
+    {
+    }
+
+    public override GenerativeOperation Operation => GenerativeOperation.ImageEdit;
+
+    public required AiImageEditTask Task { get; init; }
+
+    /// <summary>The user's prompt, or null for a task that takes none.</summary>
+    public string? Prompt { get; init; }
+
+    public int? OutpaintExpansionPercent { get; init; }
+
+    public required GenerativeImageInput Image { get; init; }
+
+    public override string Fingerprint => GenerativeFingerprint.Combine(
+        [nameof(GenerativeOperation.ImageEdit), ParameterFingerprint, Image.ContentHash]);
+
+    public override string Summary
+    {
+        get
+        {
+            string task = Beutl.TypeDisplayHelpers.GetLocalizedName(typeof(AiImageEditTask).GetField(Task.ToString())!);
+            return string.IsNullOrWhiteSpace(Prompt) ? task : $"{task}: {Prompt}";
+        }
+    }
 }
 
 /// <summary>What the executor produced: a file it saved and the parameters that made it.</summary>

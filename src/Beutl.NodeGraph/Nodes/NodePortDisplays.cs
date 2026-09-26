@@ -74,4 +74,7 @@ internal static class NodePortDisplays
     public static DisplayAttribute References => Create(nameof(NodeGraphStrings.Port_References));
     public static DisplayAttribute Image => Create(nameof(NodeGraphStrings.Port_Image));
     public static DisplayAttribute Status => Create(nameof(NodeGraphStrings.Port_Status));
+    public static DisplayAttribute Task => Create(nameof(NodeGraphStrings.Port_Task));
+    public static DisplayAttribute OutpaintExpansion => Create(nameof(NodeGraphStrings.Port_OutpaintExpansion));
+    public static DisplayAttribute Motion => Create(nameof(NodeGraphStrings.Port_Motion));
 }

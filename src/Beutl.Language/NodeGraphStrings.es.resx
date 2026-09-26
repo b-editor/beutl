@@ -372,4 +372,28 @@
   <data name="Generative_Loading" xml:space="preserve">
     <value>Cargando...</value>
   </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>Editar imagen</value>
+  </data>
+  <data name="Port_Task" xml:space="preserve">
+    <value>Tarea</value>
+  </data>
+  <data name="Port_OutpaintExpansion" xml:space="preserve">
+    <value>Expansión</value>
+  </data>
+  <data name="Port_Motion" xml:space="preserve">
+    <value>Movimiento</value>
+  </data>
+  <data name="SeedControl_Fixed" xml:space="preserve">
+    <value>Fija</value>
+  </data>
+  <data name="SeedControl_Increment" xml:space="preserve">
+    <value>Incrementar</value>
+  </data>
+  <data name="SeedControl_Randomize" xml:space="preserve">
+    <value>Aleatoria</value>
+  </data>
+  <data name="SeedControl_ModelDefault" xml:space="preserve">
+    <value>Dejar que elija el modelo</value>
+  </data>
 </root>

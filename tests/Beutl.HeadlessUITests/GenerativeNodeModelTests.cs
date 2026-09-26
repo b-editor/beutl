@@ -232,6 +232,84 @@ public sealed class GenerativeNodeModelTests
         }));
     }
 
+    [AvaloniaTest]
+    public async Task OutpaintSendsTheWidenedCanvasAsTheTabDoes()
+    {
+        var editing = new CapturingEditing();
+        var executor = CreateExecutor(new CapturingImages(), editing: editing);
+        byte[] png;
+        using (var bitmap = new Bitmap(40, 20))
+        using (var stream = new MemoryStream())
+        {
+            bitmap.Save(stream, EncodedImageFormat.Png);
+            png = stream.ToArray();
+        }
+
+        await executor.ExecuteAsync(
+            new AiImageEditNodeRequest(new AiImageEditNode())
+            {
+                Task = AiImageEditTask.Outpaint,
+                Prompt = "a beach",
+                OutpaintExpansionPercent = 25,
+                Image = new GenerativeImageInput("image.png", png),
+                RequestKeySeed = Guid.NewGuid().ToString("N"),
+                ParameterFingerprint = "p",
+                CatalogOperationId = "image.edit.outpaint",
+            },
+            new Progress<GenerativeProgress>(),
+            CancellationToken.None);
+
+        AiImageEditRequest sent = editing.Requests.Single();
+        using var uploaded = new MemoryStream();
+        await using (Stream opened = await sent.Image.OpenReadAsync(CancellationToken.None))
+            await opened.CopyToAsync(uploaded);
+        uploaded.Position = 0;
+        using Bitmap widened = Bitmap.FromStream(uploaded);
+        Assert.Multiple(() =>
+        {
+            Assert.That(sent.Image.FileName, Is.EqualTo("image-outpaint.png"));
+            Assert.That((widened.Width, widened.Height), Is.EqualTo((60, 30)));
+            Assert.That(sent.Prompt, Does.StartWith("Extend the image naturally").And.EndWith("a beach"));
+            Assert.That(sent.Task.Value, Is.EqualTo("outpaint"));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task EditModelsFollowTheTaskAndAForeignModelFallsBack()
+    {
+        var clear = new AiModelOption(new AiModelId("clear"), "Clear", null, true,
+            Image: new AiImageModelCapabilities(
+                AiCapabilityDimension<string>.Unspecified,
+                AiCapabilityDimension<string>.Supported(["transparent"]), false, 1));
+        var paint = new AiModelOption(new AiModelId("paint"), "Paint", null, true,
+            Image: new AiImageModelCapabilities(
+                AiCapabilityDimension<string>.Unspecified,
+                AiCapabilityDimension<string>.Supported(["opaque"]), false, 1));
+        var catalog = new AiGenerativeModelCatalog(
+            new FixedCatalog(new AiModelCatalog(
+            [
+                KeyValuePair.Create(new AiOperationId("image.edit.remove_background"), ImmutableArray.Create(clear, paint)),
+                KeyValuePair.Create(new AiOperationId("image.edit.restyle"), ImmutableArray.Create(paint)),
+            ])),
+            new StubEntitlements());
+        var node = new AiImageEditNode();
+        using var vm = CreateEditor(node.Model.Property!);
+        EnumEditor editor = await ShowAsync(vm, catalog, e => e.Items.Count == 1);
+        Assert.That(editor.Items.Select(i => i.Value), Is.EqualTo(new[] { "clear" }),
+            "Removing a background needs a model that can make one transparent.");
+        node.Model.Property!.SetValue("clear");
+
+        node.Task.Property!.SetValue(AiImageEditTask.Restyle);
+        for (int i = 0; i < 50 && !Equals(editor.Items.FirstOrDefault()?.Value, "paint"); i++)
+        {
+            await Task.Delay(10);
+            HeadlessTestHelpers.Render(1);
+        }
+
+        Assert.That(editor.Items.Select(i => i.Value), Is.EqualTo(new[] { "paint" }));
+        Assert.That(node.Model.Property!.GetValue(), Is.Empty, "Another task's model would be refused.");
+    }
+
     private static AiImageGenerationNodeRequest Request(
         GenerativeNode node, string? model, string aspectRatio, int? seed = null)
         => new(node)
@@ -244,7 +322,10 @@ public sealed class GenerativeNodeModelTests
             ParameterFingerprint = "p",
         };
 
-    private AiGenerativeNodeExecutor CreateExecutor(CapturingImages images, IGenerativePromptLibrary? library = null)
+    private AiGenerativeNodeExecutor CreateExecutor(
+        CapturingImages images,
+        IGenerativePromptLibrary? library = null,
+        IAiImageEditingService? editing = null)
     {
         var scene = new Scene(640, 480, "nodes") { Uri = new Uri(Path.Combine(_directory, "scene.scene")) };
         return new AiGenerativeNodeExecutor(
@@ -253,7 +334,8 @@ public sealed class GenerativeNodeModelTests
             images,
             new AlwaysAvailable(),
             new PngContent(),
-            library);
+            library,
+            editing);
     }
 
     private static AiGenerativeModelCatalog CreateCatalog()
@@ -370,6 +452,17 @@ public sealed class GenerativeNodeModelTests
             AiImageGenerationRequest request,
             IProgress<AiImagePreview>? progress,
             CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new AiImageResult(null, new AiContentId("file"), new Uri("https://beutl.test/content/file")));
+        }
+    }
+
+    private sealed class CapturingEditing : IAiImageEditingService
+    {
+        public List<AiImageEditRequest> Requests { get; } = [];
+
+        public Task<AiImageResult> EditAsync(AiImageEditRequest request, CancellationToken cancellationToken)
         {
             Requests.Add(request);
             return Task.FromResult(new AiImageResult(null, new AiContentId("file"), new Uri("https://beutl.test/content/file")));
