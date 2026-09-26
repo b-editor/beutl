@@ -1823,10 +1823,15 @@ public partial class PlayerView
                     return hit;
 
                 // A scene with a transparent background lets clicks on its empty areas through, but the camera
-                // is still controlled from there: fall back to the topmost scene whose area holds the point.
+                // is still controlled from there: fall back to the topmost scene whose area holds the point,
+                // among those drawn over whatever the hit test found.
                 for (int i = compositionFrame.Objects.Length - 1; i >= 0; i--)
                 {
-                    if (compositionFrame.Objects[i].GetOriginal() is Scene3D candidate
+                    EngineObject? original = compositionFrame.Objects[i].GetOriginal();
+                    if (hit != null && ReferenceEquals(original, hit))
+                        break;
+
+                    if (original is Scene3D candidate
                         && renderer.GetBoundary(candidate) is { } bounds
                         && bounds.Contains(point))
                     {
