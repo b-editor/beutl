@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
+using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -122,6 +123,16 @@ public abstract partial class GenerativeNode : GraphNode
     {
         _previewMonitor = AddImageMonitor("GenerationPreview", previewDisplay);
         _statusMonitor = AddTextMonitor("GenerationStatus", statusDisplay);
+    }
+
+    /// <summary>The input that names the model, when the node has one.</summary>
+    public virtual IPropertyAdapter<string>? ModelProperty => null;
+
+    /// <summary>Marks a text input as a choice from the model catalog.</summary>
+    protected void RegisterChoice(InputPort<string> port, GenerativeChoiceKind kind)
+    {
+        if (port.Property is { } property)
+            GenerativeChoices.Register(property, new GenerativeChoice(this, kind));
     }
 
     /// <summary>

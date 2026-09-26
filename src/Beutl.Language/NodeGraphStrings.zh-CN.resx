@@ -345,4 +345,7 @@
   <data name="AiPrompt" xml:space="preserve">
     <value>提示词</value>
   </data>
+  <data name="Generative_ModelDefault" xml:space="preserve">
+    <value>默认模型</value>
+  </data>
 </root>

@@ -345,4 +345,7 @@
   <data name="AiPrompt" xml:space="preserve">
     <value>프롬프트</value>
   </data>
+  <data name="Generative_ModelDefault" xml:space="preserve">
+    <value>기본 모델</value>
+  </data>
 </root>

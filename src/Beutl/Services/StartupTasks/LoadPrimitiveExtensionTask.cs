@@ -55,6 +55,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ColorGradingTabExtension.Instance,
         CurvesTabExtension.Instance,
         ColorGradingPropertiesExtension.Instance,
+        Beutl.Editor.Components.NodeGraphTab.PropertyEditors.GenerativeChoicePropertyExtension.Instance,
         EqualizerPropertiesExtension.Instance,
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,

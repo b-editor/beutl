@@ -229,9 +229,15 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             editViewModel,
             _aiRequestRecoveryContext);
 
+    internal AiGenerativeModelCatalog CreateGenerativeModelCatalog()
+        => new(
+            _beutlClients.GetResource<IAiModelCatalogService>(),
+            _beutlClients.GetResource<IAiEntitlementService>());
+
     internal Beutl.NodeGraph.Generative.IGenerativeNodeExecutor CreateGenerativeNodeExecutor(Beutl.ProjectSystem.Scene scene)
         => new AiGenerativeNodeExecutor(
             scene,
+            CreateGenerativeModelCatalog(),
             _beutlClients.GetResource<IAiImageGenerationService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _beutlClients.GetResource<IAuthenticatedContentService>());

@@ -345,4 +345,7 @@
   <data name="AiPrompt" xml:space="preserve">
     <value>プロンプト</value>
   </data>
+  <data name="Generative_ModelDefault" xml:space="preserve">
+    <value>既定のモデル</value>
+  </data>
 </root>

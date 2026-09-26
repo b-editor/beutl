@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Extensibility;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Generative;
@@ -42,7 +43,12 @@ public sealed partial class AiImageGenerationNode : GenerativeNode
         AspectRatio.Property?.SetValue("1:1");
         Background.Property?.SetValue("auto");
         Seed.Property?.SetValue(Random.Shared.Next(MinSeed, MaxSeed));
+        RegisterChoice(Model, GenerativeChoiceKind.Model);
+        RegisterChoice(AspectRatio, GenerativeChoiceKind.AspectRatio);
+        RegisterChoice(Background, GenerativeChoiceKind.Background);
     }
+
+    public override IPropertyAdapter<string>? ModelProperty => Model.Property;
 
     public override GenerativeOperation Operation => GenerativeOperation.ImageGeneration;
 

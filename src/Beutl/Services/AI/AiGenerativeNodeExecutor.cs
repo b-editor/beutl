@@ -17,6 +17,7 @@ namespace Beutl.Services.AI;
 /// </summary>
 internal sealed class AiGenerativeNodeExecutor(
     Scene scene,
+    AiGenerativeModelCatalog models,
     IAiImageGenerationService images,
     IAiOperationAvailabilityService availability,
     IAuthenticatedContentService content) : IGenerativeNodeExecutor
@@ -45,7 +46,25 @@ internal sealed class AiGenerativeNodeExecutor(
         string prompt = request.Prompt;
         if (prompt.Length > AiRequestLimits.MaxPromptLength)
             throw new GenerativeExecutionException(AiPromptComposer.PromptTooLongMessage);
-        AiModelId? model = request.ModelId is { } id ? new AiModelId(id) : null;
+        // Checked against the catalog before anything is reserved, as the dialog's controls
+        // are: a request the model would refuse is refused here, for free.
+        (AiModelCatalog catalog, IReadOnlyList<GenerativeModelInfo> offered) =
+            await models.LoadAsync(request.Operation, cancellationToken);
+        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
+        GenerativeImageCapabilities? capabilities = chosen?.Image;
+        if (capabilities is not null)
+        {
+            if (!capabilities.AspectRatioChoices.Contains(request.AspectRatio, StringComparer.Ordinal)
+                || !capabilities.BackgroundChoices.Contains(request.Background, StringComparer.Ordinal)
+                || request.References.Count > capabilities.MaxReferenceImages)
+            {
+                throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
+            }
+        }
+
+        int? seed = capabilities is { SupportsSeed: false } ? null : request.Seed;
+        AiModelId? model = chosen is not null ? new AiModelId(chosen.Id) : null;
+        AiImageReferenceLimits referenceLimits = catalog.GetImageReferenceLimits(AiOperations.ImageGeneration);
         AiUploadSource[] references = request.References
             .Select(reference => AiUploadSource.FromBytes(reference.Name, reference.EncodedPng))
             .ToArray();
@@ -55,7 +74,7 @@ internal sealed class AiGenerativeNodeExecutor(
             prompt,
             request.AspectRatio,
             request.Background,
-            request.Seed?.ToString(CultureInfo.InvariantCulture),
+            seed?.ToString(CultureInfo.InvariantCulture),
             model?.Value,
             .. request.References.Select(reference =>
                 AiRequestKey.FileStamp(reference.Name, reference.EncodedPng)),
@@ -80,10 +99,11 @@ internal sealed class AiGenerativeNodeExecutor(
                         prompt,
                         new AiImageAspectRatioId(request.AspectRatio),
                         new AiImageBackgroundId(request.Background),
-                        seed: request.Seed,
+                        seed: seed,
                         references: references,
                         model: model,
-                        idempotencyKey: name.Key),
+                        idempotencyKey: name.Key,
+                        referenceLimits: referenceLimits),
                     new Progress<AiImagePreview>(preview => ReportPreview(preview, progress)),
                     token),
                 n => requestKey.WithdrawAfterNoReservation(n),
@@ -96,7 +116,7 @@ internal sealed class AiGenerativeNodeExecutor(
                 cancellationToken);
             string path = await SaveAsync(encoded, cancellationToken);
             requestKey.Retire(name);
-            return new GenerativeExecutionResult(new Uri(path), request.ModelId, request.Seed);
+            return new GenerativeExecutionResult(new Uri(path), model?.Value, seed);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -115,6 +135,25 @@ internal sealed class AiGenerativeNodeExecutor(
             s_logger.LogError(ex, "Failed to run a generative node.");
             throw new GenerativeExecutionException(Strings.AiUnexpectedError, ex);
         }
+    }
+
+    /// <summary>
+    /// The named model when it can start, or — for a node left on the default — the model
+    /// the dialog's picker would start on. Null when the catalog offers nothing, which lets
+    /// the server pick, as the dialog does.
+    /// </summary>
+    private static GenerativeModelInfo? ResolveModel(string? modelId, IReadOnlyList<GenerativeModelInfo> offered)
+    {
+        if (modelId is not null)
+        {
+            GenerativeModelInfo? named = offered.FirstOrDefault(model => model.Id == modelId);
+            if (offered.Count > 0 && named is not { IsAvailable: true })
+                throw new GenerativeExecutionException(Strings.AiModelUnavailable);
+            return named;
+        }
+
+        return offered.FirstOrDefault(model => model.IsAvailable && model.IsDefault)
+            ?? offered.FirstOrDefault(model => model.IsAvailable);
     }
 
     private static void ReportPreview(AiImagePreview preview, IProgress<GenerativeProgress> progress)
