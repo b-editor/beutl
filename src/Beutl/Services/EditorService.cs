@@ -6,7 +6,10 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.VersionControl;
+using Beutl.Logging;
 using Beutl.Serialization;
+using Beutl.ViewModels;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.Services;
@@ -96,6 +99,7 @@ public sealed class EditorService
     internal Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost? BrowserSettingsHost { get; set; }
     internal Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry? StorageProviders { get; set; }
     private readonly CoreList<EditorTabItem> _tabItems;
+    private readonly ILogger _logger = Log.CreateLogger<EditorService>();
     private readonly ExtensionProvider _extensionProvider;
     private readonly Action<Project, Uri> _serializeProject;
     private readonly ReactivePropertySlim<IProjectVersionControlService?>
@@ -642,15 +646,62 @@ public sealed class EditorService
     {
         if (TryGetTabItem(obj, out EditorTabItem? item))
         {
-            TabItems.Remove(item);
-            await item.DisposeAsync();
+            await CloseTabItem(item);
         }
     }
 
-    public async ValueTask CloseTabItem(EditorTabItem item)
+    public ValueTask CloseTabItem(EditorTabItem item) => CloseTabItem(item, saveChanges: true);
+
+    internal async ValueTask CloseTabItem(EditorTabItem item, bool saveChanges)
     {
-        TabItems.Remove(item);
-        await item.DisposeAsync();
+        if (saveChanges && !await SaveSceneEditorsBeforeCloseAsync([item]))
+            return;
+
+        if (TabItems.Remove(item))
+            await item.DisposeAsync();
+    }
+
+    internal async Task<bool> SaveSceneEditorsBeforeCloseAsync(IEnumerable<EditorTabItem> items)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+            return await Dispatcher.UIThread.InvokeAsync(() => SaveSceneEditorsBeforeCloseAsync(items));
+
+        // Git transitions already saved or deliberately discarded these models. Writing them during
+        // teardown would overwrite the checked-out files. Disposal itself remains a discard operation.
+        if (IsWorktreeMutationActive)
+            return true;
+
+        EditViewModel[] editors = items.Select(item => item.Context.Value)
+            .OfType<EditViewModel>()
+            .Where(editor => !editor.IsDisposingOrDisposed && editor.Scene.Uri is not null)
+            .ToArray();
+        if (editors.Length == 0)
+            return true;
+
+        using IDisposable suspension = SuspendEditors();
+        try
+        {
+            using IProjectFileWriteLease fileWrite = await BeginProjectFileWriteAsync(CancellationToken.None);
+            foreach (EditViewModel editor in editors)
+            {
+                // A transition can have retired a captured editor while this writer waited.
+                if (editor.IsDisposingOrDisposed)
+                    continue;
+
+                editor.HistoryManager.FlushPendingMutations();
+                editor.HistoryManager.Commit();
+                if (!await editor.SaveAsync())
+                    throw new IOException(MessageStrings.FileSaveException);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save an editor before closing it.");
+            NotificationService.ShowError(string.Empty, MessageStrings.FileSaveException);
+            return false;
+        }
     }
 
     private sealed class EditorSuspension(IDisposable[] suspensions) : IDisposable

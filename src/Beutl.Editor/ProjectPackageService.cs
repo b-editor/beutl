@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
+using Beutl.IO;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Serialization;
@@ -126,12 +127,11 @@ public sealed class ProjectPackageService
 
             // Step 8: Create the ZIP file
             progress?.Report((Strings.ExportingProject, 0.9));
-            if (File.Exists(outputPath))
+            using (var output = new StagedOutputFile(outputPath))
             {
-                File.Delete(outputPath);
+                await Task.Run(() => ZipFile.CreateFromDirectory(tempProjectDir, output.TemporaryPath), cancellationToken);
+                output.Commit(cancellationToken);
             }
-
-            await Task.Run(() => ZipFile.CreateFromDirectory(tempProjectDir, outputPath), cancellationToken);
 
             progress?.Report((Strings.ExportingProject, 1.0));
             _logger.LogInformation("Project exported successfully to {OutputPath}", outputPath);
@@ -295,6 +295,9 @@ public sealed class ProjectPackageService
         foreach (string file in Directory.GetFiles(sourceDir))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            // Linked worktrees and submodules use a .git file rather than a directory.
+            if (string.Equals(Path.GetFileName(file), ".git", StringComparison.OrdinalIgnoreCase))
+                continue;
             string destFile = Path.Combine(destDir, Path.GetFileName(file));
             await CopyFileAsync(file, destFile, cancellationToken);
         }
@@ -304,8 +307,8 @@ public sealed class ProjectPackageService
             cancellationToken.ThrowIfCancellationRequested();
             string dirName = Path.GetFileName(subDir);
 
-            // Skip the .beutl folder (view state, etc.)
-            if (dirName == ".beutl")
+            // Share the current project, not local view state or recoverable repository history.
+            if (dirName == ".beutl" || string.Equals(dirName, ".git", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             string destSubDir = Path.Combine(destDir, dirName);

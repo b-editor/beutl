@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.IO.Compression;
 using Beutl.Editor;
 using Beutl.Logging;
 using Beutl.Media;
@@ -621,7 +622,62 @@ public class ProjectPackageServiceTests
 
     #endregion
 
+    [Test]
+    public void ExportAsync_CancelledBeforeZipCreation_PreservesTheExistingPackage()
+    {
+        Project project = CreateAndSaveTestProject();
+        string output = Path.Combine(_exportDir, "previous.beutlpkg");
+        File.WriteAllText(output, "previous complete package");
+        using var cancellation = new CancellationTokenSource();
+        var progress = new InlineProgress(value =>
+        {
+            if (value.Progress == 0.9) cancellation.Cancel();
+        });
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await ProjectPackageService.Current.ExportAsync(project, output, progress, cancellation.Token));
+
+        Assert.That(File.ReadAllText(output), Is.EqualTo("previous complete package"));
+        Assert.That(Directory.GetDirectories(_exportDir), Is.Empty);
+    }
+
+    [Test]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ExportAsync_ExcludesGitDirectoriesAndWorktreePointers(bool worktree)
+    {
+        Project project = CreateAndSaveTestProject();
+        string git = Path.Combine(_projectDir, ".git");
+        if (worktree)
+            File.WriteAllText(git, "gitdir: /private/original/repository/.git/worktrees/project");
+        else
+        {
+            Directory.CreateDirectory(Path.Combine(git, "objects"));
+            File.WriteAllText(Path.Combine(git, "objects", "removed-content"), "private deleted content");
+        }
+        string nested = Directory.CreateDirectory(Path.Combine(_projectDir, "nested")).FullName;
+        File.WriteAllText(Path.Combine(nested, ".git"), "gitdir: /private/submodule");
+        File.WriteAllText(Path.Combine(nested, "asset.txt"), "shared asset");
+        File.WriteAllText(Path.Combine(_projectDir, ".gitignore"), ".beutl/");
+        string output = Path.Combine(_exportDir, "shared.beutlpkg");
+
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, output);
+
+        Assert.That(result.Success, Is.True);
+        using var archive = ZipFile.OpenRead(output);
+        string[] entries = archive.Entries.Select(entry => entry.FullName).ToArray();
+        Assert.That(entries.Any(path => path.Split('/').Any(part => part.Equals(".git", StringComparison.OrdinalIgnoreCase))), Is.False);
+        Assert.That(entries, Does.Contain(".gitignore").And.Contain("nested/asset.txt"));
+        Assert.That(worktree ? File.Exists(git) : Directory.Exists(git), Is.True, "Export must not alter the source repository.");
+    }
+
     #region Helper Methods
+
+    private sealed class InlineProgress(Action<(string Message, double Progress)> report)
+        : IProgress<(string Message, double Progress)>
+    {
+        public void Report((string Message, double Progress) value) => report(value);
+    }
 
     private Project CreateAndSaveTestProject()
     {
