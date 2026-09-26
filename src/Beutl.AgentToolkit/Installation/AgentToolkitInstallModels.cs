@@ -12,6 +12,12 @@ public enum SubagentFileFormat
     CodexToml,
 }
 
+public enum McpConfigFormat
+{
+    Json,
+    CodexToml,
+}
+
 public sealed record AgentToolkitAsset(
     AgentToolkitAssetKind Kind,
     string RelativePath,
@@ -36,6 +42,10 @@ public sealed record AgentToolkitInstallOptions
     public bool InstallLiveMcp { get; init; }
 
     public string McpConfigFileName { get; init; } = ".mcp.json";
+
+    public string? McpConfigRoot { get; init; }
+
+    public McpConfigFormat McpConfigFormat { get; init; }
 
     public string McpServersPropertyName { get; init; } = "mcpServers";
 

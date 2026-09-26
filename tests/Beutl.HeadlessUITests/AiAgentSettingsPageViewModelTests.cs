@@ -1,11 +1,22 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Globalization;
+using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Headless.NUnit;
+using Avalonia.Media.Imaging;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Installation;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls;
+using Beutl.Language;
+using Beutl.Pages.SettingsPages;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.SettingsPages;
+using Tomlyn;
+using Tomlyn.Model;
 
 namespace Beutl.HeadlessUITests;
 
@@ -40,9 +51,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(
                 viewModel.ResolvedSkillsPath.Value,
                 Is.EqualTo(Path.Combine(home, ".claude", "skills")));
-            Assert.That(
-                viewModel.ResolvedMcpConfigPath.Value,
-                Does.StartWith("$ claude mcp add --scope user"));
+            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Not.Contain("beutl-agent"));
             Assert.That(viewModel.WorkspaceRoot.Value, Is.Not.Empty);
             Assert.That(viewModel.McpCommand.Value, Is.Not.Empty);
             // Live MCP is the primary integration; stdio is opt-in.
@@ -87,7 +96,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     }
 
     [AvaloniaTest]
-    public void Codex_registers_mcp_through_its_cli_and_converts_subagents()
+    public void Codex_uses_its_config_file_and_converts_subagents()
     {
         using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
 
@@ -96,8 +105,8 @@ public sealed class AiAgentSettingsPageViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.CanInstallMcp.Value, Is.True);
-            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.StartWith("$ codex mcp add"));
-            // Live MCP needs a remote entry, which `codex mcp add` does not cover.
+            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.EndWith("config.toml"));
+            // The endpoint has not started yet.
             Assert.That(viewModel.CanInstallLiveMcp.Value, Is.False);
             Assert.That(viewModel.CanInstallSubagents.Value, Is.True);
             Assert.That(
@@ -107,6 +116,129 @@ public sealed class AiAgentSettingsPageViewModelTests
                 viewModel.ResolvedSkillsPath.Value,
                 Does.EndWith(Path.Combine(".agents", "skills")));
         });
+    }
+
+    [AvaloniaTest]
+    [TestCase(AgentInstallScope.Global)]
+    [TestCase(AgentInstallScope.Project)]
+    public async Task Codex_live_mcp_is_available_in_both_scopes(AgentInstallScope scope)
+    {
+        var config = new AiAgentConfig { AgentId = "codex", InstallScope = scope.ToString(), ProjectRoot = "/repo" };
+        await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
+        await endpoint.StartAsync();
+        using var viewModel = new AiAgentSettingsPageViewModel(endpoint, config);
+
+        string root = scope == AgentInstallScope.Project
+            ? Path.Combine("/repo", ".codex")
+            : Environment.GetEnvironmentVariable("CODEX_HOME") is { Length: > 0 } codexHome
+                ? Path.GetFullPath(codexHome)
+                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex");
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CanInstallLiveMcp.Value, Is.True);
+            Assert.That(viewModel.InstallLiveMcp.Value, Is.True);
+            Assert.That(viewModel.InstallStdioMcp.Value, Is.False);
+            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Is.EqualTo(Path.Combine(root, "config.toml")));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Cli_preview_tracks_selected_transports_without_a_stdio_fallback()
+    {
+        var config = new AiAgentConfig();
+        await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
+        await endpoint.StartAsync();
+        using var viewModel = new AiAgentSettingsPageViewModel(endpoint, config);
+
+        Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Contain("beutl-live").And.Not.Contain("beutl-agent"));
+        viewModel.InstallLiveMcp.Value = false;
+        Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Not.Contain("mcp add"));
+        viewModel.InstallStdioMcp.Value = true;
+        Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Contain("beutl-agent").And.Not.Contain("beutl-live"));
+        viewModel.InstallLiveMcp.Value = true;
+        Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Contain("beutl-agent").And.Contain("beutl-live"));
+    }
+
+    [AvaloniaTest]
+    [TestCase(480, false)]
+    [TestCase(800, true)]
+    public async Task Codex_settings_install_live_mcp_and_display_the_actual_config_path(int width, bool light)
+    {
+        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "codex-install-" + Guid.NewGuid().ToString("N"));
+        var config = new AiAgentConfig
+        {
+            AgentId = "codex",
+            InstallScope = nameof(AgentInstallScope.Project),
+            ProjectRoot = root,
+            InstallSkills = false,
+            InstallSubagents = false,
+            LiveMcpToken = "headless-test-token",
+        };
+        await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
+        await endpoint.StartAsync();
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
+        using var viewModel = new AiAgentSettingsPageViewModel(endpoint, config);
+        var page = new AiAgentSettingsPage { DataContext = viewModel };
+        var window = new Window
+        {
+            Content = page,
+            Width = width,
+            Height = 1000,
+            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark,
+        };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            OptionsDisplayItem[] rows = page.GetVisualDescendants().OfType<OptionsDisplayItem>().ToArray();
+            OptionsDisplayItem destinations = rows.Single(row => Equals(row.Header, SettingsStrings.AiAgents_Destinations));
+            destinations.ContentTransition = null;
+            destinations.IsExpanded = true;
+            HeadlessTestHelpers.Render();
+
+            OptionsDisplayItem liveRow = rows.Single(row => Equals(row.Header, SettingsStrings.AiAgents_LiveMcp));
+            OptionsDisplayItem stdioRow = rows.Single(row => Equals(row.Header, SettingsStrings.AiAgents_StdioMcp));
+            var liveToggle = (ToggleSwitch)liveRow.ActionButton!;
+            var stdioToggle = (ToggleSwitch)stdioRow.ActionButton!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(liveRow.IsEnabled, Is.True);
+                Assert.That(liveToggle.IsChecked, Is.True);
+                Assert.That(stdioToggle.IsChecked, Is.False);
+            });
+
+            await viewModel.InstallAsync();
+
+            string path = viewModel.ResolvedMcpConfigPath.Value;
+            Assert.That(File.Exists(path), Is.True, viewModel.Status.Value);
+            var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(path))!["mcp_servers"];
+            var live = (TomlTable)servers["beutl-live"];
+            Assert.Multiple(() =>
+            {
+                Assert.That(servers.ContainsKey("beutl-agent"), Is.False);
+                Assert.That(live["url"], Is.EqualTo(endpoint.EndpointUri!.ToString()));
+                Assert.That(((TomlTable)live["http_headers"])["Authorization"], Is.EqualTo("Bearer headless-test-token"));
+                Assert.That(viewModel.InstalledFiles, Has.Count.EqualTo(1));
+                Assert.That(page.GetVisualDescendants().OfType<SelectableTextBlock>().Any(block => block.Text == path), Is.True);
+            });
+
+            stdioRow.BringIntoView();
+            HeadlessTestHelpers.Render();
+            if (Environment.GetEnvironmentVariable("BEUTL_CODEX_MCP_CAPTURE") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                using var image = window.CaptureRenderedFrame();
+                Assert.That(image, Is.Not.Null);
+                image!.Save(Path.Combine(directory, $"codex-live-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
+                File.Copy(path, Path.Combine(directory, "config.toml"), overwrite: true);
+            }
+        }
+        finally
+        {
+            window.Close();
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
     }
 
     [AvaloniaTest]

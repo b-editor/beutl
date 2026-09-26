@@ -180,6 +180,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         string? SubagentsDirectory,
         SubagentFileFormat SubagentFormat,
         string? McpConfigFileName,
+        string McpConfigRoot,
+        McpConfigFormat McpConfigFormat,
         string McpServersPropertyName,
         string? StdioTypeValue,
         string? LiveUrlPropertyName,
@@ -209,6 +211,16 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             ? McpConfigFileName.Value
             : agent is null ? ".mcp.json" : mcp?.ConfigFileName;
 
+        string mcpRoot = root;
+        if (agent?.Id == "codex"
+            && scope == AgentInstallScope.Global
+            && string.IsNullOrWhiteSpace(McpConfigFileName.Value)
+            && Environment.GetEnvironmentVariable("CODEX_HOME") is { Length: > 0 } codexHome)
+        {
+            mcpRoot = Path.GetFullPath(codexHome);
+            mcpFile = "config.toml";
+        }
+
         string mcpProperty = FirstNonEmpty(
             McpServersPropertyName.Value,
             mcp?.ServersPropertyName ?? "mcpServers");
@@ -226,7 +238,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
         return new ResolvedTargets(
             root, skills, subagents, agent?.SubagentFormat ?? SubagentFileFormat.Markdown,
-            mcpFile, mcpProperty, stdioType, liveUrlProperty, liveType, useCli, cliRemote);
+            mcpFile, mcpRoot, mcp?.Format ?? McpConfigFormat.Json,
+            mcpProperty, stdioType, liveUrlProperty, liveType, useCli, cliRemote);
     }
 
     private McpCliCommand? BuildCliStdioCommand()
@@ -284,10 +297,10 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             ? SettingsStrings.AiAgents_NotSupported
             : DisplayPath(targets.Root, targets.SubagentsDirectory);
         ResolvedMcpConfigPath.Value = targets.McpConfigFileName is not null
-            ? DisplayPath(targets.Root, targets.McpConfigFileName)
+            ? DisplayPath(targets.McpConfigRoot, targets.McpConfigFileName)
             : targets.UseCliForMcp && BuildCliPreview(targets) is { } cliPreview
                 ? cliPreview
-                : SettingsStrings.AiAgents_NotSupported;
+                : targets.UseCliForMcp ? "—" : SettingsStrings.AiAgents_NotSupported;
     }
 
     private string? BuildCliPreview(ResolvedTargets targets)
@@ -310,11 +323,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                 BuildLiveMcpHeaders()) is { } remote)
         {
             lines.Add("$ " + remote.ToDisplayString());
-        }
-
-        if (lines.Count == 0 && stdioCommandAvailable && BuildCliStdioCommand() is { } fallback)
-        {
-            lines.Add("$ " + fallback.ToDisplayString());
         }
 
         return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
@@ -385,6 +393,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                     InstallStdioMcp = installStdioMcp,
                     InstallLiveMcp = installLiveMcp,
                     McpConfigFileName = targets.McpConfigFileName ?? ".mcp.json",
+                    McpConfigRoot = targets.McpConfigRoot,
+                    McpConfigFormat = targets.McpConfigFormat,
                     McpServersPropertyName = targets.McpServersPropertyName,
                     StdioMcpTypeValue = targets.StdioTypeValue,
                     LiveMcpUrlPropertyName = targets.LiveUrlPropertyName ?? "url",
