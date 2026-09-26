@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
@@ -37,6 +38,33 @@ public class GLSLShaderTests
         }
         """;
 
+    private const string ThreeInputFragment = """
+        #version 450
+        layout(location = 0) in vec2 fragCoord;
+        layout(location = 0) out vec4 outColor;
+        layout(set = 0, binding = 0) uniform sampler2D first;
+        layout(set = 0, binding = 1) uniform sampler2D second;
+        layout(set = 0, binding = 2) uniform sampler2D third;
+        layout(push_constant) uniform PC { float gain; } pc;
+        void main() {
+            outColor = vec4(texture(first, fragCoord).r * pc.gain,
+                            texture(second, fragCoord).g,
+                            texture(third, fragCoord).b, 1.0);
+        }
+        """;
+
+    private const string InvertFragment = """
+        #version 450
+        layout(location = 0) in vec2 fragCoord;
+        layout(location = 0) out vec4 outColor;
+        layout(set = 0, binding = 0) uniform sampler2D source;
+        layout(push_constant) uniform PC { float dummy; } pc;
+        void main() {
+            vec4 color = texture(source, fragCoord);
+            outColor = vec4(vec3(color.a) - color.rgb, color.a);
+        }
+        """;
+
     private const string DiscardLeftHalfFragment = """
         #version 450
         layout(location = 0) in vec2 fragCoord;
@@ -53,6 +81,292 @@ public class GLSLShaderTests
 
     [StructLayout(LayoutKind.Sequential)]
     private struct DummyPush { public float Dummy; }
+
+    [TestCase(1)]
+    [TestCase(3)]
+    public void Render_DoesNotAddPerPassManagedAllocationsWhenOutputIsDeclined(int inputCount)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget red = CreateSolidTarget(4, 4, Colors.Red);
+            using var input = new EffectTarget(red, new Rect(0, 0, 4, 4));
+            EffectTarget[] inputs = Enumerable.Repeat(input, inputCount).ToArray();
+            using var targets = new EffectTargets();
+            using var pool = new RenderTargetPool(new DecliningTargetFactory());
+            using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Preview, red);
+            var context = new CustomFilterEffectContext(
+                targets, RenderIntent.Preview, RenderRequestPurpose.Auxiliary, renderTargetLeaseSession: session);
+            using var shader = GLSLShader.Create(ConstantBlueFragment, inputCount);
+            const int iterations = 128;
+            for (int i = 0; i < iterations; i++)
+            {
+                using EffectTarget baseline = context.CreateNativeTargetLike(input);
+                using EffectTarget warmup = shader.Render(context, inputs, input.Bounds, new DummyPush());
+            }
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < iterations; i++)
+            {
+                using EffectTarget baseline = context.CreateNativeTargetLike(input);
+            }
+            long baselineBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+            before = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < iterations; i++)
+            {
+                using EffectTarget result = shader.Render(context, inputs, input.Bounds, new DummyPush());
+            }
+            long renderBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.That(renderBytes, Is.EqualTo(baselineBytes),
+                "input storage and constant binding must not allocate in a warmed render loop");
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void ScriptCache_RejectsDeviceLimitBeforeCachingAProgram()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var cache = new ScriptGlslProgramCache();
+            int overLimit = checked(GLSLShader.MaximumInputCount + 1);
+            Assert.Throws<ArgumentOutOfRangeException>(() => cache.Create(ConstantBlueFragment, overLimit));
+            Assert.That(cache.Statistics.Creations, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void CSharpScript_ReusesGlslProgramWhileTimeChangesAndDisposesItsCache()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var effect = new CSharpScriptEffect
+            {
+                Script = { CurrentValue = """"
+                    const string fragment = """
+                        #version 450
+                        layout(location=0) out vec4 color;
+                        layout(push_constant) uniform PC { float value; } pc;
+                        void main() { color = vec4(0, pc.value, 1, 1); }
+                        """;
+                    Context.CustomEffect(Time, (float time, CustomFilterEffectContext execution) =>
+                    {
+                        using var shader = CreateGlslShader(fragment);
+                        execution.ForEach((int index, EffectTarget input) =>
+                            shader.Render(execution, new[] { input }, input.Bounds, time));
+                    }, (float time, Rect bounds) => bounds);
+                    """" },
+            };
+            using var resource = (CSharpScriptEffect.Resource)effect.ToResource(CompositionContext.Default);
+            using RenderTarget source = CreateSolidTarget(4, 4, Colors.Red);
+            foreach (float time in new[] { 0.25f, 0.75f })
+            {
+                bool updateOnly = false;
+                resource.Update(effect, new CompositionContext(TimeSpan.FromSeconds(time)), ref updateOnly);
+                using var context = new FilterEffectContext(new Rect(0, 0, 4, 4));
+                context.ApplyTransactional(effect, resource);
+                using var targets = new EffectTargets { new EffectTarget(source, new Rect(0, 0, 4, 4)) };
+                using var builder = new SKImageFilterBuilder();
+                using var executor = new FilterEffectExecutor(
+                    targets, builder, RenderIntent.Delivery, RenderRequestPurpose.Auxiliary,
+                    drawableBrushMaterializer: null);
+                executor.Apply(context);
+                executor.Flush(false);
+                RgbaF16 pixel = ReadNativePixels(targets[0].RenderTarget!)[0];
+                Assert.That((float)pixel.G, Is.EqualTo(time).Within(0.01), "new constants must reach a reused program");
+                Assert.That((float)pixel.B, Is.EqualTo(1).Within(0.01), "the script must actually execute");
+            }
+            Assert.That(resource.GlslPrograms.Statistics.Creations, Is.EqualTo(1));
+            Assert.That(resource.GlslPrograms.Statistics.Hits, Is.EqualTo(1));
+            resource.Dispose();
+            Assert.Throws<ObjectDisposedException>(() => resource.GlslPrograms.Create(ConstantBlueFragment, 1));
+        });
+    }
+
+    [Test]
+    public void ScriptCache_ReusesProgramsSeparatesInputLayoutsAndKeepsLeasesAlive()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var cache = new ScriptGlslProgramCache();
+            using GLSLShader first = cache.Create(ConstantBlueFragment, 1);
+            using GLSLShader second = cache.Create(ConstantBlueFragment, 1);
+            using GLSLShader differentLayout = cache.Create(ConstantBlueFragment, 2);
+            Assert.Multiple(() =>
+            {
+                Assert.That(second.Pipeline, Is.SameAs(first.Pipeline));
+                Assert.That(differentLayout.Pipeline, Is.Not.SameAs(first.Pipeline));
+                Assert.That(cache.Statistics.Creations, Is.EqualTo(2));
+            });
+
+            first.Dispose();
+            cache.Dispose();
+            Assert.Throws<ObjectDisposedException>(() => cache.Create(ConstantBlueFragment, 1));
+            using RenderTarget red = CreateSolidTarget(4, 4, Colors.Red);
+            using var input = new EffectTarget(red, new Rect(0, 0, 4, 4));
+            using var targets = new EffectTargets();
+            using EffectTarget output = second.Render(CreateCustomContext(targets), [input], input.Bounds, new DummyPush());
+            Assert.That((float)ReadNativePixels(output.RenderTarget!)[0].B, Is.EqualTo(1).Within(0.01),
+                "a checked-out shader must survive cache disposal until its own wrapper is disposed");
+        });
+    }
+
+    [Test]
+    public void Render_CombinesThreeInputsIntoExpandedOutputAndFeedsAnotherPass()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget red = CreateSolidTarget(4, 4, Colors.Red);
+            using RenderTarget green = CreateSolidTarget(2, 2, Colors.Lime);
+            using RenderTarget blue = CreateSolidTarget(8, 8, Colors.Blue);
+            using var first = new EffectTarget(red, new Rect(0, 0, 4, 4));
+            using var second = new EffectTarget(green, new Rect(0, 0, 2, 2));
+            using var third = new EffectTarget(blue, new Rect(0, 0, 8, 8));
+            using var targets = new EffectTargets();
+            using var pool = new RenderTargetPool(factory: null);
+            using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Delivery, red);
+            var context = CreateCustomContext(targets, session);
+            var bounds = new Rect(-3, -2, 10, 8);
+            using var combine = GLSLShader.Create(ThreeInputFragment, inputCount: 3);
+            using var invert = GLSLShader.Create(InvertFragment);
+
+            using EffectTarget combined = combine.Render(context, [first, second, third], bounds, output =>
+            {
+                Assert.That(output.Bounds, Is.EqualTo(bounds));
+                Assert.That(output.RenderTarget!.Width, Is.EqualTo(10));
+                Assert.That(output.RenderTarget.Height, Is.EqualTo(8));
+                return new DummyPush { Dummy = 0.25f };
+            });
+            using EffectTarget result = invert.Render(context, [combined], bounds, new DummyPush());
+            RgbaF16[] pixels = ReadNativePixels(result.RenderTarget!);
+            RgbaF16 center = pixels[4 * result.RenderTarget!.Width + 5];
+            RgbaF16 sourcePixel = ReadNativePixels(red)[0];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(combine.InputCount, Is.EqualTo(3));
+                Assert.That(result.Bounds, Is.EqualTo(bounds));
+                Assert.That((float)center.R, Is.EqualTo(0.75).Within(0.01));
+                Assert.That((float)center.G, Is.EqualTo(0).Within(0.01));
+                Assert.That((float)center.B, Is.EqualTo(0).Within(0.01));
+                Assert.That((float)center.A, Is.EqualTo(1).Within(0.01));
+                Assert.That((float)sourcePixel.R, Is.EqualTo(1).Within(0.01), "inputs must remain owned and unchanged");
+                Assert.That((float)sourcePixel.G, Is.EqualTo(0).Within(0.01));
+            });
+        });
+    }
+
+    [Test]
+    public void Render_SameBoundsPreservesFractionalRasterFootprint()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget red = CreateSolidTarget(4, 4, Colors.Red);
+            using var input = new EffectTarget(red, new Rect(-0.25f, 0.25f, 4, 4));
+            using var targets = new EffectTargets();
+            var context = CreateCustomContext(targets);
+            using var shader = GLSLShader.Create(ConstantBlueFragment);
+            using EffectTarget output = shader.Render(context, [input], input.Bounds, new DummyPush());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(output.RasterBounds, Is.EqualTo(input.RasterBounds));
+                Assert.That(output.DeviceBounds, Is.EqualTo(input.DeviceBounds));
+                Assert.That(output.Scale, Is.EqualTo(input.Scale));
+            });
+        });
+    }
+
+    [TestCase(0.5f)]
+    [TestCase(1f)]
+    [TestCase(2f)]
+    public void Render_ExpandedBoundsUsesContextDensity(float density)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget red = CreateSolidTarget(4, 4, Colors.Red);
+            using var input = new EffectTarget(red, new Rect(0, 0, 4, 4));
+            using var targets = new EffectTargets();
+            var context = new CustomFilterEffectContext(
+                targets, RenderIntent.Delivery, RenderRequestPurpose.Auxiliary, workingScale: density);
+            using var shader = GLSLShader.Create(ConstantBlueFragment);
+            var bounds = new Rect(-2, -2, 8, 8);
+            using EffectTarget output = shader.Render(context, [input], bounds, destination =>
+            {
+                Assert.That(destination.Scale.Value, Is.EqualTo(density));
+                return new DummyPush();
+            });
+            RgbaF16[] pixels = ReadNativePixels(output.RenderTarget!);
+            Assert.Multiple(() =>
+            {
+                Assert.That(output.RenderTarget!.Width, Is.EqualTo((int)(8 * density)));
+                Assert.That(output.RenderTarget.Height, Is.EqualTo((int)(8 * density)));
+                Assert.That(output.Bounds, Is.EqualTo(bounds));
+                Assert.That((float)pixels[0].B, Is.EqualTo(1).Within(0.01));
+            });
+        });
+    }
+
+    [Test]
+    public void Render_RejectsInputCountAndReleasesOutputWhenConstantFactoryThrows()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget red = CreateSolidTarget(4, 4, Colors.Red);
+            using var input = new EffectTarget(red, new Rect(0, 0, 4, 4));
+            using var targets = new EffectTargets();
+            using var pool = new RenderTargetPool(factory: null);
+            using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Delivery, red);
+            var context = CreateCustomContext(targets, session);
+            using var shader = GLSLShader.Create(ConstantBlueFragment);
+
+            Assert.Throws<ArgumentException>(() => shader.Render(context, [], input.Bounds, new DummyPush()));
+            Assert.That(pool.Statistics.Creates, Is.Zero);
+            Assert.Throws<InvalidOperationException>(() => shader.Render<DummyPush>(
+                context, [input], new Rect(-1, -1, 6, 6), _ => throw new InvalidOperationException("constant failure")));
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+            using EffectTarget recovered = shader.Render(context, [input], input.Bounds, new DummyPush());
+            Assert.That((float)ReadNativePixels(recovered.RenderTarget!)[0].B, Is.EqualTo(1).Within(0.01));
+        });
+    }
+
+    [TestCase(RenderIntent.Preview)]
+    [TestCase(RenderIntent.Delivery)]
+    public void Render_RespectsAllocationFailureAndLeavesInputsAlive(RenderIntent intent)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget red = CreateSolidTarget(4, 4, Colors.Red);
+            using var input = new EffectTarget(red, new Rect(0, 0, 4, 4));
+            using var targets = new EffectTargets();
+            using var pool = new RenderTargetPool(new FailAtTargetFactory(0));
+            using RenderTargetLeaseSession session = pool.BeginSession(intent, red);
+            var context = new CustomFilterEffectContext(
+                targets, intent, RenderRequestPurpose.Auxiliary, renderTargetLeaseSession: session);
+            using var shader = GLSLShader.Create(ConstantBlueFragment);
+
+            if (intent == RenderIntent.Preview)
+            {
+                using EffectTarget result = shader.Render(context, [input], new Rect(-1, -1, 6, 6), new DummyPush());
+                Assert.That(result.IsEmpty, Is.True);
+                Assert.That(session.ContentDropObserved, Is.True);
+            }
+            else
+            {
+                Assert.Throws<InvalidOperationException>(() =>
+                    shader.Render(context, [input], new Rect(-1, -1, 6, 6), new DummyPush()));
+            }
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+            Assert.That((float)ReadNativePixels(input.RenderTarget!)[0].R, Is.EqualTo(1).Within(0.01));
+        });
+    }
 
     [Test]
     public void TryCreate_ValidShader_Succeeds()
@@ -419,6 +733,14 @@ public class GLSLShaderTests
         return allocations;
     }
 
+    // These tests exercise native GLSL output. Reading through Skia would additionally exercise the
+    // separate, known layout-sharing problem #2263 and prevent the Vulkan validation gate covering them.
+    private static RgbaF16[] ReadNativePixels(RenderTarget target)
+    {
+        target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+        return MemoryMarshal.Cast<byte, RgbaF16>(target.Texture!.DownloadPixels()).ToArray();
+    }
+
     private static RenderTarget CreateSolidTarget(int width, int height, Color color)
     {
         RenderTarget target = RenderTarget.Create(width, height)
@@ -429,6 +751,11 @@ public class GLSLShaderTests
         }
 
         return target;
+    }
+
+    private sealed class DecliningTargetFactory : IRenderTargetFactory
+    {
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation) => null;
     }
 
     private sealed class FailAtTargetFactory(int failAt) : IRenderTargetFactory

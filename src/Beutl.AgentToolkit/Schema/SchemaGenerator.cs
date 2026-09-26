@@ -262,7 +262,7 @@ public sealed class SchemaGenerator
                 ErrorCode.UnknownType,
                 $"No effect recipe matched name='{name}' intent='{intent}'.",
                 name ?? intent,
-                "Call list_effect_recipes to inspect available recipe names and intent tags."));
+                "No matching recipe is available; this does not establish that the intended expression is unsupported. Compose supported building blocks using targeted get_schema calls, or use list_effect_recipes with an intent filter if another example would help."));
         }
 
         return new EffectRecipe(
@@ -1486,7 +1486,7 @@ public sealed class SchemaGenerator
             [typeof(LayerEffect)] = Metadata(["composite", "layer"], []),
             [typeof(DelayAnimationEffect)] = Metadata(["motion", "trail", "delay"], []),
             [typeof(PixelSortEffect)] = Metadata(["glitch", "pixel", "scanline", "gpu"], ["Runs on the Vulkan shader backend, which falls back to the bundled SwiftShader software rasterizer when no hardware GPU is present, so it stays active; the software path is slower."]),
-            [typeof(CSharpScriptEffect)] = Metadata(["advanced", "script", "programmable"], ["Prefer built-in effects for low-context agents unless script code is explicitly requested."]),
+            [typeof(CSharpScriptEffect)] = Metadata(["advanced", "script", "programmable", "glsl", "multi-pass"], ["Low-level fallback when built-in composition and declarative shader effects cannot express the required passes, and C#/CustomEffect is permitted. This is not a declarative GPU-pass API. Inside Context.CustomEffect, CreateGlslShader(fragmentSource, inputCount) and shader.Render(execution, inputs, outputBounds, pushConstants) compose GPU passes. The caller owns returned targets; dispose intermediates, preserve the source on an empty preview result, and return the final target through execution.ForEach. Use the destination-callback overload for clamped size/scale. Keep shader source constant and pass changing values as push constants; GLSL inputs are linear premultiplied RGBA."]),
             [typeof(SKSLScriptEffect)] = Metadata(["advanced", "shader", "programmable", "organic", "procedural"], ["Requires shader source. Prefer for organic heat, ink, glass, smoke, grain, caustic, or procedural fields when blurred gradients look flat; call validate_shader to compile-check the script before apply_edit, since a compile error makes the effect a no-op: the source passes through unchanged."]),
             [typeof(GLSLScriptEffect)] = Metadata(["advanced", "shader", "gpu"], ["Needs GLSL shader source; runs on the Vulkan shader backend (hardware GPU, MoltenVK, or the bundled SwiftShader software fallback), so it does not require a dedicated GPU."]),
             [typeof(NodeGraphFilterEffect)] = Metadata(["advanced", "nodegraph", "programmable"], ["Requires a node graph resource to be useful."])

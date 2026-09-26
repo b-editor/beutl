@@ -45,6 +45,26 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
+    [Category("GpuPassFusionGpu")]
+    public void NativeAcquisition_DoesNotScheduleSkiaImageReads()
+    {
+        IGraphicsContext graphics = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var pool = new RenderTargetPool(factory: null);
+            using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Delivery);
+            using RenderTargetLease lease = session.TryAcquire(new PixelSize(4, 4), clearContents: false)
+                ?? throw new InvalidOperationException("Could not acquire a native target.");
+
+            byte[] pixels = lease.Target.Texture!.DownloadPixels();
+            // Format validation must not leave a Skia snapshot waiting to read an image after native
+            // code changed its layout. Flush here so validation attributes any such read to this test.
+            graphics.SkiaContext.Flush(true, true);
+            Assert.That(pixels, Is.All.EqualTo((byte)0));
+        });
+    }
+
+    [Test]
     public void EffectTargetClone_HoldsTheLeaseUntilTheLastReferenceIsDisposed()
     {
         using var pool = new RenderTargetPool(new TrackingTargetFactory());
