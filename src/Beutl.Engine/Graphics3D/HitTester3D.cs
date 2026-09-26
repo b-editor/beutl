@@ -71,7 +71,8 @@ public static class HitTester3D
 
             // Recursively hit test this object and its children
             var (hitObj, distance) = HitTestRecursive(ray, maxDistance, obj, Matrix4x4.Identity);
-            if (hitObj != null && distance < closestDistance)
+            // At equal depth the later object is drawn on top, so it takes the hit.
+            if (hitObj != null && distance <= closestDistance)
             {
                 closestDistance = distance;
                 closestObject = hitObj;
@@ -104,7 +105,8 @@ public static class HitTester3D
         foreach (var child in children)
         {
             var (hitObj, distance) = HitTestRecursive(ray, maxDistance, child, worldMatrix);
-            if (hitObj != null && distance < closestDistance)
+            // At equal depth the later object is drawn on top, so it takes the hit.
+            if (hitObj != null && distance <= closestDistance)
             {
                 closestDistance = distance;
                 closestObject = hitObj;
@@ -157,7 +159,8 @@ public static class HitTester3D
             // Recursively hit test this object and its children, collecting the path
             var currentPath = new List<Object3D.Resource>();
             var (hitPath, distance) = HitTestRecursiveWithPath(ray, maxDistance, obj, Matrix4x4.Identity, currentPath);
-            if (hitPath != null && distance < closestDistance)
+            // At equal depth the later object is drawn on top, so it takes the hit.
+            if (hitPath != null && distance <= closestDistance)
             {
                 closestDistance = distance;
                 closestPath = hitPath;
@@ -196,7 +199,8 @@ public static class HitTester3D
             // Create a copy of the current path for each child branch
             var childPath = new List<Object3D.Resource>(currentPath);
             var (hitPath, distance) = HitTestRecursiveWithPath(ray, maxDistance, child, worldMatrix, childPath);
-            if (hitPath != null && distance < closestDistance)
+            // At equal depth the later object is drawn on top, so it takes the hit.
+            if (hitPath != null && distance <= closestDistance)
             {
                 closestDistance = distance;
                 closestPath = hitPath;
@@ -301,8 +305,12 @@ public static class HitTester3D
     {
         distance = float.MaxValue;
         Mesh.Resource? mesh = obj.GetMesh();
-        if (mesh == null || !Matrix4x4.Invert(worldMatrix, out Matrix4x4 invWorld))
+        if (mesh == null
+            || obj.Material?.IsInvisible == true
+            || !Matrix4x4.Invert(worldMatrix, out Matrix4x4 invWorld))
+        {
             return false;
+        }
 
         Ray3D localRay = TransformRay(ray, invWorld);
         if (!RayIntersectsBoundingBox(localRay, mesh.GetBoundingBox(), out _)

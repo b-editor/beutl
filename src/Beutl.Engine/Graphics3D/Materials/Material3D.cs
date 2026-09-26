@@ -37,6 +37,9 @@ public abstract partial class Material3D : EngineObject
         /// <summary>Whether both sides of a surface are drawn; otherwise its back faces are culled.</summary>
         internal virtual bool IsDoubleSided => false;
 
+        /// <summary>Whether the material draws nothing at all, so its surfaces cannot be seen or clicked.</summary>
+        internal virtual bool IsInvisible => false;
+
         /// <summary>
         /// Enumerates the texture resources that must be available while this material is rendered.
         /// </summary>

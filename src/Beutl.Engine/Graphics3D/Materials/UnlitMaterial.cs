@@ -56,6 +56,9 @@ public sealed partial class UnlitMaterial : Material3D
 
         internal override bool IsDoubleSided => true;
 
+        // The fragment shader discards every pixel once the color's alpha or the opacity reaches zero.
+        internal override bool IsInvisible => Opacity <= 0 || Color.A == 0;
+
         protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
         {
             if (EffectiveColorMap is { } map)

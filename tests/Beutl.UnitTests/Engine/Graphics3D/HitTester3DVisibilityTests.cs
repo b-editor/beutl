@@ -88,6 +88,42 @@ public class HitTester3DVisibilityTests
         Assert.That(HitTester3D.HitTest(s_center, 1920, 1080, camera, [resource]), Is.Null);
     }
 
+    [Test]
+    public void Mesh_WithAFullyTransparentUnlitMaterial_IsNotHit()
+    {
+        using var camera = CreateCamera(farPlane: 10000);
+        var cube = new Cube3D();
+        cube.Material.CurrentValue = new Beutl.Graphics3D.Materials.UnlitMaterial { Opacity = { CurrentValue = 0 } };
+        using var resource = (Object3D.Resource)cube.ToResource(CompositionContext.Default);
+
+        Assert.That(HitTester3D.HitTest(s_center, 1920, 1080, camera, [resource]), Is.Null);
+    }
+
+    // Overlapping unmoved cards lie at the same depth; the later one is drawn on top and takes the click.
+    [Test]
+    public void CoplanarCards_TheLaterOneTakesTheHit()
+    {
+        using var camera = CreateCamera(farPlane: 10000);
+        var first = new DrawableObject3D();
+        first.Children.Add(CreateSquare(0));
+        var second = new DrawableObject3D();
+        second.Children.Add(CreateSquare(0));
+        using var firstResource = (DrawableObject3D.Resource)first.ToResource(CompositionContext.Default);
+        using var secondResource = (DrawableObject3D.Resource)second.ToResource(CompositionContext.Default);
+        firstResource.UpdateLayout(new Size(1920, 1080), density: 1);
+        secondResource.UpdateLayout(new Size(1920, 1080), density: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                HitTester3D.HitTest(s_center, 1920, 1080, camera, [firstResource, secondResource]),
+                Is.SameAs(secondResource));
+            Assert.That(
+                HitTester3D.HitTestWithPath(s_center, 1920, 1080, camera, [firstResource, secondResource]).Last(),
+                Is.SameAs(secondResource));
+        });
+    }
+
     private static RectShape CreateSquare(float x)
     {
         var rect = new RectShape();
