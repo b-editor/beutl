@@ -35,13 +35,13 @@ public abstract partial class Material3D : EngineObject
         public virtual bool IsTransparent => false;
 
         /// <summary>Whether both sides of a surface are drawn; otherwise its back faces are culled.</summary>
-        internal virtual bool IsDoubleSided => false;
+        protected internal virtual bool IsDoubleSided => false;
 
         /// <summary>Whether the material draws nothing at all, so its surfaces cannot be seen or clicked.</summary>
-        internal virtual bool IsInvisible => false;
+        protected internal virtual bool IsInvisible => false;
 
         /// <summary>Whether drawing the material writes depth, so later surfaces at the same depth fail the test.</summary>
-        internal virtual bool WritesDepth => !IsTransparent;
+        protected internal virtual bool WritesDepth => !IsTransparent;
 
         /// <summary>
         /// Enumerates the texture resources that must be available while this material is rendered.
