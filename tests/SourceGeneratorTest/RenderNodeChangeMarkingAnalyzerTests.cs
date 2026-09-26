@@ -1978,6 +1978,7 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
     [TestCase("ref Rect alias = ref _slots[0]; alias = bounds;")]
     [TestCase("ref Rect first = ref _bounds; ref Rect second = ref first; second = bounds;")]
     [TestCase("ref Rect alias = ref _bounds; (alias, _) = (bounds, 0);")]
+    [TestCase("ref Rect first = ref _bounds; ref Rect second = ref first; second = ref first; second = bounds;")]
     public void AWriteThroughARefLocalBoundToTrackedState_IsReported(string update)
     {
         ImmutableArray<Diagnostic> diagnostics = AnalyzeRefLocal(update);

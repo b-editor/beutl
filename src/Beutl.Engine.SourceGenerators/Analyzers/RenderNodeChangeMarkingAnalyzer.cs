@@ -899,9 +899,28 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         ImmutableHashSet<ISymbol> trackedState,
         HashSet<ISymbol> visited)
     {
+        // visited holds the chain being resolved, not every local seen, so a local reached again through a
+        // sibling binding is resolved again rather than taken for a cycle.
         if (!visited.Add(alias))
             return null;
 
+        try
+        {
+            return ResolveRefTargetCore(model, body, alias, trackedState, visited);
+        }
+        finally
+        {
+            visited.Remove(alias);
+        }
+    }
+
+    private static ISymbol? ResolveRefTargetCore(
+        SemanticModel model,
+        SyntaxNode body,
+        ILocalSymbol alias,
+        ImmutableHashSet<ISymbol> trackedState,
+        HashSet<ISymbol> visited)
+    {
         var bindings = new List<ExpressionSyntax>();
         foreach (SyntaxReference declaration in alias.DeclaringSyntaxReferences)
         {
