@@ -114,6 +114,19 @@ public class HitTester3DVisibilityTests
         });
     }
 
+    // An opaque unlit mesh is drawn in the transparent pass but writes depth, so the earlier one stays visible.
+    [Test]
+    public void CoincidentOpaqueUnlitMeshes_TheEarlierOneTakesTheHit()
+    {
+        using var camera = CreateCamera(farPlane: 10000);
+        var firstCube = new Cube3D { Material = { CurrentValue = new Beutl.Graphics3D.Materials.UnlitMaterial() } };
+        var secondCube = new Cube3D { Material = { CurrentValue = new Beutl.Graphics3D.Materials.UnlitMaterial() } };
+        using var first = (Object3D.Resource)firstCube.ToResource(CompositionContext.Default);
+        using var second = (Object3D.Resource)secondCube.ToResource(CompositionContext.Default);
+
+        Assert.That(HitTester3D.HitTest(s_center, 1920, 1080, camera, [first, second]), Is.SameAs(first));
+    }
+
     // Overlapping unmoved cards lie at the same depth; the later one is drawn on top and takes the click.
     [Test]
     public void CoplanarCards_TheLaterOneTakesTheHit()

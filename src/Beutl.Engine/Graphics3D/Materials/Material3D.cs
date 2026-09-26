@@ -40,6 +40,9 @@ public abstract partial class Material3D : EngineObject
         /// <summary>Whether the material draws nothing at all, so its surfaces cannot be seen or clicked.</summary>
         internal virtual bool IsInvisible => false;
 
+        /// <summary>Whether drawing the material writes depth, so later surfaces at the same depth fail the test.</summary>
+        internal virtual bool WritesDepth => !IsTransparent;
+
         /// <summary>
         /// Enumerates the texture resources that must be available while this material is rendered.
         /// </summary>

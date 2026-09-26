@@ -68,6 +68,8 @@ public sealed partial class UnlitMaterial : Material3D
 
         internal override bool IsDoubleSided => ContentMap != null;
 
+        internal override bool WritesDepth => Variant == OpaqueMeshVariant;
+
         // The fragment shader discards every pixel once the color's alpha or the opacity reaches zero.
         internal override bool IsInvisible => Opacity <= 0 || Color.A == 0;
 

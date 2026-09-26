@@ -285,18 +285,23 @@ public static class HitTester3D
         return true;
     }
 
-    // At equal depth an opaque object always shows: opaque geometry is drawn first, writes depth and passes
-    // only when strictly nearer, and transparent fragments at that depth then fail the test. Transparent
-    // objects write no depth and are drawn in order, so among them the later one shows on top. Either way a
-    // transparent current hit gives way to the later candidate, and an opaque one never does.
+    // At equal depth the surface drawn first and writing depth shows, since later ones pass only when strictly
+    // nearer. Opaque-pass objects are drawn first, in scene order, and write depth, so they beat everything in
+    // the transparent pass and the earlier of them wins. In the transparent pass objects are drawn in scene
+    // order at equal depth: the later one shows on top unless the earlier one wrote depth.
     private static bool IsCloser(
         Object3D.Resource candidate,
         float distance,
         Object3D.Resource? current,
         float currentDistance)
     {
-        return distance < currentDistance
-               || (distance == currentDistance && current?.Material?.IsTransparent == true);
+        if (distance != currentDistance || current is null)
+            return distance < currentDistance;
+
+        if (current.Material?.IsTransparent != true)
+            return false;
+
+        return candidate.Material?.IsTransparent != true || current.Material?.WritesDepth != true;
     }
 
     /// <summary>
