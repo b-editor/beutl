@@ -141,6 +141,21 @@ public class HitTester3DVisibilityTests
         });
     }
 
+    // Opaque geometry is drawn first and hides transparent geometry at the same depth, whatever the order.
+    [TestCase(true)]
+    [TestCase(false)]
+    public void AtEqualDepth_AnOpaqueMeshWinsOverATransparentOne(bool transparentFirst)
+    {
+        using var camera = CreateCamera(farPlane: 10000);
+        var glass = new Cube3D();
+        glass.Material.CurrentValue = new Beutl.Graphics3D.Materials.TransparentMaterial();
+        using var transparent = (Object3D.Resource)glass.ToResource(CompositionContext.Default);
+        using var opaque = (Object3D.Resource)new Cube3D().ToResource(CompositionContext.Default);
+        Object3D.Resource[] objects = transparentFirst ? [transparent, opaque] : [opaque, transparent];
+
+        Assert.That(HitTester3D.HitTest(s_center, 1920, 1080, camera, objects), Is.SameAs(opaque));
+    }
+
     private static RectShape CreateSquare(float x)
     {
         var rect = new RectShape();
