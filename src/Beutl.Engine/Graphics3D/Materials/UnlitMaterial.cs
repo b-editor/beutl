@@ -54,9 +54,10 @@ public sealed partial class UnlitMaterial : Material3D
 
         internal MaterialDrawBindingPool? DrawBindings => _drawBindings[Variant];
 
+        // A color map may hold translucent texels, so only an untextured, fully opaque mesh writes depth.
         private int Variant => ContentMap != null
             ? CardVariant
-            : Opacity >= 1 && Color.A == 255 ? OpaqueMeshVariant : TranslucentMeshVariant;
+            : ColorMap == null && Opacity >= 1 && Color.A == 255 ? OpaqueMeshVariant : TranslucentMeshVariant;
 
         /// <summary>A color map supplied by the owning object in place of <see cref="ColorMap"/>.</summary>
         internal TextureSource.Resource? ContentMap { get; set; }
