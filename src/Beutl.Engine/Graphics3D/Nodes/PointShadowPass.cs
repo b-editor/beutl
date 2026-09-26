@@ -90,7 +90,10 @@ void main() {
     ];
 
     private IPipeline3D? _shadowPipeline;
+    private IPipeline3D? _doubleSidedShadowPipeline;
+    private IPipeline3D? _boundPipeline;
     private IDescriptorSet? _descriptorSet;
+    private IDescriptorSet? _doubleSidedDescriptorSet;
     private IBuffer? _lightDataBuffer;
     private byte[]? _vertexShaderSpirv;
     private byte[]? _fragmentShaderSpirv;
@@ -229,7 +232,9 @@ void main() {
             return;
 
         _shadowPipeline?.Dispose();
+        _doubleSidedShadowPipeline?.Dispose();
         _descriptorSet?.Dispose();
+        _doubleSidedDescriptorSet?.Dispose();
 
         // Descriptor binding for light data UBO
         var descriptorBindings = new DescriptorBinding[]
@@ -241,9 +246,9 @@ void main() {
         {
             DepthTestEnabled = true,
             DepthWriteEnabled = true,
-            // Both sides occlude: a double-sided surface seen from its back still casts a shadow, and for a
-            // closed mesh the nearest faces to the light are the ones kept either way.
-            CullMode = CullMode.None
+            // Casters cull the sides their material culls when drawn, so a one-sided surface seen from behind
+            // casts nothing; double-sided materials use the no-cull variant.
+            CullMode = CullMode.Back
         };
 
         _shadowPipeline = Context.CreatePipeline3D(
@@ -260,6 +265,22 @@ void main() {
             new(DescriptorType.UniformBuffer, 1)
         };
         _descriptorSet = Context.CreateDescriptorSet(_shadowPipeline, poolSizes);
+
+        options.CullMode = CullMode.None;
+        _doubleSidedShadowPipeline = Context.CreatePipeline3D(
+            RenderPass,
+            _vertexShaderSpirv,
+            _fragmentShaderSpirv,
+            descriptorBindings,
+            Vertex3D.GetVertexInputDescription(),
+            options);
+        _doubleSidedDescriptorSet = Context.CreateDescriptorSet(_doubleSidedShadowPipeline, poolSizes);
+
+        if (_lightDataBuffer != null)
+        {
+            _descriptorSet.UpdateBuffer(0, _lightDataBuffer);
+            _doubleSidedDescriptorSet.UpdateBuffer(0, _lightDataBuffer);
+        }
     }
 
     private void CreateLightDataBuffer()
@@ -272,6 +293,7 @@ void main() {
 
         // Bind to descriptor set
         _descriptorSet?.UpdateBuffer(0, _lightDataBuffer);
+        _doubleSidedDescriptorSet?.UpdateBuffer(0, _lightDataBuffer);
     }
 
     private void UpdateLightData()
@@ -319,8 +341,14 @@ void main() {
     /// </summary>
     public void Execute(IReadOnlyList<Object3D.Resource> objects)
     {
-        if (RenderPass == null || _shadowPipeline == null || _descriptorSet == null)
+        if (RenderPass == null
+            || _shadowPipeline == null
+            || _descriptorSet == null
+            || _doubleSidedShadowPipeline == null
+            || _doubleSidedDescriptorSet == null)
+        {
             return;
+        }
 
         // Render each cube face
         for (int faceIndex = 0; faceIndex < 6; faceIndex++)
@@ -344,9 +372,7 @@ void main() {
         RenderPass!.Begin(framebuffer, clearColors);
         try
         {
-            RenderPass.BindPipeline(_shadowPipeline!);
-
-            RenderPass.BindDescriptorSet(_shadowPipeline!, _descriptorSet!);
+            _boundPipeline = null;
 
             foreach (var obj in objects)
             {
@@ -389,6 +415,15 @@ void main() {
         if (meshResource == null)
             return;
 
+        bool doubleSided = obj.Material?.IsDoubleSided == true;
+        IPipeline3D pipeline = doubleSided ? _doubleSidedShadowPipeline! : _shadowPipeline!;
+        if (!ReferenceEquals(pipeline, _boundPipeline))
+        {
+            RenderPass!.BindPipeline(pipeline);
+            RenderPass.BindDescriptorSet(pipeline, doubleSided ? _doubleSidedDescriptorSet! : _descriptorSet!);
+            _boundPipeline = pipeline;
+        }
+
         // Set push constants (128 bytes: Model + LightViewProjection)
         var pushConstants = new PointShadowPushConstants
         {
@@ -403,7 +438,9 @@ void main() {
     protected override void OnDispose()
     {
         _shadowPipeline?.Dispose();
+        _doubleSidedShadowPipeline?.Dispose();
         _descriptorSet?.Dispose();
+        _doubleSidedDescriptorSet?.Dispose();
         _lightDataBuffer?.Dispose();
         DisposeFaceResources();
         RenderPass?.Dispose();
