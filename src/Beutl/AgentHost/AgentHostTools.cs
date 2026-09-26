@@ -21,10 +21,12 @@ public sealed record AttachActiveEditorResponse(string Session, string Source, A
     public IReadOnlyList<string> NextSteps { get; } =
     [
         "Call read_document_summary to observe the scene without pulling the full document.",
-        "For vague or no-context motion graphics, call list_creative_directions and synthesize an original pitch from at least two inspiration seeds before authoring.",
-        "Call list_effects and list_effect_recipes to discover Beutl visual effects before settling on a repeated look.",
+        "Decide the intended visual result and motion from the brief first. list_creative_directions offers optional stimulus when useful.",
+        "Choose existing features, compositions, or custom scripts to reproduce that intent; the user does not need to name a tool or language. Resolve each concrete implementation question with targeted discovery, then author and render the next edit.",
+        "Effect, object, and recipe catalogs describe building blocks, not the limit of possible expressions. Use get_schema(type=...) for unfamiliar types; use a category or intent-filtered list only when the needed type is unknown, without enumerating catalogs before every edit.",
+        "If no recipe matches, compose supported geometry, masks, transforms, keyframes, and effects, or author a custom script effect. Validate custom scripts with validate_shader and verify a small prototype with render_still before expanding it.",
         "Build original scenes with apply_edit; call list_compositions only when the user explicitly asks for a template, starter, or named composition style.",
-        "Call list_examples to choose a compact declarative snippet only when you need a targeted patch.",
+        "Call get_examples with a known name for a targeted syntax snippet; use list_examples filtered by type or category only when you need to find one.",
         "Call get_schema with includeProperties/includeExamples filters for detailed discovery.",
         "Call read_document when you need the normalized declarative scene.",
         "Call apply_edit with a patch or desired document.",

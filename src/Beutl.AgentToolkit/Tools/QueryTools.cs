@@ -118,8 +118,11 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     {
         string[] commonCore =
         [
+            "Start from the requested visual result and motion, then identify the building blocks needed for the next edit. Effect, object, and recipe catalogs describe building blocks, not the limit of possible expressions; listing them is optional.",
+            "Choosing existing features, compositions, or custom scripts is part of the editing task; the user need not name an effect or language. Let each discovery call answer a concrete question for the next edit, then author and render. Preserve the requested visual intent when changing implementation, and report limitations with evidence from the missing capability or prototype.",
             "Call attach_active_editor for an open editor scene, or create_project/open_project for a file-backed session before authoring.",
             "Call read_document_summary to inspect the current scene and confirm duration, element count, and source before planning edits.",
+            "Use get_schema(type=...) for unfamiliar building blocks; use a category or intent-filtered list only when the needed type is unknown. If no recipe matches, combine supported geometry, masks, transforms, keyframes, effects, or custom script effects. Keep serialized types and property names grounded in the runtime schema, call validate_shader for custom scripts, and verify a small prototype with render_still before expanding it.",
             "Call measure_object_bounds before positioning text, captions, backing plates, logos, or centered objects.",
             "Call apply_edit with schemaVersion=1 and staged declarative patches that match the selected workflow plan.",
             "Call save_project after each major successful apply_edit in file-backed sessions so partial progress is durable.",
@@ -194,16 +197,19 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             SchemaVersion.Current,
             [
                 "Classifying the brief against videoTypes and calling get_started again with that videoType tailors the guidance; skip it when the brief does not fit any of them.",
+                "Start from the requested visual result and motion, then identify the building blocks needed for the next edit. Effect, object, and recipe catalogs describe building blocks, not the limit of possible expressions; listing them is optional.",
+                "Choosing existing features, compositions, or custom scripts is part of the editing task; the user need not name an effect or language. Let each discovery call answer a concrete question for the next edit, then author and render. Preserve the requested visual intent when changing implementation, and report limitations with evidence from the missing capability or prototype.",
                 "recommendedSkills lists optional workflow guides. beutl-agent-timeline-from-shotlist covers shot/timeline/storyboard planning; they describe one way that works, not the only one.",
                 "For a terse one-line request missing duration/mood/style/asset details, or when the user supplied reference images/video/URLs, beutl-agent-brief-expansion offers a way to fill the gaps before classification.",
                 "Call attach_active_editor for an open editor scene; if no editor scene is open, call create_project or open_project instead of writing a one-off generator. In the in-app host these open the project in the Beutl editor (single open project, LiveEditor session; a different project cannot be opened while one is open); in the stdio host they create a file-backed session.",
                 "Call read_document_summary to inspect progress without the full document.",
                 "Call measure_object_bounds before positioning text, backing plates, or centered objects; default Drawable alignment is centered, so TranslateTransform(0, 0) means the object's center is at the frame center.",
                 "undo(steps) reverts your own last apply_edit transactions exactly, and read_history names what the next step would revert. Backing out an experiment that way is cheaper and more accurate than authoring a compensating patch. In a LiveEditor session the stack is shared with the editor, so call read_history immediately before undo and inspect its nextUndo to avoid reverting a human edit.",
-                "After deriving palette and background grammar, read_document and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
-                "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look; for organic heat/ink/glass/noise fields, consider an SKSLScriptEffect shader recipe instead of stacking only blurred gradients.",
+                "read_document gives current object handles; use get_schema(type=...) only for unfamiliar building blocks needed by your concept, then author a custom declarative patch. A category-filtered schema or list_effects(intent=...) helps when the needed type is unknown; there is no need to enumerate catalogs before editing.",
+                "list_effect_recipes is an optional source of implementation examples. If no recipe matches the intended result, combine supported geometry, masks, transforms, keyframes, and effect chains, or author a custom script effect such as SKSLScriptEffect. Keep serialized types and property names grounded in the runtime schema; verify a small prototype with render_still before expanding it.",
                 "For SKSL/GLSL/CSharp script effects, read the default script and uniform list from get_schema(type=<effect>), then call validate_shader to compile-check an edited script before apply_edit; for SKSL, a compile error makes the effect a no-op and the source passes through unchanged.",
-                "For particle-like density (sparks, dust, confetti, glyph debris), use the real ParticleEmitter drawable (get_schema type=ParticleEmitter: EmitterShape point/line/circle, EmissionRate, Lifetime, Speed/Direction/Spread, Gravity, TurbulenceScale, and ParticleDrawable to emit any Drawable as the sprite) instead of faking a swarm with many ellipse Elements; for music-driven briefs, AudioWaveformDrawable / AudioSpectrumDrawable / AudioSpectrogramDrawable render real audio-reactive motion with bar/radial/mirrored/line/filled/dots/block shape styles.",
+                "For custom GLSL effects needing multiple inputs, multiple passes, or expanded output bounds, use CSharpScriptEffect to orchestrate CreateGlslShader(fragmentSource, inputCount) and shader.Render(execution, inputs, outputBounds, pushConstants) inside Context.CustomEffect. C# controls the passes; GLSL computes the pixels. Validate the C# and GLSL sources separately, dispose intermediate targets, and verify the rendered result.",
+                "ParticleEmitter emits copies of ParticleDrawable from a geometric emitter; get_schema(type=ParticleEmitter) exposes its motion and over-life controls. It does not split source pixels into particles. For breakup or assembly tied to an object's shape and color, choose a suitable composition or custom script and verify the relationship in a render. AudioWaveformDrawable / AudioSpectrumDrawable / AudioSpectrogramDrawable provide real audio-reactive motion for music-driven briefs.",
                 "For masked reveals, knockouts, and wipes, use real masking: Drawable.BlendMode Porter-Duff modes (SrcIn/DstIn/SrcOut/DstOut/Modulate) matte a drawable against the content below it in the same flow (scope the matte inside a DrawableGroup/DrawableDecorator so it does not knock out the whole frame), and the Clipping FilterEffect (animatable Left/Top/Right/Bottom) is the rectangular wipe primitive; verify the composite with render_still.",
                 "For kinetic type, set TextBlock.SplitByCharacters=true (per-glyph compositing — the enabler for per-character effects and PartsSplitEffect shatter) and animate TextBlock.Spacing; for perspective card flips use Rotation3DTransform (RotationX/Y/Z, Depth); for line-drawing reveals animate Pen.TrimStart/TrimEnd (0-100), or set Pen.DashArray (static float list) and animate Pen.DashOffset for marching dashes; widen easing beyond cubic ease-out with BackEase*/ElasticEase* overshoot, BounceEase* settles, and SplineEasing custom bezier curves on accents.",
                 "Audio is authorable, not analysis-only: keyframe Sound.Gain (percent: 100 = unity, values above 100 amplify) for fade-ins/outs and ducking under narration, set Sound.Effect to an AudioEffectGroup with DelayEffect/EqualizerEffect/CompressorEffect/LimiterEffect children, and use SoundGroup (an IFlowOperator — the PortalObject pairing rule applies) to submix audio Elements.",
@@ -274,8 +280,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "Seeds combine better once a concept, palette, type system, motion vocabulary, and shot structure already exist to combine them with.",
                     "A one-line direction contract — objective, audience, emotional temperature, message hierarchy, brand posture, delivery surface — is what later edits get measured against.",
                     "Structural language — layout logic, dominant material, motion verbs, palette role balance, final resolve behavior — is what makes two pieces read as different; wording alone does not.",
-                    "Call derive_palette from the authored hue/tone seed and structural signature; handle any recent-memory repeat warnings before authoring.",
-                    "Call get_background_grammar and instantiate concrete background slots from the brief instead of copying a finished recipe.",
+                    "derive_palette can solve contrast relationships for the authored hue/tone seed and compare the structural signature with recent work; using it and acting on repeat advisories are optional.",
+                    "get_background_grammar offers optional vocabulary for a background you design from the brief; its slots do not constrain the layers you can author.",
                     "Element/Object names drawn from the piece's own concept stay meaningful later; seed names describe the stimulus, not the result.",
                     "If the user supplied constraints, keep the constraints literal and treat the seeds as optional ways to make the result less generic."
                 ],
@@ -320,10 +326,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     "Use at least three timing phases and animate multiple property families, not only X position and opacity.",
                     "Use one EngineObject per ordinary Element; only IFlowOperator Elements such as DrawableGroup, DrawableDecorator, SoundGroup, or Scene3D may carry multiple Objects.",
                     "Role/purpose/motion-intent names on large or animated foreground shapes are what distinguish a designed accent from a leftover.",
-                    "For organic abstract pitches, consider SKSLScriptEffect from list_effect_recipes(intent: 'shader organic') and verify the shader with render_still before export.",
+                    "For organic abstract pitches, get_schema(type='SKSLScriptEffect') supplies the script contract for a custom field; validate_shader and render_still verify it. Recipes are optional examples.",
                     "Choose animation clock mode intentionally: UseGlobalClock=false uses Element-local KeyTime values; UseGlobalClock=true uses scene-timeline KeyTime values that should intersect sampled frames.",
                     "Name the synthesized pitch in any notes or output summary before creating elements.",
-                    "Use list_effects/list_effect_recipes for available effects, then build the scene with apply_edit.",
+                    "Build the scene from your concept with apply_edit, checking unfamiliar building blocks with targeted get_schema calls. list_effects/list_effect_recipes offer optional examples; compose supported primitives or custom scripts when no recipe matches.",
                     "Full-scene examples and composition templates carry their own shape; they fit explicit template/starter requests best.",
                     "Verify at least three stills, run evaluate_motion_variation, and export a short video preview when the encoder is available."
                 ],
@@ -428,7 +434,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "get_schema")]
-    [Description("Returns the capability schema for registered editable types, optionally filtered by type or category. Category aliases such as visualEffect, effect, filter, videoEffect, text, typography, label, fill, stroke, and ease are accepted. Examples are opt-in so creative briefs do not anchor on starter scenes; set includeExamples=true when snippets are explicitly needed.")]
+    [Description("Returns the capability schema for registered editable building blocks. After deciding the intended result, prefer type to check an unfamiliar type; use category when the type is unknown. A full catalog is optional, and the listed types can be composed into expressions with no named recipe. Category aliases such as visualEffect, effect, filter, videoEffect, text, typography, label, fill, stroke, and ease are accepted. Examples are opt-in; set includeExamples=true when snippets are needed.")]
     public ToolResult<CapabilitySchema> GetSchema(
         string? type = null,
         string? category = null,
@@ -468,12 +474,12 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 OrderExamples(Shuffle(examples)),
                 includeStarters
                     ? "Starter examples are included because includeStarters=true. Use get_examples with a specific name and adapt the structure to the brief."
-                    : "Full-scene starters are hidden by default. Use examples as small snippets; for original briefs, call list_creative_directions, synthesize a pitch, and author a custom patch for apply_edit.");
+                    : "Full-scene starters are hidden by default. Use examples as small syntax snippets for your own concept; their coverage does not limit what you can compose with apply_edit.");
         });
     }
 
     [McpServerTool(Name = "get_examples")]
-    [Description("Returns reusable declarative patch examples without the full property schema. Prefer list_examples first, then pass name to fetch exactly one patch. Full-scene starters are hidden by default unless name is provided or includeStarters=true.")]
+    [Description("Returns declarative patch examples without the full property schema. Pass a known name directly to fetch one snippet; use list_examples filtered by type or category only when you need to find a snippet. Examples illustrate syntax and do not limit possible compositions. Full-scene starters are hidden by default unless name is provided or includeStarters=true.")]
     public ToolResult<GetExamplesResponse> GetExamples(string? type = null, string? category = null, string? name = null, bool includeStarters = false)
     {
         return Execute(() => new GetExamplesResponse(
@@ -521,27 +527,27 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "list_effects")]
-    [Description("Returns Beutl FilterEffect types with intent tags, property names, notes, and GPU requirements. Use before motion-graphics authoring to avoid repeating the same blur/shadow look.")]
+    [Description("Returns Beutl FilterEffect building blocks with intent tags, property names, notes, and GPU requirements. Optional discovery for a specific implementation need: filter by intent after deciding the intended result, or go directly to get_schema for a known type. The list does not enumerate every look that combinations or custom scripts can produce.")]
     public ToolResult<ListEffectsResponse> ListEffects(string? intent = null, bool includePropertyNames = true)
     {
         return Execute(() => new ListEffectsResponse(
             SchemaVersion.Current,
             _schemaGenerator.ListEffects(intent, includePropertyNames),
-            "Filter by intent such as glow, color, grade, glitch, outline, keying, motion, composite, gpu, or advanced. Call get_schema with type=<Name> for full property descriptors."));
+            "Filter by intent such as glow, color, grade, glitch, outline, keying, motion, composite, gpu, or advanced. Call get_schema with type=<Name> for full property descriptors. An empty intent match only means no matching catalog tags; combine supported building blocks or investigate a custom script effect for the intended result."));
     }
 
     [McpServerTool(Name = "list_effect_recipes")]
-    [Description("Returns compact effect recipe names. Includes curated chains plus one single-effect recipe for every registered Beutl FilterEffect.")]
+    [Description("Returns optional effect recipe examples filtered by intent. Includes curated chains plus one single-effect recipe for every registered Beutl FilterEffect. Use when an implementation example would help; a missing recipe does not mean an expression is unsupported, and recipes are not a required step before editing.")]
     public ToolResult<ListEffectRecipesResponse> ListEffectRecipes(string? intent = null)
     {
         return Execute(() => new ListEffectRecipesResponse(
             SchemaVersion.Current,
             _schemaGenerator.ListEffectRecipes(intent),
-            "Call get_effect_recipe with a recipe name, then apply the returned patch through apply_edit after replacing placeholder element/drawable Ids."));
+            "If a recipe helps your concept, call get_effect_recipe with its name, adapt the patch, and replace placeholder element/drawable Ids before apply_edit. Otherwise compose your own supported geometry, masks, animation, effect chain, or script; an empty recipe match is not a capability limit."));
     }
 
     [McpServerTool(Name = "get_effect_recipe")]
-    [Description("Returns a declarative patch recipe for a visual effect chain or a single Beutl FilterEffect. Pass name from list_effect_recipes or an intent tag.")]
+    [Description("Returns an optional declarative patch example for a visual effect chain or a single Beutl FilterEffect. Pass a known recipe name directly or an intent tag; list_effect_recipes can help find an unknown name. Adapt the example to the intended result or author your own chain from supported types.")]
     public ToolResult<GetEffectRecipeResponse> GetEffectRecipe(string? name = null, string? intent = null)
     {
         return Execute(() => new GetEffectRecipeResponse(

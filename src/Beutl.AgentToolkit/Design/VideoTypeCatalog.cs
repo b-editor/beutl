@@ -104,15 +104,15 @@ public static class VideoTypeCatalog
                 "Brief mentions BPM, beat grid, layered background grammar, or foreground visual density."
             ],
             [
-                "Call list_creative_directions for optional divergence stimulus, then record the authored concept before calling derive_palette.",
-                "Call derive_palette with the brief-derived hue, tonal seed, harmony scheme, derivationReason, and structuralSignature.",
-                "Call get_background_grammar for background vocabulary; planning which depth bands and motion slot the piece uses before apply_edit avoids rebuilding the stack later.",
+                "Author the concept from the brief first; list_creative_directions offers optional stimulus and recent-work context once a direction exists.",
+                "Derive palette roles from the concept. derive_palette can solve contrast relationships from the brief-derived hue, tonal seed, harmony scheme, derivationReason, and structuralSignature; hand-picking colors is also valid.",
+                "Plan the background's depth and motion from the concept. get_background_grammar offers optional vocabulary without limiting the layers you can author.",
                 "Call get_schema for any drawable, GeometryShape, media, effect, brush, or animation types whose property names are not already known.",
                 "When the brief names BPM, high tempo, or short kinetic beats, deciding the beat grid and a per-shot foreground-density target before apply_edit is what later Element boundaries get derived from.",
                 "Decide the camera treatment per shot before apply_edit — locked, push-in, pull-back, pan, whip-pan, roll, or parallax — then author moves as animated transforms on a named [role:camera-rig] DrawableGroup; a piece whose viewpoint never moves reads as static slides. Content that shares the rig's timing can nest as Children; content that needs its own Start/Length stays on the timeline and is pulled in with PortalObject.Count (see get_examples insert-camera-rig-push-in / insert-camera-rig-portal).",
                 "Use apply_edit in storyboard-first stages: background/surface, foreground structure, typography, then text backing plates.",
                 "Call render_storyboard and evaluate_edit_quality(staticLayout:true) with videoType:\"motion-graphics\" before adding effects or motion.",
-                "Call list_effect_recipes, get_effect_recipe, and validate_shader when effect chains or SKSL fields are part of the look.",
+                "Design effect chains or custom SKSL fields for the intended look. get_schema(type=...) supplies unfamiliar property/script contracts; list_effect_recipes and get_effect_recipe are optional examples. Call validate_shader for custom scripts and verify with render_still.",
                 "Prefer real capability types over fakes: ParticleEmitter for particle fields, AudioWaveformDrawable/AudioSpectrumDrawable for music-reactive layers, TextBlock.SplitByCharacters for kinetic type, Rotation3DTransform for perspective moves, Pen.TrimStart/TrimEnd for line-draw reveals, and BlendMode/Clipping for mattes and wipes — get_schema exposes each surface.",
                 "Call evaluate_edit_quality with videoType:\"motion-graphics\" and plannedForegroundElementsPerShot set to your per-shot foreground-density target.",
                 "Call final_preflight with videoType:\"motion-graphics\" and the planned density target before export_video; add requireAnimatedProperties:true when a piece with no animated property would be a mistake for this brief."
