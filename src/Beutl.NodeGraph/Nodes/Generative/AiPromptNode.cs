@@ -7,7 +7,7 @@ namespace Beutl.NodeGraph.Nodes.Generative;
 /// Builds a prompt from the same fields as the AI dialogs. One prompt node can feed
 /// several generation nodes, and its fields can be driven by other nodes.
 /// </summary>
-public sealed partial class AiPromptNode : GraphNode
+public sealed partial class AiPromptNode : GraphNode, IPromptLibraryTarget
 {
     public AiPromptNode()
     {
@@ -31,6 +31,28 @@ public sealed partial class AiPromptNode : GraphNode
     public InputPort<string> Composition { get; }
 
     public InputPort<string> Exclusions { get; }
+
+    public GenerativeOperation PromptOperation => GenerativeOperation.ImageGeneration;
+
+    public bool CanApplyPrompt => true;
+
+    public string ComposePrompt() => PromptSections.Compose(
+        Prompt.Property?.GetValue(),
+        Style.Property?.GetValue(),
+        Composition.Property?.GetValue(),
+        exclusions: Exclusions.Property?.GetValue());
+
+    /// <summary>
+    /// A saved prompt is already written out with its sections, so it replaces the main
+    /// field and clears the others rather than being composed with them a second time.
+    /// </summary>
+    public void ApplyPrompt(string prompt)
+    {
+        Prompt.Property?.SetValue(prompt);
+        Style.Property?.SetValue(string.Empty);
+        Composition.Property?.SetValue(string.Empty);
+        Exclusions.Property?.SetValue(string.Empty);
+    }
 
     public partial class Resource
     {

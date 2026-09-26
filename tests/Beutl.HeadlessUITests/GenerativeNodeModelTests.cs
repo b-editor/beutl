@@ -155,6 +155,48 @@ public sealed class GenerativeNodeModelTests
         Assert.That(result.ModelId, Is.EqualTo("wide"));
     }
 
+    [AvaloniaTest]
+    public async Task SuccessfulGenerationIsRecordedInThePromptLibraryAndRefusalsAreNot()
+    {
+        var library = new RecordingLibrary();
+        var executor = CreateExecutor(new CapturingImages(), library);
+        var node = new AiImageGenerationNode();
+
+        await executor.ExecuteAsync(Request(node, "wide", "1:1"), new Progress<GenerativeProgress>(), CancellationToken.None);
+        try
+        {
+            await executor.ExecuteAsync(Request(node, "square", "16:9"), new Progress<GenerativeProgress>(), CancellationToken.None);
+        }
+        catch (GenerativeExecutionException)
+        {
+        }
+
+        Assert.That(library.Recorded, Is.EqualTo(new[] { "a cat" }));
+    }
+
+    [Test]
+    public void LibraryAdapterListsTheDialogsImagePromptsInTheDialogsOrder()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var store = new FixedPromptStore(
+            [
+                new PromptTemplate(Guid.NewGuid(), "old", PromptTaskKind.Image, "o", now.AddDays(-2), now.AddDays(-2), false),
+                new PromptTemplate(Guid.NewGuid(), "pinned", PromptTaskKind.Image, "p", now.AddDays(-3), now.AddDays(-3), true),
+                new PromptTemplate(Guid.NewGuid(), "video", PromptTaskKind.Video, "v", now, now, true),
+            ],
+            [
+                new PromptHistoryEntry(Guid.NewGuid(), PromptTaskKind.Image, "first line\nStyle: x", now, 1, false),
+            ]);
+
+        var entries = new AiGenerativePromptLibrary(store).GetEntries(GenerativeOperation.ImageGeneration);
+
+        Assert.That(entries.Select(e => (e.Name, e.IsTemplate)), Is.EqualTo(new[]
+        {
+            ("pinned", true), ("old", true), ("first line", false),
+        }));
+        Assert.That(entries[2].Prompt, Is.EqualTo("first line\nStyle: x"));
+    }
+
     private static AiImageGenerationNodeRequest Request(
         GenerativeNode node, string? model, string aspectRatio, int? seed = null)
         => new(node)
@@ -167,7 +209,7 @@ public sealed class GenerativeNodeModelTests
             ParameterFingerprint = "p",
         };
 
-    private AiGenerativeNodeExecutor CreateExecutor(CapturingImages images)
+    private AiGenerativeNodeExecutor CreateExecutor(CapturingImages images, IGenerativePromptLibrary? library = null)
     {
         var scene = new Scene(640, 480, "nodes") { Uri = new Uri(Path.Combine(_directory, "scene.scene")) };
         return new AiGenerativeNodeExecutor(
@@ -175,7 +217,8 @@ public sealed class GenerativeNodeModelTests
             CreateCatalog(),
             images,
             new AlwaysAvailable(),
-            new PngContent());
+            new PngContent(),
+            library);
     }
 
     private static AiGenerativeModelCatalog CreateCatalog()
@@ -221,6 +264,37 @@ public sealed class GenerativeNodeModelTests
         public void Visit(IPropertyEditorContext context)
         {
         }
+    }
+
+    private sealed class RecordingLibrary : IGenerativePromptLibrary
+    {
+        public List<string> Recorded { get; } = [];
+
+        public IReadOnlyList<GenerativePromptEntry> GetEntries(GenerativeOperation operation) => [];
+
+        public void Record(GenerativeOperation operation, string prompt) => Recorded.Add(prompt);
+
+        public string? SaveTemplate(GenerativeOperation operation, string name, string prompt) => null;
+    }
+
+    private sealed class FixedPromptStore(
+        IReadOnlyList<PromptTemplate> templates,
+        IReadOnlyList<PromptHistoryEntry> history) : IPromptLibrary
+    {
+        public string StoragePath => string.Empty;
+        public bool RetainRecentPromptText => true;
+        public string? RecoveredCorruptFilePath => null;
+        public IReadOnlyList<PromptHistoryEntry> History => history;
+        public IReadOnlyList<PromptTemplate> Templates => templates;
+        public PromptHistoryEntry Record(PromptTaskKind taskKind, string prompt) => throw new NotSupportedException();
+        public PromptTemplate SaveTemplate(string name, PromptTaskKind taskKind, string prompt) => throw new NotSupportedException();
+        public bool SetHistoryPinned(Guid id, bool isPinned) => false;
+        public bool SetTemplatePinned(Guid id, bool isPinned) => false;
+        public bool DeleteHistory(Guid id) => false;
+        public bool DeleteTemplate(Guid id) => false;
+        public void ClearHistory() { }
+        public void ClearTemplates() { }
+        public void ClearAll() { }
     }
 
     private sealed class FixedCatalog(AiModelCatalog catalog) : IAiModelCatalogService

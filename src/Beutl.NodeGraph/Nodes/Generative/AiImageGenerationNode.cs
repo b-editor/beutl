@@ -20,7 +20,7 @@ public enum GenerativeSeedControl
 }
 
 /// <summary>Generates a picture from a prompt and optional reference pictures.</summary>
-public sealed partial class AiImageGenerationNode : GenerativeNode
+public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibraryTarget
 {
     // Matches the range the API accepts (AiRequestLimits in Beutl.Api).
     internal const int MinSeed = 0;
@@ -49,6 +49,14 @@ public sealed partial class AiImageGenerationNode : GenerativeNode
     }
 
     public override IPropertyAdapter<string>? ModelProperty => Model.Property;
+
+    public GenerativeOperation PromptOperation => Operation;
+
+    public bool CanApplyPrompt => Prompt.Connection.IsNull;
+
+    public string ComposePrompt() => Prompt.Property?.GetValue()?.Trim() ?? string.Empty;
+
+    public void ApplyPrompt(string prompt) => Prompt.Property?.SetValue(prompt);
 
     public override GenerativeOperation Operation => GenerativeOperation.ImageGeneration;
 

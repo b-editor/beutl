@@ -390,6 +390,7 @@ public partial class GraphNodeView : UserControl
     // Rebuilt each time the menu opens: the history changes with every generation and undo.
     private void NodeMenuOpening(object? sender, EventArgs e)
     {
+        BuildPromptLibraryMenu();
         if (DataContext is not GraphNodeViewModel { GraphNode: Beutl.NodeGraph.Generative.GenerativeNode node } viewModel)
             return;
 
@@ -428,6 +429,60 @@ public partial class GraphNodeView : UserControl
         GenerationHistoryMenu.Items.Clear();
         foreach (object item in items)
             GenerationHistoryMenu.Items.Add(item);
+    }
+
+    private void BuildPromptLibraryMenu()
+    {
+        if (DataContext is not GraphNodeViewModel { GraphNode: Beutl.NodeGraph.Generative.IPromptLibraryTarget target } viewModel)
+            return;
+
+        IReadOnlyList<Beutl.NodeGraph.Generative.GenerativePromptEntry> entries = viewModel.GetPromptEntries();
+        var items = new List<object>();
+        AddSection(Strings.AiPromptTemplates, Strings.AiPromptTemplatesEmpty, entries.Where(entry => entry.IsTemplate));
+        items.Add(new FAMenuFlyoutSeparator());
+        AddSection(Strings.AiPromptHistory, Strings.AiPromptHistoryEmpty, entries.Where(entry => !entry.IsTemplate));
+        items.Add(new FAMenuFlyoutSeparator());
+        var save = new FAMenuFlyoutItem
+        {
+            Text = NodeGraphStrings.Generative_SaveTemplate,
+            IsEnabled = target.ComposePrompt().Length > 0,
+        };
+        save.Click += (_, _) =>
+        {
+            var flyout = new RenameFlyout { Text = string.Empty };
+            flyout.Confirmed += (_, name) =>
+            {
+                if (!string.IsNullOrWhiteSpace(name))
+                    viewModel.SavePromptTemplate(name);
+            };
+            flyout.ShowAt(handle);
+        };
+        items.Add(save);
+
+        PromptLibraryMenu.Items.Clear();
+        foreach (object item in items)
+            PromptLibraryMenu.Items.Add(item);
+
+        void AddSection(string header, string empty, IEnumerable<Beutl.NodeGraph.Generative.GenerativePromptEntry> section)
+        {
+            items.Add(new FAMenuFlyoutItem { Text = header, IsEnabled = false });
+            int before = items.Count;
+            foreach (Beutl.NodeGraph.Generative.GenerativePromptEntry entry in section)
+            {
+                string prompt = entry.Prompt;
+                var item = new FAMenuFlyoutItem
+                {
+                    Text = entry.IsPinned ? $"{entry.Name}  ({NodeGraphStrings.Generative_Pinned})" : entry.Name,
+                    IsEnabled = target.CanApplyPrompt,
+                };
+                ToolTip.SetTip(item, prompt);
+                item.Click += (_, _) => viewModel.ApplyPrompt(prompt);
+                items.Add(item);
+            }
+
+            if (items.Count == before)
+                items.Add(new FAMenuFlyoutItem { Text = empty, IsEnabled = false });
+        }
     }
 
     private void RegenerateClick(object? sender, RoutedEventArgs e)

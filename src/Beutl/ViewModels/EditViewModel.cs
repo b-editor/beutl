@@ -961,6 +961,7 @@ public sealed partial class EditViewModel
 
     private Beutl.NodeGraph.Generative.IGenerativeNodeExecutor? _generativeNodeExecutor;
     private Beutl.NodeGraph.Generative.IGenerativeModelCatalog? _generativeModelCatalog;
+    private Beutl.NodeGraph.Generative.IGenerativePromptLibrary? _generativePromptLibrary;
 
     public object? GetService(Type serviceType)
     {
@@ -1059,6 +1060,18 @@ public sealed partial class EditViewModel
 
         if (serviceType.IsAssignableTo(typeof(IKeyFrameClipboardService)))
             return _keyFrameClipboardService ??= new KeyFrameClipboardService(HistoryManager);
+
+        if (serviceType == typeof(Beutl.NodeGraph.Generative.IGenerativePromptLibrary))
+        {
+            if (_generativePromptLibrary is null
+                && Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime lifetime
+                && lifetime.MainWindow?.DataContext is MainViewModel main)
+            {
+                _generativePromptLibrary = main.CreateGenerativePromptLibrary();
+            }
+
+            return _generativePromptLibrary;
+        }
 
         if (serviceType == typeof(Beutl.NodeGraph.Generative.IGenerativeModelCatalog))
         {

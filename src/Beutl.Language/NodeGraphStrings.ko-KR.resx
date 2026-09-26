@@ -366,4 +366,10 @@
   <data name="Generative_PruneHistory" xml:space="preserve">
     <value>고정되지 않은 이전 기록 삭제</value>
   </data>
+  <data name="Generative_PromptLibrary" xml:space="preserve">
+    <value>프롬프트 라이브러리</value>
+  </data>
+  <data name="Generative_SaveTemplate" xml:space="preserve">
+    <value>템플릿으로 저장…</value>
+  </data>
 </root>

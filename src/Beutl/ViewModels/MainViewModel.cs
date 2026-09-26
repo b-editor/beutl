@@ -240,7 +240,11 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             CreateGenerativeModelCatalog(),
             _beutlClients.GetResource<IAiImageGenerationService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
-            _beutlClients.GetResource<IAuthenticatedContentService>());
+            _beutlClients.GetResource<IAuthenticatedContentService>(),
+            CreateGenerativePromptLibrary());
+
+    internal Beutl.NodeGraph.Generative.IGenerativePromptLibrary CreateGenerativePromptLibrary()
+        => new AiGenerativePromptLibrary(PromptLibraryProvider.For(_aiRequestRecoveryContext));
 
     internal AiImageEditDialogViewModel CreateAiImageEditToolViewModel(EditViewModel editViewModel)
         => new(

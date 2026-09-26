@@ -104,6 +104,35 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
     public bool IsGenerative => GraphNode is GenerativeNode;
 
+    public bool IsPromptTarget => GraphNode is IPromptLibraryTarget;
+
+    public IReadOnlyList<GenerativePromptEntry> GetPromptEntries()
+        => GraphNode is IPromptLibraryTarget target
+            && EditorContext.GetService<IGenerativePromptLibrary>() is { } library
+                ? library.GetEntries(target.PromptOperation)
+                : [];
+
+    public void ApplyPrompt(string prompt)
+    {
+        if (GraphNode is IPromptLibraryTarget { CanApplyPrompt: true } target)
+        {
+            target.ApplyPrompt(prompt);
+            EditorContext.GetService<HistoryManager>()?.Commit(NodeGraphStrings.Generative_PromptLibrary);
+        }
+    }
+
+    public void SavePromptTemplate(string name)
+    {
+        if (GraphNode is not IPromptLibraryTarget target
+            || EditorContext.GetService<IGenerativePromptLibrary>() is not { } library)
+        {
+            return;
+        }
+
+        NodeGraphViewModel.GenerativeError.Value =
+            library.SaveTemplate(target.PromptOperation, name.Trim(), target.ComposePrompt());
+    }
+
     public void SelectGeneration(Guid id)
     {
         if (GraphNode is GenerativeNode node && node.ActiveGenerationId != id)

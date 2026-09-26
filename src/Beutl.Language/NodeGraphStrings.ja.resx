@@ -366,4 +366,10 @@
   <data name="Generative_PruneHistory" xml:space="preserve">
     <value>ピン留めしていない古い履歴を削除</value>
   </data>
+  <data name="Generative_PromptLibrary" xml:space="preserve">
+    <value>プロンプトライブラリ</value>
+  </data>
+  <data name="Generative_SaveTemplate" xml:space="preserve">
+    <value>テンプレートとして保存…</value>
+  </data>
 </root>

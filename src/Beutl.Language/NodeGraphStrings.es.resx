@@ -366,4 +366,10 @@
   <data name="Generative_PruneHistory" xml:space="preserve">
     <value>Eliminar generaciones anteriores no fijadas</value>
   </data>
+  <data name="Generative_PromptLibrary" xml:space="preserve">
+    <value>Biblioteca de prompts</value>
+  </data>
+  <data name="Generative_SaveTemplate" xml:space="preserve">
+    <value>Guardar como plantilla…</value>
+  </data>
 </root>

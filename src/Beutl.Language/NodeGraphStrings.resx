@@ -366,4 +366,10 @@
   <data name="Generative_PruneHistory" xml:space="preserve">
     <value>Remove unpinned older generations</value>
   </data>
+  <data name="Generative_PromptLibrary" xml:space="preserve">
+    <value>Prompt Library</value>
+  </data>
+  <data name="Generative_SaveTemplate" xml:space="preserve">
+    <value>Save as Template…</value>
+  </data>
 </root>

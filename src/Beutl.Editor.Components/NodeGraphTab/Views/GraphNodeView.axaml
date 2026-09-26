@@ -62,6 +62,13 @@
                             <icons:FluentIconSource Icon="Sparkle" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
+                    <ui:FAMenuFlyoutSubItem x:Name="PromptLibraryMenu"
+                                            IsVisible="{Binding IsPromptTarget}"
+                                            Text="{x:Static lang:NodeGraphStrings.Generative_PromptLibrary}">
+                        <ui:FAMenuFlyoutSubItem.IconSource>
+                            <icons:FluentIconSource Icon="Library" />
+                        </ui:FAMenuFlyoutSubItem.IconSource>
+                    </ui:FAMenuFlyoutSubItem>
                     <ui:FAMenuFlyoutSubItem x:Name="GenerationHistoryMenu"
                                             IsVisible="{Binding IsGenerative}"
                                             Text="{x:Static lang:NodeGraphStrings.Generative_History}">

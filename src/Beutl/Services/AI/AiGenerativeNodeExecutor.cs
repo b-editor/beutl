@@ -20,7 +20,8 @@ internal sealed class AiGenerativeNodeExecutor(
     AiGenerativeModelCatalog models,
     IAiImageGenerationService images,
     IAiOperationAvailabilityService availability,
-    IAuthenticatedContentService content) : IGenerativeNodeExecutor
+    IAuthenticatedContentService content,
+    IGenerativePromptLibrary? promptLibrary = null) : IGenerativeNodeExecutor
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AiGenerativeNodeExecutor>();
 
@@ -116,6 +117,8 @@ internal sealed class AiGenerativeNodeExecutor(
                 cancellationToken);
             string path = await SaveAsync(encoded, cancellationToken);
             requestKey.Retire(name);
+            // As the dialog does once a picture is in hand.
+            promptLibrary?.Record(request.Operation, prompt);
             return new GenerativeExecutionResult(new Uri(path), model?.Value, seed);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
