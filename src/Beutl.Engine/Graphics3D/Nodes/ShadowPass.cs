@@ -160,7 +160,9 @@ void main() {
         {
             DepthTestEnabled = true,
             DepthWriteEnabled = true,
-            CullMode = CullMode.Back
+            // Both sides occlude: a double-sided surface seen from its back still casts a shadow, and for a
+            // closed mesh the nearest faces to the light are the ones kept either way.
+            CullMode = CullMode.None
         };
 
         _shadowPipeline = Context.CreatePipeline3D(
