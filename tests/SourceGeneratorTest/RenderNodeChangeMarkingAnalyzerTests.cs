@@ -1948,6 +1948,88 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "type is inherited");
     }
 
+    private static ImmutableArray<Diagnostic> AnalyzeRefLocal(
+        string update,
+        string declarations = "",
+        CancellationToken cancellationToken = default)
+        => Analyze($$"""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class AliasingNode : RenderNode
+            {
+                private Rect _bounds;
+                private Rect _other;
+                private readonly Rect[] _slots = new Rect[1];
+                {{declarations}}
+
+                public void Update(Rect bounds, Rect scratch)
+                {
+                    {{update}}
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                    context.Publish(_slots[0]);
+                }
+            }
+            """, CSharpParseOptions.Default, cancellationToken);
+
+    [TestCase("ref Rect alias = ref _bounds; alias = bounds;")]
+    [TestCase("ref Rect alias = ref this._bounds; alias = bounds;")]
+    [TestCase("ref Rect alias = ref _slots[0]; alias = bounds;")]
+    [TestCase("ref Rect first = ref _bounds; ref Rect second = ref first; second = bounds;")]
+    [TestCase("ref Rect alias = ref _bounds; (alias, _) = (bounds, 0);")]
+    [TestCase("ref Rect first = ref _bounds; ref Rect second = ref first; second = ref first; second = bounds;")]
+    public void AWriteThroughARefLocalBoundToTrackedState_IsReported(string update)
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeRefLocal(update);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "the local names the node's own storage, so writing through it changes what Process reads");
+    }
+
+    [Test]
+    public void ADeepChainOfRebindings_IsResolvedInLinearTime()
+    {
+        // Each local is bound twice to the one before it; without a cache that doubles the work per level.
+        var update = new System.Text.StringBuilder("ref Rect a0 = ref _bounds;");
+        for (int i = 1; i <= 40; i++)
+            update.Append($" ref Rect a{i} = ref a{i - 1}; a{i} = ref a{i - 1};");
+        update.Append(" a40 = bounds;");
+
+        // The analyzer observes the analysis token, so a resolution gone exponential is stopped here and fails
+        // the test rather than hanging the run or burning CPU after it.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        ImmutableArray<Diagnostic> diagnostics = default;
+
+        Assert.That(
+            () => diagnostics = AnalyzeRefLocal(update.ToString(), cancellationToken: timeout.Token),
+            Throws.Nothing,
+            "forty levels of double bindings take 2^40 resolutions without a cache");
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG005"));
+    }
+
+    [TestCase("ref Rect alias = ref _bounds; alias = bounds; MarkChanged();", TestName = "marked")]
+    [TestCase("ref Rect alias = ref _other; alias = bounds;", TestName = "untracked state")]
+    [TestCase("ref Rect alias = ref scratch; alias = bounds;", TestName = "a parameter")]
+    [TestCase("ref Rect alias = ref _bounds; alias = ref _other; alias = bounds;", TestName = "rebound off the state")]
+    [TestCase("ref readonly Rect alias = ref _bounds; Rect copy = alias;", TestName = "read only")]
+    [TestCase("ref Rect alias = ref _bounds; Rect copy = alias;", TestName = "read through the alias")]
+    public void ARefLocalThatDoesNotProvablyWriteTrackedState_IsNotReported(string update)
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeRefLocal(update);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the write is marked, lands on storage Process does not read, or may land elsewhere; a "
+            + "flow-insensitive walk cannot tell a rebound local's target, and this rule does not guess");
+    }
+
     [Test]
     public void AMarkNamedButNeverInvoked_IsAKnownGapTheRuleMisses()
     {
@@ -2546,7 +2628,10 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
     /// call is kept or dropped by the symbols defined where it is written, so a harness that could not vary
     /// them could not tell a mark the build keeps from one it removes.
     /// </remarks>
-    private static ImmutableArray<Diagnostic> Analyze(string source, CSharpParseOptions parseOptions)
+    private static ImmutableArray<Diagnostic> Analyze(
+        string source,
+        CSharpParseOptions parseOptions,
+        CancellationToken cancellationToken = default)
     {
         CSharpCompilation compilation = CreateCompilation(source, parseOptions);
 
@@ -2559,7 +2644,7 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
 
         return compilation
             .WithAnalyzers([new RenderNodeChangeMarkingAnalyzer()])
-            .GetAnalyzerDiagnosticsAsync()
+            .GetAnalyzerDiagnosticsAsync(cancellationToken)
             .GetAwaiter()
             .GetResult();
     }
