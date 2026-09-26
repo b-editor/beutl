@@ -197,6 +197,30 @@ public sealed class GenerativeNodeModelTests
         Assert.That(entries[2].Prompt, Is.EqualTo("first line\nStyle: x"));
     }
 
+    [AvaloniaTest]
+    public void PromptInputsUseAMultilineEditor()
+    {
+        var prompt = new AiPromptNode();
+        var image = new AiImageGenerationNode();
+
+        foreach (IPropertyAdapter property in new IPropertyAdapter[]
+                 {
+                     prompt.Prompt.Property!, prompt.Style.Property!, prompt.Composition.Property!,
+                     prompt.Exclusions.Property!, image.Prompt.Property!,
+                 })
+        {
+            using var vm = new Beutl.ViewModels.Editors.StringEditorViewModel((IPropertyAdapter<string?>)property);
+            var editor = new StringEditor();
+            vm.Accept(editor);
+            Assert.That(editor.Classes.Contains("multiline"), Is.True, property.DisplayName);
+        }
+
+        using var aspect = new Beutl.ViewModels.Editors.StringEditorViewModel((IPropertyAdapter<string?>)image.Model.Property!);
+        var single = new StringEditor();
+        aspect.Accept(single);
+        Assert.That(single.Classes.Contains("multiline"), Is.False, "Only prompts are multi-line.");
+    }
+
     private static AiImageGenerationNodeRequest Request(
         GenerativeNode node, string? model, string aspectRatio, int? seed = null)
         => new(node)

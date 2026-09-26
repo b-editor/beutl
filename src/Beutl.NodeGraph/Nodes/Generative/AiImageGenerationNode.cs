@@ -43,6 +43,7 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
         AspectRatio.Property?.SetValue("1:1");
         Background.Property?.SetValue("auto");
         Seed.Property?.SetValue(Random.Shared.Next(MinSeed, MaxSeed));
+        UseMultilineEditor(Prompt);
         RegisterChoice(Model, GenerativeChoiceKind.Model);
         RegisterChoice(AspectRatio, GenerativeChoiceKind.AspectRatio);
         RegisterChoice(Background, GenerativeChoiceKind.Background);

@@ -20,6 +20,10 @@ public sealed partial class AiPromptNode : GraphNode, IPromptLibraryTarget
         Style.Property?.SetValue(string.Empty);
         Composition.Property?.SetValue(string.Empty);
         Exclusions.Property?.SetValue(string.Empty);
+        UseMultilineEditor(Prompt);
+        UseMultilineEditor(Style);
+        UseMultilineEditor(Composition);
+        UseMultilineEditor(Exclusions);
     }
 
     public OutputPort<string> Output { get; }
