@@ -384,9 +384,11 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             RecomputeTargets();
 
             ResolvedTargets targets = Resolve();
-            if (targets.McpConfigurationError is { } error && (InstallStdioMcp.Value || InstallLiveMcp.Value))
+            bool installSubagents = InstallSubagents.Value && targets.SubagentsDirectory is not null;
+            string? mcpError = InstallStdioMcp.Value || InstallLiveMcp.Value ? targets.McpConfigurationError : null;
+            if (mcpError is not null && !InstallSkills.Value && !installSubagents)
             {
-                Status.Value = error;
+                Status.Value = mcpError;
                 return;
             }
 
@@ -407,7 +409,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                                   && liveMcpUri is not null;
 
             IReadOnlyList<AgentToolkitAsset> assets = BundledAgentToolkitAssets.Load();
-            bool installSubagents = InstallSubagents.Value && targets.SubagentsDirectory is not null;
             AgentToolkitInstallResult result = await AgentToolkitInstaller.InstallAsync(
                 new AgentToolkitInstallOptions
                 {
@@ -452,6 +453,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
             HasInstalledFiles.Value = InstalledFiles.Count > 0;
             Status.Value = string.Format(SettingsStrings.AiAgents_InstallCompleted, InstalledFiles.Count);
+            if (mcpError is not null)
+                Status.Value += Environment.NewLine + mcpError;
             if (cliErrors.Count > 0)
             {
                 Status.Value += Environment.NewLine + string.Format(

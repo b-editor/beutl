@@ -237,6 +237,48 @@ public sealed class AiAgentSettingsPageViewModelTests
     }
 
     [AvaloniaTest]
+    [NonParallelizable]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public async Task Relative_codex_home_does_not_block_selected_assets(bool installSkills, bool installSubagents)
+    {
+        string temporaryDirectory = ".beutl-codex-review-test-" + Guid.NewGuid().ToString("N");
+        string assetRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), temporaryDirectory);
+        string? previousHome = Environment.GetEnvironmentVariable("CODEX_HOME");
+        Environment.SetEnvironmentVariable("CODEX_HOME", "relative-codex-home");
+        try
+        {
+            var config = new AiAgentConfig
+            {
+                AgentId = "codex",
+                InstallScope = nameof(AgentInstallScope.Global),
+                SkillsDirectory = Path.Combine(temporaryDirectory, "skills"),
+                SubagentsDirectory = Path.Combine(temporaryDirectory, "agents"),
+                InstallSkills = installSkills,
+                InstallSubagents = installSubagents,
+                InstallLiveMcp = true,
+                InstallStdioMcp = false,
+            };
+            using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+            Assert.That(viewModel.CanInstallMcp.Value, Is.False);
+
+            await viewModel.InstallAsync();
+
+            Assert.That(viewModel.InstalledFiles, Is.Not.Empty, viewModel.Status.Value);
+            Assert.That(Directory.EnumerateFiles(assetRoot, "*", SearchOption.AllDirectories), Is.Not.Empty);
+            Assert.That(viewModel.InstalledFiles.Any(file => file.EndsWith("config.toml", StringComparison.Ordinal)), Is.False);
+            Assert.That(viewModel.Status.Value, Does.StartWith(string.Format(SettingsStrings.AiAgents_InstallCompleted, viewModel.InstalledFiles.Count)));
+            Assert.That(viewModel.Status.Value, Does.Contain(viewModel.McpUnavailableMessage.Value));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CODEX_HOME", previousHome);
+            if (Directory.Exists(assetRoot))
+                Directory.Delete(assetRoot, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(AgentInstallScope.Global)]
     [TestCase(AgentInstallScope.Project)]
     public async Task Codex_live_mcp_is_available_in_both_scopes(AgentInstallScope scope)
