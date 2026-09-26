@@ -1989,6 +1989,24 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "the local names the node's own storage, so writing through it changes what Process reads");
     }
 
+    [Test]
+    public void ADeepChainOfRebindings_IsResolvedInLinearTime()
+    {
+        // Each local is bound twice to the one before it; without a cache that doubles the work per level.
+        var update = new System.Text.StringBuilder("ref Rect a0 = ref _bounds;");
+        for (int i = 1; i <= 40; i++)
+            update.Append($" ref Rect a{i} = ref a{i - 1}; a{i} = ref a{i - 1};");
+        update.Append(" a40 = bounds;");
+
+        // The analysis is synchronous and cannot be cancelled, so it runs apart and the test stops waiting
+        // rather than hanging the run when the resolution goes exponential.
+        var analysis = Task.Run(() => AnalyzeRefLocal(update.ToString()));
+
+        Assert.That(analysis.Wait(TimeSpan.FromSeconds(30)), Is.True,
+            "forty levels of double bindings take 2^40 resolutions without a cache");
+        Assert.That(analysis.Result.Select(static d => d.Id), Does.Contain("BESG005"));
+    }
+
     [TestCase("ref Rect alias = ref _bounds; alias = bounds; MarkChanged();", TestName = "marked")]
     [TestCase("ref Rect alias = ref _other; alias = bounds;", TestName = "untracked state")]
     [TestCase("ref Rect alias = ref scratch; alias = bounds;", TestName = "a parameter")]
