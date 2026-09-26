@@ -1815,9 +1815,26 @@ public partial class PlayerView
 
             var drawable = RenderThread.Dispatcher.Invoke(() =>
             {
-                var compositor = EditViewModel.Renderer.Value.Compositor;
-                var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
-                return EditViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPos.X, (float)scaledPos.Y));
+                var renderer = EditViewModel.Renderer.Value;
+                var compositionFrame = renderer.Compositor.EvaluateGraphics(Clock.CurrentTime.Value);
+                var point = new Point((float)scaledPos.X, (float)scaledPos.Y);
+                Drawable? hit = renderer.HitTest(compositionFrame, point);
+                if (hit is Scene3D)
+                    return hit;
+
+                // A scene with a transparent background lets clicks on its empty areas through, but the camera
+                // is still controlled from there: fall back to the topmost scene whose area holds the point.
+                for (int i = compositionFrame.Objects.Length - 1; i >= 0; i--)
+                {
+                    if (compositionFrame.Objects[i].GetOriginal() is Scene3D candidate
+                        && renderer.GetBoundary(candidate) is { } bounds
+                        && bounds.Contains(point))
+                    {
+                        return candidate;
+                    }
+                }
+
+                return hit;
             });
 
             if (drawable is Scene3D scene3D)
