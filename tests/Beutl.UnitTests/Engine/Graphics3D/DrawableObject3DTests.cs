@@ -94,6 +94,19 @@ public class DrawableObject3DTests
     }
 
     [Test]
+    public void WithAnotherMaterial_ShowsNothingRatherThanAPlainRectangle()
+    {
+        var card = new DrawableObject3D();
+        card.Children.Add(CreateRect(0, 0));
+        card.Material.CurrentValue = new PBRMaterial();
+        using var resource = (DrawableObject3D.Resource)card.ToResource(CompositionContext.Default);
+
+        resource.UpdateLayout(new Size(1920, 1080), density: 1);
+
+        Assert.That(resource.GetMesh(), Is.Null);
+    }
+
+    [Test]
     public void Layout_WithoutDrawables_HasNoMesh()
     {
         var card = new DrawableObject3D();

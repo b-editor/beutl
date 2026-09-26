@@ -26,7 +26,9 @@ public sealed partial class DrawableObject3D : Object3D, IFlowOperator
     public DrawableObject3D()
     {
         ScanProperties<DrawableObject3D>();
+        // The drawables reach the screen only through an unlit material, so the card keeps its own.
         Material.CurrentValue = new UnlitMaterial();
+        HideProperty(Material);
         CastShadows.CurrentValue = false;
     }
 
@@ -70,7 +72,10 @@ public sealed partial class DrawableObject3D : Object3D, IFlowOperator
             }
         }
 
-        public override Mesh.Resource? GetMesh() => _content.HasContent ? _meshResource : null;
+        // Without its unlit material the card would show a plain rectangle instead of the drawables, so it
+        // shows nothing.
+        public override Mesh.Resource? GetMesh()
+            => _content.HasContent && Material is UnlitMaterial.Resource ? _meshResource : null;
 
         // A click on the card counts only where the drawables show, so its transparent parts let clicks
         // through. The unit plane's X runs across the content and its -Z down it.
