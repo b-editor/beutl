@@ -40,6 +40,7 @@ internal sealed class AiGenerativeNodeExecutor(
             AiImageGenerationNodeRequest image => GenerateImageAsync(image, progress, cancellationToken),
             AiImageEditNodeRequest edit => EditImageAsync(edit, progress, cancellationToken),
             AiVideoGenerationNodeRequest video => GenerateVideoAsync(video, progress, cancellationToken),
+            AiVideoEditNodeRequest edit => EditVideoAsync(edit, progress, cancellationToken),
             _ => throw new NotSupportedException($"{request.Operation} is not supported."),
         };
     }
@@ -224,7 +225,7 @@ internal sealed class AiGenerativeNodeExecutor(
 
         if (request.FirstFrame is null && references.Count == 0 && !limits.SupportsPromptToVideo)
             throw new GenerativeExecutionException(Strings.AiChooseVideoInput);
-        if (prompt.Length == 0 && request.FirstFrame is null && references.Count == 0)
+        if (prompt.Length == 0)
             throw new GenerativeExecutionException(Strings.AiPromptRequired);
         try
         {
@@ -325,6 +326,193 @@ internal sealed class AiGenerativeNodeExecutor(
         {
             s_logger.LogError(ex, "Failed to run a generative node.");
             throw new GenerativeExecutionException(Strings.AiUnexpectedError, ex);
+        }
+    }
+
+    /// <summary>Reads how long a clip lasts; replaced in tests, which have no decoder.</summary>
+    internal Func<string, double> VideoDurationReader { get; init; } = static path =>
+    {
+        using var reader = Beutl.Media.Decoding.MediaReader.Open(
+            path,
+            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video));
+        return reader.VideoInfo.Duration.ToDouble();
+    };
+
+    private async Task<GenerativeExecutionResult> EditVideoAsync(
+        AiVideoEditNodeRequest request,
+        IProgress<GenerativeProgress> progress,
+        CancellationToken cancellationToken)
+    {
+        if (videos is null || jobKinds is null)
+            throw new GenerativeExecutionException(Beutl.Language.NodeGraphStrings.Generative_ExecutorUnavailable);
+
+        (_, IReadOnlyList<GenerativeModelInfo> offered) =
+            await models.LoadAsync(request.CatalogOperationId, cancellationToken);
+        GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
+        GenerativeVideoCapabilities limits = chosen?.Video ?? GenerativeVideoCapabilities.Unrestricted;
+        AiModelId? model = chosen is not null ? new AiModelId(chosen.Id) : null;
+        (AiSourceVideoMode mode, AiOperationId operation) = request.Mode switch
+        {
+            AiVideoEditMode.Extend => (AiSourceVideoMode.Extend, AiOperations.VideoExtension),
+            AiVideoEditMode.Motion => (AiSourceVideoMode.Motion, AiOperations.VideoMotion),
+            _ => (AiSourceVideoMode.Edit, AiOperations.VideoEditing),
+        };
+        bool motion = mode == AiSourceVideoMode.Motion;
+
+        string prompt = request.Prompt;
+        if (prompt.Length > Math.Min(limits.MaxPromptLength, AiRequestLimits.MaxPromptLength))
+            throw new GenerativeExecutionException(AiPromptComposer.PromptTooLongMessage);
+
+        GenerativeFileInput source = request.SourceVideo;
+        var sourceUpload = AiUploadSource.FromBytes(source.Name, source.MediaType, source.Content);
+        AiUploadSource? characterUpload = request.CharacterImage is { } character
+            ? AiUploadSource.FromBytes(character.Name, "image/png", character.EncodedPng)
+            : null;
+        double seconds = ReadDuration(source);
+        // Checked as the AI tab checks the chosen files, before anything is reserved.
+        try
+        {
+            AiVideoInputLimits.Validate(sourceUpload, "video", Math.Min(limits.MaxSourceVideoBytes, AiVideoInputLimits.MaxSourceBytes));
+            if (motion)
+            {
+                if (characterUpload is null)
+                    throw new GenerativeExecutionException(Strings.AiChooseCharacterImage);
+                AiVideoInputLimits.Validate(characterUpload, "image", AiRequestLimits.MaxFrameUploadBytes);
+            }
+        }
+        catch (AiFileTooLargeException)
+        {
+            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
+        }
+        catch (ArgumentException)
+        {
+            throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable);
+        }
+
+        if (!double.IsFinite(seconds) || seconds <= 0 || seconds > 60
+            || seconds < (limits.MinSourceVideoSeconds ?? 0)
+            || seconds > (limits.MaxSourceVideoSeconds ?? 60))
+        {
+            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
+        }
+
+        // An edit keeps the clip's own length; the others take the chosen one.
+        int durationSeconds = mode == AiSourceVideoMode.Edit
+            ? (int)Math.Clamp(Math.Ceiling(seconds), 1, AiRequestLimits.MaxVideoDurationSeconds)
+            : request.DurationSeconds;
+        if (mode != AiSourceVideoMode.Edit && !limits.DurationChoices.Contains(durationSeconds))
+            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
+
+        string orientation = request.Orientation == AiMotionOrientation.Image ? "image" : "video";
+        string quality = request.Quality == AiMotionQuality.Pro ? "pro" : "standard";
+        var inputs = new List<(string Role, AiUploadSource Upload, byte[] Bytes)>
+        {
+            ("source-video", sourceUpload, source.Content),
+        };
+        if (motion && characterUpload is not null)
+            inputs.Add(("character-image", characterUpload, request.CharacterImage!.EncodedPng));
+
+        // Laid out as the dialog lays out a source-video key: no shape, audio or seed.
+        string?[] parts =
+        [
+            prompt,
+            durationSeconds.ToString(CultureInfo.InvariantCulture),
+            string.Empty,
+            string.Empty,
+            "silent",
+            null,
+            model?.Value,
+            string.Empty,
+            string.Empty,
+            null,
+            motion ? orientation : null,
+            motion ? quality : null,
+            .. inputs.Select(input => input.Role + ":" + input.Upload.MediaType + ":" + AiRequestKey.ContentStamp(input.Bytes)),
+        ];
+
+        string keyOperation = mode switch
+        {
+            AiSourceVideoMode.Extend => "video.extend",
+            AiSourceVideoMode.Motion => "video.motion",
+            _ => "video.edit",
+        };
+        using var requestKey = new AiRequestKey(seed: request.RequestKeySeed, operation: keyOperation);
+        AiRequestName name = requestKey.NameFor(parts);
+        try
+        {
+            progress.Report(new GenerativeProgress(Strings.AiVideoSubmitting));
+            AiVideoGenerationResult response = await AiMeteredDispatch.SendAsync(
+                requestKey,
+                name,
+                null,
+                token => availability.CheckAsync(
+                    new AiOperationAvailabilityRequest.Video(operation, durationSeconds, model),
+                    token),
+                token => videos.CreateFromSourceAsync(
+                    new AiSourceVideoRequest(
+                        mode,
+                        prompt,
+                        sourceUpload,
+                        durationSeconds: mode == AiSourceVideoMode.Edit ? null : durationSeconds,
+                        characterImage: motion ? characterUpload : null,
+                        orientation: orientation,
+                        quality: quality,
+                        model: model,
+                        idempotencyKey: name.Key),
+                    token),
+                n => requestKey.WithdrawAfterNoReservation(n),
+                cancellationToken);
+
+            string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
+            promptLibrary?.Record(request.Operation, prompt);
+            return new GenerativeExecutionResult(new Uri(path), model?.Value, null, IsVideo: true);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
+        {
+            if (failure.RetiresName)
+                requestKey.Retire(name);
+            if (failure.IsResultDownloadFailure)
+                s_logger.LogError(ex, "Failed to download the AI result.");
+            throw new GenerativeExecutionException(failure.Message, ex);
+        }
+        catch (Exception ex) when (ex is not GenerativeExecutionException)
+        {
+            s_logger.LogError(ex, "Failed to run a generative node.");
+            throw new GenerativeExecutionException(Strings.AiUnexpectedError, ex);
+        }
+    }
+
+    // Probed from the bytes that will be uploaded, as the AI tab does: the file on disk
+    // may change while the request is prepared.
+    private double ReadDuration(GenerativeFileInput source)
+    {
+        (string path, FileStream stream) = AiTemporaryFileStore.Create(
+            "inputs", "source-video", Path.GetExtension(source.Name));
+        try
+        {
+            using (stream)
+                stream.Write(source.Content);
+            return VideoDurationReader(path);
+        }
+        catch (Exception ex) when (ex is not GenerativeExecutionException)
+        {
+            s_logger.LogWarning(ex, "Failed to read the length of a source clip.");
+            throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable, ex);
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                s_logger.LogDebug(ex, "Failed to remove a probed source clip {Path}.", path);
+            }
         }
     }
 

@@ -420,4 +420,16 @@
   <data name="Port_VideoReferences" xml:space="preserve">
     <value>Vídeos de referencia</value>
   </data>
+  <data name="AiVideoEdit" xml:space="preserve">
+    <value>Editar vídeo</value>
+  </data>
+  <data name="Port_CharacterImage" xml:space="preserve">
+    <value>Imagen del personaje</value>
+  </data>
+  <data name="Port_Orientation" xml:space="preserve">
+    <value>Orientación</value>
+  </data>
+  <data name="Port_Quality" xml:space="preserve">
+    <value>Calidad</value>
+  </data>
 </root>

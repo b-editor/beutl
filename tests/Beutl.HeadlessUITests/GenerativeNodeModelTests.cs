@@ -407,7 +407,61 @@ public sealed class GenerativeNodeModelTests
         Assert.That(editor.Items.Select(i => i.Value), Is.EqualTo(new object[] { 5, 10 }));
     }
 
-    private AiGenerativeNodeExecutor CreateVideoExecutor(FakeVideos videos)
+    [AvaloniaTest]
+    public async Task EditKeepsTheClipsLengthAndExtendSendsTheChosenOne()
+    {
+        var videos = new FakeVideos(AiJobStatuses.Succeeded);
+        AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos, sourceSeconds: 4.2);
+
+        await executor.ExecuteAsync(EditRequest(AiVideoEditMode.Edit, duration: 8), new Progress<GenerativeProgress>(), CancellationToken.None);
+        await executor.ExecuteAsync(EditRequest(AiVideoEditMode.Extend, duration: 8), new Progress<GenerativeProgress>(), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(videos.SourceRequests[0].Mode, Is.EqualTo(AiSourceVideoMode.Edit));
+            Assert.That(videos.SourceRequests[0].DurationSeconds, Is.Null, "An edit keeps the clip's own length.");
+            Assert.That(videos.SourceRequests[1].Mode, Is.EqualTo(AiSourceVideoMode.Extend));
+            Assert.That(videos.SourceRequests[1].DurationSeconds, Is.EqualTo(8));
+            Assert.That(videos.SourceRequests[1].CharacterImage, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task SourceClipLongerThanTheModelTakesIsRefusedBeforeAnythingIsSent()
+    {
+        var videos = new FakeVideos(AiJobStatuses.Succeeded);
+        AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos, sourceSeconds: 61);
+
+        string? message = null;
+        try
+        {
+            await executor.ExecuteAsync(EditRequest(AiVideoEditMode.Edit, duration: 8), new Progress<GenerativeProgress>(), CancellationToken.None);
+        }
+        catch (GenerativeExecutionException ex)
+        {
+            message = ex.Message;
+        }
+
+        Assert.That(message, Is.EqualTo(Strings.AiModelDoesNotSupportRequest));
+        Assert.That(videos.SourceRequests, Is.Empty);
+    }
+
+    private static AiVideoEditNodeRequest EditRequest(AiVideoEditMode mode, int duration)
+    {
+        var node = new AiVideoEditNode();
+        node.Task.Property!.SetValue(mode);
+        return new AiVideoEditNodeRequest(node)
+        {
+            Mode = mode,
+            Prompt = "make it rain",
+            DurationSeconds = duration,
+            SourceVideo = new GenerativeFileInput("source.mp4", "video/mp4", FakeVideos.Clip),
+            RequestKeySeed = Guid.NewGuid().ToString("N"),
+            ParameterFingerprint = "p",
+        };
+    }
+
+    private AiGenerativeNodeExecutor CreateVideoExecutor(FakeVideos videos, double sourceSeconds = 4)
     {
         var quiet = new AiModelOption(new AiModelId("quiet"), "Quiet", null, true,
             Video: new AiVideoModelCapabilities(
@@ -418,7 +472,11 @@ public sealed class GenerativeNodeModelTests
                 SupportsSeed: false));
         var catalog = new AiGenerativeModelCatalog(
             new FixedCatalog(new AiModelCatalog(
-                [KeyValuePair.Create(AiOperations.VideoGeneration, ImmutableArray.Create(quiet))])),
+                new[]
+                {
+                    AiOperations.VideoGeneration, AiOperations.VideoEditing,
+                    AiOperations.VideoExtension, AiOperations.VideoMotion,
+                }.Select(op => KeyValuePair.Create(op, ImmutableArray.Create(quiet))))),
             new StubEntitlements());
         var kinds = new Moq.Mock<IAiJobKindRegistry>();
         kinds.Setup(x => x.GetStatus(Moq.It.IsAny<AiJobKindId>(), Moq.It.IsAny<AiJobStatusId>()))
@@ -432,6 +490,7 @@ public sealed class GenerativeNodeModelTests
             videos: videos, jobKinds: kinds.Object)
         {
             PollInterval = TimeSpan.Zero,
+            VideoDurationReader = _ => sourceSeconds,
         };
     }
 
@@ -453,6 +512,14 @@ public sealed class GenerativeNodeModelTests
         public static readonly byte[] Clip = [0, 0, 0, 24, 102, 116, 121, 112];
 
         public List<AiVideoGenerationRequest> Requests { get; } = [];
+
+        public List<AiSourceVideoRequest> SourceRequests { get; } = [];
+
+        public Task<AiVideoGenerationResult> CreateFromSourceAsync(AiSourceVideoRequest request, CancellationToken cancellationToken)
+        {
+            SourceRequests.Add(request);
+            return Task.FromResult(new AiVideoGenerationResult(new AiJobId("job"), AiJobStatuses.Queued));
+        }
 
         public int Polls { get; private set; }
 

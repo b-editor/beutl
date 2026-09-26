@@ -24,6 +24,7 @@ public static class NodesRegistrar
             .Add<AiImageGenerationNode>(NodeGraphStrings.AiImageGeneration)
             .Add<AiImageEditNode>(NodeGraphStrings.AiImageEdit)
             .Add<AiVideoGenerationNode>(NodeGraphStrings.AiVideoGeneration)
+            .Add<AiVideoEditNode>(NodeGraphStrings.AiVideoEdit)
             .Register();
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.Shapes, Colors.ForestGreen)

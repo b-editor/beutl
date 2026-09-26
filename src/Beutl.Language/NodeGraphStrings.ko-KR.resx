@@ -420,4 +420,16 @@
   <data name="Port_VideoReferences" xml:space="preserve">
     <value>참조 동영상</value>
   </data>
+  <data name="AiVideoEdit" xml:space="preserve">
+    <value>동영상 편집</value>
+  </data>
+  <data name="Port_CharacterImage" xml:space="preserve">
+    <value>캐릭터 이미지</value>
+  </data>
+  <data name="Port_Orientation" xml:space="preserve">
+    <value>방향</value>
+  </data>
+  <data name="Port_Quality" xml:space="preserve">
+    <value>품질</value>
+  </data>
 </root>

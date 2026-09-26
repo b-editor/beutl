@@ -86,7 +86,10 @@ internal sealed class AiGenerativeModelCatalog(
             c.MaxInputReferenceBytes,
             c.MaxVideoReferences,
             c.MaxVideoReferenceBytes,
-            c.MaxPromptLength);
+            c.MaxPromptLength,
+            c.MaxSourceVideoBytes,
+            c.MinSourceVideoSeconds,
+            c.MaxSourceVideoSeconds);
     }
 
     private static GenerativeImageCapabilities ToCapabilities(AiImageModelCapabilities? image)

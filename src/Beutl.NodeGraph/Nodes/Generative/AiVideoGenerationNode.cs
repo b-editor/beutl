@@ -89,6 +89,9 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
     protected internal override GenerativeRequest BuildRequest(GraphNode.Resource resource, GraphCompositionContext context)
     {
         var r = (Resource)resource;
+        // The AI tab asks for a prompt whatever guides the clip.
+        if (string.IsNullOrWhiteSpace(r.Prompt))
+            throw new GenerativeExecutionException(Strings.AiPromptRequired);
         GenerativeImageInput? first = RasterizeInput(r.FirstFrame, "first-frame", context);
         GenerativeImageInput? last = RasterizeInput(r.LastFrame, "last-frame", context);
         if (last is not null && first is null)

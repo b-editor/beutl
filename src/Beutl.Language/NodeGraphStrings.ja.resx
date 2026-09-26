@@ -420,4 +420,16 @@
   <data name="Port_VideoReferences" xml:space="preserve">
     <value>参照動画</value>
   </data>
+  <data name="AiVideoEdit" xml:space="preserve">
+    <value>動画を編集</value>
+  </data>
+  <data name="Port_CharacterImage" xml:space="preserve">
+    <value>キャラクター画像</value>
+  </data>
+  <data name="Port_Orientation" xml:space="preserve">
+    <value>向き</value>
+  </data>
+  <data name="Port_Quality" xml:space="preserve">
+    <value>品質</value>
+  </data>
 </root>

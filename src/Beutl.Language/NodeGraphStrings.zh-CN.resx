@@ -420,4 +420,16 @@
   <data name="Port_VideoReferences" xml:space="preserve">
     <value>参考视频</value>
   </data>
+  <data name="AiVideoEdit" xml:space="preserve">
+    <value>编辑视频</value>
+  </data>
+  <data name="Port_CharacterImage" xml:space="preserve">
+    <value>角色图像</value>
+  </data>
+  <data name="Port_Orientation" xml:space="preserve">
+    <value>方向</value>
+  </data>
+  <data name="Port_Quality" xml:space="preserve">
+    <value>质量</value>
+  </data>
 </root>

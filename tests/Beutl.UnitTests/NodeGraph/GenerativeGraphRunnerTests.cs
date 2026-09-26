@@ -399,6 +399,50 @@ public sealed class GenerativeGraphRunnerTests
         Assert.That(video.Status, Is.EqualTo(GenerativeNodeStatus.Failed));
     }
 
+    [Test]
+    public async Task VideoEditNodeExtendsAClipAVideoNodeJustGenerated()
+    {
+        var model = new GraphModel();
+        var video = new AiVideoGenerationNode();
+        video.Prompt.Property!.SetValue("a cat walks");
+        var extend = new AiVideoEditNode();
+        extend.Task.Property!.SetValue(AiVideoEditMode.Extend);
+        extend.Prompt.Property!.SetValue("and then sits");
+        model.Nodes.AddRange([video, extend]);
+        model.Connect(extend.Source, video.Output);
+        var executor = new FakeExecutor(_directory);
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, [extend], force: false, CancellationToken.None);
+
+        var request = executor.Requests.OfType<AiVideoEditNodeRequest>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.SourceVideo.Content, Is.EqualTo(FakeExecutor.Clip), "The generated clip is the source.");
+            Assert.That(request.SourceVideo.MediaType, Is.EqualTo("video/mp4"));
+            Assert.That(request.Mode, Is.EqualTo(AiVideoEditMode.Extend));
+            Assert.That(request.CatalogOperationId, Is.EqualTo("video.extend"));
+            Assert.That(extend.ActiveGeneration?.Video, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public async Task MotionNeedsACharacterImage()
+    {
+        var model = new GraphModel();
+        var video = new AiVideoGenerationNode();
+        video.Prompt.Property!.SetValue("a dancer");
+        var motion = new AiVideoEditNode();
+        motion.Task.Property!.SetValue(AiVideoEditMode.Motion);
+        motion.Prompt.Property!.SetValue("dance like this");
+        model.Nodes.AddRange([video, motion]);
+        model.Connect(motion.Source, video.Output);
+
+        await new GenerativeGraphRunner(new FakeExecutor(_directory), new InlineHost())
+            .RunAsync(model, [motion], force: false, CancellationToken.None);
+
+        Assert.That(motion.StatusMessage, Is.EqualTo(Beutl.Language.Strings.AiChooseCharacterImage));
+    }
+
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
     {
         var model = new GraphModel();
@@ -442,14 +486,24 @@ public sealed class GenerativeGraphRunnerTests
             if (ReferenceEquals(request.Node, FailFor))
                 throw new GenerativeExecutionException("refused");
 
-            string path = Path.Combine(directory, $"{Guid.NewGuid():N}.png");
-            using (var bitmap = new Bitmap(8, 8))
-            using (var stream = File.Create(path))
+            bool video = request is AiVideoGenerationNodeRequest or AiVideoEditNodeRequest;
+            string path = Path.Combine(directory, $"{Guid.NewGuid():N}{(video ? ".mp4" : ".png")}");
+            if (video)
+            {
+                File.WriteAllBytes(path, Clip);
+            }
+            else
+            {
+                using var bitmap = new Bitmap(8, 8);
+                using var stream = File.Create(path);
                 bitmap.Save(stream, EncodedImageFormat.Png);
+            }
             int? seed = (request as AiImageGenerationNodeRequest)?.Seed;
             return Task.FromResult(new GenerativeExecutionResult(
-                new Uri(path), request.ModelId, seed, IsVideo: request is AiVideoGenerationNodeRequest));
+                new Uri(path), request.ModelId, seed, IsVideo: video));
         }
+
+        public static readonly byte[] Clip = [0, 0, 0, 24, 102, 116, 121, 112];
     }
 
     private sealed class InlineHost : IGenerativeRunHost

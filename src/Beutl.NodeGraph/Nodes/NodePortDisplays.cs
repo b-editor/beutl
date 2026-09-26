@@ -84,4 +84,7 @@ internal static class NodePortDisplays
     public static DisplayAttribute LastFrame => Create(nameof(NodeGraphStrings.Port_LastFrame));
     public static DisplayAttribute ImageReferences => Create(nameof(NodeGraphStrings.Port_ImageReferences));
     public static DisplayAttribute VideoReferences => Create(nameof(NodeGraphStrings.Port_VideoReferences));
+    public static DisplayAttribute CharacterImage => Create(nameof(NodeGraphStrings.Port_CharacterImage));
+    public static DisplayAttribute Orientation => Create(nameof(NodeGraphStrings.Port_Orientation));
+    public static DisplayAttribute Quality => Create(nameof(NodeGraphStrings.Port_Quality));
 }

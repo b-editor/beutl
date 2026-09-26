@@ -171,6 +171,61 @@ public sealed record AiImageEditNodeRequest : GenerativeRequest
 /// <summary>What the executor produced: a file it saved and the parameters that made it.</summary>
 public sealed record GenerativeExecutionResult(Uri ResultFile, string? ModelId, int? Seed, bool IsVideo = false);
 
+public enum AiVideoEditMode
+{
+    [Display(Name = nameof(Strings.AiVideoEditing), ResourceType = typeof(Strings))]
+    Edit,
+    [Display(Name = nameof(Strings.AiVideoExtend), ResourceType = typeof(Strings))]
+    Extend,
+    [Display(Name = nameof(Strings.AiVideoMotion), ResourceType = typeof(Strings))]
+    Motion,
+}
+
+public enum AiMotionOrientation
+{
+    [Display(Name = nameof(Strings.AiSourceVideo), ResourceType = typeof(Strings))]
+    Video,
+    [Display(Name = nameof(Strings.AiCharacterImage), ResourceType = typeof(Strings))]
+    Image,
+}
+
+public enum AiMotionQuality
+{
+    [Display(Name = nameof(Strings.AiMotionStandard), ResourceType = typeof(Strings))]
+    Standard,
+    [Display(Name = nameof(Strings.AiMotionPro), ResourceType = typeof(Strings))]
+    Pro,
+}
+
+public sealed record AiVideoEditNodeRequest : GenerativeRequest
+{
+    public AiVideoEditNodeRequest(GenerativeNode node) : base(node)
+    {
+    }
+
+    public override GenerativeOperation Operation => GenerativeOperation.VideoEdit;
+
+    public required AiVideoEditMode Mode { get; init; }
+
+    public required string Prompt { get; init; }
+
+    /// <summary>How long to extend by, or to generate for motion; unused by an edit.</summary>
+    public int DurationSeconds { get; init; }
+
+    public required GenerativeFileInput SourceVideo { get; init; }
+
+    public GenerativeImageInput? CharacterImage { get; init; }
+
+    public AiMotionOrientation Orientation { get; init; }
+
+    public AiMotionQuality Quality { get; init; }
+
+    public override string Fingerprint => GenerativeFingerprint.Combine(
+        [nameof(GenerativeOperation.VideoEdit), ParameterFingerprint, SourceVideo.ContentHash, CharacterImage?.ContentHash]);
+
+    public override string Summary => Prompt.Length <= 80 ? Prompt : string.Concat(Prompt.AsSpan(0, 79), "…");
+}
+
 /// <summary>A media file handed to a generation as input, read at queue time.</summary>
 public sealed record GenerativeFileInput(string Name, string MediaType, byte[] Content)
 {

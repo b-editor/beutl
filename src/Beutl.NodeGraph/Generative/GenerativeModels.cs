@@ -74,7 +74,10 @@ public sealed record GenerativeVideoCapabilities(
     long MaxImageReferenceBytes,
     int MaxVideoReferences,
     long MaxVideoReferenceBytes,
-    int MaxPromptLength)
+    int MaxPromptLength,
+    long MaxSourceVideoBytes = long.MaxValue,
+    double? MinSourceVideoSeconds = null,
+    double? MaxSourceVideoSeconds = null)
 {
     /// <summary>What the AI tab offers for a model that publishes none, and its starting choice.</summary>
     public static IReadOnlyList<int> DefaultDurations { get; } = [4, 6, 8];
