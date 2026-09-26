@@ -11,6 +11,23 @@ namespace Beutl.Graphics.Shaders;
 
 internal sealed class GLSLFilterPipeline : IDisposable
 {
+    // Vulkan guarantees at least 16 fragment samplers. Unknown context implementations use that portable limit.
+    internal const int PortableInputLimit = 16;
+
+    internal static int GetMaximumInputCount(IGraphicsContext context)
+        => context switch
+        {
+            VulkanContext vulkan => vulkan.MaxFragmentShaderInputTextures,
+            CompositeContext composite => composite.Vulkan.MaxFragmentShaderInputTextures,
+            _ => PortableInputLimit,
+        };
+
+    internal static void ValidateInputCount(IGraphicsContext context, int inputCount)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(inputCount, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(inputCount, GetMaximumInputCount(context));
+    }
+
     private static readonly ILogger s_logger = Log.CreateLogger<GLSLFilterPipeline>();
 
     // Fullscreen triangle vertex shader that generates UV coordinates
@@ -101,7 +118,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         int? inputCount = null)
     {
         int textureCount = inputCount ?? (hasMaskTexture ? 2 : 1);
-        ArgumentOutOfRangeException.ThrowIfLessThan(textureCount, 1);
+        ValidateInputCount(context, textureCount);
         if (!context.Supports3DRendering)
         {
             s_logger.LogWarning("3D rendering is not supported on this platform.");

@@ -82,6 +82,59 @@ public class GLSLShaderTests
     [StructLayout(LayoutKind.Sequential)]
     private struct DummyPush { public float Dummy; }
 
+    [TestCase(1)]
+    [TestCase(3)]
+    public void Render_DoesNotAddPerPassManagedAllocationsWhenOutputIsDeclined(int inputCount)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget red = CreateSolidTarget(4, 4, Colors.Red);
+            using var input = new EffectTarget(red, new Rect(0, 0, 4, 4));
+            EffectTarget[] inputs = Enumerable.Repeat(input, inputCount).ToArray();
+            using var targets = new EffectTargets();
+            using var pool = new RenderTargetPool(new DecliningTargetFactory());
+            using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Preview, red);
+            var context = new CustomFilterEffectContext(
+                targets, RenderIntent.Preview, RenderRequestPurpose.Auxiliary, renderTargetLeaseSession: session);
+            using var shader = GLSLShader.Create(ConstantBlueFragment, inputCount);
+            const int iterations = 128;
+            for (int i = 0; i < iterations; i++)
+            {
+                using EffectTarget baseline = context.CreateNativeTargetLike(input);
+                using EffectTarget warmup = shader.Render(context, inputs, input.Bounds, new DummyPush());
+            }
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < iterations; i++)
+            {
+                using EffectTarget baseline = context.CreateNativeTargetLike(input);
+            }
+            long baselineBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+            before = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < iterations; i++)
+            {
+                using EffectTarget result = shader.Render(context, inputs, input.Bounds, new DummyPush());
+            }
+            long renderBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.That(renderBytes, Is.EqualTo(baselineBytes),
+                "input storage and constant binding must not allocate in a warmed render loop");
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void ScriptCache_RejectsDeviceLimitBeforeCachingAProgram()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var cache = new ScriptGlslProgramCache();
+            int overLimit = checked(GLSLShader.MaximumInputCount + 1);
+            Assert.Throws<ArgumentOutOfRangeException>(() => cache.Create(ConstantBlueFragment, overLimit));
+            Assert.That(cache.Statistics.Creations, Is.Zero);
+        });
+    }
+
     [Test]
     public void CSharpScript_ReusesGlslProgramWhileTimeChangesAndDisposesItsCache()
     {
@@ -120,8 +173,7 @@ public class GLSLShaderTests
                     drawableBrushMaterializer: null);
                 executor.Apply(context);
                 executor.Flush(false);
-                using Bitmap pixels = targets[0].RenderTarget!.Snapshot();
-                RgbaF16 pixel = pixels.GetPixelSpan<RgbaF16>()[0];
+                RgbaF16 pixel = ReadNativePixels(targets[0].RenderTarget!)[0];
                 Assert.That((float)pixel.G, Is.EqualTo(time).Within(0.01), "new constants must reach a reused program");
                 Assert.That((float)pixel.B, Is.EqualTo(1).Within(0.01), "the script must actually execute");
             }
@@ -156,8 +208,7 @@ public class GLSLShaderTests
             using var input = new EffectTarget(red, new Rect(0, 0, 4, 4));
             using var targets = new EffectTargets();
             using EffectTarget output = second.Render(CreateCustomContext(targets), [input], input.Bounds, new DummyPush());
-            using Bitmap pixels = output.RenderTarget!.Snapshot();
-            Assert.That((float)pixels.GetPixelSpan<RgbaF16>()[0].B, Is.EqualTo(1).Within(0.01),
+            Assert.That((float)ReadNativePixels(output.RenderTarget!)[0].B, Is.EqualTo(1).Within(0.01),
                 "a checked-out shader must survive cache disposal until its own wrapper is disposed");
         });
     }
@@ -190,10 +241,9 @@ public class GLSLShaderTests
                 return new DummyPush { Dummy = 0.25f };
             });
             using EffectTarget result = invert.Render(context, [combined], bounds, new DummyPush());
-            using Bitmap pixels = result.RenderTarget!.Snapshot();
-            RgbaF16 center = pixels.GetPixelSpan<RgbaF16>()[4 * pixels.Width + 5];
-            using Bitmap original = red.Snapshot();
-            RgbaF16 sourcePixel = original.GetPixelSpan<RgbaF16>()[0];
+            RgbaF16[] pixels = ReadNativePixels(result.RenderTarget!);
+            RgbaF16 center = pixels[4 * result.RenderTarget!.Width + 5];
+            RgbaF16 sourcePixel = ReadNativePixels(red)[0];
 
             Assert.Multiple(() =>
             {
@@ -251,13 +301,13 @@ public class GLSLShaderTests
                 Assert.That(destination.Scale.Value, Is.EqualTo(density));
                 return new DummyPush();
             });
-            using Bitmap pixels = output.RenderTarget!.Snapshot();
+            RgbaF16[] pixels = ReadNativePixels(output.RenderTarget!);
             Assert.Multiple(() =>
             {
-                Assert.That(pixels.Width, Is.EqualTo((int)(8 * density)));
-                Assert.That(pixels.Height, Is.EqualTo((int)(8 * density)));
+                Assert.That(output.RenderTarget!.Width, Is.EqualTo((int)(8 * density)));
+                Assert.That(output.RenderTarget.Height, Is.EqualTo((int)(8 * density)));
                 Assert.That(output.Bounds, Is.EqualTo(bounds));
-                Assert.That((float)pixels.GetPixelSpan<RgbaF16>()[0].B, Is.EqualTo(1).Within(0.01));
+                Assert.That((float)pixels[0].B, Is.EqualTo(1).Within(0.01));
             });
         });
     }
@@ -282,8 +332,7 @@ public class GLSLShaderTests
                 context, [input], new Rect(-1, -1, 6, 6), _ => throw new InvalidOperationException("constant failure")));
             Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
             using EffectTarget recovered = shader.Render(context, [input], input.Bounds, new DummyPush());
-            using Bitmap bitmap = recovered.RenderTarget!.Snapshot();
-            Assert.That((float)bitmap.GetPixelSpan<RgbaF16>()[0].B, Is.EqualTo(1).Within(0.01));
+            Assert.That((float)ReadNativePixels(recovered.RenderTarget!)[0].B, Is.EqualTo(1).Within(0.01));
         });
     }
 
@@ -315,8 +364,7 @@ public class GLSLShaderTests
                     shader.Render(context, [input], new Rect(-1, -1, 6, 6), new DummyPush()));
             }
             Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
-            using Bitmap original = input.RenderTarget!.Snapshot();
-            Assert.That((float)original.GetPixelSpan<RgbaF16>()[0].R, Is.EqualTo(1).Within(0.01));
+            Assert.That((float)ReadNativePixels(input.RenderTarget!)[0].R, Is.EqualTo(1).Within(0.01));
         });
     }
 
@@ -685,6 +733,14 @@ public class GLSLShaderTests
         return allocations;
     }
 
+    // These tests exercise native GLSL output. Reading through Skia would additionally exercise the
+    // separate, known layout-sharing problem #2263 and prevent the Vulkan validation gate covering them.
+    private static RgbaF16[] ReadNativePixels(RenderTarget target)
+    {
+        target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+        return MemoryMarshal.Cast<byte, RgbaF16>(target.Texture!.DownloadPixels()).ToArray();
+    }
+
     private static RenderTarget CreateSolidTarget(int width, int height, Color color)
     {
         RenderTarget target = RenderTarget.Create(width, height)
@@ -695,6 +751,11 @@ public class GLSLShaderTests
         }
 
         return target;
+    }
+
+    private sealed class DecliningTargetFactory : IRenderTargetFactory
+    {
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation) => null;
     }
 
     private sealed class FailAtTargetFactory(int failAt) : IRenderTargetFactory

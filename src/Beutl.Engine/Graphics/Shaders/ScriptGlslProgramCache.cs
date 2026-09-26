@@ -18,6 +18,7 @@ internal sealed class ScriptGlslProgramCache : IDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(inputCount, 1);
         if (GraphicsContextFactory.SharedContext is not { Supports3DRendering: true } graphics)
             throw new InvalidOperationException("GLSL execution requires a Vulkan graphics context.");
+        GLSLFilterPipeline.ValidateInputCount(graphics, inputCount);
 
         _programs.SynchronizeContext(_contextDomain, graphics);
         var context = new ProgramCacheContextKey(

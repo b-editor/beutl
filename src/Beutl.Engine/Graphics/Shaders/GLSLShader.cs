@@ -1,4 +1,5 @@
-﻿using System.Collections.Immutable;
+﻿using System.Buffers;
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
@@ -45,6 +46,7 @@ public sealed class GLSLShader : IDisposable
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(inputCount, 1);
         IGraphicsContext context = RequireGraphicsContext();
+        GLSLFilterPipeline.ValidateInputCount(context, inputCount);
 
         GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
             context,
@@ -62,6 +64,9 @@ public sealed class GLSLShader : IDisposable
     /// <summary>Gets the number of input targets required by Render.</summary>
     public int InputCount => Pipeline.InputCount;
 
+    /// <summary>Gets the active backend's maximum number of fragment input textures.</summary>
+    public static int MaximumInputCount => GLSLFilterPipeline.GetMaximumInputCount(RequireGraphicsContext());
+
     /// <summary>Renders one GLSL pass into a new target without replacing or disposing its inputs.</summary>
     /// <remarks>
     /// Call inside Context.CustomEffect. The caller owns the result: dispose intermediates and return the
@@ -77,7 +82,7 @@ public sealed class GLSLShader : IDisposable
         IReadOnlyList<EffectTarget> inputs,
         Rect outputBounds,
         T pushConstants) where T : unmanaged
-        => Render(context, inputs, outputBounds, _ => pushConstants);
+        => Render<T, T>(context, inputs, outputBounds, pushConstants, static (_, value) => value);
 
     /// <summary>Renders a pass with constants derived from the actual destination size and clamped density.</summary>
     /// <inheritdoc cref="Render{T}(CustomFilterEffectContext, IReadOnlyList{EffectTarget}, Rect, T)" path="/remarks"/>
@@ -87,10 +92,21 @@ public sealed class GLSLShader : IDisposable
         Rect outputBounds,
         Func<EffectTarget, T> createPushConstants) where T : unmanaged
     {
+        ArgumentNullException.ThrowIfNull(createPushConstants);
+        return Render<T, Func<EffectTarget, T>>(
+            context, inputs, outputBounds, createPushConstants, static (output, factory) => factory(output));
+    }
+
+    private EffectTarget Render<T, TState>(
+        CustomFilterEffectContext context,
+        IReadOnlyList<EffectTarget> inputs,
+        Rect outputBounds,
+        TState state,
+        Func<EffectTarget, TState, T> createPushConstants) where T : unmanaged
+    {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(inputs);
-        ArgumentNullException.ThrowIfNull(createPushConstants);
         if (inputs.Count != _pipeline.InputCount)
             throw new ArgumentException($"The shader requires {_pipeline.InputCount} input targets.", nameof(inputs));
         RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(outputBounds));
@@ -100,15 +116,38 @@ public sealed class GLSLShader : IDisposable
         if (constantSize > 128 || constantSize % 4 != 0)
             throw new ArgumentException("Push constants must occupy a multiple of 4 bytes, up to 128 bytes.", nameof(createPushConstants));
 
-        var textures = new ITexture2D[inputs.Count];
-        for (int i = 0; i < inputs.Count; i++)
+        if (inputs.Count == 1)
         {
-            EffectTarget input = inputs[i];
-            if (input?.RenderTarget?.Texture is not { } texture)
-                throw new ArgumentException($"Input {i} must have a materialized GPU texture.", nameof(inputs));
-            textures[i] = texture;
+            ITexture2D texture = GetInputTexture(inputs, 0);
+            return RenderWithTextures(context, inputs, [texture], outputBounds, state, createPushConstants);
         }
 
+        ITexture2D[] textures = ArrayPool<ITexture2D>.Shared.Rent(inputs.Count);
+        try
+        {
+            for (int i = 0; i < inputs.Count; i++)
+                textures[i] = GetInputTexture(inputs, i);
+            return RenderWithTextures(
+                context, inputs, textures.AsSpan(0, inputs.Count), outputBounds, state, createPushConstants);
+        }
+        finally
+        {
+            ArrayPool<ITexture2D>.Shared.Return(textures, clearArray: true);
+        }
+    }
+
+    private static ITexture2D GetInputTexture(IReadOnlyList<EffectTarget> inputs, int index)
+        => inputs[index]?.RenderTarget?.Texture
+           ?? throw new ArgumentException($"Input {index} must have a materialized GPU texture.", nameof(inputs));
+
+    private EffectTarget RenderWithTextures<T, TState>(
+        CustomFilterEffectContext context,
+        IReadOnlyList<EffectTarget> inputs,
+        ReadOnlySpan<ITexture2D> textures,
+        Rect outputBounds,
+        TState state,
+        Func<EffectTarget, TState, T> createPushConstants) where T : unmanaged
+    {
         EffectTarget output = outputBounds == inputs[0].Bounds
             ? context.CreateNativeTargetLike(inputs[0])
             : context.CreateNativeTarget(outputBounds);
@@ -118,9 +157,9 @@ public sealed class GLSLShader : IDisposable
         {
             if (output.RenderTarget?.Texture is not { } destination)
                 throw new InvalidOperationException("The destination must have a GPU texture.");
-            T constants = createPushConstants(output);
-            foreach (EffectTarget input in inputs)
-                input.RenderTarget!.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+            T constants = createPushConstants(output, state);
+            for (int i = 0; i < inputs.Count; i++)
+                inputs[i].RenderTarget!.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
             _pipeline.Execute(textures, destination, constants);
             _pipeline.SubmitPendingCommands();
             return output;

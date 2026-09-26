@@ -393,6 +393,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public int MaxAttachmentDimension => _vulkanDevice.MaxAttachmentDimension;
 
+    /// <inheritdoc cref="VulkanDevice.MaxFragmentShaderInputTextures"/>
+    internal int MaxFragmentShaderInputTextures => _vulkanDevice.MaxFragmentShaderInputTextures;
+
     /// <inheritdoc cref="VulkanDevice.MaxImageDimension2D"/>
     internal int MaxImageDimension2D => _vulkanDevice.MaxImageDimension2D;
 
