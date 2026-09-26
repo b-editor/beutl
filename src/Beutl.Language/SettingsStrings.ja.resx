@@ -734,4 +734,7 @@
     <value>AIプランを読み込んでいます…</value>
     <comment/>
   </data>
+  <data name="AiAgents_CodexHomeMustBeAbsolute" xml:space="preserve">
+    <value>Codex の MCP をインストールするには、CODEX_HOME に絶対パスを指定してください。</value>
+  </data>
 </root>

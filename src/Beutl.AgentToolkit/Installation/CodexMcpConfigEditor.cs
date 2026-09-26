@@ -276,6 +276,7 @@ internal sealed class CodexMcpConfigEditor
 
     private static KeySyntax CreateKey(IEnumerable<string> path)
     {
+        // Tomlyn quotes and escapes each segment that is not a bare TOML key.
         string[] keys = path.ToArray();
         var key = new KeySyntax(keys[0]);
         foreach (string part in keys.Skip(1))

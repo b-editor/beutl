@@ -623,4 +623,7 @@
     <value>Reinstalar</value>
     <comment />
   </data>
+  <data name="AiAgents_CodexHomeMustBeAbsolute" xml:space="preserve">
+    <value>Para instalar el MCP de Codex, establece CODEX_HOME como una ruta absoluta.</value>
+  </data>
 </root>

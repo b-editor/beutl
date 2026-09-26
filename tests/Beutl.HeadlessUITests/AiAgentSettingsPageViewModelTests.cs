@@ -119,6 +119,124 @@ public sealed class AiAgentSettingsPageViewModelTests
     }
 
     [AvaloniaTest]
+    [NonParallelizable]
+    [TestCase(AgentInstallScope.Global)]
+    [TestCase(AgentInstallScope.Project)]
+    public async Task Switching_to_codex_ignores_other_agents_mcp_overrides(AgentInstallScope scope)
+    {
+        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "codex-overrides-" + Guid.NewGuid().ToString("N"));
+        string codexHome = Path.Combine(root, "global-codex-home");
+        string? previousHome = Environment.GetEnvironmentVariable("CODEX_HOME");
+        Environment.SetEnvironmentVariable("CODEX_HOME", codexHome);
+        try
+        {
+            var config = new AiAgentConfig
+            {
+                AgentId = AiAgentSettingsPageViewModel.CustomAgentId,
+                InstallScope = scope.ToString(),
+                ProjectRoot = root,
+                WorkspaceRoot = root,
+                McpConfigFileName = "other-mcp.json",
+                McpServersPropertyName = "mcpServers",
+                InstallSkills = false,
+                InstallSubagents = false,
+                InstallLiveMcp = false,
+                InstallStdioMcp = true,
+                StdioCommand = "beutl-mcp",
+            };
+            using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+            viewModel.SelectedAgent.Value = Choice(viewModel, "codex");
+            string expected = scope == AgentInstallScope.Global ? Path.Combine(codexHome, "config.toml")
+                : Path.Combine(root, ".codex", "config.toml");
+            // Check the destination before allowing the global install to write anything.
+            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Is.EqualTo(expected));
+
+            await viewModel.InstallAsync();
+
+            Assert.That(File.Exists(expected), Is.True, viewModel.Status.Value);
+            TomlTable saved = TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(expected))!;
+            Assert.That(saved.Keys, Is.EqualTo(new[] { "mcp_servers" }));
+            Assert.That(((TomlTable)saved["mcp_servers"]).ContainsKey("beutl-agent"), Is.True);
+
+            viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
+            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Is.EqualTo(Path.Combine(root, "other-mcp.json")));
+            Assert.That(config.McpConfigFileName, Is.EqualTo("other-mcp.json"));
+            Assert.That(config.McpServersPropertyName, Is.EqualTo("mcpServers"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CODEX_HOME", previousHome);
+        }
+    }
+
+    [AvaloniaTest]
+    [NonParallelizable]
+    public async Task Relative_codex_home_blocks_global_mcp_installation_but_not_project_scope()
+    {
+        string? previousHome = Environment.GetEnvironmentVariable("CODEX_HOME");
+        string relativeHome = "codex-relative-" + Guid.NewGuid().ToString("N");
+        Environment.SetEnvironmentVariable("CODEX_HOME", relativeHome);
+        try
+        {
+            var config = new AiAgentConfig
+            {
+                AgentId = "codex",
+                InstallScope = nameof(AgentInstallScope.Global),
+                ProjectRoot = Path.Combine(BeutlHomeIsolation.CurrentHome!, relativeHome),
+                InstallSkills = false,
+                InstallSubagents = false,
+                InstallLiveMcp = false,
+                InstallStdioMcp = true,
+                StdioCommand = "beutl-mcp",
+            };
+            using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.CanInstallMcp.Value, Is.False);
+                Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Contain("CODEX_HOME"));
+            });
+
+            await viewModel.InstallAsync();
+
+            Assert.That(viewModel.Status.Value, Does.Contain("CODEX_HOME"));
+            Assert.That(viewModel.McpUnavailableMessage.Value, Is.EqualTo(viewModel.Status.Value));
+            Assert.That(viewModel.InstalledFiles, Is.Empty);
+            Assert.That(Directory.Exists(relativeHome), Is.False);
+
+            var page = new AiAgentSettingsPage { DataContext = viewModel };
+            var window = new Window { Content = page, Width = 800, Height = 1000 };
+            try
+            {
+                window.Show();
+                HeadlessTestHelpers.Render();
+                var warning = page.GetVisualDescendants().OfType<FluentAvalonia.UI.Controls.FAInfoBar>()
+                    .Single(bar => bar.Message == viewModel.McpUnavailableMessage.Value);
+                warning.BringIntoView();
+                HeadlessTestHelpers.Render();
+                Assert.That(warning.IsOpen, Is.True);
+                if (Environment.GetEnvironmentVariable("BEUTL_CODEX_MCP_CAPTURE") is { Length: > 0 } directory)
+                {
+                    Directory.CreateDirectory(directory);
+                    using var image = window.CaptureRenderedFrame();
+                    image!.Save(Path.Combine(directory, "codex-relative-home.png"), PngBitmapEncoderOptions.Default);
+                }
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            viewModel.SelectedScope.Value = viewModel.ScopeChoices.Single(s => s.Scope == AgentInstallScope.Project);
+            Assert.That(viewModel.CanInstallMcp.Value, Is.True);
+            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Is.EqualTo(Path.Combine(config.ProjectRoot, ".codex", "config.toml")));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CODEX_HOME", previousHome);
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(AgentInstallScope.Global)]
     [TestCase(AgentInstallScope.Project)]
     public async Task Codex_live_mcp_is_available_in_both_scopes(AgentInstallScope scope)
@@ -170,6 +288,8 @@ public sealed class AiAgentSettingsPageViewModelTests
             AgentId = "codex",
             InstallScope = nameof(AgentInstallScope.Project),
             ProjectRoot = root,
+            McpConfigFileName = "legacy-mcp.json",
+            McpServersPropertyName = "mcpServers",
             InstallSkills = false,
             InstallSubagents = false,
             LiveMcpToken = "headless-test-token",
@@ -195,7 +315,18 @@ public sealed class AiAgentSettingsPageViewModelTests
             OptionsDisplayItem destinations = rows.Single(row => Equals(row.Header, SettingsStrings.AiAgents_Destinations));
             destinations.ContentTransition = null;
             destinations.IsExpanded = true;
+            OptionsDisplayItem advanced = rows.Single(row => Equals(row.Header, SettingsStrings.AiAgents_Advanced));
+            advanced.ContentTransition = null;
+            advanced.IsExpanded = true;
             HeadlessTestHelpers.Render();
+
+            OptionsDisplayItem[] overrides = page.GetVisualDescendants().OfType<OptionsDisplayItem>()
+                .Where(row => row.ActionButton is TextBox
+                              && (Equals(row.Header, SettingsStrings.AiAgents_McpConfigFileName)
+                                  || Equals(row.Header, SettingsStrings.AiAgents_McpServersPropertyName)))
+                .ToArray();
+            Assert.That(overrides, Has.Length.EqualTo(2));
+            Assert.That(overrides.All(row => !row.IsVisible), Is.True);
 
             OptionsDisplayItem liveRow = rows.Single(row => Equals(row.Header, SettingsStrings.AiAgents_LiveMcp));
             OptionsDisplayItem stdioRow = rows.Single(row => Equals(row.Header, SettingsStrings.AiAgents_StdioMcp));
@@ -211,6 +342,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             await viewModel.InstallAsync();
 
             string path = viewModel.ResolvedMcpConfigPath.Value;
+            Assert.That(path, Is.EqualTo(Path.Combine(root, ".codex", "config.toml")));
             Assert.That(File.Exists(path), Is.True, viewModel.Status.Value);
             var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(path))!["mcp_servers"];
             var live = (TomlTable)servers["beutl-live"];
@@ -232,7 +364,15 @@ public sealed class AiAgentSettingsPageViewModelTests
                 Assert.That(image, Is.Not.Null);
                 image!.Save(Path.Combine(directory, $"codex-live-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
                 File.Copy(path, Path.Combine(directory, "config.toml"), overwrite: true);
+                advanced.BringIntoView();
+                HeadlessTestHelpers.Render();
+                using var advancedImage = window.CaptureRenderedFrame();
+                advancedImage!.Save(Path.Combine(directory, $"codex-advanced-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
             }
+
+            viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
+            HeadlessTestHelpers.Render();
+            Assert.That(overrides.All(row => row.IsVisible), Is.True);
         }
         finally
         {

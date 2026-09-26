@@ -34,6 +34,69 @@ public sealed class CodexMcpConfigWriterTests
         LiveMcpHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer test-token" },
     };
 
+    [TestCase("mcp_servers", "team.stdio", "server name")]
+    [TestCase("mcp.servers name", "stdio \"quoted\"", "live\\server")]
+    public async Task Non_bare_key_segments_are_quoted_and_reinstall_matches_the_same_servers(
+        string serversProperty, string stdioName, string liveName)
+    {
+        AgentToolkitInstallOptions options = Options with
+        {
+            McpServersPropertyName = serversProperty,
+            StdioMcpServerName = stdioName,
+            LiveMcpServerName = liveName,
+            InstallStdioMcp = true,
+            StdioMcpCommand = "beutl-mcp",
+        };
+        await AgentToolkitInstaller.InstallAsync(options, []);
+        await AgentToolkitInstaller.InstallAsync(options with { LiveMcpUri = new Uri("http://127.0.0.1:59738/mcp") }, []);
+
+        TomlTable root = TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(ConfigPath))!;
+        var servers = (TomlTable)root[serversProperty];
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.Keys, Is.EqualTo(new[] { serversProperty }));
+            Assert.That(servers.Keys, Is.EquivalentTo(new[] { stdioName, liveName }));
+            Assert.That(((TomlTable)servers[stdioName])["command"], Is.EqualTo("beutl-mcp"));
+            Assert.That(((TomlTable)servers[liveName])["url"], Is.EqualTo("http://127.0.0.1:59738/mcp"));
+        });
+    }
+
+    [Test]
+    public async Task New_codex_config_is_private_on_unix()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix file modes are not available on Windows.");
+            return;
+        }
+
+        await AgentToolkitInstaller.InstallAsync(Options, []);
+
+        Assert.That(File.GetUnixFileMode(ConfigPath), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Reinstall_restricts_existing_config_permissions_even_when_content_is_unchanged(bool unchanged)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix file modes are not available on Windows.");
+            return;
+        }
+
+        await AgentToolkitInstaller.InstallAsync(Options, []);
+        File.SetUnixFileMode(ConfigPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+        AgentToolkitInstallOptions options = unchanged ? Options
+            : Options with { LiveMcpUri = new Uri("http://127.0.0.1:59738/mcp") };
+
+        await AgentToolkitInstaller.InstallAsync(options, []);
+
+        Assert.That(File.GetUnixFileMode(ConfigPath), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(ConfigPath))!["mcp_servers"];
+        Assert.That(((TomlTable)servers["beutl-live"])["url"], Is.EqualTo(options.LiveMcpUri!.ToString()));
+    }
+
     [Test]
     public async Task Fresh_live_install_uses_explicit_server_and_header_tables()
     {

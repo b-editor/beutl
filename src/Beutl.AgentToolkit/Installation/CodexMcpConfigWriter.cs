@@ -5,6 +5,8 @@ namespace Beutl.AgentToolkit.Installation;
 
 internal static class CodexMcpConfigWriter
 {
+    private const UnixFileMode OwnerReadWrite = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+
     public static async Task WriteAsync(
         string path,
         AgentToolkitInstallOptions options,
@@ -69,11 +71,29 @@ internal static class CodexMcpConfigWriter
         }
 
         string updated = CodexMcpConfigEditor.Update(text, root, options.McpServersPropertyName, servers);
+        cancellationToken.ThrowIfCancellationRequested();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var streamOptions = new FileStreamOptions
+        {
+            Mode = FileMode.OpenOrCreate,
+            Access = FileAccess.Write,
+            Share = FileShare.None,
+            Options = FileOptions.Asynchronous,
+        };
+        if (!OperatingSystem.IsWindows())
+            streamOptions.UnixCreateMode = OwnerReadWrite;
+
+        await using var stream = new FileStream(path, streamOptions);
+        // Restrict existing files before writing a token, including no-op
+        // reinstalls of configurations created by an earlier version.
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(stream.SafeFileHandle, OwnerReadWrite);
         if (updated == text)
             return;
 
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        await File.WriteAllTextAsync(path, updated, cancellationToken).ConfigureAwait(false);
+        stream.SetLength(0);
+        await using var writer = new StreamWriter(stream);
+        await writer.WriteAsync(updated.AsMemory(), cancellationToken).ConfigureAwait(false);
     }
 
     private static TomlTable ToTable(IReadOnlyDictionary<string, string> values)
