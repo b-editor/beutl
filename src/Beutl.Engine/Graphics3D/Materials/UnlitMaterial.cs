@@ -37,15 +37,26 @@ public sealed partial class UnlitMaterial : Material3D
 
     public partial class Resource
     {
-        private IPipeline3D? _pipeline;
+        // A card shows its 2D content from both sides and, being see-through, writes no depth. A mesh keeps its
+        // back faces culled so it cannot draw its far side over its near one, and writes depth when opaque so
+        // its own nearer surfaces hide the rest.
+        private const int CardVariant = 0;
+        private const int TranslucentMeshVariant = 1;
+        private const int OpaqueMeshVariant = 2;
+
+        private readonly IPipeline3D?[] _pipelines = new IPipeline3D?[3];
+        private readonly MaterialDrawBindingPool?[] _drawBindings = new MaterialDrawBindingPool?[3];
         private IRenderPass3D? _pipelineRenderPass;
-        private MaterialDrawBindingPool? _drawBindings;
         private ISampler? _sampler;
         private ITexture2D? _defaultWhiteTexture;
 
-        protected internal override IPipeline3D? Pipeline => _pipeline;
+        protected internal override IPipeline3D? Pipeline => _pipelines[Variant];
 
-        internal MaterialDrawBindingPool? DrawBindings => _drawBindings;
+        internal MaterialDrawBindingPool? DrawBindings => _drawBindings[Variant];
+
+        private int Variant => ContentMap != null
+            ? CardVariant
+            : Opacity >= 1 && Color.A == 255 ? OpaqueMeshVariant : TranslucentMeshVariant;
 
         /// <summary>A color map supplied by the owning object in place of <see cref="ColorMap"/>.</summary>
         internal TextureSource.Resource? ContentMap { get; set; }
@@ -54,7 +65,7 @@ public sealed partial class UnlitMaterial : Material3D
 
         public override bool IsTransparent => true;
 
-        internal override bool IsDoubleSided => true;
+        internal override bool IsDoubleSided => ContentMap != null;
 
         // The fragment shader discards every pixel once the color's alpha or the opacity reaches zero.
         internal override bool IsInvisible => Opacity <= 0 || Color.A == 0;
@@ -92,20 +103,22 @@ public sealed partial class UnlitMaterial : Material3D
                 new(1, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment),
             };
 
-            // Both faces are drawn so a turned card shows its back. Like other transparent surfaces it does
-            // not write depth, so a translucent card never hides another card behind it.
-            PipelineOptions options = PipelineOptions.Transparent;
-            options.CullMode = CullMode.None;
+            for (int variant = 0; variant < _pipelines.Length; variant++)
+            {
+                PipelineOptions options = PipelineOptions.Transparent;
+                options.CullMode = variant == CardVariant ? CullMode.None : CullMode.Back;
+                options.DepthWriteEnabled = variant == OpaqueMeshVariant;
 
-            _pipeline = graphicsContext.CreatePipeline3D(
-                context.RenderPass,
-                vertexSpirv,
-                fragmentSpirv,
-                descriptorBindings,
-                Vertex3D.GetVertexInputDescription(),
-                options);
-
-            _drawBindings = MaterialDrawBindingPool.Create<UnlitMaterialUBO>(graphicsContext, _pipeline, 1);
+                IPipeline3D pipeline = graphicsContext.CreatePipeline3D(
+                    context.RenderPass,
+                    vertexSpirv,
+                    fragmentSpirv,
+                    descriptorBindings,
+                    Vertex3D.GetVertexInputDescription(),
+                    options);
+                _pipelines[variant] = pipeline;
+                _drawBindings[variant] = MaterialDrawBindingPool.Create<UnlitMaterialUBO>(graphicsContext, pipeline, 1);
+            }
 
             _pipelineRenderPass = context.RenderPass;
             IsPipelineInitialized = true;
@@ -113,13 +126,16 @@ public sealed partial class UnlitMaterial : Material3D
 
         public override void Bind(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
         {
-            if (_pipeline == null || _drawBindings == null || _sampler == null)
+            int variant = Variant;
+            IPipeline3D? pipeline = _pipelines[variant];
+            MaterialDrawBindingPool? drawBindings = _drawBindings[variant];
+            if (pipeline == null || drawBindings == null || _sampler == null)
                 return;
 
             ITexture2D? colorTex = EffectiveColorMap?.GetTexture(context.GraphicsContext, context.SurfaceDensity);
 
             // Recorded draws must retain immutable bindings until the backend completes them.
-            MaterialDrawBindings bindings = _drawBindings.Acquire();
+            MaterialDrawBindings bindings = drawBindings.Acquire();
             bindings.Descriptors.UpdateTexture(1, colorTex ?? _defaultWhiteTexture!, _sampler);
 
             var ubo = new UnlitMaterialUBO
@@ -132,23 +148,27 @@ public sealed partial class UnlitMaterial : Material3D
 
             bindings.Buffer.Upload(new ReadOnlySpan<UnlitMaterialUBO>(ref ubo));
 
-            context.RenderPass.BindPipeline(_pipeline);
-            context.RenderPass.BindDescriptorSet(_pipeline, bindings.Descriptors);
-            _drawBindings.MarkBound(bindings);
+            context.RenderPass.BindPipeline(pipeline);
+            context.RenderPass.BindDescriptorSet(pipeline, bindings.Descriptors);
+            drawBindings.MarkBound(bindings);
         }
 
         partial void PostDispose(bool disposing)
         {
             _pipelineRenderPass = null;
             IsPipelineInitialized = false;
-            _drawBindings?.Dispose();
-            _drawBindings = null;
+            for (int variant = 0; variant < _pipelines.Length; variant++)
+            {
+                _drawBindings[variant]?.Dispose();
+                _drawBindings[variant] = null;
+                _pipelines[variant]?.Dispose();
+                _pipelines[variant] = null;
+            }
+
             _sampler?.Dispose();
             _sampler = null;
             _defaultWhiteTexture?.Dispose();
             _defaultWhiteTexture = null;
-            _pipeline?.Dispose();
-            _pipeline = null;
         }
 
         [StructLayout(LayoutKind.Sequential)]
