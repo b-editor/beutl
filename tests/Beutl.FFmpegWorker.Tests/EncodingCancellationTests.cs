@@ -129,6 +129,29 @@ public class EncodingCancellationTests
             Throws.InstanceOf<OperationCanceledException>());
     }
 
+    [Test]
+    public async Task EncodingOverALargerFile_DoesNotRetainThePreviousTail()
+    {
+        if (!s_ffmpegAvailable.Value)
+            Assert.Ignore("FFmpeg native libraries are not available.");
+
+        string outputPath = Path.Combine(_workDir, "overwrite.mp4");
+        byte[] previous = Enumerable.Repeat((byte)0x5a, 1024 * 1024).ToArray();
+        File.WriteAllBytes(outputPath, previous);
+        var controller = new FFmpegEncodingController(outputPath, new FFmpegEncodingSettings());
+        controller.VideoSettings.SourceSize = new PixelSize(64, 64);
+        controller.VideoSettings.DestinationSize = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate = new Rational(30, 1);
+        controller.AudioSettings.SampleRate = 44100;
+        controller.AudioSettings.Channels = 2;
+        using var frames = new GradientFrameProvider(3, new Rational(30, 1), 64, 64);
+        using var samples = new SineSampleProvider(4410, 44100);
+
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        Assert.That(new FileInfo(outputPath).Length, Is.InRange(1, previous.Length - 1));
+    }
+
     private sealed class CancelAfterFirstFrameProvider(
         CancellationTokenSource cts, long frameCount, Rational frameRate, int width, int height)
         : IFrameProvider

@@ -992,6 +992,9 @@ public sealed class ProjectService
 
         internal ProjectCloseIntent CloseIntent { get; } = closeIntent;
 
+        // The snapshot phase may have saved these editors or obtained permission to discard them.
+        internal EditorService? PreparedEditorService { get; set; }
+
         internal void RegisterCompletion(Func<bool, Task> completion)
         {
             ArgumentNullException.ThrowIfNull(completion);

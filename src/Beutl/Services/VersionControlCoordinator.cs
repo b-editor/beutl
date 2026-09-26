@@ -901,6 +901,7 @@ internal sealed class VersionControlCoordinator :
                     _closesWithoutSnapshot.Add(closeContext);
                 }
 
+                closeContext.PreparedEditorService = _editorService;
                 return;
             }
 
@@ -910,6 +911,8 @@ internal sealed class VersionControlCoordinator :
                     MessageStrings.OperationFailed));
             throw new ProjectCloseAbortedException(MessageStrings.OperationFailed);
         }
+
+        closeContext.PreparedEditorService = _editorService;
     }
 
     private async Task CompletePreparedCloseBarrierAsync(

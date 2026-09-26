@@ -16,6 +16,8 @@ public class UpdateDialogViewModel
     private readonly CancellationTokenSource _cts = new();
     private readonly ILogger _logger = Log.CreateLogger<UpdateDialogViewModel>();
     private string? _downloadFile;
+    private bool _isInstalling;
+    private bool _installationStarted;
 
     public UpdateDialogViewModel(AppUpdateResponse update)
     {
@@ -36,6 +38,11 @@ public class UpdateDialogViewModel
 
     public async Task HandlePrimaryButtonClick()
     {
+        if (_isInstalling || _installationStarted || _cts.IsCancellationRequested)
+            return;
+
+        _isInstalling = true;
+        IsPrimaryButtonEnabled.Value = false;
         try
         {
             var metadata = await BeutlApiApplication.LoadMetadata();
@@ -58,11 +65,56 @@ public class UpdateDialogViewModel
                 await InstallOnWindows(metadata);
             }
         }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+            ProgressText.Value = MessageStrings.Canceled;
+        }
         catch (Exception e)
         {
             _logger.LogError(e, "Failed to handle primary button click");
             NotificationService.ShowError(Strings.Error, e.Message);
         }
+        finally
+        {
+            _isInstalling = false;
+            IsPrimaryButtonEnabled.Value = !_installationStarted && !_cts.IsCancellationRequested;
+        }
+    }
+
+    private async Task<bool> InstallAndExitCoreAsync(ProcessStartInfo startInfo)
+    {
+        _cts.Token.ThrowIfCancellationRequested();
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime
+            || lifetime.MainWindow?.DataContext is not MainViewModel main)
+            throw new InvalidOperationException(MessageStrings.OperationFailed);
+
+        if (!await main.TryDisposeForUpdateAsync(() =>
+            {
+                _cts.Token.ThrowIfCancellationRequested();
+                using Process process = Process.Start(startInfo)
+                    ?? throw new InvalidOperationException(MessageStrings.OperationFailed);
+                return true;
+            }))
+            return false;
+
+        try
+        {
+            await main.WaitForDisposalAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Cleanup failed after the update handoff was accepted.");
+        }
+
+        lifetime.TryShutdown();
+        return true;
+    }
+
+    private async Task LaunchInstallerAsync(ProcessStartInfo startInfo)
+    {
+        _installationStarted = await InstallAndExitCoreAsync(startInfo);
+        if (!_installationStarted)
+            ProgressText.Value = MessageStrings.OperationFailed;
     }
 
     private async Task InstallOnWindows(AssetMetadataJson metadata)
@@ -76,8 +128,7 @@ public class UpdateDialogViewModel
             }
 
             var psi = new ProcessStartInfo(_downloadFile) { UseShellExecute = true, Verb = "open" };
-            Process.Start(psi);
-            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+            await LaunchInstallerAsync(psi);
         }
         else if (metadata.Type == "zip")
         {
@@ -114,8 +165,7 @@ public class UpdateDialogViewModel
                 }
             };
 
-            Process.Start(psi);
-            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+            await LaunchInstallerAsync(psi);
         }
     }
 
@@ -139,8 +189,7 @@ public class UpdateDialogViewModel
                      $"sudo apt update && sudo apt install \"{_downloadFile}\""
                 }
             };
-            _ = Process.Start(psi);
-            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+            await LaunchInstallerAsync(psi);
         }
         else if (metadata.Type == "zip")
         {
@@ -169,8 +218,7 @@ public class UpdateDialogViewModel
                 }
             };
 
-            Process.Start(psi);
-            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+            await LaunchInstallerAsync(psi);
         }
     }
 
@@ -215,8 +263,7 @@ public class UpdateDialogViewModel
                 Path.Combine(AppContext.BaseDirectory, "Beutl")
             }
         };
-        Process.Start(psi);
-        (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+        await LaunchInstallerAsync(psi);
     }
 
     public void Start()
@@ -342,6 +389,7 @@ public class UpdateDialogViewModel
     private async Task<bool> ExtractIfNeeded(AssetMetadataJson metadata, string file, string destination)
     {
         var ct = _cts.Token;
+        bool extracted = false;
         _logger.LogInformation("Extracting update to {Destination}", destination);
         try
         {
@@ -363,9 +411,9 @@ public class UpdateDialogViewModel
                         }
 
                         Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
-                        await using var fs = File.Create(dst);
-                        await using var es = entry.Open();
-                        await es.CopyToAsync(fs, ct).ConfigureAwait(false);
+                        // The framework extractor restores Unix permissions from the ZIP, including
+                        // the executable bits required by the FFmpeg worker and other helper apps.
+                        await entry.ExtractToFileAsync(dst, overwrite: true, ct).ConfigureAwait(false);
                     }
 
                     ProgressValue.Value++;
@@ -384,14 +432,37 @@ public class UpdateDialogViewModel
                         destination
                     }
                 };
-                var process = Process.Start(psi);
+                using var process = Process.Start(psi);
                 if (process == null)
                 {
                     _logger.LogError("Failed to start ditto");
                     throw new InvalidOperationException("Failed to start ditto");
                 }
 
-                await process.WaitForExitAsync(ct);
+                try
+                {
+                    await process.WaitForExitAsync(ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Join the extractor before removing its partial output.
+                    if (!process.HasExited)
+                        process.Kill(entireProcessTree: true);
+                    await process.WaitForExitAsync(CancellationToken.None);
+                    throw;
+                }
+
+                string contents = Path.Combine(destination, "Beutl.app", "Contents");
+                string executable = Path.Combine(contents, "MacOS", "Beutl");
+                if (process.ExitCode != 0
+                    || !File.Exists(Path.Combine(contents, "Info.plist"))
+                    || !File.Exists(executable)
+                    || new FileInfo(executable).Length == 0)
+                {
+                    _logger.LogError("The update bundle was not completely extracted. Exit code: {ExitCode}",
+                        process.ExitCode);
+                    throw new InvalidDataException(MessageStrings.OperationFailed);
+                }
             }
 
             File.Delete(file);
@@ -399,6 +470,7 @@ public class UpdateDialogViewModel
             ProgressText.Value = MessageStrings.ExtractionComplete;
             ProgressValue.Value = ProgressMax.Value;
             IsIndeterminate.Value = false;
+            extracted = true;
             return true;
         }
         catch (OperationCanceledException)
@@ -412,6 +484,21 @@ public class UpdateDialogViewModel
             _logger.LogError(e, "Failed to extract update");
             ProgressText.Value = e.Message;
             return false;
+        }
+        finally
+        {
+            if (!extracted)
+            {
+                try
+                {
+                    if (Directory.Exists(destination))
+                        Directory.Delete(destination, recursive: true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to remove incomplete update files from {Destination}.", destination);
+                }
+            }
         }
     }
 

@@ -71,7 +71,9 @@ public class EditorHostViewModel
                     RestoreAfterAbortedCloseAsync(project, selectedObject, projectClosed));
             }
 
-            await DispatchProjectChangeAsync(null, project);
+            await DispatchProjectChangeAsync(null, project,
+                saveChanges: closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges
+                             && !ReferenceEquals(closeContext.PreparedEditorService, _editorService));
         });
     }
 
@@ -93,16 +95,16 @@ public class EditorHostViewModel
 
     internal sealed record ProjectLifecycleProgress(string Title, string Message);
 
-    private async Task DispatchProjectChangeAsync(Project? @new, Project? old)
+    private async Task DispatchProjectChangeAsync(Project? @new, Project? old, bool saveChanges = true)
     {
         if (Dispatcher.UIThread.CheckAccess())
         {
-            await OnProjectChangedAsync(@new, old);
+            await OnProjectChangedAsync(@new, old, saveChanges);
         }
         else
         {
             await Dispatcher.UIThread.InvokeAsync(async () =>
-                await OnProjectChangedAsync(@new, old));
+                await OnProjectChangedAsync(@new, old, saveChanges));
         }
     }
 
@@ -111,14 +113,16 @@ public class EditorHostViewModel
         CoreObject? selectedObject,
         bool projectClosed)
     {
-        if (projectClosed || !ReferenceEquals(_projectService.CurrentProject.Value, project))
+        if (projectClosed || !ReferenceEquals(_projectService.CurrentProject.Value, project)
+            || ReferenceEquals(_subscribedProject, project))
         {
             return Task.CompletedTask;
         }
 
         return QueueOperationAsync(async () =>
         {
-            await DispatchProjectChangeAsync(project, null);
+            // A save veto leaves the original tabs published. Only rebuild tabs that were torn down.
+            await DispatchProjectChangeAsync(project, null, saveChanges: false);
             if (selectedObject is ProjectItem selectedItem && project.Items.Contains(selectedItem))
             {
                 await DispatchAsync(() => _editorService.ActivateTabItem(selectedItem));
@@ -140,9 +144,12 @@ public class EditorHostViewModel
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;
 
-    private async Task OnProjectChangedAsync(Project? @new, Project? old)
+    private async Task OnProjectChangedAsync(Project? @new, Project? old, bool saveChanges)
     {
         var oldItems = _editorService.TabItems.ToArray();
+        if (saveChanges && !await _editorService.SaveSceneEditorsBeforeCloseAsync(oldItems))
+            throw new ProjectCloseAbortedException(MessageStrings.FileSaveException);
+
         try
         {
             try

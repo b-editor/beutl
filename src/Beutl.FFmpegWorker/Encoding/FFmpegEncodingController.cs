@@ -255,7 +255,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     {
         bool encodeVideo = false, encodeAudio = false;
         OutputFormat outputFormat = GuessOutputFormat(OutputFile);
-        using (var fs = File.OpenWrite(OutputFile))
+        using (var fs = File.Create(OutputFile))
         using (var muxer = MediaMuxer.Create(fs, outputFormat))
         using (var videoFrame = new MediaFrame())
         using (var audioFrame = new MediaFrame())
