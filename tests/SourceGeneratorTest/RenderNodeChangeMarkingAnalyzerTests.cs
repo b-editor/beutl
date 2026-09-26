@@ -1948,7 +1948,10 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "type is inherited");
     }
 
-    private static ImmutableArray<Diagnostic> AnalyzeRefLocal(string update, string declarations = "")
+    private static ImmutableArray<Diagnostic> AnalyzeRefLocal(
+        string update,
+        string declarations = "",
+        CancellationToken cancellationToken = default)
         => Analyze($$"""
             using Beutl.Graphics;
             using Beutl.Graphics.Rendering;
@@ -1971,7 +1974,7 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
                     context.Publish(_slots[0]);
                 }
             }
-            """);
+            """, CSharpParseOptions.Default, cancellationToken);
 
     [TestCase("ref Rect alias = ref _bounds; alias = bounds;")]
     [TestCase("ref Rect alias = ref this._bounds; alias = bounds;")]
@@ -1998,13 +2001,16 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             update.Append($" ref Rect a{i} = ref a{i - 1}; a{i} = ref a{i - 1};");
         update.Append(" a40 = bounds;");
 
-        // The analysis is synchronous and cannot be cancelled, so it runs apart and the test stops waiting
-        // rather than hanging the run when the resolution goes exponential.
-        var analysis = Task.Run(() => AnalyzeRefLocal(update.ToString()));
+        // The analyzer observes the analysis token, so a resolution gone exponential is stopped here and fails
+        // the test rather than hanging the run or burning CPU after it.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        ImmutableArray<Diagnostic> diagnostics = default;
 
-        Assert.That(analysis.Wait(TimeSpan.FromSeconds(30)), Is.True,
+        Assert.That(
+            () => diagnostics = AnalyzeRefLocal(update.ToString(), cancellationToken: timeout.Token),
+            Throws.Nothing,
             "forty levels of double bindings take 2^40 resolutions without a cache");
-        Assert.That(analysis.Result.Select(static d => d.Id), Does.Contain("BESG005"));
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG005"));
     }
 
     [TestCase("ref Rect alias = ref _bounds; alias = bounds; MarkChanged();", TestName = "marked")]
@@ -2622,7 +2628,10 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
     /// call is kept or dropped by the symbols defined where it is written, so a harness that could not vary
     /// them could not tell a mark the build keeps from one it removes.
     /// </remarks>
-    private static ImmutableArray<Diagnostic> Analyze(string source, CSharpParseOptions parseOptions)
+    private static ImmutableArray<Diagnostic> Analyze(
+        string source,
+        CSharpParseOptions parseOptions,
+        CancellationToken cancellationToken = default)
     {
         CSharpCompilation compilation = CreateCompilation(source, parseOptions);
 
@@ -2635,7 +2644,7 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
 
         return compilation
             .WithAnalyzers([new RenderNodeChangeMarkingAnalyzer()])
-            .GetAnalyzerDiagnosticsAsync()
+            .GetAnalyzerDiagnosticsAsync(cancellationToken)
             .GetAwaiter()
             .GetResult();
     }

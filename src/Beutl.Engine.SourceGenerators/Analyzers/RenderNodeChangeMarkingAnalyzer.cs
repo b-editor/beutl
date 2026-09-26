@@ -59,7 +59,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         if (process is null)
             return;
 
-        var analysis = new TypeAnalysis(context.Compilation, type, renderNodeType);
+        var analysis = new TypeAnalysis(context.Compilation, type, renderNodeType, context.CancellationToken);
         ImmutableHashSet<ISymbol> processClosure = analysis.CollectCallClosure(process);
         for (INamedTypeSymbol? current = type; current is not null && !SymbolEqualityComparer.Default.Equals(current, renderNodeType); current = current.BaseType)
         {
@@ -527,7 +527,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     private sealed class TypeAnalysis(
         Compilation compilation,
         INamedTypeSymbol type,
-        INamedTypeSymbol renderNodeType)
+        INamedTypeSymbol renderNodeType,
+        CancellationToken cancellationToken)
     {
         private readonly Dictionary<IMethodSymbol, ImmutableHashSet<ISymbol>> _readStateByProcess =
             new(SymbolEqualityComparer.Default);
@@ -683,7 +684,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     if (symbol is ILocalSymbol { RefKind: RefKind.Ref } alias)
                     {
                         if (ChangesTheState(body.Model, reference.Access)
-                            && ResolveRefTarget(body.Model, body.Body, alias, trackedState) is { } aliased)
+                            && ResolveRefTarget(body.Model, body.Body, alias, trackedState, cancellationToken)
+                            is { } aliased)
                         {
                             yield return new StateAssignment(aliased, reference.Access.GetLocation());
                         }
@@ -889,14 +891,16 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         SyntaxNode body,
         ILocalSymbol alias,
-        ImmutableHashSet<ISymbol> trackedState)
+        ImmutableHashSet<ISymbol> trackedState,
+        CancellationToken cancellationToken)
         => ResolveRefTarget(
             model,
             body,
             alias,
             trackedState,
             new HashSet<ISymbol>(SymbolEqualityComparer.Default),
-            new Dictionary<ISymbol, ISymbol?>(SymbolEqualityComparer.Default));
+            new Dictionary<ISymbol, ISymbol?>(SymbolEqualityComparer.Default),
+            cancellationToken);
 
     private static ISymbol? ResolveRefTarget(
         SemanticModel model,
@@ -904,8 +908,11 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         ILocalSymbol alias,
         ImmutableHashSet<ISymbol> trackedState,
         HashSet<ISymbol> visited,
-        Dictionary<ISymbol, ISymbol?> resolved)
+        Dictionary<ISymbol, ISymbol?> resolved,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         // A local already resolved answers from the cache, so a chain of rebindings costs one resolution per
         // local however many bindings name it.
         if (resolved.TryGetValue(alias, out ISymbol? known))
@@ -918,7 +925,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
         try
         {
-            ISymbol? target = ResolveRefTargetCore(model, body, alias, trackedState, visited, resolved);
+            ISymbol? target = ResolveRefTargetCore(
+                model, body, alias, trackedState, visited, resolved, cancellationToken);
             resolved[alias] = target;
             return target;
         }
@@ -934,7 +942,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         ILocalSymbol alias,
         ImmutableHashSet<ISymbol> trackedState,
         HashSet<ISymbol> visited,
-        Dictionary<ISymbol, ISymbol?> resolved)
+        Dictionary<ISymbol, ISymbol?> resolved,
+        CancellationToken cancellationToken)
     {
         var bindings = new List<ExpressionSyntax>();
         foreach (SyntaxReference declaration in alias.DeclaringSyntaxReferences)
@@ -962,7 +971,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         ISymbol? target = null;
         foreach (ExpressionSyntax binding in bindings)
         {
-            if (ResolveBindingTarget(model, body, binding, trackedState, visited, resolved) is not { } bound
+            if (ResolveBindingTarget(
+                    model, body, binding, trackedState, visited, resolved, cancellationToken) is not { } bound
                 || (target is not null && !SymbolEqualityComparer.Default.Equals(target, bound)))
             {
                 return null;
@@ -985,7 +995,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax binding,
         ImmutableHashSet<ISymbol> trackedState,
         HashSet<ISymbol> visited,
-        Dictionary<ISymbol, ISymbol?> resolved)
+        Dictionary<ISymbol, ISymbol?> resolved,
+        CancellationToken cancellationToken)
     {
         ExpressionSyntax storage = binding;
         while (true)
@@ -1020,7 +1031,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return null;
 
         if (symbol is ILocalSymbol { RefKind: RefKind.Ref } chained)
-            return ResolveRefTarget(model, body, chained, trackedState, visited, resolved);
+            return ResolveRefTarget(model, body, chained, trackedState, visited, resolved, cancellationToken);
 
         return IsOnThisInstance(name) && trackedState.Contains(symbol.OriginalDefinition)
             ? symbol
