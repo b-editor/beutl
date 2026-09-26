@@ -75,6 +75,19 @@ public class HitTester3DVisibilityTests
         Assert.That(hit is not null, Is.EqualTo(expected));
     }
 
+    [Test]
+    public void Card_WithAFullyTransparentMaterial_IsNotHit()
+    {
+        using var camera = CreateCamera(farPlane: 10000);
+        var card = new DrawableObject3D();
+        card.Children.Add(CreateSquare(0));
+        ((Beutl.Graphics3D.Materials.UnlitMaterial)card.Material.CurrentValue!).Opacity.CurrentValue = 0;
+        using var resource = (DrawableObject3D.Resource)card.ToResource(CompositionContext.Default);
+        resource.UpdateLayout(new Size(1920, 1080), density: 1);
+
+        Assert.That(HitTester3D.HitTest(s_center, 1920, 1080, camera, [resource]), Is.Null);
+    }
+
     private static RectShape CreateSquare(float x)
     {
         var rect = new RectShape();

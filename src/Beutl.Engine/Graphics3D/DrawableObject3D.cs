@@ -76,6 +76,10 @@ public sealed partial class DrawableObject3D : Object3D, IFlowOperator
         // through. The unit plane's X runs across the content and its -Z down it.
         internal override bool HitTestContent(Vector3 localPoint)
         {
+            // A fully transparent material discards every pixel of the card.
+            if (Material is UnlitMaterial.Resource unlit && (unlit.Opacity <= 0 || unlit.Color.A == 0))
+                return false;
+
             Rect bounds = _content.ContentBounds;
             return _content.HitTest(new Point(
                 bounds.X + ((localPoint.X + 0.5f) * bounds.Width),

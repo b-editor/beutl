@@ -28,12 +28,12 @@ public sealed class Scene3DCoordinateRenderTests
         return block;
     }
 
-    private static RectShape CreateRect(float x, float y)
+    private static RectShape CreateRect(float x, float y, Color? color = null)
     {
         var rect = new RectShape();
         rect.Width.CurrentValue = 400;
         rect.Height.CurrentValue = 250;
-        rect.Fill.CurrentValue = new SolidColorBrush(new Color(160, 30, 120, 255));
+        rect.Fill.CurrentValue = new SolidColorBrush(color ?? new Color(160, 30, 120, 255));
         rect.Transform.CurrentValue = new TranslateTransform(x, y);
         return rect;
     }
@@ -53,6 +53,31 @@ public sealed class Scene3DCoordinateRenderTests
         ]);
 
         Assert.That(asCards, Has.Length.EqualTo(twoDimensional.Length));
+        float maximum = 0;
+        for (int i = 0; i < asCards.Length; i++)
+        {
+            maximum = Math.Max(maximum, Math.Abs(asCards[i] - twoDimensional[i]));
+        }
+
+        Assert.That(maximum, Is.LessThanOrEqualTo(2f / 255f));
+    }
+
+    // Overlapping unmoved cards keep the 2D painter order even when the later one's center is farther from
+    // the camera than the earlier one's.
+    [Test]
+    public async Task OverlappingUnmovedCards_KeepTheTwoDimensionalOrder()
+    {
+        AgentToolkitGpuTestEnvironment.EnsureAvailable();
+
+        var later = new Color(200, 240, 160, 20);
+        float[] twoDimensional = await RenderAsync([CreateRect(0, 0), CreateRect(300, 100, later)]);
+        float[] asCards = await RenderAsync(
+        [
+            CreateRect(0, 0), new DrawableObject3D(),
+            CreateRect(300, 100, later), new DrawableObject3D(),
+            new Scene3D()
+        ]);
+
         float maximum = 0;
         for (int i = 0; i < asCards.Length; i++)
         {

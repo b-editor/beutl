@@ -322,7 +322,8 @@ internal sealed class Renderer3D : IRenderer3D
 
     /// <summary>
     /// Separates objects into opaque and transparent lists.
-    /// Transparent objects are sorted by distance from camera (far to near).
+    /// Transparent objects are sorted by depth along the camera's view (far to near); objects at the same depth,
+    /// such as unmoved 2D cards, keep the scene's order, as 2D drawing would.
     /// </summary>
     private static void SeparateObjectsByTransparency(
         IReadOnlyList<Object3D.Resource> objects, Camera3D.Resource camera,
@@ -347,13 +348,22 @@ internal sealed class Renderer3D : IRenderer3D
                 {
                     Object = obj,
                     WorldMatrix = world,
-                    DistanceToCamera = Vector3.Distance(world.Translation, camera.Position),
+                    DistanceToCamera = GizmoHitTester.GetViewDepth(
+                        camera.Position,
+                        camera.Target,
+                        float.NegativeInfinity,
+                        world.Translation),
+                    Order = transparentEntries.Count,
                 });
             }
         }
 
         // Sort transparent objects from far to near (painter's algorithm)
-        transparentEntries.Sort((a, b) => b.DistanceToCamera.CompareTo(a.DistanceToCamera));
+        transparentEntries.Sort(static (a, b) =>
+        {
+            int byDepth = b.DistanceToCamera.CompareTo(a.DistanceToCamera);
+            return byDepth != 0 ? byDepth : a.Order.CompareTo(b.Order);
+        });
     }
 
     /// <summary>

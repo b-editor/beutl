@@ -431,16 +431,15 @@ public static class HitTester3D
         // Iterate through triangles
         for (int i = 0; i + 2 < indices.Length; i += 3)
         {
-            Vertex3D a = vertices[(int)indices[i]];
-            Vertex3D b = vertices[(int)indices[i + 1]];
-            Vertex3D c = vertices[(int)indices[i + 2]];
-            var v0 = a.Position;
-            var v1 = b.Position;
-            var v2 = c.Position;
+            var v0 = vertices[(int)indices[i]].Position;
+            var v1 = vertices[(int)indices[i + 1]].Position;
+            var v2 = vertices[(int)indices[i + 2]].Position;
 
-            // The authored normals point out of the front face; a mirroring transform culls the other side.
+            // Rendering decides the front face by winding, not by normals: in Beutl's meshes the front
+            // face's winding normal points into the mesh, so a ray reaches a front face along it. A mirroring
+            // transform reverses the winding and so culls the other side.
             if (cullBackFaces
-                && (Vector3.Dot(ray.Direction, a.Normal + b.Normal + c.Normal) >= 0) != mirrored)
+                && (Vector3.Dot(ray.Direction, Vector3.Cross(v1 - v0, v2 - v0)) <= 0) != mirrored)
             {
                 continue;
             }
