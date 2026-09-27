@@ -186,6 +186,91 @@ public class PathEditorInteractionTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Pen_closing_existing_cubic_applies_outgoing_and_preserves_incoming(bool animatedIncoming)
+    {
+        var figure = new PathFigure();
+        var first = PathEditingOperations.Cubic(new(30, 90), new(40, 140), new(80, 100));
+        if (animatedIncoming)
+        {
+            var animation = new KeyFrameAnimation<BtlPoint>();
+            animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = new(35, 85) });
+            first.ControlPoint2.Animation = animation;
+        }
+        figure.Segments.Add(first);
+        figure.Segments.Add(new LineSegment(180, 100));
+        figure.Segments.Add(new LineSegment(280, 180));
+        using var editor = await Fixture.Create(pathFigure: figure);
+        editor.Key(Key.P);
+        editor.Click(280, 180);
+        editor.Drag(new(240, 120), new(270, 120));
+        var before = CoreSerializer.SerializeToJsonObject(figure);
+        var incoming = first.ControlPoint2.Animation;
+        int history = editor.Editor.HistoryManager.UndoCount;
+        editor.Click(80, 100);
+        Assert.That(figure.IsClosed.CurrentValue, Is.True);
+        Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Move));
+        Assert.That(figure.Segments[0], Is.SameAs(first));
+        Assert.That(first.ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)));
+        Assert.That(first.ControlPoint2.CurrentValue, Is.EqualTo(new BtlPoint(40, 140)));
+        Assert.That(first.ControlPoint2.Animation, Is.SameAs(incoming));
+        Assert.That(first.EndPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history + 1));
+        var after = CoreSerializer.SerializeToJsonObject(figure);
+        if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
+        {
+            Directory.CreateDirectory(directory);
+            using var frame = editor.Window.CaptureRenderedFrame();
+            frame!.Save(System.IO.Path.Combine(directory, $"implicit-cubic-close-{animatedIncoming}.png"), PngBitmapEncoderOptions.Default);
+        }
+        editor.Editor.HistoryManager.Undo();
+        Assert.That(JsonNode.DeepEquals(before, CoreSerializer.SerializeToJsonObject(figure)), Is.True);
+        editor.Editor.HistoryManager.Redo();
+        Assert.That(JsonNode.DeepEquals(after, CoreSerializer.SerializeToJsonObject(figure)), Is.True);
+    }
+
+    [AvaloniaTest]
+    [TestCase("animation")]
+    [TestCase("expression")]
+    [TestCase("quadratic")]
+    [TestCase("last-point-animation")]
+    public async Task Pen_rejects_incompatible_implicit_closing_edge_without_losing_outgoing(string kind)
+    {
+        var figure = new PathFigure();
+        var cubic = PathEditingOperations.Cubic(new(30, 90), new(40, 140), new(80, 100));
+        figure.Segments.Add(kind == "quadratic" ? new QuadraticBezierSegment(new(40, 140), new(80, 100)) : cubic);
+        figure.Segments.Add(new LineSegment(180, 100));
+        figure.Segments.Add(new LineSegment(280, 180));
+        using var editor = await Fixture.Create(pathFigure: figure);
+        editor.Key(Key.P);
+        editor.Click(280, 180);
+        editor.Drag(new(240, 120), new(270, 120));
+        using (editor.Editor.HistoryManager.SuppressRecording())
+        {
+            if (kind == "expression") cubic.ControlPoint1.Expression = Expression.Create<BtlPoint>("new Point(30, 90)");
+            if (kind is "animation" or "last-point-animation")
+            {
+                var property = kind == "animation" ? cubic.ControlPoint1 : figure.Segments[^1].GetEndPoint();
+                var animation = new KeyFrameAnimation<BtlPoint>();
+                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = property.CurrentValue });
+                property.Animation = animation;
+            }
+        }
+        editor.View.Refresh();
+        HeadlessTestHelpers.Render(3);
+        var before = CoreSerializer.SerializeToJsonObject(figure);
+        int history = editor.Editor.HistoryManager.UndoCount;
+        editor.Click(80, 100);
+        Assert.That(JsonNode.DeepEquals(before, CoreSerializer.SerializeToJsonObject(figure)), Is.True);
+        Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Pen));
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history));
+        Assert.That(editor.Editor.HistoryManager.HasPendingOperations, Is.False);
+        editor.Click(220, 160);
+        Assert.That(((CubicBezierSegment)figure.Segments[^1]).ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)));
+    }
+
+    [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(false, true)]

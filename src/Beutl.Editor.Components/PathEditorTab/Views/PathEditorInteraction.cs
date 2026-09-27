@@ -243,6 +243,22 @@ internal sealed class PathEditorInteraction
         && (_outgoing == null || PathEditingOperations.IsStatic(figure.StartPoint)
             && PathEditingOperations.IsStatic(figure.Segments[^1].GetEndPoint()));
 
+    private bool CanCloseImplicitPath(PathFigure figure)
+    {
+        if (!PathEditingOperations.IsStatic(figure.IsClosed)) return false;
+        if (_outgoing == null && _firstIncoming == null) return true;
+        if (!PathEditingOperations.IsStatic(figure.StartPoint)
+            || !PathEditingOperations.IsStatic(figure.Segments[0].GetEndPoint())
+            || !PathEditingOperations.IsStatic(figure.Segments[^1].GetEndPoint())) return false;
+        return figure.Segments[0] switch
+        {
+            LineSegment => true,
+            CubicBezierSegment cubic => (_outgoing == null || PathEditingOperations.IsStatic(cubic.ControlPoint1))
+                && (_firstIncoming == null || PathEditingOperations.IsStatic(cubic.ControlPoint2)),
+            _ => false
+        };
+    }
+
     private static T? Ancestor<T>(object? source) where T : Visual =>
         source is T self ? self : (source as Visual)?.GetVisualAncestors().OfType<T>().FirstOrDefault();
 
@@ -317,15 +333,21 @@ internal sealed class PathEditorInteraction
                 if (_penEnd != null && explicitStart.IsInvalid && ReferenceEquals(endpoint, figure.Segments.FirstOrDefault())
                     && figure.Segments.Count > 1 && !PathPointDragBehavior.IsClosed(Context, figure))
                 {
-                    if (!PathEditingOperations.IsStatic(figure.IsClosed))
+                    if (!CanCloseImplicitPath(figure))
                     {
                         e.Handled = true;
                         return;
                     }
                     Mutate(() =>
                     {
-                        if (figure.Segments[0] is LineSegment && PathEditingOperations.IsStatic(endpoint.GetEndPoint())
-                            && (_firstIncoming != null || _outgoing != null))
+                        if (figure.Segments[0] is CubicBezierSegment closing)
+                        {
+                            // The first segment is the closing edge for implicit-start
+                            // figures. Keep its identity and any untouched handle data.
+                            if (_outgoing is { } outgoing) closing.ControlPoint1.CurrentValue = outgoing;
+                            if (_firstIncoming is { } incoming) closing.ControlPoint2.CurrentValue = incoming;
+                        }
+                        else if (figure.Segments[0] is LineSegment && (_firstIncoming != null || _outgoing != null))
                         {
                             BtlPoint last = figure.Segments[^1].GetEndPoint().GetValue(Composition);
                             BtlPoint first = endpoint.GetEndPoint().GetValue(Composition);
