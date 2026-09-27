@@ -128,14 +128,16 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             if (_dragState == null && !AssociatedObject.Classes.Contains("control"))
             {
                 if (_toggleOnClick)
+                {
                     SetIsSelected(AssociatedObject, false);
+                    SynchronizeSelection();
+                }
                 else if (_collapseOnClick)
                 {
                     var parent = AssociatedObject.FindLogicalAncestorOfType<IPathEditorView>();
                     foreach (Thumb item in parent?.GetSelectedAnchors() ?? [])
                         SetIsSelected(item, item == AssociatedObject);
                 }
-                SynchronizeSelection();
             }
 
             OnReleased();

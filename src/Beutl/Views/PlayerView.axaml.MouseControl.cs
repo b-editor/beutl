@@ -108,23 +108,7 @@ public partial class PlayerView
 
         private Player Player => View.Player;
 
-        public void OnWheelChanged(PointerWheelEventArgs e)
-        {
-            const float ZoomSpeed = 1.2f;
-
-            AvaPoint pos = e.GetPosition(View.framePanel);
-            float x = (float)pos.X;
-            float y = (float)pos.Y;
-            float delta = (float)e.Delta.Y;
-            float realDelta = MathF.Sign(delta) * MathF.Abs(delta);
-
-            float ratio = MathF.Pow(ZoomSpeed, realDelta);
-
-            var a = new Matrix(ratio, 0, 0, ratio, x - (ratio * x), y - (ratio * y));
-            ViewModel.FrameMatrix.Value = a * ViewModel.FrameMatrix.Value;
-
-            e.Handled = true;
-        }
+        public void OnWheelChanged(PointerWheelEventArgs e) => View.ZoomFrameAtPointer(e, ViewModel);
 
         public void OnMoved(PointerEventArgs e)
         {
@@ -1922,16 +1906,31 @@ public partial class PlayerView
         }
     }
 
+    private void ZoomFrameAtPointer(PointerWheelEventArgs e, PlayerViewModel viewModel)
+    {
+        const float ZoomSpeed = 1.2f;
+        AvaPoint pos = e.GetPosition(framePanel);
+        float x = (float)pos.X, y = (float)pos.Y;
+        float ratio = MathF.Pow(ZoomSpeed, (float)e.Delta.Y);
+        var zoom = new Matrix(ratio, 0, 0, ratio, x - ratio * x, y - ratio * y);
+        viewModel.FrameMatrix.Value = zoom * viewModel.FrameMatrix.Value;
+        e.Handled = true;
+    }
+
     private void OnFramePointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (DataContext is PlayerViewModel viewModel)
         {
-            if (viewModel.PathEditor.IsVisible.Value
-                && (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) == 0)
+            if (viewModel.PathEditor.IsVisible.Value)
             {
-                AvaPoint delta = e.KeyModifiers.HasFlag(KeyModifiers.Shift)
-                    ? new AvaPoint(e.Delta.Y, e.Delta.X) : new AvaPoint(e.Delta.X, e.Delta.Y);
-                viewModel.FrameMatrix.Value *= Matrix.CreateTranslation((float)delta.X * 24, (float)delta.Y * 24);
+                if ((e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
+                    ZoomFrameAtPointer(e, viewModel);
+                else
+                {
+                    AvaPoint delta = e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+                        ? new AvaPoint(e.Delta.Y, e.Delta.X) : new AvaPoint(e.Delta.X, e.Delta.Y);
+                    viewModel.FrameMatrix.Value *= Matrix.CreateTranslation((float)delta.X * 24, (float)delta.Y * 24);
+                }
                 e.Handled = true;
                 return;
             }

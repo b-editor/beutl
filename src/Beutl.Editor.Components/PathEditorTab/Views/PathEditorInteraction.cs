@@ -375,6 +375,15 @@ internal sealed class PathEditorInteraction
             }
             if (TryLocal(point, out BtlPoint local) && !PathPointDragBehavior.IsClosed(Context, figure))
             {
+                // New controls are static. Do not sample a driven edge start into
+                // them, whether it is the explicit start or a previous endpoint.
+                var startProperty = figure.Segments.Count == 0
+                    ? figure.StartPoint : figure.Segments[^1].GetEndPoint();
+                if (!PathEditingOperations.IsStatic(startProperty))
+                {
+                    e.Handled = true;
+                    return;
+                }
                 _penPoint = local;
                 if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && figure.Segments.Count > 0)
                     _penPoint = SnapAngle(figure.Segments[^1].GetEndPoint().GetValue(Composition), local);
