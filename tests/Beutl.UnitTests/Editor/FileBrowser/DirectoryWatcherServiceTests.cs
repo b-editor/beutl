@@ -154,6 +154,89 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
+    public void Editor_entry_checks_are_coalesced_without_reloading_content()
+    {
+        string document = CreateFile("main.scene");
+        string temporary = $"{document}.{Guid.NewGuid():N}.tmp";
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue);
+        int reloads = 0;
+        IReadOnlyCollection<string>? entries = null;
+        service.Changed += () => reloads++;
+        service.EntriesChanged += paths => entries = paths;
+
+        service.NotifyPathChanged(document);
+        Action stale = TakePostedAction(posted);
+        service.NotifyPathChanged(temporary);
+        Action current = TakePostedAction(posted);
+        stale();
+        Assert.That(entries, Is.Null);
+        current();
+
+        Assert.That(reloads, Is.Zero);
+        Assert.That(entries, Is.EquivalentTo(new[] { document, temporary }));
+    }
+
+    [Test]
+    public void Entry_checks_do_not_downgrade_a_pending_content_change()
+    {
+        string document = CreateFile("main.scene");
+        string asset = CreateFile("clip.png");
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue);
+        int reloads = 0;
+        int checks = 0;
+        service.Changed += () => reloads++;
+        service.EntriesChanged += _ => checks++;
+
+        service.NotifyPathChanged(asset);
+        Action stale = TakePostedAction(posted);
+        service.NotifyPathChanged(document);
+        Action current = TakePostedAction(posted);
+        stale();
+        current();
+        Assert.That(reloads, Is.EqualTo(1));
+        Assert.That(checks, Is.Zero);
+
+        service.NotifyPathChanged(document);
+        TakePostedAction(posted)();
+        Assert.That(reloads, Is.EqualTo(1));
+        Assert.That(checks, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Changing_folders_discards_pending_editor_entry_checks()
+    {
+        string document = CreateFile("main.scene");
+        string next = Path.Combine(_projectRoot, "next");
+        Directory.CreateDirectory(next);
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue);
+        IReadOnlyCollection<string>? entries = null;
+        service.EntriesChanged += paths => entries = paths;
+        service.NotifyPathChanged(document);
+        Action stale = TakePostedAction(posted);
+        service.Watch(next);
+        string nextDocument = Path.Combine(next, "next.scene");
+        service.NotifyPathChanged(nextDocument);
+        Action current = TakePostedAction(posted);
+        stale();
+        current();
+        Assert.That(entries, Is.EquivalentTo(new[] { nextDocument }));
+    }
+
+    [Test]
+    public void Reserved_metadata_documents_do_not_schedule_entry_checks()
+    {
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue);
+        string document = CreateFile(".beutl/hidden.scene");
+        service.NotifyPathChanged(document);
+        service.NotifyPathChanged($"{document}.{Guid.NewGuid():N}.tmp");
+        Assert.That(posted, Is.Empty);
+    }
+
+    [Test]
     public void Newer_notification_invalidates_an_already_queued_delivery()
     {
         string path = CreateFile("assets/clip.png");

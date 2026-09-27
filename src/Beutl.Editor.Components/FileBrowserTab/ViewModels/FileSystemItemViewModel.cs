@@ -282,6 +282,26 @@ public class FileSystemItemViewModel : IDisposable
         }
     }
 
+    internal void RefreshEntriesForDirectory(string directory)
+    {
+        if (!IsDirectory || Children is null)
+            return;
+
+        if (string.Equals(FullPath, directory, StringComparison.Ordinal))
+        {
+            bool changed = _childrenLoaded
+                ? FileSystemEnumerator.HasEntriesChanged(Children, FullPath)
+                : (Children.Count > 0) != new DirectoryInfo(FullPath)
+                    .EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible);
+            if (changed) Refresh();
+        }
+        else if (_childrenLoaded)
+        {
+            foreach (var child in Children)
+                child.RefreshEntriesForDirectory(directory);
+        }
+    }
+
     private void AddPlaceholderIfNeeded()
     {
         try

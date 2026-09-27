@@ -18,6 +18,118 @@ namespace Beutl.HeadlessUITests;
 public class FileBrowserAutoSaveTests
 {
     [AvaloniaTest]
+    public async Task Moving_a_sidecar_named_directory_out_of_the_project_removes_home_media_results()
+    {
+        string scratch = Path.Combine(Path.GetTempPath(), $"beutl-browser-media-move-{Guid.NewGuid():N}");
+        string root = Path.Combine(scratch, "project");
+        string assets = Path.Combine(root, "assets");
+        string directory = Path.Combine(assets, $"clip.belm.{Guid.NewGuid():N}.tmp");
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(Path.Combine(assets, "keep.txt"), "keep");
+        string image = Path.Combine(directory, "image.png");
+        File.WriteAllBytes(image, Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+iWZkAAAAASUVORK5CYII="));
+        var context = new Mock<IEditorContext>();
+        context.Setup(x => x.GetService(typeof(Scene)))
+            .Returns(new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) });
+        using var browser = new FileBrowserTabViewModel(context.Object);
+        try
+        {
+            await WaitUntilAsync(() => browser.MediaFileItems.Any(item => item.FullPath == image));
+            Directory.Move(directory, Path.Combine(scratch, "moved"));
+            await WaitUntilAsync(() => !browser.IsLoadingMediaFiles.Value && browser.MediaFileItems.Count == 0);
+        }
+        finally
+        {
+            browser.Dispose();
+            Directory.Delete(scratch, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Sidecar_named_directories_follow_create_rename_and_delete_notifications()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"beutl-browser-directories-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        string original = Path.Combine(root, $"clip.belm.{Guid.NewGuid():N}.tmp");
+        string renamed = Path.Combine(root, $"clip.belm.{Guid.NewGuid():N}.tmp");
+        // Seed an existing directory too: its deletion cannot be classified with Directory.Exists.
+        Directory.CreateDirectory(original);
+        File.WriteAllText(Path.Combine(original, "nested.belm"), "{}");
+        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        try
+        {
+            browser.RootPath.Value = root;
+            Assert.That(browser.Items.Single().IsDirectory, Is.True);
+            Directory.Delete(original, recursive: true);
+            await WaitUntilAsync(() => browser.Items.Count == 0);
+
+            Directory.CreateDirectory(original);
+            await WaitUntilAsync(() => browser.Items.Any(x => x.FullPath == original && x.IsDirectory));
+            Directory.Move(original, renamed);
+            await WaitUntilAsync(() => browser.Items.Count == 1 && browser.Items[0].FullPath == renamed);
+            Directory.Delete(renamed);
+            await WaitUntilAsync(() => browser.Items.Count == 0);
+        }
+        finally
+        {
+            browser.Dispose();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task First_document_save_enables_a_collapsed_folder_without_resetting_the_listing()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"beutl-browser-first-save-{Guid.NewGuid():N}");
+        string folderPath = Path.Combine(root, "Scene");
+        Directory.CreateDirectory(folderPath);
+        string document = Path.Combine(folderPath, "first.belm");
+        string temporary = $"{document}.{Guid.NewGuid():N}.tmp";
+        File.WriteAllText(temporary, "{}");
+        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        var window = new Window
+        {
+            Content = new FileBrowserTabView { DataContext = browser },
+            Width = 480,
+            Height = 400
+        };
+        try
+        {
+            browser.ViewMode.Value = FileBrowserViewMode.Tree;
+            browser.RootPath.Value = root;
+            window.Show();
+            HeadlessTestHelpers.Render();
+            FileSystemItemViewModel folder = browser.TreeRootItems.Single();
+            Assert.That(folder.Children, Is.Empty);
+            File.Move(temporary, document);
+            await WaitUntilAsync(() => folder.Children!.Count > 0);
+            Assert.That(browser.TreeRootItems.Single(), Is.SameAs(folder));
+            folder.IsExpanded.Value = true;
+            HeadlessTestHelpers.Render();
+            Assert.That(folder.Children!.Single().FullPath, Is.EqualTo(document));
+
+            if (Environment.GetEnvironmentVariable("BEUTL_FILE_BROWSER_AUTOSAVE_CAPTURE") is { Length: > 0 } capture)
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.That(frame, Is.Not.Null);
+                frame!.Save(Path.ChangeExtension(capture, "first-save.png"), PngBitmapEncoderOptions.Default);
+            }
+
+            folder.IsExpanded.Value = false;
+            File.Delete(document);
+            await WaitUntilAsync(() => folder.Children!.Count == 0);
+            Assert.That(browser.TreeRootItems.Single(), Is.SameAs(folder));
+        }
+        finally
+        {
+            window.Close();
+            browser.Dispose();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
     public void Collapsed_folders_only_offer_expansion_for_visible_entries()
     {
         string root = Path.Combine(Path.GetTempPath(), $"beutl-browser-expand-{Guid.NewGuid():N}");
@@ -174,6 +286,7 @@ public class FileBrowserAutoSaveTests
         using var browser = new FileBrowserTabViewModel(context.Object);
         var view = new FileBrowserTabView { DataContext = browser };
         var window = new Window { Content = view, Width = 480, Height = 600 };
+        bool favoriteAdded = false;
         try
         {
             browser.ViewMode.Value = FileBrowserViewMode.List;
@@ -212,13 +325,17 @@ public class FileBrowserAutoSaveTests
             await WaitUntilAsync(() => browser.Items.All(x => x.FullPath != added));
 
             // The default home view must also retain its project listing across edits.
+            browser.ToggleFavorite(element.Uri!.LocalPath);
+            favoriteAdded = true;
             browser.NavigateToHome();
             await SettleWatcherAsync();
             FileSystemItemViewModel[] homeItems = browser.ProjectDirectoryItems.ToArray();
+            FileSystemItemViewModel[] favoriteItems = browser.FavoriteItems.ToArray();
             element.ZIndex++;
             autoSave.SaveObjects([element, scene]);
             await SettleWatcherAsync();
             Assert.That(browser.ProjectDirectoryItems, Is.EqualTo(homeItems));
+            Assert.That(browser.FavoriteItems, Is.EqualTo(favoriteItems));
 
             if (Environment.GetEnvironmentVariable("BEUTL_FILE_BROWSER_AUTOSAVE_CAPTURE") is { Length: > 0 } capture)
             {
@@ -230,6 +347,7 @@ public class FileBrowserAutoSaveTests
         }
         finally
         {
+            if (favoriteAdded) browser.ToggleFavorite(element.Uri!.LocalPath);
             window.Close();
             browser.Dispose();
             Directory.Delete(root, recursive: true);

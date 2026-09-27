@@ -11,6 +11,13 @@ internal static class FileSystemEnumerator
         => (entry.Attributes & FileAttributes.Hidden) == 0
            && (entry is DirectoryInfo || !DirectoryWatcherService.IsEditorSaveTemporaryFile(entry.FullName));
 
+    internal static bool HasEntriesChanged(IEnumerable<FileSystemItemViewModel> items, string path)
+    {
+        var displayed = items.Select(item => (Path.GetFileName(item.FullPath), item.IsDirectory)).ToHashSet();
+        return !displayed.SetEquals(new DirectoryInfo(path).EnumerateFileSystemInfos()
+            .Where(IsVisible).Select(entry => (entry.Name, entry is DirectoryInfo)));
+    }
+
     // 指定ディレクトリ内のアイテムをViewModelとして列挙する。
     // ディレクトリが先、ファイルが後。隠しファイルは除外。名前順ソート。
     public static IEnumerable<FileSystemItemViewModel> EnumerateDirectory(string path)
