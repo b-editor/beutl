@@ -287,7 +287,7 @@ public class FileSystemItemViewModel : IDisposable
         try
         {
             var dirInfo = new DirectoryInfo(FullPath);
-            if (dirInfo.EnumerateFileSystemInfos().Any(e => (e.Attributes & FileAttributes.Hidden) == 0))
+            if (dirInfo.EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible))
             {
                 // プレースホルダーを追加して展開矢印を表示させる
                 Children!.Add(new FileSystemItemViewModel(FullPath, false));

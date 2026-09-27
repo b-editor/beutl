@@ -18,6 +18,66 @@ namespace Beutl.HeadlessUITests;
 public class FileBrowserAutoSaveTests
 {
     [AvaloniaTest]
+    public void Collapsed_folders_only_offer_expansion_for_visible_entries()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"beutl-browser-expand-{Guid.NewGuid():N}");
+        string saving = Path.Combine(root, "Saving only");
+        string ordinary = Path.Combine(root, "Ordinary file");
+        string directory = Path.Combine(root, "Subfolder");
+        Directory.CreateDirectory(saving);
+        Directory.CreateDirectory(ordinary);
+        Directory.CreateDirectory(directory);
+        string temporaryName = $"clip.belm.{Guid.NewGuid():N}.tmp";
+        File.WriteAllText(Path.Combine(saving, temporaryName), "{}");
+        File.WriteAllText(Path.Combine(ordinary, "notes.tmp"), "{}");
+        Directory.CreateDirectory(Path.Combine(directory, temporaryName));
+        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        var window = new Window
+        {
+            Content = new FileBrowserTabView { DataContext = browser },
+            Width = 480,
+            Height = 400
+        };
+        try
+        {
+            browser.ViewMode.Value = FileBrowserViewMode.Tree;
+            browser.RootPath.Value = root;
+            window.Show();
+            HeadlessTestHelpers.Render();
+            FileSystemItemViewModel empty = browser.TreeRootItems.Single(x => x.FullPath == saving);
+            FileSystemItemViewModel file = browser.TreeRootItems.Single(x => x.FullPath == ordinary);
+            FileSystemItemViewModel folder = browser.TreeRootItems.Single(x => x.FullPath == directory);
+            Assert.Multiple(() =>
+            {
+                Assert.That(empty.Children, Is.Empty, "Ignored autosave files must not create an expand arrow.");
+                Assert.That(file.Children, Has.Count.EqualTo(1));
+                Assert.That(folder.Children, Has.Count.EqualTo(1), "Directories with sidecar-like names stay visible.");
+            });
+
+            empty.Refresh();
+            Assert.That(empty.Children, Is.Empty, "Refreshing a collapsed folder must use the same filter.");
+            file.LoadChildren();
+            folder.LoadChildren();
+            Assert.That(file.Children!.Single().Name.Value, Is.EqualTo("notes.tmp"));
+            Assert.That(folder.Children!.Single().IsDirectory, Is.True);
+
+            if (Environment.GetEnvironmentVariable("BEUTL_FILE_BROWSER_AUTOSAVE_CAPTURE") is { Length: > 0 } capture)
+            {
+                HeadlessTestHelpers.Render();
+                using var frame = window.CaptureRenderedFrame();
+                Assert.That(frame, Is.Not.Null);
+                frame!.Save(Path.ChangeExtension(capture, "expanders.png"), PngBitmapEncoderOptions.Default);
+            }
+        }
+        finally
+        {
+            window.Close();
+            browser.Dispose();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(FileBrowserViewMode.List, false)]
     [TestCase(FileBrowserViewMode.Icon, false)]
     [TestCase(FileBrowserViewMode.Tree, false)]
@@ -28,7 +88,12 @@ public class FileBrowserAutoSaveTests
         string root = Path.Combine(Path.GetTempPath(), $"beutl-browser-saving-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
         string[] documents = ["project.bep", "main.scene", "clip.belm"];
-        string[] visibleNames = [.. documents, "notes.tmp", "clip.belm.backup.tmp"];
+        string[] visibleNames =
+        [
+            .. documents, "notes.tmp", "clip.belm.backup.tmp",
+            "clip.belm. 0123456789abcdef0123456789abcdef.tmp",
+            "clip.belm.0123456789abcdef0123456789abcdef .tmp"
+        ];
         foreach (string name in visibleNames)
             File.WriteAllText(Path.Combine(root, name), "{}");
 

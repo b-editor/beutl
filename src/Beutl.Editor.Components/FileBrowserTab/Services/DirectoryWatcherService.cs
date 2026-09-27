@@ -363,6 +363,8 @@ internal sealed class DirectoryWatcherService : IDisposable
         ReadOnlySpan<char> name = path[..^4];
         int separator = name.LastIndexOf('.');
         return separator >= 0
+               // TryParseExact trims whitespace; generated suffixes must already be 32 hex digits.
+               && name.Length - separator - 1 == 32
                && Guid.TryParseExact(name[(separator + 1)..], "N", out _)
                && IsEditorDocument(name[..separator]);
     }
