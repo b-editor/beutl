@@ -14,7 +14,7 @@ This describes the toolkit's own conceptual entities and how each maps onto exis
 | Edit Transaction | The atomic, undoable application of a Change Set | `HistoryManager.ExecuteInTransaction` (commits prior pending work separately, blocks concurrent records, commits on success, and **rolls back the callback on exception**) |
 | Workspace Guard | The write-boundary policy (read anywhere, write only under the configured root) | `IWorkspaceGuard.ResolveForWrite` (new) |
 | Render Job / Export Job | A request to produce a still image or a video/audio file | `SceneRenderer`+`Renderer.Snapshot`+`Bitmap.Save` / `EncodingController.Encode` via `Beutl.FFmpegIpc` |
-| Quality Review | Deterministic review of AI-generated editing quality before export | scene graph + sampled still/motion analysis (`QualityAnalyzer`) |
+| Render measurements | Numerical frame, pixel-change, and audio-rhythm data, without a quality verdict or export gate | scene graph + rendered frames (`StillRenderer`, `FrameDifferenceAnalyzer`) + decoded audio (`AudioRhythmAnalyzer`) |
 | Editing Recipe / Specialist | Packaged Skill / Subagent guidance (the non-code pillar) | `src/Beutl.AgentToolkit/Installation/Assets/` |
 
 ---
@@ -83,13 +83,9 @@ The reconciliation runs inside `HistoryManager.ExecuteInTransaction(action, name
 - **Render Job**: `sceneRef`, `time`, `outputPath` (guarded), `scale?`. Produces a PNG via `SceneRenderer`→`Renderer.Snapshot`→`Bitmap.Save`. Returns `unavailable` (typed) when the content needs a GPU absent on the host (FR-018).
 - **Export Job**: `sceneRef`, `range` (or whole timeline), `outputPath` (guarded), `videoSettings`/`audioSettings`. Produces a file via `EncodingController.Encode(frameProvider, sampleProvider, ct)` using a concrete encoder from the MIT non-UI encoder assembly (`Beutl.Extensions.FFmpeg.Core`, split per plan) or a headlessly-registered installed encoder, which reaches the FFmpeg worker over `Beutl.FFmpegIpc` (FR-016/FR-017/FR-023). Returns a typed error when FFmpeg native libraries are missing.
 
-## Quality Review
+## Render measurements
 
-`evaluate_edit_quality` measures deterministic document, readability, timing, palette-area, and rendered-motion properties. It inspects the live `Scene` graph plus optional rendered samples and returns `passesQualityGate`, a verdict, categorized issues, and metrics.
-
-Issue categories are `typography`, `typographyReadTime`, `typographyContrast`, `audioSync`, `elementStructure`, `layerDensity`, `tempoRhythm`, `textBackgroundFit`, `paletteBalance`, `transitionVocabulary`, `easingDiversity`, `motionUniformity`, `motionContinuity`, `cutRhythm`, `timelineCoverage`, and `geometryPathOffset`. Severity is `critical`, `major`, or `minor`. Only unreadable text (`typographyReadTime` and rendered `typographyContrast`) and malformed multi-object Element structure (`elementStructure`) fail the base quality gate; every other category is advisory. `final_preflight(requireAnimatedProperties:true)` may additionally make zero animated properties a caller-requested preflight blocker.
-
-The review intentionally avoids OCR and generative visual judging. It uses text properties, bounds math, keyframe/easing presence, element timing boundaries, optional supplied palette roles and beat times, and rendered contrast/motion samples. Palette harmony, background richness, shape clarity, gradient falloff, and motion arc are judged from rendered visual review rather than inferred by this model.
+Still rendering reports frame dimensions, active elements, luminance, and coverage. Frame-difference measurement reports changed-pixel counts, ratios, and deltas between supplied times. Audio analysis reports estimated beats and onsets. These records contain data, without visual-quality scores, issue severities, or completion verdicts. A zero difference or dark frame is a successful measurement.
 
 ## Mapping summary (toolkit term → Beutl type / API)
 

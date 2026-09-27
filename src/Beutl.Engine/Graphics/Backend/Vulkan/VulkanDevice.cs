@@ -48,6 +48,19 @@ internal sealed unsafe class VulkanDevice : IDisposable
         // A cube image is bounded by its own limit, not by the 2D one: a pass that renders into a cube
         // through per-face 2D attachments has to fit both, and the two may differ.
         MaxCubeFaceDimension = (int)properties.Limits.MaxImageDimensionCube;
+        MaxFragmentShaderInputTextures = GetMaxFragmentShaderInputTextures(properties.Limits);
+    }
+
+    /// <summary>Gets the combined-image-sampler limit for one fragment stage and descriptor set.</summary>
+    public int MaxFragmentShaderInputTextures { get; }
+
+    internal static int GetMaxFragmentShaderInputTextures(PhysicalDeviceLimits limits)
+    {
+        uint maximum = Math.Min(limits.MaxPerStageDescriptorSamplers, limits.MaxPerStageDescriptorSampledImages);
+        maximum = Math.Min(maximum, limits.MaxDescriptorSetSamplers);
+        maximum = Math.Min(maximum, limits.MaxDescriptorSetSampledImages);
+        maximum = Math.Min(maximum, limits.MaxPerStageResources);
+        return (int)Math.Min(maximum, (uint)int.MaxValue);
     }
 
     /// <summary>Gets the largest 2D image this device can create and sample, attached or not.</summary>

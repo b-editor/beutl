@@ -99,7 +99,7 @@ The toolkit ships reusable, discoverable guidance for common editing tasks (reci
 
 **Why this priority**: The raw editing surface (P1–P3) is enough for a capable agent to operate Beutl, but packaged know-how and specialists are what make results *consistent and low-effort* across agents and sessions. They multiply the value of the underlying surface, so they follow it rather than precede it.
 
-**Independent Test**: With only the shipped guidance available (no Beutl source reading), have an agent complete a representative editing task end-to-end and confirm it follows the documented recipe and produces a correct result; invoke a packaged specialist on a scoped sub-task and confirm it completes that sub-task in isolation.
+**Independent Test**: With only the shipped guidance available (no Beutl source reading), have an agent complete a representative editing task end-to-end and confirm it follows the documented recipe and produces the requested result; invoke a packaged specialist on a scoped sub-task and confirm it completes that sub-task in isolation.
 
 **Acceptance Scenarios**:
 
@@ -271,95 +271,18 @@ A creator opens a project in the Beutl editor and asks the agent — connected t
 - **A new on-disk format or a new rendering engine** — this feature consumes the existing ones.
 - **Developer-facing AI tooling** for the Beutl codebase itself (build/test/review/spec) — that already exists and is a different audience.
 
-## Delivered Extensions
+## Current API boundary
 
-The toolkit shipped five design extensions after the original spec was approved. Each is fully implemented in this branch; their design notes were consolidated here from `docs/superpowers/specs/` and `docs/benchmarks/` to keep the numbered design records together under `docs/specs/<NNN>-<slug>/`. The benchmark briefs and vision-scoring baselines that exercise these extensions live under `checklists/briefs/` and `checklists/visual-quality-baselines/`.
+The toolkit provides editing, runtime inspection, rendering, saving, and export. The agent remains responsible for creative direction and for assessing the visible result against the user's request.
 
-### Visual-Quality Improvement (2026-07-02)
+- `get_started` describes operation semantics and points to three editing skills. It does not classify a brief or prescribe production stages.
+- `read_document`, `apply_edit`, history tools, and schema discovery provide the editable model. Schema, range, identity, reference, session, shader-compilation, and filesystem checks remain technical validation.
+- `render_still` and `render_storyboard` return rendered evidence, with optional MCP image content. `measure_frame_differences`, object bounds, and audio rhythm expose measurements without quality scores or completion decisions.
+- Export success confirms output generation. The API does not require a quality review or promise that the creative task is complete.
+- Named composition presets remain optional editing aids. A caller can select and repeat any preset without a style-rotation gate or creative-history tracking.
+- The bundled timeline, effects, and runtime-grounding skills document API mechanics. Creative planning, asset sourcing, aesthetic review, and score-convergence workflows are not provided by Beutl.
 
-**Problem**: AI-authored motion graphics regressed to amateur-looking output — clashing palettes, weak typography, cluttered composition, unnatural motion, flat backgrounds, and sparse scenes.
-
-**Delivered approach** — three layers plus an evaluation harness:
-
-| Root cause | Layer | Implementation |
-|---|---|---|
-| No vocabulary of good palettes/backgrounds/motion — the model invents from scratch | **L1 Parametric design system** | `ColorHarmonyEngine` (828 lines) — `derive_palette` expands a brief-derived seed into a role-tagged palette with guaranteed contrast; background-recipe grammar in `VideoTypeCatalog`; anti-repeat feeds `CreativeMemoryStore` fingerprints into the derivation step |
-| The agent never sees its own rendered output | **L2 Visual feedback loop** | `render_still` / `render_storyboard` gain `returnImageContent` (MCP `ImageContent`); contact-sheet compositing via `StillRenderer`; `beutl-agent-visual-review` skill with the 6-axis rubric |
-| Sparseness / disharmony not measurable numerically | **L3 Heuristic upgrades** | `QualityAnalyzer` (4171 lines) — layer-density/depth metrics, color-harmony scoring, background-richness check |
-
-**L0 Evaluation harness** lives under `checklists/briefs/` (10 fixed briefs) and `checklists/visual-quality-baselines/` (recorded vision-model axis averages); see `checklists/visual-quality-baseline.md` for the generation + scoring procedure.
-
-**Key invariant**: no fixed style packs — variety comes from the brief's seed, the quality floor from the rules. Prior art of fixed packs converging to one look was explicitly rejected.
-
-### Video-Type-Aware Workflows (2026-07-03)
-
-**Problem**: the original single workflow assumed motion-graphics (BPM beat grids, background grammar, 2-3 foreground layers); other video types tripped inapplicable gates or missed type-specific steps.
-
-**Delivered**: `VideoTypeCatalog` (`src/Beutl.AgentToolkit/Design/VideoTypeCatalog.cs`, 288 lines) — five first-class `videoType` profiles (`motion-graphics`, `footage-cut`, `slideshow`, `lyric-captions`, `logo-intro`). The one `beutl-agent-timeline-from-shotlist` skill gained a Phase -1 classification step and a per-type flow matrix; no per-type skill forks. The `videoType` parameter threads through `evaluate_edit_quality`, `evaluate_edit_quality(staticLayout:true)`, `suggest_quality_fixes`, `final_preflight`, and `get_started`, applying implied intent flags + analyzer applicability. A new advisory `timelineCoverage` reports gaps for footage-cut/slideshow. Backward compatibility: omitted `videoType` is byte-for-byte `motion-graphics` (characterized by tests).
-
-### Autonomous Asset Sourcing (2026-07-03)
-
-**Problem**: the toolkit assumed media files already existed; agents either refused footage-driven briefs or fetched files ad hoc with no licensing discipline and no provenance trail.
-
-**Delivered**: `beutl-agent-asset-sourcing` skill — skill-driven, no server-side providers (v1). The agent uses its own web capabilities following a binding contract: source-or-generate decision per asset, recommended sources (Openverse, Pexels, Pixabay, Freesound, Google Fonts, ...), license policy (CC0/CC-BY/OFL allowed; CC-BY-SA recorded; NC/ND forbidden autonomously), provenance manifest at `<workspace>/assets/manifest.json`, download conventions, quality criteria, and a failure path back to procedural generation. The skill is registered in `get_started`'s `CreateRecommendedSkills()` and referenced from footage-cut/slideshow/lyric-captions workflow steps.
-
-### Low-Effort Brief Pipeline (2026-07-03)
-
-**Problem**: output quality correlated with how carefully the brief was written. Terse prompts ("かっこいいロゴイントロ作って") produced weak videos because the weakest axes (`layerDensityDepth` 2.5, `backgroundRichness` 2.7 in the 2026-07-03 baseline) were exactly the qualities under-specified prompts fail to request.
-
-**Delivered**: three accepted directions (B/D/E); preset libraries, template scaffolds, and creative-memory defaulting were **rejected by the user** for converging every run onto the same look.
-
-- **B — Brief expansion**: `beutl-agent-brief-expansion` skill. Trigger: terse prompt missing two or more of subject/duration/mood/style/asset inventory. Mechanism: record literal constraints, sketch three structurally divergent concept candidates (checked against `recentDirections`), emit an Expanded Brief block feeding `derive_palette`/background grammar/plan sheets.
-- **E — Reference-based direction**: same skill, second intake path. User-supplied reference images/video are fetched, stored under `references/` with a `use: "direction-only"` manifest, and abstract attributes (hue family, tonal seed, layer-density profile, motion vocabulary, ...) are extracted via vision. Prohibited: reproducing logos/marks/characters/illustrations or reconstructing the composition wholesale.
-- **D — Quality convergence loop**: `beutl-agent-visual-review` extension. Loop: score six axes → concrete directives → smallest coherent revision pass → re-render → `compare_revisions` → rescore. Exit: every axis ≥ 3 or `maxPasses` (default 3) exhausted. Anti-genericization (directives phrased in the piece's own concept vocabulary; stock-particle/glow/grain purely to raise a score is forbidden) and anti-oscillation (an axis ≥ 4 is only edited to repair a regression) guardrails.
-
-**Server-side**: registration only — `Beutl.AgentToolkit.csproj` EmbeddedResource + `BundledAgentToolkitAssets` + `QueryTools.CreateRecommendedSkills`. No new MCP tools.
-
-### Visual-Quality Backlog (2026-07-03)
-
-A theory-grounded backlog of ten tasks (T1–T10), each naming the film/motion-design theory it operationalizes so the implementation has a measurable target instead of taste. Status: **T1–T8 delivered in this branch; T9–T10 remain backlog** (each task implemented only on explicit request).
-
-| Task | Theory | Status |
-|---|---|---|
-| T1 Benchmark baseline run | Dailies / screening-room practice | ✅ Delivered — `checklists/visual-quality-baselines/2026-07-03-baseline-t2t8.md` + `2026-07-03-low-effort-bde.md` |
-| T2 Audio-driven timing grid (`analyze_audio_rhythm`) | Eisenstein's metric/rhythmic montage; Chion's synchresis | ✅ Delivered — `AudioRhythmAnalyzer.cs` (625 lines) + tests |
-| T3 Rendered text contrast | WCAG 2.x contrast measured against the rendered result | ✅ Delivered — `QualityAnalyzer.TypographyContrastSample` per-text sampling |
-| T4 Easing & motion-monotony analysis | Disney's 12 principles (slow-in/slow-out, anticipation, follow-through) | ✅ Delivered — `MotionVariationAnalyzer.cs` + easing-diversity metric |
-| T5 Eye-trace continuity across cuts | Murch's Rule of Six (eye-trace 7%) | ✅ Delivered — storyboard-subdivision cut-continuity pass |
-| T6 Transition vocabulary + consistency classification | Bordwell & Thompson continuity-editing grammar | ✅ Delivered — `TransitionVocabularyMetrics` + `TransitionBoundaryClassification` |
-| T7 Palette role-balance (60-30-10) | Itten's contrast-of-extension | ✅ Delivered — `PaletteBalanceMetrics` + `PaletteRoleShare` |
-| T8 Revision diff review (before/after ledger) | Editorial QC regression discipline | ✅ Delivered — `compare_revisions` flow + per-axis delta ledger |
-| T9 Quality-outcome feedback into creative memory | Ericsson's deliberate-practice / critique loops | ⏳ Backlog — `CreativeMemoryStore` is anti-repeat only; per-axis quality feedback not yet wired |
-| T10 Export QC (decode-back + loudness) | EBU R128 / ITU-R BS.1770 broadcast QC | ⏳ Backlog — `export_video` does not yet decode-back or compute integrated loudness |
-
-**Non-goals across the backlog**: no new blocking gates except T3 (folded into the existing read-time/typography family); no ML-trained aesthetic scorers in-process; no beat-tracking research project (T2 is peak-picking on a novelty curve).
-
-### Advisory-First Quality Policy (2026-07-28)
-
-**Problem**: the toolkit had accumulated a house style. `evaluate_edit_quality` failed the gate on low motion continuity and on motion-graphics density below half a supplied plan; `derive_palette`, `get_background_grammar`, `get_started`, and `list_creative_directions` phrased their output as rules ("disallowed", "requires a recorded reason", "must"); and the bundled skills carried dozens of aesthetic prohibitions plus roughly a dozen mandatory notes blocks per run. A deliberately spare, still, or unconventional piece had to argue its way past the toolkit before it could be exported.
-
-**Delivered**: the gate now speaks only where a result is unusable rather than unusual.
-
-- **Blocking is limited to two families**: unreadable text (`typographyReadTime`, rendered `typographyContrast`) and malformed Element structure (`elementStructure`). `motionContinuity` and the `layerDensity` plan comparison were downgraded to advisory; everything else was already advisory. `export_video` consults none of them — it never did.
-- **`final_preflight` separates `Blockers` from a new `Advisories` list.** Low motion variation and still-visibility warnings moved to `Advisories`, so a deliberately still or minimal piece reports `ReadyForExport`. `requireAnimatedProperties` still blocks, because the caller opted into that check.
-- **Normative wording became measurement.** `CreativeDirectionResponse`'s `CombinationRules`/`OriginalityConstraints`/`StyleGuardrails`/`Palette|Typography|MotionGuidelines`/`RecentToAvoid` were renamed to `…Notes`/`RecentDirections`, and `BackgroundGrammarResponse`'s `MinimumDepthBands`/`DerivationRules`/`DeviationRules` to `DepthBands`/`DerivationNotes`/`DeviationNotes`, with the contents rewritten from prohibitions into observations about what viewers tend to see.
-- **The bundled skills were rewritten from rulebooks into capability guides**, separating mechanics (engine and toolkit behavior, where being wrong breaks the patch) from craft (observations the agent may overrule). The mandatory per-run plan blocks and the plan-conformance rework blocker were removed; the storyboard-first order remains as a recommendation with its rationale.
-- **Intent flags still exist** (`allowStillness`, `allowDenseText`, `allowMultiObjectElements`, `allowMinimalDensity`, `relaxAesthetics`, `[role:...]` tags). The targeted flags reword or suppress only their named finding families; `relaxAesthetics` suppresses repeated hard-cut cadence, transition-vocabulary inconsistency, and high-tempo long-hold/short-segment pacing, while unrelated advisories remain visible. Monochrome palettes need no opt-in; only intentionally non-informational low-contrast text should use `[role:decorative]`.
-
-**Unchanged**: `WorkspaceGuard`/`DestructiveGuard` write boundaries, `apply_edit` schema validation, and the `beutl-agent-asset-sourcing` license/provenance contract — those are safety, correctness, and rights boundaries rather than creative constraints.
-
-### Capability-First Toolkit Pass (2026-07-28)
-
-**Problem**: with the gate narrowed to readability and structure, the remaining shape of the toolkit still assumed an agent that needed scaffolding — it had no way to undo its own edit, first contact spent 12.6 KB of prose, and roughly a third of the analyzer produced opinions about a rendered frame that a multimodal agent forms better by looking.
-
-**Delivered**:
-
-- **History is reachable.** `undo`, `redo`, and `read_history` expose the per-session `HistoryManager` that the reconciliation pipeline already wrote to. Backing out an experiment is now one exact call instead of a hand-authored compensating patch. `undo(steps)` walks back multiple transactions and reports what it reverted; in a LiveEditor session the stack is the editor's own, so `read_history` names the next entry first. Live history operations share the editor's playback guard: they pause and drain an active preview before flushing pending work or moving history, and keep every requested step plus the returned snapshot inside one guarded batch. This does not reintroduce imperative per-property editing — the authoring surface stays declarative.
-- **`get_started` split into `essentials` and `guidance`.** Mechanics (sessions, schema, patch shape, history, verification, export) are returned by default at ~8.5 KB; the craft notes on palette, typography, density, tempo, and shape moved behind `includeGuidance:true`. Payload down ~33% on first contact.
-- **The analyzer stopped forming opinions it cannot win.** Removed `shapeDiversity`, `decorativeShapeClarity`, `shapeIntent`, `motionIntent`, `effectIntent`, `visualHierarchy`, `paletteHarmony`, `backgroundRichness`, `materialUiLook`, `gradientFalloff`, and `motionArc`, along with `ShapeDiversityMetrics`, `BackgroundRichnessMetrics`, `MotionArcMetrics`, and the palette harmony-scoring fields — about 600 lines, including every site that inferred intent from Element/Object name strings. What remains is what an agent cannot compute by looking: contrast ratios, read time, structure validity, changed-pixel deltas, event density, 60-30-10 area share, beat alignment, bounds math, and easing/uniformity statistics. Look judgments belong to `render_still` plus `beutl-agent-visual-review`.
-- **One fewer analysis entry point.** `preview_quality_risks` was exactly `evaluate_edit_quality(staticLayout:true)` with a different default style profile, so it was removed and its callers repointed. `allowRectDominance` went with the check it controlled.
-
-**Not done**: the composition-template surface (`list_compositions`, `get_composition`, `plan_composition`, `apply_composition`, `render_composition_patch` over ~2,300 lines of catalog) is still five entry points to one feature that the guidance now steers away from. Removing it is a product decision — a user can legitimately ask for a template — so it awaits an explicit call. The flat `allow*` parameter blocks were also left flat rather than collapsed into an options object, because the existing `paletteRoleColors` JSON-string fallback is evidence that some MCP clients handle complex arguments poorly.
+Earlier quality-evaluation and creative-scaffolding extensions have been retired. Their fixed rubrics and export-readiness decisions are not part of the current contract. See [MCP tools](contracts/mcp-tools.md) for the supported operations.
 
 ## Dependencies
 

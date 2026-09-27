@@ -22,15 +22,13 @@ builder.Services
     .AddSingleton<DestructiveGuard>()
     .AddSingleton<StillRenderer>()
     .AddSingleton<StoryboardRenderer>()
-    .AddSingleton<MotionVariationAnalyzer>()
+    .AddSingleton<FrameDifferenceAnalyzer>()
     .AddSingleton<AudioRhythmAnalyzer>()
-    .AddSingleton<QualityAnalyzer>()
     .AddSingleton<EncoderRegistration>()
     .AddSingleton<VideoExporter>()
     .AddSingleton<RenderJobManager>()
     .AddSingleton<FileSessionSource>()
     .AddSingleton<IProjectSessionGateway, FileProjectSessionGateway>()
-    .AddSingleton(_ => new CreativeMemoryStore(workspaceRoot))
     .AddSingleton<AgentSessionManager>();
 
 builder.Services
@@ -39,7 +37,6 @@ builder.Services
     .WithRequestFilters(filters => filters.AddToolkitCallToolErrorFilter())
     .WithTools<SessionTools>()
     .WithTools<QueryTools>()
-    .WithTools<DesignTools>()
     .WithTools<EditTools>()
     .WithTools<HistoryTools>()
     .WithTools<RenderTools>();

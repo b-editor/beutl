@@ -1,5 +1,4 @@
 ﻿using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
@@ -217,30 +216,6 @@ public sealed class DuplicateObjectTests
     }
 
     [Test]
-    public async Task Duplicate_object_wrap_in_group_does_not_raise_element_structure_major_issue()
-    {
-        Scene scene = CreateSceneWithElement(out Element element);
-        var rect = new RectShape { Name = "[role:decorative] bloom source", Width = { CurrentValue = 120 } };
-        element.AddObject(rect);
-
-        using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
-
-        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
-        QualityReviewResponse quality = await AnalyzeAsync(scene);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(quality.Issues, Has.None.Matches<QualityIssue>(issue =>
-                issue.Category == "elementStructure"
-                && issue.Severity == "major"));
-        });
-    }
-
-    [Test]
     public void Duplicate_object_wrap_in_group_mints_fresh_ids_on_nested_nodes()
     {
         Scene scene = CreateSceneWithElement(out Element element);
@@ -339,24 +314,4 @@ public sealed class DuplicateObjectTests
         return scene;
     }
 
-    private static ValueTask<QualityReviewResponse> AnalyzeAsync(Scene scene)
-    {
-        var stillRenderer = new StillRenderer();
-        return new QualityAnalyzer(new MotionVariationAnalyzer(stillRenderer), stillRenderer).AnalyzeAsync(
-            scene,
-            timeSeconds: null,
-            sampleCount: 3,
-            renderScale: 1,
-            styleProfile: null,
-            allowAllCaps: false,
-            allowHardCuts: false,
-            relaxAesthetics: false,
-            allowStillness: false,
-            allowDenseText: false,
-            allowMultiObjectElements: false,
-            allowMinimalDensity: false,
-            plannedForegroundElementsPerShot: 0,
-            evaluateMotion: false,
-            cancellationToken: CancellationToken.None);
-    }
 }

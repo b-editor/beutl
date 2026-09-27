@@ -26,93 +26,21 @@ public sealed class AgentToolkitInstallerTests
     }
 
     [Test]
-    public void BundledAssets_LoadsSkillsAndSubagents()
+    public void BundledAssets_LoadsEditingSkillsAndSubagents()
     {
         IReadOnlyList<AgentToolkitAsset> assets = BundledAgentToolkitAssets.Load();
-
-        Assert.That(assets, Has.Count.EqualTo(10));
-        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Skill), Is.EqualTo(7));
-        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Subagent), Is.EqualTo(3));
-        Assert.That(
-            assets.Where(x => x.Kind == AgentToolkitAssetKind.Skill)
-                .Select(x => x.RelativePath.Split('/')[0])
-                .Distinct(StringComparer.Ordinal)
-                .Count(),
-            Is.EqualTo(6));
-        Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-brief-expansion/SKILL.md"));
-        Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-timeline-from-shotlist/SKILL.md"));
-        Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-asset-sourcing/SKILL.md"));
-        Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-source-grounding/SKILL.md"));
-        Assert.That(
-            assets.Select(x => x.RelativePath),
-            Does.Contain("beutl-agent-source-grounding/agents/openai.yaml"));
-        Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-visual-review/SKILL.md"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
-            Does.Contain("evaluate_motion_variation"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
-            Does.Contain("insert-new-animated-text-keyframes"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
-            Does.Contain("derive_palette"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
-            Does.Contain("Contrast relationships worth deriving"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
-            Does.Contain("subdivisionLevel: 1"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
-            Does.Contain("cutEyeTrace"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-look-effect-chain/SKILL.md").Content,
-            Does.Contain("get_background_grammar"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-look-effect-chain/SKILL.md").Content,
-            Does.Contain("Hand-picking colors is equally valid"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-asset-sourcing/SKILL.md").Content,
-            Does.Contain("assets/manifest.json"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-asset-sourcing/SKILL.md").Content,
-            Does.Contain("CC-BY-SA"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-source-grounding/SKILL.md").Content,
-            Does.Contain("measure_object_bounds"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-source-grounding/agents/openai.yaml").Content,
-            Does.Contain("display_name: \"Beutl Agent Source Grounding\""));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-visual-review/SKILL.md").Content,
-            Does.Contain("paletteHarmony"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-visual-review/SKILL.md").Content,
-            Does.Contain("subdivisionLevel:1"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-visual-review/SKILL.md").Content,
-            Does.Contain("Convergence loop mode"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-brief-expansion/SKILL.md").Content,
-            Does.Contain("expandedBrief"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-brief-expansion/SKILL.md").Content,
-            Does.Contain("direction-only"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-brief-expansion/SKILL.md").Content,
-            Does.Contain("recentDirections"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
-            Does.Contain("evaluate_motion_variation"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
-            Does.Contain("animate-float-property-keyframes"));
-        Assert.That(
-            assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
-            Does.Contain("subdivisionLevel:1"));
-        Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-look-applier.md").Content, Does.Contain("render_still"));
-        Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-quality-reviewer.md").Content, Does.Contain("final_preflight"));
-        Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-quality-reviewer.md").Content, Does.Contain("subdivisionLevel:1"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(assets.Where(asset => asset.Kind == AgentToolkitAssetKind.Skill).Select(asset => asset.RelativePath),
+                Is.EquivalentTo(new[]
+                {
+                    "beutl-agent-timeline-from-shotlist/SKILL.md", "beutl-agent-look-effect-chain/SKILL.md",
+                    "beutl-agent-source-grounding/SKILL.md", "beutl-agent-source-grounding/agents/openai.yaml"
+                }));
+            Assert.That(assets.Where(asset => asset.Kind == AgentToolkitAssetKind.Subagent).Select(asset => asset.RelativePath),
+                Is.EquivalentTo(new[] { "beutl-agent-timeline-builder.md", "beutl-agent-look-applier.md" }));
+            Assert.That(assets.All(asset => !string.IsNullOrWhiteSpace(asset.Content)), Is.True);
+        });
     }
 
     [Test]

@@ -857,8 +857,7 @@ public sealed class ApplyEditTests
         ToolResult<PlanCompositionResponse> plan = tools.PlanComposition(
             name: "kinetic-ribbon-title",
             inputProps: inputProps,
-            seed: "apply-seed",
-            avoidRecent: false);
+            seed: "apply-seed");
         ToolResult<ApplyCompositionResponse> apply = tools.ApplyComposition(
             planId: plan.Value!.PlanId);
 
@@ -890,7 +889,6 @@ public sealed class ApplyEditTests
         ToolResult<PlanCompositionResponse> plan = tools.PlanComposition(
             name: "kinetic-ribbon-title",
             seed: "detailed-plan-seed",
-            avoidRecent: false,
             includeDetailedPlan: true);
 
         Assert.Multiple(() =>
@@ -914,8 +912,7 @@ public sealed class ApplyEditTests
         ToolResult<PlanCompositionResponse> plan = tools.PlanComposition(
             name: "glitch-cutout-collage",
             inputProps: new JsonObject { ["title"] = "COMPOSITION PROBE" },
-            seed: "existing-scene-seed",
-            avoidRecent: false);
+            seed: "existing-scene-seed");
         ToolResult<ApplyCompositionResponse> apply = tools.ApplyComposition(planId: plan.Value!.PlanId);
 
         Assert.Multiple(() =>

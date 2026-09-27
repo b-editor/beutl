@@ -26,43 +26,37 @@ namespace Beutl.AgentToolkit.Tests.Tools;
 public sealed class ReadDocumentTests
 {
     [Test]
-    public void Get_started_returns_low_context_entrypoints()
+    public void Any_named_composition_can_be_applied_repeatedly_after_listing()
+    {
+        using var session = new AgentToolkitTestSession(new Scene(640, 360, "Scene"));
+        var manager = new AgentSessionManager();
+        var query = new QueryTools(manager);
+        string name = query.ListCompositions().Value!.Compositions[1].Name;
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var edit = new EditTools(manager);
+
+        ToolResult<ApplyCompositionResponse> first = edit.ApplyComposition(name: name);
+        ToolResult<ApplyCompositionResponse> second = edit.ApplyComposition(name: name);
+        ToolResult<PlanCompositionResponse> plan = edit.PlanComposition(name: name);
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
+            Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
+            Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
+        });
+    }
+
+    [Test]
+    public void Get_started_returns_editing_entrypoints_without_a_session()
     {
         var tools = new QueryTools(new AgentSessionManager());
-
         ToolResult<GettingStartedResponse> result = tools.GetStarted();
-        GettingStartedResponse guidance = tools.GetStarted(includeGuidance: true).Value!;
 
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            // The craft notes cost most of the payload, so first contact must not carry them.
-            Assert.That(result.Value!.Guidance, Is.Empty);
-            Assert.That(guidance.Guidance, Is.Not.Empty);
-            Assert.That(result.Value!.Essentials, Has.Some.Contains("attach_active_editor for an open editor scene"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("create_project or open_project"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("file-backed session"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("measure_object_bounds"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("list_creative_directions"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("custom declarative patch"));
-            Assert.That(guidance.Guidance, Has.Some.Contains("Orbit, radar, map, signal, and dashboard motifs"));
-            Assert.That(guidance.Guidance, Has.Some.Contains("objective, audience"));
-            Assert.That(guidance.Guidance, Has.Some.Contains("what a viewer looks at first"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("read time"));
-            Assert.That(guidance.Guidance, Has.Some.Contains("effect purpose"));
-            Assert.That(guidance.Guidance, Has.Some.Contains("list_compositions"));
-            Assert.That(guidance.Guidance, Has.Some.Contains("explicitly asks for a reusable template"));
-            Assert.That(guidance.Guidance, Has.Some.Contains("specific returned name"));
-            Assert.That(guidance.Guidance, Has.None.Contains("first returned composition"));
-            Assert.That(guidance.Guidance, Has.Some.Contains("planId"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("list_effects"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("list_effect_recipes"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("full-scene starters are hidden by default"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("[Beutl.ProjectSystem]:Element"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("insert-new-element-skeleton"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("SKSLScriptEffect"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("UseGlobalClock=false uses Element-local KeyTime values"));
-            Assert.That(result.Value.Essentials, Has.Some.Contains("evaluate_motion_variation"));
+            Assert.That(result.Value!.SchemaVersion, Is.EqualTo(SchemaVersion.Current));
+            Assert.That(result.Value.Essentials, Is.Not.Empty);
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("content[0].text"));
@@ -199,80 +193,6 @@ public sealed class ReadDocumentTests
     }
 
     [Test]
-    public void Creative_directions_discourage_reused_orbit_radar_motifs()
-    {
-        var tools = new QueryTools(new AgentSessionManager());
-
-        ToolResult<CreativeDirectionResponse> result = tools.ListCreativeDirections("make a short motion graphic");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.DirectionAxes, Has.Count.GreaterThanOrEqualTo(6));
-            Assert.That(result.Value.InspirationSeeds, Has.Count.GreaterThanOrEqualTo(8));
-            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Name), Does.Not.Contain("Projected ink fold"));
-            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("material"));
-            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("motion"));
-            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("composition"));
-            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("typography"));
-            Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("procedural surface"));
-            Assert.That(result.Value.InspirationSeeds.SelectMany(seed => seed.UsefulTools), Does.Contain("SKSLScriptEffect"));
-            Assert.That(result.Value.CombinationNotes, Has.Some.Contains("Seeds combine better"));
-            Assert.That(result.Value.CombinationNotes, Has.Some.Contains("direction contract"));
-            Assert.That(result.Value.OriginalityNotes, Has.Some.Contains("A seed implemented whole"));
-            Assert.That(result.Value.OriginalityNotes, Has.Some.Contains("Seed names as the concept name"));
-            Assert.That(result.Value.VariationPrompts, Has.Some.Contains("Invert the seed relationship"));
-            Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("orbit rings"));
-            Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("radar sweeps"));
-            Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("dark teal background with cyan/magenta neon"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Seeds read as stimulus"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("record_creative_direction"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("evaluate_motion_variation"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("SKSLScriptEffect"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("visible and readable"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("effect chain"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("UseGlobalClock=false uses Element-local KeyTime values"));
-            Assert.That(result.Value.DirectionAxes, Has.Some.Contains("procedural surface"));
-            Assert.That(result.Value.SelectionHint, Does.Contain("the direction is yours"));
-            Assert.That(result.Value.SelectionHint, Does.Contain("make a short motion graphic"));
-            Assert.That(result.Value.SelectionTrace, Is.Not.Null);
-            Assert.That(result.Value.SelectionTrace!.RequestIndex, Is.EqualTo(0));
-            Assert.That(result.Value.SelectionTrace.ReturnedSeedOrder, Is.EqualTo(result.Value.InspirationSeeds.Select(seed => seed.Name)));
-            Assert.That(result.Value.SelectionTrace.RecordHint, Does.Contain("structural signature"));
-        });
-    }
-
-    [Test]
-    public void Creative_directions_use_seeded_shuffle_and_surface_recent_fingerprints()
-    {
-        string workspace = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        string global = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        var memory = new CreativeMemoryStore(workspace, globalRoot: global);
-        memory.Record(new CreativeDirectionFingerprint(
-            "Paper archive resolve",
-            ["paper base", "warning accent"],
-            ["fold", "settle"],
-            "sequential poster stack",
-            DateTimeOffset.UtcNow));
-        var tools = new QueryTools(new AgentSessionManager(memory));
-
-        ToolResult<CreativeDirectionResponse> first = tools.ListCreativeDirections("abstract motion graphic", seed: "seed-a");
-        ToolResult<CreativeDirectionResponse> second = tools.ListCreativeDirections("abstract motion graphic", seed: "seed-b");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
-            Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
-            Assert.That(first.Value!.InspirationSeeds.Select(seed => seed.Name), Is.Not.EqualTo(second.Value!.InspirationSeeds.Select(seed => seed.Name)));
-            Assert.That(first.Value.SelectionTrace!.RequestIndex, Is.EqualTo(0));
-            Assert.That(second.Value!.SelectionTrace!.RequestIndex, Is.EqualTo(1));
-            Assert.That(first.Value.RecentDirections, Has.Count.EqualTo(1));
-            Assert.That(first.Value.RecentDirections[0].ConceptLabel, Is.EqualTo("Paper archive resolve"));
-            Assert.That(first.Value.SelectionHint, Does.Contain("recentDirections"));
-        });
-    }
-
-    [Test]
     public void Get_schema_omits_examples_by_default()
     {
         var tools = new QueryTools(new AgentSessionManager());
@@ -354,18 +274,13 @@ public sealed class ReadDocumentTests
         ToolResult<RenderCompositionPatchResponse> render = tools.RenderCompositionPatch(
             name: "split-screen-type-system",
             inputProps: inputProps,
-            seed: "tool-seed",
-            avoidRecent: false);
+            seed: "tool-seed");
 
         Assert.Multiple(() =>
         {
             Assert.That(list.IsSuccess, Is.True, list.Error?.Message);
             Assert.That(list.Value!.Seed, Is.EqualTo("tool-seed"));
             Assert.That(list.Value.Compositions.Select(composition => composition.Name), Does.Contain("split-screen-type-system"));
-            Assert.That(list.Value.SelectionHint, Does.Contain("avoidRecent"));
-            Assert.That(list.Value.RecentlyUsedCompositions, Is.Empty);
-            Assert.That(list.Value.PreAttachPreviewedCompositions, Is.Empty);
-            Assert.That(list.Value.PreviewOnly, Is.False);
             Assert.That(motionList.IsSuccess, Is.True, motionList.Error?.Message);
             Assert.That(motionList.Value!.Compositions, Has.Count.GreaterThanOrEqualTo(6));
             Assert.That(detail.IsSuccess, Is.True, detail.Error?.Message);
@@ -507,85 +422,11 @@ public sealed class ReadDocumentTests
             Assert.That(plan.Value.DetailedPlan, Is.Null);
             Assert.That(plan.Value.Plan.Valid, Is.True);
             Assert.That(apply.Value!.AppliedPlanId, Is.EqualTo(plan.Value.PlanId));
-            Assert.That(afterApplyList.Value!.RecentlyUsedCompositions, Does.Contain(selectedName));
-            Assert.That(afterApplyList.Value.Compositions.First().Name, Is.Not.EqualTo(selectedName));
-            Assert.That(afterApplyList.Value.Compositions.Last().Name, Is.EqualTo(selectedName));
         });
     }
 
     [Test]
-    public void Named_composition_must_match_first_candidate_by_default()
-    {
-        var scene = new Scene(1920, 1080, "Scene");
-        using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var queryTools = new QueryTools(manager);
-        var editTools = new EditTools(manager);
-
-        ToolResult<ListCompositionsResponse> list = queryTools.ListCompositions();
-        string firstName = list.Value!.Compositions.First().Name;
-        string nonFirstName = list.Value.Compositions.Skip(1).First().Name;
-
-        ToolResult<PlanCompositionResponse> rejected = editTools.PlanComposition(name: nonFirstName);
-        ToolResult<PlanCompositionResponse> seededRejected = editTools.PlanComposition(name: nonFirstName, seed: list.Value.Seed);
-        ToolResult<PlanCompositionResponse> accepted = editTools.PlanComposition(name: firstName);
-        ToolResult<PlanCompositionResponse> deliberate = editTools.PlanComposition(name: nonFirstName, avoidRecent: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(list.IsSuccess, Is.True, list.Error?.Message);
-            Assert.That(rejected.IsSuccess, Is.False);
-            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(rejected.Error.Hint, Does.Contain(firstName));
-            Assert.That(seededRejected.IsSuccess, Is.False);
-            Assert.That(seededRejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(seededRejected.Error.Hint, Does.Contain(firstName));
-            Assert.That(accepted.IsSuccess, Is.True, accepted.Error?.Message);
-            Assert.That(accepted.Value!.Composition.Name, Is.EqualTo(firstName));
-            Assert.That(deliberate.IsSuccess, Is.True, deliberate.Error?.Message);
-            Assert.That(deliberate.Value!.Composition.Name, Is.EqualTo(nonFirstName));
-        });
-    }
-
-    [Test]
-    public void Pre_attach_composition_preview_is_deprioritized_after_attach()
-    {
-        var manager = new AgentSessionManager();
-        var queryTools = new QueryTools(manager);
-        var editTools = new EditTools(manager);
-
-        ToolResult<ListCompositionsResponse> previewList = queryTools.ListCompositions();
-        string previewedName = previewList.Value!.Compositions.First().Name;
-
-        var scene = new Scene(1920, 1080, "Scene");
-        using var session = new AgentToolkitTestSession(scene);
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-
-        ToolResult<ListCompositionsResponse> attachedList = queryTools.ListCompositions();
-        ToolResult<PlanCompositionResponse> rejected = editTools.PlanComposition(name: previewedName);
-        ToolResult<PlanCompositionResponse> deliberate = editTools.PlanComposition(name: previewedName, avoidRecent: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(previewList.IsSuccess, Is.True, previewList.Error?.Message);
-            Assert.That(previewList.Value!.PreviewOnly, Is.True);
-            Assert.That(previewList.Value.PreAttachPreviewedCompositions, Does.Contain(previewedName));
-            Assert.That(previewList.Value.SelectionHint, Does.Contain("pre-attach preview"));
-            Assert.That(attachedList.IsSuccess, Is.True, attachedList.Error?.Message);
-            Assert.That(attachedList.Value!.PreviewOnly, Is.False);
-            Assert.That(attachedList.Value.PreAttachPreviewedCompositions, Does.Contain(previewedName));
-            Assert.That(attachedList.Value.Compositions.First().Name, Is.Not.EqualTo(previewedName));
-            Assert.That(attachedList.Value.Compositions.Last().Name, Is.EqualTo(previewedName));
-            Assert.That(rejected.IsSuccess, Is.False);
-            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(rejected.Error.Hint, Does.Contain("non-avoided"));
-            Assert.That(deliberate.IsSuccess, Is.True, deliberate.Error?.Message);
-        });
-    }
-
-    [Test]
-    public void Composition_recent_survives_volatile_live_session_ids()
+    public void Composition_plan_survives_volatile_live_session_ids()
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var source = new VolatileLiveSessionSource(scene);
@@ -606,77 +447,6 @@ public sealed class ReadDocumentTests
             Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(afterApplyList.IsSuccess, Is.True, afterApplyList.Error?.Message);
-            Assert.That(afterApplyList.Value!.RecentlyUsedCompositions, Does.Contain(selectedName));
-            Assert.That(afterApplyList.Value.Compositions.Last().Name, Is.EqualTo(selectedName));
-        });
-    }
-
-    [Test]
-    public void Composition_recent_applies_across_new_scene_roots()
-    {
-        using var firstSession = new AgentToolkitTestSession(new Scene(1920, 1080, "First"));
-        using var secondSession = new AgentToolkitTestSession(new Scene(1920, 1080, "Second"));
-        var manager = new AgentSessionManager();
-        var queryTools = new QueryTools(manager);
-        var editTools = new EditTools(manager);
-
-        manager.UseSource(new AgentToolkitTestSessionSource(firstSession));
-        ToolResult<ApplyCompositionResponse> firstApply = editTools.ApplyComposition(
-            name: "orbital-radar-map",
-            seed: "global-recent",
-            avoidRecent: false);
-
-        manager.UseSource(new AgentToolkitTestSessionSource(secondSession));
-        ToolResult<ListCompositionsResponse> secondList = queryTools.ListCompositions(seed: "global-recent");
-        ToolResult<PlanCompositionResponse> repeated = editTools.PlanComposition(
-            name: "orbital-radar-map",
-            seed: "global-recent");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(firstApply.IsSuccess, Is.True, firstApply.Error?.Message);
-            Assert.That(secondList.IsSuccess, Is.True, secondList.Error?.Message);
-            Assert.That(secondList.Value!.RecentlyUsedCompositions, Does.Contain("orbital-radar-map"));
-            Assert.That(secondList.Value.Compositions.Last().Name, Is.EqualTo("orbital-radar-map"));
-            Assert.That(repeated.IsSuccess, Is.False);
-            Assert.That(repeated.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(repeated.Error.Hint, Does.Contain("non-avoided"));
-        });
-    }
-
-    [Test]
-    public void Apply_edit_fallback_records_recent_style_and_deprioritizes_matching_examples()
-    {
-        var scene = new Scene(1920, 1080, "Scene");
-        using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var queryTools = new QueryTools(manager);
-        var editTools = new EditTools(manager);
-
-        ToolResult<GetExamplesResponse> example = queryTools.GetExamples(name: "create-empty-scene-orbital-radar");
-        ToolResult<ApplyEditResponse> apply = editTools.ApplyEdit(
-            patch: example.Value!.Examples.Single().Patch,
-            schemaVersion: SchemaVersion.Current);
-        ToolResult<ListCompositionsResponse> compositions = queryTools.ListCompositions(seed: "fallback-recent");
-        ToolResult<PlanCompositionResponse> repeated = editTools.PlanComposition(name: "orbital-radar-map", seed: "fallback-recent");
-        ToolResult<ListExamplesResponse> examples = queryTools.ListExamples(category: "motion", includeStarters: true);
-        string[] exampleNames = examples.Value!.Examples.Select(item => item.Name).ToArray();
-        int orbitalIndex = Array.FindIndex(exampleNames, name => name == "create-empty-scene-orbital-radar");
-        int nonOrbitalIndex = Array.FindIndex(exampleNames, name => CompositionTemplateCatalog.TryInferTemplateNameFromExampleName(name) != "orbital-radar-map");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(example.IsSuccess, Is.True, example.Error?.Message);
-            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-            Assert.That(compositions.IsSuccess, Is.True, compositions.Error?.Message);
-            Assert.That(compositions.Value!.RecentlyUsedCompositions, Does.Contain("orbital-radar-map"));
-            Assert.That(compositions.Value.Compositions.Last().Name, Is.EqualTo("orbital-radar-map"));
-            Assert.That(repeated.IsSuccess, Is.False);
-            Assert.That(repeated.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(repeated.Error.Hint, Does.Contain("non-avoided"));
-            Assert.That(examples.IsSuccess, Is.True, examples.Error?.Message);
-            Assert.That(orbitalIndex, Is.GreaterThan(nonOrbitalIndex));
         });
     }
 

@@ -39,11 +39,11 @@ public sealed class CodexSubagentConverterTests
     [Test]
     public void Missing_frontmatter_falls_back_to_the_file_name()
     {
-        string toml = CodexSubagentConverter.Convert("Just a body.", "beutl-agent-quality-reviewer");
+        string toml = CodexSubagentConverter.Convert("Just a body.", "beutl-agent-look-applier");
 
         Assert.Multiple(() =>
         {
-            Assert.That(toml, Does.StartWith("name = \"beutl-agent-quality-reviewer\""));
+            Assert.That(toml, Does.StartWith("name = \"beutl-agent-look-applier\""));
             Assert.That(toml, Does.Contain("description = \"\""));
             Assert.That(toml, Does.Contain("Just a body."));
         });
