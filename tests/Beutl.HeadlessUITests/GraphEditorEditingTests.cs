@@ -538,6 +538,63 @@ public class GraphEditorEditingTests
     }
 
     [AvaloniaTest]
+    [TestCase(typeof(QuadraticEaseIn), typeof(QuadraticEaseOut))]
+    [TestCase(typeof(QuadraticEaseOut), typeof(QuadraticEaseIn))]
+    [TestCase(typeof(CubicEaseIn), typeof(CubicEaseOut))]
+    [TestCase(typeof(CubicEaseOut), typeof(CubicEaseIn))]
+    [TestCase(typeof(QuarticEaseIn), typeof(QuarticEaseOut))]
+    [TestCase(typeof(QuarticEaseOut), typeof(QuarticEaseIn))]
+    [TestCase(typeof(QuinticEaseIn), typeof(QuinticEaseOut))]
+    [TestCase(typeof(QuinticEaseOut), typeof(QuinticEaseIn))]
+    [TestCase(typeof(SineEaseIn), typeof(SineEaseOut))]
+    [TestCase(typeof(SineEaseOut), typeof(SineEaseIn))]
+    [TestCase(typeof(CircularEaseIn), typeof(CircularEaseOut))]
+    [TestCase(typeof(CircularEaseOut), typeof(CircularEaseIn))]
+    [TestCase(typeof(ExponentialEaseIn), typeof(ExponentialEaseOut))]
+    [TestCase(typeof(ExponentialEaseOut), typeof(ExponentialEaseIn))]
+    [TestCase(typeof(ElasticEaseIn), typeof(ElasticEaseOut))]
+    [TestCase(typeof(ElasticEaseOut), typeof(ElasticEaseIn))]
+    [TestCase(typeof(BackEaseIn), typeof(BackEaseOut))]
+    [TestCase(typeof(BackEaseOut), typeof(BackEaseIn))]
+    [TestCase(typeof(BounceEaseIn), typeof(BounceEaseOut))]
+    [TestCase(typeof(BounceEaseOut), typeof(BounceEaseIn))]
+    public async Task Reversing_selection_mirrors_directional_easing_and_preserves_undo(Type sourceType, Type reversedType)
+    {
+        using var graph = await GraphScope.CreateAsync(light: sourceType == typeof(CubicEaseOut), separateHandles: true);
+        var original = (Easing)Activator.CreateInstance(sourceType)!;
+        var firstEasing = graph.First.Easing;
+        graph.Second.Easing = original;
+        graph.Model.HistoryManager.Commit();
+        HeadlessTestHelpers.Render();
+        Point first = graph.KeyFrame(graph.First).TranslatePoint(default, graph.Window)!.Value;
+        Point second = graph.KeyFrame(graph.Second).TranslatePoint(default, graph.Window)!.Value;
+        Point start = new(second.X, (first.Y + second.Y) / 2);
+        Point end = new(first.X - (second.X - first.X) / 2, start.Y);
+        int undo = graph.Model.HistoryManager.UndoCount;
+        graph.HitTest(start);
+        graph.Window.MouseDown(start, MouseButton.Left);
+        graph.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        graph.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(graph.Animation.KeyFrames[0], Is.SameAs(graph.Second));
+        Assert.That(graph.First.Easing.GetType(), Is.EqualTo(reversedType));
+        for (int i = 0; i <= 100; i++)
+            Assert.That(graph.First.Easing.Ease(i / 100f), Is.EqualTo(1 - original.Ease(1 - i / 100f)).Within(0.00001));
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+        // The reversed result must remain an ordinary, serializable built-in easing.
+        ObjectRegenerator.Regenerate(graph.Animation, out KeyFrameAnimation<float> restored);
+        Assert.That(restored.KeyFrames[1].Easing.GetType(), Is.EqualTo(reversedType));
+        graph.Capture($"reverse-{sourceType.Name}");
+        graph.Model.HistoryManager.Undo();
+        Assert.That(graph.Second.Easing, Is.SameAs(original));
+        Assert.That(graph.First.Easing, Is.SameAs(firstEasing));
+        Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(0.5));
+        Assert.That(graph.Second.KeyTime.TotalSeconds, Is.EqualTo(1.5));
+        graph.Model.HistoryManager.Redo();
+        Assert.That(graph.First.Easing.GetType(), Is.EqualTo(reversedType));
+    }
+
+    [AvaloniaTest]
     public async Task Reversing_selection_reverses_bezier_handles_and_key_order()
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);

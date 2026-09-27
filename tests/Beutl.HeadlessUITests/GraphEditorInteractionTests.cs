@@ -22,6 +22,39 @@ public class GraphEditorInteractionTests
     [TestCase(KeyModifiers.Meta, false)]
     [TestCase(KeyModifiers.Control, true)]
     [TestCase(KeyModifiers.Meta, true)]
+    public async Task Command_shift_a_clears_selection_without_editing_keys(KeyModifiers command, bool speedGraph)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
+        var hotkeys = Application.Current!.PlatformSettings!.HotkeyConfiguration;
+        KeyModifiers previous = hotkeys.CommandModifiers;
+        hotkeys.CommandModifiers = command;
+        try
+        {
+            graph.Model.IsSpeedGraph.Value = speedGraph;
+            HeadlessTestHelpers.Render(3);
+            int undo = graph.Model.HistoryManager.UndoCount;
+            TimeSpan playhead = graph.Model.CurrentTime.Value;
+            graph.View.Focus();
+            PressKey(graph, Key.A, CommandModifier);
+            Assert.That(Selected(graph), Is.EquivalentTo(new[] { graph.First, graph.Second }));
+            PressKey(graph, Key.A, CommandModifier | RawInputModifiers.Shift);
+            Assert.That(Selected(graph), Is.Empty);
+            Assert.That(graph.Model.SelectedView.Value!.SelectionCount.Value, Is.Zero);
+            PressKey(graph, Key.A, CommandModifier);
+            Assert.That(Selected(graph), Has.Length.EqualTo(2));
+            Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
+            Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(playhead));
+            Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(0.5));
+            Assert.That(graph.Second.KeyTime.TotalSeconds, Is.EqualTo(1.5));
+        }
+        finally { hotkeys.CommandModifiers = previous; }
+    }
+
+    [AvaloniaTest]
+    [TestCase(KeyModifiers.Control, false)]
+    [TestCase(KeyModifiers.Meta, false)]
+    [TestCase(KeyModifiers.Control, true)]
+    [TestCase(KeyModifiers.Meta, true)]
     public async Task Command_drag_selects_without_panning_or_seeking(KeyModifiers command, bool speedGraph)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);

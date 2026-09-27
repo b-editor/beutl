@@ -349,7 +349,7 @@ public partial class GraphEditorView
         }
         else if (_interactionPointer != null || ControlPointMoveState != null) return;
         else if (e.Key == Key.A && e.KeyModifiers.HasFlag(command))
-            channel.SetSelection(e.KeyModifiers.HasFlag(KeyModifiers.Alt | KeyModifiers.Shift)
+            channel.SetSelection(e.KeyModifiers.HasFlag(KeyModifiers.Shift)
                 ? [] : channel.KeyFrames.Select(x => x.Model));
         else if (e.Key == Key.F2 && e.KeyModifiers.HasFlag(KeyModifiers.Shift)) channel.SetSelection([]);
         else if (e.Key is Key.C or Key.X && e.KeyModifiers.HasFlag(command))

@@ -34,8 +34,7 @@ internal sealed class GraphEditorDragSnapshot
             var item = channel.KeyFrames[i];
             var previous = channel.KeyFrames[i - 1];
             Easing original = item.Model.Easing;
-            _reversedSegments[(item.Model, previous.Model)] = original is SplineEasing reverse
-                ? new SplineEasing(1 - reverse.X2, 1 - reverse.Y2, 1 - reverse.X1, 1 - reverse.Y1) : original;
+            _reversedSegments[(item.Model, previous.Model)] = ReverseEasing(original);
             if (original is not SplineEasing spline) continue;
             double duration = (item.Model.KeyTime - previous.Model.KeyTime).TotalSeconds;
             double difference = channel.ConvertToDouble(item.Model.Value) - channel.ConvertToDouble(previous.Model.Value);
@@ -126,6 +125,33 @@ internal sealed class GraphEditorDragSnapshot
                 SetHandle(spline, true, second, duration, difference);
         }
     }
+
+    // Keep built-in easing types so the mirrored animation uses the existing serialization format.
+    private static Easing ReverseEasing(Easing easing) => easing switch
+    {
+        SplineEasing spline => new SplineEasing(1 - spline.X2, 1 - spline.Y2, 1 - spline.X1, 1 - spline.Y1),
+        QuadraticEaseIn => new QuadraticEaseOut(),
+        QuadraticEaseOut => new QuadraticEaseIn(),
+        CubicEaseIn => new CubicEaseOut(),
+        CubicEaseOut => new CubicEaseIn(),
+        QuarticEaseIn => new QuarticEaseOut(),
+        QuarticEaseOut => new QuarticEaseIn(),
+        QuinticEaseIn => new QuinticEaseOut(),
+        QuinticEaseOut => new QuinticEaseIn(),
+        SineEaseIn => new SineEaseOut(),
+        SineEaseOut => new SineEaseIn(),
+        CircularEaseIn => new CircularEaseOut(),
+        CircularEaseOut => new CircularEaseIn(),
+        ExponentialEaseIn => new ExponentialEaseOut(),
+        ExponentialEaseOut => new ExponentialEaseIn(),
+        ElasticEaseIn => new ElasticEaseOut(),
+        ElasticEaseOut => new ElasticEaseIn(),
+        BackEaseIn => new BackEaseOut(),
+        BackEaseOut => new BackEaseIn(),
+        BounceEaseIn => new BounceEaseOut(),
+        BounceEaseOut => new BounceEaseIn(),
+        _ => easing
+    };
 
     private static void SetHandle(SplineEasing spline, bool incoming, Point vector,
         double duration, double difference)
