@@ -40,6 +40,7 @@ public abstract partial class GenerativeNode : GraphNode
     private ActiveSnapshot? _active;
     private volatile string? _currentParameterFingerprint;
     private readonly object _previewLock = new();
+    private int _previewLoadVersion;
     private Guid _previewShownFor;
     private NodeMonitor<Ref<Bitmap>?>? _previewMonitor;
     private NodeMonitor<string?>? _statusMonitor;
@@ -299,9 +300,84 @@ public abstract partial class GenerativeNode : GraphNode
             record is not null && (record.Image ?? (MediaSource?)record.Video) is { } media
                 ? new ActiveSnapshot(record.Id, media, record.ParameterFingerprint)
                 : null);
+        LoadActivePreview();
         UpdateBusy();
         _statusMonitor?.Value = FormatStatus();
         StatusChanged?.Invoke(this, EventArgs.Empty);
+        // The output changed: without this the scene is not rendered again, and neither the
+        // canvas nor anything downstream would show the new result.
+        RaiseEdited();
+    }
+
+    /// <summary>The preview load in flight, for tests.</summary>
+    internal Task PreviewLoad { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
+    /// Shows the active result in the preview again, replacing a streamed or cleared preview.
+    /// </summary>
+    internal void RestoreActivePreview() => LoadActivePreview();
+
+    /// <summary>
+    /// Decodes the active result for the preview straight from its file, off the UI thread.
+    /// The preview does not wait for the graph to be evaluated, which only happens while the
+    /// graph's element is rendered at the current time.
+    /// </summary>
+    private void LoadActivePreview()
+    {
+        int version = Interlocked.Increment(ref _previewLoadVersion);
+        ActiveSnapshot? active = Volatile.Read(ref _active);
+        if (_previewMonitor is null)
+            return;
+        if (active is null)
+        {
+            SwapPreview(null, Guid.Empty);
+            return;
+        }
+
+        lock (_previewLock)
+        {
+            if (_previewShownFor == active.Id && _previewMonitor.Value is not null)
+                return;
+        }
+
+        PreviewLoad = Task.Run(() =>
+        {
+            Bitmap? bitmap = null;
+            try
+            {
+                bitmap = DecodePreview(active.Media);
+            }
+            catch (Exception)
+            {
+                // A missing or unreadable file shows no picture; it must not leave the node loading.
+            }
+
+            if (Volatile.Read(ref _previewLoadVersion) != version)
+            {
+                bitmap?.Dispose();
+                return;
+            }
+
+            SwapPreview(bitmap is null ? null : Ref<Bitmap>.Create(bitmap), active.Id);
+        });
+    }
+
+    private static Bitmap? DecodePreview(MediaSource media)
+    {
+        if (!media.HasUri || !media.Uri.IsFile || !File.Exists(media.Uri.LocalPath))
+            return null;
+
+        string path = media.Uri.LocalPath;
+        if (media is ImageSource)
+            return Bitmap.FromFile(path);
+
+        using var reader = Beutl.Media.Decoding.MediaReader.Open(
+            path,
+            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video));
+        if (!reader.ReadVideo(0, out Ref<Bitmap>? frame))
+            return null;
+        using (frame)
+            return frame.Value.Clone();
     }
 
     private string? FormatStatus()
@@ -358,26 +434,6 @@ public abstract partial class GenerativeNode : GraphNode
             using RenderNodeRasterization rasterization = renderer.Rasterize();
             return rasterization.Bitmap?.Clone();
         }
-    }
-
-    /// <summary>
-    /// Shows the active generation in the preview monitor, once per generation and only
-    /// while the monitor is visible, so the node itself shows what it outputs.
-    /// </summary>
-    private void RefreshActivePreview(RenderNode? output, GraphCompositionContext context)
-    {
-        if (_previewMonitor is not { IsEnabled: true } || Status == GenerativeNodeStatus.Running)
-            return;
-
-        Guid activeId = Volatile.Read(ref _active)?.Id ?? Guid.Empty;
-        lock (_previewLock)
-        {
-            if (_previewShownFor == activeId && (activeId != Guid.Empty || _previewMonitor.Value is null))
-                return;
-        }
-
-        Bitmap? bitmap = activeId == Guid.Empty ? null : Rasterize(output, context);
-        SwapPreview(bitmap is null ? null : Ref<Bitmap>.Create(bitmap), activeId);
     }
 
     /// <summary>Reads a clip handed to a generation as input.</summary>
@@ -440,7 +496,6 @@ public abstract partial class GenerativeNode : GraphNode
             if (source is null)
             {
                 ReleaseOutput();
-                RequireOriginal().RefreshActivePreview(null, context);
                 return null;
             }
 
@@ -460,18 +515,13 @@ public abstract partial class GenerativeNode : GraphNode
                 _cachedOutput = new ImageSourceRenderNode(_sourceResource, Brushes.Resource.White, null);
             else
                 _cachedOutput.Update(_sourceResource, Brushes.Resource.White, null);
-            RequireOriginal().RefreshActivePreview(_cachedOutput, context);
             return _cachedOutput;
         }
 
         private VideoSource.Resource? _videoResource;
         private VideoSource? _lastVideo;
-        private VideoSourceRenderNode? _videoPreview;
 
-        /// <summary>
-        /// The active clip, and its first frame in the preview monitor. The frame is
-        /// decoded once per generation, not on every evaluation.
-        /// </summary>
+        /// <summary>The active clip.</summary>
         protected VideoSource? UpdateActiveVideoOutput(GraphCompositionContext context)
         {
             GenerativeNode node = RequireOriginal();
@@ -479,7 +529,6 @@ public abstract partial class GenerativeNode : GraphNode
             if (source is null)
             {
                 ReleaseVideo();
-                node.RefreshActivePreview(null, context);
                 return null;
             }
 
@@ -495,18 +544,11 @@ public abstract partial class GenerativeNode : GraphNode
                 _videoResource!.Update(source, context, ref updateOnly);
             }
 
-            if (_videoPreview is null)
-                _videoPreview = new VideoSourceRenderNode(_videoResource, 0, Brushes.Resource.White, null);
-            else
-                _videoPreview.Update(_videoResource, 0, Brushes.Resource.White, null);
-            node.RefreshActivePreview(_videoPreview, context);
             return source;
         }
 
         private void ReleaseVideo()
         {
-            _videoPreview?.Dispose();
-            _videoPreview = null;
             _videoResource?.Dispose();
             _videoResource = null;
             _lastVideo = null;

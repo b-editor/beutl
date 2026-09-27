@@ -90,7 +90,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                     TryDelete(result.ResultFile);
                     await host.InvokeOnUIThreadAsync(() =>
                     {
-                        node.ShowPreview(null);
+                        node.RestoreActivePreview();
                         node.SetStatus(GenerativeNodeStatus.Idle);
                     });
                     continue;
@@ -100,7 +100,6 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 {
                     GenerationRecord record = node.AddGeneration(request, result);
                     node.OnGenerated(record);
-                    node.ShowPreview(null);
                     node.SetStatus(GenerativeNodeStatus.Idle);
                     host.CommitHistory(NodeGraphStrings.AiGeneration);
                 });
@@ -115,7 +114,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 failed.Add(node);
                 await host.InvokeOnUIThreadAsync(() =>
                 {
-                    node.ShowPreview(null);
+                    node.RestoreActivePreview();
                     node.SetStatus(GenerativeNodeStatus.Failed, ex.Message);
                 });
             }
@@ -140,7 +139,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         {
             for (int j = from; j < order.Count; j++)
             {
-                order[j].ShowPreview(null);
+                order[j].RestoreActivePreview();
                 order[j].SetStatus(GenerativeNodeStatus.Canceled);
             }
         });

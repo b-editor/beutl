@@ -241,9 +241,8 @@ public sealed class GenerativeGraphRunnerTests
         INodeMonitor preview = node.Items.OfType<INodeMonitor>().Single(m => m.Name == "GenerationPreview");
         preview.IsEnabled = true;
 
-        using var snapshot = new GraphSnapshot();
-        snapshot.Build(model, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        // Never evaluated: the preview must not wait for the graph to be rendered.
+        await node.PreviewLoad;
 
         var value = ((NodeMonitor<Beutl.Media.Source.Ref<Bitmap>?>)preview).Value;
         Assert.That(value?.Value.Width, Is.EqualTo(8));
@@ -268,15 +267,13 @@ public sealed class GenerativeGraphRunnerTests
         await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
 
         Assert.That(busyWhileRunning, Is.EqualTo(new[] { (true, (string?)null) }), "A bare ring while generating.");
-        Assert.That(preview.IsBusy, Is.True, "Generated, but not shown yet.");
-        Assert.That(preview.BusyText, Is.EqualTo(Beutl.Language.NodeGraphStrings.Generative_Loading));
 
-        using var snapshot = new GraphSnapshot();
-        snapshot.Build(model, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        // Without the graph ever being evaluated, the loading state ends once the file is read.
+        await node.PreviewLoad;
 
         Assert.That(preview.IsBusy, Is.False);
         Assert.That(preview.BusyText, Is.Null);
+        Assert.That(preview.Value?.Value.Width, Is.EqualTo(8));
     }
 
     [Test]
@@ -492,6 +489,41 @@ public sealed class GenerativeGraphRunnerTests
             .RunAsync(model, null, force: false, CancellationToken.None).GetAwaiter().GetResult();
 
         Assert.That(((SceneFrameNodeRequest)executor.Requests.Single()).Time, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+    }
+
+    [Test]
+    public async Task ANewOrSelectedGenerationAsksTheSceneToRenderAgain()
+    {
+        var (model, node) = await GenerateTimesAsync(1);
+        GenerationRecord first = node.ActiveGeneration!;
+        int edits = 0;
+        node.Edited += (_, _) => edits++;
+
+        await new GenerativeGraphRunner(new FakeExecutor(_directory), new InlineHost())
+            .RunAsync(model, [node], force: true, CancellationToken.None);
+        Assert.That(edits, Is.GreaterThan(0), "A new result must reach the canvas.");
+
+        edits = 0;
+        node.SelectGeneration(first.Id);
+        Assert.That(edits, Is.GreaterThan(0), "Switching results must reach the canvas.");
+    }
+
+    [Test]
+    public async Task UnreadableResultStillEndsTheLoadingState()
+    {
+        var (_, node) = await GenerateTimesAsync(1);
+        await node.PreviewLoad;
+        var record = new GenerationRecord { Image = new Beutl.Media.Source.ImageSource() };
+        record.Image.ReadFrom(new Uri(Path.Combine(_directory, "missing.png")));
+        node.Generations.Add(record);
+
+        node.SelectGeneration(record.Id);
+        await node.PreviewLoad;
+
+        var preview = (NodeMonitor<Beutl.Media.Source.Ref<Bitmap>?>)node.Items.OfType<INodeMonitor>()
+            .Single(m => m.Name == "GenerationPreview");
+        Assert.That(preview.IsBusy, Is.False);
+        Assert.That(preview.Value, Is.Null);
     }
 
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
