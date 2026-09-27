@@ -14,7 +14,7 @@ This describes the toolkit's own conceptual entities and how each maps onto exis
 | Edit Transaction | The atomic, undoable application of a Change Set | `HistoryManager.ExecuteInTransaction` (commits prior pending work separately, blocks concurrent records, commits on success, and **rolls back the callback on exception**) |
 | Workspace Guard | The write-boundary policy (read anywhere, write only under the configured root) | `IWorkspaceGuard.ResolveForWrite` (new) |
 | Render Job / Export Job | A request to produce a still image or a video/audio file | `SceneRenderer`+`Renderer.Snapshot`+`Bitmap.Save` / `EncodingController.Encode` via `Beutl.FFmpegIpc` |
-| Quality Review | Deterministic review of AI-generated editing quality before export | scene graph + sampled still/motion analysis (`QualityAnalyzer`) |
+| Render measurements | Numerical frame, pixel-change, and audio-rhythm data, without a quality verdict or export gate | scene graph + rendered frames (`StillRenderer`, `FrameDifferenceAnalyzer`) + decoded audio (`AudioRhythmAnalyzer`) |
 | Editing Recipe / Specialist | Packaged Skill / Subagent guidance (the non-code pillar) | `src/Beutl.AgentToolkit/Installation/Assets/` |
 
 ---

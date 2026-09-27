@@ -601,42 +601,6 @@ public sealed class RenderTools(
         return string.IsNullOrWhiteSpace(trimmed) ? s_processOutputToken : trimmed;
     }
 
-    internal static IReadOnlyList<TimeSpan> ResolveSampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
-    {
-        if (timeSeconds is { Length: > 0 })
-        {
-            TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
-            // TimeRange.Contains excludes the end, so a sample at exactly Duration renders no active
-            // elements (a blank still). Clamp to the last renderable tick instead of the exclusive end.
-            TimeSpan lastRenderable = duration - TimeSpan.FromTicks(1);
-            TimeSpan[] explicitTimes = timeSeconds
-                .Select(seconds => double.IsFinite(seconds) ? Math.Max(0, seconds) : 0)
-                .Select(TimeSpan.FromSeconds)
-                .Select(time => time > lastRenderable ? lastRenderable : time)
-                .Distinct()
-                .OrderBy(time => time)
-                .ToArray();
-            if (explicitTimes.Length >= 2)
-            {
-                return explicitTimes;
-            }
-
-            throw new ReconcileException(new ToolError(
-                ErrorCode.ValidationRejected,
-                "measure_frame_differences requires at least two distinct sample times."));
-        }
-
-        int count = Math.Clamp(sampleCount, 2, 8);
-        double durationSeconds = scene.Duration > TimeSpan.Zero
-            ? scene.Duration.TotalSeconds
-            : 1;
-        return Enumerable
-            .Range(0, count)
-            .Select(index => TimeSpan.FromSeconds(durationSeconds * (index + 0.5) / count))
-            .ToArray();
-    }
-
-
     private static void SaveStoryboardStill(Bitmap bitmap, string outputPath)
     {
         string? directory = Path.GetDirectoryName(outputPath);

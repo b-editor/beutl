@@ -92,7 +92,7 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
      "seed": "promo-a",
      "inputProps": { "title": "Beutl motion", "subtitle": "Summer launch", "durationSeconds": 10 }
    }
-                                               → metadata + sequences + validation + valid + expectedChangeSet
+                                               → planId + composition + compact plan (valid, changeCount, operations, usageHint)
    get_schema { "category": "visualEffect", "includeProperties": false, "includeExamples": false }
                                                → compact effect type/discriminator catalog; category aliases are accepted
    ```
@@ -100,12 +100,9 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
 4. **Apply** atomically once the plan looks right:
    ```
    apply_composition {
-     "name": "<selected composition name>",
-     "seed": "promo-a",
-     "inputProps": { "title": "Beutl motion", "subtitle": "Summer launch", "durationSeconds": 10 },
-     "expectedChangeSet": <plan_composition.plan.expectedChangeSet>
+     "planId": "<plan_composition.planId>"
    }
-                                              → { composition, result: { plan, document } }   // document includes minted Ids
+                                              → { schemaVersion, composition, appliedPlanId, result: { plan, document } }   // document includes minted Ids
    ```
    Use `apply_composition.result.document`, call `apply_edit` with `includeDocument=true`, or call `read_document` before follow-up edits so later patches reference existing `Id` values. A patch that supplies an unknown `Id` is rejected as `stale_handle`; omit `Id` to create a new node.
 
