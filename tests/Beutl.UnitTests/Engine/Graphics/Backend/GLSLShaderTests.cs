@@ -453,6 +453,53 @@ public class GLSLShaderTests
         });
     }
 
+    [TestCase(2)]
+    [TestCase(3)]
+    public void ApplyMethods_RejectMultipleInputsBeforeProcessingTargets(int inputCount)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget source = CreateSolidTarget(4, 4, Colors.Red);
+            using var targets = new EffectTargets();
+            var original = new EffectTarget(source, new Rect(0, 0, 4, 4));
+            targets.Add(original);
+            var context = CreateCustomContext(targets);
+            using var shader = GLSLShader.Create(ConstantBlueFragment, inputCount);
+            var allocations = new List<TextureFormat>();
+            int callbacks = 0;
+
+            using (VulkanContext.ObserveTextureAllocations(allocations.Add))
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(
+                        () => shader.Apply(context, new DummyPush()),
+                        Throws.InvalidOperationException.With.Message.Contains("Render"));
+                    Assert.That(
+                        () => shader.Apply<DummyPush>(context, _ =>
+                        {
+                            callbacks++;
+                            return new DummyPush();
+                        }),
+                        Throws.InvalidOperationException.With.Message.Contains("Render"));
+                    Assert.That(
+                        () => shader.ApplyMultiPass<DummyPush>(context, 3, (_, _) =>
+                        {
+                            callbacks++;
+                            return new DummyPush();
+                        }),
+                        Throws.InvalidOperationException.With.Message.Contains("Render"));
+                    Assert.That(callbacks, Is.Zero);
+                    Assert.That(allocations, Is.Empty);
+                    Assert.That(targets[0], Is.SameAs(original));
+                    Assert.That(original.RenderTarget, Is.Not.Null);
+                });
+            }
+        });
+    }
+
     [Test]
     public void Apply_OverwritesTargetWithShaderOutput()
     {

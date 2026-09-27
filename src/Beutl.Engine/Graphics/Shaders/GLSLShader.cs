@@ -268,12 +268,17 @@ public sealed class GLSLShader : IDisposable
         }
     }
 
+    private void EnsureSingleInput()
+    {
+        if (_pipeline.InputCount != 1)
+            throw new InvalidOperationException(
+                $"This shader requires {_pipeline.InputCount} inputs. Use Render with all input targets instead of single-input Apply methods.");
+    }
+
     public void Apply<T>(CustomFilterEffectContext context, T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (_pipeline.HasMaskTexture)
-            throw new InvalidOperationException("Cannot use single-texture Apply on a dual-texture shader. Use ExecuteSingleTargetWithMask instead.");
+        EnsureSingleInput();
 
         if (TryGetGraphicsContext() is null)
             return;
@@ -352,6 +357,7 @@ public sealed class GLSLShader : IDisposable
         Func<int, EffectTarget, T> createPushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        EnsureSingleInput();
 
         if (TryGetGraphicsContext() is not { } graphicsContext)
             return;
@@ -467,6 +473,7 @@ public sealed class GLSLShader : IDisposable
         Func<EffectTarget, T> createPushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        EnsureSingleInput();
 
         if (TryGetGraphicsContext() is null)
             return;

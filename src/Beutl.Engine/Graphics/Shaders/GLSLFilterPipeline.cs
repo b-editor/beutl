@@ -66,8 +66,6 @@ internal sealed class GLSLFilterPipeline : IDisposable
 
     internal int InputCount { get; }
 
-    internal bool HasMaskTexture => InputCount == 2;
-
     /// <summary>
     /// Gets the compiled-bytecode weight used to bound the cache. Driver-owned pipeline memory is not observable.
     /// </summary>
