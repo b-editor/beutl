@@ -432,13 +432,10 @@
   <data name="Port_Quality" xml:space="preserve">
     <value>품질</value>
   </data>
-  <data name="SceneFrame" xml:space="preserve">
-    <value>장면 프레임</value>
-  </data>
   <data name="Port_UseCurrentTime" xml:space="preserve">
     <value>재생 위치 시간 사용</value>
   </data>
-  <data name="Generative_Capturing" xml:space="preserve">
-    <value>장면을 캡처하는 중…</value>
+  <data name="Scene_CircularReference" xml:space="preserve">
+    <value>장면이 자기 자신을 참조하므로 여기에 그릴 수 없습니다.</value>
   </data>
 </root>

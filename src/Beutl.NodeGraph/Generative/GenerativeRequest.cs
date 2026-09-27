@@ -14,8 +14,6 @@ public enum GenerativeOperation
     ImageEdit,
     VideoGeneration,
     VideoEdit,
-    /// <summary>A local render of the scene; free, so it is never reused from the cache.</summary>
-    SceneFrame,
 }
 
 /// <summary>
@@ -171,32 +169,7 @@ public sealed record AiImageEditNodeRequest : GenerativeRequest
 }
 
 /// <summary>What the executor produced: a file it saved and the parameters that made it.</summary>
-/// <param name="ContentFingerprint">
-/// Identifies what was produced, for work that is always redone: a result equal to the active
-/// one is dropped, so nodes downstream see nothing new.
-/// </param>
-public sealed record GenerativeExecutionResult(
-    Uri ResultFile,
-    string? ModelId,
-    int? Seed,
-    bool IsVideo = false,
-    string? ContentFingerprint = null);
-
-public sealed record SceneFrameNodeRequest : GenerativeRequest
-{
-    public SceneFrameNodeRequest(GenerativeNode node) : base(node)
-    {
-    }
-
-    public override GenerativeOperation Operation => GenerativeOperation.SceneFrame;
-
-    public required TimeSpan Time { get; init; }
-
-    public override string Fingerprint => GenerativeFingerprint.Combine(
-        [nameof(GenerativeOperation.SceneFrame), ParameterFingerprint]);
-
-    public override string Summary => Time.ToString(@"hh\:mm\:ss\.ff", System.Globalization.CultureInfo.InvariantCulture);
-}
+public sealed record GenerativeExecutionResult(Uri ResultFile, string? ModelId, int? Seed, bool IsVideo = false);
 
 public enum AiVideoEditMode
 {

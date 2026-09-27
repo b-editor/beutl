@@ -139,12 +139,6 @@ public abstract partial class GenerativeNode : GraphNode
 
     protected void RaiseCatalogOperationChanged() => CatalogOperationChanged?.Invoke(this, EventArgs.Empty);
 
-    /// <summary>
-    /// True for free, local work whose inputs cannot be fingerprinted in advance, such as
-    /// rendering the scene: it is redone on every run instead of reused.
-    /// </summary>
-    public virtual bool AlwaysRun => false;
-
     /// <summary>The input that names the model, when the node has one.</summary>
     public virtual IPropertyAdapter<string>? ModelProperty => null;
 
@@ -247,7 +241,7 @@ public abstract partial class GenerativeNode : GraphNode
     {
         var record = new GenerationRecord
         {
-            Fingerprint = result.ContentFingerprint ?? request.Fingerprint,
+            Fingerprint = request.Fingerprint,
             ParameterFingerprint = request.ParameterFingerprint,
             ModelId = result.ModelId,
             Seed = result.Seed,

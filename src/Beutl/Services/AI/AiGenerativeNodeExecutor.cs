@@ -41,7 +41,6 @@ internal sealed class AiGenerativeNodeExecutor(
             AiImageEditNodeRequest edit => EditImageAsync(edit, progress, cancellationToken),
             AiVideoGenerationNodeRequest video => GenerateVideoAsync(video, progress, cancellationToken),
             AiVideoEditNodeRequest edit => EditVideoAsync(edit, progress, cancellationToken),
-            SceneFrameNodeRequest frame => CaptureSceneAsync(frame, progress, cancellationToken),
             _ => throw new NotSupportedException($"{request.Operation} is not supported."),
         };
     }
@@ -328,63 +327,6 @@ internal sealed class AiGenerativeNodeExecutor(
             s_logger.LogError(ex, "Failed to run a generative node.");
             throw new GenerativeExecutionException(Strings.AiUnexpectedError, ex);
         }
-    }
-
-    /// <summary>
-    /// Renders the scene at a time at full scale, as the AI tab's "use current frame" does;
-    /// replaced in tests, which have no scene renderer.
-    /// </summary>
-    internal Func<TimeSpan, CancellationToken, Task<Bitmap>> SceneRenderer { get; init; } = null!;
-
-    private Task<Bitmap> RenderSceneAsync(TimeSpan time, CancellationToken cancellationToken)
-        => SceneRenderer is { } renderer
-            ? renderer(time, cancellationToken)
-            : Beutl.Graphics.Rendering.RenderThread.Dispatcher.InvokeAsync(() =>
-            {
-                // The export preflight: a missing source would otherwise render as a blank frame.
-                IReadOnlyList<string> missing = Beutl.Editor.ExportSourceValidator.GetMissingPaths(
-                    Beutl.Editor.ExportSourceValidator.CollectRenderableSources(scene, time));
-                if (missing.Count > 0)
-                {
-                    throw new GenerativeExecutionException(string.Format(
-                        CultureInfo.CurrentCulture,
-                        MessageStrings.SaveFrameMissingSourceFile,
-                        missing[0],
-                        missing.Count));
-                }
-
-                using var renderer = Beutl.Models.ExportRendererFactory.Create(scene, 1f);
-                renderer.Render(renderer.Compositor.EvaluateGraphics(time));
-                return renderer.Snapshot();
-            }, ct: cancellationToken);
-
-    private async Task<GenerativeExecutionResult> CaptureSceneAsync(
-        SceneFrameNodeRequest request,
-        IProgress<GenerativeProgress> progress,
-        CancellationToken cancellationToken)
-    {
-        progress.Report(new GenerativeProgress(Beutl.Language.NodeGraphStrings.Generative_Capturing));
-        byte[] encoded;
-        try
-        {
-            using Bitmap bitmap = await RenderSceneAsync(request.Time, cancellationToken);
-            using var stream = new MemoryStream();
-            if (!bitmap.Save(stream, EncodedImageFormat.Png))
-                throw new GenerativeExecutionException(Strings.AiVideoFrameCaptureFailed);
-            encoded = stream.ToArray();
-        }
-        catch (Exception ex) when (ex is not (GenerativeExecutionException or OperationCanceledException))
-        {
-            s_logger.LogError(ex, "Failed to capture the scene for a node.");
-            throw new GenerativeExecutionException(Strings.AiVideoFrameCaptureFailed, ex);
-        }
-
-        string path = await SaveAsync(encoded, ".png", cancellationToken);
-        return new GenerativeExecutionResult(
-            new Uri(path),
-            null,
-            null,
-            ContentFingerprint: GenerativeFingerprint.Hash(encoded));
     }
 
     /// <summary>Reads how long a clip lasts; replaced in tests, which have no decoder.</summary>

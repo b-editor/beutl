@@ -17,11 +17,11 @@ public static class NodesRegistrar
         GraphNodeRegistry.RegisterNode<TextNode>(GraphicsStrings.TextBlock, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<ImageSourceNode>(GraphicsStrings.SourceImage, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<VideoSourceNode>(GraphicsStrings.SourceVideo, Colors.ForestGreen);
+        GraphNodeRegistry.RegisterNode<SceneNode>(GraphicsStrings.SceneDrawable, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<TransformNode>(GraphicsStrings.Transform, Colors.MediumPurple);
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.AiGeneration, Colors.DeepPink)
             .Add<AiPromptNode>(NodeGraphStrings.AiPrompt)
-            .Add<SceneFrameNode>(NodeGraphStrings.SceneFrame)
             .Add<AiImageGenerationNode>(NodeGraphStrings.AiImageGeneration)
             .Add<AiImageEditNode>(NodeGraphStrings.AiImageEdit)
             .Add<AiVideoGenerationNode>(NodeGraphStrings.AiVideoGeneration)

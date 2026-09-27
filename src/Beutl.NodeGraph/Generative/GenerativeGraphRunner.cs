@@ -73,7 +73,6 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 await host.InvokeOnUIThreadAsync(() => node.SetStatus(GenerativeNodeStatus.Running));
                 GenerativeRequest request = await host.InvokeOnRenderThreadAsync(() => CaptureRequest(model, node));
                 if (!forced.Contains(node)
-                    && !node.AlwaysRun
                     && node.ActiveGeneration is { } active
                     && active.Fingerprint == request.Fingerprint)
                 {
@@ -83,19 +82,6 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
 
                 var progress = new ProgressRelay(host, node);
                 GenerativeExecutionResult result = await executor.ExecuteAsync(request, progress, cancellationToken);
-                if (result.ContentFingerprint is { } produced
-                    && node.ActiveGeneration?.Fingerprint == produced)
-                {
-                    // Redone and unchanged: keep the active result so nothing downstream reruns.
-                    TryDelete(result.ResultFile);
-                    await host.InvokeOnUIThreadAsync(() =>
-                    {
-                        node.RestoreActivePreview();
-                        node.SetStatus(GenerativeNodeStatus.Idle);
-                    });
-                    continue;
-                }
-
                 await host.InvokeOnUIThreadAsync(() =>
                 {
                     GenerationRecord record = node.AddGeneration(request, result);
@@ -118,18 +104,6 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                     node.SetStatus(GenerativeNodeStatus.Failed, ex.Message);
                 });
             }
-        }
-    }
-
-    private static void TryDelete(Uri file)
-    {
-        try
-        {
-            if (file.IsFile)
-                File.Delete(file.LocalPath);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
         }
     }
 

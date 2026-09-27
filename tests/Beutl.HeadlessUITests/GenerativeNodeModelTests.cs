@@ -461,40 +461,6 @@ public sealed class GenerativeNodeModelTests
         };
     }
 
-    [AvaloniaTest]
-    public async Task SceneCaptureIsSavedNextToTheSceneWithItsContentFingerprint()
-    {
-        TimeSpan? rendered = null;
-        var scene = new Scene(640, 480, "nodes") { Uri = new Uri(Path.Combine(_directory, "scene.scene")) };
-        var executor = new AiGenerativeNodeExecutor(
-            scene, CreateCatalog(), new CapturingImages(), new AlwaysAvailable(), new PngContent())
-        {
-            SceneRenderer = (time, _) =>
-            {
-                rendered = time;
-                return Task.FromResult(new Bitmap(16, 9));
-            },
-        };
-
-        GenerativeExecutionResult result = await executor.ExecuteAsync(
-            new SceneFrameNodeRequest(new SceneFrameNode())
-            {
-                Time = TimeSpan.FromSeconds(2),
-                RequestKeySeed = "s",
-                ParameterFingerprint = "p",
-            },
-            new Progress<GenerativeProgress>(),
-            CancellationToken.None);
-
-        byte[] saved = File.ReadAllBytes(result.ResultFile.LocalPath);
-        Assert.Multiple(() =>
-        {
-            Assert.That(rendered, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(Path.GetDirectoryName(result.ResultFile.LocalPath), Is.EqualTo(Path.Combine(_directory, "resources", "ai")));
-            Assert.That(result.ContentFingerprint, Is.EqualTo(GenerativeFingerprint.Hash(saved)));
-        });
-    }
-
     private AiGenerativeNodeExecutor CreateVideoExecutor(FakeVideos videos, double sourceSeconds = 4)
     {
         var quiet = new AiModelOption(new AiModelId("quiet"), "Quiet", null, true,
