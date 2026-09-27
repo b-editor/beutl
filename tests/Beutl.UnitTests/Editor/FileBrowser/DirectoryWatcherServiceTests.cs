@@ -47,6 +47,39 @@ public class DirectoryWatcherServiceTests
         Assert.That(service.ShouldExcludePath(path), Is.EqualTo(expected));
     }
 
+    [TestCase("project.bep.0123456789abcdef0123456789abcdef.tmp", true)]
+    [TestCase("main.scene.0123456789abcdef0123456789abcdef.tmp", true)]
+    [TestCase("clip.belm.0123456789abcdef0123456789abcdef.tmp", true)]
+    [TestCase("clip.BELM.0123456789ABCDEF0123456789ABCDEF.tmp", true)]
+    [TestCase("clip.belm.backup.tmp", false)]
+    [TestCase("clip.belm.tmp", false)]
+    [TestCase("clip.png.0123456789abcdef0123456789abcdef.tmp", false)]
+    [TestCase("notes.tmp", false)]
+    public void Atomic_editor_save_sidecars_do_not_refresh_the_browser(string name, bool excluded)
+    {
+        using var service = new DirectoryWatcherService();
+
+        Assert.That(service.ShouldExcludePath(Path.Combine(_projectRoot, name)), Is.EqualTo(excluded));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Special_directories_ignore_editor_save_sidecars_but_keep_the_completed_file(bool template)
+    {
+        string directory = template
+            ? BeutlEnvironment.GetTemplatesDirectoryPath()
+            : BeutlEnvironment.GetMaterialsDirectoryPath();
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "item.belm");
+        using var service = new DirectoryWatcherService();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.ShouldExcludePath($"{path}.{Guid.NewGuid():N}.tmp"), Is.True);
+            Assert.That(service.ShouldExcludePath(path), Is.False);
+        });
+    }
+
     [TestCase(".GIT", ".git")]
     [TestCase("assets/.GIT/objects/ab/cdef", ".git")]
     [TestCase(".BEUTL", ".beutl")]

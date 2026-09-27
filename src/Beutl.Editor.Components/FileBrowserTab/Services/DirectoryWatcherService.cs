@@ -327,6 +327,14 @@ internal sealed class DirectoryWatcherService : IDisposable
         string templatesDirectoryPath,
         string materialsDirectoryPath)
     {
+        // Atomic saves create <document>.<guid:N>.tmp before replacing the document. These
+        // transient events must not rebuild the browser on every edit, even inside templates.
+        // Reject them before the filesystem identity lookups below.
+        if (IsEditorSaveTemporaryFile(path))
+        {
+            return true;
+        }
+
         // Templates and materials live below BEUTL_HOME/.beutl by default, so their explicit
         // exception must win over the reserved-metadata rule. Cache by containing directory: a
         // watcher burst commonly reports hundreds of sibling files, and canonical resolution only
@@ -344,10 +352,25 @@ internal sealed class DirectoryWatcherService : IDisposable
             return true;
         }
 
-        return path.EndsWith(".bep", StringComparison.OrdinalIgnoreCase) ||
-               path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase) ||
-               path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase);
+        return IsEditorDocument(path);
     }
+
+    private static bool IsEditorSaveTemporaryFile(ReadOnlySpan<char> path)
+    {
+        if (!path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        ReadOnlySpan<char> name = path[..^4];
+        int separator = name.LastIndexOf('.');
+        return separator >= 0
+               && Guid.TryParseExact(name[(separator + 1)..], "N", out _)
+               && IsEditorDocument(name[..separator]);
+    }
+
+    private static bool IsEditorDocument(ReadOnlySpan<char> path)
+        => path.EndsWith(".bep", StringComparison.OrdinalIgnoreCase)
+           || path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase)
+           || path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase);
 
     private bool IsTemplateOrMaterialPath(
         string path,
