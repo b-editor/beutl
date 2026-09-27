@@ -91,6 +91,8 @@ public partial class PathEditorView : UserControl, IPathEditorView
 
     public bool CanDragPoint(Thumb thumb) => _interaction.CanDragPoint(thumb);
 
+    public void SetToolbarHost(Panel host) => _interaction.SetToolbarHost(host);
+
     public void Refresh()
     {
         UpdateControlPointVisibility();
@@ -122,6 +124,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
             {
                 var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
                 PathEditorHelper.UpdateThumbPositions(canvas, this, new CompositionContext(clock.CurrentTime.Value));
+                _interaction.RefreshOverlays();
                 view.InvalidateVisual();
             }
         }, DispatcherPriority.MaxValue);

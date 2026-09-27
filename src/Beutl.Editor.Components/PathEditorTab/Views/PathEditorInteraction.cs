@@ -41,6 +41,8 @@ internal sealed class PathEditorInteraction
     private readonly Border _marquee;
     private readonly Avalonia.Controls.Shapes.Ellipse _insertion;
     private readonly Avalonia.Controls.Shapes.Line _preview;
+    private readonly Border _explicitStart;
+    private Border? _floatingToolbar;
     private PathEditorTool _tool;
     private IPointer? _pointer;
     private Point _start;
@@ -99,11 +101,25 @@ internal sealed class PathEditorInteraction
             IsHitTestVisible = false,
             IsVisible = false
         };
+        _explicitStart = new Border
+        {
+            Name = "PathStartPoint",
+            Width = 8,
+            Height = 8,
+            CornerRadius = new Avalonia.CornerRadius(1),
+            Background = Brushes.White,
+            BorderBrush = Brushes.DodgerBlue,
+            BorderThickness = new Thickness(1.5),
+            IsHitTestVisible = false,
+            IsVisible = false,
+            ZIndex = 20
+        };
         _host.GetResourceObservable("AccentFillColorDefaultBrush").Subscribe(value =>
         {
             if (value is IBrush brush)
             {
                 _marquee.BorderBrush = _insertion.Stroke = _preview.Stroke = brush;
+                _explicitStart.BorderBrush = brush;
                 _marquee.Background = brush is ISolidColorBrush solid
                     ? new Avalonia.Media.SolidColorBrush(solid.Color, 0.12) : null;
             }
@@ -111,6 +127,7 @@ internal sealed class PathEditorInteraction
         canvas.Children.Add(_preview);
         canvas.Children.Add(_marquee);
         canvas.Children.Add(_insertion);
+        canvas.Children.Add(_explicitStart);
         AddToolbar(toolbarHost);
         canvas.AddHandler(InputElement.PointerPressedEvent, Pressed, RoutingStrategies.Tunnel);
         canvas.AddHandler(InputElement.PointerMovedEvent, Moved, RoutingStrategies.Tunnel);
@@ -138,6 +155,7 @@ internal sealed class PathEditorInteraction
             _preview.IsVisible = _insertion.IsVisible = false;
             foreach (var (tool, button) in _buttons) button.IsChecked = tool == value;
             UpdateCursor();
+            RefreshOverlays();
         }
     }
 
@@ -190,9 +208,32 @@ internal sealed class PathEditorInteraction
                 ZIndex = 100
             };
             bar.Bind(Border.BackgroundProperty, _host.GetResourceObservable("SolidBackgroundFillColorBaseBrush"));
+            bar.Bind(Visual.IsVisibleProperty, _host.GetObservable(Visual.IsVisibleProperty));
+            bar.Bind(InputElement.IsHitTestVisibleProperty, _host.GetObservable(InputElement.IsHitTestVisibleProperty));
+            _floatingToolbar = bar;
             ((Panel)((UserControl)_host).Content!).Children.Add(bar);
         }
         Tool = PathEditorTool.Move;
+    }
+
+    public void SetToolbarHost(Panel host)
+    {
+        if (_floatingToolbar is not { } toolbar || ReferenceEquals(toolbar.Parent, host)) return;
+        if (toolbar.Parent is Panel previous) previous.Children.Remove(toolbar);
+        host.Children.Add(toolbar);
+    }
+
+    public void RefreshOverlays()
+    {
+        _explicitStart.IsVisible = false;
+        if (Tool != PathEditorTool.Pen || Context?.PathFigure.Value is not { Segments.Count: > 0 } figure) return;
+        var context = Composition;
+        BtlPoint start = figure.StartPoint.GetValue(context);
+        if (start.IsInvalid || figure.IsClosed.GetValue(context)) return;
+        Point point = Screen(start);
+        Canvas.SetLeft(_explicitStart, point.X - 4);
+        Canvas.SetTop(_explicitStart, point.Y - 4);
+        _explicitStart.IsVisible = true;
     }
 
     private static T? Ancestor<T>(object? source) where T : Visual =>
@@ -235,9 +276,31 @@ internal sealed class PathEditorInteraction
         }
         if (Tool == PathEditorTool.Pen)
         {
+            BtlPoint explicitStart = figure.StartPoint.GetValue(Composition);
+            if (_penEnd != null && figure.Segments.Count > 0 && !explicitStart.IsInvalid
+                && !PathPointDragBehavior.IsClosed(Context, figure)
+                && ((Vector)(point - Screen(explicitStart))).SquaredLength <= 7 * 7)
+            {
+                Mutate(() =>
+                {
+                    // An explicit start owns the existing first edge. A curved
+                    // closing edge must be appended, never written over segment 0.
+                    if (_outgoing is { } outgoing && PathEditingOperations.IsStatic(figure.StartPoint)
+                        && PathEditingOperations.IsStatic(figure.Segments[^1].GetEndPoint()))
+                    {
+                        BtlPoint last = figure.Segments[^1].GetEndPoint().GetValue(Composition);
+                        figure.Segments.Add(PathEditingOperations.Cubic(outgoing,
+                            PathEditingOperations.Lerp(last, explicitStart, 2f / 3), explicitStart));
+                    }
+                    figure.IsClosed.CurrentValue = true;
+                });
+                Tool = PathEditorTool.Move;
+                e.Handled = true;
+                return;
+            }
             if (thumb?.DataContext is PathSegment endpoint && !thumb.Classes.Contains("control"))
             {
-                if (_penEnd != null && ReferenceEquals(endpoint, figure.Segments.FirstOrDefault())
+                if (_penEnd != null && explicitStart.IsInvalid && ReferenceEquals(endpoint, figure.Segments.FirstOrDefault())
                     && figure.Segments.Count > 1 && !PathPointDragBehavior.IsClosed(Context, figure))
                 {
                     Mutate(() =>
@@ -634,6 +697,37 @@ internal sealed class PathEditorInteraction
             if (i < figure.Segments.Count && figure.Segments[i] is not (LineSegment or CubicBezierSegment
                 or Beutl.Media.QuadraticBezierSegment or ConicSegment or Beutl.Media.ArcSegment)) continue;
             BtlPoint start = PathEditingOperations.Start(figure, i, context);
+            if (i < figure.Segments.Count && figure.Segments[i] is not Beutl.Media.ArcSegment
+                && (figure.Segments[i] is not ConicSegment conic || conic.Weight.GetValue(context) >= 0))
+            {
+                // Non-negative rational curves and Beziers stay inside their control hull.
+                // Bound it in screen coordinates before doing any adaptive subdivision.
+                Point first = Screen(start);
+                double left = first.X, right = first.X, top = first.Y, bottom = first.Y;
+                var segment = figure.Segments[i];
+                Include(segment.GetEndPoint().GetValue(context));
+                switch (segment)
+                {
+                    case CubicBezierSegment cubic:
+                        Include(cubic.ControlPoint1.GetValue(context));
+                        Include(cubic.ControlPoint2.GetValue(context));
+                        break;
+                    case Beutl.Media.QuadraticBezierSegment quadratic:
+                        Include(quadratic.ControlPoint.GetValue(context));
+                        break;
+                    case ConicSegment rational:
+                        Include(rational.ControlPoint.GetValue(context));
+                        break;
+                }
+                if (point.X < left - 7 || point.X > right + 7 || point.Y < top - 7 || point.Y > bottom + 7) continue;
+
+                void Include(BtlPoint value)
+                {
+                    Point p = Screen(value);
+                    left = Math.Min(left, p.X); right = Math.Max(right, p.X);
+                    top = Math.Min(top, p.Y); bottom = Math.Max(bottom, p.Y);
+                }
+            }
             Visit(0, Screen(start), 1, Evaluate(1), 0);
 
             Point Evaluate(float t) => Screen(PathEditingOperations.EvaluateEdge(figure, i, t, context));

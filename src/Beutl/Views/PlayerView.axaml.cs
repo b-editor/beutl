@@ -59,6 +59,7 @@ public partial class PlayerView : UserControl
         SetupImageControl();
 
         ConfigureFrameContextMenu(framePanel);
+        pathEditorView.SetToolbarHost(pathToolsHost);
         pathEditorView.PanViewport = delta =>
         {
             if (DataContext is PlayerViewModel vm)

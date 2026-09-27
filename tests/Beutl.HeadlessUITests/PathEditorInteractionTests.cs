@@ -18,6 +18,7 @@ using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Views;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Services;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
 using Beutl.Media;
@@ -27,6 +28,7 @@ using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
+using Beutl.Views;
 using Beutl.Views.Editors;
 using FluentAvalonia.UI.Controls;
 using Moq;
@@ -181,6 +183,153 @@ public class PathEditorInteractionTests
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
         editor.Editor.HistoryManager.Undo();
         Assert.That(editor.Figure.Segments, Has.Count.EqualTo(3));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task Pen_closes_at_explicit_start_without_changing_the_first_edge(bool curved, bool preview)
+    {
+        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        var first = new LineSegment(180, 100);
+        figure.Segments.Add(first);
+        figure.Segments.Add(new LineSegment(280, 180));
+        using var editor = await Fixture.Create(pathFigure: figure);
+        IPathEditorView view = editor.View;
+        PathEditorView? overlay = null;
+        var model = editor.Editor.Player.PathEditor;
+        if (preview)
+        {
+            model.FigureContext.Value = editor.Model.FigureContext.Value;
+            overlay = new PathEditorView { DataContext = model };
+            editor.Window.Content = overlay;
+            view = overlay;
+            HeadlessTestHelpers.Render(3);
+            overlay.Tool = PathEditorTool.Pen;
+        }
+        else editor.Key(Key.P);
+        try
+        {
+            Click(new(280, 180));
+            if (curved) editor.Drag(Screen(new(240, 120)), Screen(new(270, 120)));
+            else Click(new(240, 120));
+            Assert.That(figure.Segments, Has.Count.EqualTo(3), "append the endpoint before testing closure");
+            var originalEdges = figure.Segments.ToArray();
+            var originalFirst = CoreSerializer.SerializeToJsonObject(first);
+            int history = editor.Editor.HistoryManager.UndoCount;
+            Click(new(180, 100));
+            Assert.That(figure.IsClosed.CurrentValue, Is.False, "the first segment endpoint is not the start");
+            Assert.That(figure.Segments, Is.EqualTo(originalEdges));
+            Assert.That(JsonNode.DeepEquals(originalFirst, CoreSerializer.SerializeToJsonObject(first)), Is.True);
+            Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history));
+            Capture("open");
+
+            Click(new(80, 100));
+            Assert.That(figure.IsClosed.CurrentValue, Is.True);
+            Assert.That(figure.Segments.Take(originalEdges.Length), Is.EqualTo(originalEdges));
+            Assert.That(JsonNode.DeepEquals(originalFirst, CoreSerializer.SerializeToJsonObject(first)), Is.True);
+            Assert.That(figure.Segments, Has.Count.EqualTo(originalEdges.Length + (curved ? 1 : 0)));
+            if (curved)
+            {
+                var closing = (CubicBezierSegment)figure.Segments[^1];
+                Assert.That(closing.EndPoint.CurrentValue, Is.EqualTo(figure.StartPoint.CurrentValue));
+                Assert.That(closing.ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)));
+            }
+            Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history + 1));
+            Capture("closed");
+            editor.Editor.HistoryManager.Undo();
+            Assert.That(figure.IsClosed.CurrentValue, Is.False);
+            Assert.That(figure.Segments, Is.EqualTo(originalEdges));
+        }
+        finally
+        {
+            if (overlay != null) { overlay.DataContext = null; model.FigureContext.Value = null; }
+        }
+
+        Point Screen(BtlPoint p) => view.Matrix.Transform(new Point(p.X, p.Y)) * view.Scale;
+        void Click(BtlPoint p) { Point screen = Screen(p); editor.Click(screen.X, screen.Y); }
+        void Capture(string stage)
+        {
+            if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is not { Length: > 0 } directory) return;
+            Directory.CreateDirectory(directory);
+            HeadlessTestHelpers.Render(3);
+            using var frame = editor.Window.CaptureRenderedFrame();
+            frame!.Save(System.IO.Path.Combine(directory, $"explicit-start-{curved}-{preview}-{stage}.png"), PngBitmapEncoderOptions.Default);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Player_path_toolbar_stays_in_the_viewport_when_the_frame_is_transformed(bool light)
+    {
+        using var editor = await Fixture.Create(light: light);
+        var model = editor.Editor.Player;
+        model.PathEditor.FigureContext.Value = editor.Model.FigureContext.Value;
+        var player = new PlayerView { DataContext = model };
+        editor.Window.Content = player;
+        HeadlessTestHelpers.Render(5);
+        try
+        {
+            var bar = player.GetVisualDescendants().OfType<Border>()
+                .Single(b => b.Child is StackPanel { Name: "PathTools" });
+            var tools = (StackPanel)bar.Child!;
+            var pathView = player.FindControl<PathEditorView>("pathEditorView")!;
+            Point before = bar.TranslatePoint(default, editor.Window)!.Value;
+            Point beforeEnd = bar.TranslatePoint(new Point(bar.Bounds.Width, bar.Bounds.Height), editor.Window)!.Value;
+            model.FrameMatrix.Value = Beutl.Graphics.Matrix.CreateScale(2, 2) * Beutl.Graphics.Matrix.CreateTranslation(150, -80);
+            HeadlessTestHelpers.Render(5);
+            Assert.That(bar.TranslatePoint(default, editor.Window), Is.EqualTo(before));
+            Assert.That(bar.TranslatePoint(new Point(bar.Bounds.Width, bar.Bounds.Height), editor.Window), Is.EqualTo(beforeEnd));
+            editor.ClickControl(tools.Children.OfType<RadioButton>().ElementAt(1));
+            Assert.That(pathView.Tool, Is.EqualTo(PathEditorTool.Pen));
+            editor.Window.Width = 820;
+            HeadlessTestHelpers.Render(3);
+            var position = bar.TranslatePoint(default, editor.Window)!.Value;
+            Assert.That(position.X, Is.GreaterThanOrEqualTo(0));
+            Assert.That(position.X + bar.Bounds.Width, Is.LessThanOrEqualTo(editor.Window.Bounds.Width));
+            if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                using var frame = editor.Window.CaptureRenderedFrame();
+                frame!.Save(System.IO.Path.Combine(directory, $"player-toolbar-transformed-{light}.png"), PngBitmapEncoderOptions.Default);
+            }
+            model.PathEditor.FigureContext.Value = null;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(bar.IsEffectivelyVisible, Is.False);
+        }
+        finally { player.DataContext = null; model.PathEditor.FigureContext.Value = null; }
+    }
+
+    [AvaloniaTest]
+    public async Task Hover_culls_distant_beziers_before_subdivision_at_high_zoom()
+    {
+        using var editor = await Fixture.Create(empty: true);
+        int evaluations = 0;
+        const int count = 12;
+        using (editor.Editor.HistoryManager.SuppressRecording())
+        {
+            editor.Figure.StartPoint.CurrentValue = new(10000, 10000);
+            for (int i = 0; i < count; i++)
+            {
+                float x = 10000 + i * 400;
+                var curve = PathEditingOperations.Cubic(new(x, 10400), new(x + 400, 10400), new(x + 400, 10000));
+                var expression = new Mock<IExpression<BtlPoint>>();
+                expression.Setup(e => e.Evaluate(It.IsAny<ExpressionContext>()))
+                    .Returns(() => { evaluations++; return new BtlPoint(x, 10400); });
+                expression.SetupGet(e => e.ExpressionString).Returns("distant point");
+                curve.ControlPoint1.Expression = expression.Object;
+                editor.Figure.Segments.Add(curve);
+            }
+        }
+        editor.View.Matrix = Matrix.CreateScale(64, 64);
+        HeadlessTestHelpers.Render(3);
+        evaluations = 0;
+        editor.MouseMove(new(100, 100));
+        TestContext.WriteLine($"Control-point evaluations on distant hover: {evaluations}");
+        Assert.That(evaluations, Is.LessThanOrEqualTo(count * 4), "far edges must not be adaptively evaluated");
     }
 
     [AvaloniaTest]
