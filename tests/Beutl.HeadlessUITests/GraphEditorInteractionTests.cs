@@ -163,6 +163,67 @@ public class GraphEditorInteractionTests
     }
 
     [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task Dragging_onto_an_occupied_frame_keeps_the_last_valid_position(bool speed, bool cancel)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
+        graph.Model.IsSpeedGraph.Value = speed;
+        graph.Model.SelectedView.Value!.SetSelection([graph.First]);
+        HeadlessTestHelpers.Render(3);
+        Point start = Position(graph, graph.First);
+        int undo = graph.Model.HistoryManager.UndoCount;
+        graph.HitTest(start);
+        graph.Window.MouseDown(start, MouseButton.Left);
+        graph.Window.MouseMove(start + new Vector(120, 0), RawInputModifiers.LeftMouseButton);
+        Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(1.3).Within(0.00001));
+        graph.Window.MouseMove(start + new Vector(150, 0), RawInputModifiers.LeftMouseButton);
+        Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(1.3).Within(0.00001));
+        Assert.That(graph.Second.KeyTime.TotalSeconds, Is.EqualTo(1.5));
+        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime).Distinct().Count(), Is.EqualTo(2));
+        Assert.That(Selected(graph), Is.EqualTo(new[] { graph.First }));
+        if (cancel) PressKey(graph, Key.Escape);
+        graph.Window.MouseUp(start + new Vector(150, 0), MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + (cancel ? 0 : 1)));
+        if (!cancel) graph.Model.HistoryManager.Undo();
+        Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(0.5));
+        Assert.That(graph.Second.KeyTime.TotalSeconds, Is.EqualTo(1.5));
+        if (!cancel)
+        {
+            graph.Model.HistoryManager.Redo();
+            Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(1.3).Within(0.00001));
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Group_retime_rejects_collisions_before_changing_values_or_handles(bool collapse)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2.5), Value = 200 };
+        graph.Animation.KeyFrames.Add(third);
+        graph.Model.HistoryManager.Commit();
+        var snapshot = new GraphEditorDragSnapshot(graph.Model.SelectedView.Value!);
+        var easing = (SplineEasing)graph.Second.Easing;
+        var before = (easing.X1, easing.Y1, easing.X2, easing.Y2);
+        int undo = graph.Model.HistoryManager.UndoCount;
+        graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(
+            entry => (collapse ? 1 + entry.Time.TotalSeconds * 0.001 : entry.Time.TotalSeconds + 1, entry.Number + 10),
+            collapse ? 0.001 : 1, 1, transformHandles: collapse));
+        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.TotalSeconds), Is.EqualTo(new[] { 0.5, 1.5, 2.5 }));
+        Assert.That(graph.First.Value, Is.EqualTo(100));
+        Assert.That(graph.Second.Value, Is.EqualTo(500));
+        Assert.That((easing.X1, easing.Y1, easing.X2, easing.Y2), Is.EqualTo(before));
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
+        snapshot.Apply(entry => (entry.Time.TotalSeconds + 0.6, entry.Number));
+        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.TotalSeconds), Is.EqualTo(new[] { 1.1, 2.1, 2.5 }));
+    }
+
+    [AvaloniaTest]
     public async Task Crossing_keyframes_preserves_selection_and_escape_rolls_back_drag()
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);

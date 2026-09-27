@@ -174,6 +174,7 @@ public sealed partial class GraphEditorTabViewModel
     {
         var factory = item.ValueType is { } valueType ? GraphEditorViewViewModelFactory.GetFactory(valueType).FirstOrDefault() : null;
         item.CanAnimate.Value = canAnimate && factory != null;
+        item.CanRemoveAnimation.Value = item.Animation != null;
         item.HasAnimation.Value = item.Animation is KeyFrameAnimation;
         var children = new List<GraphEditorTreeItemViewModel>();
         if (item.ValueType is { } type)
@@ -282,7 +283,7 @@ public sealed partial class GraphEditorTabViewModel
     public void RemoveAnimation(GraphEditorTreeItemViewModel item)
     {
         var property = item.PropertyItem ?? item;
-        if (!property.CanAnimate.Value || property.Animation == null
+        if (!property.CanRemoveAnimation.Value || property.Animation == null
             || !_treeCache.TryGetValue(property.Key, out var current) || current != property) return;
         _editorContext.GetRequiredService<HistoryManager>().ExecuteInTransaction(() => property.Animation = null, Strings.RemoveAnimation);
         Refresh();

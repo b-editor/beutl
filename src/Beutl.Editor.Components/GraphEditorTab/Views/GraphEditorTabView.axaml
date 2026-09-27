@@ -74,7 +74,7 @@
                             <TextBlock x:Name="PropertyNameText" Grid.Column="1" Text="{Binding Name.Value}" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name.Value}" />
                             <Button Grid.Column="2" Classes="graph-animation"
-                                    IsVisible="{Binding CanAnimate.Value}" Click="ToggleKeyFrameClick"
+                                    IsVisible="{Binding ShowAnimationButton.Value}" Click="ToggleKeyFrameClick"
                                     Width="22" MinWidth="0" MinHeight="0" Height="{DynamicResource LayerHeight}"
                                     Theme="{StaticResource LayerHeaderButtonTheme}"
                                     ToolTip.Tip="{Binding AnimationToolTip.Value}"
@@ -82,7 +82,7 @@
                                 <Button.ContextFlyout>
                                     <ui:FAMenuFlyout>
                                         <ui:FAMenuFlyoutItem Text="{x:Static lang:Strings.RemoveAnimation}"
-                                                             IsEnabled="{Binding HasAnimation.Value}" Click="RemoveAnimationClick" />
+                                                             IsEnabled="{Binding CanRemoveAnimation.Value}" Click="RemoveAnimationClick" />
                                     </ui:FAMenuFlyout>
                                 </Button.ContextFlyout>
                                 <icons:FluentIcon FontSize="14" Classes.hasAnimation="{Binding HasAnimation.Value}"

@@ -5,6 +5,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -100,6 +101,60 @@ public class GraphEditorTreeTests
             Assert.That(property.Animation, Is.Null, property.Name);
         }
         scope.Capture("property-tree-supported-animation-controls");
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Existing_unsupported_animation_can_be_removed_from_the_tree_and_restored(bool light)
+    {
+        using var scope = await TreeScope.CreateAsync(light: light);
+        var animation = new KeyFrameAnimation<AlignmentX>();
+        animation.KeyFrames.Add(new KeyFrame<AlignmentX> { Value = AlignmentX.Left });
+        scope.Shape.AlignmentX.Animation = animation;
+        scope.Base.Model.HistoryManager.Commit();
+        HeadlessTestHelpers.Render(3);
+        var item = scope.Find(scope.Shape.AlignmentX);
+        var button = scope.AnimationButton(item);
+        Assert.That(item.CanAnimate.Value, Is.False);
+        Assert.That(button.IsVisible, Is.True);
+        Assert.That(ToolTip.GetTip(button), Is.EqualTo(Strings.RemoveAnimation));
+        int undo = scope.Base.Model.HistoryManager.UndoCount;
+        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        HeadlessTestHelpers.Render();
+        var menu = (FAMenuFlyout)button.ContextFlyout!;
+        Assert.That(menu.IsOpen, Is.True);
+        Assert.That(animation.KeyFrames, Has.Count.EqualTo(1));
+        Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
+        scope.Capture($"unsupported-animation-menu-{light}");
+        var remove = menu.Items.OfType<FAMenuFlyoutItem>().Single();
+        Assert.That(remove.IsEnabled, Is.True);
+        if (Environment.GetEnvironmentVariable("BEUTL_GRAPH_CONTEXT_CAPTURE") is { Length: > 0 } directory)
+        {
+            using var frame = TopLevel.GetTopLevel(remove)?.CaptureRenderedFrame();
+            frame?.Save(Path.Combine(directory, $"unsupported-animation-popup-{light}.png"), PngBitmapEncoderOptions.Default);
+        }
+        remove.Focus();
+        scope.Base.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
+        scope.Base.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(scope.Shape.AlignmentX.Animation, Is.Null);
+        Assert.That(button.IsVisible, Is.False);
+        Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+        scope.Base.Model.HistoryManager.Undo();
+        HeadlessTestHelpers.Render(3);
+        Assert.That(scope.Shape.AlignmentX.Animation, Is.SameAs(animation));
+        Assert.That(button.IsVisible, Is.True);
+        Point point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), scope.Base.Window)!.Value;
+        scope.Base.RightClick(point);
+        Assert.That(menu.IsOpen, Is.True);
+        menu.Hide();
+        scope.Base.Model.HistoryManager.Redo();
+        HeadlessTestHelpers.Render(3);
+        Assert.That(scope.Shape.AlignmentX.Animation, Is.Null);
+        Assert.That(button.IsVisible, Is.False);
+        scope.Model.EnableAnimation(item);
+        Assert.That(scope.Shape.AlignmentX.Animation, Is.Null);
     }
 
     [AvaloniaTest]

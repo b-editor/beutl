@@ -16,9 +16,12 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
         IsExpanded.Value = parent == null;
         SymbolIconVariant = HasKeyFrame.Select(hasKeyFrame => hasKeyFrame ? IconVariant.Filled : IconVariant.Regular)
             .ToReadOnlyReactivePropertySlim();
-        AnimationToolTip = HasAnimation.CombineLatest(HasKeyFrame, (animated, hasKeyFrame) => !animated
-                ? Strings.EnableAnimation
-                : $"{(hasKeyFrame ? CommandNames.RemoveKeyFrame : CommandNames.InsertKeyFrame)}\n{MessageStrings.RightClickToShowMenu}")
+        ShowAnimationButton = CanAnimate.CombineLatest(CanRemoveAnimation, (canAnimate, canRemove) => canAnimate || canRemove)
+            .ToReadOnlyReactivePropertySlim();
+        AnimationToolTip = HasAnimation.CombineLatest(HasKeyFrame, CanAnimate, (animated, hasKeyFrame, canAnimate) => !canAnimate
+                ? Strings.RemoveAnimation
+                : !animated ? Strings.EnableAnimation
+                    : $"{(hasKeyFrame ? CommandNames.RemoveKeyFrame : CommandNames.InsertKeyFrame)}\n{MessageStrings.RightClickToShowMenu}")
             .ToReadOnlyReactivePropertySlim(Strings.EnableAnimation);
     }
 
@@ -32,6 +35,8 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
     public ReactivePropertySlim<string> Name { get; } = new(string.Empty);
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
     public ReactivePropertySlim<bool> CanAnimate { get; } = new();
+    public ReactivePropertySlim<bool> CanRemoveAnimation { get; } = new();
+    public ReadOnlyReactivePropertySlim<bool> ShowAnimationButton { get; }
     public ReactivePropertySlim<bool> HasAnimation { get; } = new();
     public ReactivePropertySlim<bool> HasKeyFrame { get; } = new();
     public ReadOnlyReactivePropertySlim<IconVariant> SymbolIconVariant { get; }
@@ -61,6 +66,8 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
         Name.Dispose();
         IsExpanded.Dispose();
         CanAnimate.Dispose();
+        CanRemoveAnimation.Dispose();
+        ShowAnimationButton.Dispose();
         HasAnimation.Dispose();
         HasKeyFrame.Dispose();
         SymbolIconVariant.Dispose();

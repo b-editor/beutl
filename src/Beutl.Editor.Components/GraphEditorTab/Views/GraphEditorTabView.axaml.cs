@@ -23,9 +23,12 @@ public partial class GraphEditorTabView : UserControl
 
     private void ToggleKeyFrameClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Control { DataContext: GraphEditorTreeItemViewModel item } && DataContext is GraphEditorTabViewModel model)
+        if (sender is Control { DataContext: GraphEditorTreeItemViewModel item } control && DataContext is GraphEditorTabViewModel model)
         {
-            model.ToggleKeyFrame(item);
+            if (!item.CanAnimate.Value && item.CanRemoveAnimation.Value)
+                control.ContextFlyout?.ShowAt(control);
+            else
+                model.ToggleKeyFrame(item);
             e.Handled = true;
         }
     }

@@ -52,8 +52,15 @@ internal sealed class GraphEditorDragSnapshot
         var editor = _channel.Parent;
         int rate = editor.Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
         var changes = Entries.Select(entry => (Entry: entry, Result: transform(entry))).ToArray();
+        if (changes.Any(change => !double.IsFinite(change.Result.Time))) return;
         // Clamp the group as a whole so its spacing is preserved at time zero.
         double correction = Math.Max(0, -changes.Min(x => x.Result.Time));
+        var times = changes.Select(change => TimeSpan.FromSeconds(change.Result.Time + correction).RoundToRate(rate)).ToArray();
+        var selected = Entries.Select(x => x.Model).ToHashSet();
+        var occupied = editor.Animation.KeyFrames.Where(key => !selected.Contains(key)).Select(key => key.KeyTime).ToHashSet();
+        // Reject the whole proposal before changing values or tangents. A drag can continue
+        // past the occupied frame while retaining its last valid state at a collision.
+        if (times.Distinct().Count() != times.Length || times.Any(occupied.Contains)) return;
         foreach (var (entry, result) in changes)
         {
             double number = editor.Factory is { } factory
@@ -62,13 +69,11 @@ internal sealed class GraphEditorDragSnapshot
                 && _channel.TryConvertFromDouble(entry.Value, number, editor.Animation.ValueType, out var value))
                 entry.Model.Value = value;
         }
-        foreach (var (entry, result) in changes.OrderByDescending(x => x.Result.Time))
+        foreach (var (entry, time) in changes.Select((change, index) => (change.Entry, Time: times[index])).OrderByDescending(x => x.Time))
         {
-            if (double.IsFinite(result.Time))
-                entry.Model.KeyTime = TimeSpan.FromSeconds(result.Time + correction).RoundToRate(rate);
+            entry.Model.KeyTime = time;
         }
 
-        var selected = Entries.Select(x => x.Model).ToHashSet();
         var handles = new Dictionary<IKeyFrame, (Point? Incoming, Point? Outgoing)>();
         Point Scale(Point point) => new(point.X * timeScale, point.Y * valueScale);
         foreach (var (key, original) in _handles)
