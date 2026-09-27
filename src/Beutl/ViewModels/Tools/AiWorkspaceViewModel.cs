@@ -154,12 +154,12 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         // in that order rather than in the order the menu lists them.
         _sections =
         [
-            Section(AiWorkspaceSection.ImageGeneration, Strings.AiImageGeneration, Icon.SparkleCircle),
-            Section(AiWorkspaceSection.ImageEdit, Strings.AiImageEdit, Icon.ImageEdit),
-            Section(AiWorkspaceSection.VideoGeneration, Strings.AiVideoGeneration, Icon.Video),
-            Section(AiWorkspaceSection.VideoEditing, Strings.AiVideoEditing, Icon.VideoClipWand),
-            Section(AiWorkspaceSection.Subtitles, Strings.AiSubtitle, Icon.Subtitles),
-            Section(AiWorkspaceSection.Jobs, Strings.AiJobCenter, Icon.History),
+            Section(AiWorkspaceSection.ImageGeneration, Strings.AiImageGenerationSection, Icon.SparkleCircle),
+            Section(AiWorkspaceSection.ImageEdit, Strings.AiImageEditSection, Icon.ImageEdit),
+            Section(AiWorkspaceSection.VideoGeneration, Strings.AiVideoGenerationSection, Icon.Video),
+            Section(AiWorkspaceSection.VideoEditing, Strings.AiVideoEditingSection, Icon.VideoClipWand),
+            Section(AiWorkspaceSection.Subtitles, Strings.AiSubtitleSection, Icon.Subtitles),
+            Section(AiWorkspaceSection.Jobs, Strings.AiJobCenterSection, Icon.History),
         ];
 
         SelectedSection = new ReactivePropertySlim<AiWorkspaceSectionViewModel?>(_sections[0])

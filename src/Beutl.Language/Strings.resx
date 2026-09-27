@@ -1663,6 +1663,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiImageGeneration" xml:space="preserve">
     <value>AI image generation</value>
   </data>
+  <data name="AiImageGenerationSection" xml:space="preserve">
+    <value>Image generation</value>
+  </data>
   <data name="AiPrompt" xml:space="preserve">
     <value>Prompt</value>
   </data>
@@ -1762,6 +1765,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiSubtitle" xml:space="preserve">
     <value>AI subtitles</value>
   </data>
+  <data name="AiSubtitleSection" xml:space="preserve">
+    <value>Subtitles</value>
+  </data>
   <data name="AiSubtitle_AudioSource" xml:space="preserve">
     <value>Audio source</value>
   </data>
@@ -1798,6 +1804,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiImageEdit" xml:space="preserve">
     <value>AI image editing</value>
   </data>
+  <data name="AiImageEditSection" xml:space="preserve">
+    <value>Image editing</value>
+  </data>
   <data name="AiEditTask" xml:space="preserve">
     <value>Task</value>
   </data>
@@ -1821,6 +1830,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>AI video generation</value>
+  </data>
+  <data name="AiVideoGenerationSection" xml:space="preserve">
+    <value>Video generation</value>
   </data>
   <data name="AiVideoPrompt_Placeholder" xml:space="preserve">
     <value>Describe the video you want to generate...</value>
@@ -1866,6 +1878,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiJobCenter" xml:space="preserve">
     <value>AI jobs</value>
+  </data>
+  <data name="AiJobCenterSection" xml:space="preserve">
+    <value>Jobs</value>
   </data>
   <data name="AiJobCenter_Description" xml:space="preserve">
     <value>Track, reuse, and add generated results without blocking your editing workflow.</value>
@@ -3019,6 +3034,9 @@ when history recording is enabled.</value>
     <value>Delete from Disk</value>
   </data>
   <data name="AiVideoEditing" xml:space="preserve">
+    <value>Video editing</value>
+  </data>
+  <data name="AiVideoEditingSection" xml:space="preserve">
     <value>Video editing</value>
   </data>
   <data name="AiVideoExtend" xml:space="preserve">

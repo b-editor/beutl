@@ -537,7 +537,7 @@ public sealed class AiJobCenterTests
 
             ItemsControl jobList = view.FindControl<ItemsControl>("JobList")!;
             Assert.That(jobList, Is.Not.Null);
-            Assert.That(AutomationProperties.GetName(jobList), Is.EqualTo(Strings.AiJobCenter));
+            Assert.That(AutomationProperties.GetName(jobList), Is.EqualTo(Strings.AiJobCenterSection));
             Assert.That(jobList, Is.TypeOf<ItemsControl>(),
                 "Job cards must not inherit ListBox selection backgrounds.");
             ScrollViewer scrollViewer = jobList.FindAncestorOfType<ScrollViewer>()!;

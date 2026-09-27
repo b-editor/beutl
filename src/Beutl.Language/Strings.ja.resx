@@ -1657,6 +1657,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiImageGeneration" xml:space="preserve">
     <value>AI 画像生成</value>
   </data>
+  <data name="AiImageGenerationSection" xml:space="preserve">
+    <value>画像生成</value>
+  </data>
   <data name="AiPrompt" xml:space="preserve">
     <value>プロンプト</value>
   </data>
@@ -1756,6 +1759,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitle" xml:space="preserve">
     <value>AI字幕</value>
   </data>
+  <data name="AiSubtitleSection" xml:space="preserve">
+    <value>字幕</value>
+  </data>
   <data name="AiSubtitle_AudioSource" xml:space="preserve">
     <value>音声ソース</value>
   </data>
@@ -1792,6 +1798,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiImageEdit" xml:space="preserve">
     <value>AI画像編集</value>
   </data>
+  <data name="AiImageEditSection" xml:space="preserve">
+    <value>画像編集</value>
+  </data>
   <data name="AiEditTask" xml:space="preserve">
     <value>タスク</value>
   </data>
@@ -1815,6 +1824,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>AI動画生成</value>
+  </data>
+  <data name="AiVideoGenerationSection" xml:space="preserve">
+    <value>動画生成</value>
   </data>
   <data name="AiVideoPrompt_Placeholder" xml:space="preserve">
     <value>生成したい動画を説明してください...</value>
@@ -1863,6 +1875,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiJobCenter" xml:space="preserve">
     <value>AIジョブ</value>
+  </data>
+  <data name="AiJobCenterSection" xml:space="preserve">
+    <value>ジョブ</value>
   </data>
   <data name="AiJobCenter_Description" xml:space="preserve">
     <value>編集を止めずに生成状況を確認し、結果の再利用やシーンへの追加ができます。</value>
@@ -3014,6 +3029,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>ディスクから完全に削除</value>
   </data>
   <data name="AiVideoEditing" xml:space="preserve">
+    <value>動画編集</value>
+  </data>
+  <data name="AiVideoEditingSection" xml:space="preserve">
     <value>動画編集</value>
   </data>
   <data name="AiVideoExtend" xml:space="preserve">
