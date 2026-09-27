@@ -355,7 +355,7 @@ internal sealed class DirectoryWatcherService : IDisposable
         return IsEditorDocument(path);
     }
 
-    private static bool IsEditorSaveTemporaryFile(ReadOnlySpan<char> path)
+    internal static bool IsEditorSaveTemporaryFile(ReadOnlySpan<char> path)
     {
         if (!path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
             return false;

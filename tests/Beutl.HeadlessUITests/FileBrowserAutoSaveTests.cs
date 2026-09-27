@@ -18,6 +18,75 @@ namespace Beutl.HeadlessUITests;
 public class FileBrowserAutoSaveTests
 {
     [AvaloniaTest]
+    [TestCase(FileBrowserViewMode.List, false)]
+    [TestCase(FileBrowserViewMode.Icon, false)]
+    [TestCase(FileBrowserViewMode.Tree, false)]
+    [TestCase(FileBrowserViewMode.List, true)]
+    public async Task Opening_or_refreshing_during_an_atomic_save_does_not_leave_temporary_items(
+        FileBrowserViewMode mode, bool home)
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"beutl-browser-saving-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        string[] documents = ["project.bep", "main.scene", "clip.belm"];
+        string[] visibleNames = [.. documents, "notes.tmp", "clip.belm.backup.tmp"];
+        foreach (string name in visibleNames)
+            File.WriteAllText(Path.Combine(root, name), "{}");
+
+        // Pause each atomic save between writing its temporary file and replacing the document.
+        string[] temporaryPaths = documents.Select(name => Path.Combine(root, $"{name}.{Guid.NewGuid():N}.tmp")).ToArray();
+        foreach (string path in temporaryPaths)
+            File.WriteAllText(path, "{}");
+
+        var scene = new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) };
+        var context = new Mock<IEditorContext>();
+        context.Setup(x => x.GetService(typeof(Scene))).Returns(scene);
+        using var browser = new FileBrowserTabViewModel(context.Object);
+        var window = new Window
+        {
+            Content = new FileBrowserTabView { DataContext = browser },
+            Width = 480,
+            Height = 600
+        };
+        try
+        {
+            browser.ViewMode.Value = mode;
+            if (!home) browser.RootPath.Value = root;
+            var items = home ? browser.ProjectDirectoryItems
+                : mode == FileBrowserViewMode.Tree ? browser.TreeRootItems : browser.Items;
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Assert.That(items.Select(x => x.Name.Value), Is.EquivalentTo(visibleNames));
+
+            browser.Refresh();
+            Assert.That(items.Select(x => x.Name.Value), Is.EquivalentTo(visibleNames));
+
+            // Expanding a folder uses the same enumeration path as the top-level listing.
+            using var folder = new FileSystemItemViewModel(root, isDirectory: true);
+            folder.LoadChildren();
+            Assert.That(folder.Children!.Select(x => x.Name.Value), Is.EquivalentTo(visibleNames));
+
+            FileSystemItemViewModel[] beforeMove = items.ToArray();
+            for (int i = 0; i < documents.Length; i++)
+                File.Move(temporaryPaths[i], Path.Combine(root, documents[i]), overwrite: true);
+            await SettleWatcherAsync();
+            Assert.That(items, Is.EqualTo(beforeMove), "Completing autosaves must not require a cleanup refresh.");
+
+            if (home && Environment.GetEnvironmentVariable("BEUTL_FILE_BROWSER_AUTOSAVE_CAPTURE") is { Length: > 0 } capture)
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.That(frame, Is.Not.Null);
+                frame!.Save(Path.ChangeExtension(capture, "enumeration.png"), PngBitmapEncoderOptions.Default);
+            }
+        }
+        finally
+        {
+            window.Close();
+            browser.Dispose();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Auto_saving_edits_preserves_browser_items_and_selection()
     {
         string root = Path.Combine(Path.GetTempPath(), $"beutl-browser-autosave-{Guid.NewGuid():N}");

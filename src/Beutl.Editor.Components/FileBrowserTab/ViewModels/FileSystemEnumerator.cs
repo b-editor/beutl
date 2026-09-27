@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 
 namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
@@ -22,7 +23,8 @@ internal static class FileSystemEnumerator
 
         foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
         {
-            if ((file.Attributes & FileAttributes.Hidden) == 0)
+            if ((file.Attributes & FileAttributes.Hidden) == 0
+                && !DirectoryWatcherService.IsEditorSaveTemporaryFile(file.FullName))
             {
                 yield return new FileSystemItemViewModel(file.FullName, false);
             }
