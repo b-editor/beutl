@@ -32,8 +32,10 @@ public class GraphEditorContextMenuTests
     public async Task OverlappingControlPoint_OpensTheCoveredKeyFramesMenu(string tag, bool light)
     {
         using var graph = await GraphScope.CreateAsync(light);
-        AvaloniaPath handle = graph.Handle(tag);
         IKeyFrame expected = tag == "ControlPoint1" ? graph.First : graph.Second;
+        graph.Model.SelectedView.Value!.SetSelection([expected]);
+        HeadlessTestHelpers.Render();
+        AvaloniaPath handle = graph.Handle(tag);
         AvaloniaPath keyFrame = graph.KeyFrame(expected);
         Point position = handle.TranslatePoint(default, graph.Window)!.Value;
         Assert.That(graph.HitTest(position), Is.SameAs(handle),
@@ -124,7 +126,7 @@ public class GraphEditorContextMenuTests
         }
     }
 
-    private sealed class GraphScope : IDisposable
+    internal sealed class GraphScope : IDisposable
     {
         public required KeyFrameAnimation<float> Animation { get; init; }
         public required KeyFrame<float> First { get; init; }
@@ -134,7 +136,7 @@ public class GraphEditorContextMenuTests
         public required Window Window { get; init; }
         public ContextMenu BackgroundMenu => View.FindControl<Panel>("graphPanel")!.ContextMenu!;
 
-        public static async Task<GraphScope> CreateAsync(bool light = false, bool separateHandles = false)
+        public static async Task<GraphScope> CreateAsync(bool light = false, bool separateHandles = false, bool selectAll = true)
         {
             await TestReset.ResetShellAsync();
             string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"graph-context-{Guid.NewGuid():N}");
@@ -161,6 +163,7 @@ public class GraphEditorContextMenuTests
                     new ElementSource.EngineObject(() => shape))], CancellationToken.None);
             var model = new GraphEditorViewModel<float>(editor, animation, scene.Children.Single());
             model.Options.Value = model.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
+            if (selectAll) model.SelectedView.Value!.SetSelection(animation.KeyFrames);
             var view = new GraphEditorView { DataContext = model };
             var window = new Window
             {

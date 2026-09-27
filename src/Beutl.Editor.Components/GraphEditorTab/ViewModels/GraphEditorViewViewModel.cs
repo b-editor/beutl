@@ -18,6 +18,7 @@ public sealed class GraphEditorViewViewModel : IDisposable
     private readonly ConvertToDelegate? _convertTo;
     private readonly TryConvertFromDelegate? _convertFrom;
     private readonly ImmutableSolidColorBrush? _specifiedColor;
+    private readonly HashSet<IKeyFrame> _selectedKeyFrames = [];
 
     public delegate double ConvertToDelegate(object? obj);
     public delegate bool TryConvertFromDelegate(object? oldValue, double value, Type type, out object? obj);
@@ -41,14 +42,14 @@ public sealed class GraphEditorViewViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        if (color.HasValue)
+        _specifiedColor = new ImmutableSolidColorBrush(color ?? Color.Parse(viewName switch
         {
-            _specifiedColor = new ImmutableSolidColorBrush(color.Value);
-        }
-
-        Stroke = Application.Current!.GetResourceObservable("TextControlForeground")
-            .Select(x => _specifiedColor ?? (x as IBrush))
-            .ToReadOnlyReactivePropertySlim()
+            "Y" or "Height" or "Green" => "#56B88B",
+            "Z" or "Blue" => "#619FEF",
+            "W" or "Alpha" => "#BE83E8",
+            _ => "#E87070"
+        }));
+        Stroke = Observable.ReturnThenNever<IBrush?>(_specifiedColor).ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
     }
 
@@ -56,13 +57,49 @@ public sealed class GraphEditorViewViewModel : IDisposable
 
     public string? Name { get; }
 
+    public string DisplayName => GetDisplayName(Name);
+
+    internal static string GetDisplayName(string? name) => name switch
+    {
+        "Self" => Strings.GraphValue,
+        "Width" => Strings.Width,
+        "Height" => Strings.Height,
+        "Red" => Strings.Red,
+        "Green" => Strings.Green,
+        "Blue" => Strings.Blue,
+        "Alpha" => Strings.GraphAlpha,
+        _ => name ?? Strings.GraphValue
+    };
+
     public ReadOnlyReactivePropertySlim<bool> IsSelected { get; }
 
     public CoreList<GraphEditorKeyFrameViewModel> KeyFrames { get; } = [];
 
+    public ReactivePropertySlim<int> SelectionCount { get; } = new();
+
     public ReadOnlyReactivePropertySlim<IBrush?> Stroke { get; }
 
     public event EventHandler? VerticalRangeChanged;
+
+    public event EventHandler? SelectionChanged;
+
+    internal void NotifyGraphChanged() => VerticalRangeChanged?.Invoke(this, EventArgs.Empty);
+
+    internal bool IsKeyFrameSelected(IKeyFrame keyFrame) => _selectedKeyFrames.Contains(keyFrame);
+
+    public void SetSelection(IEnumerable<IKeyFrame> keyFrames)
+    {
+        var selection = keyFrames.ToHashSet();
+        _selectedKeyFrames.Clear();
+        foreach (GraphEditorKeyFrameViewModel item in KeyFrames)
+        {
+            item.IsSelected.Value = selection.Contains(item.Model);
+            if (item.IsSelected.Value)
+                _selectedKeyFrames.Add(item.Model);
+        }
+        SelectionCount.Value = _selectedKeyFrames.Count;
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     public double ConvertToDouble(object? value)
     {
@@ -98,6 +135,45 @@ public sealed class GraphEditorViewViewModel : IDisposable
             obj = null;
             return false;
         }
+    }
+
+    public void GetGraphRange(ref double min, ref double max, bool selectionOnly = false)
+    {
+        double low = double.PositiveInfinity, high = double.NegativeInfinity;
+        for (int i = 0; i < KeyFrames.Count; i++)
+        {
+            var item = KeyFrames[i];
+            if (!selectionOnly || item.IsSelected.Value)
+            {
+                double value = Parent.IsSpeedGraph.Value
+                    ? GraphEditorCurveMath.KeyVelocity(item) : ConvertToDouble(item.Model.Value);
+                low = Math.Min(low, value);
+                high = Math.Max(high, value);
+            }
+            if (i == 0 || selectionOnly && (!item.IsSelected.Value || !KeyFrames[i - 1].IsSelected.Value)) continue;
+            var previous = KeyFrames[i - 1].Model;
+            double start = ConvertToDouble(previous.Value);
+            double difference = ConvertToDouble(item.Model.Value) - start;
+            if (Parent.IsSpeedGraph.Value)
+            {
+                double duration = (item.Model.KeyTime - previous.KeyTime).TotalSeconds;
+                for (int sample = 0; sample <= 128; sample++)
+                {
+                    double velocity = GraphEditorCurveMath.Velocity(item.Model.Easing, sample / 128d, difference, duration);
+                    low = Math.Min(low, velocity);
+                    high = Math.Max(high, velocity);
+                }
+            }
+            else if (item.Model.Easing is Beutl.Animation.Easings.SplineEasing spline)
+            {
+                double first = start + spline.Y1 * difference;
+                double second = start + spline.Y2 * difference;
+                low = Math.Min(low, Math.Min(first, second));
+                high = Math.Max(high, Math.Max(first, second));
+            }
+        }
+        min = Math.Min(min, low);
+        max = Math.Max(max, high);
     }
 
     public void GetVerticalRange(ref double min, ref double max)
@@ -208,23 +284,31 @@ public sealed class GraphEditorViewViewModel : IDisposable
 
             case NotifyCollectionChangedAction.Move:
             case NotifyCollectionChangedAction.Replace:
+                if (e.Action == NotifyCollectionChangedAction.Replace)
+                    foreach (IKeyFrame item in e.OldItems!) _selectedKeyFrames.Remove(item);
                 Remove(e.OldStartingIndex, e.OldItems!.Count);
                 Add(e.NewStartingIndex, e.NewItems!);
                 break;
 
             case NotifyCollectionChangedAction.Remove:
+                foreach (IKeyFrame item in e.OldItems!)
+                    _selectedKeyFrames.Remove(item);
                 Remove(e.OldStartingIndex, e.OldItems!.Count);
                 break;
 
             case NotifyCollectionChangedAction.Reset:
+                _selectedKeyFrames.Clear();
                 Remove(0, KeyFrames.Count);
                 break;
         }
+        SelectionCount.Value = _selectedKeyFrames.Count;
     }
 
     public void Dispose()
     {
         Parent.Animation.KeyFrames.CollectionChanged -= OnKeyFramesCollectionChanged;
-        IsSelected.Dispose();
+        foreach (var item in KeyFrames) item.Dispose();
+        SelectionCount.Dispose();
+        _disposables.Dispose();
     }
 }

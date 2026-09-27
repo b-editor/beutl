@@ -21,26 +21,21 @@ public partial class GraphEditorTabView : UserControl
         }
     }
 
-    private void ToggleDragModeClick(object? sender, RoutedEventArgs e)
+    private void ToggleKeyFrameClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is not RadioButton { Tag: string tag }) return;
-        if (DataContext is not GraphEditorTabViewModel { SelectedAnimation.Value: { } viewModel }) return;
-
-        viewModel.Symmetry.Value = false;
-        viewModel.Asymmetry.Value = false;
-        viewModel.Separately.Value = false;
-
-        switch (tag)
+        if (sender is Control { DataContext: GraphEditorTreeItemViewModel item } && DataContext is GraphEditorTabViewModel model)
         {
-            case "Symmetry":
-                viewModel.Symmetry.Value = true;
-                break;
-            case "Asymmetry":
-                viewModel.Asymmetry.Value = true;
-                break;
-            case "Separately":
-                viewModel.Separately.Value = true;
-                break;
+            model.ToggleKeyFrame(item);
+            e.Handled = true;
+        }
+    }
+
+    private void RemoveAnimationClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: GraphEditorTreeItemViewModel item } && DataContext is GraphEditorTabViewModel model)
+        {
+            model.RemoveAnimation(item);
+            e.Handled = true;
         }
     }
 }

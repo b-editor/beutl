@@ -3235,4 +3235,67 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="PathEditor_OutgoingControlPoint" xml:space="preserve">
     <value>出側の制御点</value>
   </data>
+  <data name="GraphSpeedGraph" xml:space="preserve">
+    <value>速度グラフ</value>
+  </data>
+  <data name="GraphTypeHint" xml:space="preserve">
+    <value>値グラフと速度グラフ（単位/秒）を切り替え</value>
+  </data>
+  <data name="GraphSnap" xml:space="preserve">
+    <value>スナップ</value>
+  </data>
+  <data name="GraphTransformBox" xml:space="preserve">
+    <value>変形枠</value>
+  </data>
+  <data name="GraphAutoZoomHeight" xml:space="preserve">
+    <value>高さを自動調整</value>
+  </data>
+  <data name="GraphFitAll" xml:space="preserve">
+    <value>全体を表示 (F)</value>
+  </data>
+  <data name="GraphFitSelection" xml:space="preserve">
+    <value>選択範囲を表示 (Shift+F)</value>
+  </data>
+  <data name="GraphEasyEase" xml:space="preserve">
+    <value>イージーイーズ (F9)</value>
+  </data>
+  <data name="GraphEasyEaseIn" xml:space="preserve">
+    <value>イーズイン (Shift+F9)</value>
+  </data>
+  <data name="GraphEasyEaseOut" xml:space="preserve">
+    <value>イーズアウト (Ctrl/Cmd+F9)</value>
+  </data>
+  <data name="GraphValueGraph" xml:space="preserve">
+    <value>値グラフ</value>
+  </data>
+  <data name="GraphValue" xml:space="preserve">
+    <value>値</value>
+  </data>
+  <data name="GraphVelocity" xml:space="preserve">
+    <value>キーフレーム速度 (Ctrl/Cmd+Shift+K)</value>
+  </data>
+  <data name="GraphIncoming" xml:space="preserve">
+    <value>入る速度</value>
+  </data>
+  <data name="GraphOutgoing" xml:space="preserve">
+    <value>出る速度</value>
+  </data>
+  <data name="GraphInfluence" xml:space="preserve">
+    <value>影響度（%）</value>
+  </data>
+  <data name="GraphChannels" xml:space="preserve">
+    <value>チャンネル</value>
+  </data>
+  <data name="GraphHandleMode" xml:space="preserve">
+    <value>ハンドルの連動</value>
+  </data>
+  <data name="GraphVelocityTitle" xml:space="preserve">
+    <value>キーフレーム速度</value>
+  </data>
+  <data name="GraphAlpha" xml:space="preserve">
+    <value>アルファ</value>
+  </data>
+  <data name="EnableAnimation" xml:space="preserve">
+    <value>アニメーションを有効にする</value>
+  </data>
 </root>

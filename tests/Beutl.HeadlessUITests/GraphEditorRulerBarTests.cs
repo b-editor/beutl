@@ -1,9 +1,11 @@
-﻿using Avalonia;
+﻿using System.Runtime.InteropServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
@@ -17,6 +19,7 @@ using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using GraphScope = Beutl.HeadlessUITests.GraphEditorContextMenuTests.GraphScope;
 using RectShape = Beutl.Graphics.Shapes.RectShape;
 
 namespace Beutl.HeadlessUITests;
@@ -24,6 +27,54 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class GraphEditorRulerBarTests
 {
+    [AvaloniaTest]
+    [TestCase(false, 0.5, 0, 1)]
+    [TestCase(true, 0.5, 0, 2)]
+    [TestCase(false, 1, 200, 2)]
+    [TestCase(true, 2, 200, 1)]
+    public async Task Minor_ticks_and_grid_lines_reach_the_bottom_below_the_last_major_tick(bool light, double scaleY, double lowestMajor, double dpi)
+    {
+        using var graph = await GraphScope.CreateAsync(light, separateHandles: true);
+        graph.Window.SetRenderScaling(dpi);
+        graph.Model.ScaleY.Value = scaleY;
+        HeadlessTestHelpers.Render(3);
+        var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+        var ruler = graph.View.FindControl<GraphEditorScale>("verticalScale")!;
+        var background = graph.View.FindControl<GraphEditorBackground>("background")!;
+        double step = GraphEditorGridMetrics.Step(scaleY);
+        double majorY = scroll.Viewport.Height - step * scaleY * 0.7;
+        graph.Model.ScrollOffset.Value = new Vector(0, graph.Model.Baseline.Value - lowestMajor * scaleY - majorY);
+        HeadlessTestHelpers.Render(3);
+        graph.Capture($"bottom-grid-{light}-{scaleY}-{lowestMajor}-{dpi}");
+        using var frame = graph.Window.CaptureRenderedFrame();
+        Assert.That(frame, Is.Not.Null);
+        using var pixels = frame!.Lock();
+        Assert.That(pixels.Format, Is.EqualTo(PixelFormat.Bgra8888).Or.EqualTo(PixelFormat.Rgba8888));
+        foreach (double value in new[] { lowestMajor, lowestMajor - step / 4, lowestMajor - step / 2 })
+        {
+            double y = graph.Model.Baseline.Value - value * scaleY;
+            var tick = ruler.TranslatePoint(new Point(ruler.Bounds.Width - 1.5, y - scroll.Offset.Y), graph.Window)!.Value;
+            var gridLine = background.TranslatePoint(new Point(160, y), graph.Window)!.Value;
+            Assert.That(tick.Y, Is.EqualTo(gridLine.Y).Within(1), "The ruler and grid must remain aligned.");
+            Assert.That(y - scroll.Offset.Y, Is.InRange(0, scroll.Viewport.Height - 4));
+            Assert.That(HasLine(tick), Is.True, $"The value ruler must draw the visible tick at {value}, including below its last major tick.");
+            Assert.That(HasLine(gridLine), Is.True, $"The graph must draw the matching grid line at {value}.");
+        }
+
+        bool HasLine(Point point)
+        {
+            int x = (int)Math.Floor(point.X * graph.Window.RenderScaling);
+            int y = (int)Math.Round(point.Y * graph.Window.RenderScaling);
+            int blankY = (int)Math.Round((point.Y + 4) * graph.Window.RenderScaling);
+            Assert.That(x, Is.InRange(0, pixels.Size.Width - 1));
+            Assert.That(y - 1, Is.GreaterThanOrEqualTo(0));
+            Assert.That(blankY, Is.LessThan(pixels.Size.Height));
+            int blank = Marshal.ReadInt32(pixels.Address, blankY * pixels.RowBytes + x * 4);
+            return Enumerable.Range(y - 1, 3).Any(row =>
+                Marshal.ReadInt32(pixels.Address, row * pixels.RowBytes + x * 4) != blank);
+        }
+    }
+
     [AvaloniaTest]
     [TestCase(640, false)]
     [TestCase(960, false)]
@@ -119,8 +170,7 @@ public class GraphEditorRulerBarTests
 
             Point verticalPoint = vertical.TranslatePoint(new Point(10, 80), window)!.Value;
             double previousY = scroll.Offset.Y;
-            Vector pan = GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection
-                ? new Vector(-1, 0) : new Vector(0, -1);
+            Vector pan = new(0, -1);
             window.MouseWheel(verticalPoint, pan);
             HeadlessTestHelpers.Render();
             Assert.That(scroll.Offset.Y, Is.GreaterThan(previousY));
@@ -133,11 +183,28 @@ public class GraphEditorRulerBarTests
             HeadlessTestHelpers.Render();
             Assert.That(graph.ScaleY.Value, Is.EqualTo(0.6).Within(0.001));
             CheckAlignment();
-            window.MouseWheel(bar.TranslatePoint(new Point(100, 4), window)!.Value, new Vector(0, 1), modifier);
+            window.MouseWheel(bar.TranslatePoint(new Point(100, 4), window)!.Value, new Vector(0, 1), RawInputModifiers.Alt);
             HeadlessTestHelpers.Render();
             Assert.That(graph.Options.Value.Scale, Is.EqualTo(1.2f).Within(0.001));
             CheckAlignment();
             Capture("zoomed");
+
+            graph.SelectedView.Value!.SetSelection(animation.KeyFrames);
+            graphView.Focus();
+            window.KeyPress(Key.F9, RawInputModifiers.None, PhysicalKey.None, null);
+            window.KeyRelease(Key.F9, RawInputModifiers.None, PhysicalKey.None, null);
+            window.KeyPress(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
+            window.KeyRelease(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
+            HeadlessTestHelpers.Render(3);
+            CheckAlignment();
+            Capture("value-overview");
+            graph.IsSpeedGraph.Value = true;
+            HeadlessTestHelpers.Render(3);
+            CheckAlignment();
+            Assert.That(graphView.FindControl<GraphEditorSpeedGraph>("SpeedGraph")!.IsVisible, Is.True);
+            Capture("speed-overview");
+            graph.IsSpeedGraph.Value = false;
+            HeadlessTestHelpers.Render(3);
 
             window.Height = 320;
             HeadlessTestHelpers.Render();
@@ -170,7 +237,7 @@ public class GraphEditorRulerBarTests
                     Assert.That(horizontal.TranslatePoint(default, graphView)!.Value.X, Is.EqualTo(plotOrigin.X));
                     Assert.That(horizontal.TranslatePoint(new Point(0, horizontal.Bounds.Height), graphView)!.Value.Y, Is.EqualTo(plotOrigin.Y));
                     Assert.That(vertical.TranslatePoint(default, graphView)!.Value.Y, Is.EqualTo(plotOrigin.Y));
-                    Assert.That(vertical.Bounds.Width, Is.EqualTo(20));
+                    Assert.That(vertical.Bounds.Width, Is.EqualTo(56));
                     Assert.That(vertical.Bounds.Height, Is.EqualTo(scroll.Viewport.Height));
                     Assert.That(vertical.Bounds.Height, Is.LessThanOrEqualTo(scroll.Bounds.Height));
                     Assert.That(vertical.TranslatePoint(new Point(vertical.Bounds.Width, 0), graphView)!.Value.X, Is.EqualTo(plotOrigin.X));

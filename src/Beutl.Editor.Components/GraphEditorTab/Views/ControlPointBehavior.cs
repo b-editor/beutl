@@ -13,6 +13,11 @@ namespace Beutl.Editor.Components.GraphEditorTab.Views;
 public class ControlPointMoveState
 {
     public Point DragStart;
+    internal Action<bool>? Complete;
+    internal GraphEditorKeyFrameViewModel Segment = null!;
+    internal bool Incoming;
+    internal Point HandleVector;
+    internal Point OppositeVector;
 }
 
 public class ControlPointBehavior : Behavior<Path>
@@ -46,6 +51,7 @@ public class ControlPointBehavior : Behavior<Path>
         AssociatedObject.PointerPressed += OnPointerPressed;
         AssociatedObject.PointerReleased += OnPointerReleased;
         AssociatedObject.ContextRequested += OnContextRequested;
+        AssociatedObject.PointerCaptureLost += OnCaptureLost;
     }
 
     protected override void OnDetaching()
@@ -57,6 +63,7 @@ public class ControlPointBehavior : Behavior<Path>
         AssociatedObject.PointerPressed -= OnPointerPressed;
         AssociatedObject.PointerReleased -= OnPointerReleased;
         AssociatedObject.ContextRequested -= OnContextRequested;
+        AssociatedObject.PointerCaptureLost -= OnCaptureLost;
     }
 
     // GraphEditorView, GraphEditorViewModel, GraphEditorKeyFrameViewModelを取得
@@ -71,93 +78,48 @@ public class ControlPointBehavior : Behavior<Path>
         return view != null && viewModel != null && keyFrameViewModel != null;
     }
 
-    // 反対側のコントロールポイントのキーフレームを探す
-    private static GraphEditorKeyFrameViewModel? FindOppositeKeyFrame(GraphEditorViewModel viewModel, GraphEditorKeyFrameViewModel item, string tag)
-    {
-        if (viewModel.SelectedView.Value is not { } selectedView) return null;
-        int index = selectedView.KeyFrames.IndexOf(item);
-
-        return tag switch
-        {
-            "ControlPoint1" => index == 0 ? null : selectedView.KeyFrames[index - 1],
-            "ControlPoint2" => index == selectedView.KeyFrames.Count - 1 ? null : selectedView.KeyFrames[index + 1],
-            _ => null
-        };
-    }
-
     private void OnPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (!TryGetValues(out var view, out var editorViewModel, out var viewModel))
+        if (!TryGetValues(out var view, out var editorViewModel, out _))
             return;
 
-        if (AssociatedObject?.Tag is not string tag)
-            return;
-
-        if (view.ControlPointMoveState == null)
+        if (view.ControlPointMoveState is not { } state)
             return;
 
         Point position = new(e.GetPosition(view.views).X, e.GetPosition(view.grid).Y);
-        Point delta = position - view.ControlPointMoveState.DragStart;
-        Point d = default;
-        switch (tag)
+        Point delta = position - state.DragStart;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) delta = delta.WithY(0);
+        state.HandleVector += delta;
+        state.DragStart = position;
+
+        // Keep capture on the original visual. Only the edited side changes, so crossing
+        // the key (and crossing back) remains one drag and one undo transaction.
+        if (GraphEditorTangentCoupling.CrossedSegment(state.Segment, state.Incoming, state.HandleVector.X) is { } crossed)
         {
-            case "ControlPoint1":
-                viewModel.UpdateControlPoint1(viewModel.ControlPoint1.Value + delta);
-                d = viewModel.LeftBottom.Value - viewModel.ControlPoint1.Value;
-                break;
-            case "ControlPoint2":
-                viewModel.UpdateControlPoint2(viewModel.ControlPoint2.Value + delta);
-                d = viewModel.RightTop.Value - viewModel.ControlPoint2.Value;
-                break;
+            UpdateHandle(state.Segment, state.Incoming, state.HandleVector.WithX(0));
+            state.Segment = crossed;
+            state.Incoming = !state.Incoming;
         }
+        UpdateHandle(state.Segment, state.Incoming, state.HandleVector);
 
-        position = position.WithX(Math.Clamp(position.X, viewModel.Left.Value, viewModel.Right.Value));
-        view.ControlPointMoveState.DragStart = position;
-
-        if (!editorViewModel.Separately.Value)
+        if (!editorViewModel.Separately.Value && !e.KeyModifiers.HasFlag(KeyModifiers.Alt))
         {
-            double radians = Math.Atan2(d.X, d.Y);
-            radians -= MathF.PI / 2;
-
-            var oppotite = FindOppositeKeyFrame(editorViewModel, viewModel, tag);
-            if (oppotite != null)
+            var opposite = GraphEditorTangentCoupling.OppositeSegment(state.Segment, state.Incoming);
+            if (opposite?.Model.Easing is Animation.Easings.SplineEasing)
             {
-                static double Length(Point p)
-                {
-                    return Math.Sqrt((p.X * p.X) + (p.Y * p.Y));
-                }
-
-                static Point CalculatePoint(double radians, double radius)
-                {
-                    double x = Math.Cos(radians) * radius;
-                    double y = Math.Sin(radians) * radius;
-                    // Y座標は反転
-                    return new Point(x, -y);
-                }
-
-                bool symmetry = editorViewModel.Symmetry.Value;
-                double length;
-                switch (tag)
-                {
-                    case "ControlPoint2":
-                        length = symmetry
-                            ? Length(d)
-                            : Length(oppotite.LeftBottom.Value - oppotite.ControlPoint1.Value);
-
-                        oppotite.UpdateControlPoint1(oppotite.LeftBottom.Value + CalculatePoint(radians, length));
-                        break;
-                    case "ControlPoint1":
-                        length = symmetry
-                            ? Length(d)
-                            : Length(oppotite.RightTop.Value - oppotite.ControlPoint2.Value);
-
-                        oppotite.UpdateControlPoint2(oppotite.RightTop.Value + CalculatePoint(radians, length));
-                        break;
-                }
+                Point vector = GraphEditorTangentCoupling.Opposite(editorViewModel,
+                    GraphEditorTangentCoupling.Vector(state.Segment, state.Incoming), state.OppositeVector);
+                UpdateHandle(opposite, !state.Incoming, GraphEditorTangentCoupling.ToPixels(editorViewModel, vector));
             }
         }
 
         e.Handled = true;
+    }
+
+    private static void UpdateHandle(GraphEditorKeyFrameViewModel segment, bool incoming, Point vector)
+    {
+        if (incoming) segment.UpdateControlPoint2(segment.RightTop.Value + vector);
+        else segment.UpdateControlPoint1(segment.LeftBottom.Value + vector);
     }
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -172,10 +134,11 @@ public class ControlPointBehavior : Behavior<Path>
             return;
 
         if (!e.KeyModifiers.HasFlag(KeyModifiers.Alt)
-            && AssociatedObject.GetLogicalSiblings().OfType<Path>().FirstOrDefault(v => v.Name == "KeyTimeIcon") is Path ki
-            && ki.InputHitTest(e.GetPosition(ki)) == ki)
+            && view.GetVisualsAt(e.GetPosition(view)).OfType<Path>()
+                .FirstOrDefault(path => path.Name == "KeyTimeIcon"
+                    && path.DataContext is GraphEditorKeyFrameViewModel key && key.Parent == viewModel.Parent) is { } keyIcon)
         {
-            ki.RaiseEvent(e);
+            keyIcon.RaiseEvent(e);
             return;
         }
 
@@ -183,11 +146,30 @@ public class ControlPointBehavior : Behavior<Path>
 
         if (point.Properties.IsLeftButtonPressed)
         {
+            bool incoming = AssociatedObject.Tag is "ControlPoint2";
             view.ControlPointMoveState = new ControlPointMoveState
             {
-                DragStart = new Point(e.GetPosition(view.views).X, point.Position.Y)
+                DragStart = new Point(e.GetPosition(view.views).X, point.Position.Y),
+                Segment = viewModel,
+                Incoming = incoming,
+                HandleVector = incoming ? viewModel.ControlPoint2.Value - viewModel.RightTop.Value
+                    : viewModel.ControlPoint1.Value - viewModel.LeftBottom.Value,
+                OppositeVector = GraphEditorTangentCoupling.OppositeSegment(viewModel, incoming) is { } opposite
+                    ? GraphEditorTangentCoupling.Vector(opposite, !incoming) : default
             };
+            view.Focus();
+            editorViewModel.HistoryManager.FlushPendingMutations();
+            editorViewModel.HistoryManager.Commit();
             editorViewModel.BeginEditing();
+            view.ControlPointMoveState.Complete = cancel =>
+            {
+                if (view.ControlPointMoveState == null) return;
+                view.ControlPointMoveState = null;
+                if (cancel) editorViewModel.HistoryManager.Rollback();
+                editorViewModel.EndEditting();
+                e.Pointer.Capture(null);
+            };
+            e.Pointer.Capture(AssociatedObject);
             e.Handled = true;
         }
     }
@@ -213,6 +195,12 @@ public class ControlPointBehavior : Behavior<Path>
         e.Handled = forwarded.Handled;
     }
 
+    private void OnCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (TryGetValues(out var view, out _, out _))
+            view.ControlPointMoveState?.Complete?.Invoke(true);
+    }
+
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (!TryGetValues(out var view, out var editorViewModel, out var viewModel))
@@ -223,8 +211,7 @@ public class ControlPointBehavior : Behavior<Path>
 
         if (view.ControlPointMoveState != null)
         {
-            editorViewModel.EndEditting();
-            view.ControlPointMoveState = null;
+            view.ControlPointMoveState.Complete?.Invoke(false);
             e.Handled = true;
         }
     }

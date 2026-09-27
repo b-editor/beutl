@@ -14,6 +14,16 @@ namespace Beutl.Editor.Components.GraphEditorTab.Views;
 public class KeyTimeMoveState
 {
     public Point DragStart;
+    internal GraphEditorDragSnapshot? Snapshot;
+    internal Point Origin;
+    internal Point AppliedDelta;
+    internal Point ScrollDelta;
+    internal bool? HorizontalConstraint;
+    internal bool ToggleOnRelease;
+    internal bool HasMoved;
+    internal int TransformHandle = -1;
+    internal Rect TransformBounds;
+    internal Point TransformAnchor;
     // ViewControlPoint2は後ろの位置からの相対的な位置
     // ドラッグ前のコントロールポイントの位置（表示上の点）
     public (Point ControlPoint1, Point ControlPoint2)? ViewControlPoints;
@@ -57,6 +67,7 @@ public class KeyTimeBehavior : Behavior<Path>
 
         if (AssociatedObject == null) return;
         AssociatedObject.PointerPressed += OnControlPointPointerPressed;
+        AssociatedObject.ContextRequested += OnContextRequested;
     }
 
     protected override void OnDetaching()
@@ -65,6 +76,7 @@ public class KeyTimeBehavior : Behavior<Path>
 
         if (AssociatedObject == null) return;
         AssociatedObject.PointerPressed -= OnControlPointPointerPressed;
+        AssociatedObject.ContextRequested -= OnContextRequested;
     }
 
     // GraphEditorView, GraphEditorViewModel, GraphEditorKeyFrameViewModelを取得
@@ -79,51 +91,18 @@ public class KeyTimeBehavior : Behavior<Path>
         return view != null && viewModel != null && keyFrameViewModel != null;
     }
 
-    private (Point, Point)? GetSplineControlPoints(GraphEditorKeyFrameViewModel keyFrame)
+    private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
     {
-        if (keyFrame.Model.Easing is SplineEasing)
-        {
-            var viewControlPoint1 = keyFrame.ControlPoint1.Value;
-            var viewControlPoint2 = keyFrame.ControlPoint2.Value;
-            viewControlPoint1 = keyFrame.LeftBottom.Value - viewControlPoint1;
-            viewControlPoint2 = keyFrame.RightTop.Value - viewControlPoint2;
-
-            return (viewControlPoint1, viewControlPoint2);
-        }
-        else
-        {
-            return default;
-        }
+        if (TryGetValues(out _, out _, out var item) && !item.IsSelected.Value)
+            item.Parent.SetSelection([item.Model]);
     }
 
     private void OnControlPointPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (!TryGetValues(out var view, out var editorViewModel, out var viewModel))
-            return;
-
-        PointerPoint point = e.GetCurrentPoint(view.grid);
-
-        if (point.Properties.IsLeftButtonPressed)
+        if (TryGetValues(out var view, out _, out var keyFrame)
+            && e.GetCurrentPoint(view).Properties.IsLeftButtonPressed)
         {
-            int nextIndex = viewModel.Parent.KeyFrames.IndexOf(viewModel) + 1;
-            view.KeyTimeMoveState = new KeyTimeMoveState
-            {
-                DragStart = point.Position,
-                KeyFrame = viewModel.Model,
-                KeyFrameViewModel = viewModel,
-                ViewControlPoints = GetSplineControlPoints(viewModel),
-                NextKeyFrameViewModel = viewModel.Parent.KeyFrames.ElementAtOrDefault(nextIndex),
-                NextViewControlPoints = viewModel.Parent.KeyFrames.ElementAtOrDefault(nextIndex) is { } next
-                    ? GetSplineControlPoints(next)
-                    : null,
-                Crossed = false,
-                FollowingKeyFrames = e.KeyModifiers == KeyModifiers.Shift
-                    ? viewModel.Parent.KeyFrames.Where(i => i != viewModel).ToArray()
-                    : null
-            };
-
-            editorViewModel.BeginEditing();
-            e.Handled = true;
+            view.StartKeyFrameDrag(keyFrame, e);
         }
     }
 }

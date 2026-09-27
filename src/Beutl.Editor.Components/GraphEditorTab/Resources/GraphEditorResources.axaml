@@ -73,16 +73,16 @@
                     VerticalAlignment="Top">
                 <Panel>
                     <Line IsHitTestVisible="False"
-                          IsVisible="{Binding IsSplineEasing.Value}"
-                          Stroke="{DynamicResource GraphEditorHandleLineBrush}"
-                          StrokeThickness="1.5"
+                          IsVisible="{Binding ShowControlPoint1.Value}"
+                          Stroke="{DynamicResource GraphEditorKeyFrameBrush}"
+                          StrokeThickness="1"
                           StartPoint="{Binding ControlPoint1.Value}"
                           EndPoint="{Binding LeftBottom.Value}" />
 
                     <Line IsHitTestVisible="False"
-                          IsVisible="{Binding IsSplineEasing.Value}"
-                          Stroke="{DynamicResource GraphEditorHandleLineBrush}"
-                          StrokeThickness="1.5"
+                          IsVisible="{Binding ShowControlPoint2.Value}"
+                          Stroke="{DynamicResource GraphEditorKeyFrameBrush}"
+                          StrokeThickness="1"
                           StartPoint="{Binding ControlPoint2.Value}"
                           EndPoint="{Binding RightTop.Value}" />
 
@@ -91,8 +91,19 @@
                           VerticalAlignment="Top"
                           Data="{StaticResource GraphEditorKeyTimeGeometry}"
                           Classes.decreasing="{Binding Decreasing.Value}"
-                          Fill="{DynamicResource GraphEditorKeyFrameBrush}"
+                          Classes.selected="{Binding IsSelected.Value}"
                           view:KeyTimeBehavior.Attached="True">
+                        <Path.Styles>
+                            <Style Selector="Path">
+                                <Setter Property="Fill" Value="{DynamicResource GraphEditorBackgroundBrush}" />
+                                <Setter Property="Stroke" Value="{Binding Stroke.Value}" />
+                                <Setter Property="StrokeThickness" Value="1.5" />
+                            </Style>
+                            <Style Selector="Path.selected">
+                                <Setter Property="Fill" Value="{DynamicResource GraphEditorKeyFrameBrush}" />
+                                <Setter Property="Stroke" Value="{DynamicResource GraphEditorKeyFrameBrush}" />
+                            </Style>
+                        </Path.Styles>
                         <Path.RenderTransform>
                             <TranslateTransform X="{Binding RightTop.Value.X}" Y="{Binding RightTop.Value.Y}" />
                         </Path.RenderTransform>
@@ -121,7 +132,7 @@
                           VerticalAlignment="Top"
                           Data="{StaticResource GraphEditorControlPointGeometry}"
                           Fill="{DynamicResource GraphEditorControlPointFillBrush}"
-                          IsVisible="{Binding IsSplineEasing.Value}"
+                          IsVisible="{Binding ShowControlPoint1.Value}"
                           view:ControlPointBehavior.Attached="True"
                           Stroke="{DynamicResource GraphEditorControlPointStrokeBrush}"
                           StrokeThickness="2"
@@ -135,7 +146,7 @@
                           VerticalAlignment="Top"
                           Data="{StaticResource GraphEditorControlPointGeometry}"
                           Fill="{DynamicResource GraphEditorControlPointFillBrush}"
-                          IsVisible="{Binding IsSplineEasing.Value}"
+                          IsVisible="{Binding ShowControlPoint2.Value}"
                           view:ControlPointBehavior.Attached="True"
                           Stroke="{DynamicResource GraphEditorControlPointStrokeBrush}"
                           StrokeThickness="2"

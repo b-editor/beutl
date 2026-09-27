@@ -28,6 +28,7 @@ public class DraggablePickerFlyoutPresenter : ContentControl
 
     private bool _pressed;
     private Point _point;
+    private IPointer? _dragPointer;
 
     private const string AcceptDismiss = ":acceptdismiss";
     private const string AcceptButton = "AcceptButton";
@@ -53,6 +54,7 @@ public class DraggablePickerFlyoutPresenter : ContentControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        _dragPointer?.Capture(null);
         _disposables.Clear();
         base.OnApplyTemplate(e);
 
@@ -78,7 +80,7 @@ public class DraggablePickerFlyoutPresenter : ContentControl
                 .DisposeWith(_disposables);
             _dragArea.AddDisposableHandler(PointerMovedEvent, OnDragAreaPointerMoved)
                 .DisposeWith(_disposables);
-            _dragArea.AddDisposableHandler(PointerExitedEvent, OnDragAreaPointerExited)
+            _dragArea.AddDisposableHandler(PointerCaptureLostEvent, OnDragAreaPointerCaptureLost)
                 .DisposeWith(_disposables);
         }
     }
@@ -115,19 +117,24 @@ public class DraggablePickerFlyoutPresenter : ContentControl
         CloseClicked?.Invoke(this, EventArgs.Empty);
     }
 
-    private void OnDragAreaPointerExited(object? sender, PointerEventArgs e)
+    private void OnDragAreaPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
-        // _pressed = false;
+        _pressed = false;
+        _dragPointer = null;
     }
 
     private void OnDragAreaPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        if (_dragPointer != e.Pointer || e.InitialPressMouseButton != MouseButton.Left) return;
         _pressed = false;
+        _dragPointer = null;
+        e.Pointer.Capture(null);
+        e.Handled = true;
     }
 
     private void OnDragAreaPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (_dragArea == null || !_pressed) return;
+        if (_dragArea == null || !_pressed || _dragPointer != e.Pointer) return;
 
         if (this.FindLogicalAncestorOfType<Popup>() is { } popup)
         {
@@ -141,6 +148,7 @@ public class DraggablePickerFlyoutPresenter : ContentControl
             {
                 _point = point;
             }
+            e.Handled = true;
         }
     }
 
@@ -153,8 +161,11 @@ public class DraggablePickerFlyoutPresenter : ContentControl
         if (pointer.Properties.IsLeftButtonPressed)
         {
             _pressed = true;
+            _dragPointer = e.Pointer;
             _point = pointer.Position;
             root?.Activate();
+            e.Pointer.Capture(_dragArea);
+            e.Handled = true;
         }
     }
 }

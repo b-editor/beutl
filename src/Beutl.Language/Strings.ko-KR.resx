@@ -1738,4 +1738,67 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="PathEditor_OutgoingControlPoint" xml:space="preserve">
     <value>나가는 제어점</value>
   </data>
+  <data name="GraphSpeedGraph" xml:space="preserve">
+    <value>속도 그래프</value>
+  </data>
+  <data name="GraphTypeHint" xml:space="preserve">
+    <value>값 그래프와 속도 그래프(단위/초) 전환</value>
+  </data>
+  <data name="GraphSnap" xml:space="preserve">
+    <value>스냅</value>
+  </data>
+  <data name="GraphTransformBox" xml:space="preserve">
+    <value>변형 상자</value>
+  </data>
+  <data name="GraphAutoZoomHeight" xml:space="preserve">
+    <value>높이 자동 조절</value>
+  </data>
+  <data name="GraphFitAll" xml:space="preserve">
+    <value>전체 맞춤 (F)</value>
+  </data>
+  <data name="GraphFitSelection" xml:space="preserve">
+    <value>선택 맞춤 (Shift+F)</value>
+  </data>
+  <data name="GraphEasyEase" xml:space="preserve">
+    <value>이지 이즈 (F9)</value>
+  </data>
+  <data name="GraphEasyEaseIn" xml:space="preserve">
+    <value>이지 인 (Shift+F9)</value>
+  </data>
+  <data name="GraphEasyEaseOut" xml:space="preserve">
+    <value>이지 아웃 (Ctrl/Cmd+F9)</value>
+  </data>
+  <data name="GraphValueGraph" xml:space="preserve">
+    <value>값 그래프</value>
+  </data>
+  <data name="GraphValue" xml:space="preserve">
+    <value>값</value>
+  </data>
+  <data name="GraphVelocity" xml:space="preserve">
+    <value>키프레임 속도 (Ctrl/Cmd+Shift+K)</value>
+  </data>
+  <data name="GraphIncoming" xml:space="preserve">
+    <value>들어오는 속도</value>
+  </data>
+  <data name="GraphOutgoing" xml:space="preserve">
+    <value>나가는 속도</value>
+  </data>
+  <data name="GraphInfluence" xml:space="preserve">
+    <value>영향(%)</value>
+  </data>
+  <data name="GraphChannels" xml:space="preserve">
+    <value>채널</value>
+  </data>
+  <data name="GraphHandleMode" xml:space="preserve">
+    <value>핸들 연결</value>
+  </data>
+  <data name="GraphVelocityTitle" xml:space="preserve">
+    <value>키프레임 속도</value>
+  </data>
+  <data name="GraphAlpha" xml:space="preserve">
+    <value>알파</value>
+  </data>
+  <data name="EnableAnimation" xml:space="preserve">
+    <value>애니메이션 활성화</value>
+  </data>
 </root>

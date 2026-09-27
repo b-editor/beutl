@@ -1,6 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls.Shapes;
+using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.VisualTree;
+using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Utilities;
 
@@ -119,6 +122,18 @@ public sealed class EaseLine : Line
     private void OnSplineEasingChanged(object? sender, EventArgs e)
     {
         InvalidateGeometry();
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Alt) && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
+            && DataContext is GraphEditorKeyFrameViewModel item)
+        {
+            item.Parent.SetSelection(item.Parent.KeyFrames.Select(x => x.Model));
+            this.FindAncestorOfType<GraphEditorView>()?.Focus();
+            e.Handled = true;
+        }
     }
 
     protected override Geometry CreateDefiningGeometry()

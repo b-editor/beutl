@@ -31,6 +31,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     {
         Model = keyframe;
         Parent = parent;
+        IsSelected = new ReactivePropertySlim<bool>(parent.IsKeyFrameSelected(keyframe))
+            .DisposeWith(_disposables);
 
         EndY = Model.ObserveProperty(x => x.Value)
             .Select(Parent.ConvertToDouble)
@@ -90,6 +92,13 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        ShowControlPoint1 = _previous.Select(x => (IObservable<bool>?)x?.IsSelected ?? Observable.ReturnThenNever(false))
+            .Switch().CombineLatest(IsSplineEasing, (selected, spline) => selected && spline)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
+        ShowControlPoint2 = IsSelected.CombineLatest(IsSplineEasing, _previous,
+                (selected, spline, previous) => selected && spline && previous != null)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
+
         IObservable<(Vector, Vector)> controlPointObservable = keyframe.GetObservable(KeyFrame.EasingProperty)
             .Select(v =>
             {
@@ -141,6 +150,9 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        keyframe.GetObservable(KeyFrame.EasingProperty).Skip(1)
+            .Subscribe(_ => Parent.NotifyGraphChanged()).DisposeWith(_disposables);
+
         CopyCommand = new AsyncReactiveCommand()
             .WithSubscribe(CopyAsync)
             .DisposeWith(_disposables);
@@ -157,6 +169,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     public GraphEditorViewViewModel Parent { get; }
 
     public IKeyFrame Model { get; }
+
+    public ReactivePropertySlim<bool> IsSelected { get; }
 
     public ReadOnlyReactivePropertySlim<IBrush?> Stroke => Parent.Stroke;
 
@@ -181,6 +195,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<Thickness> BoundsMargin { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsSplineEasing { get; }
+    public ReadOnlyReactivePropertySlim<bool> ShowControlPoint1 { get; }
+    public ReadOnlyReactivePropertySlim<bool> ShowControlPoint2 { get; }
 
     public ReadOnlyReactivePropertySlim<Point> ControlPoint1 { get; }
 
@@ -328,6 +344,11 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     private async Task CopyAsync()
     {
+        if (IsSelected.Value)
+        {
+            await Parent.Parent.CopySelectionAsync();
+            return;
+        }
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return;
 
@@ -347,63 +368,16 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         }
     }
 
-    private async Task PasteAsync()
-    {
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
-
-        try
-        {
-            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
-                && JsonNode.Parse(json) is JsonObject jsonObj)
-            {
-                if (!jsonObj.TryGetDiscriminator(out Type? type))
-                {
-                    NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_MissingType);
-                    return;
-                }
-
-                if (!type.IsAssignableTo(typeof(KeyFrame)))
-                {
-                    NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
-                    return;
-                }
-
-                KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(type)!;
-                CoreSerializer.PopulateFromJsonObject(newKeyFrame, jsonObj);
-                HistoryManager history = Parent.Parent.HistoryManager;
-
-                if (type.GenericTypeArguments[0] != Parent.Parent.Animation.ValueType)
-                {
-                    // イージングのみ変更
-                    Model.Easing = newKeyFrame.Easing;
-                    history.Commit(CommandNames.PasteKeyFrame);
-                    NotificationService.ShowWarning(Strings.GraphEditor,
-                        MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
-                }
-                else
-                {
-                    newKeyFrame.KeyTime = Model.KeyTime;
-                    int index = Parent.Parent.Animation.KeyFrames.IndexOf(Model);
-                    Parent.Parent.Animation.KeyFrames.Remove(Model);
-                    Parent.Parent.Animation.KeyFrames.Insert(index, (IKeyFrame)newKeyFrame);
-                    history.Commit(CommandNames.PasteKeyFrame);
-                }
-
-                return;
-            }
-
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to paste keyframe");
-            NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
-        }
-    }
+    private Task PasteAsync() => Parent.Parent.PasteSelectionAsync();
 
     private void Remove()
     {
+        if (IsSelected.Value)
+        {
+            var selected = Parent.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
+            Parent.Parent.DeleteKeyFrames(selected);
+            return;
+        }
         AnimationOperations.RemoveKeyFrame(
             animation: Parent.Parent.Animation,
             keyframe: Model,
