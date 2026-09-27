@@ -139,6 +139,13 @@ public static class MergePatch
             if (!hasId)
             {
                 id = CollectionReconciler.CreateDeterministicId($"{path}[new:{patchIndex}]", patchItem);
+                // Repeating an Id-less insertion must create another object. Keep planning
+                // deterministic for the same current document without reusing an existing Id.
+                for (int occurrence = 1; IndexOf(result, id) >= 0; occurrence++)
+                {
+                    id = CollectionReconciler.CreateDeterministicId($"{path}[new:{patchIndex}:{occurrence}]", patchItem);
+                }
+
                 nextItem = (JsonObject)patchItem.DeepClone();
                 nextItem[nameof(CoreObject.Id)] = id.ToString();
                 RemoveDirectives(nextItem);

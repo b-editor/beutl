@@ -463,7 +463,7 @@ public sealed class SessionTools(
             ErrorCode.ValidationRejected,
             $"File-backed Beutl projects must use the '{expected}' extension. The '.{EditorConstants.ProjectPackageExtension}' extension is reserved for exported project packages.",
             target,
-            $"Use a path ending in '{expected}', for example 'agent-output/example{expected}'."));
+            $"Use a path ending in '{expected}', for example 'example{expected}'."));
     }
 
     private static T Throw<T>(string code, string message, string? target = null)

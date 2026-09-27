@@ -581,7 +581,7 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task Endpoint_tools_list_includes_live_host_and_design_tools()
+    public async Task Endpoint_tools_list_exposes_editing_and_measurement_without_quality_gates()
     {
         await TestReset.ResetShellAsync();
         var endpoint = new AgentHostEndpoint(
@@ -609,8 +609,8 @@ public sealed class AgentHostEndpointTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(toolNames, Does.Contain("derive_palette"));
-                Assert.That(toolNames, Does.Contain("get_background_grammar"));
+                Assert.That(toolNames, Does.Not.Contain("evaluate_edit_quality"));
+                Assert.That(toolNames, Does.Contain("measure_frame_differences"));
                 Assert.That(toolNames, Does.Contain("attach_active_editor"));
                 Assert.That(toolNames, Does.Contain("apply_edit"));
                 Assert.That(toolNames, Does.Contain("render_still"));

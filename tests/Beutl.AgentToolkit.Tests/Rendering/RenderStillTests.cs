@@ -21,16 +21,6 @@ namespace Beutl.AgentToolkit.Tests.Rendering;
 
 public sealed class RenderStillTests
 {
-    [Test]
-    public void Bare_render_output_paths_default_to_agent_output_directory()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(RenderTools.NormalizeOutputPath("preview.png"), Is.EqualTo(Path.Combine("agent-output", "preview.png")));
-            Assert.That(RenderTools.NormalizeOutputPath(Path.Combine("nested", "preview.png")), Is.EqualTo(Path.Combine("nested", "preview.png")));
-            Assert.That(RenderTools.NormalizeOutputPath(Path.GetFullPath("preview.png")), Is.EqualTo(Path.GetFullPath("preview.png")));
-        });
-    }
 
     [TestCase(CpuSafeDrawable.Shape)]
     [TestCase(CpuSafeDrawable.Text)]
@@ -80,15 +70,15 @@ public sealed class RenderStillTests
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(output), Is.True);
-            Assert.That(result.Warnings, Has.Some.Contains("near-black"));
-            Assert.That(result.Warnings, Has.Some.Contains("read_document_summary"));
+            Assert.That(result.Warnings, Is.Empty);
+            Assert.That(result.Warnings, Is.Empty);
             Assert.That(result.VisibilityAnalysis!.VisiblePixelRatio, Is.LessThan(0.005));
             Assert.That(result.ActiveElements, Is.Empty);
         });
     }
 
     [Test]
-    public async Task Render_still_warns_when_foreground_is_confined_to_one_quadrant()
+    public async Task Render_still_measures_foreground_confined_to_one_quadrant_without_aesthetic_warnings()
     {
         string dir = CreateWorkspace();
         string output = Path.Combine(dir, "confined.png");
@@ -100,7 +90,7 @@ public sealed class RenderStillTests
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(output), Is.True);
-            Assert.That(result.Warnings, Has.Some.Contains("single-quadrant"));
+            Assert.That(result.Warnings, Is.Empty);
             Assert.That(result.VisibilityAnalysis!.ForegroundPixelRatio, Is.GreaterThan(0));
             Assert.That(result.VisibilityAnalysis.OccupiedBoundsRatio, Is.LessThan(0.12));
             Assert.That(result.VisibilityAnalysis.MaxQuadrantForegroundRatio, Is.GreaterThanOrEqualTo(0.90));
@@ -180,7 +170,7 @@ public sealed class RenderStillTests
     }
 
     [Test]
-    public async Task Motion_variation_analysis_flags_static_scenes_and_accepts_temporal_changes()
+    public async Task Frame_measurement_reports_static_and_changing_pixels()
     {
         string staticDir = CreateWorkspace();
         Scene staticScene = CreateScene(staticDir, new RectShape());
@@ -189,66 +179,48 @@ public sealed class RenderStillTests
         string changingDir = CreateWorkspace();
         Scene changingScene = CreateChangingScene(changingDir);
 
-        var analyzer = new MotionVariationAnalyzer(new StillRenderer());
-        MotionVariationResponse staticResult = await analyzer.AnalyzeAsync(
+        var analyzer = new FrameDifferenceAnalyzer(new StillRenderer());
+        FrameDifferenceResponse staticResult = await analyzer.AnalyzeAsync(
             staticScene,
             [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(2.5)],
             1,
-            0.01,
             48,
-            0.35,
-            0.90,
             24,
             CancellationToken.None);
-        MotionVariationResponse changingResult = await analyzer.AnalyzeAsync(
+        FrameDifferenceResponse changingResult = await analyzer.AnalyzeAsync(
             changingScene,
             [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(2.5)],
             1,
-            0.01,
             48,
-            0.35,
-            0.90,
             24,
             CancellationToken.None);
 
         Assert.Multiple(() =>
         {
-            Assert.That(staticResult.PassesMinimumMotion, Is.False);
-            Assert.That(staticResult.Verdict, Is.EqualTo("low-motion-variation"));
             Assert.That(staticResult.MinimumChangedPixelRatio, Is.EqualTo(0));
-            Assert.That(changingResult.PassesMinimumMotion, Is.True);
-            Assert.That(changingResult.Verdict, Is.EqualTo("motion-variation-ok"));
             Assert.That(changingResult.MinimumChangedPixelRatio, Is.GreaterThan(0.01));
         });
     }
 
     [Test]
-    public async Task Motion_variation_analysis_flags_sustained_one_quadrant_frame_coverage()
+    public async Task Frame_measurement_reports_one_quadrant_coverage()
     {
         string dir = CreateWorkspace();
         Scene confinedScene = CreateConfinedChangingScene(dir);
 
-        var analyzer = new MotionVariationAnalyzer(new StillRenderer());
-        MotionVariationResponse result = await analyzer.AnalyzeAsync(
+        var analyzer = new FrameDifferenceAnalyzer(new StillRenderer());
+        FrameDifferenceResponse result = await analyzer.AnalyzeAsync(
             confinedScene,
             [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(2.5)],
             1,
-            0.01,
             48,
-            0.35,
-            0.90,
             24,
             CancellationToken.None);
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.PassesTemporalMotion, Is.True);
-            Assert.That(result.PassesFrameCoverage, Is.False);
-            Assert.That(result.PassesMinimumMotion, Is.False);
-            Assert.That(result.Verdict, Is.EqualTo("poor-frame-coverage"));
             Assert.That(result.FrameCoverage, Has.All.Matches<MotionFrameCoverage>(item =>
                 item.OccupiedBoundsRatio <= 0.35 && item.MaxQuadrantForegroundRatio >= 0.90));
-            Assert.That(result.ReviewNotes, Has.Some.Contains("confined"));
         });
     }
 

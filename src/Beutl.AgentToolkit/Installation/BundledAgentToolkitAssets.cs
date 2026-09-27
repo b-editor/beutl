@@ -8,20 +8,12 @@ public static class BundledAgentToolkitAssets
     [
         new(
             AgentToolkitAssetKind.Skill,
-            "beutl-agent-brief-expansion/SKILL.md",
-            "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-brief-expansion.SKILL.md"),
-        new(
-            AgentToolkitAssetKind.Skill,
             "beutl-agent-timeline-from-shotlist/SKILL.md",
             "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-timeline-from-shotlist.SKILL.md"),
         new(
             AgentToolkitAssetKind.Skill,
             "beutl-agent-look-effect-chain/SKILL.md",
             "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-look-effect-chain.SKILL.md"),
-        new(
-            AgentToolkitAssetKind.Skill,
-            "beutl-agent-asset-sourcing/SKILL.md",
-            "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-asset-sourcing.SKILL.md"),
         new(
             AgentToolkitAssetKind.Skill,
             "beutl-agent-source-grounding/SKILL.md",
@@ -31,10 +23,6 @@ public static class BundledAgentToolkitAssets
             "beutl-agent-source-grounding/agents/openai.yaml",
             "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-source-grounding.agents.openai.yaml"),
         new(
-            AgentToolkitAssetKind.Skill,
-            "beutl-agent-visual-review/SKILL.md",
-            "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-visual-review.SKILL.md"),
-        new(
             AgentToolkitAssetKind.Subagent,
             "beutl-agent-timeline-builder.md",
             "Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-timeline-builder.md"),
@@ -42,10 +30,6 @@ public static class BundledAgentToolkitAssets
             AgentToolkitAssetKind.Subagent,
             "beutl-agent-look-applier.md",
             "Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-look-applier.md"),
-        new(
-            AgentToolkitAssetKind.Subagent,
-            "beutl-agent-quality-reviewer.md",
-            "Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-quality-reviewer.md"),
     ];
 
     public static IReadOnlyList<AgentToolkitAsset> Load()

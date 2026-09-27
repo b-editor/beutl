@@ -28,28 +28,22 @@ public sealed record MotionFrameCoverage(
     int Right,
     int Bottom);
 
-public sealed record MotionVariationResponse(
-    bool PassesMinimumMotion,
-    bool PassesTemporalMotion,
-    bool PassesFrameCoverage,
-    string Verdict,
+public sealed record FrameDifferenceResponse(
+    int PixelDeltaThreshold,
+    int ForegroundLumaThreshold,
     double MinimumChangedPixelRatio,
     double AverageChangedPixelRatio,
     IReadOnlyList<MotionVariationSample> Samples,
     IReadOnlyList<MotionVariationPair> PairVariations,
-    IReadOnlyList<MotionFrameCoverage> FrameCoverage,
-    IReadOnlyList<string> ReviewNotes);
+    IReadOnlyList<MotionFrameCoverage> FrameCoverage);
 
-public sealed class MotionVariationAnalyzer(StillRenderer stillRenderer)
+public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
 {
-    public async ValueTask<MotionVariationResponse> AnalyzeAsync(
+    public async ValueTask<FrameDifferenceResponse> AnalyzeAsync(
         Scene scene,
         IReadOnlyList<TimeSpan> sampleTimes,
         float renderScale,
-        double minChangedPixelRatio,
         int pixelDeltaThreshold,
-        double minOccupiedBoundsRatio,
-        double maxSingleQuadrantForegroundRatio,
         int foregroundLumaThreshold,
         CancellationToken cancellationToken)
     {
@@ -76,10 +70,7 @@ public sealed class MotionVariationAnalyzer(StillRenderer stillRenderer)
 
             return AnalyzeFrames(
                 frames,
-                minChangedPixelRatio,
                 pixelDeltaThreshold,
-                minOccupiedBoundsRatio,
-                maxSingleQuadrantForegroundRatio,
                 foregroundLumaThreshold);
         }
         finally
@@ -91,12 +82,9 @@ public sealed class MotionVariationAnalyzer(StillRenderer stillRenderer)
         }
     }
 
-    internal static MotionVariationResponse AnalyzeFrames(
+    internal static FrameDifferenceResponse AnalyzeFrames(
         IReadOnlyList<(TimeSpan Time, Bitmap Bitmap)> frames,
-        double minChangedPixelRatio,
         int pixelDeltaThreshold,
-        double minOccupiedBoundsRatio,
-        double maxSingleQuadrantForegroundRatio,
         int foregroundLumaThreshold)
     {
         ArgumentNullException.ThrowIfNull(frames);
@@ -105,16 +93,7 @@ public sealed class MotionVariationAnalyzer(StillRenderer stillRenderer)
             throw new ArgumentException("At least two rendered frames are required.", nameof(frames));
         }
 
-        double normalizedMinimumRatio = double.IsFinite(minChangedPixelRatio)
-            ? Math.Clamp(minChangedPixelRatio, 0, 1)
-            : 0.02;
         int normalizedDeltaThreshold = Math.Clamp(pixelDeltaThreshold, 1, 1020);
-        double normalizedMinOccupiedBoundsRatio = double.IsFinite(minOccupiedBoundsRatio)
-            ? Math.Clamp(minOccupiedBoundsRatio, 0, 1)
-            : 0.35;
-        double normalizedMaxSingleQuadrantRatio = double.IsFinite(maxSingleQuadrantForegroundRatio)
-            ? Math.Clamp(maxSingleQuadrantForegroundRatio, 0, 1)
-            : 0.9;
         int normalizedForegroundThreshold = Math.Clamp(foregroundLumaThreshold, 0, byte.MaxValue);
 
         MotionVariationSample[] samples = frames
@@ -132,59 +111,14 @@ public sealed class MotionVariationAnalyzer(StillRenderer stillRenderer)
 
         double minimumRatio = variations.Min(item => item.ChangedPixelRatio);
         double averageRatio = variations.Average(item => item.ChangedPixelRatio);
-        bool passesTemporal = minimumRatio >= normalizedMinimumRatio;
-        int sustainedSampleCount = Math.Max(2, (coverage.Length + 1) / 2);
-        int confinedSamples = coverage.Count(item =>
-            item.ForegroundPixels > 0
-            && item.OccupiedBoundsRatio <= normalizedMinOccupiedBoundsRatio
-            && item.MaxQuadrantForegroundRatio >= normalizedMaxSingleQuadrantRatio);
-        int sparseSamples = coverage.Count(item =>
-            item.ForegroundPixels == 0 || item.OccupiedBoundsRatio < 0.12);
-        bool passesCoverage = confinedSamples < sustainedSampleCount && sparseSamples < sustainedSampleCount;
-        bool passes = passesTemporal && passesCoverage;
-        string verdict = passes
-            ? "motion-variation-ok"
-            : !passesTemporal
-                ? "low-motion-variation"
-                : "poor-frame-coverage";
-
-        List<string> notes = [];
-        if (passesTemporal)
-        {
-            notes.Add("Temporal variation meets the requested changed-pixel threshold.");
-        }
-        else
-        {
-            notes.Add("Temporal variation is low between at least one adjacent sample.");
-            notes.Add("Revise the edit with stronger phase changes, more animated properties, or denser foreground/background motion.");
-        }
-
-        if (passesCoverage)
-        {
-            notes.Add("Frame coverage is not persistently confined to one small quadrant.");
-        }
-        else if (confinedSamples >= sustainedSampleCount)
-        {
-            notes.Add("Visible content stays confined to one small quadrant for too many sampled frames.");
-            notes.Add("Revise the composition so background, foreground motion, accents, or typography use more of the frame.");
-        }
-        else
-        {
-            notes.Add("Too many sampled frames have little or no visible foreground coverage.");
-            notes.Add("Add stronger visible structure before exporting.");
-        }
-
-        return new MotionVariationResponse(
-            passes,
-            passesTemporal,
-            passesCoverage,
-            verdict,
+        return new FrameDifferenceResponse(
+            normalizedDeltaThreshold,
+            normalizedForegroundThreshold,
             minimumRatio,
             averageRatio,
             samples,
             variations,
-            coverage,
-            notes);
+            coverage);
     }
 
     private static MotionVariationPair Compare(

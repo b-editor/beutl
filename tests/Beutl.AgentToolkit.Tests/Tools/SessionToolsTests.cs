@@ -90,7 +90,7 @@ public sealed class SessionToolsTests
         JsonObject responseJson = JsonSerializer.SerializeToNode(opened.Value)!.AsObject();
 
         var stillRenderer = new StillRenderer();
-        var motionAnalyzer = new MotionVariationAnalyzer(stillRenderer);
+        var motionAnalyzer = new FrameDifferenceAnalyzer(stillRenderer);
         var renderTools = new RenderTools(
             manager,
             new WorkspaceGuard(root),
@@ -99,7 +99,6 @@ public sealed class SessionToolsTests
             new StoryboardRenderer(),
             motionAnalyzer,
             new AudioRhythmAnalyzer(),
-            new QualityAnalyzer(motionAnalyzer, stillRenderer),
             new VideoExporter(new EncoderRegistration()),
             new RenderJobManager(),
             StandaloneOutputOperationLeaseProvider.Instance);
@@ -316,7 +315,7 @@ public sealed class SessionToolsTests
         JsonObject responseJson = JsonSerializer.SerializeToNode(opened.Value)!.AsObject();
 
         var stillRenderer = new StillRenderer();
-        var motionAnalyzer = new MotionVariationAnalyzer(stillRenderer);
+        var motionAnalyzer = new FrameDifferenceAnalyzer(stillRenderer);
         var renderTools = new RenderTools(
             manager,
             new WorkspaceGuard(root),
@@ -325,7 +324,6 @@ public sealed class SessionToolsTests
             new StoryboardRenderer(),
             motionAnalyzer,
             new AudioRhythmAnalyzer(),
-            new QualityAnalyzer(motionAnalyzer, stillRenderer),
             new VideoExporter(new EncoderRegistration()),
             new RenderJobManager(),
             StandaloneOutputOperationLeaseProvider.Instance);

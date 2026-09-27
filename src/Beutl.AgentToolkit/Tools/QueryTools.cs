@@ -3,7 +3,6 @@ using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Design;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
@@ -27,25 +26,6 @@ public sealed record RecommendedSkill(
     string Name,
     string WhenToUse,
     string HowToLoad);
-
-public sealed record CreativeDirectionSelectionTrace(
-    int RequestIndex,
-    int BaseOffset,
-    int AppliedOffset,
-    string SeedMaterial,
-    IReadOnlyList<string> ReturnedSeedOrder,
-    string RecordHint);
-
-public sealed record CreativeInspirationSeed(
-    string Name,
-    string Category,
-    IReadOnlyList<string> Evokes,
-    IReadOnlyList<string> Transformations,
-    IReadOnlyList<string> UsefulTools);
-
-public sealed record RecordCreativeDirectionResponse(
-    bool Recorded,
-    IReadOnlyList<CreativeDirectionFingerprint> RecentDirections);
 
 public sealed record ObjectBoundsRect(
     double Left,
@@ -76,92 +56,12 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     private readonly SchemaGenerator _schemaGenerator = new();
     private readonly CompositionTemplateCatalog _compositionCatalog = new();
 
-    private static IReadOnlyList<string> CreateGuidanceNotes()
-        =>
-        [
-        "For original creative briefs, list_creative_directions reports what recent runs already looked like, which is the cheapest way to avoid repeating yourself. derive_palette and get_background_grammar offer colors and background vocabulary with the relationships pre-solved; authoring either by hand is equally valid.",
-        "derive_palette takes a base hue, tonal seed, harmony scheme, optional derivation reason, and structural signature. Its repeat warnings say the result resembles recent work; that is information about your own history, not a verdict on the piece.",
-        "get_background_grammar lists background slots, options, and parameter ranges. A base layer plus one or two depth layers plus a motion slot is the combination that reads as full depth; a flatter background is a legitimate choice.",
-        "For a one-call original starting point, call plan_original_scaffold to get a gate-clean skeleton patch (background role, headline/subtitle, placeholder foreground) with a generated palette and seed-varied layout, then customize every placeholder and apply it with apply_edit. This is an original skeleton, not a named template like apply_composition.",
-        "Orbit, radar, map, signal, and dashboard motifs are the defaults most generators reach for, so they read as generic when the brief did not ask for them.",
-        "Deciding objective, audience, emotional temperature, message hierarchy, palette roles, typography roles, motion phases, and effect purpose up front makes later edits cheaper, in whatever form suits you.",
-        "At high-tempo 1.5s beats a viewer reads roughly 1-3 hero words and 2-4 word labels; past that the text is present but not read. Non-text density (nodes, particles, strokes, texture, accent motion) carries the beat without that cost.",
-        "For 120-140 BPM briefs, convert the tempo into a beat grid before authoring: around 130 BPM, 1 beat is about 462 ms, 2 beats about 923 ms, and visible foreground beats should change every 1-2 beats with no long foreground event gaps.",
-        "Grouping, alignment, scale contrast, color contrast, and repetition are the levers that decide what a viewer looks at first; a shot with several equal candidates leaves that ordering to chance.",
-        "Several hero-scale text roles in one beat compete for the same attention. Making captions, labels, and texture text visibly quieter is the usual resolution; deliberate competition is its own effect.",
-        "RectShape reads naturally as a full-frame or background plate; as a foreground accent it reads as a rectangle, where EllipseShape, RoundedRectShape, GeometryShape, media, strokes, or procedural texture read as form. Tags like [role:background], [role:text-backing], or [role:decorative] let the quality tools classify plates correctly.",
-        "Naming a large or animated foreground shape with its role and motion intent is what lets a later pass tell a designed accent from a leftover; unnamed moving shapes are indistinguishable from accidents.",
-        "Abstract glint/glow/aperture ellipses are the cheapest way to add foreground activity, which is why they read as filler. Strokes, particles, letter fragments, editor/timeline marks, masks, media, and procedural texture give a viewer something to parse.",
-        "A two-stop gradient falloff shows its boundary as a band. Three or more stops, wider transitions, Blur/SKSL texture, or a procedural surface hide it.",
-        "Effects earn their render cost through material texture, hierarchy separation, transition energy, or text legibility; a stack where no layer has a job usually reads as noise.",
-        "For visible progress, apply large scenes in stages that follow your synthesized pitch: background/surface first, then motion elements, then text/effects.",
-        "For unconstrained creative briefs, keep project/video/still basenames neutral and record the synthesized pitch in notes instead of filenames.",
-        "Use list_compositions, get_composition, and plan_composition only when the user explicitly asks for a reusable template, starter, or named composition style.",
-        "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
-        "Use render_composition_patch only when the client explicitly needs the generated template patch JSON."
-        ];
-
-    private static GettingStartedResponse CreateVideoTypeGettingStartedResponse(
-        VideoTypeProfile profile,
-        bool includeGuidance)
-        => new(
-            SchemaVersion.Current,
-            CreateVideoTypeWorkflow(profile),
-            includeGuidance ? CreateGuidanceNotes() : [],
-            CreateRecommendedSkills(),
-            CreateCategoryAliases(),
-            RawHttpNote,
-            null,
-            profile.ToSummary());
-
-    private static IReadOnlyList<string> CreateVideoTypeWorkflow(VideoTypeProfile profile)
-    {
-        string[] commonCore =
-        [
-            "Start from the requested visual result and motion, then identify the building blocks needed for the next edit. Effect, object, and recipe catalogs describe building blocks, not the limit of possible expressions; listing them is optional.",
-            "Choosing existing features, compositions, or custom scripts is part of the editing task; the user need not name an effect or language. Let each discovery call answer a concrete question for the next edit, then author and render. Preserve the requested visual intent when changing implementation, and report limitations with evidence from the missing capability or prototype.",
-            "Prefer built-in composition and declarative shader effects when they express the intent. CSharpScriptEffect/Context.CustomEffect is a low-level fallback, not the default GPU authoring path. Honor an explicitly requested shader language.",
-            "Beutl source code is not required for editing. Use the runtime schema, documented script contracts, measure_object_bounds, and small render probes; inspect implementation source only when it is available and a concrete uncertainty remains.",
-            "Call attach_active_editor for an open editor scene, or create_project/open_project for a file-backed session before authoring.",
-            "Call read_document_summary to inspect the current scene and confirm duration, element count, and source before planning edits.",
-            "Use get_schema(type=...) for unfamiliar building blocks; use a category or intent-filtered list only when the needed type is unknown. If no recipe matches, combine supported geometry, masks, transforms, keyframes, effects, or custom script effects. Keep serialized types and property names grounded in the runtime schema, call validate_shader for custom scripts, and verify a small prototype with render_still before expanding it.",
-            "Call measure_object_bounds before positioning text, captions, backing plates, logos, or centered objects.",
-            "Call apply_edit with schemaVersion=1 and staged declarative patches that match the selected workflow plan.",
-            "Call save_project after each major successful apply_edit in file-backed sessions so partial progress is durable.",
-            "Call render_storyboard with subdivisionLevel:1, or 2 for suspicious transitions, and review the storyboard subdivision before final preflight.",
-            $"Call final_preflight with videoType:\"{profile.Name}\" before export_video."
-        ];
-
-        return commonCore.Concat(profile.WorkflowSteps).ToArray();
-    }
-
     private static IReadOnlyList<RecommendedSkill> CreateRecommendedSkills()
         =>
         [
-            new RecommendedSkill(
-                "beutl-agent-brief-expansion",
-                "When the incoming request is a terse one-line prompt missing duration, mood, style, or asset details, or when the user supplies reference images/video/URLs for the intended look: expand it into a full production brief (and extract direction-only attributes from references) before timeline planning.",
-                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
-            new RecommendedSkill(
-                "beutl-agent-timeline-from-shotlist",
-                "Before planning a video's composition or timeline: turning a brief, shot list, or storyboard into shots, beat grids, layout, motion phases, and quality preflight. Load this at the start of composition planning.",
-                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
-            new RecommendedSkill(
-                "beutl-agent-look-effect-chain",
-                "When applying a consistent look or effect chain across elements or shots (color, blur, shadow, stylization, cross-shot consistency).",
-                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
-            new RecommendedSkill(
-                "beutl-agent-asset-sourcing",
-                "When footage, photos, music, SFX, or fonts must be acquired or generated for a brief: make source-or-generate decisions, enforce the license allowlist, and record provenance in assets/manifest.json before placing media.",
-                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
-            new RecommendedSkill(
-                "beutl-agent-source-grounding",
-                "When coordinates, transforms, bounds, units, or session behavior need verification: use runtime schema, measurements, and render probes first; source inspection is optional when a checkout is available.",
-                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings."),
-            new RecommendedSkill(
-                "beutl-agent-visual-review",
-                "After rendering stills or a storyboard contact sheet when an agent or reviewer needs a six-axis visual-quality pass with concrete edit directives. This is advisory unless the caller makes it policy.",
-                "Load it through your agent's skill mechanism (e.g. the Skill tool) or read the installed SKILL.md placed next to this toolkit by Beutl's AI agent settings.")
+            new("beutl-agent-timeline-from-shotlist", "Editing timeline structure, timing, transforms, groups, and keyframes.", "Read the installed SKILL.md for the editing API contract."),
+            new("beutl-agent-look-effect-chain", "Editing effect chains, masks, and shader properties.", "Read the installed SKILL.md for effect and shader mechanics."),
+            new("beutl-agent-source-grounding", "Checking coordinates, units, bounds, and runtime behavior.", "Read the installed SKILL.md; source inspection is optional.")
         ];
 
     private static IReadOnlyDictionary<string, string> CreateCategoryAliases()
@@ -181,261 +81,24 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         };
 
     [McpServerTool(Name = "get_started")]
-    [Description("Returns a compact, low-context guide for using the Beutl Agent Editing Toolkit. Use this first when an agent only has the MCP endpoint URL. `essentials` covers the mechanics — sessions, schema, patch shape, history, verification, export — and is what you need to author correctly. `guidance` holds the longer craft notes on palette, typography, density, tempo, and shape choices; it is omitted by default to keep first contact cheap, so pass includeGuidance:true when you want it.")]
-    public ToolResult<GettingStartedResponse> GetStarted(
-        [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit to receive the classification-first default guide.")]
-        string? videoType = null,
-        [Description("When true, also return the craft-notes block. Default false keeps the response to the mechanics.")]
-        bool includeGuidance = false)
-    {
-        return Execute(() =>
-        {
-            if (!string.IsNullOrWhiteSpace(videoType))
-            {
-                return CreateVideoTypeGettingStartedResponse(VideoTypeCatalog.Resolve(videoType), includeGuidance);
-            }
-
-            return new GettingStartedResponse(
+    [Description("Returns the editing API workflow: attach/open, inspect schema and document data, apply edits, render, save, and export. Describes operation semantics only; it does not choose a creative direction or judge whether a video is finished.")]
+    public ToolResult<GettingStartedResponse> GetStarted()
+        => Execute(() => new GettingStartedResponse(
             SchemaVersion.Current,
             [
-                "Classifying the brief against videoTypes and calling get_started again with that videoType tailors the guidance; skip it when the brief does not fit any of them.",
-                "Start from the requested visual result and motion, then identify the building blocks needed for the next edit. Effect, object, and recipe catalogs describe building blocks, not the limit of possible expressions; listing them is optional.",
-                "Choosing existing features, compositions, or custom scripts is part of the editing task; the user need not name an effect or language. Let each discovery call answer a concrete question for the next edit, then author and render. Preserve the requested visual intent when changing implementation, and report limitations with evidence from the missing capability or prototype.",
-                "Prefer built-in composition and declarative shader effects when they express the intent. CSharpScriptEffect/Context.CustomEffect is a low-level fallback, not the default GPU authoring path. Honor an explicitly requested shader language.",
-                "Beutl source code is not required for editing. Use the runtime schema, documented script contracts, measure_object_bounds, and small render probes; inspect implementation source only when it is available and a concrete uncertainty remains.",
-                "recommendedSkills lists optional workflow guides. beutl-agent-timeline-from-shotlist covers shot/timeline/storyboard planning; they describe one way that works, not the only one.",
-                "For a terse one-line request missing duration/mood/style/asset details, or when the user supplied reference images/video/URLs, beutl-agent-brief-expansion offers a way to fill the gaps before classification.",
-                "Call attach_active_editor for an open editor scene; if no editor scene is open, call create_project or open_project instead of writing a one-off generator. In the in-app host these open the project in the Beutl editor (single open project, LiveEditor session; a different project cannot be opened while one is open); in the stdio host they create a file-backed session.",
-                "Call read_document_summary to inspect progress without the full document.",
-                "Call measure_object_bounds before positioning text, backing plates, or centered objects; default Drawable alignment is centered, so TranslateTransform(0, 0) means the object's center is at the frame center.",
-                "undo(steps) reverts your own last apply_edit transactions exactly, and read_history names what the next step would revert. Backing out an experiment that way is cheaper and more accurate than authoring a compensating patch. In a LiveEditor session the stack is shared with the editor, so call read_history immediately before undo and inspect its nextUndo to avoid reverting a human edit.",
-                "read_document gives current object handles; use get_schema(type=...) only for unfamiliar building blocks needed by your concept, then author a custom declarative patch. A category-filtered schema or list_effects(intent=...) helps when the needed type is unknown; there is no need to enumerate catalogs before editing.",
-                "list_effect_recipes is an optional source of implementation examples. If no recipe matches the intended result, combine supported geometry, masks, transforms, keyframes, and effect chains, or author a custom script effect such as SKSLScriptEffect. Keep serialized types and property names grounded in the runtime schema; verify a small prototype with render_still before expanding it.",
-                "For SKSL/GLSL/CSharp script effects, read the default script and uniform list from get_schema(type=<effect>), then call validate_shader to compile-check an edited script before apply_edit; for SKSL, a compile error makes the effect a no-op and the source passes through unchanged.",
-                "The current multi-input GLSL fallback uses CSharpScriptEffect with CreateGlslShader(fragmentSource, inputCount) and shader.Render(execution, inputs, outputBounds, pushConstants) inside Context.CustomEffect. It is not a declarative GPU-pass API and does not satisfy a no-C# or no-CustomEffect constraint. When that fallback is permitted, validate C# and GLSL separately, dispose intermediate targets, and verify the rendered result.",
-                "ParticleEmitter emits copies of ParticleDrawable from a geometric emitter; get_schema(type=ParticleEmitter) exposes its motion and over-life controls. It does not split source pixels into particles. For breakup or assembly tied to an object's shape and color, choose a suitable composition or custom script and verify the relationship in a render. AudioWaveformDrawable / AudioSpectrumDrawable / AudioSpectrogramDrawable provide real audio-reactive motion for music-driven briefs.",
-                "For masked reveals, knockouts, and wipes, use real masking: Drawable.BlendMode Porter-Duff modes (SrcIn/DstIn/SrcOut/DstOut/Modulate) matte a drawable against the content below it in the same flow (scope the matte inside a DrawableGroup/DrawableDecorator so it does not knock out the whole frame), and the Clipping FilterEffect (animatable Left/Top/Right/Bottom) is the rectangular wipe primitive; verify the composite with render_still.",
-                "For kinetic type, set TextBlock.SplitByCharacters=true (per-glyph compositing — the enabler for per-character effects and PartsSplitEffect shatter) and animate TextBlock.Spacing; for perspective card flips use Rotation3DTransform (RotationX/Y/Z, Depth); for line-drawing reveals animate Pen.TrimStart/TrimEnd (0-100), or set Pen.DashArray (static float list) and animate Pen.DashOffset for marching dashes; widen easing beyond cubic ease-out with BackEase*/ElasticEase* overshoot, BounceEase* settles, and SplineEasing custom bezier curves on accents.",
-                "Audio is authorable, not analysis-only: keyframe Sound.Gain (percent: 100 = unity, values above 100 amplify) for fade-ins/outs and ducking under narration, set Sound.Effect to an AudioEffectGroup with DelayEffect/EqualizerEffect/CompressorEffect/LimiterEffect children, and use SoundGroup (an IFlowOperator — the PortalObject pairing rule applies) to submix audio Elements.",
-                "Move the viewpoint, not just the elements. Beutl 2D has no scene camera, so plan per-shot camera treatments (push-in, pull-back, pan, whip-pan bridge, parallax) and author them as animated transforms on a named [role:camera-rig] DrawableGroup that parents the shot's content; a motion-graphics piece whose shots are static compositions swapped by hard cuts reads as a slide deck.",
-                "Flow operators (DrawableGroup, DrawableDecorator, SoundGroup, Scene3D) need a PortalObject immediately before them in Element.Objects. PortalObject.Count is an inclusive ZIndex span, not an element count: every active Element with ZIndex in rig+1..rig+Count is pulled into the operator while keeping per-Element timing; Count=0 pulls no timeline rows, so with the portal as the Element's first object the operator consumes only its nested Children (set Clear=true to explicitly discard earlier same-Element flow). See get_examples insert-camera-rig-portal and insert-camera-rig-push-in.",
-                "RectShape and EllipseShape cover two figures; the rest need geometry. For bespoke vector shapes (arrows, chevrons, brackets, crop marks, icons, letter fragments) use GeometryShape; call get_examples for 'insert-new-geometry-shape-path' to copy the typed PathGeometry/PathFigure/segment shape (paths are typed segment objects, not SVG strings, and GeometryShape sizes to its geometry bounds). Author path coordinates with the artwork's top-left at (0, 0): the drawn center lands at the alignment-resolved center plus the path bounds origin, so paths centered on (0, 0) shift up-left by half their size.",
-                "Keep ordinary timeline Elements to one EngineObject. Multiple Objects in one Element are allowed only when the Element contains an IFlowOperator such as DrawableGroup, DrawableDecorator, SoundGroup, or Scene3D.",
-                "For readable type, keep copy short or extend duration; verify contrast, explicit [role:text-backing] plates, and read time with render_still and evaluate_edit_quality.",
-                "Before a large edit or after an intermediate stage, call evaluate_edit_quality(staticLayout:true) to catch document-only risks early; call suggest_quality_fixes when you need a minimal repair plan.",
-                "New timeline Elements need '$type': '[Beutl.ProjectSystem]:Element'. Existing Elements keep Id; genuinely new Elements and Objects omit Id. If you need structure only, fetch the targeted insert-new-element-skeleton example instead of a full-scene starter.",
-                "Choose animation clock mode explicitly: UseGlobalClock=false uses Element-local KeyTime values in 00:00:00..Element.Length; UseGlobalClock=true uses scene timeline KeyTime values that should intersect the visible Element range.",
-                "For explicit keyframes, call get_examples for animate-float-property-keyframes or insert-new-animated-text-keyframes and copy the concrete KeyFrameAnimation<T> and KeyFrame<T> discriminators instead of inventing animation type names.",
-                "Call apply_edit with the custom patch and schemaVersion=1.",
-                "For file-backed sessions, call save_project after each major successful apply_edit so partial progress is durable.",
-                "For synthesized creative pitches, verify read_document_summary contains your own planned element names before rendering or exporting.",
-                "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
-                "final_preflight bundles the pre-export checks; otherwise call render_still for representative frames, run evaluate_motion_variation, then evaluate_edit_quality. Its critical/major findings are limited to unreadable text and malformed Element structure, which are usually accidents; the advisories describe the scene and are yours to accept or act on. export_video never consults either.",
-                "After authoring motion, re-render the storyboard with subdivisionLevel:1; raise to subdivisionLevel:2 for suspicious gaps. Review the in-between frames for cut continuity, and add bridge animations when hard cuts have no shared motion, camera move (matched push-in or whip-pan), sweep, overlap, opacity ramp, or background continuity.",
-                "For visual review in multimodal clients, call render_still or render_storyboard with returnImageContent=true, then apply the beutl-agent-visual-review rubric for advisory concrete edit directives.",
-                "derive_palette, get_background_grammar, and list_creative_directions cover palette derivation with contrast pre-solved, background vocabulary, and what recent runs in this workspace looked like. Call get_started with includeGuidance:true for the longer craft notes on those and on typography, density, tempo, and shape choices."
+                "Call attach_active_editor for the open editor scene, or create_project/open_project for a file session. read_operation_status reports the session and persistence behavior.",
+                "Read read_document_summary for scene and element handles; read_document returns the editable data. Use get_schema(type=...) for the specific types and properties needed by the edit.",
+                "Use apply_edit with schemaVersion=1 and an Id-based merge patch. Unmentioned siblings are preserved; full desired documents are authoritative. undo/redo operate on the session history.",
+                "Use natural, content-based element names in the user's language and compact ZIndex values. PortalObject.Count is a relative inclusive layer span and must remain consistent when layers move.",
+                "Use measure_object_bounds for actual bounds and transforms. Default drawable alignment is centered; ScaleTransform uses percentages. Beutl source code is not required.",
+                "Call validate_shader to check compilation. A successful compilation does not verify rendered output; render_still and render_storyboard return rendered evidence.",
+                "measure_frame_differences reports numerical changes between frames; analyze_audio_rhythm reports estimated beats and onsets. Measurements are data, not quality or completion verdicts.",
+                "For file-backed sessions, save_project persists edits. In LiveEditor sessions, use the editor's normal save behavior as reported by read_operation_status.",
+                "export_video writes to the requested path. Successful validation, rendering, saving, or exporting confirms that operation only; the agent evaluates the result against the user's request."
             ],
-            includeGuidance ? CreateGuidanceNotes() : [],
             CreateRecommendedSkills(),
             CreateCategoryAliases(),
-            RawHttpNote,
-            VideoTypeCatalog.Summaries,
-            null);
-        });
-    }
-
-    [McpServerTool(Name = "list_creative_directions")]
-    [Description("Returns non-template creative direction axes, inspiration seeds, and craft notes for original motion graphics, plus recentDirections — what recent runs in this workspace looked like. Everything it returns is stimulus and observation: nothing here is checked, enforced, or required anywhere in the toolkit. Useful when the brief is vague or absent, or when you want to know what you have already made.")]
-    public ToolResult<CreativeDirectionResponse> ListCreativeDirections(string? brief = null, string? seed = null)
-    {
-        return Execute(() =>
-        {
-            IReadOnlyList<CreativeInspirationSeed> allSeeds = CreateInspirationSeeds();
-            int requestIndex = sessions.NextCreativeDirectionRequestIndex();
-            string seedMaterial = CreateCreativeSeedMaterial(brief, seed);
-            int baseOffset = ComputeCreativeSeedBaseOffset(seedMaterial, allSeeds.Count);
-            IReadOnlyList<CreativeInspirationSeed> inspirationSeeds = ShuffleCreativeInspirationSeeds(allSeeds, seedMaterial);
-            int appliedOffset = baseOffset;
-            IReadOnlyList<CreativeDirectionFingerprint> recentDirections = sessions.GetRecentCreativeFingerprints();
-            string selectionHint = string.IsNullOrWhiteSpace(brief)
-                ? "No brief was supplied. The seeds below are stimulus, not a menu — they work best after you already have a direction of your own. recentDirections shows what recent runs looked like; record_creative_direction adds this one to that history."
-                : $"The brief is the constraint; the direction is yours. Seeds are optional stimulus rather than a menu, and recentDirections shows what recent runs looked like: {brief.Trim()}";
-            var selectionTrace = new CreativeDirectionSelectionTrace(
-                requestIndex,
-                baseOffset,
-                appliedOffset,
-                seedMaterial,
-                inspirationSeeds.Select(seed => seed.Name).ToArray(),
-                "Recording the concept label, palette roles, motion verbs, structural signature, derive_palette result, and background grammar choices in notes.md keeps a later pass from re-deriving them.");
-
-            return new CreativeDirectionResponse(
-                SchemaVersion.Current,
-                ShuffleCreativeStrings([
-                    "material: paper cutouts, ink bleed, glass refraction, fabric folds, projected light, ceramic glaze, thermal camera, risograph print, CRT phosphor, blueprint pencil",
-                    "motion: bloom, peel, fold, pour, shatter, magnetic attraction, wave interference, hand-drawn reveal, parallax drift, stop-motion stepping, camera push-in, whip-pan bridge, slow dolly drift",
-                    "composition: macro close-up, off-axis crop, split depth planes, negative-space title, diagonal editorial grid, frame-within-frame, vertical poster stack",
-                    "typography: small caption system, kinetic word fragments, numeric countdown, subtitle-only rhythm, oversized cropped letterforms",
-                    "palette: warm/cool clash, muted paper plus neon accent, monochrome with one warning color, daylight pastels, high-contrast print inks",
-                    "detail density: crop marks, micro-captions, texture grains, edge highlights, calibration ticks, fracture lines, shimmer bands",
-                    "procedural surface: use SKSLScriptEffect for organic heat, ink, glass, smoke, grain, or caustic fields when gradients alone look flat"
-                ], seedMaterial),
-                inspirationSeeds,
-                [
-                    "Seeds combine better once a concept, palette, type system, motion vocabulary, and shot structure already exist to combine them with.",
-                    "A one-line direction contract — objective, audience, emotional temperature, message hierarchy, brand posture, delivery surface — is what later edits get measured against.",
-                    "Structural language — layout logic, dominant material, motion verbs, palette role balance, final resolve behavior — is what makes two pieces read as different; wording alone does not.",
-                    "derive_palette can solve contrast relationships for the authored hue/tone seed and compare the structural signature with recent work; using it and acting on repeat advisories are optional.",
-                    "get_background_grammar offers optional vocabulary for a background you design from the brief; its slots do not constrain the layers you can author.",
-                    "Element/Object names drawn from the piece's own concept stay meaningful later; seed names describe the stimulus, not the result.",
-                    "If the user supplied constraints, keep the constraints literal and treat the seeds as optional ways to make the result less generic."
-                ],
-                [
-                    "A seed implemented whole becomes the concept rather than informing it.",
-                    "Seed names as the concept name, Element/Object names, or output filenames make the stimulus visible in the deliverable.",
-                    "Seed order is shuffled per request and carries no compositional meaning as a layer order.",
-                    "Full-scene examples and composition templates converge output on their own shape; they fit best when the user asked for a starter or template.",
-                    "Pitches close to your last output, and the listed overused motifs, are what a viewer recognizes as generic."
-                ],
-                [
-                    "Invert the seed relationship: make the supposed background become the active subject and the subject become texture.",
-                    "Replace a literal material with an abstract geometry that only hints at it.",
-                    "Swap the expected motion speed: make a violent idea move quietly or a quiet material move with sharp editorial cuts.",
-                    "Move the focal point off-center and use cropped detail instead of showing the whole motif.",
-                    "Turn a typographic idea into non-text marks, or let tiny captions become the main rhythm.",
-                    "Use procedural texture for one broad surface, then contrast it with a small hand-authored detail layer."
-                ],
-                [
-                    "orbit rings",
-                    "radar sweeps",
-                    "map or atlas labels",
-                    "signal nodes",
-                    "dashboard metric bars",
-                    "dark teal background with cyan/magenta neon"
-                ],
-                [
-                    "Seeds read as stimulus once a direction exists; recentDirections is there to compare against.",
-                    "Recording seed names/categories, the pitch, and the reason for hue/tone/motion vocabulary in notes gives a later pass something to build on.",
-                    "derive_palette with derivationReason and structuralSignature returns colors with contrast solved plus a repeat check against your own history; a reported repeat is information, not a verdict.",
-                    "get_background_grammar lists base/depth/motion slots to instantiate with brief-derived values; three depth bands read as full depth, fewer read as deliberately flat.",
-                    "Call record_creative_direction once the concept is locked.",
-                    "Map your synthesized pitch to named Element/Object entries before writing a patch.",
-                    "Map BPM requests to beat-grid durations before writing a patch; for 120-140 BPM, use 1-2 beat foreground events and avoid long unbroken foreground holds.",
-                    "Apply/save in small stages that follow your own scene plan; avoid one huge full-scene patch when staged progress is easier to inspect.",
-                    "After read_document_summary, compare actual element names with your own scene plan and revise missing planned parts before rendering.",
-                    "Check that each shot has one primary focal point and that supporting copy, marks, effects, and accents sit below it in the hierarchy.",
-                    "Check read time before rendering: short-lived text should be short, split across beats, or held longer.",
-                    "Name the job of every effect chain before applying it: material texture, hierarchy separation, transition energy, color grade, or text legibility.",
-                    "For unconstrained briefs, keep project/video/still basenames neutral instead of naming files after a returned seed or synthesized pitch.",
-                    "After rendering stills, checking which planned elements are actually visible and readable catches the gap between the patch and the frame.",
-                    "Use at least three timing phases and animate multiple property families, not only X position and opacity.",
-                    "Use one EngineObject per ordinary Element; only IFlowOperator Elements such as DrawableGroup, DrawableDecorator, SoundGroup, or Scene3D may carry multiple Objects.",
-                    "Role/purpose/motion-intent names on large or animated foreground shapes are what distinguish a designed accent from a leftover.",
-                    "For organic abstract pitches, get_schema(type='SKSLScriptEffect') supplies the script contract for a custom field; validate_shader and render_still verify it. Recipes are optional examples.",
-                    "Choose animation clock mode intentionally: UseGlobalClock=false uses Element-local KeyTime values; UseGlobalClock=true uses scene-timeline KeyTime values that should intersect sampled frames.",
-                    "Name the synthesized pitch in any notes or output summary before creating elements.",
-                    "Build the scene from your concept with apply_edit, checking unfamiliar building blocks with targeted get_schema calls. list_effects/list_effect_recipes offer optional examples; compose supported primitives or custom scripts when no recipe matches.",
-                    "Full-scene examples and composition templates carry their own shape; they fit explicit template/starter requests best.",
-                    "Verify at least three stills, run evaluate_motion_variation, and export a short video preview when the encoder is available."
-                ],
-                [
-                    "All-caps title locks are a default that reads as generic; Title Case and sentence case carry more voice unless the brief wants a mark.",
-                    "Several type blocks, panels, and effects at the same visual weight leave the viewer to pick a focal point; one dominant element decides it for them.",
-                    "RectShape reads as a full-frame plate or as deliberately plain geometry; RoundedRectShape, EllipseShape, GeometryShape, media, strokes, and procedural texture read as authored foreground structure.",
-                    "A large or animated shape whose Element/Object name states no role or motion purpose is indistinguishable from an accident on a later pass.",
-                    "Foreground light blobs named only glint, glow, aperture, lens, or glass describe the render, not the idea; viewers parse them as haze.",
-                    "A two-stop gradient meant to look soft shows its boundary as a band; multi-stop falloff or a real texture/blur treatment does not.",
-                    "Repeated card surfaces with heavy shadows read as a component library; flatter editorial plates, texture, line work, and masks read as designed.",
-                    "When placing a backing plate behind text, create a named text/backing pair with matching Start/Length, centered transforms, and clear padding."
-                ],
-                [
-                    "Assign explicit roles before authoring: bg-base, bg-accent, foreground, text-primary, accent, support, and shadow.",
-                    "derive_palette returns text-primary contrast of at least 4.5:1 against bg-base/bg-accent and object contrast of at least 3.0:1 against bg-base by construction; hand-selected palettes leave those checks to you.",
-                    "A neutral or muted base plus one saturated accent gives the accent somewhere to land. Dark teal with cyan and magenta is the most-reached-for combination, so it reads as a default.",
-                    "Text and backing plates separated only by hue lose contrast at playback size; luma separation is what survives. Readable text contrast is one of the two findings that fail the quality gate.",
-                    "Three or more highly saturated colors compete; muting a support color gives one of them priority."
-                ],
-                [
-                    "Use mixed case for titles and captions by default.",
-                    "Assign type roles before authoring: hero message, secondary emphasis, caption, label, and texture text.",
-                    "Keep letter spacing modest; reserve wide tracking for one short label only.",
-                    "Scale copy to duration: a fast beat should carry a word, short phrase, or symbol, not a full sentence.",
-                    "Slash-delimited technical captions read as filler when they carry no message.",
-                    "Check text readability in render_still and evaluate_edit_quality, especially when a backing plate is present."
-                ],
-                [
-                    "Plan at least three phases: reveal, development, and resolution.",
-                    "For 120-140 BPM, work from a beat grid rather than vague fast/slow language; at 130 BPM one beat is about 462 ms and two beats are about 923 ms.",
-                    "Foreground holds near 2-4 beats read as paced; longer holds read as background texture or a final resolve.",
-                    "evaluate_edit_quality tempo metrics report foreground boundary density and the longest foreground event gap; background drift alone rarely reads as fast tempo.",
-                    "Build fast tempo through contrast between quick accents and held readability beats, not by making every layer move at the same speed.",
-                    "Overlap, opacity, transform continuation, or an intentional beat carries the eye across a shot boundary; repeated unmotivated hard cuts read as a slideshow.",
-                    "Animate more than one property family across the piece.",
-                    "After still checks, evaluate_motion_variation and evaluate_edit_quality report what the frames measure; only unreadable text and malformed Element structure are flagged critical/major."
-                ],
-                recentDirections,
-                selectionHint,
-                selectionTrace);
-        });
-    }
-
-    [McpServerTool(Name = "record_creative_direction")]
-    [Description("Records the authored creative direction fingerprint so later sessions can see what concept, palette, motion vocabulary, and structure this workspace has already produced.")]
-    public ToolResult<RecordCreativeDirectionResponse> RecordCreativeDirection(
-        string conceptLabel,
-        string[]? paletteRoles = null,
-        string[]? motionVerbs = null,
-        string? structuralSignature = null)
-    {
-        return Execute(() =>
-        {
-            sessions.RecordCreativeDirection(new CreativeDirectionFingerprint(
-                conceptLabel,
-                paletteRoles ?? [],
-                motionVerbs ?? [],
-                structuralSignature ?? string.Empty,
-                DateTimeOffset.UtcNow));
-            return new RecordCreativeDirectionResponse(true, sessions.GetRecentCreativeFingerprints());
-        });
-    }
-
-    [McpServerTool(Name = "plan_original_scaffold")]
-    [Description("Returns a one-call ORIGINAL starting scaffold: a declarative patch (scaffold.patch) with a background role, a headline and subtitle, and a placeholder decorative foreground, using a procedurally GENERATED palette and seed-varied layout. This is a customizable skeleton the agent then rewrites, NOT a named composition template: unlike apply_composition (which requires an explicit template name for explicit template/starter requests), this synthesizes a fresh original skeleton for authoring from scratch. The patch is gate-clean by construction (one EngineObject per Element, short mixed-case copy, luma-separated non teal/cyan/magenta palette, soft multi-stop background, named foreground role + motion intent). Two different seeds produce structurally different scaffolds.")]
-    public ToolResult<OriginalScaffoldResponse> PlanOriginalScaffold(string? brief = null, string? seed = null)
-    {
-        return Execute(() =>
-        {
-            (int width, int height, double durationSeconds, TimeSpan sceneStart) = ResolveScaffoldFrame();
-            string[] inspirationSeedNames = CreateInspirationSeeds().Select(item => item.Name).ToArray();
-            OriginalScaffold scaffold = _compositionCatalog.Scaffold(seed, brief, inspirationSeedNames, width, height, durationSeconds);
-            scaffold = scaffold with
-            {
-                Patch = CompositionTemplateCatalog.OffsetPatchElementStarts(scaffold.Patch, sceneStart)
-            };
-            return new OriginalScaffoldResponse(
-                SchemaVersion.Current,
-                scaffold,
-                "Rewrite the placeholder copy, palette, and decorative foreground from your synthesized pitch, then pass scaffold.patch to apply_edit with schemaVersion=1. This is an original skeleton, not a template; do not ship it unchanged. Call record_creative_direction once the concept is locked.");
-        });
-    }
-
-    private (int Width, int Height, double DurationSeconds, TimeSpan SceneStart) ResolveScaffoldFrame()
-    {
-        IEditingSession? session = sessions.CurrentSession;
-        if (session is null)
-        {
-            return (1920, 1080, 8, TimeSpan.Zero);
-        }
-
-        return session.ReadOnSession(() =>
-        {
-            if (session.Root is Scene scene)
-            {
-                return (scene.FrameSize.Width, scene.FrameSize.Height, Math.Max(0.1, scene.Duration.TotalSeconds), scene.Start);
-            }
-
-            return (1920, 1080, 8, TimeSpan.Zero);
-        });
-    }
+            RawHttpNote));
 
     [McpServerTool(Name = "get_schema")]
     [Description("Returns the capability schema for registered editable building blocks. After deciding the intended result, prefer type to check an unfamiliar type; use category when the type is unknown. A full catalog is optional, and the listed types can be composed into expressions with no named recipe. Category aliases such as visualEffect, effect, filter, videoEffect, text, typography, label, fill, stroke, and ease are accepted. Examples are opt-in; set includeExamples=true when snippets are needed.")]
@@ -475,7 +138,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 includeStarters);
             return new ListExamplesResponse(
                 SchemaVersion.Current,
-                OrderExamples(Shuffle(examples)),
+                examples,
                 includeStarters
                     ? "Starter examples are included because includeStarters=true. Use get_examples with a specific name and adapt the structure to the brief."
                     : "Full-scene starters are hidden by default. Use examples as small syntax snippets for your own concept; their coverage does not limit what you can compose with apply_edit.");
@@ -489,11 +152,11 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() => new GetExamplesResponse(
             SchemaVersion.Current,
             string.IsNullOrWhiteSpace(name)
-                ? OrderExamples(Shuffle(FilterExamples(_schemaGenerator.GenerateExamples(type, category, name), includeStarters)))
+                ? FilterExamples(_schemaGenerator.GenerateExamples(type, category, name), includeStarters)
                 : _schemaGenerator.GenerateExamples(type, category, name),
             string.IsNullOrWhiteSpace(name) && !includeStarters
                 ? "Full-scene starters are hidden by default. Pass name for an explicit starter, or includeStarters=true when the user asks for starters."
-                : "If more than one example is returned, the order is shuffled and recently used composition styles are moved to the end. Use name to fetch a single snippet or explicit starter; for original briefs, build a custom patch instead of cloning an empty-scene example."));
+                : "Use name to fetch a single syntax example or starter. Examples can be adapted or combined through apply_edit."));
     }
 
     [McpServerTool(Name = "list_fonts")]
@@ -581,30 +244,13 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "list_compositions")]
-    [Description("Returns optional reusable composition templates for explicit template/starter requests. Templates include props, style axes, default metadata, and deterministic shuffled order. If seed is omitted, the active session default seed is used. Recently applied templates are moved to the end by default.")]
-    public ToolResult<ListCompositionsResponse> ListCompositions(string? tag = null, string? seed = null, bool avoidRecent = true)
+    [Description("Lists reusable named composition presets. These are optional editing aids; any returned name can be used or repeated.")]
+    public ToolResult<ListCompositionsResponse> ListCompositions(string? tag = null, string? seed = null)
     {
         return Execute(() =>
         {
-            bool previewOnly = !sessions.HasActiveSession && string.IsNullOrWhiteSpace(seed);
-            IReadOnlyList<string> recent = sessions.GetRecentCompositions();
-            IReadOnlyList<string> avoided = avoidRecent ? sessions.GetAvoidedCompositions() : [];
-            CompositionTemplateList list = _compositionCatalog.List(tag, sessions.ResolveCompositionSeed(seed), avoided);
-            if (previewOnly && avoidRecent && list.Compositions.FirstOrDefault() is { } first)
-            {
-                sessions.RecordPreAttachCompositionPreview(first.Name);
-            }
-
-            return new ListCompositionsResponse(
-                SchemaVersion.Current,
-                list.Seed,
-                list.Compositions,
-                recent,
-                sessions.GetPreAttachPreviewedCompositions(),
-                previewOnly,
-                previewOnly
-                    ? "This list is a pre-attach preview. Open/create a Beutl project, call attach_active_editor, then call list_compositions again before choosing a named template. The first previewed composition is deprioritized after attach."
-                    : "Compositions are shuffled by seed, then recently applied or pre-attach previewed names are moved to the end when avoidRecent=true. Use a specific returned name only when the user explicitly asked for a template/starter; original creative briefs should use custom apply_edit patches. Explicitly selecting an avoided name is rejected unless avoidRecent=false.");
+            CompositionTemplateList list = _compositionCatalog.List(tag, sessions.ResolveCompositionSeed(seed));
+            return new ListCompositionsResponse(SchemaVersion.Current, list.Seed, list.Compositions);
         });
     }
 
@@ -623,8 +269,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         string? name = null,
         string? tag = null,
         JsonObject? inputProps = null,
-        string? seed = null,
-        bool avoidRecent = true)
+        string? seed = null)
     {
         return Execute(() =>
         {
@@ -633,12 +278,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 name,
                 tag,
                 inputProps,
-                sessions.ResolveCompositionSeed(seed),
-                avoidRecent ? sessions.GetAvoidedCompositions() : null,
-                EnforceFirstSelection(name, avoidRecent));
+                sessions.ResolveCompositionSeed(seed));
             composition = composition with
             {
-                Patch = CompositionTemplateCatalog.OffsetPatchElementStarts(composition.Patch, ResolveScaffoldFrame().SceneStart)
+                Patch = CompositionTemplateCatalog.OffsetPatchElementStarts(composition.Patch, GetSceneStart())
             };
             return new RenderCompositionPatchResponse(
                 SchemaVersion.Current,
@@ -647,9 +290,11 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         });
     }
 
-    private static bool EnforceFirstSelection(string? name, bool avoidRecent)
+    private TimeSpan GetSceneStart()
     {
-        return avoidRecent && !string.IsNullOrWhiteSpace(name);
+        IEditingSession? session = sessions.CurrentSession;
+        return session?.ReadOnSession(() => session.Root is Scene scene ? scene.Start : TimeSpan.Zero)
+               ?? TimeSpan.Zero;
     }
 
     private static void RequireCompositionName(string? name)
@@ -664,43 +309,6 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             "Composition templates require an explicit template name.",
             null,
             "Call list_compositions to inspect options, then pass a returned name only when the user explicitly asked for a reusable template/starter. For original creative briefs, author a custom patch for apply_edit."));
-    }
-
-    private static T[] Shuffle<T>(IReadOnlyList<T> source)
-    {
-        T[] items = source.ToArray();
-        for (int i = items.Length - 1; i > 0; i--)
-        {
-            int j = Random.Shared.Next(i + 1);
-            (items[i], items[j]) = (items[j], items[i]);
-        }
-
-        return items;
-    }
-
-    private T[] OrderExamples<T>(IReadOnlyList<T> source)
-    {
-        IReadOnlyList<string> recent = sessions.GetRecentCompositions();
-        if (recent.Count == 0)
-        {
-            return source.ToArray();
-        }
-
-        var recentSet = new HashSet<string>(recent, StringComparer.OrdinalIgnoreCase);
-        return source
-            .OrderBy(item =>
-            {
-                string? compositionName = item switch
-                {
-                    DeclarativeExampleSummary summary => CompositionTemplateCatalog.TryInferTemplateNameFromExampleName(summary.Name),
-                    DeclarativeExample example => CompositionTemplateCatalog.TryInferTemplateNameFromExampleName(example.Name)
-                                                  ?? CompositionTemplateCatalog.TryInferTemplateName(example.Patch),
-                    _ => null
-                };
-
-                return compositionName is not null && recentSet.Contains(compositionName) ? 1 : 0;
-            })
-            .ToArray();
     }
 
     private static IReadOnlyList<DeclarativeExampleSummary> FilterExamples(
@@ -741,70 +349,6 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                || string.Equals(value, "timeline element", StringComparison.OrdinalIgnoreCase)
                || string.Equals(value, "project element", StringComparison.OrdinalIgnoreCase);
     }
-
-    private static IReadOnlyList<CreativeInspirationSeed> ShuffleCreativeInspirationSeeds(
-        IReadOnlyList<CreativeInspirationSeed> seeds,
-        string seedMaterial)
-    {
-        if (seeds.Count <= 1)
-        {
-            return seeds.ToArray();
-        }
-
-        CreativeInspirationSeed[] ordered = seeds.ToArray();
-        Random random = CreateSeededRandom(seedMaterial);
-        for (int i = ordered.Length - 1; i > 0; i--)
-        {
-            int j = random.Next(i + 1);
-            (ordered[i], ordered[j]) = (ordered[j], ordered[i]);
-        }
-
-        return ordered;
-    }
-
-    private static IReadOnlyList<string> ShuffleCreativeStrings(IReadOnlyList<string> values, string seedMaterial)
-    {
-        string[] items = values.ToArray();
-        Random random = CreateSeededRandom(seedMaterial + ":axes");
-        for (int i = items.Length - 1; i > 0; i--)
-        {
-            int j = random.Next(i + 1);
-            (items[i], items[j]) = (items[j], items[i]);
-        }
-
-        return items;
-    }
-
-    private static string CreateCreativeSeedMaterial(string? brief, string? seed)
-    {
-        string nonce = string.IsNullOrWhiteSpace(seed)
-            ? Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8)).ToLowerInvariant()
-            : seed.Trim();
-        return $"{(string.IsNullOrWhiteSpace(brief) ? "no-brief" : brief.Trim())}:{nonce}";
-    }
-
-    private static int ComputeCreativeSeedBaseOffset(string seedMaterial, int count)
-    {
-        if (count <= 0)
-        {
-            return 0;
-        }
-
-        unchecked
-        {
-            uint hash = 2166136261;
-            foreach (char ch in seedMaterial)
-            {
-                hash ^= char.ToUpperInvariant(ch);
-                hash *= 16777619;
-            }
-
-            return (int)(hash % (uint)count);
-        }
-    }
-
-    private static Random CreateSeededRandom(string seedMaterial)
-        => new(ComputeCreativeSeedBaseOffset(seedMaterial, int.MaxValue));
 
     [McpServerTool(Name = "read_document_summary")]
     [Description("Reads a compact summary of the current scene without returning the full declarative JSON. Use this for live progress observation or before deciding whether a full read_document call is necessary.")]
@@ -1026,265 +570,6 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             ErrorCode.StaleHandle,
             $"No entity with Id '{rootId}' exists in the current session.",
             rootId));
-    }
-
-    private static IReadOnlyList<CreativeInspirationSeed> CreateInspirationSeeds()
-    {
-        return
-        [
-            new CreativeInspirationSeed(
-                "translucent archive paper",
-                "material",
-                [
-                    "fibers, vellum, partial opacity, torn edges",
-                    "quiet historical texture without becoming a literal scrapbook"
-                ],
-                [
-                    "make it a mask instead of a background",
-                    "replace torn edges with cropped geometric planes",
-                    "let the paper texture drive typography opacity"
-                ],
-                [
-                    "RectShape",
-                    "LinearGradientBrush",
-                    "Opacity",
-                    "DropShadow"
-                ]),
-            new CreativeInspirationSeed(
-                "magnetic letter fragments",
-                "typography",
-                [
-                    "broken glyphs, attraction, tension lines, interrupted readability",
-                    "type that behaves like matter instead of a static label"
-                ],
-                [
-                    "make the fragments non-letter shapes until the last third",
-                    "use connector lines as the main motion rather than decoration",
-                    "settle into an unreadable mark instead of a literal headline"
-                ],
-                [
-                    "TextBlock",
-                    "RectShape",
-                    "TextBlock.Spacing",
-                    "TranslateTransform"
-                ]),
-            new CreativeInspirationSeed(
-                "thermal afterimage",
-                "palette",
-                [
-                    "heat traces, false color, delayed glow, cooling edges",
-                    "color that reveals time rather than just filling space"
-                ],
-                [
-                    "remove the expected black background",
-                    "make the hottest color the smallest object",
-                    "use thermal color on typography instead of blobs"
-                ],
-                [
-                    "SKSLScriptEffect",
-                    "Blur",
-                    "Brightness",
-                    "LinearGradientBrush"
-                ]),
-            new CreativeInspirationSeed(
-                "off-axis glass refraction",
-                "material",
-                [
-                    "split highlights, transparent slabs, displaced edges, caustic streaks",
-                    "image layers that feel bent without showing a literal prism"
-                ],
-                [
-                    "make refraction visible only where text overlaps it",
-                    "replace slabs with narrow moving seams",
-                    "contrast a hard caustic line against soft grain"
-                ],
-                [
-                    "RectShape",
-                    "LinearGradientBrush",
-                    "Blur",
-                    "DropShadow"
-                ]),
-            new CreativeInspirationSeed(
-                "misregistered print pressure",
-                "composition",
-                [
-                    "offset plates, overprint seams, halftone density, crop pressure",
-                    "editorial composition where errors become the motion"
-                ],
-                [
-                    "use only one printed color plus a foreign accent color",
-                    "make the registration error grow worse instead of resolving",
-                    "turn crop marks into a moving frame rather than corner details"
-                ],
-                [
-                    "RectShape",
-                    "EllipseShape",
-                    "Brightness",
-                    "TextBlock.Spacing"
-                ]),
-            new CreativeInspirationSeed(
-                "liquid glaze memory",
-                "motion",
-                [
-                    "spreading puddles, hairline cracks, slow cooling, glossy islands",
-                    "motion that feels viscous before it becomes crisp"
-                ],
-                [
-                    "make cracks appear before the liquid surface",
-                    "let the liquid motion drive a cropped title reveal",
-                    "replace puddles with bands or narrow seams"
-                ],
-                [
-                    "EllipseShape",
-                    "RectShape",
-                    "Blur",
-                    "Brightness"
-                ]),
-            new CreativeInspirationSeed(
-                "handheld calibration marks",
-                "detail density",
-                [
-                    "ticks, crop marks, handwritten offsets, imperfect measuring systems",
-                    "small marks that make the frame feel authored but not like a dashboard"
-                ],
-                [
-                    "make the calibration marks drift out of calibration",
-                    "use marks as masks for other layers",
-                    "hide the marks until the final third so they reframe the image"
-                ],
-                [
-                    "RectShape",
-                    "TextBlock",
-                    "Opacity",
-                    "TranslateTransform"
-                ]),
-            new CreativeInspirationSeed(
-                "cropped macro aperture",
-                "composition",
-                [
-                    "extreme crop, frame-within-frame, partial visibility, negative-space pressure",
-                    "a subject that is never fully shown"
-                ],
-                [
-                    "keep the most important object off-screen",
-                    "make the crop window move instead of the subject",
-                    "resolve to a detail, not a wide shot"
-                ],
-                [
-                    "RectShape",
-                    "ScaleTransform",
-                    "TranslateTransform",
-                    "Opacity"
-                ]),
-            new CreativeInspirationSeed(
-                "phosphor decay",
-                "procedural surface",
-                [
-                    "scan persistence, fading trails, soft electronic residue, pixel memory",
-                    "time-lag texture without defaulting to neon dashboards"
-                ],
-                [
-                    "apply it to warm daylight colors instead of cyan/magenta",
-                    "make the decay visible only after cuts",
-                    "use one procedural surface as a memory layer behind physical materials"
-                ],
-                [
-                    "SKSLScriptEffect",
-                    "Brightness",
-                    "Blur",
-                    "Opacity"
-                ]),
-            new CreativeInspirationSeed(
-                "ceramic fracture bloom",
-                "material",
-                [
-                    "glazed cracks, milky depth, pressure lines, uneven specular islands",
-                    "a refined surface that breaks in controlled places"
-                ],
-                [
-                    "make the fracture lines reveal type instead of outlining it",
-                    "let one crack become the main timing path",
-                    "contrast glossy highlights with a dry matte background"
-                ],
-                [
-                    "GeometryShape",
-                    "LinearGradientBrush",
-                    "Blur",
-                    "Brightness"
-                ]),
-            new CreativeInspirationSeed(
-                "microfiche subtitle crawl",
-                "typography",
-                [
-                    "thin archived text, cropped baselines, optical dust, constrained scan windows",
-                    "information that feels discovered rather than announced"
-                ],
-                [
-                    "make the small text move while the hero word stays still",
-                    "crop the crawl through a vertical slot",
-                    "use dust as a mask for appearing letters"
-                ],
-                [
-                    "TextBlock",
-                    "Opacity",
-                    "TranslateTransform",
-                    "SKSLScriptEffect"
-                ]),
-            new CreativeInspirationSeed(
-                "pressure-band choreography",
-                "motion",
-                [
-                    "compressed bands, elastic spacing, squeeze-release rhythm, directional pressure",
-                    "motion driven by compression instead of travel distance"
-                ],
-                [
-                    "make bands squeeze around the title without boxing it in",
-                    "resolve pressure into negative space",
-                    "let spacing changes carry the beat before color changes"
-                ],
-                [
-                    "RectShape",
-                    "ScaleTransform",
-                    "TranslateTransform",
-                    "Easing"
-                ]),
-            new CreativeInspirationSeed(
-                "woven signal cloth",
-                "procedural surface",
-                [
-                    "thread interference, soft grid tension, signal dropouts, tactile scanlines",
-                    "a digital surface that behaves like fabric"
-                ],
-                [
-                    "use weave density to separate foreground from background",
-                    "animate only the dropped threads",
-                    "make one thread pull the composition into alignment"
-                ],
-                [
-                    "SKSLScriptEffect",
-                    "LinearGradientBrush",
-                    "Opacity",
-                    "TranslateTransform"
-                ]),
-            new CreativeInspirationSeed(
-                "stop-motion registration pins",
-                "detail density",
-                [
-                    "peg holes, tiny misalignments, photographed movement, handmade timing artifacts",
-                    "a controlled imperfection that exposes the frame mechanics"
-                ],
-                [
-                    "make pins define the grid without becoming UI chrome",
-                    "let the frame jump while the title remains optically centered",
-                    "use pin shadows as the only depth cue"
-                ],
-                [
-                    "EllipseShape",
-                    "DropShadow",
-                    "TranslateTransform",
-                    "Opacity"
-                ])
-        ];
     }
 
     private static ElementSummary CreateElementSummary(Element element)
@@ -1565,23 +850,6 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 }
 
-public sealed record CreativeDirectionResponse(
-    string SchemaVersion,
-    IReadOnlyList<string> DirectionAxes,
-    IReadOnlyList<CreativeInspirationSeed> InspirationSeeds,
-    IReadOnlyList<string> CombinationNotes,
-    IReadOnlyList<string> OriginalityNotes,
-    IReadOnlyList<string> VariationPrompts,
-    IReadOnlyList<string> OverusedMotifs,
-    IReadOnlyList<string> WorkflowHints,
-    IReadOnlyList<string> StyleNotes,
-    IReadOnlyList<string> PaletteNotes,
-    IReadOnlyList<string> TypographyNotes,
-    IReadOnlyList<string> MotionNotes,
-    IReadOnlyList<CreativeDirectionFingerprint> RecentDirections,
-    string SelectionHint,
-    CreativeDirectionSelectionTrace? SelectionTrace = null);
-
 public sealed record DocumentSummaryResponse(
     string Session,
     string Source,
@@ -1624,21 +892,14 @@ public sealed record GetExamplesResponse(
 public sealed record GettingStartedResponse(
     string SchemaVersion,
     IReadOnlyList<string> Essentials,
-    IReadOnlyList<string> Guidance,
     IReadOnlyList<RecommendedSkill> RecommendedSkills,
     IReadOnlyDictionary<string, string> CategoryAliases,
-    string RawHttpNote,
-    IReadOnlyList<VideoTypeSummary>? VideoTypes = null,
-    VideoTypeSummary? SelectedVideoType = null);
+    string RawHttpNote);
 
 public sealed record ListCompositionsResponse(
     string SchemaVersion,
     string Seed,
-    IReadOnlyList<CompositionTemplateSummary> Compositions,
-    IReadOnlyList<string> RecentlyUsedCompositions,
-    IReadOnlyList<string> PreAttachPreviewedCompositions,
-    bool PreviewOnly,
-    string SelectionHint);
+    IReadOnlyList<CompositionTemplateSummary> Compositions);
 
 public sealed record ListEffectRecipesResponse(
     string SchemaVersion,
@@ -1669,10 +930,6 @@ public sealed record ObjectBoundsMeasurementResponse(
     string MeasurementNote,
     IReadOnlyList<ObjectBoundsMeasurement> Objects);
 
-public sealed record OriginalScaffoldResponse(
-    string SchemaVersion,
-    OriginalScaffold Scaffold,
-    string UsageHint);
 
 public sealed record RenderCompositionPatchResponse(
     string SchemaVersion,

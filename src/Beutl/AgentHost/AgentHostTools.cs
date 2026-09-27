@@ -20,19 +20,11 @@ public sealed record AttachActiveEditorResponse(string Session, string Source, A
 
     public IReadOnlyList<string> NextSteps { get; } =
     [
-        "Call read_document_summary to observe the scene without pulling the full document.",
-        "Decide the intended visual result and motion from the brief first. list_creative_directions offers optional stimulus when useful.",
-        "Choose existing features, compositions, or custom scripts to reproduce that intent; the user does not need to name a tool or language. Resolve each concrete implementation question with targeted discovery, then author and render the next edit.",
-        "Prefer built-in composition and declarative shader effects when sufficient; CSharpScriptEffect/Context.CustomEffect is a low-level fallback. Honor explicit language and no-C# constraints. Beutl source code is not required: use runtime schemas, documented contracts, measured bounds, and rendered prototypes.",
-        "Effect, object, and recipe catalogs describe building blocks, not the limit of possible expressions. Use get_schema(type=...) for unfamiliar types; use a category or intent-filtered list only when the needed type is unknown, without enumerating catalogs before every edit.",
-        "If no recipe matches, compose supported geometry, masks, transforms, keyframes, and effects, or author a custom script effect. Validate custom scripts with validate_shader and verify a small prototype with render_still before expanding it.",
-        "Build original scenes with apply_edit; call list_compositions only when the user explicitly asks for a template, starter, or named composition style.",
-        "Call get_examples with a known name for a targeted syntax snippet; use list_examples filtered by type or category only when you need to find one.",
-        "Call get_schema with includeProperties/includeExamples filters for detailed discovery.",
-        "Call read_document when you need the normalized declarative scene.",
-        "Call apply_edit with a patch or desired document.",
-        "Use apply_edit.createdIds or read_document to get new Ids before follow-up edits.",
-        "Use evaluate_edit_quality(staticLayout:true) during authoring, final_preflight before export, and export_video only after critical/major quality blockers are resolved."
+        "Call read_document_summary for element handles, or read_document for the editable scene data.",
+        "Call get_schema(type=...) for the properties needed by the edit; catalog enumeration is optional. Supported building blocks can be combined without a named recipe.",
+        "Use apply_edit for Id-based patches. Choose natural content-based names and compact ZIndex values; PortalObject.Count is a relative layer span.",
+        "Use measure_object_bounds for coordinates and transforms, validate_shader for compilation, and render_still/render_storyboard for rendered evidence. Runtime editing does not require Beutl source code.",
+        "Use export_video for the requested output. Tool success confirms the operation only; Beutl does not decide creative direction, visual quality, or task completion."
     ];
 }
 

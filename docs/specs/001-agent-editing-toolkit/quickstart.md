@@ -134,17 +134,14 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
    }
    ```
    In live mode, call `read_document_summary {}` between staged patches to check element count, object types, fallback placeholders, and which objects already have animations/effects without pulling the full document.
-5. **Verify** by rendering a still (and optionally export):
+5. **Render and inspect the requested result**:
    ```
-   render_still { "timeSeconds": 1.5, "outputPath": "preview.png" }  → outputPath + warnings + visibilityAnalysis + activeElements
-   evaluate_motion_variation { "sampleCount": 5 }                    → motion verdict + coverage metrics
-   evaluate_edit_quality { "sampleCount": 5 }                        → quality gate + categorized issues
-   evaluate_edit_quality(staticLayout:true) { "styleProfile": "kinetic-type" }          → document-only early risks
-   suggest_quality_fixes { "includeMotion": false }                  → grouped minimal repair suggestions
-   final_preflight { "outputPrefix": "preflight" }                   → stills + motion + quality + readyForExport
-   export_video { "outputPath": "promo.mp4" }                        → videoPath   (needs FFmpeg native libs; run after quality gate passes)
+   render_still { "timeSeconds": 1.5, "outputPath": "preview.png" } → rendered frame + pixel measurements
+   render_storyboard { "timeSeconds": [0.5, 1.5, 2.5] }             → rendered samples + contact sheet
+   measure_frame_differences { "sampleCount": 5 }                  → numerical changes between frames
+   export_video { "outputPath": "promo.mp4" }                     → playable video (requires an available encoder)
    ```
-   Bare output filenames are written under `agent-output/`; pass an explicit relative directory when a different workspace location is intentional. Treat blank/near-black, very low contrast, or single-quadrant foreground `warnings` as a prompt to revise before export unless the frame is intentionally sparse. Use `visibilityAnalysis` and `activeElements` to confirm the planned foreground layers are actually visible at that time. For motion graphics, pass `requireAnimatedProperties=true` to `final_preflight` so explicit animation is enforced before export. High-tempo profiles also check foreground event/keyframe density and long holds; ordinary Elements with multiple EngineObjects and unclear large/animated foreground shapes are quality blockers.
+   Bare filenames resolve directly within the workspace. Choose samples and playback checks that exercise the intended edit. Beutl validates operations and returns evidence; it does not grade the video or declare it complete. Static, dark, or sparse frames are valid output. `visibilityAnalysis` and `activeElements` describe what was rendered without prescribing a correction.
 6. **Save**:
    ```
    save_project { session }                   → savedPath (under BEUTL_WORKSPACE)
@@ -177,14 +174,14 @@ dotnet test tests/Beutl.AgentToolkit.Tests --settings coverlet.runsettings
 5. Confirm the preview, timeline, and property panel update without reloading the project.
 6. Confirm the edit is one normal undo entry in the active editor session.
 
-## The guidance pillar (Skills / Subagents)
+## Editing guidance (Skills / Subagents)
 
-Beyond the MCP surface, the toolkit ships discoverable editing recipes (Skills) and scoped specialists (Subagents) so agents follow Beutl's conventions without re-deriving them:
+The bundled guidance documents Beutl's editing API and runtime behavior:
 
 - `src/Beutl.AgentToolkit/Installation/Assets/skills/beutl-agent-timeline-from-shotlist/SKILL.md`
 - `src/Beutl.AgentToolkit/Installation/Assets/skills/beutl-agent-look-effect-chain/SKILL.md`
+- `src/Beutl.AgentToolkit/Installation/Assets/skills/beutl-agent-source-grounding/SKILL.md`
 - `src/Beutl.AgentToolkit/Installation/Assets/agents/beutl-agent-timeline-builder.md`
 - `src/Beutl.AgentToolkit/Installation/Assets/agents/beutl-agent-look-applier.md`
-- `src/Beutl.AgentToolkit/Installation/Assets/agents/beutl-agent-quality-reviewer.md`
 
-Use the timeline recipe/specialist for shot-list layout, retiming, splitting, grouping, and media placement. Use the look/effect recipe/specialist for color/effect chains, effect ordering, and cross-shot consistency. Use the quality reviewer before export or when an edit feels sparse, over-dense, unreadable, slow for its BPM, structurally ambiguous, or likely to fail deterministic gates. The guidance documents PascalCase property keys, id-keyed array merge-patch rules, in-range schema-driven values, role tags such as `[role:text-backing]`, the one-EngineObject-per-ordinary-Element rule, and preflight quality checks.
+These cover PascalCase properties, Id-keyed patches, timing, transforms, Portal layer spans, effects, shaders, and explicit output paths. They do not impose a visual style, a fixed production sequence, an evaluation rubric, or a completion gate. Composition presets are optional and repeatable.

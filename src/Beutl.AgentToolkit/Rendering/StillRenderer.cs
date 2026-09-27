@@ -213,11 +213,6 @@ public sealed class StillRenderer
     {
         const int nearBlackThreshold = 8;
         const int maxForegroundDeltaThreshold = 12;
-        const double minimumVisibleRatio = 0.005;
-        const double minimumContrastStdDev = 3;
-        const int minimumContrastRange = 18;
-        const double confinedBoundsRatio = 0.12;
-        const double confinedQuadrantRatio = 0.90;
 
         int totalPixels = bitmap.Width * bitmap.Height;
         if (totalPixels == 0)
@@ -323,29 +318,6 @@ public sealed class StillRenderer
             left = top = right = bottom = 0;
         }
 
-        List<string> warnings = [];
-        if (visibleRatio < minimumVisibleRatio)
-        {
-            warnings.Add(
-                $"Rendered frame is blank or near-black: {visibleRatio:P2} of pixels exceed luma threshold {nearBlackThreshold}. Verify visible enabled Elements at this scene time and check read_document_summary for fallback objects."
-            );
-        }
-        else if (lumaRange < minimumContrastRange && lumaStdDev < minimumContrastStdDev)
-        {
-            warnings.Add(
-                $"Rendered frame has very low visual contrast: luma range {lumaRange} and standard deviation {lumaStdDev:F2}. Verify foreground marks/text are visible against the background."
-            );
-        }
-
-        if (foregroundPixels > 0
-            && occupiedBoundsRatio < confinedBoundsRatio
-            && maxQuadrantRatio >= confinedQuadrantRatio)
-        {
-            warnings.Add(
-                $"Visible foreground is confined to a small single-quadrant area: occupied bounds {occupiedBoundsRatio:P1}, max quadrant share {maxQuadrantRatio:P1}. Consider spreading motion, accents, or typography across more of the frame."
-            );
-        }
-
         return new StillFrameVisibilityAnalysis(
             totalPixels,
             visiblePixels,
@@ -365,7 +337,7 @@ public sealed class StillRenderer
             backgroundLuma,
             nearBlackThreshold,
             foregroundDeltaThreshold,
-            warnings);
+            []);
     }
 
     private static StillFrameVisibilityAnalysis EmptyAnalysis(

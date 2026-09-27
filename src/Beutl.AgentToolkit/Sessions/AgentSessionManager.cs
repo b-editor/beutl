@@ -2,22 +2,16 @@
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
-using Beutl.AgentToolkit.Rendering;
 
 namespace Beutl.AgentToolkit.Sessions;
 
-public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = null)
+public sealed class AgentSessionManager
 {
     // GetCompositionSessionKey calls ReadOnSession; resolve it OUTSIDE the lock or an
     // editor-thread caller waiting on the lock can deadlock.
     private readonly object _stateLock = new();
     private readonly string _hostCompositionSeed = CreateCompositionSeed("host");
     private readonly Dictionary<string, CompositionPlanState> _compositionPlans = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, QualityReviewBaseline> _qualityReviewBaselines = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, List<string>> _recentCompositions = new(StringComparer.Ordinal);
-    private readonly List<string> _hostRecentCompositions = [];
-    private readonly List<string> _preAttachPreviewedCompositions = [];
-    private int _creativeDirectionRequestCount;
     private volatile ISessionSource? _currentSource;
     private string? _compositionSessionKey;
     private string? _compositionSessionSeed;
@@ -38,7 +32,7 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
 
     // Discriminate by the project URI, not just Root.Id: save-as/copy preserves the persisted
     // Scene.Id, so two distinct file sessions can share Source:Root.Id and cross-contaminate cached
-    // plans and quality baselines. The URI is stable across a live session's volatile SessionId for
+    // plans. The URI is stable across a live session's volatile SessionId for
     // the same document; it falls back to Root.Id for an in-memory scene that has no URI yet.
     private static string BuildSessionKey(IEditingSession session)
     {
@@ -81,97 +75,6 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
             }
 
             return _compositionSessionSeed!;
-        }
-    }
-
-    public IReadOnlyList<string> GetRecentCompositions()
-    {
-        string key = GetCompositionSessionKey();
-        List<string>? sessionRecentSnapshot;
-        List<string> hostRecentSnapshot;
-        lock (_stateLock)
-        {
-            sessionRecentSnapshot = _recentCompositions.TryGetValue(key, out List<string>? names)
-                ? names.ToList()
-                : null;
-            hostRecentSnapshot = _hostRecentCompositions.ToList();
-        }
-
-        return (sessionRecentSnapshot ?? [])
-            .Concat(hostRecentSnapshot)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
-
-    public IReadOnlyList<string> GetPreAttachPreviewedCompositions()
-    {
-        lock (_stateLock)
-        {
-            return _preAttachPreviewedCompositions.ToArray();
-        }
-    }
-
-    public IReadOnlyList<string> GetAvoidedCompositions()
-    {
-        return GetRecentCompositions()
-            .Concat(GetPreAttachPreviewedCompositions())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
-
-    public int NextCreativeDirectionRequestIndex()
-    {
-        return Interlocked.Increment(ref _creativeDirectionRequestCount) - 1;
-    }
-
-    public IReadOnlyList<CreativeDirectionFingerprint> GetRecentCreativeFingerprints()
-        => creativeMemory?.ReadRecent() ?? [];
-
-    public void RecordCreativeDirection(CreativeDirectionFingerprint fingerprint)
-        => creativeMemory?.Record(fingerprint);
-
-    public void RecordPreAttachCompositionPreview(string name)
-    {
-        if (HasActiveSession || string.IsNullOrWhiteSpace(name))
-        {
-            return;
-        }
-
-        lock (_stateLock)
-        {
-            AddRecent(_preAttachPreviewedCompositions, name);
-        }
-    }
-
-    public void RecordCompositionUse(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return;
-        }
-
-        string key = GetCompositionSessionKey();
-        lock (_stateLock)
-        {
-            AddRecent(_hostRecentCompositions, name);
-
-            if (!_recentCompositions.TryGetValue(key, out List<string>? names))
-            {
-                names = [];
-                _recentCompositions[key] = names;
-            }
-
-            AddRecent(names, name);
-        }
-    }
-
-    private static void AddRecent(List<string> names, string name)
-    {
-        names.RemoveAll(item => string.Equals(item, name, StringComparison.OrdinalIgnoreCase));
-        names.Insert(0, name);
-        if (names.Count > 8)
-        {
-            names.RemoveRange(8, names.Count - 8);
         }
     }
 
@@ -262,53 +165,6 @@ public sealed class AgentSessionManager(CreativeMemoryStore? creativeMemory = nu
         }
     }
 
-    public void StoreQualityReviewBaseline(QualityReviewBaseline baseline)
-    {
-        ArgumentNullException.ThrowIfNull(baseline);
-        // Store under baseline.SessionKey (captured before the async render), not a key re-derived now:
-        // a session switch during the render would otherwise file the snapshot under the wrong project.
-        lock (_stateLock)
-        {
-            _qualityReviewBaselines[baseline.SessionKey] = baseline;
-        }
-    }
-
-    public QualityReviewBaseline GetQualityReviewBaseline()
-        => GetQualityReviewBaseline(GetCompositionSessionKey());
-
-    // sessionKey is the key of the session the caller captured for rendering; fetching against it
-    // stops a baseline lookup that straddles a session swap from applying one project's baseline to
-    // another project's snapshot.
-    public QualityReviewBaseline GetQualityReviewBaseline(string sessionKey)
-    {
-        string currentKey = sessionKey;
-        QualityReviewBaseline? baseline;
-        lock (_stateLock)
-        {
-            _qualityReviewBaselines.TryGetValue(currentKey, out baseline);
-        }
-
-        if (baseline is null)
-        {
-            throw new ReconcileException(new ToolError(
-                ErrorCode.StaleHandle,
-                "No cached quality baseline exists for the current editing session.",
-                "qualityBaseline",
-                "Run evaluate_edit_quality or final_preflight with rendered sampling before compare_revisions."));
-        }
-
-        if (!StringComparer.Ordinal.Equals(baseline.SessionKey, currentKey))
-        {
-            throw new ReconcileException(new ToolError(
-                ErrorCode.StaleHandle,
-                "The cached quality baseline belongs to a different editing session.",
-                "qualityBaseline",
-                "Run evaluate_edit_quality or final_preflight again in the active session."));
-        }
-
-        return baseline;
-    }
-
     private string GetCompositionSessionKey()
     {
         IEditingSession? session = CurrentSession;
@@ -333,29 +189,6 @@ public sealed record CompositionPlanState(
     JsonArray ExpectedChangeSet,
     IReadOnlyList<Guid> KnownNewIds,
     DateTimeOffset CreatedAt);
-
-public sealed record QualityReviewBaseline(
-    string SessionKey,
-    DateTimeOffset CreatedAt,
-    IReadOnlyList<TimeSpan> SampleTimes,
-    QualityAnalysisOptions Options,
-    QualityReviewResponse Review,
-    IReadOnlyList<string> StillPaths);
-
-public sealed record QualityAnalysisOptions(
-    string? VideoType,
-    string? StyleProfile,
-    float RenderScale,
-    bool AllowAllCaps,
-    bool AllowHardCuts,
-    bool RelaxAesthetics,
-    bool AllowStillness,
-    bool AllowDenseText,
-    bool AllowMultiObjectElements,
-    bool AllowMinimalDensity,
-    double PlannedForegroundElementsPerShot,
-    IReadOnlyList<double>? BeatTimesSeconds,
-    IReadOnlyList<PaletteRoleColor>? PaletteRoleColors);
 
 public sealed class SessionUnavailableException : Exception
 {

@@ -5,5 +5,4 @@ public sealed record CutEyeTrace(
     string RightFrame,
     NormalizedFocalPoint LeftFocalPoint,
     NormalizedFocalPoint RightFocalPoint,
-    double DisplacementRatio,
-    bool ExceedsEyeTraceBudget);
+    double DisplacementRatio);

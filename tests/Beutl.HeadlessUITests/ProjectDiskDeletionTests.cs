@@ -114,7 +114,7 @@ public class ProjectDiskDeletionTests
         await TestReset.ResetShellAsync();
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         // An agent can save a project straight into its output folder, next to unrelated files.
-        string shared = NewWorkspace("agent-output");
+        string shared = NewWorkspace("shared-render-output");
         string projectFile = CreateFile(Path.Combine(shared, "clip.bep"), "{}");
         string render = CreateFile(Path.Combine(shared, "render.mp4"));
         string scene = CreateFile(Path.Combine(shared, "clip", "clip.scene"), "{}");

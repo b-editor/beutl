@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl;
 using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Design;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
@@ -18,7 +17,6 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
-using PaletteRoleColor = Beutl.AgentToolkit.Rendering.PaletteRoleColor;
 
 namespace Beutl.AgentToolkit.Tools;
 
@@ -29,8 +27,7 @@ public sealed record AnalyzeAudioRhythmResponse(
     double EstimatedBpm,
     double Confidence,
     IReadOnlyList<double> BeatTimesSeconds,
-    IReadOnlyList<double> StrongOnsetTimesSeconds,
-    IReadOnlyList<string> Guidance);
+    IReadOnlyList<double> StrongOnsetTimesSeconds);
 
 [McpServerToolType]
 public sealed class RenderTools(
@@ -39,9 +36,8 @@ public sealed class RenderTools(
     DestructiveGuard destructiveGuard,
     StillRenderer stillRenderer,
     StoryboardRenderer storyboardRenderer,
-    MotionVariationAnalyzer motionVariationAnalyzer,
+    FrameDifferenceAnalyzer frameDifferenceAnalyzer,
     AudioRhythmAnalyzer audioRhythmAnalyzer,
-    QualityAnalyzer qualityAnalyzer,
     VideoExporter videoExporter,
     RenderJobManager renderJobs,
     IOutputOperationLeaseProvider outputOperations) : ToolBase
@@ -58,37 +54,15 @@ public sealed class RenderTools(
     private const string StoryboardFrameKindInbetween = "inbetween";
     private const string RenderScaleDescription =
         "Supersampling render scale. Non-finite values and values <= 0 use 1. The ceil(frame size * renderScale) output extent must not exceed 16384 pixels on either axis, and less than that on a graphics device that attaches less; the rejection names the limit that applied.";
-    private const string VideoTypeDescription =
-        "Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the default motion-graphics behavior.";
-    private const string AllowAllCapsDescription =
-        "When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.";
-    private const string AllowHardCutsDescription =
-        "When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.";
-    private const string RelaxAestheticsDescription =
-        "When true, drops the remaining pacing advisories in one switch (repeated hard cuts, transition-vocabulary inconsistency, and high-tempo long-hold/short-segment pacing) to keep the response focused. They do not affect the gate either way; the blocking checks (text read time, rendered text contrast, Element structure) are unchanged. The shape, card-look, and rect-dominance advisories this flag used to cover no longer exist — those judgments are yours to make from a rendered still.";
-    private const string AllowStillnessDescription =
-        "When true, records that stillness / a held frame / negative space is deliberate, so the motion-continuity finding reads as expected rather than as a warning. Motion never fails the gate either way. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.";
-    private const string AllowDenseTextDescription =
-        "When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.";
-    private const string AllowMultiObjectElementsDescription =
-        "When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.";
-    private const string AllowMinimalDensityDescription =
-        "When true, records that minimal / sparse / negative-space density is deliberate, so the density findings read as expected rather than as omissions. Density never fails the gate either way. Tagging an element/object [role:minimal] or [role:negative-space] opts in the same way without this flag.";
-    private const string PlannedForegroundElementsPerShotDescription =
-        "Optional target for planned foreground elements per shot. When > 0, layerDensity reports which measured time bands author fewer than half this foreground layer count, so you can tell an omission from an intended sparser cut. Advisory only; it never fails the gate.";
     private const string SampleCountDescription =
         "Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.";
-    private const string BeatTimesSecondsDescription =
-        "Optional beat grid from analyze_audio_rhythm. When supplied, audioSync reports advisory-only visible cut boundaries 40-120 ms from the nearest beat.";
-    private const string PaletteRoleColorsDescription =
-        "Optional colors from derive_palette as a JSON array of role/color pairs or a JSON string containing that array, for rendered 60-30-10 palette-balance metrics. Each item is { role: string, color: \"#RRGGBB\" }. Skipped for footage-cut.";
     private const string ConfirmOverwriteDescription =
         "Required when outputPath already exists.";
 
     [McpServerTool(Name = "render_still")]
-    [Description("Renders a still PNG from the current scene to a workspace-relative output path and returns visibility warnings for blank or near-black frames. Bare filenames are written under agent-output/. By default the tool returns the same JSON text payload as before; pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
+    [Description("Renders a still PNG from the current scene to a workspace-relative output path and returns image dimensions, active elements, and pixel measurements. Bare filenames are resolved directly within the workspace. By default the tool returns the same JSON text payload as before; pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
     public ValueTask<CallToolResult> RenderStill(
-        [Description("Workspace-relative or in-workspace absolute output path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
+        [Description("Workspace-relative or in-workspace absolute output path. Bare filenames are resolved directly within the workspace. Existing files require confirmOverwrite.")]
         string outputPath,
         [Description("Scene time in seconds. Use this exact parameter name; time is not a render_still parameter.")]
         double timeSeconds = 0,
@@ -105,7 +79,7 @@ public sealed class RenderTools(
             using OwnedOutputOperation outputOperation = BeginOutputOperation();
             Scene scene = RequireSceneSnapshot();
             renderScale = ValidateRenderScale(scene, renderScale, "render_still");
-            string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
+            string resolvedPath = workspace.ResolveForWrite(outputPath);
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
             RenderStillResponse response = await stillRenderer.RenderAsync(
                 scene,
@@ -130,7 +104,7 @@ public sealed class RenderTools(
         [Description("Optional explicit scene times in seconds. When supplied, this overrides shots and auto shot detection entirely; each value becomes an anchor frame named t:<seconds>. Values must be finite, within the scene duration, non-empty, and stay within the 48-frame cap after subdivision.")]
         double[]? timeSeconds = null,
         [Description("Workspace-relative or in-workspace absolute output directory. Existing files require confirmOverwrite.")]
-        string outputDirectory = "agent-output",
+        string outputDirectory = ".",
         [Description("Basename used for generated still PNGs and the contact sheet. Omit for a collision-free default containing the active session id; explicit values preserve exact filenames.")]
         string? basename = null,
         [Description(RenderScaleDescription)]
@@ -244,13 +218,7 @@ public sealed class RenderTools(
                 progress.Report(plannedShots.Count, plannedShots.Count, "contact sheet");
                 storyboardRenderer.RenderContactSheet(contactSheetFrames, resolvedContactSheetPath);
                 CutEyeTrace[] cutEyeTrace = BuildCutEyeTrace(eyeTraceFrames);
-                List<string> reviewNotes = [];
-                if (cutEyeTrace.Any(item => item.ExceedsEyeTraceBudget))
-                {
-                    reviewNotes.Add("One or more adjacent anchor shots exceed the eye-trace budget. Murch's eye-trace criterion suggests adding a bridging element, sweep, or focal-point realignment so the viewer's attention lands near the next shot's point of interest.");
-                }
-
-                return new RenderStoryboardResponse(resolvedContactSheetPath, renderedShots, cutEyeTrace, reviewNotes);
+                return new RenderStoryboardResponse(resolvedContactSheetPath, renderedShots, cutEyeTrace);
             }
 
             if (background)
@@ -283,24 +251,18 @@ public sealed class RenderTools(
         });
     }
 
-    [McpServerTool(Name = "evaluate_motion_variation")]
-    [Description("Renders multiple in-memory samples from the current scene and reports time-series pixel differences plus frame-coverage checks. Use after render_still to catch motion graphics that have visible stills but too little temporal change or content confined to one quadrant.")]
-    public ValueTask<ToolResult<MotionVariationResponse>> EvaluateMotionVariation(
-        [Description("Optional explicit scene times in seconds. When omitted, the tool samples evenly across the scene duration.")]
+    [McpServerTool(Name = "measure_frame_differences")]
+    [Description("Renders selected scene times and returns pixel differences, foreground bounds, and coverage measurements. Returns no pass/fail, quality score, or completion verdict.")]
+    public ValueTask<ToolResult<FrameDifferenceResponse>> MeasureFrameDifferences(
+        [Description("Optional scene times in seconds. At least two distinct samples are required; omit to sample across the scene.")]
         double[]? timeSeconds = null,
         [Description(SampleCountDescription)]
         int sampleCount = 5,
         [Description(RenderScaleDescription)]
         float renderScale = 1,
-        [Description("Minimum changed-pixel ratio required for every adjacent sample pair. Defaults to 0.02.")]
-        double minChangedPixelRatio = 0.02,
-        [Description("Per-pixel absolute channel delta threshold. Higher values ignore subtle noise. Defaults to 48.")]
+        [Description("Absolute per-pixel channel delta used to count changed pixels. This is a measurement parameter, not a quality threshold.")]
         int pixelDeltaThreshold = 48,
-        [Description("Minimum occupied bounds ratio before repeated one-quadrant framing is treated as poor coverage. Defaults to 0.35.")]
-        double minOccupiedBoundsRatio = 0.35,
-        [Description("Maximum allowed foreground share in a single quadrant when occupied bounds are small. Defaults to 0.90.")]
-        double maxSingleQuadrantForegroundRatio = 0.90,
-        [Description("Per-channel luma threshold used to decide whether a pixel is visible foreground for coverage checks. Defaults to 24.")]
+        [Description("Threshold on the brightest color channel used to count foreground pixels.")]
         int foregroundLumaThreshold = 24,
         CancellationToken cancellationToken = default)
     {
@@ -308,23 +270,16 @@ public sealed class RenderTools(
         {
             using OwnedOutputOperation outputOperation = BeginOutputOperation();
             Scene scene = RequireSceneSnapshot();
-            renderScale = ValidateRenderScale(scene, renderScale, "evaluate_motion_variation");
-            IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
-            return await motionVariationAnalyzer.AnalyzeAsync(
-                scene,
-                sampleTimes,
-                renderScale,
-                minChangedPixelRatio,
-                pixelDeltaThreshold,
-                minOccupiedBoundsRatio,
-                maxSingleQuadrantForegroundRatio,
-                foregroundLumaThreshold,
+            renderScale = ValidateRenderScale(scene, renderScale, "measure_frame_differences");
+            IReadOnlyList<TimeSpan> sampleTimes = ResolveFrameSampleTimes(scene, timeSeconds, sampleCount);
+            return await frameDifferenceAnalyzer.AnalyzeAsync(
+                scene, sampleTimes, renderScale, pixelDeltaThreshold, foregroundLumaThreshold,
                 cancellationToken).ConfigureAwait(false);
         });
     }
 
     [McpServerTool(Name = "analyze_audio_rhythm")]
-    [Description("Decodes an audio/music-bed file through Beutl's audio source path and returns measured BPM, beat times, and strong onset times for timeline planning. Reads are unrestricted; nonexistent paths return media_not_found. Use beatTimesSeconds to anchor Element boundaries/accent keyframes and pass the same array to evaluate_edit_quality/final_preflight for audioSync advisories.")]
+    [Description("Decodes an audio/music-bed file through Beutl's audio source path and returns measured BPM, beat times, and strong onset times as measurement data. Reads are unrestricted; nonexistent paths return media_not_found.")]
     public ValueTask<ToolResult<AnalyzeAudioRhythmResponse>> AnalyzeAudioRhythm(
         [Description("Readable audio file path. Relative paths are resolved against the current process directory; reads are not workspace-guarded.")]
         string path,
@@ -355,409 +310,14 @@ public sealed class RenderTools(
                 analysis.EstimatedBpm,
                 analysis.Confidence,
                 analysis.BeatTimesSeconds,
-                analysis.StrongOnsetTimesSeconds,
-                [
-                    "Anchor visible Element start/end boundaries and accent keyframes to beatTimesSeconds when the edit should fuse with the music bed.",
-                    "Use strongOnsetTimesSeconds for downbeats, impacts, lyric starts, or other accent events.",
-                    "Pass beatTimesSeconds unchanged to evaluate_edit_quality or final_preflight so audioSync can flag cuts that are 40-120 ms off-grid."
-                ]);
-        });
-    }
-
-    [McpServerTool(Name = "evaluate_edit_quality")]
-    [Description("Measures the current scene and reports what it finds: all-caps typography, text read time, rendered text contrast, multi-object Element structure, layer density/depth coverage, rhythm density/gaps, cut rhythm, audio beat sync, text backing alignment, rendered palette balance, easing variety, motion clusters, motion continuity, and timeline coverage. Pass staticLayout:true for the document-only pass: it skips rendering plus rendered-motion and rendered-contrast checks, while document-based easing and motion-uniformity analysis still runs. Only two families fail the gate, because only they mark a result nobody can use: text a viewer cannot read (short read time, rendered contrast below the large-text floor) and malformed multi-object Element structure. Everything else is advisory: it describes the scene, it does not prescribe one. Judgments about palette harmony, background richness, shape clarity, gradient falloff, and motion arc are deliberately not made here — read a render_still and decide those yourself. The intent flags (allowStillness, allowDenseText, allowMultiObjectElements, allowMinimalDensity) and [role:...] tags reword findings as expected rather than unexpected, and downgrade the two gate families where the choice is deliberate.")]
-    public ValueTask<ToolResult<QualityReviewResponse>> EvaluateEditQuality(
-        [Description(VideoTypeDescription)]
-        string? videoType = null,
-        [Description("Optional explicit scene times in seconds for rendered motion checks. When omitted, samples evenly across the scene duration.")]
-        double[]? timeSeconds = null,
-        [Description(SampleCountDescription)]
-        int sampleCount = 5,
-        [Description(RenderScaleDescription)]
-        float renderScale = 1,
-        [Description("Optional profile label recorded in the review notes, such as draft, editorial, kinetic-type, or minimal.")]
-        string? styleProfile = null,
-        [Description(AllowAllCapsDescription)]
-        bool allowAllCaps = false,
-        [Description(AllowHardCutsDescription)]
-        bool allowHardCuts = false,
-        [Description(RelaxAestheticsDescription)]
-        bool relaxAesthetics = false,
-        [Description(AllowStillnessDescription)]
-        bool allowStillness = false,
-        [Description(AllowDenseTextDescription)]
-        bool allowDenseText = false,
-        [Description(AllowMultiObjectElementsDescription)]
-        bool allowMultiObjectElements = false,
-        [Description(AllowMinimalDensityDescription)]
-        bool allowMinimalDensity = false,
-        [Description(PlannedForegroundElementsPerShotDescription)]
-        double plannedForegroundElementsPerShot = 0,
-        [Description(BeatTimesSecondsDescription)]
-        double[]? beatTimesSeconds = null,
-        [Description(PaletteRoleColorsDescription)]
-        JsonElement? paletteRoleColors = null,
-        [Description("When true, treats the scene as a static layout and skips rendered motion checks.")]
-        bool staticLayout = false,
-        CancellationToken cancellationToken = default)
-    {
-        return ExecuteAsync(async () =>
-        {
-            using OwnedOutputOperation? outputOperation = staticLayout ? null : BeginOutputOperation();
-            ValidateVideoType(videoType);
-            IEditingSession snapshotSession = sessions.RequireSession();
-            Scene scene = CreateSceneSnapshot(snapshotSession);
-            renderScale = ValidateRenderScale(scene, renderScale, "evaluate_edit_quality");
-            // Derive the baseline key from the SAME session the snapshot came from: a session switch
-            // between two active-session reads must not file the baseline under another project's key.
-            string sessionKey = sessions.GetSessionKey(snapshotSession);
-            PaletteRoleColor[]? parsedPaletteRoleColors = ParsePaletteRoleColors(paletteRoleColors);
-            IReadOnlyList<TimeSpan>? sampleTimes = staticLayout
-                ? NormalizeQualitySampleTimesOrNull(timeSeconds)
-                : ResolveQualitySampleTimes(scene, timeSeconds, sampleCount);
-            QualityAnalysisOptions options = CreateQualityAnalysisOptions(
-                videoType,
-                styleProfile,
-                renderScale,
-                allowAllCaps,
-                allowHardCuts,
-                relaxAesthetics,
-                allowStillness,
-                allowDenseText,
-                allowMultiObjectElements,
-                allowMinimalDensity,
-                plannedForegroundElementsPerShot,
-                beatTimesSeconds,
-                parsedPaletteRoleColors);
-            QualityReviewResponse review = await AnalyzeQualityAsync(
-                scene,
-                sampleTimes,
-                sampleCount,
-                evaluateMotion: !staticLayout,
-                options,
-                cancellationToken).ConfigureAwait(false);
-            if (!staticLayout && sampleTimes is not null)
-            {
-                IReadOnlyList<string> stillPaths = await RenderBaselineStillsAsync(
-                    scene,
-                    sampleTimes,
-                    options.RenderScale,
-                    "quality-baseline",
-                    cancellationToken).ConfigureAwait(false);
-                StoreQualityBaseline(sessionKey, sampleTimes, options, review, stillPaths);
-            }
-
-            return review;
-        });
-    }
-
-    [McpServerTool(Name = "suggest_quality_fixes")]
-    [Description("Groups current quality issues into minimal, patch-oriented fix suggestions. Use after evaluate_edit_quality(staticLayout:true) or evaluate_edit_quality when an agent needs the smallest repair plan instead of raw issue rows.")]
-    public ValueTask<ToolResult<QualityFixSuggestionsResponse>> SuggestQualityFixes(
-        [Description(VideoTypeDescription)]
-        string? videoType = null,
-        [Description("When true, include rendered motion checks; otherwise the tool stays document-only and faster.")]
-        bool includeMotion = false,
-        [Description("Optional explicit scene times in seconds for rendered motion checks when includeMotion is true.")]
-        double[]? timeSeconds = null,
-        [Description("Number of evenly spaced samples when timeSeconds is omitted and includeMotion is true. Clamped to 2..8.")]
-        int sampleCount = 5,
-        [Description(RenderScaleDescription)]
-        float renderScale = 1,
-        [Description("Optional profile label such as kinetic-type or high-tempo-promo.")]
-        string? styleProfile = null,
-        [Description("When true, an animatedPropertyCount of 0 is returned as a fix suggestion even if the quality gate otherwise passes.")]
-        bool requireAnimatedProperties = false,
-        [Description(AllowAllCapsDescription)]
-        bool allowAllCaps = false,
-        [Description(AllowHardCutsDescription)]
-        bool allowHardCuts = false,
-        [Description(RelaxAestheticsDescription)]
-        bool relaxAesthetics = false,
-        [Description(AllowStillnessDescription)]
-        bool allowStillness = false,
-        [Description(AllowDenseTextDescription)]
-        bool allowDenseText = false,
-        [Description(AllowMultiObjectElementsDescription)]
-        bool allowMultiObjectElements = false,
-        [Description(AllowMinimalDensityDescription)]
-        bool allowMinimalDensity = false,
-        [Description(PlannedForegroundElementsPerShotDescription)]
-        double plannedForegroundElementsPerShot = 0,
-        CancellationToken cancellationToken = default)
-    {
-        return ExecuteAsync(async () =>
-        {
-            using OwnedOutputOperation? outputOperation = includeMotion
-                ? BeginOutputOperation()
-                : null;
-            ValidateVideoType(videoType);
-            Scene scene = RequireSceneSnapshot();
-            renderScale = ValidateRenderScale(scene, renderScale, "suggest_quality_fixes");
-            IReadOnlyList<TimeSpan>? sampleTimes = includeMotion
-                ? ResolveSampleTimes(scene, timeSeconds, sampleCount)
-                : null;
-            QualityReviewResponse review = await AnalyzeQualityAsync(
-                scene,
-                sampleTimes,
-                sampleCount,
-                includeMotion,
-                CreateQualityAnalysisOptions(
-                    videoType,
-                    styleProfile,
-                    renderScale,
-                    allowAllCaps,
-                    allowHardCuts,
-                    relaxAesthetics,
-                    allowStillness,
-                    allowDenseText,
-                    allowMultiObjectElements,
-                    allowMinimalDensity,
-                    plannedForegroundElementsPerShot),
-                cancellationToken).ConfigureAwait(false);
-
-            IReadOnlyList<QualityFixSuggestion> suggestions = BuildFixSuggestions(review, requireAnimatedProperties);
-            bool passes = review.PassesQualityGate
-                          && (!requireAnimatedProperties || review.Metrics.MotionContinuity.AnimatedPropertyCount > 0);
-            string verdict = passes ? "no-quality-fixes-needed" : "quality-fixes-suggested";
-            return new QualityFixSuggestionsResponse(
-                passes,
-                verdict,
-                suggestions,
-                review.Metrics,
-                review.ReviewNotes);
-        });
-    }
-
-    [McpServerTool(Name = "final_preflight")]
-    [Description("Runs the final verification bundle before export_video: representative render_still files, evaluate_motion_variation, and evaluate_edit_quality. Returns ReadyForExport plus blockers, advisories, and still paths. Blockers are limited to unreadable text, malformed Element structure, and any check you explicitly requested (requireAnimatedProperties). Low motion, sparse density, and still-visibility warnings arrive as advisories, so a deliberately still or minimal piece still reports ReadyForExport. export_video never consults this result; it is a report, not a permission check.")]
-    public ValueTask<ToolResult<FinalPreflightResponse>> FinalPreflight(
-        [Description(VideoTypeDescription)]
-        string? videoType = null,
-        [Description("Output prefix for still frames. Bare prefixes are written under agent-output/. Omit for a collision-free default containing the active session id; explicit values preserve exact filenames.")]
-        string? outputPrefix = null,
-        [Description("Optional explicit scene times in seconds. When omitted, samples are evenly spaced across the scene duration.")]
-        double[]? timeSeconds = null,
-        [Description(SampleCountDescription)]
-        int sampleCount = 5,
-        [Description(RenderScaleDescription)]
-        float renderScale = 1,
-        [Description("Optional profile label recorded in quality notes, such as kinetic-type, high-tempo-promo, editorial, or minimal.")]
-        string? styleProfile = null,
-        [Description("When true, animatedPropertyCount=0 blocks ReadyForExport even if rendered motion changed.")]
-        bool requireAnimatedProperties = false,
-        [Description(AllowAllCapsDescription)]
-        bool allowAllCaps = false,
-        [Description(AllowHardCutsDescription)]
-        bool allowHardCuts = false,
-        [Description(RelaxAestheticsDescription)]
-        bool relaxAesthetics = false,
-        [Description(AllowStillnessDescription)]
-        bool allowStillness = false,
-        [Description(AllowDenseTextDescription)]
-        bool allowDenseText = false,
-        [Description(AllowMultiObjectElementsDescription)]
-        bool allowMultiObjectElements = false,
-        [Description(AllowMinimalDensityDescription)]
-        bool allowMinimalDensity = false,
-        [Description(PlannedForegroundElementsPerShotDescription)]
-        double plannedForegroundElementsPerShot = 0,
-        [Description(BeatTimesSecondsDescription)]
-        double[]? beatTimesSeconds = null,
-        [Description(PaletteRoleColorsDescription)]
-        JsonElement? paletteRoleColors = null,
-        [Description("When true, treats the scene as a static storyboard layout and skips motion blockers.")]
-        bool staticLayout = false,
-        [Description("Required when a generated still output path already exists.")]
-        bool confirmOverwrite = false,
-        CancellationToken cancellationToken = default)
-    {
-        return ExecuteAsync(async () =>
-        {
-            using OwnedOutputOperation outputOperation = BeginOutputOperation();
-            ValidateVideoType(videoType);
-            IEditingSession snapshotSession = sessions.RequireSession();
-            Scene scene = CreateSceneSnapshot(snapshotSession);
-            renderScale = ValidateRenderScale(scene, renderScale, "final_preflight");
-            // Derive the baseline key from the SAME session the snapshot came from: a session switch
-            // between two active-session reads must not file the baseline under another project's key.
-            string sessionKey = sessions.GetSessionKey(snapshotSession);
-            PaletteRoleColor[]? parsedPaletteRoleColors = ParsePaletteRoleColors(paletteRoleColors);
-            IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
-            var stills = new List<PreflightStillFrame>(sampleTimes.Count);
-            string normalizedPrefix = NormalizeOutputPath(outputPrefix ?? CreateDefaultOutputBasename("preflight"));
-
-            for (int i = 0; i < sampleTimes.Count; i++)
-            {
-                TimeSpan time = sampleTimes[i];
-                string stillPath = CreatePreflightStillPath(normalizedPrefix, i, time);
-                string resolvedPath = workspace.ResolveForWrite(stillPath);
-                destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
-                RenderStillResponse still = await stillRenderer.RenderAsync(
-                    scene,
-                    time,
-                    resolvedPath,
-                    renderScale,
-                    cancellationToken).ConfigureAwait(false);
-                stills.Add(new PreflightStillFrame(
-                    still.OutputPath,
-                    still.Time,
-                    still.Warnings,
-                    still.VisibilityAnalysis,
-                    still.ActiveElements));
-            }
-
-            MotionVariationResponse? motion = null;
-            if (!staticLayout)
-            {
-                motion = await motionVariationAnalyzer.AnalyzeAsync(
-                    scene,
-                    sampleTimes,
-                    renderScale,
-                    0.02,
-                    48,
-                    0.35,
-                    0.90,
-                    24,
-                    cancellationToken).ConfigureAwait(false);
-            }
-
-            QualityAnalysisOptions options = CreateQualityAnalysisOptions(
-                videoType,
-                styleProfile,
-                renderScale,
-                allowAllCaps,
-                allowHardCuts,
-                relaxAesthetics,
-                allowStillness,
-                allowDenseText,
-                allowMultiObjectElements,
-                allowMinimalDensity,
-                plannedForegroundElementsPerShot,
-                beatTimesSeconds,
-                parsedPaletteRoleColors);
-            QualityReviewResponse quality = await AnalyzeQualityAsync(
-                scene,
-                sampleTimes,
-                sampleTimes.Count,
-                evaluateMotion: !staticLayout,
-                options,
-                cancellationToken).ConfigureAwait(false);
-
-            if (!staticLayout)
-            {
-                StoreQualityBaseline(
-                    sessionKey,
-                    sampleTimes,
-                    options,
-                    quality,
-                    stills.Select(still => still.OutputPath).ToArray());
-            }
-
-            List<string> blockers = [];
-            List<string> advisories = [];
-            if (!staticLayout && motion is not null && !motion.PassesMinimumMotion)
-            {
-                advisories.Add($"Motion variation did not pass: {motion.Verdict}. A deliberate held frame or slow piece is a valid result; revise only if the stillness is unintended.");
-            }
-
-            if (!quality.PassesQualityGate)
-            {
-                blockers.Add("evaluate_edit_quality reported critical or major issues (unreadable text or malformed Element structure).");
-            }
-
-            advisories.AddRange(quality.Issues
-                .Where(issue => string.Equals(issue.Severity, "minor", StringComparison.OrdinalIgnoreCase))
-                .Select(issue => $"[{issue.Category}] {issue.Message}"));
-
-            // The caller opted into this check by passing requireAnimatedProperties, so it
-            // blocks on their own terms rather than the toolkit's.
-            if (!staticLayout && requireAnimatedProperties && quality.Metrics.MotionContinuity.AnimatedPropertyCount == 0)
-            {
-                blockers.Add("animatedPropertyCount is 0 and requireAnimatedProperties was requested; add explicit transform, opacity, brush, effect, or typography animation, or drop the flag.");
-            }
-
-            if (stills.Any(item => item.Warnings.Count > 0))
-            {
-                advisories.Add("One or more representative still renders returned visibility warnings. Check whether the affected objects are off-frame by intent.");
-            }
-
-            bool ready = blockers.Count == 0;
-            return new FinalPreflightResponse(
-                staticLayout ? false : ready,
-                blockers,
-                stills,
-                motion,
-                quality,
-                ready ? (staticLayout ? "render_storyboard" : "export_video") : "suggest_quality_fixes")
-            {
-                ReadyForStoryboard = staticLayout && ready,
-                Advisories = advisories
-            };
-        });
-    }
-
-    [McpServerTool(Name = "compare_revisions")]
-    [Description("Compares the current scene against the cached quality baseline from the last successful rendered evaluate_edit_quality or final_preflight call. Re-renders the same sample times with the same quality options, reports numeric metric deltas, resolved/introduced issues, a cross-axis regression flag, and paired previous/current still paths. Pass returnImageContent:true to append paired PNG previews.")]
-    public ValueTask<CallToolResult> CompareRevisions(
-        [Description("When true, append paired previous/current image/png MCP content blocks for every sampled still pair. Default false preserves JSON-only output.")]
-        bool returnImageContent = false,
-        CancellationToken cancellationToken = default)
-    {
-        return ExecuteMcpManyAsync<CompareRevisionsResponse>(async () =>
-        {
-            using OwnedOutputOperation outputOperation = BeginOutputOperation();
-            IEditingSession snapshotSession = sessions.RequireSession();
-            Scene scene = CreateSceneSnapshot(snapshotSession);
-            // Capture the session key first, then fetch the baseline FOR that key: a session switch
-            // between the baseline lookup and the snapshot must not apply one project's baseline to
-            // another project's snapshot and re-file it under the wrong key.
-            string sessionKey = sessions.GetSessionKey(snapshotSession);
-            QualityReviewBaseline baseline = sessions.GetQualityReviewBaseline(sessionKey);
-            IReadOnlyList<string> currentStillPaths = await RenderBaselineStillsAsync(
-                scene,
-                baseline.SampleTimes,
-                baseline.Options.RenderScale,
-                "revision-current",
-                cancellationToken).ConfigureAwait(false);
-            QualityReviewResponse current = await AnalyzeQualityAsync(
-                scene,
-                baseline.SampleTimes,
-                baseline.SampleTimes.Count,
-                evaluateMotion: true,
-                baseline.Options,
-                cancellationToken).ConfigureAwait(false);
-
-            RevisionStillPair[] pairs = baseline.SampleTimes
-                .Select((time, index) => new RevisionStillPair(
-                    index,
-                    Math.Round(time.TotalSeconds, 4, MidpointRounding.AwayFromZero),
-                    index < baseline.StillPaths.Count ? baseline.StillPaths[index] : string.Empty,
-                    index < currentStillPaths.Count ? currentStillPaths[index] : string.Empty))
-                .ToArray();
-            CompareRevisionsResponse response = new(
-                SchemaVersion.Current,
-                BuildMetricDeltas(baseline.Review, current),
-                FindResolvedIssues(baseline.Review, current),
-                FindIntroducedIssues(baseline.Review, current),
-                HasSeverityRegressionAcrossAxes(baseline.Review, current),
-                pairs,
-                baseline.Review,
-                current);
-
-            StoreQualityBaseline(sessionKey, baseline.SampleTimes, baseline.Options, current, currentStillPaths);
-
-            IReadOnlyList<ImageContentBlock> images = returnImageContent
-                ? CreateRevisionPreviewImages(pairs)
-                : [];
-            return (response, images);
+                analysis.StrongOnsetTimesSeconds);
         });
     }
 
     [McpServerTool(Name = "export_video")]
-    [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path. Bare filenames are written under agent-output/. Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. Pass background:true to run as a job and poll read_render_job(jobId).")]
+    [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path. Bare filenames are resolved directly within the workspace. Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. Pass background:true to run as a job and poll read_render_job(jobId).")]
     public ValueTask<ToolResult<ExportVideoResult>> ExportVideo(
-        [Description("Workspace-relative or in-workspace absolute output path. Render outputs use outputPath/outputDirectory; project file tools use path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
+        [Description("Workspace-relative or in-workspace absolute output path. Render outputs use outputPath/outputDirectory; project file tools use path. Bare filenames are resolved directly within the workspace. Existing files require confirmOverwrite.")]
         string outputPath,
         [Description("Frame-rate numerator.")]
         int frameRateNumerator = 30,
@@ -785,7 +345,7 @@ public sealed class RenderTools(
 
             // Only preflight-reject when FFmpeg is the sole encoder for this container; a non-FFmpeg
             // encoder (e.g. AVFoundation for macOS .mp4/.mov) can export without the worker.
-            if (videoExporter.RequiresFFmpegWorker(NormalizeOutputPath(outputPath))
+            if (videoExporter.RequiresFFmpegWorker(outputPath)
                 && !FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
             {
                 throw new ReconcileException(new ToolError(
@@ -823,7 +383,7 @@ public sealed class RenderTools(
                     "Provide either crf or bitrate, not both."));
             }
 
-            string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
+            string resolvedPath = workspace.ResolveForWrite(outputPath);
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
 
             async Task<ExportVideoResponse> RunExportAsync(RenderJobProgressReporter progress, CancellationToken token)
@@ -841,7 +401,6 @@ public sealed class RenderTools(
                     crf,
                     bitrate,
                     (encoded, total) => progress.Report((int)Math.Min(encoded, int.MaxValue), (int)Math.Min(total, int.MaxValue), "encoding")).ConfigureAwait(false);
-                sessions.RecordCreativeDirection(CreateExportCreativeFingerprint(scene, resolvedPath));
                 return exported;
             }
 
@@ -890,14 +449,6 @@ public sealed class RenderTools(
                    ErrorCode.StaleHandle,
                    $"No render job with id '{jobId}' exists.",
                    jobId));
-    }
-
-    private static void ValidateVideoType(string? videoType)
-    {
-        if (!string.IsNullOrWhiteSpace(videoType))
-        {
-            VideoTypeCatalog.Resolve(videoType);
-        }
     }
 
     private static async ValueTask<CallToolResult> ExecuteMcpAsync<T>(
@@ -954,7 +505,7 @@ public sealed class RenderTools(
         };
     }
 
-    private static IReadOnlyList<TimeSpan>? NormalizeQualitySampleTimesOrNull(double[]? timeSeconds)
+    private static IReadOnlyList<TimeSpan>? NormalizeFrameSampleTimesOrNull(double[]? timeSeconds)
     {
         if (timeSeconds is not { Length: > 0 })
         {
@@ -969,9 +520,9 @@ public sealed class RenderTools(
             .ToArray();
     }
 
-    internal static IReadOnlyList<TimeSpan> ResolveQualitySampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
+    internal static IReadOnlyList<TimeSpan> ResolveFrameSampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
     {
-        IReadOnlyList<TimeSpan>? explicitTimes = NormalizeQualitySampleTimesOrNull(timeSeconds);
+        IReadOnlyList<TimeSpan>? explicitTimes = NormalizeFrameSampleTimesOrNull(timeSeconds);
         if (explicitTimes is not null && explicitTimes.Count < 2)
         {
             // A caller-supplied list that collapses to fewer than two distinct finite times must be
@@ -996,7 +547,7 @@ public sealed class RenderTools(
                 .ToArray();
 
             // Multiple out-of-range times can all clamp to the last tick and collapse to one sample,
-            // which MotionVariationAnalyzer would reject with an unmapped ArgumentException; surface a
+            // which FrameDifferenceAnalyzer would reject with an unmapped ArgumentException; surface a
             // typed validation error instead of leaking it.
             if (clamped.Length < 2)
             {
@@ -1018,469 +569,11 @@ public sealed class RenderTools(
             .ToArray();
     }
 
-    private static PaletteRoleColor[]? ParsePaletteRoleColors(JsonElement? paletteRoleColors)
-    {
-        if (paletteRoleColors is null)
-        {
-            return null;
-        }
-
-        JsonElement element = paletteRoleColors.Value;
-        if (element.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
-        {
-            return null;
-        }
-
-        if (element.ValueKind == JsonValueKind.String)
-        {
-            string? json = element.GetString();
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return null;
-            }
-
-            try
-            {
-                using JsonDocument document = JsonDocument.Parse(json);
-                return ParsePaletteRoleColorArray(document.RootElement);
-            }
-            catch (JsonException)
-            {
-                throw PaletteRoleColorsValidationError("paletteRoleColors must be a JSON array string containing { role, color } objects.");
-            }
-        }
-
-        return ParsePaletteRoleColorArray(element);
-    }
-
-    private static PaletteRoleColor[] ParsePaletteRoleColorArray(JsonElement element)
-    {
-        if (element.ValueKind != JsonValueKind.Array)
-        {
-            throw PaletteRoleColorsValidationError("paletteRoleColors must be an array of { role, color } objects or a JSON string containing that array.");
-        }
-
-        var result = new List<PaletteRoleColor>();
-        int index = 0;
-        foreach (JsonElement item in element.EnumerateArray())
-        {
-            if (item.ValueKind != JsonValueKind.Object)
-            {
-                throw PaletteRoleColorsValidationError($"paletteRoleColors[{index}] must be an object with role and color string properties.");
-            }
-
-            string? role = GetStringProperty(item, "role");
-            string? color = GetStringProperty(item, "color");
-            if (string.IsNullOrWhiteSpace(role))
-            {
-                throw PaletteRoleColorsValidationError($"paletteRoleColors[{index}].role must be a non-empty string.");
-            }
-
-            if (!IsRgbHexColor(color))
-            {
-                throw PaletteRoleColorsValidationError($"paletteRoleColors[{index}].color must be a #RRGGBB string.");
-            }
-
-            result.Add(new PaletteRoleColor(role, color!));
-            index++;
-        }
-
-        return result.ToArray();
-    }
-
-    private static string? GetStringProperty(JsonElement item, string name)
-    {
-        foreach (JsonProperty property in item.EnumerateObject())
-        {
-            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase)
-                && property.Value.ValueKind == JsonValueKind.String)
-            {
-                return property.Value.GetString();
-            }
-        }
-
-        return null;
-    }
-
-    private static bool IsRgbHexColor(string? value)
-    {
-        if (value is not { Length: 7 } || value[0] != '#')
-        {
-            return false;
-        }
-
-        foreach (char c in value.AsSpan(1))
-        {
-            if (!IsHexDigit(c))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool IsHexDigit(char value)
-    {
-        return value is >= '0' and <= '9'
-               or >= 'a' and <= 'f'
-               or >= 'A' and <= 'F';
-    }
-
-    private static ReconcileException PaletteRoleColorsValidationError(string message)
-    {
-        return new ReconcileException(new ToolError(
-            ErrorCode.ValidationRejected,
-            message,
-            "paletteRoleColors",
-            "Pass paletteRoleColors as [{\"role\":\"bg-base\",\"color\":\"#102030\"}] or as a JSON string containing that array."));
-    }
-
-    private static QualityAnalysisOptions CreateQualityAnalysisOptions(
-        string? videoType,
-        string? styleProfile,
-        float renderScale,
-        bool allowAllCaps,
-        bool allowHardCuts,
-        bool relaxAesthetics,
-        bool allowStillness,
-        bool allowDenseText,
-        bool allowMultiObjectElements,
-        bool allowMinimalDensity,
-        double plannedForegroundElementsPerShot,
-        double[]? beatTimesSeconds = null,
-        PaletteRoleColor[]? paletteRoleColors = null)
-    {
-        return new QualityAnalysisOptions(
-            videoType,
-            styleProfile,
-            float.IsFinite(renderScale) && renderScale > 0 ? renderScale : 1,
-            allowAllCaps,
-            allowHardCuts,
-            relaxAesthetics,
-            allowStillness,
-            allowDenseText,
-            allowMultiObjectElements,
-            allowMinimalDensity,
-            plannedForegroundElementsPerShot,
-            beatTimesSeconds?.Where(double.IsFinite).ToArray(),
-            paletteRoleColors?.ToArray());
-    }
-
-    private ValueTask<QualityReviewResponse> AnalyzeQualityAsync(
-        Scene scene,
-        IReadOnlyList<TimeSpan>? sampleTimes,
-        int sampleCount,
-        bool evaluateMotion,
-        QualityAnalysisOptions options,
-        CancellationToken cancellationToken)
-    {
-        return qualityAnalyzer.AnalyzeAsync(
-            scene,
-            sampleTimes,
-            sampleCount,
-            options.RenderScale,
-            options.StyleProfile,
-            options.AllowAllCaps,
-            options.AllowHardCuts,
-            options.RelaxAesthetics,
-            options.AllowStillness,
-            options.AllowDenseText,
-            options.AllowMultiObjectElements,
-            options.AllowMinimalDensity,
-            options.PlannedForegroundElementsPerShot,
-            evaluateMotion,
-            videoType: options.VideoType,
-            beatTimesSeconds: options.BeatTimesSeconds,
-            paletteRoleColors: options.PaletteRoleColors,
-            cancellationToken: cancellationToken);
-    }
-
-    private async ValueTask<IReadOnlyList<string>> RenderBaselineStillsAsync(
-        Scene scene,
-        IReadOnlyList<TimeSpan> sampleTimes,
-        float renderScale,
-        string prefix,
-        CancellationToken cancellationToken)
-    {
-        renderScale = ValidateRenderScale(scene, renderScale, "compare_revisions");
-        string batchId = Guid.NewGuid().ToString("N")[..8];
-        var stillPaths = new List<string>(sampleTimes.Count);
-        for (int i = 0; i < sampleTimes.Count; i++)
-        {
-            TimeSpan time = sampleTimes[i];
-            string stillPath = Path.Combine(
-                "agent-output",
-                $"{prefix}-{batchId}-still-{i:D2}-{Math.Max(0, (long)Math.Round(time.TotalMilliseconds)):D8}ms.png");
-            string resolvedPath = workspace.ResolveForWrite(stillPath);
-            destructiveGuard.EnsureOverwriteAllowed(resolvedPath, false);
-            RenderStillResponse still = await stillRenderer.RenderAsync(
-                scene,
-                time,
-                resolvedPath,
-                renderScale,
-                cancellationToken).ConfigureAwait(false);
-            stillPaths.Add(still.OutputPath);
-        }
-
-        return stillPaths;
-    }
-
     private OwnedOutputOperation BeginOutputOperation()
     {
         IDisposable lease = outputOperations.TryBeginOutputOperation()
                             ?? throw new OutputOperationBusyException();
         return new OwnedOutputOperation(lease);
-    }
-
-    private void StoreQualityBaseline(
-        string sessionKey,
-        IReadOnlyList<TimeSpan> sampleTimes,
-        QualityAnalysisOptions options,
-        QualityReviewResponse review,
-        IReadOnlyList<string> stillPaths)
-    {
-        sessions.StoreQualityReviewBaseline(new QualityReviewBaseline(
-            sessionKey,
-            DateTimeOffset.UtcNow,
-            sampleTimes.ToArray(),
-            options with
-            {
-                BeatTimesSeconds = options.BeatTimesSeconds?.ToArray(),
-                PaletteRoleColors = options.PaletteRoleColors?.ToArray()
-            },
-            review,
-            stillPaths.ToArray()));
-    }
-
-    private static IReadOnlyList<ImageContentBlock> CreateRevisionPreviewImages(IReadOnlyList<RevisionStillPair> pairs)
-    {
-        var images = new List<ImageContentBlock>(pairs.Count * 2);
-        foreach (RevisionStillPair pair in pairs)
-        {
-            if (File.Exists(pair.PreviousPath))
-            {
-                images.Add(ImageContentBlock.FromBytes(
-                    ImagePreviewEncoder.EncodePngFile(pair.PreviousPath),
-                    "image/png"));
-            }
-
-            if (File.Exists(pair.CurrentPath))
-            {
-                images.Add(ImageContentBlock.FromBytes(
-                    ImagePreviewEncoder.EncodePngFile(pair.CurrentPath),
-                    "image/png"));
-            }
-        }
-
-        return images;
-    }
-
-    private static IReadOnlyList<QualityMetricDelta> BuildMetricDeltas(
-        QualityReviewResponse previous,
-        QualityReviewResponse current)
-    {
-        var deltas = new List<QualityMetricDelta>();
-        AddDelta(deltas, "typography.textObjectCount", previous.Metrics.Typography.TextObjectCount, current.Metrics.Typography.TextObjectCount);
-        AddDelta(deltas, "typography.lowContrastTextCount", previous.Metrics.Typography.LowContrastTextCount, current.Metrics.Typography.LowContrastTextCount);
-        AddDelta(deltas, "layerDensity.averageVisibleLayerCount", previous.Metrics.LayerDensity.AverageVisibleLayerCount, current.Metrics.LayerDensity.AverageVisibleLayerCount);
-        AddDelta(deltas, "layerDensity.averageForegroundLayerCount", previous.Metrics.LayerDensity.AverageForegroundLayerCount, current.Metrics.LayerDensity.AverageForegroundLayerCount);
-        AddDelta(deltas, "tempo.timelineEventsPerSecond", previous.Metrics.Tempo.TimelineEventsPerSecond, current.Metrics.Tempo.TimelineEventsPerSecond);
-        AddDelta(deltas, "tempo.longForegroundGapCount", previous.Metrics.Tempo.LongForegroundGapCount, current.Metrics.Tempo.LongForegroundGapCount);
-        AddDelta(deltas, "motionContinuity.minimumChangedPixelRatio", previous.Metrics.MotionContinuity.MinimumChangedPixelRatio, current.Metrics.MotionContinuity.MinimumChangedPixelRatio);
-        AddDelta(deltas, "motionContinuity.averageChangedPixelRatio", previous.Metrics.MotionContinuity.AverageChangedPixelRatio, current.Metrics.MotionContinuity.AverageChangedPixelRatio);
-        AddDelta(deltas, "motionContinuity.hardCutLikeBoundaryCount", previous.Metrics.MotionContinuity.HardCutLikeBoundaryCount, current.Metrics.MotionContinuity.HardCutLikeBoundaryCount);
-
-        if (previous.Metrics.TransitionVocabulary is not null || current.Metrics.TransitionVocabulary is not null)
-        {
-            AddDelta(
-                deltas,
-                "transitionVocabulary.boundaryCount",
-                previous.Metrics.TransitionVocabulary?.Boundaries.Count ?? 0,
-                current.Metrics.TransitionVocabulary?.Boundaries.Count ?? 0);
-            string[] types = (previous.Metrics.TransitionVocabulary?.Histogram.Keys ?? Enumerable.Empty<string>())
-                .Concat(current.Metrics.TransitionVocabulary?.Histogram.Keys ?? Enumerable.Empty<string>())
-                .Distinct(StringComparer.Ordinal)
-                .Order(StringComparer.Ordinal)
-                .ToArray();
-            foreach (string type in types)
-            {
-                AddDelta(
-                    deltas,
-                    $"transitionVocabulary.histogram.{type}",
-                    previous.Metrics.TransitionVocabulary?.Histogram.GetValueOrDefault(type) ?? 0,
-                    current.Metrics.TransitionVocabulary?.Histogram.GetValueOrDefault(type) ?? 0);
-            }
-        }
-
-        if (previous.Metrics.PaletteBalance is not null || current.Metrics.PaletteBalance is not null)
-        {
-            AddDelta(
-                deltas,
-                "paletteBalance.neutralShare",
-                previous.Metrics.PaletteBalance?.NeutralShare ?? 0,
-                current.Metrics.PaletteBalance?.NeutralShare ?? 0);
-            string[] roles = (previous.Metrics.PaletteBalance?.RoleShares.Select(item => item.Role) ?? Enumerable.Empty<string>())
-                .Concat(current.Metrics.PaletteBalance?.RoleShares.Select(item => item.Role) ?? Enumerable.Empty<string>())
-                .Distinct(StringComparer.Ordinal)
-                .Order(StringComparer.Ordinal)
-                .ToArray();
-            foreach (string role in roles)
-            {
-                AddDelta(
-                    deltas,
-                    $"paletteBalance.roleShare.{role}",
-                    FindRoleShare(previous.Metrics.PaletteBalance, role),
-                    FindRoleShare(current.Metrics.PaletteBalance, role));
-            }
-        }
-
-        return deltas;
-    }
-
-    private static double FindRoleShare(PaletteBalanceMetrics? metrics, string role)
-    {
-        return metrics?.RoleShares
-            .FirstOrDefault(item => string.Equals(item.Role, role, StringComparison.Ordinal))
-            ?.Share ?? 0;
-    }
-
-    private static void AddDelta(List<QualityMetricDelta> deltas, string metric, double previous, double current)
-    {
-        deltas.Add(new QualityMetricDelta(
-            metric,
-            Math.Round(previous, 4, MidpointRounding.AwayFromZero),
-            Math.Round(current, 4, MidpointRounding.AwayFromZero),
-            Math.Round(current - previous, 4, MidpointRounding.AwayFromZero)));
-    }
-
-    private static IReadOnlyList<QualityIssue> FindResolvedIssues(
-        QualityReviewResponse previous,
-        QualityReviewResponse current)
-    {
-        HashSet<string> currentKeys = current.Issues.Select(CreateIssueIdentity).ToHashSet(StringComparer.Ordinal);
-        return previous.Issues
-            .Where(issue => !currentKeys.Contains(CreateIssueIdentity(issue)))
-            .ToArray();
-    }
-
-    private static IReadOnlyList<QualityIssue> FindIntroducedIssues(
-        QualityReviewResponse previous,
-        QualityReviewResponse current)
-    {
-        HashSet<string> previousKeys = previous.Issues.Select(CreateIssueIdentity).ToHashSet(StringComparer.Ordinal);
-        return current.Issues
-            .Where(issue => !previousKeys.Contains(CreateIssueIdentity(issue)))
-            .ToArray();
-    }
-
-    private static bool HasSeverityRegressionAcrossAxes(QualityReviewResponse previous, QualityReviewResponse current)
-    {
-        Dictionary<string, int> previousRanks = BuildCategorySeverityRanks(previous);
-        Dictionary<string, int> currentRanks = BuildCategorySeverityRanks(current);
-        string[] categories = previousRanks.Keys
-            .Concat(currentRanks.Keys)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        bool worsened = categories.Any(category =>
-            currentRanks.GetValueOrDefault(category, 3) <= previousRanks.GetValueOrDefault(category, 3) - 1);
-        bool improved = categories.Any(category =>
-            currentRanks.GetValueOrDefault(category, 3) >= previousRanks.GetValueOrDefault(category, 3) + 1);
-        return worsened && improved;
-    }
-
-    private static Dictionary<string, int> BuildCategorySeverityRanks(QualityReviewResponse review)
-    {
-        return review.Issues
-            .GroupBy(issue => issue.Category, StringComparer.Ordinal)
-            .ToDictionary(
-                group => group.Key,
-                group => group.Min(issue => SeverityRank(issue.Severity)),
-                StringComparer.Ordinal);
-    }
-
-    private static string CreateIssueIdentity(QualityIssue issue)
-    {
-        return string.Join(
-            "\u001f",
-            issue.Category,
-            issue.Severity,
-            issue.Message,
-            issue.Evidence,
-            string.Join(",", issue.ElementIds.Order(StringComparer.Ordinal)),
-            string.Join(",", issue.ObjectIds.Order(StringComparer.Ordinal)));
-    }
-
-    private static CreativeDirectionFingerprint CreateExportCreativeFingerprint(Scene scene, string outputPath)
-    {
-        string concept = string.IsNullOrWhiteSpace(scene.Name)
-            ? Path.GetFileNameWithoutExtension(outputPath)
-            : scene.Name;
-        string[] paletteRoles = scene.Children
-            .Select(element => element.Name)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .SelectMany(name => name.Split(['[', ']', ':', '/', '-', '_'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            .Where(token => token.Contains("palette", StringComparison.OrdinalIgnoreCase)
-                            || token.Contains("color", StringComparison.OrdinalIgnoreCase)
-                            || token.Contains("accent", StringComparison.OrdinalIgnoreCase)
-                            || token.Contains("background", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(6)
-            .ToArray();
-        string[] motionVerbs = scene.Children
-            .Select(element => element.Name)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .SelectMany(name => name.Split([' ', '[', ']', ':', '/', '-', '_'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            .Where(token => token.EndsWith("ing", StringComparison.OrdinalIgnoreCase)
-                            || token.Contains("drift", StringComparison.OrdinalIgnoreCase)
-                            || token.Contains("pulse", StringComparison.OrdinalIgnoreCase)
-                            || token.Contains("reveal", StringComparison.OrdinalIgnoreCase)
-                            || token.Contains("settle", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .ToArray();
-        string timingSignature = string.Join(
-            " | ",
-            scene.Children
-                .OrderBy(element => element.Start)
-                .ThenBy(element => element.ZIndex)
-                .Take(10)
-                .Select(element => $"{NormalizeFingerprintToken(element.Name)}@{element.Start.TotalSeconds:0.##}+{element.Length.TotalSeconds:0.##}"));
-        if (string.IsNullOrWhiteSpace(timingSignature))
-        {
-            timingSignature = "empty-scene-export";
-        }
-
-        return new CreativeDirectionFingerprint(
-            concept,
-            paletteRoles,
-            motionVerbs,
-            timingSignature,
-            DateTimeOffset.UtcNow);
-    }
-
-    private static string NormalizeFingerprintToken(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return "element";
-        }
-
-        return string.Join(
-            "-",
-            value.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Take(4));
-    }
-
-    public static string NormalizeOutputPath(string outputPath)
-    {
-        if (Path.IsPathRooted(outputPath)
-            || !string.IsNullOrEmpty(Path.GetDirectoryName(outputPath)))
-        {
-            return outputPath;
-        }
-
-        return Path.Combine("agent-output", outputPath);
     }
 
     private string CreateDefaultOutputBasename(string stem)
@@ -1530,7 +623,7 @@ public sealed class RenderTools(
 
             throw new ReconcileException(new ToolError(
                 ErrorCode.ValidationRejected,
-                "evaluate_motion_variation requires at least two distinct sample times."));
+                "measure_frame_differences requires at least two distinct sample times."));
         }
 
         int count = Math.Clamp(sampleCount, 2, 8);
@@ -1543,27 +636,6 @@ public sealed class RenderTools(
             .ToArray();
     }
 
-    private static string CreatePreflightStillPath(string normalizedPrefix, int index, TimeSpan time)
-    {
-        string directory = Path.GetDirectoryName(normalizedPrefix) ?? string.Empty;
-        string filePrefix = Path.GetFileNameWithoutExtension(normalizedPrefix);
-        if (string.IsNullOrWhiteSpace(filePrefix))
-        {
-            filePrefix = "preflight";
-        }
-
-        string extension = Path.GetExtension(normalizedPrefix);
-        if (string.IsNullOrWhiteSpace(extension))
-        {
-            extension = ".png";
-        }
-
-        long milliseconds = Math.Max(0, (long)Math.Round(time.TotalMilliseconds));
-        string fileName = $"{filePrefix}-still-{index:D2}-{milliseconds:D8}ms{extension}";
-        return string.IsNullOrWhiteSpace(directory)
-            ? fileName
-            : Path.Combine(directory, fileName);
-    }
 
     private static void SaveStoryboardStill(Bitmap bitmap, string outputPath)
     {
@@ -1600,8 +672,7 @@ public sealed class RenderTools(
                 right.Name,
                 left.FocalPoint,
                 right.FocalPoint,
-                roundedDisplacement,
-                roundedDisplacement > 0.33);
+                roundedDisplacement);
         }
 
         return result;
@@ -1967,7 +1038,7 @@ public sealed class RenderTools(
     private static string NormalizeStoryboardDirectory(string outputDirectory)
     {
         return string.IsNullOrWhiteSpace(outputDirectory)
-            ? "agent-output"
+            ? "."
             : outputDirectory;
     }
 
@@ -1987,91 +1058,6 @@ public sealed class RenderTools(
         }
 
         return normalized;
-    }
-
-    private static IReadOnlyList<QualityFixSuggestion> BuildFixSuggestions(
-        QualityReviewResponse review,
-        bool requireAnimatedProperties)
-    {
-        var suggestions = review.Issues
-            .GroupBy(issue => issue.Category, StringComparer.Ordinal)
-            .Select(group =>
-            {
-                QualityIssue[] issues = group.ToArray();
-                string severity = issues
-                    .Select(issue => issue.Severity)
-                    .OrderBy(SeverityRank)
-                    .First();
-                return new QualityFixSuggestion(
-                    group.Key,
-                    severity,
-                    issues.Length,
-                    issues[0].Message,
-                    CreateFixStrategy(group.Key, issues[0].SuggestedFix),
-                    issues.SelectMany(issue => issue.ElementIds).Distinct(StringComparer.Ordinal).ToArray(),
-                    issues.SelectMany(issue => issue.ObjectIds).Distinct(StringComparer.Ordinal).ToArray());
-            })
-            .ToList();
-
-        if (requireAnimatedProperties
-            && review.Metrics.MotionContinuity.AnimatedPropertyCount == 0)
-        {
-            var animatedPropertiesFix = new QualityFixSuggestion(
-                "motionContinuity",
-                "major",
-                1,
-                "Motion graphics require explicit animated properties.",
-                "Add keyframed transform, opacity, brush, effect, or typography spacing to at least one visible object before export.",
-                [],
-                []);
-            int existingMotionSuggestion = suggestions.FindIndex(item => item.Category == "motionContinuity");
-            if (existingMotionSuggestion >= 0)
-            {
-                QualityFixSuggestion existing = suggestions[existingMotionSuggestion];
-                suggestions[existingMotionSuggestion] = existing with
-                {
-                    Severity = SeverityRank(existing.Severity) > SeverityRank(animatedPropertiesFix.Severity)
-                        ? animatedPropertiesFix.Severity
-                        : existing.Severity,
-                    MinimalPatchStrategy = animatedPropertiesFix.MinimalPatchStrategy
-                };
-            }
-            else
-            {
-                suggestions.Add(animatedPropertiesFix);
-            }
-        }
-
-        return suggestions;
-    }
-
-    private static int SeverityRank(string severity)
-    {
-        return severity switch
-        {
-            "critical" => 0,
-            "major" => 1,
-            "minor" => 2,
-            _ => 3
-        };
-    }
-
-    private static string CreateFixStrategy(string category, string fallback)
-    {
-        return category switch
-        {
-            "typographyReadTime" => "For 1.5s beats, replace sentences with 1-3 word hero text and 2-4 word supporting tokens, or split copy into separate Elements.",
-            "elementStructure" => "Split ordinary content into one Element per EngineObject; keep multi-object Elements only for IFlowOperator chains such as DrawableGroup, DrawableDecorator, SoundGroup, or Scene3D.",
-            "layerDensity" => "Use metrics.layerDensity to find the sparse time bands, then add missing background/midground/foreground layers, or revise the density target when the sparser cut is the intended one.",
-            "tempoRhythm" => "Convert the BPM target into a beat grid, add visible foreground boundaries every 1-2 beats, close long foreground event gaps, and keep normal foreground holds near 2-4 beats.",
-            "textBackgroundFit" => "Use an explicit [role:text-backing] shape only for real text plates, match its Start/Length to the text Element, then verify with measure_object_bounds.",
-            "paletteBalance" => "Pass derive_palette role colors as paletteRoleColors, then reduce large accent-colored areas and restore the bg-base/background dominant role to carry most of the frame.",
-            "motionContinuity" => "Add bridged opacity/transform/spacing/brush/effect keyframes across cut boundaries and keep animatedPropertyCount above zero for motion graphics.",
-            "cutRhythm" => "Bridge adjacent Elements with short overlaps, opacity fades, or transform continuation instead of pure hard boundaries.",
-            "transitionVocabulary" => "Choose one continuity-editing transition vocabulary for the sequence, then revise outlier boundaries so dissolves, sweeps, dips, or hard cuts do not alternate without a clear reason.",
-            "timelineCoverage" => "Close visible timeline gaps by extending adjacent clips/photos or adding a deliberate transition/black-gap Element.",
-            _ => fallback
-        };
     }
 
     internal Scene RequireSceneSnapshot()

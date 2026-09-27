@@ -68,31 +68,6 @@ public sealed class AgentSessionManagerConcurrencyTests
     }
 
     [Test]
-    public void Get_quality_baseline_validates_against_the_supplied_session_key()
-    {
-        var manager = new AgentSessionManager();
-        const string plannedKey = "File:11111111-1111-1111-1111-111111111111";
-        const string swappedKey = "File:22222222-2222-2222-2222-222222222222";
-        var baseline = new QualityReviewBaseline(
-            plannedKey,
-            DateTimeOffset.UtcNow,
-            [TimeSpan.Zero],
-            null!,
-            null!,
-            []);
-        manager.StoreQualityReviewBaseline(baseline);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(manager.GetQualityReviewBaseline(plannedKey).SessionKey, Is.EqualTo(plannedKey));
-            Assert.That(
-                Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
-                    () => manager.GetQualityReviewBaseline(swappedKey))!.Error.Message,
-                Does.Contain("baseline"));
-        });
-    }
-
-    [Test]
     public async Task Composition_plans_evict_the_oldest_beyond_the_retention_cap()
     {
         var manager = new AgentSessionManager();
@@ -140,7 +115,6 @@ public sealed class AgentSessionManagerConcurrencyTests
                         new HashSet<Guid>());
                     plans.Add(state.Id);
                     manager.GetCompositionPlan(state.Id);
-                    manager.RecordCompositionUse("comp");
                     manager.RemoveCompositionPlan(state.Id);
                 }
                 catch (Exception ex)
@@ -155,35 +129,5 @@ public sealed class AgentSessionManagerConcurrencyTests
         Assert.That(plans.Count, Is.EqualTo(threads * perThread));
     }
 
-    [Test]
-    public void Concurrent_recent_composition_reads_and_writes_do_not_throw()
-    {
-        var manager = new AgentSessionManager();
-        using var source = new FileSessionSource();
-        manager.UseSource(source);
 
-        const int threads = 8;
-        const int perThread = 100;
-        var exceptions = new ConcurrentQueue<Exception>();
-
-        Task[] tasks = Enumerable.Range(0, threads).Select(index => Task.Run(() =>
-        {
-            for (int i = 0; i < perThread; i++)
-            {
-                try
-                {
-                    manager.RecordCompositionUse($"comp-{index % 4}");
-                    manager.GetRecentCompositions();
-                    manager.GetAvoidedCompositions();
-                }
-                catch (Exception ex)
-                {
-                    exceptions.Enqueue(ex);
-                }
-            }
-        })).ToArray();
-        Task.WaitAll(tasks);
-
-        Assert.That(exceptions, Is.Empty, () => string.Join("\n", exceptions.Select(e => e.ToString())));
-    }
 }

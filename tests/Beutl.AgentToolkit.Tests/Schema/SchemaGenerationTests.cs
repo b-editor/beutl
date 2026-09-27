@@ -575,7 +575,6 @@ public sealed class SchemaGenerationTests
         CompositionTemplateList sameList = sessionCatalog.List();
         string[] firstOrder = firstList.Compositions.Select(composition => composition.Name).ToArray();
         string[] sameOrder = sameList.Compositions.Select(composition => composition.Name).ToArray();
-        CompositionTemplateList avoidedList = sessionCatalog.List(deprioritizedNames: [firstOrder[0]]);
 
         string[] firstChoices = Enumerable.Range(0, 24)
             .Select(index => new CompositionTemplateCatalog(defaultSeed: $"session-{index}")
@@ -596,7 +595,6 @@ public sealed class SchemaGenerationTests
             Assert.That(firstList.Seed, Is.EqualTo("session-a"));
             Assert.That(sameList.Seed, Is.EqualTo("session-a"));
             Assert.That(firstOrder, Is.EqualTo(sameOrder));
-            Assert.That(avoidedList.Compositions.Last().Name, Is.EqualTo(firstOrder[0]));
             Assert.That(firstChoices, Has.Length.GreaterThan(1));
             Assert.That(firstChoices, Has.Length.GreaterThanOrEqualTo(4));
             Assert.That(titlePositions.Min(), Is.LessThan(-200));
