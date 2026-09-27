@@ -294,6 +294,19 @@ public class GraphEditorTangentTests
     }
 
     [AvaloniaTest]
+    public async Task Linear_preset_resets_custom_tangent_influence_and_time_mapping()
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        graph.Second.Easing = new SplineEasing(0.05f, -0.3f, 0.4f, 1.7f);
+        ChoosePreset(graph, "Linear", false);
+        var spline = (SplineEasing)graph.Second.Easing;
+        Assert.That(spline.X1, Is.EqualTo(1f / 3));
+        Assert.That(spline.X2, Is.EqualTo(2f / 3));
+        for (int i = 0; i <= 20; i++)
+            Assert.That(spline.Ease(i / 20f), Is.EqualTo(i / 20f).Within(0.001));
+    }
+
+    [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(false, true)]
     [TestCase(true, false)]

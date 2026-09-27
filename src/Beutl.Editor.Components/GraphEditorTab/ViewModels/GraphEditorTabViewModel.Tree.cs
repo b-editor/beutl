@@ -172,12 +172,13 @@ public sealed partial class GraphEditorTabViewModel
 
     private void UpdatePropertyItem(GraphEditorTreeItemViewModel item, bool canAnimate, HashSet<string> used, HashSet<object> ancestors)
     {
-        item.CanAnimate.Value = canAnimate;
+        var factory = item.ValueType is { } valueType ? GraphEditorViewViewModelFactory.GetFactory(valueType).FirstOrDefault() : null;
+        item.CanAnimate.Value = canAnimate && factory != null;
         item.HasAnimation.Value = item.Animation is KeyFrameAnimation;
         var children = new List<GraphEditorTreeItemViewModel>();
         if (item.ValueType is { } type)
         {
-            var channels = GraphEditorViewViewModelFactory.GetFactory(type).FirstOrDefault()?.ChannelNames;
+            var channels = factory?.ChannelNames;
             if (channels is { Count: > 1 })
                 foreach (string name in channels)
                 {

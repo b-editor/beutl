@@ -173,7 +173,7 @@ public abstract partial class GraphEditorViewModel : IDisposable
             .DisposeWith(_disposables);
 
         PasteKeyFrameAtCurrentPositionCommand = new AsyncReactiveCommand()
-            .WithSubscribe(async () => await PasteSelectionAsync())
+            .WithSubscribe(() => PasteKeyFrameAtPositionAsync(_pointerPosition))
             .DisposeWith(_disposables);
     }
 
@@ -258,8 +258,18 @@ public abstract partial class GraphEditorViewModel : IDisposable
     {
         var selected = keyFrames.Where(Animation.KeyFrames.Contains).ToArray();
         if (selected.Length == 0) return;
+        var selection = Views.Select(view => (view.Name, Keys: view.KeyFrames.Where(key => key.IsSelected.Value)
+            .Select(key => key.Model).ToArray())).ToArray();
+        var owner = new WeakReference<GraphEditorViewModel>(this);
         HistoryManager.ExecuteInTransaction(() =>
         {
+            // Recorded first so Undo restores the selection after reinstating the removed keys.
+            HistoryManager.Record(() => { }, () =>
+            {
+                if (!owner.TryGetTarget(out var model) || model._disposed) return;
+                foreach (var (name, keys) in selection)
+                    model.Views.FirstOrDefault(view => view.Name == name)?.SetSelection(keys);
+            });
             foreach (var key in selected.Reverse())
                 AnimationOperations.RemoveKeyFrame(Animation, key, _logger);
         }, CommandNames.RemoveKeyFrame);
@@ -385,9 +395,9 @@ public abstract partial class GraphEditorViewModel : IDisposable
         }
     }
 
-    private async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition)
+    internal async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition, IClipboard? clipboard = null)
     {
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
+        clipboard ??= ClipboardHelper.GetClipboard();
         if (clipboard == null) return;
 
         try

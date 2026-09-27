@@ -41,17 +41,20 @@ public abstract partial class GraphEditorViewModel
         }
     }
 
-    internal async Task PasteSelectionAsync(IClipboard? clipboard = null)
+    internal async Task PasteSelectionAsync(IClipboard? clipboard = null, IKeyFrame? target = null)
     {
         clipboard ??= ClipboardHelper.GetClipboard();
         if (clipboard == null || SelectedView.Value is not { } channel) return;
+        TimeSpan start = target?.KeyTime ?? ConvertKeyTime(CurrentTime.Value);
+        if (start < TimeSpan.Zero) start = TimeSpan.Zero;
         try
         {
             string? json = await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation)
                 ?? await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame);
-            if (_disposed || json == null || JsonNode.Parse(json) is not JsonObject data
-                || !data.TryGetDiscriminator(out Type? type)) return;
-            if (type != Animation.GetType() && type != typeof(KeyFrame<>).MakeGenericType(Animation.ValueType))
+            if (_disposed || target != null && !Animation.KeyFrames.Contains(target)) return;
+            if (json == null || JsonNode.Parse(json) is not JsonObject data
+                || !data.TryGetDiscriminator(out Type? type)
+                || !type.IsAssignableTo(typeof(KeyFrame)) && !type.IsAssignableTo(typeof(KeyFrameAnimation)))
             {
                 NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
                 return;
@@ -59,10 +62,22 @@ public abstract partial class GraphEditorViewModel
             var source = (ICoreSerializable)Activator.CreateInstance(type)!;
             CoreSerializer.PopulateFromJsonObject(source, data);
             IKeyFrame[] copied = source is KeyFrameAnimation animation ? animation.KeyFrames.ToArray() : [(IKeyFrame)source];
-            if (copied.Length == 0) return;
+            if (copied.Length == 0)
+            {
+                NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+                return;
+            }
+            if (type != Animation.GetType() && type != typeof(KeyFrame<>).MakeGenericType(Animation.ValueType))
+            {
+                if (target != null && copied.Length == 1)
+                {
+                    HistoryManager.ExecuteInTransaction(() => target.Easing = copied[0].Easing, CommandNames.PasteKeyFrame);
+                    NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
+                }
+                else NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+                return;
+            }
             double first = copied.Min(x => x.KeyTime.TotalSeconds);
-            TimeSpan start = ConvertKeyTime(CurrentTime.Value);
-            if (start < TimeSpan.Zero) start = TimeSpan.Zero;
             var pasted = new List<IKeyFrame>();
             HistoryManager.ExecuteInTransaction(() =>
             {

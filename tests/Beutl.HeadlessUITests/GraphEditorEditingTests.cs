@@ -11,9 +11,13 @@ using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
+using Beutl.Language;
+using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
 using AvaloniaPath = Avalonia.Controls.Shapes.Path;
@@ -58,6 +62,125 @@ public class GraphEditorEditingTests
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         graph.Model.HistoryManager.Undo();
         Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task Keyframe_menu_paste_targets_the_clicked_key_and_preserves_cross_type_values(bool crossType, bool animationFormat)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        IKeyFrame source = crossType ? new KeyFrame<int> { Value = 42 } : new KeyFrame<float> { Value = 42 };
+        source.KeyTime = TimeSpan.FromSeconds(8);
+        source.Easing = new SplineEasing(0.2f, 0.1f, 0.6f, 0.9f);
+        ICoreSerializable payload = source;
+        if (animationFormat)
+        {
+            KeyFrameAnimation animation = crossType ? new KeyFrameAnimation<int>() : new KeyFrameAnimation<float>();
+            animation.KeyFrames.Add(source);
+            payload = animation;
+        }
+        ObjectRegenerator.Regenerate(payload, out string json);
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(animationFormat ? BeutlDataFormats.KeyFrameAnimation : BeutlDataFormats.KeyFrame, json));
+        await graph.Window.Clipboard!.SetDataAsync(data);
+        graph.Model.CurrentTime.Value = TimeSpan.FromSeconds(0.5);
+        var original = graph.Second.Easing;
+        int undo = graph.Model.HistoryManager.UndoCount;
+        var key = graph.KeyFrame(graph.Second);
+        graph.RightClick(key.TranslatePoint(default, graph.Window)!.Value);
+        var menuItem = key.ContextMenu!.Items.OfType<MenuItem>().Single(x => Equals(x.Header, Strings.Paste));
+        var keyModel = (GraphEditorKeyFrameViewModel)key.DataContext!;
+        Assert.That(menuItem.Command, Is.SameAs(keyModel.PasteCommand));
+        await keyModel.PasteAsync(graph.Window.Clipboard);
+        Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
+        Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+        Assert.That(graph.Second.Value, Is.EqualTo(crossType ? 500f : 42f));
+        Assert.That(graph.First.Value, Is.EqualTo(100f));
+        Assert.That(graph.Second.Easing.Ease(0.4f), Is.EqualTo(source.Easing.Ease(0.4f)).Within(0.0001));
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+        graph.Model.HistoryManager.Undo();
+        Assert.That(graph.Second.Value, Is.EqualTo(500f));
+        Assert.That(graph.Second.Easing, Is.SameAs(original));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Background_paste_keeps_pointer_position_and_full_animation_replacement(bool fullAnimation)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        var source = new KeyFrame<float> { Value = 42, KeyTime = TimeSpan.FromSeconds(8) };
+        ICoreSerializable payload = source;
+        if (fullAnimation)
+        {
+            var animation = new KeyFrameAnimation<float>();
+            animation.KeyFrames.Add(source);
+            payload = animation;
+        }
+        ObjectRegenerator.Regenerate(payload, out string json);
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(fullAnimation ? BeutlDataFormats.KeyFrameAnimation : BeutlDataFormats.KeyFrame, json));
+        await graph.Window.Clipboard!.SetDataAsync(data);
+        graph.Model.CurrentTime.Value = TimeSpan.Zero;
+        await graph.Model.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(3), graph.Window.Clipboard);
+        Assert.That(graph.Animation.KeyFrames.Select(x => x.KeyTime.TotalSeconds),
+            Is.EqualTo(fullAnimation ? new[] { 8d } : new[] { 0.5, 1.5, 3 }));
+        Assert.That(graph.Animation.KeyFrames[^1].Value, Is.EqualTo(42f));
+    }
+
+    [AvaloniaTest]
+    public async Task Delete_undo_restores_the_selected_keys()
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        var channel = graph.Model.SelectedView.Value!;
+        graph.View.Focus();
+        graph.Window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.None, null);
+        graph.Window.KeyRelease(Key.Delete, RawInputModifiers.None, PhysicalKey.None, null);
+        Assert.That(graph.Animation.KeyFrames, Is.Empty);
+        Assert.That(channel.SelectionCount.Value, Is.Zero);
+        graph.Model.HistoryManager.Undo();
+        Assert.That(channel.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model), Is.EqualTo(new[] { graph.First, graph.Second }));
+        graph.Model.HistoryManager.Redo();
+        Assert.That(channel.KeyFrames, Is.Empty);
+        Assert.That(channel.SelectionCount.Value, Is.Zero);
+    }
+
+    [AvaloniaTest]
+    public async Task Speed_curve_is_retained_during_selection_redraws_and_rebuilt_after_edits()
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        graph.Model.IsSpeedGraph.Value = true;
+        HeadlessTestHelpers.Render(3);
+        var speed = graph.View.FindControl<GraphEditorSpeedGraph>("SpeedGraph")!;
+        var channel = graph.Model.SelectedView.Value!;
+        var first = channel.KeyFrames[0];
+        var second = channel.KeyFrames[1];
+        var geometry = speed.GetCurveGeometry(first, second);
+        channel.SetSelection([graph.Second]);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(speed.GetCurveGeometry(first, second), Is.SameAs(geometry));
+        foreach (Action edit in new Action[]
+        {
+            () => graph.Second.Value += 50,
+            () => graph.First.KeyTime += TimeSpan.FromSeconds(0.1),
+            () => ((SplineEasing)graph.Second.Easing).Y1 = -0.3f,
+            () => ((SplineEasing)graph.Second.Easing).X2 = 0.9f,
+            () => graph.Model.ScaleY.Value *= 1.2,
+            () => graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 1.2f },
+            () => graph.Second.Easing = new LinearEasing()
+        })
+        {
+            edit();
+            HeadlessTestHelpers.Render(3);
+            var updated = speed.GetCurveGeometry(first, second);
+            Assert.That(updated, Is.Not.SameAs(geometry));
+            Assert.That(speed.GetCurveGeometry(first, second), Is.SameAs(updated));
+            geometry = updated;
+        }
+        graph.Capture("speed-cached-after-value-edit");
     }
 
     [AvaloniaTest]

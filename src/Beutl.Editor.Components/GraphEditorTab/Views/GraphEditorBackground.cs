@@ -127,14 +127,10 @@ public sealed class GraphEditorBackground : Control
         var viewport = new Rect((Point)_offset, _viewport);
 
         double originY = _baseline;
+        if (!(_scale > 0) || !double.IsFinite(_scale) || !double.IsFinite(originY)) return;
         double step = GraphEditorGridMetrics.Step(_scale);
-        double top = (originY - viewport.Top) / _scale;
-        double bottom = (originY - viewport.Bottom) / _scale;
-        // The first major tick can be offscreen while its minor ticks are still visible.
-        double first = Math.Floor(bottom / step) * step;
-        for (double value = first; value <= top; value += step)
+        foreach (var (_, y) in GraphEditorGridMetrics.MajorTicks(_scale, originY, viewport.Top, viewport.Bottom))
         {
-            double y = originY - value * _scale;
             if (y >= viewport.Top && y <= viewport.Bottom)
                 context.DrawLine(_pen, new(viewport.Left, y), new(viewport.Right, y));
             using (context.PushOpacity(0.35))

@@ -158,7 +158,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .DisposeWith(_disposables);
 
         PasteCommand = new AsyncReactiveCommand()
-            .WithSubscribe(PasteAsync)
+            .WithSubscribe(() => PasteAsync())
             .DisposeWith(_disposables);
 
         RemoveCommand = new ReactiveCommand()
@@ -368,7 +368,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         }
     }
 
-    private Task PasteAsync() => Parent.Parent.PasteSelectionAsync();
+    internal Task PasteAsync(IClipboard? clipboard = null) => Parent.Parent.PasteSelectionAsync(clipboard, Model);
 
     private void Remove()
     {

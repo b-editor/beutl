@@ -88,14 +88,10 @@ public sealed class GraphEditorScale : Control
         base.Render(context);
         context.FillRectangle(Brushes.Transparent, new Rect(Bounds.Size));
         double step = GraphEditorGridMetrics.Step(_scale);
-        double top = (_baseline - Offset.Y) / _scale;
-        double bottom = (_baseline - Offset.Y - Bounds.Height) / _scale;
-        // Include the major tick below the viewport so its minor ticks fill the bottom interval.
-        double first = Math.Floor(bottom / step) * step;
         using (context.PushClip(new Rect(Bounds.Size)))
-            for (double value = first; value <= top; value += step)
+            foreach (var (value, pixel) in GraphEditorGridMetrics.MajorTicks(_scale, _baseline, Offset.Y, Offset.Y + Bounds.Height))
             {
-                double y = _baseline - value * _scale - Offset.Y;
+                double y = pixel - Offset.Y;
                 if (y >= 0 && y <= Bounds.Height)
                 {
                     context.DrawLine(_pen, new(Bounds.Width - 5, y), new(Bounds.Width, y));

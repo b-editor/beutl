@@ -27,6 +27,52 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class GraphEditorRulerBarTests
 {
+    [Test]
+    [TestCase(1e-300)]
+    [TestCase(1e-15)]
+    [TestCase(1)]
+    [TestCase(1e15)]
+    [TestCase(1e300)]
+    public void Grid_spacing_tracks_the_actual_scale(double scale)
+    {
+        double pixels = GraphEditorGridMetrics.Step(scale) * scale;
+        Assert.That(pixels, Is.InRange(71.99, 180.01));
+        var ticks = GraphEditorGridMetrics.MajorTicks(scale, 350, 0, 400).ToArray();
+        Assert.That(ticks.Length, Is.InRange(2, 8));
+        Assert.That(ticks.All(tick => double.IsFinite(tick.Y)), Is.True);
+    }
+
+    [Test]
+    [TestCase(0, 350)]
+    [TestCase(-1, 350)]
+    [TestCase(double.NaN, 350)]
+    [TestCase(double.PositiveInfinity, 350)]
+    [TestCase(double.Epsilon, 350)]
+    [TestCase(1, double.NaN)]
+    [TestCase(1, double.PositiveInfinity)]
+    [TestCase(1, 1e20)]
+    public void Invalid_or_extreme_grid_inputs_stop_tick_traversal(double scale, double baseline)
+    {
+        var ticks = GraphEditorGridMetrics.MajorTicks(scale, baseline, 0, 400).Take(4097).ToArray();
+        Assert.That(ticks.Length, Is.LessThanOrEqualTo(1));
+    }
+
+    [AvaloniaTest]
+    [TestCase(0, 350)]
+    [TestCase(double.NaN, 350)]
+    [TestCase(1e-15, 350)]
+    [TestCase(1, 1e20)]
+    public async Task Extreme_grid_inputs_render_without_stalling(double scale, double baseline)
+    {
+        using var graph = await GraphScope.CreateAsync();
+        var background = new GraphEditorBackground { Scale = scale, Baseline = baseline, Viewport = new Size(600, 400), IsSpeedGraph = true };
+        var ruler = new GraphEditorScale { Scale = scale, Baseline = baseline, Width = 60 };
+        graph.Window.Content = new Grid { Children = { background, ruler } };
+        HeadlessTestHelpers.Render(3);
+        using var frame = graph.Window.CaptureRenderedFrame();
+        Assert.That(frame, Is.Not.Null);
+    }
+
     [AvaloniaTest]
     [TestCase(false, 0.5, 0, 1)]
     [TestCase(true, 0.5, 0, 2)]

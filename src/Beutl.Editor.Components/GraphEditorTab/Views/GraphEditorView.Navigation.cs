@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Beutl.Configuration;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Vector = Avalonia.Vector;
@@ -58,7 +59,8 @@ public partial class GraphEditorView
         bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
         if (alt || e.KeyModifiers.HasFlag(KeyGestureHelper.GetCommandModifier()))
         {
-            bool horizontal = target == WheelTarget.HorizontalRuler || target == WheelTarget.Plot && alt;
+            bool horizontal = target == WheelTarget.HorizontalRuler
+                || target == WheelTarget.Plot && (alt || !e.KeyModifiers.HasFlag(KeyModifiers.Shift));
             if (horizontal)
                 ZoomHorizontal(model, Math.Pow(1.2, delta), e.GetPosition(scroll).X);
             else if (!model.AutoZoomHeight.Value)
@@ -66,12 +68,16 @@ public partial class GraphEditorView
         }
         else
         {
+            Vector plotDelta = e.Delta;
+            if (OperatingSystem.IsWindows() && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+                plotDelta = new Vector(plotDelta.Y, plotDelta.X);
+            if (!GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection)
+                plotDelta = new Vector(plotDelta.Y, plotDelta.X);
             Vector movement = target switch
             {
                 WheelTarget.HorizontalRuler => new Vector(-delta * 50, 0),
                 WheelTarget.VerticalRuler => new Vector(0, model.AutoZoomHeight.Value ? 0 : -delta * 50),
-                _ => e.KeyModifiers.HasFlag(KeyModifiers.Shift)
-                    ? new Vector(-delta * 50, 0) : new Vector(-e.Delta.X * 50, model.AutoZoomHeight.Value ? 0 : -e.Delta.Y * 50)
+                _ => new Vector(-plotDelta.X * 50, model.AutoZoomHeight.Value ? 0 : -plotDelta.Y * 50)
             };
             SetScrollOffset(model, scroll.Offset + movement);
         }

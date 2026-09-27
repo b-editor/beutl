@@ -88,6 +88,21 @@ public class GraphEditorTreeTests
     }
 
     [AvaloniaTest]
+    public async Task Unsupported_property_types_do_not_offer_animation_controls()
+    {
+        using var scope = await TreeScope.CreateAsync();
+        foreach (IProperty property in new IProperty[] { scope.Shape.BlendMode, scope.Shape.AlignmentX, scope.Shape.AlignmentY })
+        {
+            var item = scope.Find(property);
+            Assert.That(item.CanAnimate.Value, Is.False, property.Name);
+            Assert.That(scope.AnimationButton(item).IsVisible, Is.False, property.Name);
+            scope.Model.EnableAnimation(item);
+            Assert.That(property.Animation, Is.Null, property.Name);
+        }
+        scope.Capture("property-tree-supported-animation-controls");
+    }
+
+    [AvaloniaTest]
     public async Task Animation_button_preserves_the_value_and_undo_keeps_the_property_visible()
     {
         using var scope = await TreeScope.CreateAsync();

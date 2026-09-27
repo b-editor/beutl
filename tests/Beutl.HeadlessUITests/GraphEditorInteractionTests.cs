@@ -5,6 +5,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Configuration;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Editor.Components.Helpers;
@@ -352,6 +353,68 @@ public class GraphEditorInteractionTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Plot_wheel_respects_the_timeline_scroll_preference(bool swapped)
+    {
+        using var graph = await GraphScope.CreateAsync(selectAll: false);
+        var config = GlobalConfiguration.Instance.EditorConfig;
+        bool previous = config.SwapTimelineScrollDirection;
+        try
+        {
+            config.SwapTimelineScrollDirection = swapped;
+            graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 2 };
+            graph.Model.ScaleY.Value = 2;
+            HeadlessTestHelpers.Render(3);
+            var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+            Point pointer = scroll.TranslatePoint(new Point(180, 160), graph.Window)!.Value;
+            graph.HitTest(pointer);
+            foreach (var delta in new[] { new Vector(0, -1), new Vector(-1, 0), new Vector(-2, -1) })
+            {
+                graph.Model.ScrollOffset.Value = new Vector(75, 80);
+                HeadlessTestHelpers.Render();
+                graph.Window.MouseWheel(pointer, delta);
+                HeadlessTestHelpers.Render();
+                Assert.That(scroll.Offset.X, Is.EqualTo(75 - (swapped ? delta.X : delta.Y) * 50).Within(0.01));
+                Assert.That(scroll.Offset.Y, Is.EqualTo(80 - (swapped ? delta.Y : delta.X) * 50).Within(0.01));
+            }
+        }
+        finally { config.SwapTimelineScrollDirection = previous; }
+    }
+
+    [AvaloniaTest]
+    [TestCase(KeyModifiers.Control, false)]
+    [TestCase(KeyModifiers.Meta, false)]
+    [TestCase(KeyModifiers.Control, true)]
+    [TestCase(KeyModifiers.Meta, true)]
+    public async Task Plot_command_wheel_zooms_time_and_shift_zooms_value(KeyModifiers command, bool shift)
+    {
+        using var graph = await GraphScope.CreateAsync(selectAll: false);
+        var hotkeys = Application.Current!.PlatformSettings!.HotkeyConfiguration;
+        KeyModifiers previous = hotkeys.CommandModifiers;
+        hotkeys.CommandModifiers = command;
+        try
+        {
+            var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+            graph.Model.ScaleY.Value = 2;
+            HeadlessTestHelpers.Render(3);
+            graph.Model.ScrollOffset.Value = new Vector(75, 80);
+            HeadlessTestHelpers.Render();
+            Point pointer = scroll.TranslatePoint(new Point(180, 160), graph.Window)!.Value;
+            graph.HitTest(pointer);
+            double time = (scroll.Offset.X + 180) / graph.Model.Options.Value.Scale;
+            double value = (graph.Model.Baseline.Value - scroll.Offset.Y - 160) / graph.Model.ScaleY.Value;
+            graph.Window.MouseWheel(pointer, new Vector(0, 1), CommandModifier | (shift ? RawInputModifiers.Shift : RawInputModifiers.None));
+            HeadlessTestHelpers.Render();
+            Assert.That(graph.Model.Options.Value.Scale, Is.EqualTo(shift ? 1 : 1.2).Within(0.001));
+            Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(shift ? 2.4 : 2).Within(0.001));
+            Assert.That((scroll.Offset.X + 180) / graph.Model.Options.Value.Scale, Is.EqualTo(time).Within(0.01));
+            Assert.That((graph.Model.Baseline.Value - scroll.Offset.Y - 160) / graph.Model.ScaleY.Value, Is.EqualTo(value).Within(0.01));
+        }
+        finally { hotkeys.CommandModifiers = previous; }
+    }
+
+    [AvaloniaTest]
     public async Task Wheel_mapping_and_pointer_anchored_zoom_match_graph_navigation()
     {
         using var graph = await GraphScope.CreateAsync(selectAll: false);
@@ -361,17 +424,16 @@ public class GraphEditorInteractionTests
         graph.HitTest(pointer);
         graph.Window.MouseWheel(pointer, new Vector(0, -1));
         HeadlessTestHelpers.Render();
-        Assert.That(scroll.Offset.Y, Is.GreaterThan(0));
-        Assert.That(scroll.Offset.X, Is.Zero);
-        graph.Window.MouseWheel(pointer, new Vector(0, -1), RawInputModifiers.Shift);
-        HeadlessTestHelpers.Render();
         Assert.That(scroll.Offset.X, Is.GreaterThan(0));
+        graph.Window.MouseWheel(pointer, new Vector(-1, 0));
+        HeadlessTestHelpers.Render();
+        Assert.That(scroll.Offset.Y, Is.GreaterThan(0));
         double time = (scroll.Offset.X + 180) / graph.Model.Options.Value.Scale;
         graph.Window.MouseWheel(pointer, new Vector(0, 1), RawInputModifiers.Alt);
         HeadlessTestHelpers.Render();
         Assert.That((scroll.Offset.X + 180) / graph.Model.Options.Value.Scale, Is.EqualTo(time).Within(0.01));
         double value = (graph.Model.Baseline.Value - scroll.Offset.Y - 160) / graph.Model.ScaleY.Value;
-        graph.Window.MouseWheel(pointer, new Vector(0, 1), CommandModifier);
+        graph.Window.MouseWheel(pointer, new Vector(0, 1), CommandModifier | RawInputModifiers.Shift);
         HeadlessTestHelpers.Render();
         Assert.That((graph.Model.Baseline.Value - scroll.Offset.Y - 160) / graph.Model.ScaleY.Value, Is.EqualTo(value).Within(0.01));
         var before = scroll.Offset;
