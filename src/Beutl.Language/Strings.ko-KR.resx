@@ -1585,6 +1585,24 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AiPromptTooLongFormat" xml:space="preserve">
     <value>최종 프롬프트는 {0}자를 넘을 수 없습니다.</value>
   </data>
+  <data name="AiImageGenerationSection" xml:space="preserve">
+    <value>이미지 생성</value>
+  </data>
+  <data name="AiImageEditSection" xml:space="preserve">
+    <value>이미지 편집</value>
+  </data>
+  <data name="AiVideoGenerationSection" xml:space="preserve">
+    <value>동영상 생성</value>
+  </data>
+  <data name="AiVideoEditingSection" xml:space="preserve">
+    <value>동영상 편집</value>
+  </data>
+  <data name="AiSubtitleSection" xml:space="preserve">
+    <value>자막</value>
+  </data>
+  <data name="AiJobCenterSection" xml:space="preserve">
+    <value>작업</value>
+  </data>
   <data name="AiImageGenerationIdle" xml:space="preserve">
     <value>이미지를 설명하고 생성을 클릭하세요.</value>
   </data>

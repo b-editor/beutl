@@ -1585,6 +1585,24 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AiPromptTooLongFormat" xml:space="preserve">
     <value>最终组合的提示词不能超过 {0} 个字符。</value>
   </data>
+  <data name="AiImageGenerationSection" xml:space="preserve">
+    <value>图像生成</value>
+  </data>
+  <data name="AiImageEditSection" xml:space="preserve">
+    <value>图像编辑</value>
+  </data>
+  <data name="AiVideoGenerationSection" xml:space="preserve">
+    <value>视频生成</value>
+  </data>
+  <data name="AiVideoEditingSection" xml:space="preserve">
+    <value>视频编辑</value>
+  </data>
+  <data name="AiSubtitleSection" xml:space="preserve">
+    <value>字幕</value>
+  </data>
+  <data name="AiJobCenterSection" xml:space="preserve">
+    <value>任务</value>
+  </data>
   <data name="AiImageGenerationIdle" xml:space="preserve">
     <value>描述图像并点击“生成”。</value>
   </data>

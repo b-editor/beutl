@@ -322,7 +322,7 @@
                     <!--  The list grows into the panel's own scroll rather than carrying
                           a second one, so the wheel does the same thing everywhere.  -->
                     <ListBox x:Name="CaptionCueList"
-                             AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle}"
+                             AutomationProperties.Name="{x:Static lang:Strings.AiSubtitleSection}"
                              IsVisible="{CompiledBinding HasCues.Value}"
                              ItemsSource="{CompiledBinding Cues}"
                              ScrollViewer.VerticalScrollBarVisibility="Disabled"

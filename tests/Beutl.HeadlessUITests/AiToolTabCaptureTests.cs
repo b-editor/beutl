@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Globalization;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -7,6 +8,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Beutl.Api.Services;
 using Beutl.Controls.Styling.Themes;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -72,25 +74,44 @@ public class AiToolTabCaptureTests
     }
 
     [AvaloniaTest]
-    public async Task Capture_ai_workspace_pages_dark()
+    public async Task Capture_ai_workspace_pages_all_locales_dark()
     {
         await TestReset.ResetShellAsync();
         UseCaptureTheme();
         EditViewModel editor = await OpenEditorForNewScene("ai-workspace-capture");
-        AiWorkspaceViewModel workspace = TestShell.MainViewModel.CreateAiWorkspaceViewModel(editor);
-
-        foreach (AiWorkspaceSectionViewModel section in workspace.Sections)
+        CultureInfo previousCulture = CultureInfo.CurrentCulture;
+        CultureInfo previousUiCulture = CultureInfo.CurrentUICulture;
+        try
         {
-            workspace.Show(section.Id);
-            HeadlessTestHelpers.Settle();
-            Capture(
-                new AiWorkspaceView { DataContext = workspace },
-                380,
-                900,
-                $"ai-workspace-{section.Id.ToString().ToLowerInvariant()}.png");
+            foreach (CultureInfo culture in LocalizeService.Instance.SupportedCultures())
+            {
+                CultureInfo.CurrentCulture = culture;
+                CultureInfo.CurrentUICulture = culture;
+                AiWorkspaceViewModel workspace = TestShell.MainViewModel.CreateAiWorkspaceViewModel(editor);
+                try
+                {
+                    foreach (AiWorkspaceSectionViewModel section in workspace.Sections)
+                    {
+                        workspace.Show(section.Id);
+                        HeadlessTestHelpers.Settle();
+                        Capture(
+                            new AiWorkspaceView { DataContext = workspace },
+                            380,
+                            900,
+                            $"ai-workspace-{culture.Name}-{section.Id.ToString().ToLowerInvariant()}.png");
+                    }
+                }
+                finally
+                {
+                    await workspace.DisposeAsync();
+                }
+            }
         }
-
-        await workspace.DisposeAsync();
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
     }
 
     [AvaloniaTest]

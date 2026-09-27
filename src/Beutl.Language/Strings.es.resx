@@ -1585,6 +1585,24 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiPromptTooLongFormat" xml:space="preserve">
     <value>La indicación final no puede superar los {0} caracteres.</value>
   </data>
+  <data name="AiImageGenerationSection" xml:space="preserve">
+    <value>Generación de imágenes</value>
+  </data>
+  <data name="AiImageEditSection" xml:space="preserve">
+    <value>Edición de imágenes</value>
+  </data>
+  <data name="AiVideoGenerationSection" xml:space="preserve">
+    <value>Generación de vídeo</value>
+  </data>
+  <data name="AiVideoEditingSection" xml:space="preserve">
+    <value>Edición de vídeo</value>
+  </data>
+  <data name="AiSubtitleSection" xml:space="preserve">
+    <value>Subtítulos</value>
+  </data>
+  <data name="AiJobCenterSection" xml:space="preserve">
+    <value>Trabajos</value>
+  </data>
   <data name="AiImageGenerationIdle" xml:space="preserve">
     <value>Describe la imagen y haz clic en Generar.</value>
   </data>
