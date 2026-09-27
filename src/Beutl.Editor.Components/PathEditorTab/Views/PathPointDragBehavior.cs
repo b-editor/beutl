@@ -1,7 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Animation;
@@ -27,6 +29,11 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     private PathPointDragState? _dragState;
     private PathPointDragState[]? _coordDragStates;
     private Point? _lastPoint;
+    private Point _startThumbPosition;
+    private bool _toggleOnClick;
+    private bool _collapseOnClick;
+    private Control? _gestureHost;
+    private IPointer? _gesturePointer;
 
     static PathPointDragBehavior()
     {
@@ -73,11 +80,16 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
 
     private void OnReleased()
     {
+        _gestureHost?.RemoveHandler(InputElement.KeyDownEvent, OnGestureKeyDown);
+        _gestureHost = null;
+        _gesturePointer = null;
         IPathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<IPathEditorView>();
         if (parent is { DataContext: IPathEditorContext { Element.Value: { } element } viewModel })
         {
             parent.SkipUpdatePosition = false;
-            viewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.EditPathPoint);
+            if (_dragState != null)
+                viewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.EditPathPoint);
+            parent.Refresh();
         }
 
         _coordDragStates = null;
@@ -113,23 +125,17 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         {
             e.Handled = true;
 
-            if (!AssociatedObject.Classes.Contains("control"))
+            if (_dragState == null && !AssociatedObject.Classes.Contains("control"))
             {
-                if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+                if (_toggleOnClick)
+                    SetIsSelected(AssociatedObject, false);
+                else if (_collapseOnClick)
                 {
-                    SetIsSelected(AssociatedObject, !GetIsSelected(AssociatedObject));
+                    var parent = AssociatedObject.FindLogicalAncestorOfType<IPathEditorView>();
+                    foreach (Thumb item in parent?.GetSelectedAnchors() ?? [])
+                        SetIsSelected(item, item == AssociatedObject);
                 }
-                else if (_dragState == null || _coordDragStates == null)
-                {
-                    IPathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<IPathEditorView>();
-                    if (parent != null)
-                    {
-                        foreach (Thumb item in parent.GetSelectedAnchors())
-                        {
-                            SetIsSelected(item, false);
-                        }
-                    }
-                }
+                SynchronizeSelection();
             }
 
             OnReleased();
@@ -141,36 +147,17 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     }
 
     private static PathSegment? GetAnchor(IPathEditorContext viewModel, PathFigure figure, PathSegment segment,
-        object? tag)
+        object? tag, IEnumerable<PathSegment>? selectedAnchors = null)
     {
-        if (tag is not string s || figure.Segments.Count <= 1) return null;
-
-        int index = figure.Segments.IndexOf(segment);
-        int previndex = (index - 1 + figure.Segments.Count) % figure.Segments.Count;
-        if (s == "ControlPoint1")
-        {
-            return figure.Segments[previndex];
-        }
-        else if (s == "ControlPoint2")
-        {
-            return segment;
-        }
-        else if (s == "ControlPoint")
-        {
-            PathSegment? selected = viewModel.SelectedOperation.Value;
-            if (selected != segment)
-            {
-                return figure.Segments[previndex];
-            }
-            else
-            {
-                return segment;
-            }
-        }
-        else
-        {
-            return null;
-        }
+        if (tag is not string name) return null;
+        var property = PathEditorHelper.GetControlPointProperties(segment).FirstOrDefault(p => p.Name == name);
+        if (property == null) return null;
+        var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+        var composition = new CompositionContext(clock.CurrentTime.Value);
+        bool Connected(PathSegment anchor) => PathPointProperties.Get(figure, anchor, composition)
+            .Any(p => p.Role != PathPointPropertyRole.Position && ReferenceEquals(p.Property, property));
+        if (viewModel.SelectedOperation.Value is { } active && Connected(active)) return active;
+        return (selectedAnchors ?? figure.Segments).FirstOrDefault(Connected);
     }
 
     private void OnThumbPointerMoved(object? sender, PointerEventArgs e)
@@ -186,37 +173,50 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             return;
         }
 
-        // _dragState, _coordDragStatesがnullの場合、作成。
+        // Measure from a stable coordinate system; the thumb itself moves during the gesture.
+        Point total = e.GetPosition((Control)parent) - _lastPoint.Value;
+        if (_dragState == null && Math.Abs(total.X) < 3 && Math.Abs(total.Y) < 3) return;
         if ((_dragState == null || _coordDragStates == null)
-            && !CreateDragState(parent, viewModel, AssociatedObject, figure, segment))
+            && !CreateDragState(parent, viewModel, AssociatedObject, figure, segment)) return;
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && !AssociatedObject.Classes.Contains("control"))
+            total = Math.Abs(total.X) >= Math.Abs(total.Y) ? new Point(total.X, 0) : new Point(0, total.Y);
+
+        var linear = new Matrix(parent.Matrix.M11, parent.Matrix.M12,
+            parent.Matrix.M21, parent.Matrix.M22, 0, 0);
+        if (parent.Scale <= 0 || !linear.TryInvert(out Matrix inverse)) return;
+        Point local = inverse.Transform(total / parent.Scale);
+        var delta = new BtlVector((float)local.X, (float)local.Y);
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && AssociatedObject.Classes.Contains("control")
+            && GetAnchor(viewModel, figure, segment, AssociatedObject.Tag) is { } snapAnchor)
         {
-            return;
+            var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+            BtlPoint origin = snapAnchor.GetEndPoint().GetValue(new CompositionContext(clock.CurrentTime.Value));
+            Point initial = parent.Matrix.Invert().Transform(_startThumbPosition / parent.Scale);
+            BtlPoint desired = new((float)initial.X + delta.X, (float)initial.Y + delta.Y);
+            BtlPoint direction = desired - origin;
+            float angle = MathF.Round(MathF.Atan2(direction.Y, direction.X) / (MathF.PI / 4)) * (MathF.PI / 4);
+            float length = MathF.Sqrt(direction.X * direction.X + direction.Y * direction.Y);
+            delta = new BtlVector(origin.X + MathF.Cos(angle) * length - (float)initial.X,
+                origin.Y + MathF.Sin(angle) * length - (float)initial.Y);
         }
+        _dragState.MoveFromStart(delta);
+        UpdatePosition(_dragState);
 
-        Point vector = e.GetPosition(AssociatedObject) - _lastPoint.Value;
-
-        var delta = new BtlVector((float)(vector.X / parent.Scale), (float)(vector.Y / parent.Scale));
-        Graphics.Matrix mat = new Graphics.Matrix(
-            (float)parent.Matrix.M11, (float)parent.Matrix.M12,
-            (float)parent.Matrix.M21, (float)parent.Matrix.M22,
-            0, 0).Invert();
-        delta = mat.Transform((BtlPoint)delta);
-
-        _dragState.Move(delta);
-        if (_dragState.Thumb is { } thumb)
+        void UpdatePosition(PathPointDragState state)
         {
-            var p = PathEditorHelper.Round(
-                PathEditorHelper.GetCanvasPosition(thumb) + vector,
-                parent.Matrix);
-
-            PathEditorHelper.SetCanvasPosition(thumb, p);
+            if (state.Thumb is not { } thumb) return;
+            var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+            Point point = state.GetInterpolatedValue(clock.CurrentTime.Value).ToAvaPoint();
+            PathEditorHelper.SetCanvasPosition(thumb, parent.Matrix.Transform(point) * parent.Scale);
         }
 
         if (_coordDragStates != null)
         {
             if (AssociatedObject.Classes.Contains("control"))
             {
-                if (viewModel.Symmetry.Value || viewModel.Asymmetry.Value)
+                if (!e.KeyModifiers.HasFlag(KeyModifiers.Alt)
+                    && (viewModel.Symmetry.Value || viewModel.Asymmetry.Value))
                 {
                     // ControlPointからAnchor(複数)を取得
                     // つながっているAnchorの反対側ごとに、角度、長さを計算
@@ -329,15 +329,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             {
                 foreach (PathPointDragState item in _coordDragStates)
                 {
-                    item.Move(delta);
-                    if (item.Thumb is { } thumb1)
-                    {
-                        var p = PathEditorHelper.Round(
-                            PathEditorHelper.GetCanvasPosition(thumb1) + vector,
-                            parent.Matrix);
-
-                        PathEditorHelper.SetCanvasPosition(thumb1, p);
-                    }
+                    item.MoveFromStart(delta);
+                    UpdatePosition(item);
                 }
             }
 
@@ -345,7 +338,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         }
     }
 
-    private void SetSelectedOperation(IPathEditorContext viewModel, PathSegment segment)
+    private void SetSelectedOperation(IPathEditorView view, IPathEditorContext viewModel, PathSegment segment)
     {
         if (AssociatedObject != null && viewModel.FigureContext.Value is { } figureContext)
         {
@@ -354,6 +347,12 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             if (!AssociatedObject.Classes.Contains("control"))
             {
                 viewModel.SelectedOperation.Value = segment;
+            }
+            else if (viewModel.PathFigure.Value is { } figure
+                && GetAnchor(viewModel, figure, segment, AssociatedObject.Tag,
+                    view.GetSelectedAnchors().Select(t => t.DataContext).OfType<PathSegment>()) is { } anchor)
+            {
+                viewModel.SelectedOperation.Value = anchor;
             }
         }
     }
@@ -367,13 +366,50 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             return;
         }
 
+        if (!e.GetCurrentPoint(AssociatedObject).Properties.IsLeftButtonPressed || !parent.CanDragPoint(AssociatedObject)) return;
+        ((Control)parent).Focus();
+        _gestureHost = (Control)parent;
+        _gesturePointer = e.Pointer;
+        _gestureHost.AddHandler(InputElement.KeyDownEvent, OnGestureKeyDown, RoutingStrategies.Tunnel);
         e.Handled = true;
         parent.SkipUpdatePosition = true;
-        _lastPoint = e.GetPosition(AssociatedObject);
+        _lastPoint = e.GetPosition((Control)parent);
+        _startThumbPosition = PathEditorHelper.GetCanvasPosition(AssociatedObject);
+        e.Pointer.Capture(AssociatedObject);
+        _toggleOnClick = _collapseOnClick = false;
+        if (!AssociatedObject.Classes.Contains("control"))
+        {
+            bool selected = GetIsSelected(AssociatedObject);
+            bool extend = (e.KeyModifiers & (KeyModifiers.Shift | KeyModifiers.Control | KeyModifiers.Meta)) != 0;
+            _toggleOnClick = selected && extend;
+            _collapseOnClick = selected && !extend;
+            if (!selected && !extend)
+                foreach (Thumb item in parent.GetSelectedAnchors()) SetIsSelected(item, false);
+            SetIsSelected(AssociatedObject, true);
+        }
+        SetSelectedOperation(parent, viewModel, segment);
+    }
 
-        SetSelectedOperation(viewModel, segment);
+    private void OnGestureKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        var pointer = _gesturePointer;
+        if (_dragState != null && _gestureHost?.DataContext is IPathEditorContext context)
+            context.EditorContext.GetRequiredService<HistoryManager>().Rollback();
+        _dragState = null;
+        OnReleased();
+        pointer?.Capture(null);
+        e.Handled = true;
+    }
 
-        //CreateDragState(parent, viewModel, AssociatedObject, figure, segment);
+    private void SynchronizeSelection()
+    {
+        if (AssociatedObject?.FindLogicalAncestorOfType<IPathEditorView>() is { } parent
+            && parent.DataContext is IPathEditorContext context)
+        {
+            context.SelectedOperation.Value = parent.GetSelectedAnchors().LastOrDefault()?.DataContext as PathSegment;
+            parent.Refresh();
+        }
     }
 
     [MemberNotNullWhen(true, nameof(_dragState), nameof(_coordDragStates))]
@@ -387,6 +423,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
         if (prop != null)
         {
+            viewModel.EditorContext.GetRequiredService<HistoryManager>().Commit();
             _dragState = CreateThumbDragState(viewModel, segment, prop);
             _dragState.Thumb = thumb;
 
@@ -409,13 +446,13 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                     }
                 }
 
-                _coordDragStates = [.. list];
+                _coordDragStates = list.DistinctBy(s => s.Property).Where(s => s.Property != prop).ToArray();
             }
             else
             {
                 var list = new List<PathPointDragState>();
                 CoordinateAnotherControlPoint(list, view, viewModel, figure, segment, prop);
-                _coordDragStates = [.. list];
+                _coordDragStates = list.DistinctBy(s => s.Property).Where(s => s.Property != prop).ToArray();
             }
 
             return true;
@@ -433,27 +470,13 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         PathFigure figure,
         PathSegment segment)
     {
-        IProperty<BtlPoint>[] props = PathEditorHelper.GetControlPointProperties(segment);
-        if (props.Length > 0)
+        var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+        foreach (var property in PathPointProperties.Get(figure, segment, new CompositionContext(clock.CurrentTime.Value)))
         {
-            PathPointDragState state = CreateThumbDragState(viewModel, segment, props[^1]);
+            if (property.Role == PathPointPropertyRole.Position) continue;
+            PathPointDragState state = CreateThumbDragState(viewModel, property.Owner, property.Property);
             state.Thumb = view.FindThumb(state.Target, state.Property);
             list.Add(state);
-        }
-
-        int index = figure.Segments.IndexOf(segment);
-        int nextIndex = (index + 1) % figure.Segments.Count;
-
-        if (0 <= nextIndex && nextIndex < figure.Segments.Count)
-        {
-            PathSegment nextSegment = figure.Segments[nextIndex];
-            props = PathEditorHelper.GetControlPointProperties(nextSegment);
-            if (props.Length > 0)
-            {
-                PathPointDragState state = CreateThumbDragState(viewModel, nextSegment, props[0]);
-                state.Thumb = view.FindThumb(state.Target, state.Property);
-                list.Add(state);
-            }
         }
     }
 
@@ -466,69 +489,22 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         // [ControlPoint, ControlPoint1, ControlPoint2] のいずれか
         IProperty<BtlPoint> property)
     {
-        int index = figure.Segments.IndexOf(segment);
-        if (index < 0 || figure.Segments.Count == 0) return;
-
-        if (segment is CubicBezierSegment cubicBezierSegment)
+        if (GetAnchor(viewModel, figure, segment, property.Name) is not { } anchor) return;
+        var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+        foreach (var related in PathPointProperties.Get(figure, anchor, new CompositionContext(clock.CurrentTime.Value)))
         {
-            PathSegment? asegment = null;
-            PathSegment? anchor = null;
-            int apropIndex = -1;
-
-            if (property == cubicBezierSegment.ControlPoint1)
-            {
-                int aindex = (index - 1 + figure.Segments.Count) % figure.Segments.Count;
-                asegment = figure.Segments[aindex];
-                apropIndex = 1;
-                anchor = asegment;
-            }
-            else if (property == cubicBezierSegment.ControlPoint2)
-            {
-                int aindex = (index + 1) % figure.Segments.Count;
-                asegment = figure.Segments[aindex];
-                apropIndex = 0;
-                anchor = segment;
-            }
-
-            if (asegment != null)
-            {
-                IProperty<BtlPoint>? aproperty = PathEditorHelper.GetControlPointProperty(asegment, apropIndex);
-                if (aproperty != null)
-                {
-                    PathPointDragState state = CreateThumbDragState(viewModel, asegment, aproperty);
-                    state.Anchor = anchor;
-                    state.Thumb = view.FindThumb(state.Target, state.Property);
-                    list.Add(state);
-                }
-            }
+            if (related.Role == PathPointPropertyRole.Position || ReferenceEquals(related.Property, property)) continue;
+            PathPointDragState state = CreateThumbDragState(viewModel, related.Owner, related.Property);
+            state.Anchor = anchor;
+            state.Thumb = view.FindThumb(state.Target, state.Property);
+            list.Add(state);
         }
-        else if (segment is QuadraticBezierSegment or ConicSegment)
-        {
-            void Add(int aindex, int apropIndex, PathSegment? anchor)
-            {
-                PathSegment asegment = figure.Segments[aindex];
-                anchor ??= asegment;
+    }
 
-                IProperty<BtlPoint>? aproperty = PathEditorHelper.GetControlPointProperty(asegment, apropIndex);
-                if (aproperty != null)
-                {
-                    PathPointDragState state = CreateThumbDragState(viewModel, asegment, aproperty);
-                    state.Anchor = anchor;
-                    state.Thumb = view.FindThumb(state.Target, state.Property);
-                    list.Add(state);
-                }
-            }
-
-            PathSegment? selected = viewModel.SelectedOperation.Value;
-            if (selected != segment)
-            {
-                Add((index - 1 + figure.Segments.Count) % figure.Segments.Count, 1, segment);
-            }
-            else
-            {
-                Add((index + 1) % figure.Segments.Count, 0, null);
-            }
-        }
+    internal static bool IsClosed(IPathEditorContext context, PathFigure figure)
+    {
+        var clock = context.EditorContext.GetRequiredService<IEditorClock>();
+        return figure.IsClosed.GetValue(new CompositionContext(clock.CurrentTime.Value));
     }
 
     internal static PathPointDragState CreateThumbDragState(

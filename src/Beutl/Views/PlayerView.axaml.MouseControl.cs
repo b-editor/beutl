@@ -1926,6 +1926,15 @@ public partial class PlayerView
     {
         if (DataContext is PlayerViewModel viewModel)
         {
+            if (viewModel.PathEditor.IsVisible.Value
+                && (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) == 0)
+            {
+                AvaPoint delta = e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+                    ? new AvaPoint(e.Delta.Y, e.Delta.X) : new AvaPoint(e.Delta.X, e.Delta.Y);
+                viewModel.FrameMatrix.Value *= Matrix.CreateTranslation((float)delta.X * 24, (float)delta.Y * 24);
+                e.Handled = true;
+                return;
+            }
             CreateMouseHandler(viewModel).OnWheelChanged(e);
         }
     }

@@ -10,6 +10,10 @@ namespace Beutl.Editor.Components.PathEditorTab.Views;
 // タブとフレームでBehaviorを共有するため
 internal interface IPathEditorView
 {
+    void Refresh();
+
+    bool CanDragPoint(Thumb thumb);
+
     bool SkipUpdatePosition { get; set; }
 
     object? DataContext { get; }

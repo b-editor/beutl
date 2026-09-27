@@ -84,6 +84,17 @@ public sealed class PathPointDragState
         }
     }
 
+    public void MoveFromStart(BtlVector delta)
+    {
+        if (Previous == null && Next == null)
+            Property.CurrentValue = PathEditorHelper.Round(OldValue + delta);
+        else
+        {
+            if (Previous != null) Previous.Value = OldPreviousValue + delta;
+            if (Next != null) Next.Value = OldNextValue + delta;
+        }
+    }
+
     public void Move(BtlVector delta)
     {
         if (Previous == null && Next == null)

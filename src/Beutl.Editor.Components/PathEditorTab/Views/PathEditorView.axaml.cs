@@ -36,6 +36,9 @@ public partial class PathEditorView : UserControl, IPathEditorView
     public static readonly StyledProperty<Matrix> MatrixProperty =
         AvaloniaProperty.Register<PathEditorView, Matrix>(nameof(Matrix), Matrix.Identity);
 
+    private readonly PathEditorInteraction _interaction;
+    public PathEditorTool Tool { get => _interaction.Tool; set => _interaction.Tool = value; }
+    public Action<Vector>? PanViewport { get; set; }
     private double _scale = 1;
     private Point _clickPoint;
     private IDisposable? _disposable;
@@ -43,11 +46,15 @@ public partial class PathEditorView : UserControl, IPathEditorView
     public PathEditorView()
     {
         InitializeComponent();
+        _interaction = new PathEditorInteraction(this, canvas, delta => PanViewport?.Invoke(delta));
         canvas.AddHandler(PointerPressedEvent, OnCanvasPointerPressed, RoutingStrategies.Tunnel);
 
         view.GetObservable(PathGeometryControl.FigureProperty)
-            .Subscribe(geo =>
+            .Subscribe(geo => Dispatcher.UIThread.Post(() =>
             {
+                // DataContext inheritance can still be walking the visual children here.
+                // Rebuild after that traversal, and discard obsolete figure notifications.
+                if (!ReferenceEquals(view.Figure, geo)) return;
                 canvas.Children.RemoveAll(canvas.Children
                     .Where(c => c is Thumb)
                     .Do(t => t.DataContext = null));
@@ -59,7 +66,8 @@ public partial class PathEditorView : UserControl, IPathEditorView
                     () => canvas.Children.RemoveAll(canvas.Children
                         .Where(c => c is Thumb)
                         .Do(t => t.DataContext = null)));
-            });
+                Refresh();
+            }));
 
         // 選択されているアンカーまたは、PathGeometry.IsClosedが変更されたとき、
         // アンカーの可視性を変更する
@@ -69,7 +77,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
                 ?? Observable.ReturnThenNever<Unit>(default))
             .Switch()
             .ObserveOnUIDispatcher()
-            .Subscribe(_ => UpdateControlPointVisibility());
+            .Subscribe(_ => Refresh());
 
         // 個別にBindingするのではなく、一括で位置を変更する
         // TODO: Scale, Matrixが変わった時に位置がずれる
@@ -81,6 +89,16 @@ public partial class PathEditorView : UserControl, IPathEditorView
             .Subscribe(_ => UpdateThumbPosition());
     }
 
+    public bool CanDragPoint(Thumb thumb) => _interaction.CanDragPoint(thumb);
+
+    public void Refresh()
+    {
+        UpdateControlPointVisibility();
+        view.SelectedOperations = GetSelectedAnchors().Select(t => t.DataContext).OfType<PathSegment>().ToArray();
+        UpdateThumbPosition();
+        view.InvalidateVisual();
+    }
+
     private void UpdateControlPointVisibility()
     {
         if (DataContext is PathEditorViewModel viewModel)
@@ -89,7 +107,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
                 canvas,
                 viewModel.SelectedOperation.Value,
                 viewModel.PathFigure.Value,
-                viewModel.IsClosed.Value);
+                new CompositionContext(viewModel.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value));
         }
     }
 
@@ -99,26 +117,12 @@ public partial class PathEditorView : UserControl, IPathEditorView
 
         Dispatcher.UIThread.Post(() =>
         {
+            if (SkipUpdatePosition) return;
             if (DataContext is PathEditorViewModel viewModel)
             {
                 var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
-                foreach (Thumb thumb in canvas.Children.OfType<Thumb>())
-                {
-                    if (thumb.DataContext is PathSegment segment)
-                    {
-                        IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
-                        if (prop != null)
-                        {
-                            var ctx = new CompositionContext(clock.CurrentTime.Value);
-                            Point point = prop.GetValue(ctx).ToAvaPoint();
-                            point = point.Transform(Matrix);
-                            point *= Scale;
-
-                            Canvas.SetLeft(thumb, point.X);
-                            Canvas.SetTop(thumb, point.Y);
-                        }
-                    }
-                }
+                PathEditorHelper.UpdateThumbPositions(canvas, this, new CompositionContext(clock.CurrentTime.Value));
+                view.InvalidateVisual();
             }
         }, DispatcherPriority.MaxValue);
     }

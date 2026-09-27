@@ -1,51 +1,40 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ControlTheme x:Key="PathEditorControlPointThumbTheme" TargetType="Thumb">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderBrush" Value="White" />
-        <!--<Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />-->
-        <Setter Property="BorderThickness" Value="3" />
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="Width" Value="16" />
-        <Setter Property="Height" Value="16" />
-        <Setter Property="Margin" Value="-8,-8,0,0" />
-        <Setter Property="ClipToBounds" Value="False" />
+        <!-- Keep a generous hit area while drawing a compact, zoom-independent anchor. -->
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1.5" />
+        <Setter Property="CornerRadius" Value="1" />
+        <Setter Property="Width" Value="20" />
+        <Setter Property="Height" Value="20" />
+        <Setter Property="Margin" Value="-10,-10,0,0" />
+        <Setter Property="Cursor" Value="SizeAll" />
+        <Setter Property="ZIndex" Value="20" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{TemplateBinding CornerRadius}">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="0"
-                                              OffsetX="1"
-                                              OffsetY="1"
-                                              Color="Black" />
-                        </Border.Effect>
+                    <Border Background="Transparent">
+                        <Border Width="8" Height="8"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}" />
                     </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-
         <Style Selector="^:pointerover">
-            <Setter Property="Opacity" Value="0.9" />
+            <Setter Property="BorderThickness" Value="2.5" />
         </Style>
-
-        <Style Selector="^:pressed">
-            <Setter Property="Opacity" Value="0.75" />
-        </Style>
-
         <Style Selector="^.selected">
-            <Setter Property="Opacity" Value="0.8" />
+            <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
         </Style>
-
         <Style Selector="^.control">
-            <Setter Property="Margin" Value="-5,-5,0,0" />
-            <Setter Property="Width" Value="10" />
-            <Setter Property="Height" Value="10" />
-            <Setter Property="CornerRadius" Value="5" />
-            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="ZIndex" Value="10" />
+            <Setter Property="Cursor" Value="Cross" />
         </Style>
     </ControlTheme>
 </ResourceDictionary>
