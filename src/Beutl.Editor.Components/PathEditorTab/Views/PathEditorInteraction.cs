@@ -226,15 +226,22 @@ internal sealed class PathEditorInteraction
     public void RefreshOverlays()
     {
         _explicitStart.IsVisible = false;
-        if (Tool != PathEditorTool.Pen || Context?.PathFigure.Value is not { Segments.Count: > 0 } figure) return;
+        if (Tool != PathEditorTool.Pen || _penEnd == null
+            || Context?.PathFigure.Value is not { Segments.Count: > 0 } figure
+            || !figure.Segments.Contains(_penEnd)) return;
         var context = Composition;
         BtlPoint start = figure.StartPoint.GetValue(context);
-        if (start.IsInvalid || figure.IsClosed.GetValue(context)) return;
+        if (start.IsInvalid || figure.IsClosed.GetValue(context) || !CanCloseExplicitPath(figure)) return;
         Point point = Screen(start);
         Canvas.SetLeft(_explicitStart, point.X - 4);
         Canvas.SetTop(_explicitStart, point.Y - 4);
         _explicitStart.IsVisible = true;
     }
+
+    private bool CanCloseExplicitPath(PathFigure figure) =>
+        PathEditingOperations.IsStatic(figure.IsClosed)
+        && (_outgoing == null || PathEditingOperations.IsStatic(figure.StartPoint)
+            && PathEditingOperations.IsStatic(figure.Segments[^1].GetEndPoint()));
 
     private static T? Ancestor<T>(object? source) where T : Visual =>
         source is T self ? self : (source as Visual)?.GetVisualAncestors().OfType<T>().FirstOrDefault();
@@ -281,6 +288,13 @@ internal sealed class PathEditorInteraction
                 && !PathPointDragBehavior.IsClosed(Context, figure)
                 && ((Vector)(point - Screen(explicitStart))).SquaredLength <= 7 * 7)
             {
+                // Reject the whole operation before touching geometry or clearing the
+                // pen state when the closing edge cannot preserve its inputs.
+                if (!CanCloseExplicitPath(figure))
+                {
+                    e.Handled = true;
+                    return;
+                }
                 Mutate(() =>
                 {
                     // An explicit start owns the existing first edge. A curved
@@ -303,6 +317,11 @@ internal sealed class PathEditorInteraction
                 if (_penEnd != null && explicitStart.IsInvalid && ReferenceEquals(endpoint, figure.Segments.FirstOrDefault())
                     && figure.Segments.Count > 1 && !PathPointDragBehavior.IsClosed(Context, figure))
                 {
+                    if (!PathEditingOperations.IsStatic(figure.IsClosed))
+                    {
+                        e.Handled = true;
+                        return;
+                    }
                     Mutate(() =>
                     {
                         if (figure.Segments[0] is LineSegment && PathEditingOperations.IsStatic(endpoint.GetEndPoint())
@@ -408,6 +427,7 @@ internal sealed class PathEditorInteraction
         {
             _penEnd = null;
             _outgoing = _firstIncoming = null;
+            RefreshOverlays();
         }
         if (_pointer == null)
         {

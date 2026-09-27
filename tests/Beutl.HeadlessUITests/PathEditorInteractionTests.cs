@@ -212,21 +212,27 @@ public class PathEditorInteractionTests
         else editor.Key(Key.P);
         try
         {
-            Click(new(280, 180));
+            // Preview matrices are published asynchronously; hit the displayed
+            // anchor instead of predicting where its next layout will place it.
+            ClickAnchor(figure.Segments[^1]);
+            Assert.That(figure.Segments, Has.Count.EqualTo(2));
+            Assert.That(view.GetSelectedAnchors().Single().DataContext, Is.SameAs(figure.Segments[^1]));
             if (curved) editor.Drag(Screen(new(240, 120)), Screen(new(270, 120)));
             else Click(new(240, 120));
             Assert.That(figure.Segments, Has.Count.EqualTo(3), "append the endpoint before testing closure");
             var originalEdges = figure.Segments.ToArray();
             var originalFirst = CoreSerializer.SerializeToJsonObject(first);
             int history = editor.Editor.HistoryManager.UndoCount;
-            Click(new(180, 100));
+            ClickAnchor(first);
             Assert.That(figure.IsClosed.CurrentValue, Is.False, "the first segment endpoint is not the start");
             Assert.That(figure.Segments, Is.EqualTo(originalEdges));
             Assert.That(JsonNode.DeepEquals(originalFirst, CoreSerializer.SerializeToJsonObject(first)), Is.True);
             Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history));
             Capture("open");
 
-            Click(new(80, 100));
+            var startMarker = ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Border>()
+                .Single(b => b.Name == "PathStartPoint");
+            editor.ClickControl(startMarker);
             Assert.That(figure.IsClosed.CurrentValue, Is.True);
             Assert.That(figure.Segments.Take(originalEdges.Length), Is.EqualTo(originalEdges));
             Assert.That(JsonNode.DeepEquals(originalFirst, CoreSerializer.SerializeToJsonObject(first)), Is.True);
@@ -250,6 +256,12 @@ public class PathEditorInteractionTests
 
         Point Screen(BtlPoint p) => view.Matrix.Transform(new Point(p.X, p.Y)) * view.Scale;
         void Click(BtlPoint p) { Point screen = Screen(p); editor.Click(screen.X, screen.Y); }
+        void ClickAnchor(PathSegment segment)
+        {
+            var thumb = ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Thumb>()
+                .Single(t => ReferenceEquals(t.DataContext, segment) && !t.Classes.Contains("control"));
+            editor.ClickControl(thumb);
+        }
         void Capture(string stage)
         {
             if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is not { Length: > 0 } directory) return;
@@ -257,6 +269,141 @@ public class PathEditorInteractionTests
             HeadlessTestHelpers.Render(3);
             using var frame = editor.Window.CaptureRenderedFrame();
             frame!.Save(System.IO.Path.Combine(directory, $"explicit-start-{curved}-{preview}-{stage}.png"), PngBitmapEncoderOptions.Default);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task Pen_rejects_closure_when_closed_state_has_animation_or_expression(bool explicitStart, bool expression)
+    {
+        var figure = new PathFigure();
+        if (explicitStart) figure.StartPoint.CurrentValue = new(80, 100);
+        else figure.Segments.Add(new LineSegment(80, 100));
+        figure.Segments.Add(new LineSegment(180, 100));
+        figure.Segments.Add(new LineSegment(280, 180));
+        using var editor = await Fixture.Create(pathFigure: figure);
+        editor.Key(Key.P);
+        editor.Click(280, 180);
+        editor.Drag(new(240, 120), new(270, 120));
+        using (editor.Editor.HistoryManager.SuppressRecording())
+        {
+            if (expression)
+            {
+                figure.IsClosed.Expression = Expression.Create<bool>("false");
+            }
+            else
+            {
+                var animation = new KeyFrameAnimation<bool>();
+                animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = false });
+                animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(1), Value = true });
+                figure.IsClosed.Animation = animation;
+            }
+        }
+        editor.View.Refresh();
+        HeadlessTestHelpers.Render(3);
+        var before = CoreSerializer.SerializeToJsonObject(figure);
+        int history = editor.Editor.HistoryManager.UndoCount;
+        editor.Click(80, 100);
+        Assert.That(JsonNode.DeepEquals(before, CoreSerializer.SerializeToJsonObject(figure)), Is.True,
+            "reject the entire close operation without touching geometry, keys, expressions, or base values");
+        Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Pen));
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history));
+        Assert.That(editor.Editor.HistoryManager.HasPendingOperations, Is.False);
+        editor.Click(220, 160);
+        Assert.That(((CubicBezierSegment)figure.Segments[^1]).ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)),
+            "a rejected closure must preserve the pending outgoing handle for continuation");
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task Pen_retains_pending_handle_when_closing_endpoint_is_not_static(bool last, bool expression)
+    {
+        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        figure.Segments.Add(new LineSegment(180, 100));
+        figure.Segments.Add(new LineSegment(280, 180));
+        using var editor = await Fixture.Create(pathFigure: figure);
+        editor.Key(Key.P);
+        editor.Click(280, 180);
+        editor.Drag(new(240, 120), new(270, 120));
+        var property = last ? figure.Segments[^1].GetEndPoint() : figure.StartPoint;
+        using (editor.Editor.HistoryManager.SuppressRecording())
+        {
+            if (expression)
+            {
+                property.Expression = Expression.Create<BtlPoint>(last ? "new Point(240, 120)" : "new Point(80, 100)");
+            }
+            else
+            {
+                var animation = new KeyFrameAnimation<BtlPoint>();
+                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = property.CurrentValue });
+                property.Animation = animation;
+            }
+        }
+        editor.View.Refresh();
+        HeadlessTestHelpers.Render(3);
+        var before = CoreSerializer.SerializeToJsonObject(figure);
+        int history = editor.Editor.HistoryManager.UndoCount;
+        editor.Click(80, 100);
+        Assert.That(JsonNode.DeepEquals(before, CoreSerializer.SerializeToJsonObject(figure)), Is.True);
+        Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Pen));
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history));
+        Assert.That(editor.Editor.HistoryManager.HasPendingOperations, Is.False);
+        using (editor.Editor.HistoryManager.SuppressRecording())
+        {
+            property.Animation = null;
+            property.Expression = null;
+        }
+        editor.View.Refresh();
+        HeadlessTestHelpers.Render(3);
+        editor.Click(80, 100);
+        Assert.That(figure.IsClosed.CurrentValue, Is.True);
+        var closing = (CubicBezierSegment)figure.Segments[^1];
+        Assert.That(closing.EndPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(closing.ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)));
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history + 1));
+    }
+
+    [AvaloniaTest]
+    public async Task Explicit_start_marker_requires_a_live_pen_continuation()
+    {
+        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        figure.Segments.Add(new LineSegment(180, 100));
+        figure.Segments.Add(new LineSegment(280, 180));
+        using var editor = await Fixture.Create(pathFigure: figure);
+        var marker = editor.View.FindControl<Canvas>("canvas")!.Children.OfType<Border>()
+            .Single(b => b.Name == "PathStartPoint");
+        editor.Key(Key.P);
+        Assert.That(marker.IsVisible, Is.False, "selecting Pen alone cannot offer closure");
+        Capture("inactive");
+        editor.Click(280, 180);
+        Assert.That(marker.IsVisible, Is.True);
+        Capture("active");
+        editor.Key(Key.V);
+        Assert.That(marker.IsVisible, Is.False);
+        editor.Key(Key.P);
+        Assert.That(marker.IsVisible, Is.False);
+        editor.Click(180, 100);
+        Assert.That(marker.IsVisible, Is.False);
+        editor.Click(280, 180);
+        Assert.That(marker.IsVisible, Is.True);
+        editor.Key(Key.Delete);
+        Assert.That(marker.IsVisible, Is.False, "deleting the continuation endpoint clears the close target");
+        editor.MouseMove(new(350, 300));
+        Assert.That(marker.IsVisible, Is.False);
+
+        void Capture(string state)
+        {
+            if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is not { Length: > 0 } directory) return;
+            Directory.CreateDirectory(directory);
+            HeadlessTestHelpers.Render(3);
+            using var frame = editor.Window.CaptureRenderedFrame();
+            frame!.Save(System.IO.Path.Combine(directory, $"close-marker-{state}.png"), PngBitmapEncoderOptions.Default);
         }
     }
 
