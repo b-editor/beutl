@@ -188,6 +188,76 @@ public class PathEditorInteractionTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
+    public async Task Pen_creates_the_first_explicit_edge_with_drag_handles_and_one_history_entry(bool drag)
+    {
+        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        using var editor = await Fixture.Create(pathFigure: figure);
+        editor.Key(Key.P);
+        if (drag) editor.Drag(new(180, 160), new(215, 160));
+        else editor.Click(180, 160);
+        Assert.That(figure.Segments, Has.Count.EqualTo(1));
+        var first = figure.Segments[0];
+        Assert.That(first.GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(180, 160)));
+        Assert.That(figure.StartPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        var midpoint = PathEditingOperations.Evaluate(figure.StartPoint.CurrentValue, first, .5f, CompositionContext.Default);
+        if (drag)
+        {
+            Assert.That(first, Is.TypeOf<CubicBezierSegment>());
+            Assert.That(((CubicBezierSegment)first).ControlPoint2.CurrentValue, Is.EqualTo(new BtlPoint(145, 160)));
+            Assert.That(midpoint.Y, Is.Not.EqualTo(130));
+        }
+        else Assert.That(midpoint.Y, Is.EqualTo(130).Within(.001));
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
+        var firstState = CoreSerializer.SerializeToJsonObject(figure);
+        var firstEdge = CoreSerializer.SerializeToJsonObject(first);
+        if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
+        {
+            Directory.CreateDirectory(directory);
+            using var frame = editor.Window.CaptureRenderedFrame();
+            frame!.Save(System.IO.Path.Combine(directory, $"first-explicit-edge-{drag}.png"), PngBitmapEncoderOptions.Default);
+        }
+        editor.Click(290, 100);
+        Assert.That(figure.Segments, Has.Count.EqualTo(2));
+        if (drag) Assert.That(((CubicBezierSegment)figure.Segments[1]).ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(215, 160)));
+        var secondState = CoreSerializer.SerializeToJsonObject(figure);
+        editor.Click(80, 100);
+        Assert.That(figure.IsClosed.CurrentValue, Is.True);
+        Assert.That(JsonNode.DeepEquals(firstEdge, CoreSerializer.SerializeToJsonObject(first)), Is.True);
+        var closedState = CoreSerializer.SerializeToJsonObject(figure);
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(3));
+        editor.Editor.HistoryManager.Undo();
+        Assert.That(JsonNode.DeepEquals(secondState, CoreSerializer.SerializeToJsonObject(figure)), Is.True);
+        editor.Editor.HistoryManager.Undo();
+        Assert.That(JsonNode.DeepEquals(firstState, CoreSerializer.SerializeToJsonObject(figure)), Is.True);
+        editor.Editor.HistoryManager.Undo();
+        Assert.That(figure.Segments, Is.Empty);
+        Assert.That(figure.StartPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        editor.Editor.HistoryManager.Redo();
+        editor.Editor.HistoryManager.Redo();
+        editor.Editor.HistoryManager.Redo();
+        Assert.That(JsonNode.DeepEquals(closedState, CoreSerializer.SerializeToJsonObject(figure)), Is.True);
+    }
+
+    [AvaloniaTest]
+    public async Task Escape_cancels_first_explicit_edge_drag_without_losing_the_start_point()
+    {
+        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        using var editor = await Fixture.Create(pathFigure: figure);
+        editor.Key(Key.P);
+        editor.MouseDown(new(180, 160), MouseButton.Left);
+        editor.MouseMove(new(215, 160), RawInputModifiers.LeftMouseButton);
+        Assert.That(figure.Segments.Single(), Is.TypeOf<CubicBezierSegment>());
+        editor.Key(Key.Escape);
+        editor.MouseUp(new(215, 160), MouseButton.Left);
+        Assert.That(figure.Segments, Is.Empty);
+        Assert.That(figure.StartPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
+        Assert.That(editor.Editor.HistoryManager.HasPendingOperations, Is.False);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
     public async Task Pen_closing_existing_cubic_applies_outgoing_and_preserves_incoming(bool animatedIncoming)
     {
         var figure = new PathFigure();

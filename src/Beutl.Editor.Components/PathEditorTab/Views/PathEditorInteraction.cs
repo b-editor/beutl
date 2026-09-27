@@ -381,14 +381,17 @@ internal sealed class PathEditorInteraction
                 _penSegment = null;
                 _start = point;
                 Context.EditorContext.GetRequiredService<HistoryManager>().Commit();
-                if (figure.Segments.Count == 0)
+                // Only an implicit start needs a move-only anchor. With an explicit
+                // start, the first point already terminates an edge that can be bent.
+                if (figure.Segments.Count == 0 && explicitStart.IsInvalid)
                 {
                     _penEnd = new LineSegment(_penPoint);
                     figure.Segments.Add(_penEnd);
                 }
                 else
                 {
-                    BtlPoint previous = figure.Segments[^1].GetEndPoint().GetValue(Composition);
+                    BtlPoint previous = figure.Segments.Count == 0
+                        ? explicitStart : figure.Segments[^1].GetEndPoint().GetValue(Composition);
                     _penSegment = PathEditingOperations.Cubic(_outgoing ?? PathEditingOperations.Lerp(previous, _penPoint, 1f / 3),
                         PathEditingOperations.Lerp(previous, _penPoint, 2f / 3), _penPoint);
                     _penEnd = _penSegment;
