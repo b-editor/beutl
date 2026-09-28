@@ -455,7 +455,7 @@ public partial class MainView
         {
             try
             {
-                ExportResult result = await ProjectPackageService.Current.ExportAsync(
+                ExportResult result = await exportVm.ExportProjectAsync(
                     project,
                     outputPath,
                     new Progress<(string Message, double Progress)>(p =>

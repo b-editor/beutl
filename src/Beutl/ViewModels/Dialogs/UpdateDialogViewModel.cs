@@ -449,6 +449,9 @@ public class UpdateDialogViewModel
             if (metadata.Type is "zip")
             {
                 using var source = ZipFile.Open(file, ZipArchiveMode.Read);
+                string extractionRoot = Path.GetFullPath(destination);
+                if (!Path.EndsInDirectorySeparator(extractionRoot))
+                    extractionRoot += Path.DirectorySeparatorChar;
 
                 ProgressMax.Value = source.Entries.Count;
                 ProgressText.Value = MessageStrings.Extracting;
@@ -456,8 +459,8 @@ public class UpdateDialogViewModel
                 {
                     if (entry.Length != 0)
                     {
-                        string dst = Path.GetFullPath(Path.Combine(destination, entry.FullName));
-                        if (!dst.StartsWith(destination))
+                        string dst = Path.GetFullPath(Path.Combine(extractionRoot, entry.FullName));
+                        if (!dst.StartsWith(extractionRoot, StringComparison.Ordinal))
                         {
                             _logger.LogError("Entry is outside of the target directory: {Entry}", entry.FullName);
                             throw new InvalidOperationException("Entry is outside of the target directory.");
@@ -471,6 +474,8 @@ public class UpdateDialogViewModel
 
                     ProgressValue.Value++;
                 }
+
+                ValidateApplicationPayload(metadata, destination);
             }
             else if (metadata.Type is "app")
             {
@@ -516,6 +521,8 @@ public class UpdateDialogViewModel
                         process.ExitCode);
                     throw new InvalidDataException(MessageStrings.OperationFailed);
                 }
+
+                ValidateApplicationPayload(metadata, Path.Combine(contents, "MacOS"));
             }
 
             File.Delete(file);
@@ -551,6 +558,42 @@ public class UpdateDialogViewModel
                 {
                     _logger.LogWarning(ex, "Failed to remove incomplete update files from {Destination}.", destination);
                 }
+            }
+        }
+    }
+
+    private void ValidateApplicationPayload(AssetMetadataJson metadata, string directory)
+    {
+        string executable = metadata.OS switch
+        {
+            "win" => "Beutl.exe",
+            "linux" or "osx" => "Beutl",
+            _ => throw new InvalidDataException(MessageStrings.OperationFailed),
+        };
+        List<string> requiredFiles = [executable, "Beutl.dll", "Beutl.deps.json", "Beutl.runtimeconfig.json"];
+        if (string.Equals(metadata.Standalone, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            requiredFiles.Add("System.Private.CoreLib.dll");
+            foreach (string library in new[] { "coreclr", "hostfxr", "hostpolicy" })
+            {
+                requiredFiles.Add(metadata.OS switch
+                {
+                    "win" => library + ".dll",
+                    "linux" => "lib" + library + ".so",
+                    _ => "lib" + library + ".dylib",
+                });
+            }
+        }
+
+        // A valid ZIP is not necessarily an application. Reject incomplete payloads before
+        // enabling installation: the updater removes its backup after a successful copy.
+        foreach (string required in requiredFiles)
+        {
+            string path = Path.Combine(directory, required);
+            if (!File.Exists(path) || new FileInfo(path).Length == 0)
+            {
+                _logger.LogError("The update is missing a required nonempty file: {File}", required);
+                throw new InvalidDataException(MessageStrings.OperationFailed);
             }
         }
     }

@@ -2,13 +2,16 @@
 using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 using Beutl.AgentHost;
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;
+using Beutl.Editor.VersionControl;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
@@ -196,6 +199,42 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     internal AgentHostEndpoint AgentHostEndpoint => _agentHostEndpoint;
 
     internal ProjectDiskDeletion ProjectDiskDeletion { get; }
+
+    internal async Task<ExportResult> ExportProjectAsync(
+        Project project,
+        string outputPath,
+        IProgress<(string Message, double Progress)>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+            return await Dispatcher.UIThread.InvokeAsync(() => ExportProjectAsync(project, outputPath, progress, cancellationToken));
+
+        cancellationToken.ThrowIfCancellationRequested();
+        ExportResult result = new(false, []);
+        await _projectService.RunExclusiveOfTransitionsAsync(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            // The native picker may have stayed open while another operation changed projects.
+            if (!ReferenceEquals(_projectService.CurrentProject.Value, project))
+                return;
+
+            using IDisposable output = _editorService.BeginObservedOutputOperation();
+            using IDisposable suspension = _editorService.SuspendEditors();
+            using IProjectFileWriteLease fileWrite = await _editorService.BeginProjectFileWriteAsync(cancellationToken);
+            foreach (EditViewModel editor in _editorService.TabItems.Select(tab => tab.Context.Value).OfType<EditViewModel>().ToArray())
+            {
+                editor.HistoryManager.FlushPendingMutations();
+                editor.HistoryManager.Commit();
+            }
+
+            if (!await _editorService.SaveProjectFilesAsync(project, cancellationToken))
+                throw new IOException(MessageStrings.FileSaveException);
+
+            // Keep the saved graph and its files stable while the package service copies them.
+            result = await ProjectPackageService.Current.ExportAsync(project, outputPath, progress, cancellationToken);
+        });
+        return result;
+    }
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 

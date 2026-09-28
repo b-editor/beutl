@@ -4,6 +4,7 @@ using Avalonia.Platform.Storage;
 
 using Beutl.Graphics;
 using Beutl.Helpers;
+using Beutl.IO;
 using Beutl.Media;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -93,14 +94,37 @@ public partial class PlayerView
         return await storage.SaveFilePickerAsync(options);
     }
 
-    private static async Task SaveImage(IStorageFile file, Bitmap bitmap)
+    internal static async Task SaveImage(IStorageFile file, Bitmap bitmap)
     {
-        string str = file.Path.ToString();
-        EncodedImageFormat format = Graphics.Image.ToImageFormat(str);
+        string extension = Path.GetExtension(file.Name).ToLowerInvariant();
+        EncodedImageFormat format = extension switch
+        {
+            ".png" or "" => EncodedImageFormat.Png,
+            ".jpg" or ".jpeg" => EncodedImageFormat.Jpeg,
+            ".webp" => EncodedImageFormat.Webp,
+            _ => throw new NotSupportedException($"{Strings.Unsupported}: {extension}"),
+        };
+        if (file.TryGetLocalPath() is { } path)
+        {
+            using var output = new StagedOutputFile(path);
+            if (!bitmap.Save(output.TemporaryPath, format))
+                throw new IOException(MessageStrings.FailedToSaveImage);
+            output.Commit(CancellationToken.None);
+            return;
+        }
 
-        using Stream stream = await file.OpenWriteAsync();
-
-        bitmap.Save(stream, format);
+        // Opaque storage providers have no sibling path to stage to. Encode completely
+        // before opening their output so an encoder failure cannot truncate an existing file.
+        using var encoded = new MemoryStream();
+        if (!bitmap.Save(encoded, format))
+            throw new IOException(MessageStrings.FailedToSaveImage);
+        encoded.Position = 0;
+        await using Stream stream = await file.OpenWriteAsync();
+        if (stream.CanSeek)
+            stream.Position = 0;
+        await encoded.CopyToAsync(stream);
+        if (stream.CanSeek)
+            stream.SetLength(stream.Position);
     }
 
     // Prompts for the output-resolution multiplier. Returns the chosen scale, or null on cancel.
