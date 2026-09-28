@@ -59,6 +59,12 @@ public partial class PlayerView : UserControl
         SetupImageControl();
 
         ConfigureFrameContextMenu(framePanel);
+        pathEditorView.SetToolbarHost(pathToolsHost);
+        pathEditorView.PanViewport = delta =>
+        {
+            if (DataContext is PlayerViewModel vm)
+                vm.FrameMatrix.Value *= BtlMatrix.CreateTranslation((float)delta.X, (float)delta.Y);
+        };
         framePanel.PointerPressed += OnFramePointerPressed;
         framePanel.PointerReleased += OnFramePointerReleased;
         framePanel.PointerMoved += OnFramePointerMoved;

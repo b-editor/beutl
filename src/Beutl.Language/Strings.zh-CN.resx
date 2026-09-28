@@ -1666,4 +1666,76 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="OpenInFileManager" xml:space="preserve">
     <value>在文件管理器中打开</value>
   </data>
+  <data name="PathEditor_MoveTool" xml:space="preserve">
+    <value>选择 (V) · Shift：添加到选择</value>
+  </data>
+  <data name="PathEditor_PenTool" xml:space="preserve">
+    <value>钢笔 (P) · 单击：添加点 · 拖动：曲线</value>
+  </data>
+  <data name="PathEditor_BendTool" xml:space="preserve">
+    <value>弯曲 (B) · 单击点以添加或移除手柄</value>
+  </data>
+  <data name="PathEditor_HandTool" xml:space="preserve">
+    <value>抓手 (H) · 空格 + 拖动：平移</value>
+  </data>
+  <data name="PathEditor_ZoomIn" xml:space="preserve">
+    <value>放大 (+)</value>
+  </data>
+  <data name="PathEditor_ZoomOut" xml:space="preserve">
+    <value>缩小 (-)</value>
+  </data>
+  <data name="PathEditor_Fit" xml:space="preserve">
+    <value>适合路径 (Shift+1)</value>
+  </data>
+  <data name="PathEditor_NoSelection" xml:space="preserve">
+    <value>未选择点</value>
+  </data>
+  <data name="PathEditor_SelectedPoints" xml:space="preserve">
+    <value>已选择 {0} 个点</value>
+  </data>
+  <data name="PathEditor_PointX" xml:space="preserve">
+    <value>点的 X 坐标</value>
+  </data>
+  <data name="PathEditor_PointY" xml:space="preserve">
+    <value>点的 Y 坐标</value>
+  </data>
+  <data name="PathEditor_MirrorBoth" xml:space="preserve">
+    <value>镜像角度和长度</value>
+  </data>
+  <data name="PathEditor_MirrorAngle" xml:space="preserve">
+    <value>镜像角度</value>
+  </data>
+  <data name="PathEditor_Independent" xml:space="preserve">
+    <value>独立手柄 (Alt / Option)</value>
+  </data>
+  <data name="PathEditor_Display" xml:space="preserve">
+    <value>预览</value>
+  </data>
+  <data name="PathEditor_EmptyHint" xml:space="preserve">
+    <value>在属性面板中选择路径以开始编辑。</value>
+  </data>
+  <data name="PathEditor_PointSettings" xml:space="preserve">
+    <value>点设置</value>
+  </data>
+  <data name="PathEditor_Handles" xml:space="preserve">
+    <value>手柄</value>
+  </data>
+  <data name="PathEditor_StrokeLabel" xml:space="preserve">
+    <value>描边</value>
+  </data>
+  <data name="PathEditor_FillLabel" xml:space="preserve">
+    <value>填充</value>
+  </data>
+  <data name="PathEditor_SelectionPosition" xml:space="preserve">
+    <value>选择区域位置</value>
+  </data>
+  <data name="PathEditor_ActivePoint" xml:space="preserve">
+    <value>活动点</value>
+  </data>
+  <data name="PathEditor_IncomingControlPoint" xml:space="preserve">
+    <value>入向控制点</value>
+  </data>
+  <data name="PathEditor_OutgoingControlPoint" xml:space="preserve">
+    <value>出向控制点</value>
+  </data>
 </root>

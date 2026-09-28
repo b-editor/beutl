@@ -37,13 +37,20 @@ public class PathGeometryControl : Control
     public static readonly StyledProperty<bool> IsPlayingProperty =
         AvaloniaProperty.Register<PathGeometryControl, bool>(nameof(IsPlaying));
 
-    private static readonly Avalonia.Media.IPen s_pen = new Avalonia.Media.Immutable.ImmutablePen(
-        Avalonia.Media.Brushes.White.ToImmutable(), 1,
-        new Avalonia.Media.Immutable.ImmutableDashStyle([3, 3], 0));
+    private Avalonia.Media.IPen _handlePen = new Avalonia.Media.Immutable.ImmutablePen(
+        new Avalonia.Media.Immutable.ImmutableSolidColorBrush(0xFF168BFF), 1);
 
-    private static readonly Avalonia.Media.IPen s_shadowPen = new Avalonia.Media.Immutable.ImmutablePen(
-        Avalonia.Media.Brushes.Black.ToImmutable(), 1,
-        new Avalonia.Media.Immutable.ImmutableDashStyle([3, 3], 0));
+    public PathGeometryControl()
+    {
+        this.GetResourceObservable("AccentFillColorDefaultBrush").Subscribe(value =>
+        {
+            if (value is IBrush brush)
+            {
+                _handlePen = new Avalonia.Media.Immutable.ImmutablePen(brush.ToImmutable(), 1);
+                InvalidateVisual();
+            }
+        });
+    }
 
     static PathGeometryControl()
     {
@@ -56,6 +63,8 @@ public class PathGeometryControl : Control
         get => GetValue(GeometryResourceProperty);
         set => SetValue(GeometryResourceProperty, value);
     }
+
+    public IReadOnlyList<Media.PathSegment> SelectedOperations { get; set; } = [];
 
     public Media.PathSegment? SelectedOperation
     {
@@ -107,7 +116,7 @@ public class PathGeometryControl : Control
         base.Render(context);
         if (Geometry == null
             || Figure == null
-            || SelectedOperation == null
+            || (SelectedOperation == null && SelectedOperations.Count == 0)
             || GeometryResource is not { } handle)
         {
             return;
@@ -119,95 +128,102 @@ public class PathGeometryControl : Control
         {
             var figureResource = pathGeometry.Figures.FirstOrDefault(f => f.GetOriginal() == Figure);
             if (figureResource == null) return;
-            int index = figureResource.Segments.FindIndex(s => s.GetOriginal() == SelectedOperation);
-            if (figureResource.Segments.Count > 0 && index >= 0)
+            var selected = SelectedOperations.ToHashSet();
+            if (SelectedOperation != null) selected.Add(SelectedOperation);
+            foreach (var operation in selected)
             {
-                AvaMatrix mat = Matrix * AvaMatrix.CreateScale(Scale, Scale);
-
-                bool isClosed = figureResource.IsClosed;
-
-                void DrawLineAndShadow(AvaPoint p1, AvaPoint p2)
+                int index = figureResource.Segments.FindIndex(s => s.GetOriginal() == operation);
+                if (figureResource.Segments.Count > 0 && index >= 0)
                 {
-                    context.DrawLine(s_shadowPen, p1 + new AvaPoint(1, 1), p2 + new AvaPoint(1, 1));
-                    context.DrawLine(s_pen, p1, p2);
-                }
+                    AvaMatrix mat = Matrix * AvaMatrix.CreateScale(Scale, Scale);
 
-                void DrawLine(Media.PathSegment.Resource op, int index, bool c1, bool c2)
-                {
-                    if (!isClosed && index == 0)
+                    bool isClosed = figureResource.IsClosed;
+
+                    void DrawHandleLine(AvaPoint p1, AvaPoint p2)
                     {
-                        return;
+                        context.DrawLine(_handlePen, p1, p2);
                     }
 
-                    int prevIndex = (index - 1 + figureResource.Segments.Count) % figureResource.Segments.Count;
-                    AvaPoint lastPoint = default;
-                    if (0 <= prevIndex && prevIndex < figureResource.Segments.Count)
+                    void DrawLine(Media.PathSegment.Resource op, int index, bool c1, bool c2)
                     {
-                        var tmp = figureResource.Segments[prevIndex].GetEndPoint();
-                        lastPoint = tmp?.ToAvaPoint() ?? default;
+                        if (!isClosed && figureResource.StartPoint.IsInvalid && index == 0)
+                        {
+                            return;
+                        }
+
+                        int prevIndex = (index - 1 + figureResource.Segments.Count) % figureResource.Segments.Count;
+                        AvaPoint lastPoint = default;
+                        if (index == 0 && !figureResource.StartPoint.IsInvalid)
+                            lastPoint = figureResource.StartPoint.ToAvaPoint();
+                        else if (0 <= prevIndex && prevIndex < figureResource.Segments.Count)
+                        {
+                            var tmp = figureResource.Segments[prevIndex].GetEndPoint();
+                            lastPoint = tmp?.ToAvaPoint() ?? default;
+                        }
+
+                        switch (op)
+                        {
+                            case ConicSegment.Resource conic:
+                                if (c1)
+                                {
+                                    DrawHandleLine(
+                                        mat.Transform(lastPoint),
+                                        mat.Transform(conic.ControlPoint.ToAvaPoint()));
+                                }
+
+                                if (c2)
+                                {
+                                    DrawHandleLine(
+                                        mat.Transform(conic.EndPoint.ToAvaPoint()),
+                                        mat.Transform(conic.ControlPoint.ToAvaPoint()));
+                                }
+
+                                break;
+
+                            case CubicBezierSegment.Resource cubic:
+                                if (c1)
+                                {
+                                    DrawHandleLine(
+                                        mat.Transform(lastPoint),
+                                        mat.Transform(cubic.ControlPoint1.ToAvaPoint()));
+                                }
+
+                                if (c2)
+                                {
+                                    DrawHandleLine(
+                                        mat.Transform(cubic.EndPoint.ToAvaPoint()),
+                                        mat.Transform(cubic.ControlPoint2.ToAvaPoint()));
+                                }
+
+                                break;
+
+                            case Media.QuadraticBezierSegment.Resource quad:
+                                if (c1)
+                                {
+                                    DrawHandleLine(
+                                        mat.Transform(lastPoint),
+                                        mat.Transform(quad.ControlPoint.ToAvaPoint()));
+                                }
+
+                                if (c2)
+                                {
+                                    DrawHandleLine(
+                                        mat.Transform(quad.EndPoint.ToAvaPoint()),
+                                        mat.Transform(quad.ControlPoint.ToAvaPoint()));
+                                }
+
+                                break;
+                        }
                     }
 
-                    switch (op)
+                    DrawLine(figureResource.Segments[index], index, false, true);
+                    int nextIndex = (index + 1) % figureResource.Segments.Count;
+
+                    if (0 <= nextIndex && nextIndex < figureResource.Segments.Count
+                        && (nextIndex != 0 || isClosed && figureResource.StartPoint.IsInvalid))
                     {
-                        case ConicSegment.Resource conic:
-                            if (c1)
-                            {
-                                DrawLineAndShadow(
-                                    mat.Transform(lastPoint),
-                                    mat.Transform(conic.ControlPoint.ToAvaPoint()));
-                            }
-
-                            if (c2)
-                            {
-                                DrawLineAndShadow(
-                                    mat.Transform(conic.EndPoint.ToAvaPoint()),
-                                    mat.Transform(conic.ControlPoint.ToAvaPoint()));
-                            }
-
-                            break;
-
-                        case CubicBezierSegment.Resource cubic:
-                            if (c1)
-                            {
-                                DrawLineAndShadow(
-                                    mat.Transform(lastPoint),
-                                    mat.Transform(cubic.ControlPoint1.ToAvaPoint()));
-                            }
-
-                            if (c2)
-                            {
-                                DrawLineAndShadow(
-                                    mat.Transform(cubic.EndPoint.ToAvaPoint()),
-                                    mat.Transform(cubic.ControlPoint2.ToAvaPoint()));
-                            }
-
-                            break;
-
-                        case Media.QuadraticBezierSegment.Resource quad:
-                            if (c1)
-                            {
-                                DrawLineAndShadow(
-                                    mat.Transform(lastPoint),
-                                    mat.Transform(quad.ControlPoint.ToAvaPoint()));
-                            }
-
-                            if (c2)
-                            {
-                                DrawLineAndShadow(
-                                    mat.Transform(quad.EndPoint.ToAvaPoint()),
-                                    mat.Transform(quad.ControlPoint.ToAvaPoint()));
-                            }
-
-                            break;
+                        DrawLine(figureResource.Segments[nextIndex], nextIndex, true, false);
                     }
-                }
-
-                DrawLine(figureResource.Segments[index], index, false, true);
-                int nextIndex = (index + 1) % figureResource.Segments.Count;
-
-                if (0 <= nextIndex && nextIndex < figureResource.Segments.Count)
-                {
-                    DrawLine(figureResource.Segments[nextIndex], nextIndex, true, false);
                 }
             }
         });

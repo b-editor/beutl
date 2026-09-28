@@ -1666,4 +1666,76 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="OpenInFileManager" xml:space="preserve">
     <value>Abrir en el gestor de archivos</value>
   </data>
+  <data name="PathEditor_MoveTool" xml:space="preserve">
+    <value>Mover (V) · Mayús: añadir a la selección</value>
+  </data>
+  <data name="PathEditor_PenTool" xml:space="preserve">
+    <value>Pluma (P) · Clic: añadir punto · Arrastrar: curva</value>
+  </data>
+  <data name="PathEditor_BendTool" xml:space="preserve">
+    <value>Curvar (B) · Haz clic en un punto para añadir o quitar controles</value>
+  </data>
+  <data name="PathEditor_HandTool" xml:space="preserve">
+    <value>Mano (H) · Espacio + arrastrar: desplazar</value>
+  </data>
+  <data name="PathEditor_ZoomIn" xml:space="preserve">
+    <value>Acercar (+)</value>
+  </data>
+  <data name="PathEditor_ZoomOut" xml:space="preserve">
+    <value>Alejar (-)</value>
+  </data>
+  <data name="PathEditor_Fit" xml:space="preserve">
+    <value>Ajustar trazado (Mayús+1)</value>
+  </data>
+  <data name="PathEditor_NoSelection" xml:space="preserve">
+    <value>Ningún punto seleccionado</value>
+  </data>
+  <data name="PathEditor_SelectedPoints" xml:space="preserve">
+    <value>{0} puntos seleccionados</value>
+  </data>
+  <data name="PathEditor_PointX" xml:space="preserve">
+    <value>Posición X del punto</value>
+  </data>
+  <data name="PathEditor_PointY" xml:space="preserve">
+    <value>Posición Y del punto</value>
+  </data>
+  <data name="PathEditor_MirrorBoth" xml:space="preserve">
+    <value>Reflejar ángulo y longitud</value>
+  </data>
+  <data name="PathEditor_MirrorAngle" xml:space="preserve">
+    <value>Reflejar ángulo</value>
+  </data>
+  <data name="PathEditor_Independent" xml:space="preserve">
+    <value>Controles independientes (Alt / Opción)</value>
+  </data>
+  <data name="PathEditor_Display" xml:space="preserve">
+    <value>Vista previa</value>
+  </data>
+  <data name="PathEditor_EmptyHint" xml:space="preserve">
+    <value>Selecciona un trazado en el panel de propiedades para empezar a editar.</value>
+  </data>
+  <data name="PathEditor_PointSettings" xml:space="preserve">
+    <value>Ajustes de puntos</value>
+  </data>
+  <data name="PathEditor_Handles" xml:space="preserve">
+    <value>Controles</value>
+  </data>
+  <data name="PathEditor_StrokeLabel" xml:space="preserve">
+    <value>Trazo</value>
+  </data>
+  <data name="PathEditor_FillLabel" xml:space="preserve">
+    <value>Relleno</value>
+  </data>
+  <data name="PathEditor_SelectionPosition" xml:space="preserve">
+    <value>Posición de la selección</value>
+  </data>
+  <data name="PathEditor_ActivePoint" xml:space="preserve">
+    <value>Punto activo</value>
+  </data>
+  <data name="PathEditor_IncomingControlPoint" xml:space="preserve">
+    <value>Punto de control de entrada</value>
+  </data>
+  <data name="PathEditor_OutgoingControlPoint" xml:space="preserve">
+    <value>Punto de control de salida</value>
+  </data>
 </root>

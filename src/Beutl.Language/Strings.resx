@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -3167,5 +3167,77 @@ when history recording is enabled.</value>
   </data>
   <data name="OpenInFileManager" xml:space="preserve">
     <value>Open in File Manager</value>
+  </data>
+  <data name="PathEditor_MoveTool" xml:space="preserve">
+    <value>Move (V) · Shift: add to selection</value>
+  </data>
+  <data name="PathEditor_PenTool" xml:space="preserve">
+    <value>Pen (P) · Click: add point · Drag: curve</value>
+  </data>
+  <data name="PathEditor_BendTool" xml:space="preserve">
+    <value>Bend (B) · Click a point to add or remove handles</value>
+  </data>
+  <data name="PathEditor_HandTool" xml:space="preserve">
+    <value>Hand (H) · Space + drag: pan</value>
+  </data>
+  <data name="PathEditor_ZoomIn" xml:space="preserve">
+    <value>Zoom in (+)</value>
+  </data>
+  <data name="PathEditor_ZoomOut" xml:space="preserve">
+    <value>Zoom out (-)</value>
+  </data>
+  <data name="PathEditor_Fit" xml:space="preserve">
+    <value>Fit path (Shift+1)</value>
+  </data>
+  <data name="PathEditor_NoSelection" xml:space="preserve">
+    <value>No points selected</value>
+  </data>
+  <data name="PathEditor_SelectedPoints" xml:space="preserve">
+    <value>{0} points selected</value>
+  </data>
+  <data name="PathEditor_PointX" xml:space="preserve">
+    <value>Point X position</value>
+  </data>
+  <data name="PathEditor_PointY" xml:space="preserve">
+    <value>Point Y position</value>
+  </data>
+  <data name="PathEditor_MirrorBoth" xml:space="preserve">
+    <value>Mirror angle and length</value>
+  </data>
+  <data name="PathEditor_MirrorAngle" xml:space="preserve">
+    <value>Mirror angle</value>
+  </data>
+  <data name="PathEditor_Independent" xml:space="preserve">
+    <value>Independent handles (Alt / Option)</value>
+  </data>
+  <data name="PathEditor_Display" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="PathEditor_EmptyHint" xml:space="preserve">
+    <value>Select a path in the properties panel to start editing.</value>
+  </data>
+  <data name="PathEditor_PointSettings" xml:space="preserve">
+    <value>Point settings</value>
+  </data>
+  <data name="PathEditor_Handles" xml:space="preserve">
+    <value>Handles</value>
+  </data>
+  <data name="PathEditor_StrokeLabel" xml:space="preserve">
+    <value>Stroke</value>
+  </data>
+  <data name="PathEditor_FillLabel" xml:space="preserve">
+    <value>Fill</value>
+  </data>
+  <data name="PathEditor_SelectionPosition" xml:space="preserve">
+    <value>Selection position</value>
+  </data>
+  <data name="PathEditor_ActivePoint" xml:space="preserve">
+    <value>Active point</value>
+  </data>
+  <data name="PathEditor_IncomingControlPoint" xml:space="preserve">
+    <value>Incoming control point</value>
+  </data>
+  <data name="PathEditor_OutgoingControlPoint" xml:space="preserve">
+    <value>Outgoing control point</value>
   </data>
 </root>

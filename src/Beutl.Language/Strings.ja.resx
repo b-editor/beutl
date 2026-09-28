@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -3162,5 +3162,77 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="OpenInFileManager" xml:space="preserve">
     <value>ファイルマネージャーで開く</value>
+  </data>
+  <data name="PathEditor_MoveTool" xml:space="preserve">
+    <value>選択 (V)・Shift: 選択に追加</value>
+  </data>
+  <data name="PathEditor_PenTool" xml:space="preserve">
+    <value>ペン (P)・クリック: 点を追加・ドラッグ: 曲線</value>
+  </data>
+  <data name="PathEditor_BendTool" xml:space="preserve">
+    <value>曲線 (B)・点をクリックしてハンドルを追加／削除</value>
+  </data>
+  <data name="PathEditor_HandTool" xml:space="preserve">
+    <value>手のひら (H)・Space＋ドラッグ: 移動</value>
+  </data>
+  <data name="PathEditor_ZoomIn" xml:space="preserve">
+    <value>拡大 (+)</value>
+  </data>
+  <data name="PathEditor_ZoomOut" xml:space="preserve">
+    <value>縮小 (-)</value>
+  </data>
+  <data name="PathEditor_Fit" xml:space="preserve">
+    <value>パスを全体表示 (Shift+1)</value>
+  </data>
+  <data name="PathEditor_NoSelection" xml:space="preserve">
+    <value>点を選択してください</value>
+  </data>
+  <data name="PathEditor_SelectedPoints" xml:space="preserve">
+    <value>{0} 個の点を選択中</value>
+  </data>
+  <data name="PathEditor_PointX" xml:space="preserve">
+    <value>点の X 座標</value>
+  </data>
+  <data name="PathEditor_PointY" xml:space="preserve">
+    <value>点の Y 座標</value>
+  </data>
+  <data name="PathEditor_MirrorBoth" xml:space="preserve">
+    <value>角度と長さを揃える</value>
+  </data>
+  <data name="PathEditor_MirrorAngle" xml:space="preserve">
+    <value>角度を揃える</value>
+  </data>
+  <data name="PathEditor_Independent" xml:space="preserve">
+    <value>ハンドルを独立 (Alt／Option)</value>
+  </data>
+  <data name="PathEditor_Display" xml:space="preserve">
+    <value>表示</value>
+  </data>
+  <data name="PathEditor_EmptyHint" xml:space="preserve">
+    <value>プロパティパネルでパスを選択すると編集を開始できます。</value>
+  </data>
+  <data name="PathEditor_PointSettings" xml:space="preserve">
+    <value>ポイント設定</value>
+  </data>
+  <data name="PathEditor_Handles" xml:space="preserve">
+    <value>ハンドル</value>
+  </data>
+  <data name="PathEditor_StrokeLabel" xml:space="preserve">
+    <value>線</value>
+  </data>
+  <data name="PathEditor_FillLabel" xml:space="preserve">
+    <value>塗り</value>
+  </data>
+  <data name="PathEditor_SelectionPosition" xml:space="preserve">
+    <value>選択範囲の位置</value>
+  </data>
+  <data name="PathEditor_ActivePoint" xml:space="preserve">
+    <value>アクティブな点</value>
+  </data>
+  <data name="PathEditor_IncomingControlPoint" xml:space="preserve">
+    <value>入側の制御点</value>
+  </data>
+  <data name="PathEditor_OutgoingControlPoint" xml:space="preserve">
+    <value>出側の制御点</value>
   </data>
 </root>
