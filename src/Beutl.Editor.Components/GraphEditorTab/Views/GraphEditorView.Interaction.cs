@@ -27,6 +27,13 @@ public partial class GraphEditorView
 
     private void AttachGraphInteractions(GraphEditorViewModel model)
     {
+        // External retiming can leave both selection membership and vertical range unchanged.
+        EventHandler animationEdited = (_, _) => UpdateSelectionAdorner();
+        model.Animation.Edited += animationEdited;
+        Disposable.Create(() => model.Animation.Edited -= animationEdited).DisposeWith(_disposables);
+        model.Options.Select(options => options.Scale).DistinctUntilChanged()
+            .Subscribe(_ => UpdateSelectionAdorner()).DisposeWith(_disposables);
+        model.Margin.Subscribe(_ => UpdateSelectionAdorner()).DisposeWith(_disposables);
         model.IsSpeedGraph.Subscribe(speed => GraphTypePicker.SelectedIndex = speed ? 1 : 0).DisposeWith(_disposables);
         foreach (var channel in model.Views)
         {

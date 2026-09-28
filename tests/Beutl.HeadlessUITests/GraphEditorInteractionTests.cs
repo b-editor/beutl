@@ -605,6 +605,77 @@ public class GraphEditorInteractionTests
         Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
     }
 
+    [AvaloniaTest]
+    [TestCase("time", false)]
+    [TestCase("time", true)]
+    [TestCase("scale", false)]
+    [TestCase("scale", true)]
+    [TestCase("element", false)]
+    [TestCase("element", true)]
+    public async Task Selection_box_tracks_external_horizontal_changes_and_transforms_the_current_span(string change, bool light)
+    {
+        using var graph = await GraphScope.CreateAsync(light);
+        // Linear segments do not emit control-point changes when their width changes.
+        graph.Second.Easing = new LinearEasing();
+        graph.Model.HistoryManager.Commit();
+        HeadlessTestHelpers.Render(3);
+        var adorner = graph.View.FindControl<GraphEditorSelectionAdorner>("SelectionAdorner")!;
+
+        Rect AssertSelectionBounds()
+        {
+            HeadlessTestHelpers.Render(3);
+            Point first = graph.KeyFrame(graph.First).TranslatePoint(default, adorner)!.Value;
+            Point second = graph.KeyFrame(graph.Second).TranslatePoint(default, adorner)!.Value;
+            var expected = new Rect(first, second).Normalize();
+            Assert.That(adorner.Selection, Is.Not.Null);
+            Assert.That(adorner.Selection!.Value.X, Is.EqualTo(expected.X).Within(0.01));
+            Assert.That(adorner.Selection.Value.Y, Is.EqualTo(expected.Y).Within(0.01));
+            Assert.That(adorner.Selection.Value.Width, Is.EqualTo(expected.Width).Within(0.01));
+            Assert.That(adorner.Selection.Value.Height, Is.EqualTo(expected.Height).Within(0.01));
+            return expected;
+        }
+
+        Rect original = AssertSelectionBounds();
+        switch (change)
+        {
+            case "time":
+                graph.Second.KeyTime = TimeSpan.FromSeconds(1.8);
+                break;
+            case "scale":
+                graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 2 };
+                break;
+            case "element":
+                graph.Model.Element!.Start = TimeSpan.FromSeconds(0.3);
+                break;
+        }
+        graph.Model.HistoryManager.Commit();
+        Rect changed = AssertSelectionBounds();
+        Assert.That(changed, Is.Not.EqualTo(original));
+        if (change != "scale")
+        {
+            graph.Model.HistoryManager.Undo();
+            Assert.That(AssertSelectionBounds(), Is.EqualTo(original));
+            graph.Model.HistoryManager.Redo();
+            Assert.That(AssertSelectionBounds(), Is.EqualTo(changed));
+        }
+        graph.Capture($"external-selection-{change}-{light}");
+
+        TimeSpan time = graph.Second.KeyTime;
+        int undo = graph.Model.HistoryManager.UndoCount;
+        Point handle = adorner.TranslatePoint(GraphEditorSelectionAdorner.HandlePoint(changed, 3), graph.Window)!.Value;
+        double distance = TimeSpan.FromSeconds(0.2).TimeToPixel(graph.Model.Options.Value.Scale);
+        Drag(graph, handle, handle + new Vector(distance, 0), RawInputModifiers.Alt);
+        Assert.That(graph.Second.KeyTime, Is.EqualTo(time + TimeSpan.FromSeconds(0.2)));
+        Assert.That(graph.First.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+        Assert.That(graph.First.Value, Is.EqualTo(100));
+        Assert.That(graph.Second.Value, Is.EqualTo(500));
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+        AssertSelectionBounds();
+        graph.Model.HistoryManager.Undo();
+        Assert.That(graph.Second.KeyTime, Is.EqualTo(time));
+        Assert.That(AssertSelectionBounds(), Is.EqualTo(changed));
+    }
+
     private static RawInputModifiers CommandModifier => KeyGestureHelper.GetCommandModifier() == KeyModifiers.Meta
         ? RawInputModifiers.Meta : RawInputModifiers.Control;
 
