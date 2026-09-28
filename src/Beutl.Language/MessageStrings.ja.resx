@@ -255,6 +255,24 @@
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>参照元ファイルが見つからないためフレームを描画できません: {0}（欠落 {1} 件）</value>
   </data>
+  <data name="FlatpakReleasePage" xml:space="preserve">
+    <value>リリースページ</value>
+  </data>
+  <data name="FlatpakPreparingUpdate" xml:space="preserve">
+    <value>Flatpakの更新を準備中...</value>
+  </data>
+  <data name="FlatpakUpdateUnavailable" xml:space="preserve">
+    <value>このインストールではアプリ内のFlatpak更新を利用できません。リリースページからFlatpakをダウンロードして手動で更新してください。</value>
+  </data>
+  <data name="FlatpakUpdateInProgress" xml:space="preserve">
+    <value>Flatpakの更新がすでに進行中です。</value>
+  </data>
+  <data name="FlatpakUpdateFailed" xml:space="preserve">
+    <value>Flatpakの更新に失敗しました。</value>
+  </data>
+  <data name="FlatpakUpdateCompleted" xml:space="preserve">
+    <value>更新が完了しました。Beutlを開き直すと新しいバージョンが使われます。</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>アプリケーションの再起動が必要です。
 再起動しますか？</value>

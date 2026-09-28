@@ -55,6 +55,7 @@ jobs:
           LINUX_DEB=$(url_of_glob '^beutl_.*_amd64\.deb$')
           LINUX_ZIP=$(url_of "Beutl-linux-x64-$VER.zip")
           LINUX_ZIP_STANDALONE=$(url_of "Beutl-linux-x64-standalone-$VER.zip")
+          LINUX_FLATPAK=$(url_of "Beutl-$VER.flatpak")
           MAC_X64=$(url_of "Beutl.osx_x64.app.zip")
           MAC_ARM64=$(url_of "Beutl.osx_arm64.app.zip")
 
@@ -74,6 +75,7 @@ jobs:
           check "beutl_*_amd64.deb"                     "$LINUX_DEB"
           check "Beutl-linux-x64-$VER.zip"              "$LINUX_ZIP"
           check "Beutl-linux-x64-standalone-$VER.zip"   "$LINUX_ZIP_STANDALONE"
+          check "Beutl-$VER.flatpak"                   "$LINUX_FLATPAK"
           check "Beutl.osx_x64.app.zip"                 "$MAC_X64"
           check "Beutl.osx_arm64.app.zip"               "$MAC_ARM64"
           [ "$missing" -eq 0 ] || exit 1
@@ -87,6 +89,7 @@ jobs:
             --arg deb "$LINUX_DEB" \
             --arg linZ "$LINUX_ZIP" \
             --arg linZS "$LINUX_ZIP_STANDALONE" \
+            --arg flatpak "$LINUX_FLATPAK" \
             --arg macX "$MAC_X64" \
             --arg macA "$MAC_ARM64" \
             '{
@@ -98,6 +101,7 @@ jobs:
                 {id:"beutl-\($ver)-linux-x64-debian",             version:$ver, os:"linux", arch:"x64",   type:"debian",    standalone:true,  url:$deb},
                 {id:"beutl-\($ver)-linux-x64-zip",                version:$ver, os:"linux", arch:"x64",   type:"zip",       standalone:false, url:$linZ},
                 {id:"beutl-\($ver)-linux-x64-zip-standalone",     version:$ver, os:"linux", arch:"x64",   type:"zip",       standalone:true,  url:$linZS},
+                {id:"beutl-\($ver)-linux-x64-flatpak",            version:$ver, os:"linux", arch:"x64",   type:"flatpak",   standalone:true,  url:$flatpak},
                 {id:"beutl-\($ver)-osx-x64-app",                  version:$ver, os:"osx",   arch:"x64",   type:"app",       standalone:true,  url:$macX},
                 {id:"beutl-\($ver)-osx-arm64-app",                version:$ver, os:"osx",   arch:"arm64", type:"app",       standalone:true,  url:$macA}
               ]

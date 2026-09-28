@@ -12,6 +12,13 @@ public partial class UpdateDialog : FAContentDialog
 
     protected override Type StyleKeyOverride => typeof(FAContentDialog);
 
+    protected override void OnClosing(FAContentDialogClosingEventArgs args)
+    {
+        base.OnClosing(args);
+        if (!args.Cancel && DataContext is UpdateDialogViewModel { IsFlatpak: true } vm)
+            vm.Cancel();
+    }
+
     protected override void OnCloseButtonClick(FAContentDialogButtonClickEventArgs args)
     {
         base.OnCloseButtonClick(args);

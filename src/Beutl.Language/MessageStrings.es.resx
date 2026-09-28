@@ -260,6 +260,24 @@ Podrás seguir editando cuando termine.</value>
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>No se puede renderizar el fotograma porque falta un archivo de origen referenciado: {0} ({1} faltantes).</value>
   </data>
+  <data name="FlatpakReleasePage" xml:space="preserve">
+    <value>Página de la versión</value>
+  </data>
+  <data name="FlatpakPreparingUpdate" xml:space="preserve">
+    <value>Preparando la actualización de Flatpak...</value>
+  </data>
+  <data name="FlatpakUpdateUnavailable" xml:space="preserve">
+    <value>La actualización de Flatpak desde la aplicación no está disponible para esta instalación. Descarga el Flatpak desde la página de la versión para actualizar manualmente.</value>
+  </data>
+  <data name="FlatpakUpdateInProgress" xml:space="preserve">
+    <value>Ya hay una actualización de Flatpak en curso.</value>
+  </data>
+  <data name="FlatpakUpdateFailed" xml:space="preserve">
+    <value>La actualización de Flatpak ha fallado.</value>
+  </data>
+  <data name="FlatpakUpdateCompleted" xml:space="preserve">
+    <value>La actualización se ha completado. Vuelve a abrir Beutl para usar la nueva versión.</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>La aplicación debe reiniciarse.
 ¿Quieres reiniciar la aplicación?</value>

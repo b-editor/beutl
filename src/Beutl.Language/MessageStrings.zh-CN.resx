@@ -260,6 +260,24 @@
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>无法渲染帧，因为引用的源文件缺失：{0}（缺少 {1} 个）。</value>
   </data>
+  <data name="FlatpakReleasePage" xml:space="preserve">
+    <value>发布页面</value>
+  </data>
+  <data name="FlatpakPreparingUpdate" xml:space="preserve">
+    <value>正在准备 Flatpak 更新...</value>
+  </data>
+  <data name="FlatpakUpdateUnavailable" xml:space="preserve">
+    <value>此安装不支持应用内 Flatpak 更新。请从发布页面下载 Flatpak 并手动更新。</value>
+  </data>
+  <data name="FlatpakUpdateInProgress" xml:space="preserve">
+    <value>Flatpak 更新正在进行中。</value>
+  </data>
+  <data name="FlatpakUpdateFailed" xml:space="preserve">
+    <value>Flatpak 更新失败。</value>
+  </data>
+  <data name="FlatpakUpdateCompleted" xml:space="preserve">
+    <value>更新已完成。重新打开 Beutl 即可使用新版本。</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>需要重新启动应用程序。
 是否要重新启动应用程序？</value>

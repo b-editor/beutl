@@ -15,11 +15,25 @@ public class UpdateDialogViewModel
 {
     private readonly CancellationTokenSource _cts = new();
     private readonly ILogger _logger = Log.CreateLogger<UpdateDialogViewModel>();
+    private readonly Func<IProgress<FlatpakUpdateProgress>, CancellationToken, Task>? _installFlatpak;
+    private Task? _flatpakTask;
+    private bool _flatpakFinished;
     private string? _downloadFile;
 
     public UpdateDialogViewModel(AppUpdateResponse update)
+        : this(update, FlatpakUpdateService.IsRunningInFlatpak)
+    {
+    }
+
+    internal UpdateDialogViewModel(AppUpdateResponse update, bool isFlatpak,
+        Func<IProgress<FlatpakUpdateProgress>, CancellationToken, Task>? installFlatpak = null)
     {
         Update = update;
+        if (isFlatpak)
+        {
+            _installFlatpak = installFlatpak ?? ((progress, token) => FlatpakUpdateService.InstallAsync(update, progress, token));
+            PrimaryButtonText.Value = "";
+        }
     }
 
     public AppUpdateResponse Update { get; set; }
@@ -34,8 +48,20 @@ public class UpdateDialogViewModel
 
     public ReactiveProperty<bool> IsPrimaryButtonEnabled { get; } = new();
 
+    public ReactiveProperty<string> PrimaryButtonText { get; } = new(Strings.Next);
+
+    public ReactiveProperty<string> CloseButtonText { get; } = new(Strings.Cancel);
+
+    public ReactiveProperty<bool> ShowReleasePage { get; } = new();
+
+    public string ReleasePageUrl => Update.Url ?? "https://github.com/b-editor/beutl/releases";
+
+    internal bool IsFlatpak => _installFlatpak != null;
+
     public async Task HandlePrimaryButtonClick()
     {
+        if (IsFlatpak) return;
+
         try
         {
             var metadata = await BeutlApiApplication.LoadMetadata();
@@ -221,6 +247,12 @@ public class UpdateDialogViewModel
 
     public void Start()
     {
+        if (IsFlatpak)
+        {
+            _ = StartFlatpakAsync();
+            return;
+        }
+
         Task.Run(async () =>
         {
             _logger.LogInformation("Starting update process");
@@ -261,6 +293,45 @@ public class UpdateDialogViewModel
                 IsPrimaryButtonEnabled.Value = true;
             }
         });
+    }
+
+    internal Task StartFlatpakAsync() => _flatpakTask ??= InstallFlatpakAsync();
+
+    private async Task InstallFlatpakAsync()
+    {
+        try
+        {
+            _cts.Token.ThrowIfCancellationRequested();
+            IsIndeterminate.Value = true;
+            ProgressMax.Value = 1;
+            var progress = new Progress<FlatpakUpdateProgress>(value =>
+            {
+                if (_flatpakFinished || _cts.IsCancellationRequested) return;
+                ProgressText.Value = value.Message;
+                IsIndeterminate.Value = value.Fraction == null;
+                ProgressValue.Value = value.Fraction ?? 0;
+            });
+            await _installFlatpak!(progress, _cts.Token);
+            ProgressText.Value = MessageStrings.FlatpakUpdateCompleted;
+            ProgressValue.Value = 1;
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+            ProgressText.Value = MessageStrings.Canceled;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to install Flatpak update");
+            ProgressText.Value = $"{MessageStrings.FlatpakUpdateFailed}\n{ex.Message}";
+            ProgressValue.Value = 0;
+            ShowReleasePage.Value = true;
+        }
+        finally
+        {
+            _flatpakFinished = true;
+            IsIndeterminate.Value = false;
+            CloseButtonText.Value = Strings.Close;
+        }
     }
 
     private async Task<string?> DownloadFile()

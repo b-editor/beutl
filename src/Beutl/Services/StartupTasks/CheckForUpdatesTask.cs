@@ -50,40 +50,19 @@ public sealed class CheckForUpdatesTask : StartupTask
                     if (!v3.IsLatest)
                     {
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
-                        bool isFlatpak = IsFlatpak();
-                        _logger.LogDebug("Flatpak sandbox detected: {IsFlatpak}", isFlatpak);
-                        if (isFlatpak)
-                        {
-                            // /app is read-only in Flatpak so the standalone-zip in-app updater (the else
-                            // branch below) cannot overwrite AppContext.BaseDirectory. Send the user to
-                            // the release page so they can pick up the new build through their Flatpak
-                            // installation channel (currently a manual download + `flatpak install` of
-                            // the new bundle from GitHub Releases; once published on Flathub, the user
-                            // can also use `flatpak update`). We deliberately do NOT fall back to
-                            // DownloadUrl: the standalone-zip updater cannot install a Flatpak bundle
-                            // from inside the sandbox, so following it would just fail.
-                            string releaseUrl = GetReleaseUrl(v3, activity);
-                            NotificationService.ShowInformation(
-                                MessageStrings.NewVersionAvailable,
-                                releaseUrl,
-                                actions: [new(Strings.Open, () => OpenUrl(releaseUrl))]);
-                        }
-                        else
-                        {
-                            NotificationService.ShowInformation(
-                                MessageStrings.NewVersionAvailable,
-                                message: MessageStrings.ConfirmInstall,
-                                actions:
-                                [
-                                    new(ExtensionsStrings.Install, () =>
-                                    {
-                                        var viewModel = new UpdateDialogViewModel(v3);
-                                        var dialog = new UpdateDialog { DataContext = viewModel };
-                                        dialog.ShowAsync();
-                                        viewModel.Start();
-                                    })
-                                ]);
-                        }
+                        NotificationService.ShowInformation(
+                            MessageStrings.NewVersionAvailable,
+                            message: MessageStrings.ConfirmInstall,
+                            actions:
+                            [
+                                new(ExtensionsStrings.Install, () =>
+                                {
+                                    var viewModel = new UpdateDialogViewModel(v3);
+                                    var dialog = new UpdateDialog { DataContext = viewModel };
+                                    dialog.ShowAsync();
+                                    viewModel.Start();
+                                })
+                            ]);
                     }
                     else if (v3.MustLatest)
                     {
@@ -103,15 +82,6 @@ public sealed class CheckForUpdatesTask : StartupTask
     }
 
     public override Task Task { get; }
-
-    private static bool IsFlatpak()
-    {
-        // /.flatpak-info is the canonical sandbox marker (bind-mounted read-only by the runtime).
-        // FLATPAK_ID is checked as a backup signal so detection still works if the marker file is
-        // ever moved or hidden by host customizations.
-        return File.Exists("/.flatpak-info")
-            || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FLATPAK_ID"));
-    }
 
     private string GetReleaseUrl(AppUpdateResponse v3, Activity? activity)
     {

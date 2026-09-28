@@ -158,15 +158,11 @@ public class BeutlApiApplication : IAsyncDisposable
         }
 
         var update = await App.GetUpdate(
-            version, ToServerType(metadata.Type), metadata.OS, metadata.Arch,
+            version, metadata.Type, metadata.OS, metadata.Arch,
             metadata.Standalone, "false", token);
         token.ThrowIfCancellationRequested();
         return (null, update);
     }
-
-    // The server accepts archive types, while local metadata records the Flatpak package type.
-    // Flatpak releases are produced from the standalone zip archive used by the update endpoint.
-    internal static string ToServerType(string type) => type == "flatpak" ? "zip" : type;
 
     public static async Task<AssetMetadataJson?> LoadMetadata()
     {
@@ -1157,7 +1153,6 @@ public sealed class AssetMetadataJson
 
     [JsonPropertyName("standalone")] public required string Standalone { get; init; }
 
-    // Metadata values: zip,debian,installer,app,flatpak.
-    // Server query values (see ToServerType): zip,debian,installer,app.
+    // Metadata and server query values: zip,debian,installer,app,flatpak.
     [JsonPropertyName("type")] public required string Type { get; init; }
 }

@@ -26,6 +26,9 @@ finish-args:
   # Full host filesystem access: covers project files anywhere on disk, external
   # drives (/run/media, /media, /mnt), and host fonts/fontconfig.
   - --filesystem=host
+  # Install the official single-file update bundle using the host's Flatpak.
+  # flatpak-spawn --host needs this interface; the portal only updates remote refs.
+  - --talk-name=org.freedesktop.Flatpak
 
 # No top-level cleanup: this manifest does not build native dependencies, it only
 # copies the prebuilt self-contained .NET output. Glob patterns like '*.a' would risk
