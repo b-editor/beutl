@@ -13,6 +13,7 @@ using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
@@ -72,6 +73,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     private readonly ReactivePropertySlim<bool> _useGlobalClock = new(true);
     private LayerHeaderViewModel? _lastLayerHeader;
     private TimeSpan _pointerPosition;
+    private bool _disposed;
 
     protected InlineAnimationLayerViewModel(
         IAnimatablePropertyAdapter property,
@@ -154,6 +156,8 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                                 },
                                 ClearItems)
                             .DisposeWith(_innerDisposables);
+                        kfAnimation.KeyFrames.CollectionChangedAsObservable()
+                            .Subscribe(_ => UpdateWidth()).DisposeWith(_innerDisposables);
                     }
 
                     ((CoreObject)t.NewValue).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
@@ -335,32 +339,54 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         }
     }
 
-    private async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition)
+    internal async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition, IClipboard? clipboard = null)
     {
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
-        if (Property.Animation is not IKeyFrameAnimation) return;
+        clipboard ??= ClipboardHelper.GetClipboard();
+        if (_disposed || !IsEditable || clipboard == null || Property.Animation is not KeyFrameAnimation animation) return;
 
         try
         {
             if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } keyFrameJson)
             {
+                if (!CanPaste()) return;
                 PasteKeyFrame(keyFrameJson, pointerPosition);
+                return;
+            }
+            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection) is { } selectionJson)
+            {
+                if (!CanPaste()) return;
+                PasteSelection(selectionJson, ConvertKeyTime(pointerPosition, animation));
                 return;
             }
             else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
             {
+                if (!CanPaste()) return;
                 PasteAnimation(keyFrameAnimationJson);
                 return;
             }
 
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            if (CanPaste()) NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to paste keyframe at position");
             NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
         }
+
+        bool CanPaste() => !_disposed && IsEditable && ReferenceEquals(Property.Animation, animation);
+    }
+
+    internal void PasteSelection(string json, TimeSpan keyTime)
+    {
+        if (_disposed || !IsEditable || Property.Animation is not KeyFrameAnimation animation) return;
+        if (KeyFrameSelectionClipboard.Read(json) is not { } source
+            || source.Type != animation.GetType() || source.Keys.Length == 0)
+        {
+            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            return;
+        }
+        KeyFrameSelectionClipboard.Paste(animation, source.Keys, keyTime,
+            Timeline.EditorContext.GetRequiredService<HistoryManager>());
     }
 
     public bool HandleDragOver(DragEventArgs e)
@@ -441,6 +467,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         _innerDisposables?.Dispose();
         _disposables.Dispose();
         if (Property.Animation != null)

@@ -1,10 +1,8 @@
-﻿using System.Text.Json.Nodes;
-using Avalonia.Input;
+﻿using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
-using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
@@ -70,21 +68,12 @@ public abstract partial class GraphEditorViewModel
         if (_disposed || SelectedView.Value is not { } channel
             || target != null && !Animation.KeyFrames.Contains(target)) return;
         if (start < TimeSpan.Zero) start = TimeSpan.Zero;
-        if (json == null || JsonNode.Parse(json) is not JsonObject data
-            || !data.TryGetDiscriminator(out Type? type)
-            || !type.IsAssignableTo(typeof(KeyFrame)) && !type.IsAssignableTo(typeof(KeyFrameAnimation)))
+        if (KeyFrameSelectionClipboard.Read(json) is not { } source || source.Keys.Length == 0)
         {
             NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
             return;
         }
-        var source = (ICoreSerializable)Activator.CreateInstance(type)!;
-        CoreSerializer.PopulateFromJsonObject(source, data);
-        IKeyFrame[] copied = source is KeyFrameAnimation animation ? animation.KeyFrames.ToArray() : [(IKeyFrame)source];
-        if (copied.Length == 0)
-        {
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
-            return;
-        }
+        var (type, copied) = source;
         if (type != Animation.GetType() && type != typeof(KeyFrame<>).MakeGenericType(Animation.ValueType))
         {
             if (target != null && copied.Length == 1)
@@ -95,29 +84,7 @@ public abstract partial class GraphEditorViewModel
             else NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
             return;
         }
-        double first = copied.Min(x => x.KeyTime.TotalSeconds);
-        var pasted = new List<IKeyFrame>();
-        HistoryManager.ExecuteInTransaction(() =>
-        {
-            foreach (var key in copied)
-            {
-                ObjectRegenerator.Regenerate(key, key.GetType(), out var cloned);
-                var clone = (IKeyFrame)cloned;
-                clone.KeyTime = start + TimeSpan.FromSeconds(key.KeyTime.TotalSeconds - first);
-                var existing = Animation.KeyFrames.FirstOrDefault(x => x.KeyTime == clone.KeyTime);
-                if (existing != null)
-                {
-                    existing.Value = clone.Value;
-                    existing.Easing = clone.Easing;
-                    pasted.Add(existing);
-                }
-                else
-                {
-                    Animation.KeyFrames.Add(clone, out _);
-                    pasted.Add(clone);
-                }
-            }
-        }, CommandNames.PasteKeyFrame);
+        var pasted = KeyFrameSelectionClipboard.Paste(Animation, copied, start, HistoryManager);
         channel.SetSelection(pasted);
     }
 }

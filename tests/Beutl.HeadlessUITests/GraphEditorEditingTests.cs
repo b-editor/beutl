@@ -17,10 +17,15 @@ using Beutl.Editor.Components;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Language;
+using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
 using Moq;
 using AvaloniaPath = Avalonia.Controls.Shapes.Path;
@@ -202,6 +207,133 @@ public class GraphEditorEditingTests
             Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
         }
         finally { hotkeys.CommandModifiers = previous; }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false, false)]
+    [TestCase(false, false, true)]
+    [TestCase(false, true, false)]
+    [TestCase(false, true, true)]
+    [TestCase(true, false, false)]
+    [TestCase(true, false, true)]
+    [TestCase(true, true, false)]
+    [TestCase(true, true, true)]
+    [TestCase(false, true, false, true)]
+    [TestCase(false, true, true, true)]
+    [TestCase(true, true, false, true)]
+    [TestCase(true, true, true, true)]
+    public async Task Graph_selection_pastes_into_timeline_without_replacing_other_keys(bool globalClock, bool occupied, bool locked, bool keyMenu = false)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        Assert.That(await graph.Model.CopySelectionAsync(graph.Window.Clipboard), Is.True);
+        var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
+        var target = new KeyFrameAnimation<float> { UseGlobalClock = globalClock };
+        target.KeyFrames.Add(new KeyFrame<float> { Value = 20 });
+        double start = globalClock ? 5 : 3;
+        if (occupied) target.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(start), Value = 900 });
+        shape.Height.Animation = target;
+        graph.Model.Element.Start = TimeSpan.FromSeconds(2);
+        graph.Model.Element.IsLocked = locked;
+        graph.Model.HistoryManager.Commit();
+        var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
+        var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Height, shape);
+        using var inline = new InlineAnimationLayerViewModel<float>(property, timeline, timeline.Elements.Single());
+        string before = CoreSerializer.SerializeToJsonObject(target).ToJsonString();
+        int undo = graph.Model.HistoryManager.UndoCount;
+        if (keyMenu) await inline.Items.Single(item => item.Model.KeyTime.TotalSeconds == start).PasteAsync(graph.Window.Clipboard);
+        else await inline.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(5), graph.Window.Clipboard);
+        if (locked)
+        {
+            Assert.That(CoreSerializer.SerializeToJsonObject(target).ToJsonString(), Is.EqualTo(before));
+            Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
+            return;
+        }
+        Assert.That(target.KeyFrames.Select(key => key.KeyTime.TotalSeconds), Is.EqualTo(new[] { 0, start, start + 1 }));
+        Assert.That(target.KeyFrames.Select(key => key.Value), Is.EqualTo(new[] { 20f, 100f, 500f }));
+        Assert.That(target.UseGlobalClock, Is.EqualTo(globalClock));
+        Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
+        Assert.That(inline.Items, Has.Count.EqualTo(3));
+        Assert.That(inline.Width.Value, Is.EqualTo(target.Duration.TimeToPixel(timeline.Options.Value.Scale)));
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+        graph.Model.HistoryManager.Undo();
+        Assert.That(CoreSerializer.SerializeToJsonObject(target).ToJsonString(), Is.EqualTo(before));
+        Assert.That(inline.Width.Value, Is.EqualTo(target.Duration.TimeToPixel(timeline.Options.Value.Scale)));
+        graph.Model.HistoryManager.Redo();
+        Assert.That(target.KeyFrames, Has.Count.EqualTo(3));
+    }
+
+    [AvaloniaTest]
+    [TestCase("lock")]
+    [TestCase("replace")]
+    [TestCase("dispose")]
+    public async Task Pending_timeline_selection_paste_rechecks_the_destination(string change)
+    {
+        using var graph = await GraphScope.CreateAsync();
+        await graph.Model.CopySelectionAsync(graph.Window.Clipboard);
+        string json = (await graph.Window.Clipboard!.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection))!;
+        var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
+        var target = new KeyFrameAnimation<float>();
+        target.KeyFrames.Add(new KeyFrame<float> { Value = 20 });
+        shape.Height.Animation = target;
+        graph.Model.HistoryManager.Commit();
+        var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
+        var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Height, shape);
+        using var inline = new InlineAnimationLayerViewModel<float>(property, timeline, timeline.Elements.Single());
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var clipboard = new Mock<IClipboard>();
+        clipboard.Setup(x => x.TryGetDataAsync()).Returns(Read);
+        Task paste = inline.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(3), clipboard.Object);
+        Assert.That(paste.IsCompleted, Is.False);
+        if (change == "lock") graph.Model.Element.IsLocked = true;
+        else if (change == "replace") shape.Height.Animation = new KeyFrameAnimation<float>();
+        else inline.Dispose();
+        int undo = graph.Model.HistoryManager.UndoCount;
+        gate.SetResult();
+        await paste;
+        Assert.That(target.KeyFrames, Has.Count.EqualTo(1));
+        Assert.That(target.KeyFrames[0].Value, Is.EqualTo(20));
+        if (change == "replace") Assert.That(((KeyFrameAnimation<float>)shape.Height.Animation!).KeyFrames, Is.Empty);
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
+
+        async Task<IAsyncDataTransfer?> Read()
+        {
+            await gate.Task;
+            var data = new DataTransfer();
+            data.Add(DataTransferItem.Create(BeutlDataFormats.KeyFrameSelection, json));
+            return data;
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Pasted_graph_selection_renders_in_the_timeline(bool light)
+    {
+        using var graph = await GraphScope.CreateAsync(light, separateHandles: true);
+        await graph.Model.CopySelectionAsync(graph.Window.Clipboard);
+        var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.5), Value = 20 });
+        shape.Height.Animation = animation;
+        var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
+        var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Height, shape);
+        timeline.AttachInline(property, graph.Model.Element);
+        var inline = timeline.Inlines.Single(item => ReferenceEquals(item.Property, property));
+        var view = new TimelineTabView { DataContext = timeline };
+        graph.Window.Content = view;
+        graph.Window.Width = 960;
+        try
+        {
+            await inline.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(3), graph.Window.Clipboard);
+            HeadlessTestHelpers.Render(3);
+            var layer = view.GetVisualDescendants().OfType<InlineAnimationLayer>().Single(item => ReferenceEquals(item.DataContext, inline));
+            var keys = layer.GetVisualDescendants().OfType<AvaloniaPath>().Where(item => item.DataContext is InlineKeyFrameViewModel).ToArray();
+            Assert.That(keys, Has.Length.EqualTo(3));
+            foreach (var key in keys)
+                Assert.That(key.TranslatePoint(default, graph.Window)!.Value.X, Is.InRange(0, graph.Window.Bounds.Width));
+            graph.Capture($"timeline-pasted-selection-{light}");
+        }
+        finally { view.DataContext = null; timeline.DetachInline(inline); }
     }
 
     [AvaloniaTest]
