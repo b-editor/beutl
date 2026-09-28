@@ -943,6 +943,24 @@ public class PathEditorInteractionTests
     }
 
     [AvaloniaTest]
+    public async Task Click_control_tracks_layout_changes_triggered_by_hover()
+    {
+        using var editor = await Fixture.Create();
+        var canvas = editor.View.FindControl<Canvas>("canvas")!;
+        var anchor = canvas.Children.OfType<Thumb>().Single(t => ReferenceEquals(t.DataContext, editor.Figure.Segments[0]));
+        bool moved = false;
+        editor.Window.PointerMoved += (_, _) =>
+        {
+            if (moved) return;
+            moved = true;
+            editor.View.Matrix = Matrix.CreateTranslation(40, 30);
+        };
+        editor.ClickControl(anchor);
+        Assert.That(moved, Is.True);
+        Assert.That(editor.Selected, Is.EqualTo(new[] { editor.Figure.Segments[0] }));
+    }
+
+    [AvaloniaTest]
     public async Task Preview_overlay_uses_the_same_selection_nudge_and_pan_operations()
     {
         using var editor = await Fixture.Create();
@@ -955,9 +973,7 @@ public class PathEditorInteractionTests
         HeadlessTestHelpers.Render(3);
         var canvas = overlay.FindControl<Canvas>("canvas")!;
         Thumb thumb = canvas.Children.OfType<Thumb>().Single(t => ReferenceEquals(t.DataContext, editor.Figure.Segments[0]));
-        Point point = PathEditorHelper.GetCanvasPosition(thumb);
-        editor.MouseDown(point, MouseButton.Left);
-        editor.MouseUp(point, MouseButton.Left);
+        editor.ClickControl(thumb);
         Assert.That(overlay.GetSelectedAnchors(), Has.Length.EqualTo(1));
         editor.Window.KeyPress(Key.Right, RawInputModifiers.Shift, PhysicalKey.ArrowRight, null);
         editor.Window.KeyRelease(Key.Right, RawInputModifiers.Shift, PhysicalKey.ArrowRight, null);
@@ -2027,11 +2043,29 @@ public class PathEditorInteractionTests
             control.BringIntoView();
             HeadlessTestHelpers.Render(2);
             var top = TopLevel.GetTopLevel(control)!;
-            Point point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), top)!.Value;
-            top.MouseMove(point);
+            var hitTarget = control.IsHitTestVisible ? control
+                : control.GetVisualAncestors().OfType<Control>().First(ancestor => ancestor.IsHitTestVisible);
+            Point point = ReadyPoint();
             top.MouseDown(point, MouseButton.Left, modifiers);
             top.MouseUp(point, MouseButton.Left, modifiers);
             HeadlessTestHelpers.Render(3);
+
+            Point ReadyPoint()
+            {
+                // MouseMove pumps dispatcher/render work. A preview matrix or hover layout
+                // can move the target in that work, and compositor hit data may lag layout.
+                for (int attempt = 0; attempt < 20; attempt++)
+                {
+                    HeadlessTestHelpers.Render(2);
+                    Point before = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), top)!.Value;
+                    top.MouseMove(before, modifiers);
+                    Point after = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), top)!.Value;
+                    var hit = top.InputHitTest(after) as Visual;
+                    if (before == after && (!control.IsEffectivelyEnabled || ReferenceEquals(hit, hitTarget)
+                        || hit?.GetVisualAncestors().Contains(hitTarget) == true)) return after;
+                }
+                throw new AssertionException($"The rendered hit target did not settle on {control.GetType().Name} ({control.Name}).");
+            }
         }
 
         public void Click(double x, double y, RawInputModifiers modifiers = RawInputModifiers.None)
