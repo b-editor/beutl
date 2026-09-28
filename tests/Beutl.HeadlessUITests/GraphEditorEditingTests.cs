@@ -538,6 +538,116 @@ public class GraphEditorEditingTests
     }
 
     [AvaloniaTest]
+    [TestCase(typeof(CustomQuadraticEasing))]
+    [TestCase(typeof(CustomSplineEasing))]
+    [TestCase(typeof(HoldEasing))]
+    public async Task Unsupported_easing_reversal_leaves_the_entire_animation_unchanged(Type easingType)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        var original = (Easing)Activator.CreateInstance(easingType)!;
+        graph.Second.Easing = original;
+        var third = new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(2.5),
+            Value = 200,
+            Easing = new SplineEasing(0.25f, 0.2f, 0.75f, 0.8f)
+        };
+        graph.Animation.KeyFrames.Add(third);
+        graph.Model.SelectedView.Value!.SetSelection(graph.Animation.KeyFrames);
+        graph.Model.HistoryManager.Commit();
+        var snapshot = new GraphEditorDragSnapshot(graph.Model.SelectedView.Value);
+        string before = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
+        int undo = graph.Model.HistoryManager.UndoCount;
+        graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(
+            entry => (3 - entry.Time.TotalSeconds, entry.Number * 2), -1, 2, transformHandles: true));
+        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
+        Assert.That(graph.Second.Easing, Is.SameAs(original));
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
+        Assert.That(graph.Model.HistoryManager.HasPendingOperations, Is.False);
+        Assert.That(graph.Model.SelectedView.Value.SelectionCount.Value, Is.EqualTo(3));
+
+        graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(entry => (entry.Time.TotalSeconds + 0.2, entry.Number + 10)));
+        Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(0.7).Within(0.00001));
+        Assert.That(graph.First.Value, Is.EqualTo(110));
+        string moved = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
+        graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(
+            entry => (3 - entry.Time.TotalSeconds, entry.Number * 2), -1, 2, transformHandles: true));
+        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(moved));
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+        graph.Model.HistoryManager.Undo();
+        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Dragging_an_unsupported_easing_past_the_anchor_does_not_commit_an_edit(bool cancel)
+    {
+        using var graph = await GraphScope.CreateAsync(light: cancel, separateHandles: true);
+        graph.Second.Easing = new CustomQuadraticEasing();
+        graph.Model.HistoryManager.Commit();
+        HeadlessTestHelpers.Render();
+        string before = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
+        Point first = graph.KeyFrame(graph.First).TranslatePoint(default, graph.Window)!.Value;
+        Point second = graph.KeyFrame(graph.Second).TranslatePoint(default, graph.Window)!.Value;
+        Point start = new(second.X, (first.Y + second.Y) / 2);
+        Point end = new(first.X - (second.X - first.X) / 2, start.Y);
+        int undo = graph.Model.HistoryManager.UndoCount;
+        graph.HitTest(start);
+        graph.Window.MouseDown(start, MouseButton.Left);
+        graph.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
+        if (cancel)
+        {
+            graph.Window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.None, null);
+            graph.Window.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.None, null);
+        }
+        graph.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
+        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
+        graph.Capture($"unsupported-reversal-{cancel}");
+    }
+
+    [AvaloniaTest]
+    public async Task Unsupported_easing_outside_the_selection_does_not_block_reversal()
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        graph.Second.Easing = new CubicEaseIn();
+        var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2.5), Value = 200, Easing = new CustomQuadraticEasing() };
+        graph.Animation.KeyFrames.Add(third);
+        graph.Model.HistoryManager.Commit();
+        var original = third.Easing;
+        var snapshot = new GraphEditorDragSnapshot(graph.Model.SelectedView.Value!);
+        snapshot.Apply(entry => (2 - entry.Time.TotalSeconds, entry.Number), -1, transformHandles: true);
+        Assert.That(graph.Animation.KeyFrames[0], Is.SameAs(graph.Second));
+        Assert.That(graph.First.Easing, Is.TypeOf<CubicEaseOut>());
+        Assert.That(third.Easing, Is.SameAs(original));
+        Assert.That(third.KeyTime.TotalSeconds, Is.EqualTo(2.5));
+    }
+
+    public sealed class CustomQuadraticEasing : Easing
+    {
+        public override float Ease(float progress) => progress * progress;
+    }
+
+    public sealed class CustomSplineEasing() : SplineEasing(0.25f, 0.2f, 0.75f, 0.8f)
+    {
+        public override float Ease(float progress) => progress * progress;
+    }
+
+    [AvaloniaTest]
+    [TestCase(typeof(LinearEasing), typeof(LinearEasing))]
+    [TestCase(typeof(QuadraticEaseInOut), typeof(QuadraticEaseInOut))]
+    [TestCase(typeof(CubicEaseInOut), typeof(CubicEaseInOut))]
+    [TestCase(typeof(QuarticEaseInOut), typeof(QuarticEaseInOut))]
+    [TestCase(typeof(QuinticEaseInOut), typeof(QuinticEaseInOut))]
+    [TestCase(typeof(SineEaseInOut), typeof(SineEaseInOut))]
+    [TestCase(typeof(CircularEaseInOut), typeof(CircularEaseInOut))]
+    [TestCase(typeof(ExponentialEaseInOut), typeof(ExponentialEaseInOut))]
+    [TestCase(typeof(ElasticEaseInOut), typeof(ElasticEaseInOut))]
+    [TestCase(typeof(BackEaseInOut), typeof(BackEaseInOut))]
+    [TestCase(typeof(BounceEaseInOut), typeof(BounceEaseInOut))]
     [TestCase(typeof(QuadraticEaseIn), typeof(QuadraticEaseOut))]
     [TestCase(typeof(QuadraticEaseOut), typeof(QuadraticEaseIn))]
     [TestCase(typeof(CubicEaseIn), typeof(CubicEaseOut))]

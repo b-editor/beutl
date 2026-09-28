@@ -12,7 +12,7 @@ internal sealed class GraphEditorDragSnapshot
     private readonly GraphEditorViewViewModel _channel;
     private readonly Dictionary<IKeyFrame, (Point? Incoming, Point? Outgoing)> _handles = [];
     private readonly Dictionary<IKeyFrame, Easing> _originalEasings = [];
-    private readonly Dictionary<(IKeyFrame Start, IKeyFrame End), Easing> _reversedSegments = [];
+    private readonly Dictionary<(IKeyFrame Start, IKeyFrame End), Easing?> _reversedSegments = [];
     internal readonly record struct Entry(IKeyFrame Model, TimeSpan Time, object? Value, double Number);
     public Entry[] Entries { get; }
     public double InitialBaseline { get; }
@@ -56,6 +56,10 @@ internal sealed class GraphEditorDragSnapshot
         double correction = Math.Max(0, -changes.Min(x => x.Result.Time));
         var times = changes.Select(change => TimeSpan.FromSeconds(change.Result.Time + correction).RoundToRate(rate)).ToArray();
         var selected = Entries.Select(x => x.Model).ToHashSet();
+        // Only selected segments are mirrored. Reject unsupported interpolation before any
+        // part of the transform changes the animation, retaining the last valid preview.
+        if (timeScale < 0 && _reversedSegments.Any(segment => segment.Value == null
+                && selected.Contains(segment.Key.Start) && selected.Contains(segment.Key.End))) return;
         var occupied = editor.Animation.KeyFrames.Where(key => !selected.Contains(key)).Select(key => key.KeyTime).ToHashSet();
         // Reject the whole proposal before changing values or tangents. A drag can continue
         // past the occupied frame while retaining its last valid state at a collision.
@@ -112,7 +116,7 @@ internal sealed class GraphEditorDragSnapshot
             var previous = _channel.KeyFrames[i - 1];
             if (!selected.Contains(item.Model) && !selected.Contains(previous.Model)) continue;
             if (timeScale < 0 && selected.Contains(item.Model) && selected.Contains(previous.Model)
-                && _reversedSegments.TryGetValue((previous.Model, item.Model), out var reversed))
+                && _reversedSegments.TryGetValue((previous.Model, item.Model), out var reversed) && reversed != null)
                 item.Model.Easing = reversed;
             else if (_originalEasings.TryGetValue(item.Model, out var original))
                 item.Model.Easing = original;
@@ -127,9 +131,10 @@ internal sealed class GraphEditorDragSnapshot
     }
 
     // Keep built-in easing types so the mirrored animation uses the existing serialization format.
-    private static Easing ReverseEasing(Easing easing) => easing switch
+    private static Easing? ReverseEasing(Easing easing) => easing switch
     {
-        SplineEasing spline => new SplineEasing(1 - spline.X2, 1 - spline.Y2, 1 - spline.X1, 1 - spline.Y1),
+        SplineEasing spline when spline.GetType() == typeof(SplineEasing)
+            => new SplineEasing(1 - spline.X2, 1 - spline.Y2, 1 - spline.X1, 1 - spline.Y1),
         QuadraticEaseIn => new QuadraticEaseOut(),
         QuadraticEaseOut => new QuadraticEaseIn(),
         CubicEaseIn => new CubicEaseOut(),
@@ -150,7 +155,10 @@ internal sealed class GraphEditorDragSnapshot
         BackEaseOut => new BackEaseIn(),
         BounceEaseIn => new BounceEaseOut(),
         BounceEaseOut => new BounceEaseIn(),
-        _ => easing
+        LinearEasing or QuadraticEaseInOut or CubicEaseInOut or QuarticEaseInOut or QuinticEaseInOut
+            or SineEaseInOut or CircularEaseInOut or ExponentialEaseInOut or ElasticEaseInOut
+            or BackEaseInOut or BounceEaseInOut => easing,
+        _ => null
     };
 
     private static void SetHandle(SplineEasing spline, bool incoming, Point vector,
