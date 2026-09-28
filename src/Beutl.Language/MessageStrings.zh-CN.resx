@@ -260,6 +260,12 @@
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>无法渲染帧，因为引用的源文件缺失：{0}（缺少 {1} 个）。</value>
   </data>
+  <data name="FlatpakInvalidBundle" xml:space="preserve">
+    <value>下载的 Flatpak 不是此应用的有效更新。</value>
+  </data>
+  <data name="FlatpakUpdateTooLarge" xml:space="preserve">
+    <value>Flatpak 下载超出了允许的最大大小。</value>
+  </data>
   <data name="FlatpakReleasePage" xml:space="preserve">
     <value>发布页面</value>
   </data>

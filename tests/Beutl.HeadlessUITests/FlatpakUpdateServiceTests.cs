@@ -39,6 +39,7 @@ public sealed class FlatpakUpdateServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(scope.InstalledBytes, Is.EqualTo(s_bundle));
+            Assert.That(scope.ValidatedBytes, Is.EqualTo(s_bundle));
             Assert.That(scope.Requests, Is.EqualTo(new[] { BundleUrl }),
                 "The updater must use the update API's URL without querying GitHub or constructing an asset name.");
             Assert.That(scope.Commands[^1].ArgumentList, Is.EqualTo(new[]
@@ -51,6 +52,62 @@ public sealed class FlatpakUpdateServiceTests
             Assert.That(scope.Progress.Values.Any(x => x.Fraction == 1), Is.True);
             Assert.That(scope.Commands.All(x => !x.UseShellExecute), Is.True);
         });
+    }
+
+    [TestCase("app/org.example.Other/x86_64/master")]
+    [TestCase("app/net.beditor.Beutl/aarch64/master")]
+    [TestCase("app/net.beditor.Beutl/x86_64/stable")]
+    [TestCase("runtime/net.beditor.Beutl/x86_64/master")]
+    [TestCase(null)]
+    public void DifferentOrInvalidBundle_IsRejectedBeforeHostInstallation(string? reference)
+    {
+        using var scope = new Scope { BundleRef = reference };
+        var error = Assert.ThrowsAsync<InvalidDataException>(async () => await scope.InstallAsync());
+        Assert.That(error!.Message, Is.EqualTo(Beutl.Language.MessageStrings.FlatpakInvalidBundle));
+        Assert.That(scope.ValidatedBytes, Is.EqualTo(s_bundle));
+        Assert.That(scope.InstalledBytes, Is.Null);
+        Assert.That(scope.Commands.Any(command => command.ArgumentList.Contains("install")), Is.False);
+        Assert.That(Directory.GetFiles(scope.Root, "*.flatpak", SearchOption.AllDirectories), Is.Empty);
+    }
+
+    [Test]
+    public void OversizedContentLength_IsRejectedBeforeReadingTheBody()
+    {
+        using var source = new EndlessStream();
+        using var scope = new Scope
+        {
+            SourceStream = source,
+            DeclaredLength = FlatpakUpdateService.MaxDownloadBytes + 1
+        };
+        var error = Assert.ThrowsAsync<InvalidDataException>(async () => await scope.InstallAsync());
+        Assert.That(error!.Message, Is.EqualTo(Beutl.Language.MessageStrings.FlatpakUpdateTooLarge));
+        Assert.That(source.BytesRead, Is.Zero);
+        Assert.That(scope.ValidatedBytes, Is.Null);
+        Assert.That(scope.InstalledBytes, Is.Null);
+        Assert.That(Directory.GetFiles(scope.Root, "*.flatpak", SearchOption.AllDirectories), Is.Empty);
+    }
+
+    [Test]
+    public void EndlessDownload_StopsAtTheSizeLimitAndCleansUp()
+    {
+        using var source = new EndlessStream();
+        const long limit = 81920 * 2;
+        using var scope = new Scope(maximumDownloadBytes: limit) { SourceStream = source };
+        var error = Assert.ThrowsAsync<InvalidDataException>(async () => await scope.InstallAsync());
+        Assert.That(error!.Message, Is.EqualTo(Beutl.Language.MessageStrings.FlatpakUpdateTooLarge));
+        Assert.That(source.BytesRead, Is.EqualTo(limit + 81920), "Read at most one buffer beyond the limit, then stop without writing it.");
+        Assert.That(scope.ValidatedBytes, Is.Null);
+        Assert.That(scope.InstalledBytes, Is.Null);
+        Assert.That(Directory.GetFiles(scope.Root, "*.flatpak", SearchOption.AllDirectories), Is.Empty);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DownloadExactlyAtTheLimit_CanBeInstalled(bool unknownLength)
+    {
+        using var scope = new Scope(maximumDownloadBytes: s_bundle.Length) { UnknownContentLength = unknownLength };
+        await scope.InstallAsync();
+        Assert.That(scope.InstalledBytes, Is.EqualTo(s_bundle));
     }
 
     [Test]
@@ -200,6 +257,18 @@ public sealed class FlatpakUpdateServiceTests
     }
 
     [Test]
+    public void SandboxInfo_UsesTheCanonicalInstanceArchitectureAndBranch()
+    {
+        using var scope = new Scope();
+        // These fields are written under [Instance] by flatpak_run_add_app_info_args().
+        // Application-scoped fields must not override the running deployment.
+        string info = scope.Info.Replace("[Instance]", "arch=aarch64\nbranch=stable\n[Instance]");
+        Assert.That(FlatpakUpdateService.ParseInfo(info).Ref, Is.EqualTo(AppRef));
+        Assert.Throws<InvalidOperationException>(() => FlatpakUpdateService.ParseInfo(
+            info.Replace("arch=x86_64\nbranch=master\n", "")));
+    }
+
+    [Test]
     public async Task ProcessFailure_PropagatesStderrAndSuccessReturnsOutput()
     {
         var psi = TestProcess("printf 'Permission denied' >&2; exit 7");
@@ -265,6 +334,10 @@ public sealed class FlatpakUpdateServiceTests
         internal AppUpdateResponse UpdateResponse { get; set; } = Update;
         internal string? DownloadFailure { get; set; }
         internal bool UnknownContentLength { get; init; }
+        internal long? DeclaredLength { get; init; }
+        internal Stream? SourceStream { get; init; }
+        internal string? BundleRef { get; init; } = "app/" + AppRef;
+        internal byte[]? ValidatedBytes { get; private set; }
         internal bool InstallFailure { get; init; }
         internal bool BlockDownload { get; set; }
         internal TaskCompletionSource DownloadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -276,13 +349,17 @@ public sealed class FlatpakUpdateServiceTests
         private string Location => "/installation/app/" + AppRef + "/new-commit";
         internal string Info => $"[Application]\nname=net.beditor.Beutl\n[Instance]\narch=x86_64\nbranch=master\ninstance-path={Root.Replace(" ", "\\s")}\napp-path=/installation/app/{AppRef}/old-commit/files";
 
-        internal Scope(string installation = "user")
+        internal Scope(string installation = "user", long maximumDownloadBytes = FlatpakUpdateService.MaxDownloadBytes)
         {
             Directory.CreateDirectory(Root);
             List = $"{AppRef}\t{installation}\n";
             UserLocation = Location;
             _client = new HttpClient(this, disposeHandler: false);
-            _service = new FlatpakUpdateService(_client, RunAsync);
+            _service = new FlatpakUpdateService(_client, RunAsync, path =>
+            {
+                ValidatedBytes = File.ReadAllBytes(path);
+                return BundleRef;
+            }, maximumDownloadBytes);
         }
 
         internal Task InstallAsync(CancellationToken token = default) => _service.InstallAsync(UpdateResponse, Info, Progress, token);
@@ -314,8 +391,10 @@ public sealed class FlatpakUpdateServiceTests
                 "empty" => [],
                 _ => s_bundle
             };
-            HttpContent content = UnknownContentLength ? new UnknownLengthContent(bytes) : new ByteArrayContent(bytes);
-            if (!UnknownContentLength) content.Headers.ContentLength = s_bundle.Length;
+            HttpContent content = SourceStream != null ? new StreamContent(SourceStream)
+                : UnknownContentLength ? new UnknownLengthContent(bytes) : new ByteArrayContent(bytes);
+            if (DeclaredLength.HasValue) content.Headers.ContentLength = DeclaredLength;
+            else if (!UnknownContentLength && SourceStream == null) content.Headers.ContentLength = s_bundle.Length;
             return new(HttpStatusCode.OK) { Content = content };
         }
 
@@ -332,5 +411,27 @@ public sealed class FlatpakUpdateServiceTests
         protected override bool TryComputeLength(out long length) { length = 0; return false; }
         protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
             => stream.WriteAsync(data).AsTask();
+    }
+
+    private sealed class EndlessStream : Stream
+    {
+        internal long BytesRead { get; private set; }
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            buffer.Span.Fill(1);
+            BytesRead += buffer.Length;
+            return ValueTask.FromResult(buffer.Length);
+        }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Flush() => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }

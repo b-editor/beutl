@@ -260,6 +260,12 @@ Podrás seguir editando cuando termine.</value>
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>No se puede renderizar el fotograma porque falta un archivo de origen referenciado: {0} ({1} faltantes).</value>
   </data>
+  <data name="FlatpakInvalidBundle" xml:space="preserve">
+    <value>El Flatpak descargado no es una actualización válida para esta aplicación.</value>
+  </data>
+  <data name="FlatpakUpdateTooLarge" xml:space="preserve">
+    <value>La descarga de Flatpak supera el tamaño máximo permitido.</value>
+  </data>
   <data name="FlatpakReleasePage" xml:space="preserve">
     <value>Página de la versión</value>
   </data>

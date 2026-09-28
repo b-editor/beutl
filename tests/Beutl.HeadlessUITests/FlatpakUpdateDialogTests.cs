@@ -146,6 +146,8 @@ public sealed class FlatpakUpdateDialogTests
     [TestCase(800, false, "en-US", "complete")]
     [TestCase(400, false, "ja-JP", "failure")]
     [TestCase(800, true, "en-US", "failure")]
+    [TestCase(400, false, "ja-JP", "invalid-bundle")]
+    [TestCase(400, true, "en-US", "too-large")]
     public async Task DialogShowsProgressAndResultAtDifferentSizes(int width, bool light, string language, string state)
     {
         CultureInfo oldCulture = CultureInfo.CurrentUICulture;
@@ -157,6 +159,8 @@ public sealed class FlatpakUpdateDialogTests
                 ? new(MessageStrings.Downloading, 0.42) : new(ExtensionsStrings.Installing));
             await finish.Task.WaitAsync(token);
             if (state == "failure") throw new IOException(MessageStrings.FlatpakUpdateUnavailable);
+            if (state == "invalid-bundle") throw new InvalidDataException(MessageStrings.FlatpakInvalidBundle);
+            if (state == "too-large") throw new InvalidDataException(MessageStrings.FlatpakUpdateTooLarge);
         });
         var window = new Window { Width = width, Height = 480, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark };
         var dialog = new UpdateDialog { DataContext = vm };
@@ -167,7 +171,7 @@ public sealed class FlatpakUpdateDialogTests
             window.Show();
             closed = dialog.ShowAsync(window);
             operation = vm.StartFlatpakAsync();
-            if (state is "complete" or "failure")
+            if (state is "complete" or "failure" or "invalid-bundle" or "too-large")
             {
                 finish.SetResult();
                 await operation;
@@ -180,7 +184,7 @@ public sealed class FlatpakUpdateDialogTests
                 Assert.That(text.Bounds.Height, Is.GreaterThan(0));
                 Assert.That(dialog.PrimaryButtonText, Is.Empty);
                 Assert.That(dialog.GetVisualDescendants().OfType<HyperlinkButton>().Single().IsEffectivelyVisible,
-                    Is.EqualTo(state == "failure"));
+                    Is.EqualTo(state is "failure" or "invalid-bundle" or "too-large"));
                 Assert.That(dialog.GetVisualDescendants().OfType<HyperlinkButton>().Single().NavigateUri?.AbsoluteUri,
                     Is.EqualTo(vm.Update.Url));
                 Assert.That(window.IsVisible, Is.True);

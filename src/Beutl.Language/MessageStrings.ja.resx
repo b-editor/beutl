@@ -255,6 +255,12 @@
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>参照元ファイルが見つからないためフレームを描画できません: {0}（欠落 {1} 件）</value>
   </data>
+  <data name="FlatpakInvalidBundle" xml:space="preserve">
+    <value>ダウンロードしたFlatpakは、このアプリの更新に使用できません。</value>
+  </data>
+  <data name="FlatpakUpdateTooLarge" xml:space="preserve">
+    <value>Flatpakのダウンロードサイズが上限を超えています。</value>
+  </data>
   <data name="FlatpakReleasePage" xml:space="preserve">
     <value>リリースページ</value>
   </data>

@@ -9,10 +9,14 @@ internal readonly record struct FlatpakUpdateProgress(string Message, double? Fr
 
 internal sealed class FlatpakUpdateService(
     HttpClient client,
-    Func<ProcessStartInfo, CancellationToken, Task<string>> runCommand)
+    Func<ProcessStartInfo, CancellationToken, Task<string>> runCommand,
+    Func<string, string?>? readBundleRef = null,
+    long maximumDownloadBytes = FlatpakUpdateService.MaxDownloadBytes)
 {
+    internal const long MaxDownloadBytes = 1024L * 1024 * 1024;
     private const string AppId = "net.beditor.Beutl";
     private static readonly SemaphoreSlim s_updateGate = new(1, 1);
+    private readonly Func<string, string?> _readBundleRef = readBundleRef ?? FlatpakBundleMetadata.ReadRef;
 
     internal static bool IsRunningInFlatpak => File.Exists("/.flatpak-info")
         || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FLATPAK_ID"));
@@ -49,6 +53,11 @@ internal sealed class FlatpakUpdateService(
             Directory.CreateDirectory(directory);
             string bundle = Path.Combine(directory, "update.flatpak");
             await DownloadAsync(downloadUri, bundle, progress, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string? bundleRef = await Task.Run(() => _readBundleRef(bundle), cancellationToken);
+            if (bundleRef != "app/" + info.Ref)
+                throw new InvalidDataException(MessageStrings.FlatpakInvalidBundle);
             cancellationToken.ThrowIfCancellationRequested();
 
             progress.Report(new(ExtensionsStrings.Installing));
@@ -109,6 +118,8 @@ internal sealed class FlatpakUpdateService(
         using var response = await client.GetAsync(downloadUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
         long? contentLength = response.Content.Headers.ContentLength;
+        if (contentLength > maximumDownloadBytes)
+            throw new InvalidDataException(MessageStrings.FlatpakUpdateTooLarge);
         await using var source = await response.Content.ReadAsStreamAsync(cancellationToken);
         await using var destination = File.Create(path);
         byte[] buffer = new byte[81920];
@@ -117,6 +128,8 @@ internal sealed class FlatpakUpdateService(
         while ((count = await source.ReadAsync(buffer, cancellationToken)) != 0)
         {
             total += count;
+            if (total > maximumDownloadBytes)
+                throw new InvalidDataException(MessageStrings.FlatpakUpdateTooLarge);
             if (contentLength.HasValue && total > contentLength.Value)
                 throw new InvalidDataException(MessageStrings.DownloadFailed);
             await destination.WriteAsync(buffer.AsMemory(0, count), cancellationToken);
@@ -154,6 +167,8 @@ internal sealed class FlatpakUpdateService(
         }
 
         string? Get(string key) => values.GetValueOrDefault(key);
+        // Flatpak writes the running architecture and branch under [Instance],
+        // not [Application]: flatpak-run.c, flatpak_run_add_app_info_args().
         // The release workflow currently builds this one architecture and branch.
         // Refuse other channels rather than installing a second, unrelated copy.
         if (Get("Application/name") != AppId || Get("Instance/arch") != "x86_64" || Get("Instance/branch") != "master"

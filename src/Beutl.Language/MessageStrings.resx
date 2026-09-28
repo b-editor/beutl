@@ -260,6 +260,12 @@ You can keep editing when this finishes.</value>
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>Cannot render the frame because a referenced source file is missing: {0} ({1} missing).</value>
   </data>
+  <data name="FlatpakInvalidBundle" xml:space="preserve">
+    <value>The downloaded Flatpak is not a valid update for this application.</value>
+  </data>
+  <data name="FlatpakUpdateTooLarge" xml:space="preserve">
+    <value>The Flatpak download exceeds the maximum allowed size.</value>
+  </data>
   <data name="FlatpakReleasePage" xml:space="preserve">
     <value>Release page</value>
   </data>

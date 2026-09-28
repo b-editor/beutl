@@ -260,6 +260,12 @@
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>참조된 소스 파일이 없어 프레임을 렌더링할 수 없습니다: {0}({1}개 누락).</value>
   </data>
+  <data name="FlatpakInvalidBundle" xml:space="preserve">
+    <value>다운로드한 Flatpak은 이 앱의 유효한 업데이트가 아닙니다.</value>
+  </data>
+  <data name="FlatpakUpdateTooLarge" xml:space="preserve">
+    <value>Flatpak 다운로드가 허용된 최대 크기를 초과했습니다.</value>
+  </data>
   <data name="FlatpakReleasePage" xml:space="preserve">
     <value>릴리스 페이지</value>
   </data>
