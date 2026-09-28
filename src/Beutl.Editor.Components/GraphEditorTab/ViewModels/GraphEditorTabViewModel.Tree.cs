@@ -173,9 +173,9 @@ public sealed partial class GraphEditorTabViewModel
     private void UpdatePropertyItem(GraphEditorTreeItemViewModel item, bool canAnimate, HashSet<string> used, HashSet<object> ancestors)
     {
         var factory = item.ValueType is { } valueType ? GraphEditorViewViewModelFactory.GetFactory(valueType).FirstOrDefault() : null;
-        item.CanAnimate.Value = canAnimate && factory != null;
+        item.CanAnimate.Value = canAnimate && factory != null && item.Animation is null or KeyFrameAnimation;
         item.CanRemoveAnimation.Value = item.Animation != null;
-        item.HasAnimation.Value = item.Animation is KeyFrameAnimation;
+        item.HasAnimation.Value = item.Animation != null;
         var children = new List<GraphEditorTreeItemViewModel>();
         if (item.ValueType is { } type)
         {
@@ -264,11 +264,12 @@ public sealed partial class GraphEditorTabViewModel
     {
         var property = item.PropertyItem ?? item;
         if (!property.CanAnimate.Value || !_treeCache.TryGetValue(property.Key, out var current) || current != property) return;
-        if (property.Animation is not KeyFrameAnimation animation)
+        if (property.Animation == null)
         {
             EnableAnimation(item);
             return;
         }
+        if (property.Animation is not KeyFrameAnimation animation) return;
         SelectedTreeItem.Value = item;
         SelectTreeItem(item);
         if (SelectedAnimation.Value is not { } graph) return;
@@ -293,8 +294,9 @@ public sealed partial class GraphEditorTabViewModel
     {
         var property = item.PropertyItem ?? item;
         if (!property.CanAnimate.Value || Element.Value == null || property.ValueType is not { } type
+            || property.Animation is not null and not KeyFrameAnimation
             || !_treeCache.TryGetValue(property.Key, out var current) || current != property) return;
-        if (property.Animation is not KeyFrameAnimation)
+        if (property.Animation == null)
         {
             var animation = (KeyFrameAnimation)Activator.CreateInstance(typeof(KeyFrameAnimation<>).MakeGenericType(type))!;
             var key = (IKeyFrame)Activator.CreateInstance(typeof(KeyFrame<>).MakeGenericType(type))!;

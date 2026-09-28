@@ -30,7 +30,7 @@ public partial class GraphEditorView
         model.IsSpeedGraph.Subscribe(speed => GraphTypePicker.SelectedIndex = speed ? 1 : 0).DisposeWith(_disposables);
         foreach (var channel in model.Views)
         {
-            EventHandler selectionChanged = (_, _) => { _transformAnchor = null; UpdateSelectionAdorner(); };
+            EventHandler selectionChanged = (_, _) => { _contextVersion++; _transformAnchor = null; UpdateSelectionAdorner(); };
             channel.SelectionChanged += selectionChanged;
             EventHandler rangeChanged = (_, _) => Dispatcher.UIThread.Post(() =>
             {
@@ -41,7 +41,7 @@ public partial class GraphEditorView
             Disposable.Create(() => channel.VerticalRangeChanged -= rangeChanged).DisposeWith(_disposables);
             Disposable.Create(() => channel.SelectionChanged -= selectionChanged).DisposeWith(_disposables);
         }
-        model.SelectedView.Subscribe(_ => { _transformAnchor = null; UpdateSelectionAdorner(); })
+        model.SelectedView.Subscribe(_ => { _contextVersion++; _transformAnchor = null; UpdateSelectionAdorner(); })
             .DisposeWith(_disposables);
         model.IsSpeedGraph.Skip(1).Subscribe(_ =>
         {
@@ -404,10 +404,23 @@ public partial class GraphEditorView
             || TopLevel.GetTopLevel(this) is not { PlatformImpl: not null } topLevel) return;
         int contextVersion = _contextVersion;
         var copied = channel.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
-        // A completed copy is still useful after navigation, but must not delete keys from
-        // an old graph, even if that graph was reattached while the clipboard was pending.
+        bool edited = false;
+        using var pendingEdits = new CompositeDisposable();
+        EventHandler onEdited = (_, _) => edited = true;
+        model.Animation.Edited += onEdited;
+        Disposable.Create(() => model.Animation.Edited -= onEdited).DisposeWith(pendingEdits);
+        model.Animation.KeyFrames.CollectionChangedAsObservable()
+            .Subscribe(_ => edited = true).DisposeWith(pendingEdits);
+        // Spline handles can change without replacing the key's Easing property.
+        foreach (var spline in copied.Select(key => key.Easing).OfType<SplineEasing>().Distinct())
+        {
+            spline.Changed += onEdited;
+            Disposable.Create(() => spline.Changed -= onEdited).DisposeWith(pendingEdits);
+        }
+        // Keep the clipboard copy, but abandon deletion after any edit or navigation,
+        // including edits/selections/channels that have since returned to their initial state.
         if (await model.CopySelectionAsync(clipboard)
-            && contextVersion == _contextVersion && ReferenceEquals(DataContext, model) && !model.IsDisposed
+            && !edited && contextVersion == _contextVersion && ReferenceEquals(DataContext, model) && !model.IsDisposed
             && ReferenceEquals(model.SelectedView.Value, channel)
             && ReferenceEquals(TopLevel.GetTopLevel(this), topLevel) && topLevel.PlatformImpl != null)
             model.DeleteKeyFrames(copied);

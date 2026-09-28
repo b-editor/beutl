@@ -21,6 +21,7 @@ using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Testing.Headless;
+using Beutl.Validation;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Common;
 using DrawableGroup = Beutl.Graphics.DrawableGroup;
@@ -155,6 +156,64 @@ public class GraphEditorTreeTests
         Assert.That(button.IsVisible, Is.False);
         scope.Model.EnableAnimation(item);
         Assert.That(scope.Shape.AlignmentX.Animation, Is.Null);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task Existing_custom_animation_is_preserved_until_explicit_removal(bool refreshFirst, bool light)
+    {
+        using var scope = await TreeScope.CreateAsync(light: light);
+        var item = scope.Find(scope.Shape.Width);
+        var provider = new ConstantAnimation();
+        scope.Shape.Width.Animation = provider;
+        scope.Base.Model.HistoryManager.Commit();
+        if (refreshFirst) HeadlessTestHelpers.Render(3);
+        int undo = scope.Base.Model.HistoryManager.UndoCount;
+        scope.Model.EnableAnimation(item);
+        scope.Model.ToggleKeyFrame(item);
+        Assert.That(scope.Shape.Width.Animation, Is.SameAs(provider));
+        Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
+        HeadlessTestHelpers.Render(3);
+        Assert.That(item.CanAnimate.Value, Is.False);
+        Assert.That(item.HasAnimation.Value, Is.True);
+        var button = scope.AnimationButton(item);
+        Assert.That(button.IsVisible, Is.True);
+        Assert.That(ToolTip.GetTip(button), Is.EqualTo(Strings.RemoveAnimation));
+        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        HeadlessTestHelpers.Render(3);
+        var menu = (FAMenuFlyout)button.ContextFlyout!;
+        Assert.That(menu.IsOpen, Is.True);
+        Assert.That(scope.Shape.Width.Animation, Is.SameAs(provider));
+        scope.Capture($"custom-animation-removal-{refreshFirst}-{light}");
+        var remove = menu.Items.OfType<FAMenuFlyoutItem>().Single();
+        remove.Focus();
+        scope.Base.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
+        scope.Base.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(scope.Shape.Width.Animation, Is.Null);
+        Assert.That(item.CanAnimate.Value, Is.True);
+        Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+        scope.Base.Model.HistoryManager.Undo();
+        HeadlessTestHelpers.Render(3);
+        Assert.That(scope.Shape.Width.Animation, Is.SameAs(provider));
+        Assert.That(item.CanAnimate.Value, Is.False);
+        scope.Base.Model.HistoryManager.Redo();
+        HeadlessTestHelpers.Render(3);
+        Assert.That(scope.Shape.Width.Animation, Is.Null);
+    }
+
+    public sealed class ConstantAnimation : Hierarchical, IAnimation<float>
+    {
+        public TimeSpan Duration => TimeSpan.FromSeconds(5);
+        public bool UseGlobalClock => false;
+        public Type ValueType => typeof(float);
+        public IValidator<float>? Validator { get; set; }
+        public event EventHandler? Edited { add { } remove { } }
+        public float GetAnimatedValue(TimeSpan time) => 84;
+        public float Interpolate(TimeSpan timeSpan) => 84;
     }
 
     [AvaloniaTest]

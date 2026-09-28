@@ -56,6 +56,14 @@ public class GraphEditorEditingTests
     [TestCase("close")]
     [TestCase("dispose")]
     [TestCase("channel")]
+    [TestCase("channel-back")]
+    [TestCase("value")]
+    [TestCase("value-back")]
+    [TestCase("time")]
+    [TestCase("easing")]
+    [TestCase("tangent")]
+    [TestCase("selection")]
+    [TestCase("selection-back")]
     [TestCase("failure")]
     public async Task Pending_cut_only_deletes_from_the_original_active_graph(string change)
     {
@@ -90,13 +98,31 @@ public class GraphEditorEditingTests
                 case "close": graph.Window.Close(); break;
                 case "dispose": graph.Model.Dispose(); break;
                 case "channel": graph.Model.SelectedView.Value = null; break;
+                case "channel-back":
+                    var channel = graph.Model.SelectedView.Value;
+                    graph.Model.SelectedView.Value = null;
+                    graph.Model.SelectedView.Value = channel;
+                    break;
+                case "value": graph.First.Value = 120; break;
+                case "value-back": graph.First.Value = 120; graph.First.Value = 100; break;
+                case "time": graph.First.KeyTime = TimeSpan.FromSeconds(0.7); break;
+                case "easing": graph.Second.Easing = new CubicEaseIn(); break;
+                case "tangent": ((SplineEasing)graph.Second.Easing).Y1 = 0.1f; break;
+                case "selection": graph.Model.SelectedView.Value!.SetSelection([graph.First]); break;
+                case "selection-back":
+                    graph.Model.SelectedView.Value!.SetSelection([]);
+                    graph.Model.SelectedView.Value.SetSelection([graph.First, graph.Second]);
+                    break;
             }
+            string beforeCompletion = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
             if (change == "failure") completed.SetException(new IOException("Clipboard write failed."));
             else completed.SetResult();
             await cut;
             Assert.That(otherAnimation.KeyFrames, Has.Count.EqualTo(1));
             Assert.That(graph.Animation.KeyFrames.Count, Is.EqualTo(change == "active" ? 0 : 2));
             Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + (change == "active" ? 1 : 0)));
+            if (change != "active")
+                Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(beforeCompletion));
             if (change == "active")
             {
                 graph.Model.HistoryManager.Undo();
@@ -104,6 +130,47 @@ public class GraphEditorEditingTests
             }
         }
         finally { data?.Dispose(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Pending_cut_cancels_when_switching_color_channels_and_back(bool navigate)
+    {
+        using var graph = await GraphScope.CreateAsync();
+        var animation = new KeyFrameAnimation<Beutl.Media.Color>();
+        animation.KeyFrames.Add(new KeyFrame<Beutl.Media.Color> { Value = Beutl.Media.Color.FromArgb(255, 10, 20, 30) });
+        animation.KeyFrames.Add(new KeyFrame<Beutl.Media.Color> { KeyTime = TimeSpan.FromSeconds(1), Value = Beutl.Media.Color.FromArgb(255, 30, 40, 50) });
+        var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
+        var brush = new Beutl.Media.SolidColorBrush();
+        brush.Color.Animation = animation;
+        shape.Fill.CurrentValue = brush;
+        graph.Model.HistoryManager.Commit();
+        using var model = new GraphEditorViewModel<Beutl.Media.Color>(graph.Model.EditorContext, animation, graph.Model.Element);
+        graph.View.DataContext = model;
+        var firstChannel = model.Views[0];
+        firstChannel.SetSelection(animation.KeyFrames);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var clipboard = new Mock<IClipboard>();
+        IAsyncDataTransfer? data = null;
+        clipboard.Setup(x => x.SetDataAsync(It.IsAny<IAsyncDataTransfer?>()))
+            .Callback<IAsyncDataTransfer?>(value => data = value).Returns(completed.Task);
+        int undo = model.HistoryManager.UndoCount;
+        try
+        {
+            Task cut = graph.View.CutSelectionAsync(clipboard.Object);
+            Assert.That(cut.IsCompleted, Is.False);
+            if (navigate)
+            {
+                model.SelectedView.Value = model.Views[1];
+                model.SelectedView.Value = firstChannel;
+            }
+            completed.SetResult();
+            await cut;
+            Assert.That(animation.KeyFrames.Count, Is.EqualTo(navigate ? 2 : 0));
+            Assert.That(model.HistoryManager.UndoCount, Is.EqualTo(undo + (navigate ? 0 : 1)));
+        }
+        finally { data?.Dispose(); graph.View.DataContext = null; }
     }
 
     [AvaloniaTest]
