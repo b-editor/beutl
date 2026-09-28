@@ -11,6 +11,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Collections;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
@@ -194,7 +195,7 @@ public class GraphEditorEditingTests
                 await Task.Yield();
                 HeadlessTestHelpers.Render();
             }
-            Assert.That(await graph.Window.Clipboard!.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation), Is.Not.Null);
+            Assert.That(await graph.Window.Clipboard!.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection), Is.Not.Null);
             Assert.That(graph.Animation.KeyFrames, Is.Empty);
             Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
             graph.Model.HistoryManager.Undo();
@@ -287,6 +288,122 @@ public class GraphEditorEditingTests
         Assert.That(graph.Animation.KeyFrames.Select(x => x.KeyTime.TotalSeconds),
             Is.EqualTo(fullAnimation ? new[] { 8d } : new[] { 0.5, 1.5, 3 }));
         Assert.That(graph.Animation.KeyFrames[^1].Value, Is.EqualTo(42f));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false, false)]
+    [TestCase(false, false, true)]
+    [TestCase(false, true, false)]
+    [TestCase(false, true, true)]
+    [TestCase(true, false, false)]
+    [TestCase(true, false, true)]
+    [TestCase(true, true, false)]
+    [TestCase(true, true, true)]
+    public async Task Selected_keys_pasted_from_background_preserve_other_keys_and_use_the_pointer(bool multiple, bool globalClock, bool occupied)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        graph.Model.Element!.Start = TimeSpan.FromSeconds(2);
+        graph.Animation.UseGlobalClock = globalClock;
+        var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2.5), Value = 200 };
+        graph.Animation.KeyFrames.Add(third);
+        double pasteTime = globalClock ? 5 : 3;
+        KeyFrame<float>? existing = null;
+        if (occupied)
+        {
+            existing = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(pasteTime), Value = 900 };
+            graph.Animation.KeyFrames.Add(existing);
+        }
+        graph.Model.HistoryManager.Commit();
+        graph.Model.SelectedView.Value!.SetSelection(multiple ? [graph.First, third] : [graph.First]);
+        string before = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
+        Assert.That(await graph.Model.CopySelectionAsync(graph.Window.Clipboard), Is.True);
+        graph.Model.CurrentTime.Value = TimeSpan.Zero;
+        int undo = graph.Model.HistoryManager.UndoCount;
+        await graph.Model.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(5), graph.Window.Clipboard);
+        Assert.That(graph.Animation.KeyFrames, Does.Contain(graph.Second));
+        Assert.That(graph.Second.Value, Is.EqualTo(500));
+        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.TotalSeconds),
+            Is.EqualTo(multiple ? new[] { 0.5, 1.5, 2.5, pasteTime, pasteTime + 2 } : new[] { 0.5, 1.5, 2.5, pasteTime }));
+        var pasted = graph.Animation.KeyFrames.Single(key => key.KeyTime.TotalSeconds == pasteTime);
+        Assert.That(pasted.Value, Is.EqualTo(100f));
+        if (existing != null) Assert.That(pasted, Is.SameAs(existing));
+        if (multiple) Assert.That(graph.Animation.KeyFrames[^1].Value, Is.EqualTo(200f));
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+        Assert.That(await graph.Window.Clipboard!.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation), Is.Null,
+            "A key selection must not advertise itself as a whole-animation replacement.");
+        graph.Model.HistoryManager.Undo();
+        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
+    }
+
+    [AvaloniaTest]
+    [TestCase("remove")]
+    [TestCase("replace")]
+    [TestCase("reset")]
+    [TestCase("reset-replace")]
+    public async Task Collection_mutations_notify_selection_after_the_views_are_updated(string action)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        var channel = graph.Model.SelectedView.Value!;
+        int notifications = 0;
+        channel.SelectionChanged += (_, _) =>
+        {
+            notifications++;
+            Assert.That(channel.SelectionCount.Value, Is.EqualTo(channel.KeyFrames.Count(key => key.IsSelected.Value)));
+            Assert.That(channel.KeyFrames.Select(key => key.Model), Is.EqualTo(graph.Animation.KeyFrames));
+        };
+        var replacement = new KeyFrame<float> { KeyTime = graph.First.KeyTime, Value = 300 };
+        switch (action)
+        {
+            case "remove": graph.Animation.KeyFrames.Remove(graph.First); break;
+            case "replace": graph.Animation.KeyFrames[0] = replacement; break;
+            case "reset":
+                graph.Animation.KeyFrames.ResetBehavior = ResetBehavior.Reset;
+                graph.Animation.KeyFrames.Clear();
+                break;
+            case "reset-replace":
+                graph.Animation.KeyFrames.ResetBehavior = ResetBehavior.Reset;
+                graph.Animation.KeyFrames.Replace([replacement]);
+                break;
+        }
+        Assert.That(notifications, Is.EqualTo(1));
+        Assert.That(channel.SelectionCount.Value, Is.EqualTo(action.StartsWith("reset") ? 0 : 1));
+        Assert.That(graph.View.FindControl<GraphEditorSelectionAdorner>("SelectionAdorner")!.Selection, Is.Null);
+    }
+
+    [AvaloniaTest]
+    public async Task Removing_unselected_keys_does_not_report_a_selection_change()
+    {
+        using var graph = await GraphScope.CreateAsync();
+        var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(3), Value = 100 };
+        graph.Animation.KeyFrames.Add(third);
+        int notifications = 0;
+        graph.Model.SelectedView.Value!.SelectionChanged += (_, _) => notifications++;
+        graph.Animation.KeyFrames.Remove(third);
+        Assert.That(notifications, Is.Zero);
+        Assert.That(graph.Model.SelectedView.Value.SelectionCount.Value, Is.EqualTo(2));
+    }
+
+    [AvaloniaTest]
+    public async Task Context_menu_delete_clears_the_transform_box_before_the_next_pointer_event()
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        var adorner = graph.View.FindControl<GraphEditorSelectionAdorner>("SelectionAdorner")!;
+        Assert.That(adorner.Selection, Is.Not.Null);
+        Point oldHandle = adorner.TranslatePoint(adorner.Selection!.Value.Center, graph.Window)!.Value;
+        var key = graph.KeyFrame(graph.Second);
+        graph.RightClick(key.TranslatePoint(default, graph.Window)!.Value);
+        var delete = key.ContextMenu!.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Delete));
+        delete.Command!.Execute(delete.CommandParameter);
+        Assert.That(graph.Animation.KeyFrames, Is.Empty);
+        Assert.That(adorner.Selection, Is.Null);
+        key.ContextMenu.Close();
+        HeadlessTestHelpers.Render(3);
+        Assert.DoesNotThrow(() =>
+        {
+            graph.Window.MouseDown(oldHandle, MouseButton.Left);
+            graph.Window.MouseUp(oldHandle, MouseButton.Left);
+        });
+        graph.Capture("deleted-selection-no-transform-box");
     }
 
     [AvaloniaTest]

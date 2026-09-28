@@ -409,6 +409,11 @@ public abstract partial class GraphEditorViewModel : IDisposable
                 PasteKeyFrame(keyFrameJson, pointerPosition);
                 return;
             }
+            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection) is { } selectionJson)
+            {
+                PasteSelection(selectionJson, ConvertKeyTime(pointerPosition));
+                return;
+            }
             else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
             {
                 PasteAnimation(keyFrameAnimationJson);

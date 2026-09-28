@@ -276,6 +276,7 @@ public sealed class GraphEditorViewViewModel : IDisposable
             UpdateLast();
         }
 
+        bool selectionChanged = false;
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:
@@ -285,23 +286,27 @@ public sealed class GraphEditorViewViewModel : IDisposable
             case NotifyCollectionChangedAction.Move:
             case NotifyCollectionChangedAction.Replace:
                 if (e.Action == NotifyCollectionChangedAction.Replace)
-                    foreach (IKeyFrame item in e.OldItems!) _selectedKeyFrames.Remove(item);
+                    foreach (IKeyFrame item in e.OldItems!) selectionChanged |= _selectedKeyFrames.Remove(item);
                 Remove(e.OldStartingIndex, e.OldItems!.Count);
                 Add(e.NewStartingIndex, e.NewItems!);
                 break;
 
             case NotifyCollectionChangedAction.Remove:
                 foreach (IKeyFrame item in e.OldItems!)
-                    _selectedKeyFrames.Remove(item);
+                    selectionChanged |= _selectedKeyFrames.Remove(item);
                 Remove(e.OldStartingIndex, e.OldItems!.Count);
                 break;
 
             case NotifyCollectionChangedAction.Reset:
+                selectionChanged = _selectedKeyFrames.Count > 0;
                 _selectedKeyFrames.Clear();
                 Remove(0, KeyFrames.Count);
+                AddKeyFrames();
+                UpdateLast();
                 break;
         }
         SelectionCount.Value = _selectedKeyFrames.Count;
+        if (selectionChanged) SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void Dispose()
