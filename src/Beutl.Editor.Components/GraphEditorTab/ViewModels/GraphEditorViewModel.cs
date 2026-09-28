@@ -238,6 +238,8 @@ public abstract partial class GraphEditorViewModel : IDisposable
 
     public bool IsEditing => _editting;
 
+    internal bool IsDisposed => _disposed;
+
     public ReactiveProperty<bool> Symmetry { get; } = new(false);
 
     public ReactiveProperty<bool> Asymmetry { get; } = new(true);

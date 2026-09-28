@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Beutl.Animation;
@@ -355,9 +356,8 @@ public partial class GraphEditorView
         else if (e.Key is Key.C or Key.X && e.KeyModifiers.HasFlag(command))
         {
             e.Handled = true;
-            var copied = channel.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
-            if (await model.CopySelectionAsync(TopLevel.GetTopLevel(this)?.Clipboard) && e.Key == Key.X)
-                model.DeleteKeyFrames(copied);
+            if (e.Key == Key.X) await CutSelectionAsync(TopLevel.GetTopLevel(this)?.Clipboard);
+            else await model.CopySelectionAsync(TopLevel.GetTopLevel(this)?.Clipboard);
         }
         else if (e.Key == Key.V && e.KeyModifiers.HasFlag(command))
         {
@@ -396,6 +396,21 @@ public partial class GraphEditorView
         else return;
         UpdateSelectionAdorner();
         e.Handled = true;
+    }
+
+    internal async Task CutSelectionAsync(IClipboard? clipboard = null)
+    {
+        if (DataContext is not GraphEditorViewModel { IsDisposed: false, SelectedView.Value: { } channel } model
+            || TopLevel.GetTopLevel(this) is not { PlatformImpl: not null } topLevel) return;
+        int contextVersion = _contextVersion;
+        var copied = channel.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
+        // A completed copy is still useful after navigation, but must not delete keys from
+        // an old graph, even if that graph was reattached while the clipboard was pending.
+        if (await model.CopySelectionAsync(clipboard)
+            && contextVersion == _contextVersion && ReferenceEquals(DataContext, model) && !model.IsDisposed
+            && ReferenceEquals(model.SelectedView.Value, channel)
+            && ReferenceEquals(TopLevel.GetTopLevel(this), topLevel) && topLevel.PlatformImpl != null)
+            model.DeleteKeyFrames(copied);
     }
 
     private void OnGraphKeyUp(object? sender, KeyEventArgs e)

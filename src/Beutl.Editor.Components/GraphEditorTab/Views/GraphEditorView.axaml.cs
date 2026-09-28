@@ -26,6 +26,7 @@ public partial class GraphEditorView : UserControl
     private TimeSpan _initialStart;
     private TimeSpan _initialDuration;
     private TimeSpan _pointerFrame;
+    private int _contextVersion;
 
     public GraphEditorView()
     {
@@ -80,6 +81,7 @@ public partial class GraphEditorView : UserControl
 
     private void OnDataContextDetached(GraphEditorViewModel obj)
     {
+        _contextVersion++;
         VelocityFlyout?.Hide();
         FinishInteraction(obj, cancel: true);
         _disposables.Clear();

@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -20,6 +21,7 @@ using Beutl.Language;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
+using Moq;
 using AvaloniaPath = Avalonia.Controls.Shapes.Path;
 using GraphScope = Beutl.HeadlessUITests.GraphEditorContextMenuTests.GraphScope;
 
@@ -43,6 +45,95 @@ public class GraphEditorEditingTests
             Assert.That(GraphEditorCurveMath.Velocity(ease, 0.5, 100, 0), Is.Zero);
             Assert.That(GraphEditorCurveMath.Velocity(new HoldEasing(), 1, 100, 2), Is.Zero);
         });
+    }
+
+    [AvaloniaTest]
+    [TestCase("active")]
+    [TestCase("switch")]
+    [TestCase("switch-back")]
+    [TestCase("detach")]
+    [TestCase("reattach")]
+    [TestCase("close")]
+    [TestCase("dispose")]
+    [TestCase("channel")]
+    [TestCase("failure")]
+    public async Task Pending_cut_only_deletes_from_the_original_active_graph(string change)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        var otherAnimation = new KeyFrameAnimation<float>();
+        otherAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 50 });
+        using var otherModel = new GraphEditorViewModel<float>(graph.Model.EditorContext, otherAnimation, graph.Model.Element);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var clipboard = new Mock<IClipboard>();
+        IAsyncDataTransfer? data = null;
+        clipboard.Setup(x => x.SetDataAsync(It.IsAny<IAsyncDataTransfer?>()))
+            .Callback<IAsyncDataTransfer?>(value => data = value).Returns(completed.Task);
+        int undo = graph.Model.HistoryManager.UndoCount;
+        try
+        {
+            Task cut = graph.View.CutSelectionAsync(clipboard.Object);
+            Assert.That(cut.IsCompleted, Is.False);
+            Assert.That(data, Is.Not.Null);
+            Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
+            switch (change)
+            {
+                case "switch": graph.View.DataContext = otherModel; break;
+                case "switch-back":
+                    graph.View.DataContext = otherModel;
+                    graph.View.DataContext = graph.Model;
+                    break;
+                case "detach": graph.Window.Content = null; break;
+                case "reattach":
+                    graph.Window.Content = null;
+                    graph.Window.Content = graph.View;
+                    break;
+                case "close": graph.Window.Close(); break;
+                case "dispose": graph.Model.Dispose(); break;
+                case "channel": graph.Model.SelectedView.Value = null; break;
+            }
+            if (change == "failure") completed.SetException(new IOException("Clipboard write failed."));
+            else completed.SetResult();
+            await cut;
+            Assert.That(otherAnimation.KeyFrames, Has.Count.EqualTo(1));
+            Assert.That(graph.Animation.KeyFrames.Count, Is.EqualTo(change == "active" ? 0 : 2));
+            Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + (change == "active" ? 1 : 0)));
+            if (change == "active")
+            {
+                graph.Model.HistoryManager.Undo();
+                Assert.That(graph.Animation.KeyFrames, Is.EqualTo(new[] { graph.First, graph.Second }));
+            }
+        }
+        finally { data?.Dispose(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(KeyModifiers.Control)]
+    [TestCase(KeyModifiers.Meta)]
+    public async Task Cut_keyboard_shortcut_copies_and_deletes_with_one_undo(KeyModifiers command)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        var hotkeys = Application.Current!.PlatformSettings!.HotkeyConfiguration;
+        KeyModifiers previous = hotkeys.CommandModifiers;
+        hotkeys.CommandModifiers = command;
+        try
+        {
+            graph.View.Focus();
+            int undo = graph.Model.HistoryManager.UndoCount;
+            var modifier = command == KeyModifiers.Meta ? RawInputModifiers.Meta : RawInputModifiers.Control;
+            graph.Window.KeyPress(Key.X, modifier, PhysicalKey.X, null);
+            graph.Window.KeyRelease(Key.X, modifier, PhysicalKey.X, null);
+            for (int i = 0; i < 20 && graph.Animation.KeyFrames.Count != 0; i++)
+            {
+                await Task.Yield();
+                HeadlessTestHelpers.Render();
+            }
+            Assert.That(await graph.Window.Clipboard!.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation), Is.Not.Null);
+            Assert.That(graph.Animation.KeyFrames, Is.Empty);
+            Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+            graph.Model.HistoryManager.Undo();
+            Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
+        }
+        finally { hotkeys.CommandModifiers = previous; }
     }
 
     [AvaloniaTest]
