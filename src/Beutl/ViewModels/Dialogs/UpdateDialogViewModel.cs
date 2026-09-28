@@ -15,6 +15,8 @@ public class UpdateDialogViewModel
 {
     private readonly CancellationTokenSource _cts = new();
     private readonly ILogger _logger = Log.CreateLogger<UpdateDialogViewModel>();
+    private readonly FlatpakUpdater? _flatpak;
+    private readonly HttpClient? _httpClient;
     private Task? _startTask;
     private string? _downloadFile;
 
@@ -22,10 +24,13 @@ public class UpdateDialogViewModel
     {
     }
 
-    internal UpdateDialogViewModel(AppUpdateResponse update, bool isFlatpak)
+    internal UpdateDialogViewModel(AppUpdateResponse update, bool isFlatpak,
+        FlatpakUpdater? flatpak = null, HttpClient? httpClient = null)
     {
         Update = update;
         IsFlatpak = isFlatpak;
+        _flatpak = flatpak;
+        _httpClient = httpClient;
     }
 
     public AppUpdateResponse Update { get; set; }
@@ -41,6 +46,7 @@ public class UpdateDialogViewModel
     public ReactiveProperty<bool> IsPrimaryButtonEnabled { get; } = new();
 
     internal bool IsFlatpak { get; }
+    internal Task? UpdateTask => _startTask;
 
     public string PrimaryButtonText => IsFlatpak ? "" : Strings.Next;
 
@@ -240,8 +246,8 @@ public class UpdateDialogViewModel
             FlatpakUpdater? flatpak = null;
             try
             {
-                if (IsFlatpak) flatpak = FlatpakUpdater.Create();
-                _downloadFile = await DownloadFile(flatpak?.DownloadPath);
+                if (IsFlatpak) flatpak = _flatpak ?? FlatpakUpdater.Create();
+                _downloadFile = await DownloadFile(flatpak?.DownloadPath, _httpClient);
                 if (_downloadFile == null) return;
                 if (flatpak != null)
                 {

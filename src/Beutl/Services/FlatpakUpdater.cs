@@ -7,14 +7,20 @@ internal sealed class FlatpakUpdater
     internal const long MaximumBundleBytes = 1024L * 1024 * 1024;
     private const string AppRef = "net.beditor.Beutl/x86_64/master";
     private readonly string _appPath;
+    private readonly Func<string[], CancellationToken, Task<string>> _runHost;
+    private readonly Func<string, string?> _readBundleRef;
 
-    internal static bool IsRunning => File.Exists("/.flatpak-info")
-        || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FLATPAK_ID"));
+    internal static bool IsRunning => File.Exists("/.flatpak-info");
+    internal static bool RequiresManualUpdate => !IsRunning && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FLATPAK_ID"));
 
     internal static FlatpakUpdater Create() => new(File.ReadAllText("/.flatpak-info"));
 
-    internal FlatpakUpdater(string sandboxInfo)
+    internal FlatpakUpdater(string sandboxInfo,
+        Func<string[], CancellationToken, Task<string>>? runHost = null,
+        Func<string, string?>? readBundleRef = null)
     {
+        _runHost = runHost ?? ((args, token) => RunHostAsync(args, token));
+        _readBundleRef = readBundleRef ?? FlatpakBundleMetadata.ReadRef;
         // Flatpak writes these fields in [Instance]. Only paths need GKeyFile unescaping.
         var instance = sandboxInfo.Split('\n').Select(line => line.Trim())
             .SkipWhile(line => line != "[Instance]").Skip(1).TakeWhile(line => !line.StartsWith('['))
@@ -33,16 +39,12 @@ internal sealed class FlatpakUpdater
 
     internal string DownloadPath { get; }
 
-    internal async Task InstallAsync(CancellationToken cancellationToken,
-        Func<string[], CancellationToken, Task<string>>? runHost = null,
-        Func<string, string?>? readBundleRef = null)
+    internal async Task InstallAsync(CancellationToken cancellationToken)
     {
-        runHost ??= RunHostAsync;
-        readBundleRef ??= FlatpakBundleMetadata.ReadRef;
         cancellationToken.ThrowIfCancellationRequested();
-        if (readBundleRef(DownloadPath) != "app/" + AppRef)
+        if (_readBundleRef(DownloadPath) != "app/" + AppRef)
             throw new InvalidDataException(MessageStrings.DownloadFailed);
-        string installations = await runHost(["list", "--app", "--columns=ref,installation"], cancellationToken);
+        string installations = await _runHost(["list", "--app", "--columns=ref,installation"], cancellationToken);
         foreach (string line in installations.Split('\n'))
         {
             string[] fields = line.Split('\t', StringSplitOptions.TrimEntries);
@@ -54,10 +56,10 @@ internal sealed class FlatpakUpdater
                 var name when name.StartsWith("system (", StringComparison.Ordinal) && name.EndsWith(')') => "--installation=" + name[8..^1],
                 _ => throw new InvalidDataException(MessageStrings.DownloadFailed)
             };
-            string location = (await runHost(["info", option, "--show-location", AppRef], cancellationToken)).Trim();
+            string location = (await _runHost(["info", option, "--show-location", AppRef], cancellationToken)).Trim();
             if (Path.GetDirectoryName(location) != Path.GetDirectoryName(Path.GetDirectoryName(_appPath))) continue;
             cancellationToken.ThrowIfCancellationRequested();
-            await runHost(["install", option, "--bundle", "--or-update", "--noninteractive", "--assumeyes", DownloadPath], cancellationToken);
+            await _runHost(["install", option, "--bundle", "--or-update", "--noninteractive", "--assumeyes", DownloadPath], cancellationToken);
             return;
         }
         throw new InvalidOperationException(MessageStrings.DownloadFailed);
@@ -73,10 +75,11 @@ internal sealed class FlatpakUpdater
         _ => throw new InvalidDataException(MessageStrings.DownloadFailed)
     });
 
-    private static async Task<string> RunHostAsync(string[] arguments, CancellationToken cancellationToken)
+    internal static async Task<string> RunHostAsync(string[] arguments, CancellationToken cancellationToken,
+        string executable = "/usr/bin/flatpak-spawn")
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var startInfo = new ProcessStartInfo("/usr/bin/flatpak-spawn")
+        var startInfo = new ProcessStartInfo(executable)
         {
             UseShellExecute = false,
             RedirectStandardInput = true,

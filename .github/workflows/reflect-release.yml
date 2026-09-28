@@ -61,7 +61,7 @@ jobs:
 
           missing=0
           check() {
-            if [ -z "$2" ]; then
+            if [ -z "$2" ] || [ "$2" = "null" ]; then
               echo "::error::missing asset: $1"
               missing=1
             else

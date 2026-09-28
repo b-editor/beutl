@@ -50,6 +50,13 @@ public sealed class CheckForUpdatesTask : StartupTask
                     if (!v3.IsLatest)
                     {
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
+                        if (FlatpakUpdater.RequiresManualUpdate)
+                        {
+                            string releaseUrl = GetReleaseUrl(v3, activity);
+                            NotificationService.ShowInformation(MessageStrings.NewVersionAvailable, releaseUrl,
+                                actions: [new(Strings.Open, () => OpenUrl(releaseUrl))]);
+                            return;
+                        }
                         NotificationService.ShowInformation(
                             MessageStrings.NewVersionAvailable,
                             message: MessageStrings.ConfirmInstall,
