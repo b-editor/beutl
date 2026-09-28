@@ -80,6 +80,9 @@ public class VideoExporterFileSafetyTests
     [Test]
     public async Task Successful_export_publishes_before_reporting_completion()
     {
+        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(_destination, mode);
         var exporter = CreateExporter((controller, _) =>
         {
             Assert.That(File.ReadAllText(_destination), Is.EqualTo("previous complete output"));
@@ -100,6 +103,8 @@ public class VideoExporterFileSafetyTests
             });
 
         Assert.That(completed, Is.True);
+        if (!OperatingSystem.IsWindows())
+            Assert.That(File.GetUnixFileMode(_destination), Is.EqualTo(mode));
         Assert.That(response.OutputPath, Is.EqualTo(_destination));
         Assert.That(File.ReadAllText(_destination), Is.EqualTo("complete"));
         Assert.That(Directory.GetDirectories(_directory), Is.Empty);

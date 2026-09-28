@@ -49,6 +49,29 @@ public class FrameImageSaveTests
     }
 
     [Test]
+    public async Task Saving_preserves_private_image_permissions()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix file permissions are required.");
+            return;
+        }
+
+        string path = Path.Combine(_root, "private.png");
+        File.WriteAllText(path, "previous image");
+        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        File.SetUnixFileMode(path, mode);
+        using var bitmap = new Bitmap(8, 6);
+
+        await PlayerView.SaveImage(StorageFile(path).Object, bitmap);
+
+        Assert.That(File.GetUnixFileMode(path), Is.EqualTo(mode));
+        using var decoded = SKBitmap.Decode(path);
+        Assert.That(decoded, Is.Not.Null);
+        Assert.That(decoded!.Width, Is.EqualTo(8));
+    }
+
+    [Test]
     [TestCase("bmp")]
     [TestCase("gif")]
     [TestCase("avif")]

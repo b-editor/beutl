@@ -69,6 +69,9 @@ public class OutputFileSafetyTests
     {
         EditViewModel editor = await OpenEditorAsync();
         string destination = CreateExistingOutput(editor);
+        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(destination, mode);
         ProbeController? executionController = null;
         var encoder = new ProbeEncoder((controller, _) =>
         {
@@ -85,6 +88,8 @@ public class OutputFileSafetyTests
 
         await output.RunAsync(CancellationToken.None);
 
+        if (!OperatingSystem.IsWindows())
+            Assert.That(File.GetUnixFileMode(destination), Is.EqualTo(mode));
         Assert.Multiple(() =>
         {
             Assert.That(File.ReadAllText(destination), Is.EqualTo("new"));

@@ -32,6 +32,13 @@ internal sealed class StagedOutputFile : IDisposable
     public void Commit(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!OperatingSystem.IsWindows() && File.Exists(DestinationPath))
+        {
+            // Read at publication time: permissions can change while an encoder is running.
+            // A failure to preserve them must leave the previous output intact.
+            File.SetUnixFileMode(TemporaryPath, File.GetUnixFileMode(DestinationPath));
+        }
+
         File.Move(TemporaryPath, DestinationPath, overwrite: true);
     }
 

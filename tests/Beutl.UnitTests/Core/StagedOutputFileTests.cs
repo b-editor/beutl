@@ -48,4 +48,65 @@ public class StagedOutputFileTests
         }
         finally { Directory.Delete(root, true); }
     }
+
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite)]
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead)]
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite)]
+    public void Commit_preserves_the_current_destination_permissions(UnixFileMode mode)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix file permissions are required.");
+            return;
+        }
+
+        string root = Directory.CreateTempSubdirectory("beutl-staged-output-").FullName;
+        string destination = Path.Combine(root, "private.mp4");
+        try
+        {
+            File.WriteAllText(destination, "old");
+            using (var output = new StagedOutputFile(destination))
+            {
+                File.WriteAllText(output.TemporaryPath, "complete");
+                File.SetUnixFileMode(output.TemporaryPath,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+                // Permissions may change while an encoder is still running.
+                File.SetUnixFileMode(destination, mode);
+
+                output.Commit(CancellationToken.None);
+            }
+
+            Assert.That(File.GetUnixFileMode(destination), Is.EqualTo(mode));
+            Assert.That(File.ReadAllText(destination), Is.EqualTo("complete"));
+            Assert.That(Directory.GetDirectories(root), Is.Empty);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Test]
+    public void A_new_output_keeps_the_encoder_permissions()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix file permissions are required.");
+            return;
+        }
+
+        string root = Directory.CreateTempSubdirectory("beutl-staged-output-").FullName;
+        string destination = Path.Combine(root, "new.mp4");
+        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead;
+        try
+        {
+            using (var output = new StagedOutputFile(destination))
+            {
+                File.WriteAllText(output.TemporaryPath, "complete");
+                File.SetUnixFileMode(output.TemporaryPath, mode);
+                output.Commit(CancellationToken.None);
+            }
+
+            Assert.That(File.GetUnixFileMode(destination), Is.EqualTo(mode));
+            Assert.That(File.ReadAllText(destination), Is.EqualTo("complete"));
+        }
+        finally { Directory.Delete(root, true); }
+    }
 }

@@ -122,7 +122,8 @@ public sealed class ExternalResourceCollector
         if (!fullProjectPath.EndsWith(Path.DirectorySeparatorChar))
             fullProjectPath += Path.DirectorySeparatorChar;
 
-        // Files outside the project directory are considered external
-        return !Path.GetFullPath(filePath).StartsWith(fullProjectPath, StringComparison.OrdinalIgnoreCase);
+        // Different casing can name a distinct directory. Relocate even case aliases so
+        // their relative references remain valid when imported on a case-sensitive volume.
+        return !Path.GetFullPath(filePath).StartsWith(fullProjectPath, StringComparison.Ordinal);
     }
 }

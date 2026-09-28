@@ -1,8 +1,10 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Compression;
 using Beutl.Editor;
+using Beutl.Graphics;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -808,6 +810,68 @@ public class ProjectPackageServiceTests
             await ProjectPackageService.Current.ImportAsync(package, _importDir, progress, cancellation.Token));
         Assert.That(File.ReadAllText(Path.Combine(existing, "keep.txt")), Is.EqualTo("existing data"));
         Assert.That(Directory.GetDirectories(_importDir), Is.EqualTo(new[] { existing }));
+    }
+
+    [Test]
+    public async Task ExportAsync_PreservesExistingPackagePermissions()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix file permissions are required.");
+            return;
+        }
+
+        Project project = CreateAndSaveTestProject();
+        string package = Path.Combine(_exportDir, "private.beutlpkg");
+        File.WriteAllText(package, "previous package");
+        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        File.SetUnixFileMode(package, mode);
+
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, package);
+
+        Assert.That(result.Success, Is.True);
+        Assert.That(File.GetUnixFileMode(package), Is.EqualTo(mode));
+        using var archive = ZipFile.OpenRead(package);
+        Assert.That(archive.GetEntry("test.bep"), Is.Not.Null);
+    }
+
+    [Test]
+    public async Task ExportAsync_ImportAsync_PreservesAssetInCaseVariantDirectory()
+    {
+        Project project = CreateAndSaveTestProjectWithItems();
+        string assetDir = Path.Combine(_testDir, "Project");
+        Directory.CreateDirectory(assetDir);
+        string asset = Path.Combine(assetDir, "asset.png");
+        using (var bitmap = new Bitmap(4, 4))
+            Assert.That(bitmap.Save(asset, EncodedImageFormat.Png), Is.True);
+        byte[] imageBytes = File.ReadAllBytes(asset);
+        var source = new ImageSource();
+        source.ReadFrom(new Uri(asset));
+        var image = new SourceImage();
+        image.Source.CurrentValue = source;
+        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        element.Objects.Add(image);
+        CoreSerializer.StoreToUri(element, new Uri(Path.Combine(_projectDir, "image.belm")));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        project = CoreSerializer.RestoreFromUri<Project>(project.Uri!);
+        string package = Path.Combine(_exportDir, "assets.beutlpkg");
+
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, package);
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.FailedResources, Is.Empty);
+        File.Delete(asset);
+
+        Project? imported = await ProjectPackageService.Current.ImportAsync(package, _importDir);
+
+        Assert.That(imported, Is.Not.Null);
+        ImageSource importedSource = imported!.Items.OfType<Scene>().Single().Children.Single()
+            .Objects.OfType<SourceImage>().Single().Source.CurrentValue!;
+        string importedRoot = Path.GetDirectoryName(imported.Uri!.LocalPath)!;
+        Assert.That(importedSource.Uri.LocalPath, Does.StartWith(importedRoot + Path.DirectorySeparatorChar));
+        Assert.That(File.ReadAllBytes(importedSource.Uri.LocalPath), Is.EqualTo(imageBytes));
     }
 
     #region Helper Methods
