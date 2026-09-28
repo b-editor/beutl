@@ -180,6 +180,79 @@ public class GraphEditorEditingTests
     }
 
     [AvaloniaTest]
+    [Combinatorial]
+    public async Task Pending_graph_paste_requires_the_same_active_context(
+        [Values("active", "switch", "switch-back", "detach", "reattach", "close", "dispose", "channel-back", "selection-back")] string change,
+        [Values("selection", "key", "background")] string entry)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        var otherAnimation = new KeyFrameAnimation<float>();
+        otherAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 50 });
+        using var other = new GraphEditorViewModel<float>(graph.Model.EditorContext, otherAnimation, graph.Model.Element);
+        var clipboard = new Mock<IClipboard>();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        clipboard.Setup(x => x.TryGetDataAsync()).Returns(Read);
+        graph.Model.CurrentTime.Value = TimeSpan.FromSeconds(3);
+        string before = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
+        int undo = graph.Model.HistoryManager.UndoCount;
+        Task paste = entry switch
+        {
+            "key" => ((GraphEditorKeyFrameViewModel)graph.KeyFrame(graph.Second).DataContext!).PasteAsync(clipboard.Object),
+            "background" => graph.Model.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(3), clipboard.Object),
+            _ => graph.Model.PasteSelectionAsync(clipboard.Object)
+        };
+        Assert.That(paste.IsCompleted, Is.False);
+        switch (change)
+        {
+            case "switch": graph.View.DataContext = other; break;
+            case "switch-back": graph.View.DataContext = other; graph.View.DataContext = graph.Model; break;
+            case "detach": graph.Window.Content = null; break;
+            case "reattach": graph.Window.Content = null; graph.Window.Content = graph.View; break;
+            case "close": graph.Window.Close(); break;
+            case "dispose": graph.Model.Dispose(); break;
+            case "channel-back":
+                var channel = graph.Model.SelectedView.Value;
+                graph.Model.SelectedView.Value = null;
+                graph.Model.SelectedView.Value = channel;
+                break;
+            case "selection-back":
+                graph.Model.SelectedView.Value!.SetSelection([]);
+                graph.Model.SelectedView.Value.SetSelection(graph.Animation.KeyFrames);
+                break;
+        }
+        gate.SetResult();
+        await paste;
+        Assert.That(otherAnimation.KeyFrames, Has.Count.EqualTo(1));
+        Assert.That(otherAnimation.KeyFrames[0].Value, Is.EqualTo(50));
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + (change == "active" ? 1 : 0)));
+        if (change == "active") graph.Model.HistoryManager.Undo();
+        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
+
+        async Task<IAsyncDataTransfer?> Read()
+        {
+            await gate.Task;
+            return CreatePasteData(entry == "key" ? "key" : "selection");
+        }
+    }
+
+    internal static IAsyncDataTransfer CreatePasteData(string format)
+    {
+        var key = new KeyFrame<float> { Value = 77, KeyTime = TimeSpan.FromSeconds(1) };
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(key);
+        ICoreSerializable value = format == "key" ? key : animation;
+        string json = CoreSerializer.SerializeToJsonObject(value).ToJsonString();
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(format switch
+        {
+            "key" => BeutlDataFormats.KeyFrame,
+            "animation" => BeutlDataFormats.KeyFrameAnimation,
+            _ => BeutlDataFormats.KeyFrameSelection
+        }, json));
+        return data;
+    }
+
+    [AvaloniaTest]
     [TestCase(KeyModifiers.Control)]
     [TestCase(KeyModifiers.Meta)]
     public async Task Cut_keyboard_shortcut_copies_and_deletes_with_one_undo(KeyModifiers command)

@@ -157,9 +157,11 @@ public abstract partial class GraphEditorViewModel : IDisposable
         foreach (GraphEditorViewViewModel item in Views)
         {
             item.VerticalRangeChanged += OnItemVerticalRangeChanged;
+            item.SelectionChanged += OnClipboardSelectionChanged;
         }
 
         SelectedView.Value = Views.FirstOrDefault();
+        SelectedView.Skip(1).Subscribe(_ => _clipboardContextVersion++).DisposeWith(_disposables);
         HasSelection = SelectedView.Select(view => (IObservable<int>?)view?.SelectionCount ?? Observable.ReturnThenNever(0))
             .Switch().Select(count => count > 0).ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
 
@@ -364,10 +366,12 @@ public abstract partial class GraphEditorViewModel : IDisposable
     {
         _logger.LogInformation("Disposing GraphEditorViewModel");
         _disposed = true;
+        SetClipboardViewContext(null);
         _disposables.Dispose();
         foreach (GraphEditorViewViewModel item in Views)
         {
             item.VerticalRangeChanged -= OnItemVerticalRangeChanged;
+            item.SelectionChanged -= OnClipboardSelectionChanged;
             item.Dispose();
         }
 
@@ -400,32 +404,36 @@ public abstract partial class GraphEditorViewModel : IDisposable
     internal async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition, IClipboard? clipboard = null)
     {
         clipboard ??= ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
+        if (!IsClipboardContextActive || clipboard == null || SelectedView.Value == null) return;
+        var canPaste = CapturePasteContext();
 
         try
         {
             if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } keyFrameJson)
             {
+                if (!canPaste()) return;
                 PasteKeyFrame(keyFrameJson, pointerPosition);
                 return;
             }
             else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection) is { } selectionJson)
             {
+                if (!canPaste()) return;
                 PasteSelection(selectionJson, ConvertKeyTime(pointerPosition));
                 return;
             }
             else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
             {
+                if (!canPaste()) return;
                 PasteAnimation(keyFrameAnimationJson);
                 return;
             }
 
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            if (canPaste()) NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to paste keyframe at position");
-            NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
+            if (canPaste()) NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
         }
     }
 

@@ -10,10 +10,38 @@ namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
 public abstract partial class GraphEditorViewModel
 {
+    private int _clipboardContextVersion;
+    private bool _clipboardContextActive = true;
+    private Func<bool> _isClipboardViewActive = static () => true;
+
+    internal bool IsClipboardContextActive => !_disposed && _clipboardContextActive && _isClipboardViewActive();
+
+    internal void DeactivateClipboardContext()
+    {
+        _clipboardContextActive = false;
+        _clipboardContextVersion++;
+    }
+
+    internal void SetClipboardViewContext(Func<bool>? isActive)
+    {
+        _isClipboardViewActive = isActive ?? (static () => false);
+        _clipboardContextVersion++;
+    }
+
+    private void OnClipboardSelectionChanged(object? sender, EventArgs e) => _clipboardContextVersion++;
+
+    private Func<bool> CapturePasteContext()
+    {
+        int version = _clipboardContextVersion;
+        var channel = SelectedView.Value;
+        return () => IsClipboardContextActive && version == _clipboardContextVersion
+            && ReferenceEquals(SelectedView.Value, channel);
+    }
+
     internal async Task<bool> CopySelectionAsync(IClipboard? clipboard = null)
     {
         clipboard ??= ClipboardHelper.GetClipboard();
-        if (SelectedView.Value is not { } channel || clipboard == null) return false;
+        if (!IsClipboardContextActive || SelectedView.Value is not { } channel || clipboard == null) return false;
         var selected = channel.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
         if (selected.Length == 0) return false;
         try
@@ -47,25 +75,27 @@ public abstract partial class GraphEditorViewModel
     internal async Task PasteSelectionAsync(IClipboard? clipboard = null, IKeyFrame? target = null)
     {
         clipboard ??= ClipboardHelper.GetClipboard();
-        if (clipboard == null || SelectedView.Value == null) return;
+        if (!IsClipboardContextActive || clipboard == null || SelectedView.Value == null) return;
+        var canPaste = CapturePasteContext();
         TimeSpan start = target?.KeyTime ?? ConvertKeyTime(CurrentTime.Value);
         try
         {
             string? json = await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection)
                 ?? await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation)
                 ?? await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame);
+            if (!canPaste()) return;
             PasteSelection(json, start, target);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to paste selected keyframes");
-            NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
+            if (canPaste()) NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
         }
     }
 
     private void PasteSelection(string? json, TimeSpan start, IKeyFrame? target = null)
     {
-        if (_disposed || SelectedView.Value is not { } channel
+        if (!IsClipboardContextActive || SelectedView.Value is not { } channel
             || target != null && !Animation.KeyFrames.Contains(target)) return;
         if (start < TimeSpan.Zero) start = TimeSpan.Zero;
         if (KeyFrameSelectionClipboard.Read(json) is not { } source || source.Keys.Length == 0)

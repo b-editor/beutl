@@ -82,6 +82,7 @@ public partial class GraphEditorView : UserControl
     private void OnDataContextDetached(GraphEditorViewModel obj)
     {
         _contextVersion++;
+        obj.SetClipboardViewContext(null);
         VelocityFlyout?.Hide();
         FinishInteraction(obj, cancel: true);
         _disposables.Clear();
@@ -89,6 +90,8 @@ public partial class GraphEditorView : UserControl
 
     private void OnDataContextAttached(GraphEditorViewModel obj)
     {
+        obj.SetClipboardViewContext(() => ReferenceEquals(DataContext, obj) && IsEffectivelyVisible
+            && TopLevel.GetTopLevel(this)?.PlatformImpl != null);
         AttachGraphInteractions(obj);
 
         obj.MinHeight

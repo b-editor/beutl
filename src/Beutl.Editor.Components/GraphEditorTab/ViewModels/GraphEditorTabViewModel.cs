@@ -50,7 +50,12 @@ public sealed partial class GraphEditorTabViewModel : IToolContext
             {
                 var previous = _activeGraph;
                 _activeGraph = graph;
-                if (previous != null) Dispatcher.UIThread.Post(previous.Dispose);
+                if (previous != null)
+                {
+                    // Stop pending clipboard edits immediately; bindings can release the old graph later.
+                    previous.DeactivateClipboardContext();
+                    Dispatcher.UIThread.Post(previous.Dispose);
+                }
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);

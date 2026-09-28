@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
@@ -20,10 +21,12 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
+using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using Beutl.Validation;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Common;
+using Moq;
 using DrawableGroup = Beutl.Graphics.DrawableGroup;
 using FluentIcon = FluentIcons.Avalonia.Fluent.FluentIcon;
 using GraphScope = Beutl.HeadlessUITests.GraphEditorContextMenuTests.GraphScope;
@@ -214,6 +217,76 @@ public class GraphEditorTreeTests
         public event EventHandler? Edited { add { } remove { } }
         public float GetAnimatedValue(TimeSpan time) => 84;
         public float Interpolate(TimeSpan timeSpan) => 84;
+    }
+
+    [AvaloniaTest]
+    [TestCase("selection")]
+    [TestCase("key")]
+    [TestCase("background-selection")]
+    [TestCase("background-key")]
+    [TestCase("background-animation")]
+    [TestCase("cut")]
+    public async Task Superseded_graph_refuses_clipboard_changes_before_deferred_disposal(string entry)
+    {
+        using var scope = await TreeScope.CreateAsync();
+        var width = scope.Find(scope.Shape.Width);
+        var height = scope.Find(scope.Shape.Height);
+        scope.Model.EnableAnimation(height);
+        scope.Model.EnableAnimation(width);
+        HeadlessTestHelpers.Render(3);
+        var old = scope.Model.SelectedAnimation.Value!;
+        old.SelectedView.Value!.SetSelection(old.Animation.KeyFrames);
+        old.CurrentTime.Value = TimeSpan.FromSeconds(3);
+        // Keep the displayed control bound to the old graph to exercise the interval
+        // before the tab's new binding and posted disposal reach the view.
+        var view = new GraphEditorView();
+        scope.Base.Window.Content = view;
+        view.DataContext = old;
+        HeadlessTestHelpers.Render(3);
+        string before = CoreSerializer.SerializeToJsonObject(old.Animation).ToJsonString();
+        string otherBefore = CoreSerializer.SerializeToJsonObject(scope.Shape.Height.Animation!).ToJsonString();
+        int undo = old.HistoryManager.UndoCount;
+        var clipboard = new Mock<IClipboard>();
+        bool switched = false;
+        clipboard.Setup(x => x.TryGetDataAsync()).Returns(() =>
+        {
+            Switch();
+            string format = entry.EndsWith("key") ? "key" : entry.EndsWith("animation") ? "animation" : "selection";
+            return Task.FromResult<IAsyncDataTransfer?>(GraphEditorEditingTests.CreatePasteData(format));
+        });
+        IAsyncDataTransfer? copied = null;
+        clipboard.Setup(x => x.SetDataAsync(It.IsAny<IAsyncDataTransfer?>())).Callback<IAsyncDataTransfer?>(data =>
+        {
+            copied = data;
+            Switch();
+        }).Returns(Task.CompletedTask);
+        try
+        {
+            Task operation = entry switch
+            {
+                "cut" => view.CutSelectionAsync(clipboard.Object),
+                "key" => old.SelectedView.Value!.KeyFrames[0].PasteAsync(clipboard.Object),
+                "selection" => old.PasteSelectionAsync(clipboard.Object),
+                _ => old.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(3), clipboard.Object)
+            };
+            Assert.That(operation.IsCompleted, Is.True, "The continuation must run before dispatching the queued disposal.");
+            await operation;
+            Assert.That(switched, Is.True);
+            Assert.That(old.IsDisposed, Is.False, "Disposal alone cannot protect this destination.");
+            Assert.That(CoreSerializer.SerializeToJsonObject(old.Animation).ToJsonString(), Is.EqualTo(before));
+            Assert.That(CoreSerializer.SerializeToJsonObject(scope.Shape.Height.Animation!).ToJsonString(), Is.EqualTo(otherBefore));
+            Assert.That(old.HistoryManager.UndoCount, Is.EqualTo(undo));
+        }
+        finally { copied?.Dispose(); view.DataContext = null; }
+
+        void Switch()
+        {
+            if (switched) return;
+            switched = true;
+            scope.Model.SelectedTreeItem.Value = height;
+            Assert.That(scope.Model.SelectedAnimation.Value, Is.Not.SameAs(old));
+            Assert.That(old.IsDisposed, Is.False);
+        }
     }
 
     [AvaloniaTest]

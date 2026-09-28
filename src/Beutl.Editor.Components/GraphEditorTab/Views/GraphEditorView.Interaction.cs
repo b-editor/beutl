@@ -420,7 +420,7 @@ public partial class GraphEditorView
         // Keep the clipboard copy, but abandon deletion after any edit or navigation,
         // including edits/selections/channels that have since returned to their initial state.
         if (await model.CopySelectionAsync(clipboard)
-            && !edited && contextVersion == _contextVersion && ReferenceEquals(DataContext, model) && !model.IsDisposed
+            && !edited && contextVersion == _contextVersion && ReferenceEquals(DataContext, model) && model.IsClipboardContextActive
             && ReferenceEquals(model.SelectedView.Value, channel)
             && ReferenceEquals(TopLevel.GetTopLevel(this), topLevel) && topLevel.PlatformImpl != null)
             model.DeleteKeyFrames(copied);
