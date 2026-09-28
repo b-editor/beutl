@@ -61,13 +61,15 @@ public sealed class GraphEditorViewModel<T>(
     }
 }
 
-public abstract class GraphEditorViewModel : IDisposable
+public abstract partial class GraphEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly GraphEditorViewViewModelFactory[] _factories;
     private readonly IEditorClock _editorClock;
     protected readonly ILogger _logger = Log.CreateLogger<GraphEditorViewModel>();
     private bool _editting;
+    private bool _rangeUpdatePending;
+    private bool _disposed;
     private TimeSpan _pointerPosition;
 
     protected GraphEditorViewModel(IEditorContext editorContext, IKeyFrameAnimation animation, Element? element)
@@ -155,9 +157,13 @@ public abstract class GraphEditorViewModel : IDisposable
         foreach (GraphEditorViewViewModel item in Views)
         {
             item.VerticalRangeChanged += OnItemVerticalRangeChanged;
+            item.SelectionChanged += OnClipboardSelectionChanged;
         }
 
         SelectedView.Value = Views.FirstOrDefault();
+        SelectedView.Skip(1).Subscribe(_ => _clipboardContextVersion++).DisposeWith(_disposables);
+        HasSelection = SelectedView.Select(view => (IObservable<int>?)view?.SelectionCount ?? Observable.ReturnThenNever(0))
+            .Switch().Select(count => count > 0).ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
 
         CalculateMaxHeight();
 
@@ -169,7 +175,7 @@ public abstract class GraphEditorViewModel : IDisposable
             .DisposeWith(_disposables);
 
         PasteKeyFrameAtCurrentPositionCommand = new AsyncReactiveCommand()
-            .WithSubscribe(async () => await PasteKeyFrameAtPositionAsync(_pointerPosition))
+            .WithSubscribe(() => PasteKeyFrameAtPositionAsync(_pointerPosition))
             .DisposeWith(_disposables);
     }
 
@@ -210,6 +216,8 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public ReactivePropertySlim<GraphEditorViewViewModel?> SelectedView { get; } = new();
 
+    public ReadOnlyReactivePropertySlim<bool> HasSelection { get; }
+
     public IKeyFrameAnimation Animation { get; }
 
     public GraphEditorViewViewModel[] Views { get; }
@@ -222,9 +230,21 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public IReactiveProperty<TimeSpan> CurrentTime => _editorClock.CurrentTime;
 
-    public ReactiveProperty<bool> Symmetry { get; } = new(true);
+    public ReactivePropertySlim<bool> IsSpeedGraph { get; } = new();
 
-    public ReactiveProperty<bool> Asymmetry { get; } = new(false);
+    public ReactivePropertySlim<bool> AutoZoomHeight { get; } = new();
+
+    public ReactivePropertySlim<bool> Snap { get; } = new(true);
+
+    public ReactivePropertySlim<bool> ShowTransformBox { get; } = new(true);
+
+    public bool IsEditing => _editting;
+
+    internal bool IsDisposed => _disposed;
+
+    public ReactiveProperty<bool> Symmetry { get; } = new(false);
+
+    public ReactiveProperty<bool> Asymmetry { get; } = new(true);
 
     public ReactiveProperty<bool> Separately { get; } = new(false);
 
@@ -236,6 +256,27 @@ public abstract class GraphEditorViewModel : IDisposable
     {
         float scale = Options.Value.Scale;
         _pointerPosition = positionX.PixelToTimeSpan(scale);
+    }
+
+    internal void DeleteKeyFrames(IEnumerable<IKeyFrame> keyFrames)
+    {
+        var selected = keyFrames.Where(Animation.KeyFrames.Contains).ToArray();
+        if (selected.Length == 0) return;
+        var selection = Views.Select(view => (view.Name, Keys: view.KeyFrames.Where(key => key.IsSelected.Value)
+            .Select(key => key.Model).ToArray())).ToArray();
+        var owner = new WeakReference<GraphEditorViewModel>(this);
+        HistoryManager.ExecuteInTransaction(() =>
+        {
+            // Recorded first so Undo restores the selection after reinstating the removed keys.
+            HistoryManager.Record(() => { }, () =>
+            {
+                if (!owner.TryGetTarget(out var model) || model._disposed) return;
+                foreach (var (name, keys) in selection)
+                    model.Views.FirstOrDefault(view => view.Name == name)?.SetSelection(keys);
+            });
+            foreach (var key in selected.Reverse())
+                AnimationOperations.RemoveKeyFrame(Animation, key, _logger);
+        }, CommandNames.RemoveKeyFrame);
     }
 
     public void BeginEditing()
@@ -262,8 +303,16 @@ public abstract class GraphEditorViewModel : IDisposable
 
     private void OnItemVerticalRangeChanged(object? sender, EventArgs e)
     {
-        Dispatcher.UIThread.Post(CalculateMaxHeight);
+        if (_rangeUpdatePending || _disposed) return;
+        _rangeUpdatePending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _rangeUpdatePending = false;
+            if (!_disposed) CalculateMaxHeight();
+        });
     }
+
+    internal void RefreshVerticalRange() => CalculateMaxHeight();
 
     private void CalculateMaxHeight()
     {
@@ -271,7 +320,14 @@ public abstract class GraphEditorViewModel : IDisposable
         double min = 0d;
         foreach (GraphEditorViewViewModel view in Views)
         {
-            view.GetVerticalRange(ref min, ref max);
+            if (IsSpeedGraph.Value)
+            {
+                double low = 0, high = 0;
+                view.GetGraphRange(ref low, ref high);
+                min = Math.Min(min, low * ScaleY.Value);
+                max = Math.Max(max, high * ScaleY.Value);
+            }
+            else view.GetVerticalRange(ref min, ref max);
         }
 
         double oldbase = Baseline.Value;
@@ -309,10 +365,13 @@ public abstract class GraphEditorViewModel : IDisposable
     public void Dispose()
     {
         _logger.LogInformation("Disposing GraphEditorViewModel");
+        _disposed = true;
+        SetClipboardViewContext(null);
         _disposables.Dispose();
         foreach (GraphEditorViewViewModel item in Views)
         {
             item.VerticalRangeChanged -= OnItemVerticalRangeChanged;
+            item.SelectionChanged -= OnClipboardSelectionChanged;
             item.Dispose();
         }
 
@@ -342,30 +401,39 @@ public abstract class GraphEditorViewModel : IDisposable
         }
     }
 
-    private async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition)
+    internal async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition, IClipboard? clipboard = null)
     {
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
+        clipboard ??= ClipboardHelper.GetClipboard();
+        if (!IsClipboardContextActive || clipboard == null || SelectedView.Value == null) return;
+        var canPaste = CapturePasteContext();
 
         try
         {
             if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } keyFrameJson)
             {
+                if (!canPaste()) return;
                 PasteKeyFrame(keyFrameJson, pointerPosition);
+                return;
+            }
+            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection) is { } selectionJson)
+            {
+                if (!canPaste()) return;
+                PasteSelection(selectionJson, ConvertKeyTime(pointerPosition));
                 return;
             }
             else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
             {
+                if (!canPaste()) return;
                 PasteAnimation(keyFrameAnimationJson);
                 return;
             }
 
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            if (canPaste()) NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to paste keyframe at position");
-            NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
+            if (canPaste()) NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
         }
     }
 

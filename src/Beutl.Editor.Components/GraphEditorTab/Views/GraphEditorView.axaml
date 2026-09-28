@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.GraphEditorTab.Views.GraphEditorView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:convert="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -12,6 +13,7 @@
              xmlns:viewModel="using:Beutl.Editor.Components.GraphEditorTab.ViewModels"
              xmlns:views="using:Beutl.Editor.Components.Views"
              x:Name="root"
+             Focusable="True"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:CompileBindings="True"
@@ -20,12 +22,14 @@
     <Grid x:Name="grid"
           Background="{DynamicResource GraphEditorBackgroundBrush}"
           ColumnDefinitions="Auto,*"
-          RowDefinitions="Auto,*">
+          RowDefinitions="Auto,*,Auto">
 
         <Border Grid.ColumnSpan="2"
                 BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                 BorderThickness="{DynamicResource ToolTabBarBorderThickness}"
                 IsHitTestVisible="False" />
+
+        <Border Grid.Row="0" Grid.Column="0" Background="Transparent" />
 
         <Border x:Name="RulerBar"
                 Grid.Column="1"
@@ -48,8 +52,8 @@
 
         <!--  Match the plot viewport for both overlay and inset scrollbar themes.  -->
         <local:GraphEditorScale x:Name="verticalScale"
-                                Grid.Row="1"
-                                Width="20"
+                      Grid.Row="1"
+                                Width="56"
                                 Height="{Binding #scroll.Viewport.Height}"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Top"
@@ -57,7 +61,7 @@
                                 Scale="{Binding ScaleY.Value}"
                                 Offset="{Binding #scroll.Offset, Mode=OneWay}" />
 
-        <ScrollViewer x:Name="scroll"
+        <ScrollViewer x:Name="scroll" SizeChanged="OnGraphViewportChanged"
                       Grid.Row="1"
                       Grid.Column="1"
                       HorizontalScrollBarVisibility="Visible">
@@ -69,6 +73,16 @@
                    Background="{DynamicResource GraphEditorBackgroundBrush}">
                 <Panel.ContextMenu>
                     <ContextMenu>
+                        <MenuItem Header="{x:Static lang:Strings.GraphValueGraph}" Click="GraphActionClick" Tag="ValueGraph"
+                                  ToggleType="Radio" IsChecked="{Binding !IsSpeedGraph.Value, Mode=OneWay}" />
+                        <MenuItem Header="{x:Static lang:Strings.GraphSpeedGraph}" Click="GraphActionClick" Tag="SpeedGraph"
+                                  ToggleType="Radio" IsChecked="{Binding IsSpeedGraph.Value, Mode=OneWay}" />
+                        <Separator />
+                        <MenuItem Header="{x:Static lang:Strings.GraphEasyEase}" Click="GraphActionClick" Tag="Ease" />
+                        <MenuItem Header="{x:Static lang:Strings.GraphEasyEaseIn}" Click="GraphActionClick" Tag="EaseIn" />
+                        <MenuItem Header="{x:Static lang:Strings.GraphEasyEaseOut}" Click="GraphActionClick" Tag="EaseOut" />
+                        <MenuItem Header="{x:Static lang:Strings.GraphVelocity}" Click="GraphActionClick" Tag="Velocity" />
+                        <Separator />
                         <MenuItem Command="{Binding CopyAllKeyFramesCommand}" Header="{x:Static lang:Strings.CopyAll}">
                             <MenuItem.Icon>
                                 <icons:FluentIcon Icon="DocumentCopy" />
@@ -120,7 +134,7 @@
                                                        Foreground="{DynamicResource MenuFlyoutSubItemChevron}"
                                                        UseLayoutRounding="False" />
 
-                                        <TextBlock Grid.Column="1" Text="{Binding Name}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" />
                                     </Grid>
                                 </DataTemplate>
                             </MenuItem.DataTemplates>
@@ -137,7 +151,7 @@
                     </ContextMenu>
                 </Panel.ContextMenu>
 
-                <local:GraphEditorBackground x:Name="background"
+                <local:GraphEditorBackground x:Name="background" IsSpeedGraph="{Binding IsSpeedGraph.Value}"
                                              HorizontalAlignment="Stretch"
                                              VerticalAlignment="Stretch"
                                              Baseline="{Binding Baseline.Value}"
@@ -146,6 +160,12 @@
                                              Scale="{Binding ScaleY.Value}"
                                              Viewport="{Binding #scroll.Viewport, Mode=OneWay}"
                                              Offset="{Binding #scroll.Offset, Mode=OneWay}" />
+
+                <local:GraphEditorSpeedGraph x:Name="SpeedGraph"
+                                             IsVisible="{Binding IsSpeedGraph.Value}" />
+
+                <local:GraphEditorSelectionAdorner x:Name="SelectionAdorner"
+                                                   IsHitTestVisible="False" ZIndex="5" />
 
                 <views:BpmGridOverlay x:Name="BpmGrid"
                                       VerticalAlignment="Stretch"
@@ -158,7 +178,7 @@
                                       Offset="{Binding #scroll.Offset, Mode=OneWay}" />
 
                 <!--  Vector, Pointなど複数の値を持つ型のためにビューを分ける  -->
-                <ItemsControl x:Name="views"
+                <ItemsControl IsVisible="{Binding !IsSpeedGraph.Value}" x:Name="views"
                               Margin="{Binding Margin.Value}"
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch"
@@ -230,5 +250,104 @@
 
             </Panel>
         </ScrollViewer>
+        <controls:ToolTabBar x:Name="GraphToolBarHost" Grid.Row="2" Grid.ColumnSpan="2"
+                             BorderThickness="0,1,0,0">
+            <WrapPanel x:Name="GraphToolbar" ItemSpacing="4" LineSpacing="4">
+                <WrapPanel.Styles>
+                    <Style Selector="Button"><Setter Property="Theme" Value="{StaticResource ToolTabBarIconButtonTheme}" /></Style>
+                    <Style Selector="ToggleButton">
+                        <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
+                        <Setter Property="Padding" Value="{DynamicResource ToolTabBarIconButtonPadding}" />
+                    </Style>
+                    <Style Selector="Path">
+                        <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ContentPresenter}}" />
+                        <Setter Property="StrokeThickness" Value="1" />
+                        <Setter Property="StrokeLineCap" Value="Round" />
+                        <Setter Property="StrokeJoin" Value="Round" />
+                        <Setter Property="Width" Value="14" /><Setter Property="Height" Value="14" />
+                        <Setter Property="Margin" Value="1" />
+                        <Setter Property="Stretch" Value="Uniform" />
+                    </Style>
+                </WrapPanel.Styles>
+
+                <ComboBox x:Name="GraphTypePicker" VerticalAlignment="Center"
+                          Theme="{StaticResource LiteComboBoxStyle}"
+                          SelectionChanged="GraphTypeSelectionChanged"
+                          ToolTip.Tip="{x:Static lang:Strings.GraphTypeHint}"
+                          AutomationProperties.Name="{x:Static lang:Strings.GraphTypeHint}">
+                    <ComboBoxItem Content="{x:Static lang:Strings.GraphValueGraph}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.GraphSpeedGraph}" />
+                </ComboBox>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <ToggleButton Tag="Snap" IsChecked="{Binding Snap.Value}" ToolTip.Tip="{x:Static lang:Strings.GraphSnap}"
+                                  AutomationProperties.Name="{x:Static lang:Strings.GraphSnap}">
+                        <Path Data="M3,2 L3,9 C3,15 13,15 13,9 L13,2 M3,5 L6,5 M10,5 L13,5" />
+                    </ToggleButton>
+                    <ToggleButton Tag="TransformBox" IsChecked="{Binding ShowTransformBox.Value}" ToolTip.Tip="{x:Static lang:Strings.GraphTransformBox}"
+                                  AutomationProperties.Name="{x:Static lang:Strings.GraphTransformBox}">
+                        <Path Data="M3,3 L13,3 13,13 3,13 Z M1,1 L5,1 5,5 1,5 Z M11,11 L15,11 15,15 11,15 Z" />
+                    </ToggleButton>
+                    <ToggleButton Tag="AutoHeight" IsChecked="{Binding AutoZoomHeight.Value}" ToolTip.Tip="{x:Static lang:Strings.GraphAutoZoomHeight}"
+                                  AutomationProperties.Name="{x:Static lang:Strings.GraphAutoZoomHeight}">
+                        <Path Data="M8,1 L8,15 M5,4 L8,1 11,4 M5,12 L8,15 11,12 M1,1 L3,1 M13,15 L15,15" />
+                    </ToggleButton>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Click="GraphActionClick" Tag="FitAll" ToolTip.Tip="{x:Static lang:Strings.GraphFitAll}"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphFitAll}">
+                        <Path Data="M1,6 L1,1 6,1 M10,1 L15,1 15,6 M15,10 L15,15 10,15 M6,15 L1,15 1,10 M4,11 C8,11 8,5 12,5" />
+                    </Button>
+                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="FitSelection" ToolTip.Tip="{x:Static lang:Strings.GraphFitSelection}"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphFitSelection}">
+                        <Path Data="M1,5 L1,1 5,1 M11,1 L15,1 15,5 M15,11 L15,15 11,15 M5,15 L1,15 1,11 M8,4 L12,8 8,12 4,8 Z" />
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="Linear" ToolTip.Tip="{x:Static lang:Strings.Linear}"
+                            AutomationProperties.Name="{x:Static lang:Strings.Linear}">
+                        <Path Data="M2,13 L14,3 M1,12 L3,12 3,14 1,14 Z M13,2 L15,2 15,4 13,4 Z" />
+                    </Button>
+                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="Ease" ToolTip.Tip="{x:Static lang:Strings.GraphEasyEase}"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEase}">
+                        <Path Data="M1,13 C12,13 4,3 15,3 M1,11 L1,15 M15,1 L15,5" />
+                    </Button>
+                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="EaseIn" ToolTip.Tip="{x:Static lang:Strings.GraphEasyEaseIn}"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEaseIn}">
+                        <Path Data="M1,13 C5,7 8,3 15,3 M15,1 L15,5" />
+                    </Button>
+                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="EaseOut" ToolTip.Tip="{x:Static lang:Strings.GraphEasyEaseOut}"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEaseOut}">
+                        <Path Data="M1,13 C8,13 11,9 15,3 M1,11 L1,15" />
+                    </Button>
+                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="Hold" ToolTip.Tip="{x:Static lang:Strings.Hold}"
+                            AutomationProperties.Name="{x:Static lang:Strings.Hold}">
+                        <Path Data="M1,13 L8,13 8,3 15,3" />
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="VelocityButton" IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="Velocity" ToolTip.Tip="{x:Static lang:Strings.GraphVelocity}"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphVelocity}">
+                        <Path Data="M2,14 L2,2 M2,12 C8,12 6,4 12,4 M10,7 L14,7 M12,5 L12,9" />
+                    </Button>
+                    <Button Tag="TangentMode" ToolTip.Tip="{x:Static lang:Strings.GraphHandleMode}" AutomationProperties.Name="{x:Static lang:Strings.GraphHandleMode}">
+                        <Path Data="M1,12 L15,4 M1,10 L1,14 M15,2 L15,6 M8,6 L10,8 8,10 6,8 Z" />
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuItem Header="{x:Static lang:Strings.Symmetry}" Click="GraphActionClick" Tag="Symmetry"
+                                          ToggleType="Radio" IsChecked="{Binding Symmetry.Value, Mode=OneWay}" />
+                                <MenuItem Header="{x:Static lang:Strings.Asymmetry}" Click="GraphActionClick" Tag="Asymmetry"
+                                          ToggleType="Radio" IsChecked="{Binding Asymmetry.Value, Mode=OneWay}" />
+                                <MenuItem Header="{x:Static lang:Strings.Separately}" Click="GraphActionClick" Tag="Separately"
+                                          ToggleType="Radio" IsChecked="{Binding Separately.Value, Mode=OneWay}" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
+            </WrapPanel>
+        </controls:ToolTabBar>
     </Grid>
 </UserControl>

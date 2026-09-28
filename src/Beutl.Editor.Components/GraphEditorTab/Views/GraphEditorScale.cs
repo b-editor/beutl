@@ -86,72 +86,25 @@ public sealed class GraphEditorScale : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        const int left = 8;
-
-        double width = Bounds.Width;
-        double height = Bounds.Height;
-        var viewport = new Rect(new Point(0, Offset.Y), new Size(width, height));
-
-        double PixelsPer1 = 1 * Math.Clamp(_scale, 1, 1.75);
-        double PixelsPer5 = PixelsPer1 * 5;
-        double PixelsPer100 = PixelsPer5 * 20;
-        double l = viewport.Height + viewport.Y;
-
-        double originY = _baseline;
-
-        using (context.PushClip(new Rect(0, 0, 64, Bounds.Height)))
-        using (context.PushTransform(Matrix.CreateTranslation(0, -viewport.Y)))
-        {
-            context.FillRectangle(Brushes.Transparent, viewport);
-            double value = PixelsPer100;
-
-            for (double y = originY - PixelsPer100; y >= viewport.Y - PixelsPer100; y -= PixelsPer100)
+        context.FillRectangle(Brushes.Transparent, new Rect(Bounds.Size));
+        double step = GraphEditorGridMetrics.Step(_scale);
+        using (context.PushClip(new Rect(Bounds.Size)))
+            foreach (var (value, pixel) in GraphEditorGridMetrics.MajorTicks(_scale, _baseline, Offset.Y, Offset.Y + Bounds.Height))
             {
-                if (viewport.Contains(new Point(width, y)))
+                double y = pixel - Offset.Y;
+                if (y >= 0 && y <= Bounds.Height)
                 {
-                    context.DrawLine(_pen, new(2, y), new(width, y));
+                    context.DrawLine(_pen, new(Bounds.Width - 5, y), new(Bounds.Width, y));
+                    string label = Math.Abs(value) < step * 0.0001 ? "0" : value.ToString("G4", CultureInfo.CurrentCulture);
+                    using var text = new TextLayout(label, s_typeface, 13, _brush);
+                    text.Draw(context, new(Math.Max(2, Bounds.Width - text.Width - 9), y - text.Height / 2));
                 }
-
-                double ll = y + PixelsPer100;
-                for (double yy = y + PixelsPer5; yy < ll; yy += PixelsPer5)
+                for (int minor = 1; minor < 4; minor++)
                 {
-                    if (!viewport.Contains(new Point(width, yy))) continue;
-
-                    if (viewport.Bottom < yy) return;
-
-                    context.DrawLine(_pen, new(left, yy), new(width, yy));
+                    double yy = y - step * _scale * minor / 4;
+                    if (yy >= 0 && yy <= Bounds.Height)
+                        context.DrawLine(_pen, new(Bounds.Width - 3, yy), new(Bounds.Width, yy));
                 }
-
-                var text = new TextLayout((value / _scale).ToString("F"), s_typeface, 13, _brush);
-                text.Draw(context, new(0, y));
-
-                value += PixelsPer100;
             }
-
-            value = 0;
-
-            for (double y = originY; y < l; y += PixelsPer100)
-            {
-                if (viewport.Contains(new Point(width, y)))
-                {
-                    context.DrawLine(_pen, new(2, y), new(width, y));
-                }
-
-                double ll = y + PixelsPer100;
-                for (double yy = y + PixelsPer5; yy < ll; yy += PixelsPer5)
-                {
-                    if (!viewport.Contains(new Point(width, yy))) continue;
-
-                    if (viewport.Bottom < yy) return;
-
-                    context.DrawLine(_pen, new(left, yy), new(width, yy));
-                }
-
-                var text = new TextLayout((value / _scale).ToString("F"), s_typeface, 13, _brush);
-                text.Draw(context, new(0, y));
-
-                value -= PixelsPer100;
-            }
-        }
     }
 }

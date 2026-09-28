@@ -1738,4 +1738,67 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="PathEditor_OutgoingControlPoint" xml:space="preserve">
     <value>出向控制点</value>
   </data>
+  <data name="GraphSpeedGraph" xml:space="preserve">
+    <value>速度图表</value>
+  </data>
+  <data name="GraphTypeHint" xml:space="preserve">
+    <value>切换数值图表和速度图表（单位/秒）</value>
+  </data>
+  <data name="GraphSnap" xml:space="preserve">
+    <value>吸附</value>
+  </data>
+  <data name="GraphTransformBox" xml:space="preserve">
+    <value>变换框</value>
+  </data>
+  <data name="GraphAutoZoomHeight" xml:space="preserve">
+    <value>自动高度</value>
+  </data>
+  <data name="GraphFitAll" xml:space="preserve">
+    <value>适合全部 (F)</value>
+  </data>
+  <data name="GraphFitSelection" xml:space="preserve">
+    <value>适合所选 (Shift+F)</value>
+  </data>
+  <data name="GraphEasyEase" xml:space="preserve">
+    <value>缓动 (F9)</value>
+  </data>
+  <data name="GraphEasyEaseIn" xml:space="preserve">
+    <value>缓入 (Shift+F9)</value>
+  </data>
+  <data name="GraphEasyEaseOut" xml:space="preserve">
+    <value>缓出 (Ctrl/Cmd+F9)</value>
+  </data>
+  <data name="GraphValueGraph" xml:space="preserve">
+    <value>值图表</value>
+  </data>
+  <data name="GraphValue" xml:space="preserve">
+    <value>值</value>
+  </data>
+  <data name="GraphVelocity" xml:space="preserve">
+    <value>关键帧速度 (Ctrl/Cmd+Shift+K)</value>
+  </data>
+  <data name="GraphIncoming" xml:space="preserve">
+    <value>传入</value>
+  </data>
+  <data name="GraphOutgoing" xml:space="preserve">
+    <value>传出</value>
+  </data>
+  <data name="GraphInfluence" xml:space="preserve">
+    <value>影响（%）</value>
+  </data>
+  <data name="GraphChannels" xml:space="preserve">
+    <value>通道</value>
+  </data>
+  <data name="GraphHandleMode" xml:space="preserve">
+    <value>切线模式</value>
+  </data>
+  <data name="GraphVelocityTitle" xml:space="preserve">
+    <value>关键帧速度</value>
+  </data>
+  <data name="GraphAlpha" xml:space="preserve">
+    <value>Alpha</value>
+  </data>
+  <data name="EnableAnimation" xml:space="preserve">
+    <value>启用动画</value>
+  </data>
 </root>
