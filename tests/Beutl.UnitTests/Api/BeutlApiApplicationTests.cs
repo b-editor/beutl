@@ -131,22 +131,7 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
-    public void ToServerType_Flatpak_MapsToZip()
-    {
-        Assert.That(BeutlApiApplication.ToServerType("flatpak"), Is.EqualTo("zip"));
-    }
-
-    [TestCase("zip")]
-    [TestCase("debian")]
-    [TestCase("installer")]
-    [TestCase("app")]
-    public void ToServerType_ArchiveType_PassesThrough(string type)
-    {
-        Assert.That(BeutlApiApplication.ToServerType(type), Is.EqualTo(type));
-    }
-
-    [Test]
-    public async Task CheckForUpdatesAsync_WithFlatpakMetadata_SendsZipQueryType()
+    public async Task CheckForUpdatesAsync_WithFlatpakMetadata_RequestsFlatpakAndReturnsRegisteredUrl()
     {
         string metadataPath = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
         try
@@ -170,10 +155,14 @@ public sealed class BeutlApiApplicationTests
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(handler.LastRequestUri, Is.Not.Null);
-                Assert.That(handler.LastRequestUri!.Query, Does.Contain("type=zip"));
-                Assert.That(handler.LastRequestUri.Query, Does.Not.Contain("type=flatpak"));
+                Assert.That(handler.LastRequestUri!.AbsolutePath, Is.EqualTo("/api/v3/app/updates/2.0.0-preview.6"));
+                Assert.That(handler.LastRequestUri.Query, Does.Contain("type=flatpak"));
+                Assert.That(handler.LastRequestUri.Query, Does.Not.Contain("type=zip"));
+                Assert.That(handler.LastRequestUri.Query, Does.Contain("os=linux"));
+                Assert.That(handler.LastRequestUri.Query, Does.Contain("arch=x64"));
+                Assert.That(handler.LastRequestUri.Query, Does.Contain("standalone=true"));
                 Assert.That(v1, Is.Null);
-                Assert.That(v3, Is.Not.Null);
+                Assert.That(v3?.DownloadUrl, Is.EqualTo("https://downloads.example.test/assets/registered-build?token=opaque"));
             }
         }
         finally
@@ -484,7 +473,7 @@ public sealed class BeutlApiApplicationTests
             {
                 Content = new StringContent(
                     """
-                    {"latestVersion":"2.0.0-preview.7","url":"https://example.test/release","downloadUrl":null,"isLatest":false,"mustLatest":false}
+                    {"latestVersion":"2.0.0-preview.7","url":"https://example.test/release","downloadUrl":"https://downloads.example.test/assets/registered-build?token=opaque","isLatest":false,"mustLatest":false}
                     """,
                     Encoding.UTF8,
                     "application/json"),
