@@ -205,42 +205,49 @@ public sealed class ProjectPackageService
             throw new FileNotFoundException("Package file not found.", packagePath);
         }
 
+        string? stagingDirectory = null;
+        string? publishedDirectory = null;
         try
         {
             progress?.Report((Strings.ImportingProject, 0.0));
-            string packageName = Path.GetFileNameWithoutExtension(packagePath);
-            string projectDir = GetUniqueDirectoryPath(destinationDirectory, packageName);
+            cancellationToken.ThrowIfCancellationRequested();
+            destinationDirectory = Path.GetFullPath(destinationDirectory);
+            Directory.CreateDirectory(destinationDirectory);
+            stagingDirectory = Path.Combine(destinationDirectory, $".beutl-import-{Guid.NewGuid():N}");
+            if (OperatingSystem.IsWindows())
+                Directory.CreateDirectory(stagingDirectory);
+            else
+                Directory.CreateDirectory(stagingDirectory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
 
-            try
+            // Keep untrusted contents private until extraction, sanitization and validation finish.
+            string projectDir = Path.Combine(stagingDirectory, "project");
+            progress?.Report((Strings.ImportingProject, 0.3));
+            await ZipFile.ExtractToDirectoryAsync(packagePath, projectDir, cancellationToken);
+            await Task.Run(() => RemoveGitMetadata(projectDir, cancellationToken), cancellationToken);
+
+            progress?.Report((Strings.ImportingProject, 0.6));
+            string? projectFile = Directory.GetFiles(projectDir, "*.bep", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault();
+
+            if (projectFile == null)
             {
-                progress?.Report((Strings.ImportingProject, 0.3));
-                await Task.Run(() => ZipFile.ExtractToDirectory(packagePath, projectDir), cancellationToken);
-
-                progress?.Report((Strings.ImportingProject, 0.6));
-                string? projectFile = Directory.GetFiles(projectDir, "*.bep", SearchOption.TopDirectoryOnly)
-                    .FirstOrDefault();
-
-                if (projectFile == null)
-                {
-                    _logger.LogError("No project file found in package");
-                    CleanupTempDirectory(projectDir);
-                    return null;
-                }
-
-                progress?.Report((Strings.ImportingProject, 0.8));
-                Uri projectUri = new(projectFile);
-                Project project = CoreSerializer.RestoreFromUri<Project>(projectUri);
-
-                progress?.Report((Strings.ImportingProject, 1.0));
-                _logger.LogInformation("Project imported successfully from {PackagePath} to {ProjectDir}",
-                    packagePath, projectDir);
-                return project;
+                _logger.LogError("No project file found in package");
+                return null;
             }
-            catch
-            {
-                CleanupTempDirectory(projectDir);
-                throw;
-            }
+
+            progress?.Report((Strings.ImportingProject, 0.8));
+            _ = CoreSerializer.RestoreFromUri<Project>(new Uri(projectFile));
+            publishedDirectory = PublishImportedDirectory(
+                projectDir, destinationDirectory, Path.GetFileNameWithoutExtension(packagePath), cancellationToken);
+
+            // Re-read at its final location so relative scene/resource URIs never point at staging.
+            Uri projectUri = new(Path.Combine(publishedDirectory, Path.GetFileName(projectFile)));
+            Project project = CoreSerializer.RestoreFromUri<Project>(projectUri);
+            progress?.Report((Strings.ImportingProject, 1.0));
+            _logger.LogInformation("Project imported successfully from {PackagePath} to {ProjectDir}",
+                packagePath, publishedDirectory);
+            publishedDirectory = null;
+            return project;
         }
         catch (OperationCanceledException)
         {
@@ -250,6 +257,12 @@ public sealed class ProjectPackageService
         catch (Exception ex)
         {
             return LogImportError(ex);
+        }
+        finally
+        {
+            // Only remove directories owned by this import, never another import's destination.
+            CleanupTempDirectory(publishedDirectory);
+            CleanupTempDirectory(stagingDirectory);
         }
     }
 
@@ -266,23 +279,51 @@ public sealed class ProjectPackageService
         return null;
     }
 
-    /// <summary>
-    /// Gets a unique directory path that does not conflict with existing directories.
-    /// </summary>
-    private static string GetUniqueDirectoryPath(string parentDirectory, string directoryName)
+    private static string PublishImportedDirectory(
+        string sourceDirectory, string parentDirectory, string directoryName, CancellationToken cancellationToken)
     {
-        string path = Path.Combine(parentDirectory, directoryName);
-        if (!Directory.Exists(path))
-            return path;
-
-        int counter = 1;
-        while (Directory.Exists(path))
+        for (int counter = 0; ; counter++)
         {
-            path = Path.Combine(parentDirectory, $"{directoryName}_{counter}");
-            counter++;
+            cancellationToken.ThrowIfCancellationRequested();
+            string path = Path.Combine(parentDirectory, counter == 0 ? directoryName : $"{directoryName}_{counter}");
+            try
+            {
+                // The validated directory is nonempty. A competing publication cannot replace it.
+                Directory.Move(sourceDirectory, path);
+                return path;
+            }
+            catch (IOException) when (Directory.Exists(path) || File.Exists(path))
+            {
+                // Another process may have claimed the name after we started extracting.
+            }
         }
+    }
 
-        return path;
+    private static void RemoveGitMetadata(string directory, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        // Resolve through the filesystem too, including aliases accepted by its name comparison.
+        string gitPath = Path.Combine(directory, ".git");
+        if (Directory.Exists(gitPath))
+            Directory.Delete(gitPath, recursive: true);
+        else if (File.Exists(gitPath))
+            File.Delete(gitPath);
+
+        foreach (string path in Directory.GetFileSystemEntries(directory))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.Equals(Path.GetFileName(path), ".git", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Directory.Exists(path))
+                    Directory.Delete(path, recursive: true);
+                else
+                    File.Delete(path);
+            }
+            else if (Directory.Exists(path))
+            {
+                RemoveGitMetadata(path, cancellationToken);
+            }
+        }
     }
 
     /// <summary>

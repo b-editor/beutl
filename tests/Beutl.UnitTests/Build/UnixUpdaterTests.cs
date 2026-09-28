@@ -2,14 +2,18 @@
 
 namespace Beutl.UnitTests.Build;
 
-public class LinuxUpdaterTests
+public class UnixUpdaterTests
 {
     [Test]
-    [TestCase("none")]
-    [TestCase("backup")]
-    [TestCase("install")]
-    [TestCase("restore")]
-    public async Task Update_preserves_a_working_app_or_its_backup_and_releases_its_lock(string failure)
+    [TestCase("linux", "none")]
+    [TestCase("linux", "backup")]
+    [TestCase("linux", "install")]
+    [TestCase("linux", "restore")]
+    [TestCase("osx", "none")]
+    [TestCase("osx", "backup")]
+    [TestCase("osx", "install")]
+    [TestCase("osx", "restore")]
+    public async Task Update_preserves_a_working_app_or_its_backup_and_releases_its_lock(string platform, string failure)
     {
         if (OperatingSystem.IsWindows()) Assert.Ignore("Exercises the Unix updater through bash.");
         string root = Directory.CreateTempSubdirectory("beutl-update-script-").FullName;
@@ -24,6 +28,7 @@ public class LinuxUpdaterTests
             string bin = Directory.CreateDirectory(Path.Combine(root, "bin")).FullName;
             WriteExecutable(Path.Combine(bin, "sleep"), "#!/bin/bash\nexit 0\n");
             WriteExecutable(Path.Combine(bin, "pgrep"), "#!/bin/bash\nexit 1\n");
+            WriteExecutable(Path.Combine(bin, "osascript"), "#!/bin/bash\nexit 0\n");
             WriteExecutable(Path.Combine(bin, "cp"), """
                 #!/bin/bash
                 if [ "$TEST_FAILURE" = backup ] && [ "$2" = "$TEST_ORIGINAL" ]; then
@@ -39,12 +44,32 @@ public class LinuxUpdaterTests
                 fi
                 exec /bin/cp "$@"
                 """ + "\n");
+            WriteExecutable(Path.Combine(bin, "ditto"), """
+                #!/bin/bash
+                if [ "$TEST_FAILURE" = backup ] && [ "$1" = "$TEST_ORIGINAL" ]; then
+                    exit 28
+                fi
+                if [ "$TEST_FAILURE" != none ] && [ "$1" = "$TEST_UPDATE" ]; then
+                    mkdir -p "$2"
+                    printf partial > "$2/incomplete-new-file"
+                    exit 28
+                fi
+                if [ "$TEST_FAILURE" = restore ] && [[ "$1" = "${TEST_ORIGINAL}_backup_"* ]]; then
+                    exit 28
+                fi
+                if [ -x /usr/bin/ditto ]; then
+                    exec /usr/bin/ditto "$@"
+                fi
+                # Model ditto's merge semantics when running the macOS script on Linux CI.
+                mkdir -p "$2"
+                exec /bin/cp -R "$1/." "$2"
+                """ + "\n");
             var start = new ProcessStartInfo("/bin/bash")
             {
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                ArgumentList = { FindScript(), update, original, processName, Path.Combine(original, "Beutl") },
+                ArgumentList = { FindScript(platform), update, original, processName, Path.Combine(original, "Beutl") },
             };
             start.Environment["PATH"] = bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
             start.Environment["TEST_FAILURE"] = failure;
@@ -96,14 +121,14 @@ public class LinuxUpdaterTests
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 
-    private static string FindScript()
+    private static string FindScript(string platform)
     {
         for (DirectoryInfo? directory = new(TestContext.CurrentContext.TestDirectory);
              directory is not null; directory = directory.Parent)
         {
-            string path = Path.Combine(directory.FullName, "src", "Beutl", "Resources", "linux-update.sh");
+            string path = Path.Combine(directory.FullName, "src", "Beutl", "Resources", $"{platform}-update.sh");
             if (File.Exists(path)) return path;
         }
-        throw new FileNotFoundException("Could not find the Linux update script.");
+        throw new FileNotFoundException($"Could not find the {platform} update script.");
     }
 }

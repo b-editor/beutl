@@ -8,6 +8,7 @@ using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
 using Beutl.Graphics.Rendering;
+using Beutl.IO;
 using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Models;
@@ -66,7 +67,8 @@ public sealed class VideoExporter(EncoderRegistration encoders)
 
         async Task<ExportVideoResponse> EncodeWithAsync(ControllableEncodingExtension encoder)
         {
-            EncodingController controller = encoder.CreateController(outputPath);
+            using var output = new StagedOutputFile(outputPath);
+            EncodingController controller = encoder.CreateController(output.TemporaryPath);
             controller.VideoSettings.SourceSize = scene.FrameSize;
             controller.VideoSettings.DestinationSize = scene.FrameSize;
             controller.VideoSettings.FrameRate = frameRate;
@@ -109,11 +111,10 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             using var sampleProvider = new SampleProviderImpl(scene, composer, normalizedSampleRate, sampleProgress);
 
             await controller.Encode(frameProvider, sampleProvider, cancellationToken).ConfigureAwait(false);
-            onFrameProgress?.Invoke(frameProvider.FrameCount, frameProvider.FrameCount);
             if (encoder is AVFEncodingExtension
                 && bitrate is int requestedBitrate
                 && CreateAvFoundationBitrateWarning(
-                    outputPath,
+                    output.TemporaryPath,
                     scene.Duration,
                     requestedBitrate,
                     controller.AudioSettings.Bitrate > 0
@@ -123,6 +124,8 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 warnings.Add(bitrateWarning);
             }
 
+            output.Commit(cancellationToken);
+            onFrameProgress?.Invoke(frameProvider.FrameCount, frameProvider.FrameCount);
             return new ExportVideoResponse(
                 outputPath,
                 frameProvider.FrameCount,

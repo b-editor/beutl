@@ -191,14 +191,14 @@ public sealed class ExportOrchestrationTests
     private sealed class RecordingEncodingExtension(IReadOnlyList<(long Completed, long Total)> progress)
         : ControllableEncodingExtension
     {
-        public RecordingEncodingController Controller { get; } = new("unused", progress);
+        public RecordingEncodingController Controller { get; private set; } = null!;
 
         public override IEnumerable<string> SupportExtensions()
         {
             yield return ".progress-test";
         }
 
-        public override EncodingController CreateController(string file) => Controller;
+        public override EncodingController CreateController(string file) => Controller = new(file, progress);
     }
 
     private sealed class RecordingEncodingController(
@@ -222,6 +222,7 @@ public sealed class ExportOrchestrationTests
                 using Bitmap bitmap = await frameProvider.RenderFrame(frame);
                 CompletedWasReportedBeforeReturn |= progress.Any(item => item.Total > 0 && item.Completed == item.Total);
             }
+            await File.WriteAllTextAsync(OutputFile, "encoded output", cancellationToken);
         }
     }
 }

@@ -98,7 +98,11 @@ echo "@(MessageStrings.UpdatingFiles)"
 ditto "$UPDATE_DIR" "$TARGET_APP_PATH"
 if [ $? -ne 0 ]; then
     show_dialog "@(MessageStrings.UpdateFailedRestoringBackup)"
-    ditto "$BACKUP_APP_PATH" "$TARGET_APP_PATH"
+    # ditto merges directories. Remove the partial update so new-only files cannot
+    # survive rollback and invalidate the restored app's sealed resources.
+    if ! rm -rf "$TARGET_APP_PATH" || ! ditto "$BACKUP_APP_PATH" "$TARGET_APP_PATH"; then
+        show_dialog "@(MessageStrings.FailedToRestoreBackup)"
+    fi
     release_lock
     exit 1
 fi
