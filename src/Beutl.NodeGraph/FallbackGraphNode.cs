@@ -11,6 +11,7 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
 {
     private JsonObject? _json;
     private readonly Dictionary<Guid, JsonObject> _savedMembers = new();
+    private readonly Dictionary<Guid, NodeMember> _restoredMembers = new();
     private (Guid Id, string Name, (double X, double Y) Position, bool Expanded, bool Enabled) _original;
 
     public JsonObject? Json
@@ -77,7 +78,10 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
         foreach (JsonObject member in EnumerateSavedMembers(json))
         {
             if (!TryGetId(member[nameof(Id)], out Guid id)) continue;
-            INodeMember? port = Items.FirstOrDefault(item => item.Id == id);
+            // Recovery may reassign a port's Id after it was materialized. Keep the association
+            // with its original payload by object identity, including when the old Id is reused.
+            _restoredMembers.TryGetValue(id, out NodeMember? port);
+            if (port != null && port.Id != id) member[nameof(Id)] = port.Id;
             if (port is InputPort<object> input && TryGetId(member[nameof(input.Connection)], out Guid connectionId)
                 && connectionId != input.Connection.Id)
                 member[nameof(input.Connection)] = input.Connection.Id;
@@ -86,11 +90,18 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
             else if (port is IOutputPort output)
                 WriteConnections(member, output.Connections);
         }
+        if (json[nameof(NestedInputPorts)] is JsonArray nestedPorts)
+        {
+            foreach (JsonObject member in nestedPorts.OfType<JsonObject>())
+                if (TryGetId(member[nameof(INestedInputPort.RootMember)], out Guid rootId)
+                    && _restoredMembers.TryGetValue(rootId, out NodeMember? root) && root.Id != rootId)
+                    member[nameof(INestedInputPort.RootMember)] = root.Id;
+        }
         jsonContext.SetJsonObject(json);
     }
 
     internal IEnumerable<Guid> GetSavedMemberIds()
-        => _savedMembers.Keys;
+        => _savedMembers.Keys.Select(id => _restoredMembers.TryGetValue(id, out NodeMember? port) ? port.Id : id);
 
     internal void RestoreConnection(Connection connection)
     {
@@ -113,9 +124,10 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
 
     private NodeMember? GetPort(Guid id, bool input)
     {
-        if (!_savedMembers.TryGetValue(id, out JsonObject? saved)) return null;
         if (Items.FirstOrDefault(item => item.Id == id) is NodeMember existing)
             return (input ? existing is IInputPort : existing is IOutputPort) ? existing : null;
+        // A retained key whose port has moved to a different Id no longer owns that old endpoint.
+        if (_restoredMembers.ContainsKey(id) || !_savedMembers.TryGetValue(id, out JsonObject? saved)) return null;
 
         NodeMember port = input
             ? saved.ContainsKey("Connections") ? new ListInputPort<object>() : new InputPort<object>()
@@ -128,6 +140,7 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
             metadata["Connections"] = new JsonArray(connections
                 .Where(node => TryGetId(node, out _)).Select(node => node!.DeepClone()).ToArray());
         CoreSerializer.PopulateFromJsonObject(port, metadata);
+        _restoredMembers.Add(id, port);
         Items.Add((INodeMember)port);
         return port;
     }
