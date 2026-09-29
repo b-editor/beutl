@@ -9,7 +9,7 @@ using Beutl.Serialization;
 namespace Beutl.NodeGraph.Nodes;
 
 /// <summary>
-/// Draws another scene at the moment its time input names, as the video node draws a clip. Its output is an ordinary picture: it can be transformed, filtered
+/// Draws another scene at the absolute moment its time input names, as the video node draws a clip. Its output is an ordinary picture: it can be transformed, filtered
 /// or handed to an AI node, which captures it as it looks when the AI nodes run.
 /// </summary>
 public partial class SceneNode : GraphNode
@@ -31,6 +31,7 @@ public partial class SceneNode : GraphNode
         Object = new SceneDrawable();
         Object.AlignmentX.CurrentValue = Media.AlignmentX.Left;
         Object.AlignmentY.CurrentValue = Media.AlignmentY.Top;
+        PinTimeToReferencedScene();
         AddInput(Object, Object.ReferencedScene);
         Time = AddInput<TimeSpan>("Time", NodePortDisplays.Time);
         ErrorMonitor = AddTextMonitor("Error", NodePortDisplays.Error);
@@ -60,6 +61,18 @@ public partial class SceneNode : GraphNode
     {
         base.Deserialize(context);
         context.Populate("Object", Object);
+        PinTimeToReferencedScene();
+    }
+
+    /// <summary>
+    /// Makes <see cref="Time"/> the referenced scene's own time. A nested object otherwise takes
+    /// the time range of the element hosting the graph, and the scene drawable subtracts that
+    /// start; anchored at zero, the time it is given is the time it draws, whatever the element.
+    /// </summary>
+    private void PinTimeToReferencedScene()
+    {
+        Object.IsTimeAnchor = true;
+        Object.TimeRange = new Media.TimeRange(TimeSpan.Zero, TimeSpan.FromDays(3650));
     }
 
     public partial class Resource
@@ -71,11 +84,9 @@ public partial class SceneNode : GraphNode
         public override void Update(GraphCompositionContext context)
         {
             var node = RequireOriginal();
-            // The referenced scene is evaluated at its own time, with this render's settings.
-            // SceneDrawable subtracts its start, which it takes from the element hosting this
-            // graph; adding it back makes Time the referenced scene's time wherever that
-            // element sits on the timeline.
-            var sceneContext = new CompositionContext(Time + node.Object.Start)
+            // The referenced scene is evaluated at the absolute time Time names, with this
+            // render's settings, whether Time is typed or comes from another node.
+            var sceneContext = new CompositionContext(Time)
             {
                 DisableResourceShare = context.DisableResourceShare,
                 PreferProxy = context.PreferProxy,

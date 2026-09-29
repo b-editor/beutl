@@ -109,12 +109,89 @@ public sealed class SceneNodeTests
         application.Project = project;
         project.Items.Add(outer);
         project.Items.Add(referenced);
-        Assert.That(node.Object.Start, Is.EqualTo(TimeSpan.FromSeconds(5)), "Attached, nested objects take the element's time range.");
+        Assert.That(node.Object.Start, Is.EqualTo(TimeSpan.Zero), "The scene's time does not follow the hosting element.");
 
         node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
 
         Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(6)), Is.EqualTo(1),
             "0.5 s of the referenced scene is drawn, not 0.5 s minus the element's start.");
+    }
+
+    // The whole editor path: an outer scene, an element starting at 5 s, a node graph whose
+    // output node draws the Scene node, and the referenced scene's red square.
+    [TestCase(0.5, true)]
+    [TestCase(2.0, false)]
+    public void TheEditorsRenderShowsTheReferencedSceneAtTheTimeGiven(double seconds, bool expectRed)
+    {
+        Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.EnsureAvailable();
+        Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var rect = new RectShape
+            {
+                Width = { CurrentValue = 20 },
+                Height = { CurrentValue = 20 },
+                AlignmentX = { CurrentValue = Beutl.Media.AlignmentX.Left },
+                AlignmentY = { CurrentValue = Beutl.Media.AlignmentY.Top },
+                Fill = { CurrentValue = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) },
+            };
+            Scene referenced = CreateScene(rect);
+            var (model, node) = CreateGraph(referenced);
+            node.Time.Property!.SetValue(TimeSpan.FromSeconds(seconds));
+            var output = new OutputNode();
+            model.Nodes.Add(output);
+            model.Connect(output.InputPort, node.Output);
+            var drawable = new NodeGraphDrawable();
+            drawable.Model.CurrentValue = model;
+            var host = new Element
+            {
+                Start = TimeSpan.FromSeconds(5),
+                Length = TimeSpan.FromSeconds(10),
+                Uri = new Uri(Path.Combine(_directory, "host.layer")),
+            };
+            host.AddObject(drawable);
+            var outer = new Scene(64, 48, "outer") { Uri = new Uri(Path.Combine(_directory, "outer.scene")) };
+            outer.Children.Add(host);
+            var application = new BeutlApplication();
+            var project = new Project();
+            application.Project = project;
+            project.Items.Add(outer);
+            project.Items.Add(referenced);
+
+            using var renderer = new SceneRenderer(outer, Beutl.Graphics.Rendering.RenderIntent.Preview);
+            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(6)));
+            using Beutl.Media.Bitmap snapshot = renderer.Snapshot();
+            using Beutl.Media.Bitmap srgb = snapshot.Convert(
+                Beutl.Media.BitmapColorType.Bgra8888, Beutl.Media.BitmapAlphaType.Unpremul, Beutl.Media.BitmapColorSpace.Srgb);
+            int red = 0;
+            for (int y = 0; y < srgb.Height; y++)
+            {
+                ReadOnlySpan<Beutl.Media.Pixel.Bgra8888> row = srgb.GetRow<Beutl.Media.Pixel.Bgra8888>(y);
+                for (int x = 0; x < srgb.Width; x++)
+                {
+                    if (row[x].R > 200 && row[x].G < 60 && row[x].B < 60) red++;
+                }
+            }
+
+            Assert.That(red > 0, Is.EqualTo(expectRed), $"red pixels: {red}; error: {node.ErrorMonitor.Value}");
+        });
+    }
+
+    [Test]
+    public void TimeStaysAbsoluteAfterSavingAndLoading()
+    {
+        var model = new GraphModel();
+        model.Nodes.Add(new SceneNode());
+        var json = Beutl.Serialization.CoreSerializer.SerializeToJsonObject(model);
+        // A graph saved before the node anchored its time carries no time range of its own.
+        var saved = (System.Text.Json.Nodes.JsonObject)json["Nodes"]![0]!["Object"]!;
+        saved.Remove("Start");
+        saved.Remove("Duration");
+        saved.Remove("ZIndex");
+        var restored = (GraphModel)Beutl.Serialization.CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+        SceneNode node = restored.Nodes.OfType<SceneNode>().Single();
+
+        Assert.That(node.Object.IsTimeAnchor, Is.True);
+        Assert.That(node.Object.Start, Is.EqualTo(TimeSpan.Zero));
     }
 
     [Test]
