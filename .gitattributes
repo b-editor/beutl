@@ -3,6 +3,9 @@
 ###############################################################################
 * text=auto
 
+# Unified patches require stable line endings; blank context lines contain one space.
+native/SkiaSharp/*.patch text eol=lf whitespace=-blank-at-eol
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

@@ -5,7 +5,7 @@ index bbad64e..d0bcc0f 100644
 @@ -109,6 +109,10 @@ SK_C_API int gr_backendrendertarget_get_stencils(const gr_backendrendertarget_t*
  SK_C_API gr_backend_t gr_backendrendertarget_get_backend(const gr_backendrendertarget_t* rendertarget);
  SK_C_API bool gr_backendrendertarget_get_gl_framebufferinfo(const gr_backendrendertarget_t* rendertarget, gr_gl_framebufferinfo_t* glInfo);
-
+ 
 +// Beutl's Vulkan hand-off uses the mutable state shared with wrapped SkSurfaces.
 +SK_C_API bool gr_beutl_backendrendertarget_get_vk_image_layout(const gr_backendrendertarget_t* rendertarget, uint32_t* layout);
 +SK_C_API void gr_beutl_backendrendertarget_set_vk_image_layout(gr_backendrendertarget_t* rendertarget, uint32_t layout);

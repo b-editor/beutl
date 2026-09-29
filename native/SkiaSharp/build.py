@@ -42,6 +42,7 @@ def build(args):
     if not (source / ".git").exists():
         source.mkdir(parents=True, exist_ok=True)
         run("git", "init", source)
+        run("git", "config", "core.autocrlf", "false", cwd=source)
         run("git", "remote", "add", "origin", SOURCE["repository"], cwd=source)
         run("git", "fetch", "--depth=1", "origin", SOURCE["commit"], cwd=source)
         run("git", "checkout", "--detach", "FETCH_HEAD", cwd=source)
@@ -141,13 +142,13 @@ def build(args):
         for name in sorted(files):
             if name.upper().startswith(("LICENSE", "COPYING", "NOTICE", "FTL.TXT")):
                 path = Path(directory) / name
-                notices.append(f"{path.relative_to(source)}\n\n{path.read_text(errors='replace')}\n")
+                notices.append(f"{path.relative_to(source)}\n\n{path.read_text(encoding='utf-8', errors='replace')}\n")
     if target_os == "linux":
         # The Linux build statically links GCC's C++ runtime.
         copyright_file = Path("/usr/share/doc/libstdc++6/copyright")
         if copyright_file.exists():
             notices.append("GCC runtime\n\n" + copyright_file.read_text())
-    (destination / "Skia.NOTICES").write_text("\n".join(notices))
+    (destination / "Skia.NOTICES").write_text("\n".join(notices), encoding="utf-8")
     manifest = {**SOURCE, "rid": args.rid,
                 "patchSha256": hashlib.sha256(patch.read_bytes()).hexdigest(),
                 "binarySha256": hashlib.sha256(library.read_bytes()).hexdigest()}
