@@ -41,6 +41,20 @@ public sealed class SceneNodeTests
     }
 
     [Test]
+    public void ATimeNodePlaysTheSceneInStepWithTheGraph()
+    {
+        Scene referenced = CreateScene(new RectShape());
+        var (model, node) = CreateGraph(referenced);
+        var time = new Beutl.NodeGraph.Nodes.Utilities.TimeNode();
+        model.Nodes.Add(time);
+        Connection connection = model.Connect(node.Time, time.Time);
+
+        Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(0.5)), Is.EqualTo(1), "Seconds reach the time input.");
+        Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(2)), Is.EqualTo(0));
+        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Convert));
+    }
+
+    [Test]
     public void ASceneThatContainsTheGraphDoesNotStopTheRender()
     {
         var graph = new GraphModel();
