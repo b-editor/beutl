@@ -244,7 +244,10 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
             throw new InvalidOperationException("Failed to create SkiaSharp surface from Vulkan backend render target");
         }
 
-        MarkSkiaAccess();
+        // Wrapping records no Skia access and does not submit a pending backend upload. Preserve
+        // Vulkan ownership until PrepareForSkiaRendering/Sampling performs that first handoff.
+        if (!RequiresVulkanToSkiaHandoff)
+            MarkSkiaAccess();
         return surface;
     }
 

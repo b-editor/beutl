@@ -12,6 +12,50 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 [NonParallelizable]
 public class SkiaVulkanLayoutInteropTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void UploadBeforeWrapping_SubmitsAtTheFirstSkiaHandoff(bool samplingOnly)
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+        if (context.Backend != GraphicsBackend.Vulkan)
+            Assert.Ignore("This test exercises the shared Vulkan mutable state, not Metal interop.");
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            context.WaitIdle();
+            using ITexture2D texture = context.CreateTexture2D(4, 4, TextureFormat.RGBA8Unorm);
+            byte[] red = Enumerable.Repeat(new byte[] { 255, 0, 0, 255 }, 16).SelectMany(x => x).ToArray();
+            texture.Upload(red);
+            using SKSurface surface = texture.CreateSkiaSurface();
+            var events = new List<VulkanCommandPoolEvent>();
+            using (VulkanCommandPool.Observe(events.Add))
+            {
+                if (samplingOnly)
+                    texture.PrepareForSkiaSampling(requireCompletion: false);
+                else
+                    texture.PrepareForSkiaRendering();
+            }
+
+            Assert.That(events.Count(x => x == VulkanCommandPoolEvent.Submission), Is.EqualTo(1),
+                "Wrapping must not hide the pending upload from the first Skia handoff.");
+
+            if (!samplingOnly)
+            {
+                using var paint = new SKPaint { Color = SKColors.Blue };
+                surface.Canvas.DrawRect(SKRect.Create(0, 0, 1, 1), paint);
+            }
+
+            using SKImage snapshot = surface.Snapshot();
+            using var actual = new SKBitmap(new SKImageInfo(4, 4));
+            Assert.That(snapshot.ReadPixels(actual.Info, actual.GetPixels()), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual.GetPixel(0, 0), Is.EqualTo(samplingOnly ? SKColors.Red : SKColors.Blue));
+                Assert.That(actual.GetPixel(3, 3), Is.EqualTo(SKColors.Red));
+            });
+        });
+    }
+
     [Test]
     public void SnapshotThenBackendCopyThenSkiaDraw_PreservesContentsAcrossRepeatedHandoffs()
     {

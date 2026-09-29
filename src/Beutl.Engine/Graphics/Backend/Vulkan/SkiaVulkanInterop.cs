@@ -13,6 +13,8 @@ internal static class SkiaVulkanInterop
     {
         try
         {
+            // The pinned Skia SetVkImageLayout checks for null before accessing the target.
+            // These no-op calls resolve both exports without allocating a render target.
             GetImageLayout(nint.Zero, out _);
             SetImageLayout(nint.Zero, (uint)ImageLayout.Undefined);
         }

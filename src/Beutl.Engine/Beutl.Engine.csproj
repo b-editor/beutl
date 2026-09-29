@@ -8,7 +8,7 @@
   </ItemGroup>
   <Target Name="RequireSkiaSharpForPackage" BeforeTargets="GenerateNuspec">
     <ItemGroup>
-      <_RequiredSkiaSharp Include="linux-x64/native/libSkiaSharp.so;win-x64/native/libSkiaSharp.dll;win-arm64/native/libSkiaSharp.dll" />
+      <_RequiredSkiaSharp Include="linux-x64/native/libSkiaSharp.so;linux-arm64/native/libSkiaSharp.so;win-x64/native/libSkiaSharp.dll;win-arm64/native/libSkiaSharp.dll" />
     </ItemGroup>
     <Error Condition="!Exists('$(BeutlSkiaSharpNativeRoot)runtimes/%(_RequiredSkiaSharp.Identity)')"
            Text="Packing Beutl.Engine requires all supported libSkiaSharp binaries. Download the build-skia-native CI artifacts into native/SkiaSharp/artifacts first." />

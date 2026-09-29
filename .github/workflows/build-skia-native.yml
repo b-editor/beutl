@@ -5,7 +5,7 @@ on:
     inputs:
       rids:
         type: string
-        default: '["linux-x64", "win-x64", "win-arm64"]'
+        default: '["linux-x64", "linux-arm64", "win-x64", "win-arm64"]'
       artifact-prefix:
         type: string
         required: true
@@ -13,7 +13,7 @@ on:
     inputs:
       rids:
         type: string
-        default: '["linux-x64", "win-x64", "win-arm64"]'
+        default: '["linux-x64", "linux-arm64", "win-x64", "win-arm64"]'
       artifact-prefix:
         type: string
         default: skia-native
@@ -27,9 +27,9 @@ jobs:
       fail-fast: false
       matrix:
         rid: ${{ fromJSON(inputs.rids) }}
-    runs-on: ${{ startsWith(matrix.rid, 'win-') && 'windows-latest' || 'ubuntu-22.04' }}
+    runs-on: ${{ matrix.rid == 'linux-arm64' && 'ubuntu-22.04-arm' || startsWith(matrix.rid, 'win-') && 'windows-latest' || 'ubuntu-22.04' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -63,7 +63,7 @@ jobs:
         run: python3 native/SkiaSharp/build.py --rid ${{ matrix.rid }}
 
       - name: Upload native runtime
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ inputs.artifact-prefix }}-${{ matrix.rid }}
           path: native/SkiaSharp/artifacts/
