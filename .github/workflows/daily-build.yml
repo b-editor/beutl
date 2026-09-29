@@ -5,11 +5,16 @@ on:
   workflow_dispatch:
 
 jobs:
+  skia-native:
+    uses: ./.github/workflows/build-skia-native.yml
+    with:
+      artifact-prefix: daily-skia-native
+
   determine-version:
     uses: ./.github/workflows/build-version.yml
 
   daily-build:
-    needs: [determine-version]
+    needs: [determine-version, skia-native]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,6 +30,13 @@ jobs:
       uses: actions/setup-dotnet@v6
       with:
         global-json-file: global.json
+
+    - name: Download libSkiaSharp
+      uses: actions/download-artifact@v8
+      with:
+        pattern: daily-skia-native-*
+        path: native/SkiaSharp/artifacts
+        merge-multiple: true
 
     - name: Restore
       run: |

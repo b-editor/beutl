@@ -57,7 +57,7 @@ public class SkiaVulkanImageInitializationTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void SkiaImageInfo_DeclaresTheHandOffLayout_NotTheLayoutAtTheMomentOfTheWrap()
+    public void SkiaImageState_FollowsInitializationBeforeUntouchedSnapshot()
     {
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
         if (context.Backend != GraphicsBackend.Vulkan)
@@ -76,35 +76,25 @@ public class SkiaVulkanImageInitializationTests
                 Is.EqualTo(ImageLayout.Undefined),
                 "A fresh image starts undefined; what matters is how it is described, not how it is found.");
 
-            Assert.Multiple(() =>
-            {
-                // Not a restatement of the equality below: that one pins the coupling to the constant,
-                // this one pins the property the corruption violated, and survives an edit to the constant.
-                Assert.That(
-                    (ImageLayout)vulkanTexture.CreateSkiaImageInfo().ImageLayout,
-                    Is.Not.EqualTo(ImageLayout.Undefined),
-                    "A barrier out of Undefined may discard the image's contents, and the backend submits "
-                    + "the allocation clear before Skia runs.");
+            using SKSurface surface = vulkanTexture.CreateSkiaSurface();
+            ((ITransparentClearableTexture)vulkanTexture).ClearToTransparent();
+            vulkanTexture.PrepareForSkiaSampling(requireCompletion: true);
 
-                Assert.That(
-                    (ImageLayout)vulkanTexture.CreateSkiaImageInfo().ImageLayout,
-                    Is.EqualTo(VulkanTexture2D.SkiaInteropLayout),
-                    "Declaring the layout found at the wrap hands Skia a barrier that may discard the clear.");
+            var target = (GRBackendRenderTarget)typeof(VulkanTexture2D).GetField(
+                "_skiaBackendRenderTarget", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(vulkanTexture)!;
+            Assert.That(SkiaVulkanInterop.GetImageLayout(target), Is.EqualTo(ImageLayout.TransferDstOptimal),
+                "Skia must observe the allocation clear, even when its first access is a snapshot.");
 
-                vulkanTexture.PrepareForSkiaRendering();
-
-                Assert.That(
-                    (ImageLayout)layoutField.GetValue(vulkanTexture)!,
-                    Is.EqualTo(VulkanTexture2D.SkiaInteropLayout),
-                    "The declaration is only truthful because the hand-off puts the image in that layout "
-                    + "before Skia's commands run.");
-            });
+            using SKImage snapshot = surface.Snapshot();
+            using var pixels = new SKBitmap(new SKImageInfo(4, 4));
+            Assert.That(snapshot.ReadPixels(pixels.Info, pixels.GetPixels()), Is.True);
+            Assert.That(pixels.Pixels, Is.All.EqualTo(default(SKColor)));
         });
     }
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void NewRenderTarget_SubmitsInitializationBeforeUntouchedSnapshot()
     {
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();

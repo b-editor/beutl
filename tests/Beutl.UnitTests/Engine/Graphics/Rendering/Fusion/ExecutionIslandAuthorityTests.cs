@@ -137,7 +137,6 @@ public sealed class ExecutionIslandAuthorityTests
     [TestCase(false)]
     [TestCase(true)]
     [Category("GpuPassFusionGpu")]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void DeclaredInputReadback_IsPlannedAndCountedOnlyAtActualUse(bool opaque)
     {
         VulkanTestEnvironment.EnsureAvailable();

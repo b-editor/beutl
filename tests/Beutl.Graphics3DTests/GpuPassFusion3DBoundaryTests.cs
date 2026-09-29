@@ -149,7 +149,6 @@ public sealed class GpuPassFusion3DBoundaryTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void Scene3D_ReusesItsRendererAcrossRequests()
     {
         GpuTestEnvironment.EnsureAvailable();

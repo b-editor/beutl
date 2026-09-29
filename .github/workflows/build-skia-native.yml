@@ -1,0 +1,70 @@
+name: Build libSkiaSharp
+
+on:
+  workflow_call:
+    inputs:
+      rids:
+        type: string
+        default: '["linux-x64", "win-x64", "win-arm64"]'
+      artifact-prefix:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      rids:
+        type: string
+        default: '["linux-x64", "win-x64", "win-arm64"]'
+      artifact-prefix:
+        type: string
+        default: skia-native
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: ${{ fromJSON(inputs.rids) }}
+    runs-on: ${{ startsWith(matrix.rid, 'win-') && 'windows-latest' || 'ubuntu-22.04' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Restore native binary cache
+        id: cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/SkiaSharp/artifacts/runtimes/${{ matrix.rid }}
+          key: skia-native-v1-${{ runner.os }}-${{ matrix.rid }}-${{ hashFiles('native/SkiaSharp/**') }}
+
+      - name: Install Linux build dependencies
+        if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang lld ninja-build libfontconfig1-dev libgl1-mesa-dev libegl1-mesa-dev
+
+      - name: Configure Windows compiler
+        if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          Import-Module "$vs/Common7/Tools/Microsoft.VisualStudio.DevShell.dll"
+          $arch = '${{ matrix.rid }}'.Substring(4)
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments "-arch=$arch -host_arch=x64"
+          foreach ($name in @('PATH', 'INCLUDE', 'LIB', 'LIBPATH', 'VCINSTALLDIR', 'VCToolsInstallDir', 'VCToolsVersion', 'WindowsSdkDir', 'WindowsSDKVersion', 'VSINSTALLDIR')) {
+            "$name=$([Environment]::GetEnvironmentVariable($name))" >> $env:GITHUB_ENV
+          }
+
+      - name: Build pinned Skia and verify exports
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: python3 native/SkiaSharp/build.py --rid ${{ matrix.rid }}
+
+      - name: Upload native runtime
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-prefix }}-${{ matrix.rid }}
+          path: native/SkiaSharp/artifacts/
+          if-no-files-found: error

@@ -44,7 +44,6 @@ public sealed class PixelSortEffectSynchronizationTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void PixelSort_SortsAnUnsubmittedSourceInsteadOfReturningIt()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -96,7 +95,6 @@ public sealed class PixelSortEffectSynchronizationTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void PixelSort_ReusesItsDestinationAndScratchTargetsAfterWarmup()
     {
         VulkanTestEnvironment.EnsureAvailable();

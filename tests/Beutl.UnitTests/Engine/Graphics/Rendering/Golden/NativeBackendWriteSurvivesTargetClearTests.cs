@@ -29,7 +29,6 @@ public class NativeBackendWriteSurvivesTargetClearTests
     [TestCase(0.5f)]
     [TestCase(1f)]
     [TestCase(2f)]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void GlslEffectOutput_IsNotBlankedByTheTargetClear(float outputScale)
     {
         VulkanTestEnvironment.EnsureAvailable();

@@ -22,6 +22,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     public VulkanContext OwnerContext => _context;
     protected ImageLayout _currentLayout = ImageLayout.Undefined;
     private TextureAccessDomain _accessDomain;
+    private GRBackendRenderTarget? _skiaBackendRenderTarget;
     private bool _hasTransparentContents;
     protected bool _disposed;
 
@@ -190,36 +191,24 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     }
 
     /// <summary>
-    /// The layout the wrap declares, and the one <see cref="PrepareForSkiaRendering"/> establishes before
-    /// Skia draws.
+    /// The layout established before handing backend writes to Skia for drawing.
     /// </summary>
-    /// <remarks>
-    /// The wrap describes a moment that has not arrived yet: a render target reaches this layout through
-    /// <see cref="PrepareForSkiaRendering"/>, which also submits whatever the backend recorded before it,
-    /// and a texture wrapped after a backend pass is already here from the blit that filled it. A
-    /// sampling-only hand-off (<see cref="PrepareForSkiaSampling"/>) submits without transitioning, so the
-    /// backend can leave the image elsewhere - that residue is the drift tracked as b-editor/beutl#2263,
-    /// not a licence to narrow what the wrap declares.
-    /// </remarks>
     internal const ImageLayout SkiaInteropLayout = ImageLayout.ColorAttachmentOptimal;
 
     /// <summary>
     /// Builds the description Skia is handed for this image.
     /// </summary>
     /// <remarks>
-    /// Skia takes <see cref="GRVkImageInfo.ImageLayout"/> as the starting point for its own tracking and
-    /// emits its first barrier out of it, and a barrier out of Undefined is licensed to discard the image's
-    /// contents outright - which is what turned a freshly cleared target into non-finite pixels on Mesa,
-    /// where the driver takes that licence. Declaring the layout the image happens to be in at the moment
-    /// of the wrap therefore describes the wrong moment: the image is still Undefined then, and the
-    /// allocation clear that follows is submitted before Skia runs. Declare the hand-off layout instead.
+    /// Subsequent backend transitions update the same mutable state Skia holds. In particular the
+    /// allocation clear must replace Undefined before the first Skia access, otherwise Skia is allowed
+    /// to discard that clear. The retained backend render target also observes transitions made by Skia.
     /// </remarks>
     internal GRVkImageInfo CreateSkiaImageInfo() => new()
     {
         Image = _image.Handle,
         Alloc = new GRVkAlloc { Memory = (ulong)_memory.Handle, Offset = 0, Size = _allocationSize },
         ImageTiling = (uint)ImageTiling.Optimal,
-        ImageLayout = (uint)SkiaInteropLayout,
+        ImageLayout = (uint)_currentLayout,
         Format = (uint)_format.ToVulkanFormat(),
         ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
                                  ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit),
@@ -242,10 +231,12 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
             return SKSurface.Create(info);
         }
 
-        using var backendRenderTarget = new GRBackendRenderTarget(_width, _height, CreateSkiaImageInfo());
+        // Copies made by Skia share this handle's mutable Vulkan state. Retain one handle for the
+        // texture's lifetime, including when Renderer3D creates a new surface for each frame.
+        _skiaBackendRenderTarget ??= new GRBackendRenderTarget(_width, _height, CreateSkiaImageInfo());
 
         var grContext = _context.SkiaContext;
-        var surface = SKSurface.Create(grContext, backendRenderTarget, GRSurfaceOrigin.TopLeft,
+        var surface = SKSurface.Create(grContext, _skiaBackendRenderTarget, GRSurfaceOrigin.TopLeft,
             _format.ToSkiaColorType(), SKColorSpace.CreateSrgbLinear());
 
         if (surface == null)
@@ -276,6 +267,13 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
     public virtual void PrepareForSkiaRendering()
     {
+        // Consecutive Skia draws need neither a backend barrier nor a flush of Skia's task graph.
+        if (_skiaBackendRenderTarget != null && _accessDomain == TextureAccessDomain.Skia)
+        {
+            _hasTransparentContents = false;
+            return;
+        }
+
         bool requiresSubmission = _currentLayout != SkiaInteropLayout
             || RequiresVulkanToSkiaHandoff;
         TransitionTo(SkiaInteropLayout);
@@ -350,6 +348,14 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
     public void TransitionTo(ImageLayout layout)
     {
+        if (_skiaBackendRenderTarget != null && _accessDomain == TextureAccessDomain.Skia)
+        {
+            // Snapshot and readback can change the source layout too. Flush before reading its
+            // state, then enqueue our commands after Skia's submission on the shared Vulkan queue.
+            _context.SkiaContext.Flush(submit: true, synchronous: false);
+            _currentLayout = SkiaVulkanInterop.GetImageLayout(_skiaBackendRenderTarget);
+        }
+
         if (_currentLayout == layout)
         {
             _accessDomain = TextureAccessDomain.Vulkan;
@@ -358,6 +364,8 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
         _context.TransitionImageLayout(_image, _currentLayout, layout, _format.GetAspectMask());
         _currentLayout = layout;
+        if (_skiaBackendRenderTarget != null)
+            SkiaVulkanInterop.SetImageLayout(_skiaBackendRenderTarget, layout);
         _accessDomain = TextureAccessDomain.Vulkan;
     }
 
@@ -365,6 +373,9 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     {
         if (_disposed) return;
         _disposed = true;
+
+        _skiaBackendRenderTarget?.Dispose();
+        _skiaBackendRenderTarget = null;
 
         ImageView imageView = _imageView;
         Silk.NET.Vulkan.Image image = _image;

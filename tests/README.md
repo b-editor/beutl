@@ -48,46 +48,29 @@ BEUTL_REQUIRE_GPU=1 BEUTL_VULKAN_VALIDATION=1 \
 but the layer did not load, because a gate that observes nothing must not report success. Without the
 Vulkan SDK it will fail for that reason — install the layer before enabling the variable.
 
-One category is held back: `TestCategories.KnownVulkanSkiaLayoutInterop`, declared in both
-`Beutl.UnitTests` and `Beutl.Graphics3DTests` under the same name because the validation job filters both
-assemblies on it. `RenderTarget` builds its
-`SKSurface` once and Skia tracks that image's layout from there, while `VulkanTexture2D` tracks the same
-image separately as the backend transitions it — so the two records drift and a barrier eventually names an
-`oldLayout` the image has left. Closing that needs a way to read back or command the layout Skia holds, and
-no SkiaSharp release exposes one: `GRBackendRenderTarget` takes a `GRVkImageInfo` in its constructor and
-never gives it back, and the native C ABI has no Vulkan layout or mutable-state entry point at all — it
-carries a GL framebuffer-info getter with no Vulkan counterpart. Native Skia does have
-`GrBackendRenderTargets::GetVkImageInfo` and `SetVkImageLayout`, so closing this means contributing the C
-ABI and the binding upstream, not upgrading the package. Those tests run normally in the ordinary suite;
-only the validation job skips them, so the gate still covers everything else. Tracked as
-[#2263](https://github.com/b-editor/beutl/issues/2263); drop the exclusion from
-`.github/workflows/dotnet.yml` once the interop keeps one record.
+Vulkan builds require Beutl's libSkiaSharp, built from the exact Skia commit pinned by SkiaSharp 4.152.1.
+`native/SkiaSharp/vulkan-image-layout.patch` exposes the layout state shared by a backend render target
+and its Skia surfaces. The backend retains that handle, reads its state after flushing Skia, and reports
+its own transitions through the same state. This includes allocation clears, snapshots and reused 3D
+surfaces; an initial `Undefined` layout must be replaced when the backend clears the image, before Skia
+can discard that clear. These paths are covered by `SkiaVulkanLayoutInteropTests` and
+`SkiaImageState_FollowsInitializationBeforeUntouchedSnapshot`.
 
-Do not "fix" a member of this category by narrowing what the wrap declares. `GRVkImageInfo.ImageLayout`
-describes the moment Skia's commands *run*, not the moment the wrap is built: a render target reaches
-`VulkanTexture2D.SkiaInteropLayout` through `PrepareForSkiaRendering`, which also submits the backend work
-recorded before it. A sampling-only hand-off (`PrepareForSkiaSampling`) submits without transitioning, so
-the backend can leave the image elsewhere — that residue is this drift, and it is what these tests report.
-Declaring the layout found at the wrap instead silences them, because a transition out of `Undefined` is
-always legal, while licensing the driver to discard the allocation clear: that is what returned non-finite
-pixels for 266 shots of the differential corpus on Mesa.
-`SkiaImageInfo_DeclaresTheHandOffLayout_NotTheLayoutAtTheMomentOfTheWrap` pins it.
+On Linux, install `clang`, `lld`, `ninja-build`, `libfontconfig1-dev`, `libgl1-mesa-dev` and
+`libegl1-mesa-dev`, then run `python3 native/SkiaSharp/build.py --rid linux-x64` (or `linux-arm64` on ARM).
+On Windows, run the script with `--rid win-x64` or `win-arm64` from the matching Visual Studio C++
+developer shell, with Python 3 and Ninja installed. The generated files go to
+`native/SkiaSharp/artifacts/`; the build also accepts an absolute `BeutlSkiaSharpNativeRoot` ending in a
+directory separator. CI caches these files and includes them in published apps and the engine's NuGet
+package. macOS continues to use Skia's Metal backend and the upstream native package.
 
-Two members of the category do not merely stay excluded — they went from passing to failing when the
-declaration stopped hiding the drift: `ConsecutiveEffects_SubmitEachEffectAndWaitOnlyAtTheReadbackBoundary`
-(reports `SHADER_READ_ONLY_OPTIMAL`) and `NewRenderTarget_SubmitsInitializationBeforeUntouchedSnapshot`
-(reports `TRANSFER_DST_OPTIMAL`). They are recorded here so the exclusion is not read as covering only
-what it covered before: the category now absorbs live regressions, not just a known limitation, and #2263
-is what removes both. Measured on Intel/Mesa: 12 tests pass with the drift masked and fail with it
-reported, and none of the 12 fails a pixel assertion.
-
-The same missing API caps what `VulkanContext`'s Skia image allocation hook can promise, on a path that is
-*not* in that category. Ganesh allocates its own filter and scratch images through the intercepted
+Skia-owned images have a separate initialization limitation in `VulkanContext`'s allocation hook.
+Ganesh allocates its own filter and scratch images through the intercepted
 `vkCreateImage` / `vkBindImageMemory` pair, and the hook clears them to transparent at bind time, leaving
 them in `TransferDstOptimal` while Ganesh still holds `Undefined` for them. Its first use may therefore
 transition out of `Undefined`, which Vulkan permits to discard the contents. Nothing can be reconciled
 here: Skia never hands out a backend handle for an image it allocated itself, so the
-`GRVkImageInfo.ImageLayout` route `VulkanTexture2D` uses does not apply, and SkiaSharp 4.152.0's
+shared mutable state route `VulkanTexture2D` uses does not apply, and SkiaSharp 4.152.1's
 `GRContextOptions` — `AvoidStencilBuffers`, `RuntimeProgramCacheSize`, `GlyphCacheTextureMaximumBytes`,
 `AllowPathMaskCaching`, `DoManualMipmapping`, `BufferMapThreshold` — has no clear-on-allocate switch that
 would hand the clear back to Skia. The clear still zeroes the backing allocation, which is what stops

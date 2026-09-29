@@ -3,6 +3,17 @@
     <RootNameSpace>Beutl</RootNameSpace>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="$(RootDirectory)native/SkiaSharp/Beutl.Engine.targets" Pack="true" PackagePath="buildTransitive/Beutl.Engine.targets" />
+    <None Include="$(BeutlSkiaSharpNativeRoot)**/*" Pack="true" PackagePath="buildTransitive/native/%(RecursiveDir)%(Filename)%(Extension)" Visible="false" />
+  </ItemGroup>
+  <Target Name="RequireSkiaSharpForPackage" BeforeTargets="GenerateNuspec">
+    <ItemGroup>
+      <_RequiredSkiaSharp Include="linux-x64/native/libSkiaSharp.so;win-x64/native/libSkiaSharp.dll;win-arm64/native/libSkiaSharp.dll" />
+    </ItemGroup>
+    <Error Condition="!Exists('$(BeutlSkiaSharpNativeRoot)runtimes/%(_RequiredSkiaSharp.Identity)')"
+           Text="Packing Beutl.Engine requires all supported libSkiaSharp binaries. Download the build-skia-native CI artifacts into native/SkiaSharp/artifacts first." />
+  </Target>
+  <ItemGroup>
     <InternalsVisibleTo Include="Beutl" />
     <InternalsVisibleTo Include="Beutl.Graphics3DTests" />
     <InternalsVisibleTo Include="Beutl.UnitTests" />

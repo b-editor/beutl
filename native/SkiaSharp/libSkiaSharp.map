@@ -1,0 +1,10 @@
+libSkiaSharp {
+    global:
+        sk_*;
+        gr_*;
+        skottie_*;
+        sksg_*;
+        skresources_*;
+    local:
+        *;
+};

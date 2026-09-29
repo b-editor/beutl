@@ -18,7 +18,13 @@ on:
         value: ${{ jobs.build-nuget.outputs.artifact-run-id }}
 
 jobs:
+  skia-native:
+    uses: ./.github/workflows/build-skia-native.yml
+    with:
+      artifact-prefix: nuget-skia-native
+
   build-nuget:
+    needs: skia-native
     runs-on: ubuntu-latest
     outputs:
       artifact-run-id: ${{ steps.run-id.outputs.run-id }}
@@ -38,6 +44,13 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+
+      - name: Download libSkiaSharp
+        uses: actions/download-artifact@v8
+        with:
+          pattern: nuget-skia-native-*
+          path: native/SkiaSharp/artifacts
+          merge-multiple: true
 
       - name: Restore
         run: |
