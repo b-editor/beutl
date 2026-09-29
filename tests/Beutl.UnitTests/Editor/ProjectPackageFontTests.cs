@@ -84,6 +84,8 @@ public class ProjectPackageFontTests
             Project project = (await ProjectPackageService.Current.ImportAsync(package, destination))!;
 
             Assert.That(project, Is.Not.Null);
+            Assert.That(FontRevision(family), Is.EqualTo(0x00020000), "Import must not change the active project's fonts.");
+            FontManager.Instance.LoadProjectFonts(project);
             Assert.That(FontManager.Instance.IsRegistered(family), Is.True);
             Assert.That(new Typeface(family).ToSkia().FamilyName, Is.EqualTo(family.Name));
             uint bundledRevision = ReadFontRevision(bundled);

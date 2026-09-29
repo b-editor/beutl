@@ -32,7 +32,7 @@ public partial class PackageInstaller
             if (Directory.Exists(directory))
             {
                 using var reader = new PackageFolderReader(directory);
-                availablePackages.UnionWith(ResolvedPackageDependencies.Load(reader, framework));
+                availablePackages.UnionWith(ResolvedPackageDependencies.Load(reader, framework, preserveCandidates: true));
             }
         }
 

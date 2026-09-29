@@ -12,9 +12,19 @@ namespace Beutl.HeadlessUITests;
 public class UpdateShutdownTests
 {
     [AvaloniaTest]
-    public async Task A_failed_save_does_not_launch_the_installer_or_dispose_the_editor()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task A_failed_save_does_not_launch_the_installer_or_dispose_the_editor(bool openProject)
     {
         var (main, scene) = await CreateShellAsync();
+        if (openProject)
+        {
+            var project = new Project { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "project.bep")) };
+            project.Items.Add(scene);
+            CoreSerializer.StoreToUri(project, project.Uri);
+            await main.ProjectService.OpenProject(project.Uri.LocalPath).WaitAsync(TimeSpan.FromSeconds(20));
+            scene = main.ProjectService.CurrentProject.Value!.Items.OfType<Scene>().Single();
+        }
         EditorTabItem tab = main.EditorService.SelectedTabItem.Value!;
         bool launched = false;
         try
@@ -32,6 +42,7 @@ public class UpdateShutdownTests
             Assert.Multiple(() =>
             {
                 Assert.That(launched, Is.False);
+                Assert.That(main.ProjectService.CurrentProject.Value is not null, Is.EqualTo(openProject));
                 Assert.That(main.EditorService.TabItems, Does.Contain(tab));
                 Assert.That(((EditViewModel)tab.Context.Value).IsDisposingOrDisposed, Is.False);
                 Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.EqualTo(TimeSpan.FromSeconds(30)));

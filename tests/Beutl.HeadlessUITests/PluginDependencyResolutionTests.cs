@@ -148,6 +148,25 @@ public class PluginDependencyResolutionTests
 
     [TestCase(false)]
     [TestCase(true)]
+    public async Task Cleanup_keeps_compatible_versions_when_the_selected_version_cannot_be_recovered(bool corrupt)
+    {
+        CreatePackage("Common", "1.0.0");
+        CreatePackage("Common", "2.0.0");
+        string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
+        if (corrupt) File.WriteAllText(Path.Combine(root, ResolvedPackageDependencies.FileName), "{");
+        var repository = new InstalledPackageRepository();
+        repository.UpgradePackages(Identity("Root", "1.0.0"));
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, repository, null!);
+
+        PackageCleanContext context = installer.PrepareForClean();
+
+        Assert.That(context.UnnecessaryPackages, Does.Not.Contain(Identity("Common", "1.0.0")));
+        Assert.That(context.UnnecessaryPackages, Does.Not.Contain(Identity("Common", "2.0.0")));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
     public void Native_assets_are_resolved_from_the_package_root_for_the_current_runtime(bool generic)
     {
         string root = CreatePackage("Native", "1.0.0");

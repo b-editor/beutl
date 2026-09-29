@@ -855,6 +855,7 @@ public sealed class ProjectService
             if (ReferenceEquals(_app.Project, project))
             {
                 _app.Project = null;
+                Media.FontManager.Instance.ClearProjectFonts();
             }
         }
         finally

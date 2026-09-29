@@ -28,7 +28,7 @@ internal static class ResolvedPackageDependencies
         JsonSerializer.SerializeToNode(snapshot)!.JsonSave(Path.Combine(directory, FileName));
     }
 
-    public static IReadOnlyList<PackageIdentity> Load(PackageFolderReader reader, NuGetFramework framework)
+    public static IReadOnlyList<PackageIdentity> Load(PackageFolderReader reader, NuGetFramework framework, bool preserveCandidates = false)
     {
         PackageIdentity root = reader.GetIdentity();
         string directory = Path.GetDirectoryName(reader.GetNuspecFile())!;
@@ -94,6 +94,10 @@ internal static class ResolvedPackageDependencies
                 }
             }
         }
+
+        // Without a trustworthy snapshot cleanup cannot know which compatible
+        // version an existing load context still uses. Keep every reachable candidate.
+        if (preserveCandidates) return available.Keys.ToArray();
 
         var context = new PackageResolverContext(DependencyBehavior.Lowest, [root.Id], [], [],
             CoreLibraries.GetPreferredVersions(), available.Values, [], NullLogger.Instance);
