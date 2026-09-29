@@ -432,9 +432,6 @@
   <data name="Port_Quality" xml:space="preserve">
     <value>质量</value>
   </data>
-  <data name="Port_UseCurrentTime" xml:space="preserve">
-    <value>使用播放位置</value>
-  </data>
   <data name="Scene_CircularReference" xml:space="preserve">
     <value>场景引用了自身，因此无法在此处绘制。</value>
   </data>

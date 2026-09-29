@@ -9,8 +9,7 @@ using Beutl.Serialization;
 namespace Beutl.NodeGraph.Nodes;
 
 /// <summary>
-/// Draws another scene, as a scene element does on the timeline, either in step with this graph
-/// or frozen at a chosen time. Its output is an ordinary picture: it can be transformed, filtered
+/// Draws another scene at the moment its time input names, as the video node draws a clip. Its output is an ordinary picture: it can be transformed, filtered
 /// or handed to an AI node, which captures it as it looks when the AI nodes run.
 /// </summary>
 public partial class SceneNode : GraphNode
@@ -33,18 +32,13 @@ public partial class SceneNode : GraphNode
         Object.AlignmentX.CurrentValue = Media.AlignmentX.Left;
         Object.AlignmentY.CurrentValue = Media.AlignmentY.Top;
         AddInput(Object, Object.ReferencedScene);
-        UseCurrentTime = AddInput<bool>("UseCurrentTime", NodePortDisplays.UseCurrentTime);
         Time = AddInput<TimeSpan>("Time", NodePortDisplays.Time);
         ErrorMonitor = AddTextMonitor("Error", NodePortDisplays.Error);
-        UseCurrentTime.Property?.SetValue(true);
     }
 
     public OutputPort<DrawableRenderNode?> Output { get; }
 
-    /// <summary>Follow this graph's time, as a scene element follows the timeline.</summary>
-    public InputPort<bool> UseCurrentTime { get; }
-
-    /// <summary>The moment of the referenced scene to draw when not following this graph's time.</summary>
+    /// <summary>The moment of the referenced scene to draw; animate it to play the scene.</summary>
     public InputPort<TimeSpan> Time { get; }
 
     public NodeMonitor<string?> ErrorMonitor { get; }
@@ -78,7 +72,7 @@ public partial class SceneNode : GraphNode
         {
             var node = RequireOriginal();
             // The referenced scene is evaluated at its own time, with this render's settings.
-            var sceneContext = new CompositionContext(UseCurrentTime ? context.Time : Time)
+            var sceneContext = new CompositionContext(Time)
             {
                 DisableResourceShare = context.DisableResourceShare,
                 PreferProxy = context.PreferProxy,

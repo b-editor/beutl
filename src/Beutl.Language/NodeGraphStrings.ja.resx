@@ -432,9 +432,6 @@
   <data name="Port_Quality" xml:space="preserve">
     <value>品質</value>
   </data>
-  <data name="Port_UseCurrentTime" xml:space="preserve">
-    <value>再生位置の時刻を使う</value>
-  </data>
   <data name="Scene_CircularReference" xml:space="preserve">
     <value>シーンが自分自身を参照しているため、ここでは描画できません。</value>
   </data>

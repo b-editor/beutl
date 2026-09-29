@@ -27,28 +27,17 @@ public sealed class SceneNodeTests
     }
 
     [Test]
-    public void FollowsTheGraphsTimeLikeASceneElement()
+    public void DrawsTheSceneAtItsTimeInputWhateverTheGraphsTime()
     {
         Scene referenced = CreateScene(new RectShape());
         var (model, node) = CreateGraph(referenced);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(0.5)), Is.EqualTo(1), "The element is on screen.");
-            Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(2)), Is.EqualTo(0), "The element has ended.");
-            Assert.That(node.ErrorMonitor.Value, Is.Null);
-        });
-    }
-
-    [Test]
-    public void CanBeFrozenAtAChosenTime()
-    {
-        Scene referenced = CreateScene(new RectShape());
-        var (model, node) = CreateGraph(referenced);
-        node.UseCurrentTime.Property!.SetValue(false);
         node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
+        Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(2)), Is.EqualTo(1), "The element is on screen at 0.5 s.");
 
-        Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(2)), Is.EqualTo(1));
+        node.Time.Property!.SetValue(TimeSpan.FromSeconds(2));
+        Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(0.5)), Is.EqualTo(0), "The element has ended at 2 s.");
+        Assert.That(node.ErrorMonitor.Value, Is.Null);
     }
 
     [Test]
