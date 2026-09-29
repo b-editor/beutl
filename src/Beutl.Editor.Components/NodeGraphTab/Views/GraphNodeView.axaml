@@ -92,6 +92,13 @@
                             <icons:FluentIconSource Icon="History" />
                         </ui:FAMenuFlyoutSubItem.IconSource>
                     </ui:FAMenuFlyoutSubItem>
+                    <ui:FAMenuFlyoutItem Click="SaveTemplateClick"
+                                       IsVisible="{Binding IsGroup}"
+                                       Text="{x:Static lang:NodeGraphStrings.Template_SaveAs}">
+                        <ui:FAMenuFlyoutItem.IconSource>
+                            <icons:FluentIconSource Icon="Save" />
+                        </ui:FAMenuFlyoutItem.IconSource>
+                    </ui:FAMenuFlyoutItem>
                     <ui:FAMenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Rename" />

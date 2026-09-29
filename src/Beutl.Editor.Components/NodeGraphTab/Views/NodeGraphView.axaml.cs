@@ -299,6 +299,25 @@ public partial class NodeGraphView : UserControl
         }
     }
 
+    // Listed each time the menu opens, however it is opened: templates are files, saved from any graph.
+    private void CanvasMenuOpened(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not NodeGraphViewModel viewModel)
+            return;
+
+        var items = new List<MenuItem>();
+        foreach (Beutl.NodeGraph.Nodes.Group.GroupNodeTemplate template in viewModel.Templates.List())
+        {
+            var item = new MenuItem { Header = template.Name };
+            item.Click += (_, _) => viewModel.AddTemplate(template, _rightClickedPosition);
+            items.Add(item);
+        }
+
+        if (items.Count == 0)
+            items.Add(new MenuItem { Header = NodeGraphStrings.Template_None, IsEnabled = false });
+        templatesMenu.ItemsSource = items;
+    }
+
     private void RunGenerativeClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is NodeGraphViewModel viewModel)

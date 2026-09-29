@@ -477,4 +477,19 @@
   <data name="Generative_Adopt" xml:space="preserve">
     <value>채택</value>
   </data>
+  <data name="Template_SaveAs" xml:space="preserve">
+    <value>템플릿으로 저장…</value>
+  </data>
+  <data name="Template_Templates" xml:space="preserve">
+    <value>템플릿</value>
+  </data>
+  <data name="Template_None" xml:space="preserve">
+    <value>템플릿이 없습니다</value>
+  </data>
+  <data name="Template_SaveFailed" xml:space="preserve">
+    <value>템플릿을 저장할 수 없습니다</value>
+  </data>
+  <data name="Template_LoadFailed" xml:space="preserve">
+    <value>템플릿을 불러올 수 없습니다</value>
+  </data>
 </root>

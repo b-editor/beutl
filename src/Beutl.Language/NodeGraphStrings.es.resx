@@ -477,4 +477,19 @@
   <data name="Generative_Adopt" xml:space="preserve">
     <value>Usar este</value>
   </data>
+  <data name="Template_SaveAs" xml:space="preserve">
+    <value>Guardar como plantilla…</value>
+  </data>
+  <data name="Template_Templates" xml:space="preserve">
+    <value>Plantillas</value>
+  </data>
+  <data name="Template_None" xml:space="preserve">
+    <value>Aún no hay plantillas</value>
+  </data>
+  <data name="Template_SaveFailed" xml:space="preserve">
+    <value>No se pudo guardar la plantilla</value>
+  </data>
+  <data name="Template_LoadFailed" xml:space="preserve">
+    <value>No se pudo cargar la plantilla</value>
+  </data>
 </root>

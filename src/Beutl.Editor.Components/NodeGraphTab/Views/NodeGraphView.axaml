@@ -33,8 +33,9 @@
                             EnableDoubleClickZoom="False"
                             ZoomSpeed="1.2">
                 <paz:ZoomBorder.ContextMenu>
-                    <ContextMenu>
+                    <ContextMenu Opened="CanvasMenuOpened">
                         <MenuItem x:Name="addNode" Header="{x:Static lang:Strings.AddNode}" />
+                        <MenuItem x:Name="templatesMenu" Header="{x:Static lang:NodeGraphStrings.Template_Templates}" />
                         <MenuItem Click="ResetZoomClick" Header="{x:Static lang:Strings.ResetZoom}" />
                         <Separator />
                         <MenuItem Click="RunGenerativeClick"

@@ -477,4 +477,19 @@
   <data name="Generative_Adopt" xml:space="preserve">
     <value>Use This</value>
   </data>
+  <data name="Template_SaveAs" xml:space="preserve">
+    <value>Save as Template…</value>
+  </data>
+  <data name="Template_Templates" xml:space="preserve">
+    <value>Templates</value>
+  </data>
+  <data name="Template_None" xml:space="preserve">
+    <value>No templates yet</value>
+  </data>
+  <data name="Template_SaveFailed" xml:space="preserve">
+    <value>The template could not be saved</value>
+  </data>
+  <data name="Template_LoadFailed" xml:space="preserve">
+    <value>The template could not be loaded</value>
+  </data>
 </root>

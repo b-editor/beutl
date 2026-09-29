@@ -105,6 +105,27 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
     public bool IsGenerative => GraphNode is GenerativeNode;
 
+    public bool IsGroup => GraphNode is GroupNode;
+
+    /// <summary>Saves this group as a template that any graph can add.</summary>
+    public Beutl.NodeGraph.Nodes.Group.GroupNodeTemplate? SaveAsTemplate(string name)
+    {
+        if (GraphNode is not GroupNode group)
+            return null;
+
+        Beutl.NodeGraph.Nodes.Group.GroupNodeTemplate? saved = null;
+        try
+        {
+            saved = NodeGraphViewModel.Templates.Save(group, name);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+
+        NodeGraphViewModel.GenerativeError.Value = saved is null ? NodeGraphStrings.Template_SaveFailed : null;
+        return saved;
+    }
+
     public bool IsPromptTarget => GraphNode is IPromptLibraryTarget;
 
     public IReadOnlyList<GenerativePromptEntry> GetPromptEntries()

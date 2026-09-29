@@ -181,6 +181,23 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         return null;
     }
 
+    /// <summary>Where group templates are kept; replaced in tests.</summary>
+    internal Beutl.NodeGraph.Nodes.Group.GroupNodeTemplates Templates { get; set; } =
+        Beutl.NodeGraph.Nodes.Group.GroupNodeTemplates.Default;
+
+    /// <summary>Adds a copy of a saved group at <paramref name="point"/>.</summary>
+    public bool AddTemplate(Beutl.NodeGraph.Nodes.Group.GroupNodeTemplate template, Point point)
+    {
+        if (Templates.Instantiate(template) is not { } group)
+        {
+            GenerativeError.Value = NodeGraphStrings.Template_LoadFailed;
+            return false;
+        }
+
+        return EditorContext.GetRequiredService<INodeGraphMutationService>()
+            .AddNode(NodeGraph, group, point.X, point.Y);
+    }
+
     public void AddNodePort(Type type, Point point)
     {
         var node = (GraphNode)Activator.CreateInstance(type)!;

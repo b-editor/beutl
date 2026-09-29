@@ -325,6 +325,73 @@ public class NodeGraphGenerativeMenuTests
         Assert.That(texts, Does.Contain("Image × 4"));
     }
 
+    [AvaloniaTest]
+    public void AGroupSavedAsATemplateCanBeAddedFromTheCanvasMenuAndUndone()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"beutl-node-templates-{Guid.NewGuid():N}");
+        try
+        {
+            var graph = new GraphModel();
+            var group = new Beutl.NodeGraph.Nodes.Group.GroupNode();
+            group.Group.Nodes.Add(new AiPromptNode());
+            graph.Nodes.Add(group);
+            var sequence = new Beutl.Editor.OperationSequenceGenerator();
+            using var history = new Beutl.Editor.HistoryManager(graph, sequence);
+            using var observer = new Beutl.Editor.Observers.CoreObjectOperationObserver(null, graph, sequence);
+            history.Subscribe(observer);
+            Mock<IEditorContext> editor = CreateEditor();
+            editor.Setup(x => x.GetService(typeof(INodeGraphMutationService))).Returns(new NodeGraphMutationService(history));
+            using var vm = new NodeGraphViewModel(graph, editor.Object)
+            {
+                Templates = new Beutl.NodeGraph.Nodes.Group.GroupNodeTemplates(directory),
+            };
+            var view = new NodeGraphView { DataContext = vm };
+            var window = new Window { Content = view, Width = 800, Height = 550 };
+            try
+            {
+                window.Show();
+                HeadlessTestHelpers.Render(3);
+                GraphNodeViewModel groupVm = vm.Nodes.Single();
+                Assert.That(groupVm.IsGroup, Is.True);
+                Assert.That(groupVm.SaveAsTemplate("Prompt kit"), Is.Not.Null);
+
+                ZoomBorder zoom = view.FindControl<ZoomBorder>("zoomBorder")!;
+                ContextMenu menu = zoom.ContextMenu!;
+                menu.Open(zoom);
+                HeadlessTestHelpers.Render(3);
+                MenuItem templates = menu.Items.OfType<MenuItem>()
+                    .Single(item => Equals(item.Header, NodeGraphStrings.Template_Templates));
+                MenuItem entry = templates.ItemsSource!.Cast<MenuItem>().Single();
+                Assert.That(entry.Header, Is.EqualTo("Prompt kit"));
+                entry.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+                menu.Close();
+
+                Assert.That(graph.Nodes.OfType<Beutl.NodeGraph.Nodes.Group.GroupNode>().Count(), Is.EqualTo(2));
+                GroupNodeCopyHasItsOwnPrompt(graph);
+
+                history.Undo();
+                Assert.That(graph.Nodes, Has.Count.EqualTo(1), "Adding a template is undoable.");
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private static void GroupNodeCopyHasItsOwnPrompt(GraphModel graph)
+    {
+        var prompts = graph.Nodes.OfType<Beutl.NodeGraph.Nodes.Group.GroupNode>()
+            .Select(g => g.Group.Nodes.OfType<AiPromptNode>().Single().Id)
+            .ToArray();
+        Assert.That(prompts.Distinct().Count(), Is.EqualTo(2));
+    }
+
     private static GraphNodeView OpenMenu(NodeGraphView view, GraphNode node)
     {
         GraphNodeView nodeView = view.GetVisualDescendants().OfType<GraphNodeView>()

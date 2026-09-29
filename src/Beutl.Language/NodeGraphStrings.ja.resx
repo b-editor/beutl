@@ -477,4 +477,19 @@
   <data name="Generative_Adopt" xml:space="preserve">
     <value>採用</value>
   </data>
+  <data name="Template_SaveAs" xml:space="preserve">
+    <value>テンプレートとして保存…</value>
+  </data>
+  <data name="Template_Templates" xml:space="preserve">
+    <value>テンプレート</value>
+  </data>
+  <data name="Template_None" xml:space="preserve">
+    <value>テンプレートがありません</value>
+  </data>
+  <data name="Template_SaveFailed" xml:space="preserve">
+    <value>テンプレートを保存できませんでした</value>
+  </data>
+  <data name="Template_LoadFailed" xml:space="preserve">
+    <value>テンプレートを読み込めませんでした</value>
+  </data>
 </root>

@@ -500,6 +500,20 @@ public partial class GraphNodeView : UserControl
             _ = viewModel.CompareGenerationsAsync();
     }
 
+    private void SaveTemplateClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not GraphNodeViewModel viewModel)
+            return;
+
+        var flyout = new RenameFlyout { Text = viewModel.NodeName.Value };
+        flyout.Confirmed += (_, name) =>
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+                viewModel.SaveAsTemplate(name);
+        };
+        flyout.ShowAt(handle);
+    }
+
     private void RegenerateClick(object? sender, RoutedEventArgs e)
     {
         (DataContext as GraphNodeViewModel)?.Regenerate();

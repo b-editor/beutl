@@ -9,7 +9,6 @@ using Beutl.Serialization;
 
 namespace Beutl.NodeGraph.Nodes.Group;
 
-// Todo: ファイルからノードグループを読み込めるようにする。
 public partial class GroupNode : GraphNode
 {
     public static readonly CoreProperty<GraphGroup> GroupProperty;
