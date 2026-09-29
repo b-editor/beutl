@@ -7,22 +7,29 @@
     <_BeutlSkiaSharpFile Condition="$(_BeutlSkiaSharpRid.StartsWith('win-'))">libSkiaSharp.dll</_BeutlSkiaSharpFile>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(_BeutlSkiaSharpFile)' != ''">
-    <Content Include="$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.LICENSE;$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.NOTICES"
-             Condition="Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.LICENSE')"
-             Link="licenses/SkiaSharp/%(Filename)%(Extension)"
-             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="false" Visible="false" />
-  </ItemGroup>
-
   <!-- Replace the source of the SDK's native assets, preserving their runtime/deps.json metadata.
        This runs for both ordinary builds and RID publishes, and also for NuGet consumers. -->
   <Target Name="UseBeutlSkiaSharp" AfterTargets="ResolvePackageAssets"
           Condition="'$(DesignTimeBuild)' != 'true'">
     <ItemGroup>
+      <!-- ResolvePackageAssets exposes both transitive source projects and NuGet assemblies.
+           Other Skia users, such as the standalone UI helpers, keep their own native closure. -->
+      <_BeutlEngineReference Include="@(ProjectReference);@(_TransitiveProjectReferences);@(ResolvedCompileFileDefinitions);@(RuntimeCopyLocalItems)"
+                             Condition="'%(Filename)' == 'Beutl.Engine'" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(MSBuildProjectName)' == 'Beutl.Engine' Or '@(_BeutlEngineReference)' != ''">
       <_BeutlSkiaRuntime Include="@(RuntimeTargetsCopyLocalItems)"
                          Condition="'%(Filename)' == 'libSkiaSharp' And ('%(Extension)' == '.so' Or '%(Extension)' == '.dll')" />
       <_BeutlSkiaNative Include="@(NativeCopyLocalItems)"
                         Condition="'%(Filename)' == 'libSkiaSharp' And ('%(Extension)' == '.so' Or '%(Extension)' == '.dll')" />
+      <ContentWithTargetPath Include="$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.LICENSE"
+                             Condition="'$(_BeutlSkiaSharpFile)' != '' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.LICENSE')"
+                             TargetPath="licenses/SkiaSharp/Skia.LICENSE"
+                             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="false" Visible="false" />
+      <ContentWithTargetPath Include="$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.NOTICES"
+                             Condition="'$(_BeutlSkiaSharpFile)' != '' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.NOTICES')"
+                             TargetPath="licenses/SkiaSharp/Skia.NOTICES"
+                             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="false" Visible="false" />
     </ItemGroup>
     <Error Condition="'$(_BeutlSkiaSharpFile)' != '' And ('@(_BeutlSkiaRuntime)' != '' Or '@(_BeutlSkiaNative)' != '') And !Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/$(_BeutlSkiaSharpFile)')"
            Text="Beutl requires its patched libSkiaSharp for $(_BeutlSkiaSharpRid). Run python3 native/SkiaSharp/build.py --rid $(_BeutlSkiaSharpRid), or set BeutlSkiaSharpNativeRoot to the native CI artifact directory." />
@@ -30,7 +37,7 @@
            Text="Update native/SkiaSharp/source.json and rebuild libSkiaSharp together with the SkiaSharp packages." />
     <Error Condition="'%(_BeutlSkiaNative.NuGetPackageVersion)' != '' And '%(_BeutlSkiaNative.NuGetPackageVersion)' != '4.152.1'"
            Text="Update native/SkiaSharp/source.json and rebuild libSkiaSharp together with the SkiaSharp packages." />
-    <ItemGroup>
+    <ItemGroup Condition="'@(_BeutlSkiaRuntime)' != '' Or '@(_BeutlSkiaNative)' != ''">
       <_BeutlSkiaRuntime Remove="@(_BeutlSkiaRuntime)" Condition="!Exists('$(BeutlSkiaSharpNativeRoot)%(_BeutlSkiaRuntime.PathInPackage)')" />
       <_BeutlSkiaNative Remove="@(_BeutlSkiaNative)" Condition="!Exists('$(BeutlSkiaSharpNativeRoot)%(_BeutlSkiaNative.PathInPackage)')" />
       <RuntimeTargetsCopyLocalItems Remove="@(_BeutlSkiaRuntime)" />
