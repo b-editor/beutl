@@ -682,7 +682,7 @@ public sealed class ProjectService
         {
             PublishProjectChange((New: null, project));
             _app.Project = null;
-            Media.FontManager.Instance.ClearProjectFonts();
+            Media.FontManager.Instance.ClearProjectFonts(project);
             try
             {
                 GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile = null;
@@ -855,7 +855,7 @@ public sealed class ProjectService
             if (ReferenceEquals(_app.Project, project))
             {
                 _app.Project = null;
-                Media.FontManager.Instance.ClearProjectFonts();
+                Media.FontManager.Instance.ClearProjectFonts(project);
             }
         }
         finally

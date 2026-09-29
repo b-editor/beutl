@@ -32,7 +32,6 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
         Scene scene = project.Items.OfType<Scene>().FirstOrDefault()
                       ?? throw new InvalidOperationException("The project does not contain a scene.");
 
-        Media.FontManager.Instance.LoadProjectFonts(project);
         var session = new FileEditingSession(
             Guid.NewGuid().ToString("N"),
             project,
@@ -86,6 +85,8 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
             _disposed = true;
             current = _currentSession;
             _currentSession = null;
+            if (current is not null)
+                Media.FontManager.Instance.ClearProjectFonts(current.Project);
         }
 
         current?.Dispose();
@@ -101,6 +102,7 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
             previous = disposedRace ? null : _currentSession;
             if (!disposedRace)
             {
+                Media.FontManager.Instance.LoadProjectFonts(session.Project);
                 _currentSession = session;
             }
         }

@@ -19,6 +19,7 @@ public sealed class FontManager
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
     internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
     private Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _projectFonts = [];
+    private WeakReference<Project>? _projectFontsOwner;
     private readonly Dictionary<string, SKTypeface> _projectFontCache = [];
     private readonly HashSet<FontFamily> _reportedMissingFamilies = [];
     // Keyed by reference to a matched typeface; null when it has no wght axis.
@@ -173,12 +174,21 @@ public sealed class FontManager
             // matching. Keep system fonts separate so the next project can restore them.
             _projectFonts = fonts.GroupBy(font => font.FamilyName).ToDictionary(
                 group => new FontFamily(group.Key), group => TypefaceCollection.Create(group.ToArray()));
+            _projectFontsOwner = new WeakReference<Project>(project);
         }
     }
 
-    public void ClearProjectFonts()
+    public void ClearProjectFonts(Project? expectedProject = null)
     {
-        lock (_gate) _projectFonts = [];
+        lock (_gate)
+        {
+            if (expectedProject is not null
+                && (_projectFontsOwner is null || !_projectFontsOwner.TryGetTarget(out Project? owner)
+                    || !ReferenceEquals(owner, expectedProject)))
+                return;
+            _projectFonts = [];
+            _projectFontsOwner = null;
+        }
     }
 
     public void AddFont(Stream stream)
