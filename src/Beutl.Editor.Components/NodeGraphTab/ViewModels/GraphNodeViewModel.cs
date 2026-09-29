@@ -6,10 +6,12 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.Serialization;
 using FluentAvalonia.UI.Media;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -44,7 +46,7 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
         }
         else
         {
-            _defaultName = nodeType.Name;
+            _defaultName = IsFallback ? FallbackHelper.GetTypeName(node) : nodeType.Name;
             Color = Brushes.Transparent;
         }
 
@@ -57,7 +59,7 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        IsExpanded.Subscribe(v => GraphNode.IsExpanded = v)
+        IsExpanded.Where(_ => !IsFallback).Subscribe(v => GraphNode.IsExpanded = v)
             .DisposeWith(_disposables);
 
         Position = node.GetObservable(GraphNode.PositionProperty)
@@ -65,8 +67,10 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
+        Delete = new ReactiveCommand(Observable.ReturnThenNever(!IsFallback)).DisposeWith(_disposables);
         Delete.Subscribe(() =>
         {
+            if (IsFallback) return;
             GraphModel? tree = GraphNode.FindHierarchicalParent<GraphModel>();
             if (tree != null)
             {
@@ -94,11 +98,17 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
     public bool IsGroupNode => GraphNode is GroupNode;
 
+    public bool IsFallback => GraphNode is IFallback;
+
+    public string ActualTypeName => FallbackHelper.GetTypeName(GraphNode);
+
+    public string? FallbackMessage => IsFallback ? FallbackHelper.GetFallbackMessage(GraphNode) : null;
+
     public ReactiveProperty<Point> Position { get; }
 
     public ReactiveProperty<bool> IsExpanded { get; }
 
-    public ReactiveCommand Delete { get; } = new();
+    public ReactiveCommand Delete { get; }
 
     public CoreList<NodeMemberViewModel> Items { get; } = [];
 
@@ -277,8 +287,9 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
     public void UpdatePosition(IEnumerable<GraphNodeViewModel> selection)
     {
+        if (IsFallback) return;
         var moves = new List<(GraphNode Node, double X, double Y)>();
-        foreach (GraphNodeViewModel item in selection)
+        foreach (GraphNodeViewModel item in selection.Where(item => !item.IsFallback))
         {
             moves.Add((item.GraphNode, item.Position.Value.X, item.Position.Value.Y));
         }
@@ -289,7 +300,7 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
     public void UpdateName(string? name)
     {
-        if (name == null) return;
+        if (name == null || IsFallback) return;
         EditorContext.GetRequiredService<INodeGraphMutationService>().RenameNode(GraphNode, name);
     }
 
