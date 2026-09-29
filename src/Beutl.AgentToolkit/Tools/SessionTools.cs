@@ -277,7 +277,7 @@ public sealed class SessionTools(
             {
                 string writePath = NormalizeProjectPath(workspace, path, nameof(path));
                 string currentPath = fileSession.Project.Uri?.LocalPath ?? string.Empty;
-                if (!string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(writePath), PathBoundary.Comparison))
+                if (!FilePathComparison.AreSameCanonicalPath(currentPath, writePath))
                 {
                     destructiveGuard.EnsureOverwriteAllowed(writePath, confirmOverwrite);
                     fileSession.SaveAs(writePath, skipConflictCheck: confirmOverwrite);

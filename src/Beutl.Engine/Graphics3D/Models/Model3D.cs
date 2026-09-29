@@ -73,7 +73,7 @@ public sealed partial class Model3D : Group3D
             // Set material if available
             if (meshData.MaterialIndex >= 0 && meshData.MaterialIndex < source.MaterialCount)
             {
-                var materialData = source.GetMaterialData(i);
+                var materialData = source.GetMaterialData(meshData.MaterialIndex);
                 var material = CreateMaterial(materialData);
                 meshObject.Material.CurrentValue = material;
             }

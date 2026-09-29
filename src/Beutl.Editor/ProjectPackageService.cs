@@ -65,14 +65,15 @@ public sealed class ProjectPackageService
         {
             // Step 1: Create a temporary directory
             progress?.Report((Strings.ExportingProject, 0.0));
-            tempDir = Path.Combine(Path.GetTempPath(), $"beutl_export_{Guid.NewGuid():N}");
-            Directory.CreateDirectory(tempDir);
+            // The copy can contain private files even when the final package is shared.
+            tempDir = Directory.CreateTempSubdirectory("beutl_export_").FullName;
 
             // Step 2: Copy the project directory
             string projectDir = Path.GetDirectoryName(project.Uri.LocalPath)!;
             string tempProjectDir = Path.Combine(tempDir, Path.GetFileName(projectDir));
             progress?.Report((Strings.ExportingProject, 0.1));
-            await CopyDirectoryAsync(projectDir, tempProjectDir, cancellationToken);
+            string excludedOutputPath = FilePathComparison.ResolveCanonicalPath(outputPath);
+            await CopyDirectoryAsync(projectDir, tempProjectDir, excludedOutputPath, cancellationToken);
 
             // Step 3: Open the temporary project
             string tempProjectFile = Path.Combine(tempProjectDir, Path.GetFileName(project.Uri.LocalPath));
@@ -330,7 +331,8 @@ public sealed class ProjectPackageService
     /// <summary>
     /// Copies a directory asynchronously.
     /// </summary>
-    private static async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
+    private static async Task CopyDirectoryAsync(
+        string sourceDir, string destDir, string excludedOutputPath, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(destDir);
 
@@ -339,6 +341,10 @@ public sealed class ProjectPackageService
             cancellationToken.ThrowIfCancellationRequested();
             // Linked worktrees and submodules use a .git file rather than a directory.
             if (string.Equals(Path.GetFileName(file), ".git", StringComparison.OrdinalIgnoreCase))
+                continue;
+            // Replacing a package inside the project must not embed its previous contents,
+            // including assets the user has since removed. Resolve aliases of the output too.
+            if (string.Equals(FilePathComparison.ResolveCanonicalPath(file), excludedOutputPath, StringComparison.Ordinal))
                 continue;
             string destFile = Path.Combine(destDir, Path.GetFileName(file));
             await CopyFileAsync(file, destFile, cancellationToken);
@@ -354,7 +360,7 @@ public sealed class ProjectPackageService
                 continue;
 
             string destSubDir = Path.Combine(destDir, dirName);
-            await CopyDirectoryAsync(subDir, destSubDir, cancellationToken);
+            await CopyDirectoryAsync(subDir, destSubDir, excludedOutputPath, cancellationToken);
         }
     }
 

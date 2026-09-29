@@ -97,33 +97,49 @@ public class ModelSource : EngineObject, IFileSource
     private unsafe void LoadWithAssimp(string path)
     {
         using var assimp = Assimp.GetApi();
+        var properties = assimp.CreatePropertyStore();
+        if (properties == null)
+            throw new OutOfMemoryException("Could not allocate Assimp import properties.");
 
-        var scene = assimp.ImportFile(
-            path,
-            (uint)(PostProcessSteps.Triangulate |
-                   PostProcessSteps.GenerateNormals |
-                   PostProcessSteps.CalculateTangentSpace |
-                   PostProcessSteps.JoinIdenticalVertices |
-                   PostProcessSteps.FlipWindingOrder |
-                   PostProcessSteps.FlipUVs));
-
-        if (scene == null ||
-            (scene->MFlags & (uint)SceneFlags.Incomplete) != 0 ||
-            scene->MRootNode == null)
+        Scene* scene = null;
+        try
         {
-            var error = assimp.GetErrorStringS();
-            throw new InvalidOperationException($"Failed to load model: {error}");
+            // Beutl stores static mesh vertices, not Assimp's node transforms. Bake the
+            // complete hierarchy into them, keeping separate meshes and transformed instances.
+            assimp.SetImportPropertyInteger(properties, "PP_PTV_KEEP_HIERARCHY", 1);
+            scene = assimp.ImportFileExWithProperties(
+                path,
+                (uint)(PostProcessSteps.Triangulate |
+                       PostProcessSteps.GenerateNormals |
+                       PostProcessSteps.CalculateTangentSpace |
+                       PostProcessSteps.JoinIdenticalVertices |
+                       PostProcessSteps.PreTransformVertices |
+                       PostProcessSteps.FlipWindingOrder |
+                       PostProcessSteps.FlipUVs),
+                null,
+                properties);
+
+            if (scene == null ||
+                (scene->MFlags & (uint)SceneFlags.Incomplete) != 0 ||
+                scene->MRootNode == null)
+            {
+                var error = assimp.GetErrorStringS();
+                throw new InvalidOperationException($"Failed to load model: {error}");
+            }
+
+            // Process materials first
+            _toYUp = GetRotationToYUp(scene, path);
+            ProcessMaterials(assimp, scene);
+
+            // Process nodes and meshes
+            ProcessNode(scene->MRootNode, scene);
         }
-
-        // Process materials first
-        _toYUp = GetRotationToYUp(scene, path);
-
-        ProcessMaterials(assimp, scene);
-
-        // Process nodes and meshes
-        ProcessNode(scene->MRootNode, scene);
-
-        assimp.FreeScene(scene);
+        finally
+        {
+            if (scene != null)
+                assimp.ReleaseImport(scene);
+            assimp.ReleasePropertyStore(properties);
+        }
     }
 
     // The rotation that turns the file's up axis into +Y. Formats that record it (FBX among them) say so in

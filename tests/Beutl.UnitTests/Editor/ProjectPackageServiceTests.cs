@@ -835,6 +835,114 @@ public class ProjectPackageServiceTests
         Assert.That(archive.GetEntry("test.bep"), Is.Not.Null);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ExportAsync_KeepsStagedPrivateFilesInAnOwnerOnlyDirectory(bool cancel)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix file permissions are required.");
+            return;
+        }
+
+        Project project = CreateAndSaveTestProject();
+        string fileName = $"private-{Guid.NewGuid():N}.txt";
+        string source = Path.Combine(_projectDir, fileName);
+        File.WriteAllText(source, "private client data");
+        File.SetUnixFileMode(source, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        string? staging = null;
+        UnixFileMode? stagingMode = null;
+        string? copiedContents = null;
+        using var cancellation = new CancellationTokenSource();
+        var progress = new InlineProgress(value =>
+        {
+            if (value.Progress == 0.2 && !OperatingSystem.IsWindows())
+            {
+                staging = Directory.EnumerateDirectories(Path.GetTempPath(), "beutl_export_*")
+                    .Single(directory => File.Exists(Path.Combine(directory, Path.GetFileName(_projectDir), fileName)));
+                stagingMode = File.GetUnixFileMode(staging);
+                copiedContents = File.ReadAllText(Path.Combine(staging, Path.GetFileName(_projectDir), fileName));
+            }
+            if (cancel && value.Progress == 0.9)
+                cancellation.Cancel();
+        });
+        string output = Path.Combine(_exportDir, "private.beutl");
+        File.WriteAllText(output, "previous package");
+
+        if (cancel)
+        {
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await ProjectPackageService.Current.ExportAsync(project, output, progress, cancellation.Token));
+            Assert.That(File.ReadAllText(output), Is.EqualTo("previous package"));
+        }
+        else
+        {
+            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, output, progress);
+            Assert.That(result.Success, Is.True);
+        }
+
+        UnixFileMode finalSourceMode = File.GetUnixFileMode(source);
+        Assert.Multiple(() =>
+        {
+            Assert.That(staging, Is.Not.Null);
+            Assert.That(stagingMode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute));
+            Assert.That(copiedContents, Is.EqualTo("private client data"));
+            Assert.That(Directory.Exists(staging), Is.False);
+            Assert.That(finalSourceMode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        });
+    }
+
+    [TestCase("shared.beutl")]
+    [TestCase("exports/shared.beutl")]
+    public async Task ExportAsync_ReplacingAPackageInTheProjectDoesNotEmbedItsPreviousContents(string relativeOutput)
+    {
+        Project project = CreateAndSaveTestProject();
+        string source = Path.Combine(_projectDir, "removed-private.txt");
+        File.WriteAllText(source, "private data from an earlier export");
+        string output = Path.Combine(_projectDir, relativeOutput);
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        Assert.That((await ProjectPackageService.Current.ExportAsync(project, output)).Success, Is.True);
+        using (var previous = ZipFile.OpenRead(output))
+            Assert.That(previous.GetEntry("removed-private.txt"), Is.Not.Null);
+        File.Delete(source);
+
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, output);
+
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.FailedResources, Is.Empty);
+        using var archive = ZipFile.OpenRead(output);
+        Assert.Multiple(() =>
+        {
+            Assert.That(archive.GetEntry("test.bep"), Is.Not.Null);
+            Assert.That(archive.GetEntry("removed-private.txt"), Is.Null);
+            Assert.That(archive.GetEntry(relativeOutput), Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_ExcludesAnOutputReachedThroughADirectoryAlias()
+    {
+        Project project = CreateAndSaveTestProject();
+        string output = Path.Combine(_projectDir, "shared.beutl");
+        File.WriteAllText(output, "previous private package");
+        string alias = Path.Combine(_exportDir, "alias");
+        try
+        {
+            Directory.CreateSymbolicLink(alias, _projectDir);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Symlink creation is not available in this environment.");
+        }
+
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, Path.Combine(alias, "shared.beutl"));
+
+        Assert.That(result.Success, Is.True);
+        using var archive = ZipFile.OpenRead(output);
+        Assert.That(archive.GetEntry("shared.beutl"), Is.Null);
+        Assert.That(archive.GetEntry("test.bep"), Is.Not.Null);
+    }
+
     [Test]
     public async Task ExportAsync_ImportAsync_PreservesAssetInCaseVariantDirectory()
     {

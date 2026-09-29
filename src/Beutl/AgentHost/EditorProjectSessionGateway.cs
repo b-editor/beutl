@@ -51,7 +51,7 @@ public sealed class EditorProjectSessionGateway(
                 // it would leave the live session on the stale in-memory scene while a new file sits on
                 // disk. A different path is likewise rejected (the in-app host edits one open project).
                 string currentPath = Path.GetFullPath(current.Uri!.LocalPath);
-                if (string.Equals(currentPath, fullPath, PathBoundary.Comparison))
+                if (FilePathComparison.AreSameCanonicalPath(currentPath, fullPath))
                 {
                     throw new ReconcileException(new ToolError(
                         ErrorCode.ValidationRejected,
@@ -131,7 +131,7 @@ public sealed class EditorProjectSessionGateway(
     private static void RequireSameProject(Project current, string requestedFullPath)
     {
         string currentPath = Path.GetFullPath(current.Uri!.LocalPath);
-        if (!string.Equals(currentPath, requestedFullPath, PathBoundary.Comparison))
+        if (!FilePathComparison.AreSameCanonicalPath(currentPath, requestedFullPath))
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.ValidationRejected,
