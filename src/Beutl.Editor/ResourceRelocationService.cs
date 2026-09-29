@@ -7,6 +7,7 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
+using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
@@ -60,13 +61,15 @@ public class ResourceRelocationService
         string resourcesDir = Path.Combine(projectDirectory, "resources");
         Directory.CreateDirectory(resourcesDir);
 
+        var references = sources.ToArray();
+        var sceneDirectories = CreateSceneDirectories(references, stagingProject, resourcesDir, cancellationToken);
         int count = 0;
         List<string> failedResources = [];
-        foreach (var group in sources.GroupBy(i => i.OriginalUri))
+        foreach (var group in references.GroupBy(i => i.OriginalUri))
         {
             cancellationToken.ThrowIfCancellationRequested();
             var originalUri = group.Key;
-            string sourceFilePath = originalUri.LocalPath;
+            string sourceFilePath = Path.GetFullPath(originalUri.LocalPath);
             if (!File.Exists(sourceFilePath))
             {
                 _logger.LogWarning("Source file not found: {FilePath}", sourceFilePath);
@@ -85,8 +88,11 @@ public class ResourceRelocationService
                 }
                 else
                 {
-                    string fileName = Path.GetFileName(sourceFilePath);
-                    destFilePath = GetUniqueFilePath(resourcesDir, fileName);
+                    var sceneDirectory = sceneDirectories.FirstOrDefault(pair => sourceFilePath.StartsWith(pair.Key, StringComparison.Ordinal));
+                    destFilePath = sceneDirectory.Key != null
+                        ? Path.Combine(sceneDirectory.Value, sourceFilePath[sceneDirectory.Key.Length..])
+                        : GetUniqueFilePath(resourcesDir, Path.GetFileName(sourceFilePath));
+                    Directory.CreateDirectory(Path.GetDirectoryName(destFilePath)!);
                     await CopyFileAsync(sourceFilePath, destFilePath, cancellationToken);
                 }
             }
@@ -119,6 +125,36 @@ public class ResourceRelocationService
         }
 
         return new RelocationResult(count, failedResources);
+    }
+
+    private static Dictionary<string, string> CreateSceneDirectories(
+        IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources,
+        Project project,
+        string resourcesDirectory,
+        CancellationToken cancellationToken)
+    {
+        // Scene include/exclude patterns are relative to the scene directory. Keep
+        // each external tree separate so its **/*.belm glob cannot load other scenes' clips.
+        // Only collected references are copied; unrelated files stay outside the package.
+        var directories = new Dictionary<string, string>(StringComparer.Ordinal);
+        var scenes = sources
+            .Where(source => source.PropertyName == nameof(CoreObject.Uri) && FindObject(project, source.Object) is Scene)
+            .Select(source => (Path: source.OriginalUri.LocalPath, Directory: Path.GetDirectoryName(Path.GetFullPath(source.OriginalUri.LocalPath))!))
+            .OrderBy(scene => scene.Directory.Length);
+        foreach (var scene in scenes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string prefix = Path.EndsInDirectorySeparator(scene.Directory)
+                ? scene.Directory
+                : scene.Directory + Path.DirectorySeparatorChar;
+            if (directories.Keys.Any(parent => prefix.StartsWith(parent, StringComparison.Ordinal)))
+                continue;
+
+            string destination = GetUniqueFilePath(resourcesDirectory, Path.GetFileNameWithoutExtension(scene.Path));
+            Directory.CreateDirectory(destination);
+            directories.Add(prefix, destination);
+        }
+        return directories;
     }
 
     internal static void RebaseProjectDirectory(Project project, string sourceDirectory, string destinationDirectory)
