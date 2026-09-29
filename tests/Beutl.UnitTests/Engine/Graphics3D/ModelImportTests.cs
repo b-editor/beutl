@@ -163,12 +163,13 @@ public sealed class ModelImportTests
         source.ReadFrom(new Uri(path));
 
         Assert.That(source.MeshCount, Is.EqualTo(2));
-        AssertVertices(source.GetMeshData(0), [new(10, 20, 30), new(10, 22, 30), new(7, 20, 34)]);
-        AssertVertices(source.GetMeshData(1), [new(-5, 0, 0), new(-4, 0, 0), new(-5, 1, 1)]);
+        // Imported positions and normals also enter Beutl's Y-down, Z-forward frame.
+        AssertVertices(source.GetMeshData(0), [new(10, -20, -30), new(10, -22, -30), new(7, -20, -34)]);
+        AssertVertices(source.GetMeshData(1), [new(-5, 0, 0), new(-4, 0, 0), new(-5, -1, -1)]);
         foreach (var vertex in source.GetMeshData(0).Vertices)
-            AssertVector(vertex.Normal, new Vector3(0.8f, 0, 0.6f));
+            AssertVector(vertex.Normal, new Vector3(0.8f, 0, -0.6f));
         foreach (var vertex in source.GetMeshData(1).Vertices)
-            AssertVector(vertex.Normal, Vector3.Normalize(new Vector3(0, -1, 1)));
+            AssertVector(vertex.Normal, Vector3.Normalize(new Vector3(0, 1, -1)));
     }
 
     [Test]
@@ -179,7 +180,7 @@ public sealed class ModelImportTests
 
         MeshData mesh = source.GetMeshData(0);
 
-        AssertVertices(mesh, [new(0, 0, 0), new(-1, 0, 0), new(0, 1, 1)]);
+        AssertVertices(mesh, [new(0, 0, 0), new(-1, 0, 0), new(0, -1, -1)]);
         Vector3 a = mesh.Vertices[(int)mesh.Indices[0]].Position;
         Vector3 b = mesh.Vertices[(int)mesh.Indices[1]].Position;
         Vector3 c = mesh.Vertices[(int)mesh.Indices[2]].Position;
