@@ -11,6 +11,9 @@ using Beutl.Utilities;
 
 namespace Beutl.NodeGraph;
 
+public sealed partial class FallbackGraphNode : GraphNode, IFallback;
+
+[FallbackType(typeof(FallbackGraphNode))]
 public abstract partial class GraphNode : EngineObject
 {
     public static readonly CoreProperty<bool> IsExpandedProperty;

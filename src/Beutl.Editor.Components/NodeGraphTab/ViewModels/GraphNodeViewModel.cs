@@ -6,10 +6,12 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.Serialization;
 using FluentAvalonia.UI.Media;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -44,7 +46,7 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
         }
         else
         {
-            _defaultName = nodeType.Name;
+            _defaultName = node is IFallback ? FallbackHelper.GetTypeName(node) : nodeType.Name;
             Color = Brushes.Transparent;
         }
 
@@ -93,6 +95,12 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
     public ReactiveProperty<bool> IsSelected { get; } = new();
 
     public bool IsGroupNode => GraphNode is GroupNode;
+
+    public bool IsFallback => GraphNode is IFallback;
+
+    public string ActualTypeName => FallbackHelper.GetTypeName(GraphNode);
+
+    public string FallbackMessage => FallbackHelper.GetFallbackMessage(GraphNode);
 
     public ReactiveProperty<Point> Position { get; }
 
