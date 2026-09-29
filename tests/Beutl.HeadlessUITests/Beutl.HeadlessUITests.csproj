@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <Using Include="NUnit.Framework" />
+    <EmbeddedResource Include="Assets/Flatpak/beutl.flatpak" />
   </ItemGroup>
 
   <ItemGroup>

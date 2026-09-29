@@ -255,6 +255,9 @@
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>参照元ファイルが見つからないためフレームを描画できません: {0}（欠落 {1} 件）</value>
   </data>
+  <data name="FlatpakUpdateCompleted" xml:space="preserve">
+    <value>更新が完了しました。Beutlを開き直すと新しいバージョンが使われます。</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>アプリケーションの再起動が必要です。
 再起動しますか？</value>
