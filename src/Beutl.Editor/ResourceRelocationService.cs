@@ -6,6 +6,7 @@ using Beutl.IO;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
+using Beutl.NodeGraph;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
@@ -141,13 +142,18 @@ public class ResourceRelocationService
 
     private static IFileSource? GetFileSource(Project project, Guid id, string propertyName)
     {
-        if (project.FindById(id) is not CoreObject obj) return null;
+        if (FindObject(project, id) is not { } obj) return null;
+        if (propertyName == nameof(INodeMember.Property) && obj is INodeMember { Property: { } adapter })
+            return adapter.GetValue() as IFileSource;
         if (obj is EngineObject engineObject
             && engineObject.Properties.FirstOrDefault(p => p.Name == propertyName)?.CurrentValue is IFileSource source)
             return source;
         var property = PropertyRegistry.FindRegistered(obj, propertyName);
         return property == null ? null : obj.GetValue(property) as IFileSource;
     }
+
+    private static CoreObject? FindObject(Project project, Guid id)
+        => ExternalResourceCollector.EnumerateObjects(project).FirstOrDefault(obj => obj.Id == id);
 
     private static async Task<string> CopyModelAsync(ModelSource model, string resourcesDirectory, CancellationToken token)
     {
@@ -183,7 +189,7 @@ public class ResourceRelocationService
             fileSource.ReadFrom(newUri);
             return;
         }
-        var obj = (CoreObject?)stagingProject.FindById(id);
+        var obj = FindObject(stagingProject, id);
 
         if (obj != null)
         {
