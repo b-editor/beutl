@@ -9,7 +9,7 @@ public class WorkspaceGuardTests
     [SetUp]
     public void SetUp()
     {
-        _root = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"workspace-{Guid.NewGuid():N}");
+        _root = Path.Combine(Path.GetTempPath(), $"workspace-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_root);
     }
 
@@ -39,6 +39,48 @@ public class WorkspaceGuardTests
         var guard = new WorkspaceGuard(_root);
 
         Assert.Throws<WorkspaceBoundaryException>(() => guard.ResolveForWrite("../outside.png"));
+    }
+
+    [Test]
+    public async Task CreateProject_RejectsADistinctCaseVariantDirectory()
+    {
+        string inside = Path.Combine(_root, "Workspace");
+        string outside = Path.Combine(_root, "workspace");
+        Directory.CreateDirectory(inside);
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(inside, "inside.txt"), "inside");
+        if (File.Exists(Path.Combine(outside, "inside.txt")))
+            Assert.Ignore("Requires a case-sensitive filesystem.");
+
+        var workspace = new WorkspaceGuard(inside);
+        var manager = new Beutl.AgentToolkit.Sessions.AgentSessionManager();
+        using var source = new Beutl.AgentToolkit.Sessions.FileSessionSource();
+        using var jobs = new Beutl.AgentToolkit.Rendering.RenderJobManager();
+        var tools = new Beutl.AgentToolkit.Tools.SessionTools(
+            new Beutl.AgentToolkit.Sessions.FileProjectSessionGateway(source, manager, workspace),
+            manager, workspace, new DestructiveGuard(), jobs);
+        string target = Path.Combine(outside, "outside.bep");
+
+        var result = await tools.CreateProject(target, 64, 64, 30, "00:00:01");
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo("workspace_boundary"));
+        Assert.That(File.Exists(target), Is.False);
+        Assert.That(Directory.GetFileSystemEntries(outside), Is.Empty);
+    }
+
+    [Test]
+    public void ResolveForWrite_AllowsACaseAliasOnACaseInsensitiveFilesystem()
+    {
+        string inside = Directory.CreateDirectory(Path.Combine(_root, "Workspace")).FullName;
+        File.WriteAllText(Path.Combine(inside, "inside.txt"), "inside");
+        string alias = Path.Combine(_root, "workspace");
+        if (!File.Exists(Path.Combine(alias, "inside.txt")))
+            Assert.Ignore("Requires a case-insensitive filesystem.");
+
+        string resolved = new WorkspaceGuard(inside).ResolveForWrite(Path.Combine(alias, "new.png"));
+
+        Assert.That(resolved, Is.EqualTo(Path.Combine(inside, "new.png")));
     }
 
     [Test]

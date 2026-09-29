@@ -147,6 +147,26 @@ public sealed class FontManager
 
     public Typeface DefaultTypeface { get; }
 
+    public void LoadProjectFonts(Project project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        if (project.Uri is not { IsFile: true } uri)
+            return;
+
+        string directory = Path.Combine(Path.GetDirectoryName(uri.LocalPath)!, "resources", "fonts");
+        if (!Directory.Exists(directory))
+            return;
+
+        // Packages carry their fonts with the project, outside the configured/system roots.
+        // Load at open time too: importing once must not depend on this process staying alive.
+        foreach (string file in EnumerateFontCandidates(directory))
+        {
+            SKTypeface? typeface = LoadFont(file, copyToMemory: true);
+            if (typeface is not null && !AddFont(typeface))
+                typeface.Dispose();
+        }
+    }
+
     public void AddFont(Stream stream)
     {
         SKTypeface? typeface = SKTypeface.FromStream(stream);
@@ -257,10 +277,17 @@ public sealed class FontManager
         }
     }
 
-    private SKTypeface? LoadFont(string file)
+    private SKTypeface? LoadFont(string file, bool copyToMemory = false)
     {
         try
         {
+            if (copyToMemory)
+            {
+                // A registered typeface lives for the process lifetime. Keep an in-memory
+                // copy so native file mappings cannot lock editable project files on Windows.
+                using Stream stream = File.OpenRead(file);
+                return SKTypeface.FromStream(stream);
+            }
             return SKTypeface.FromFile(file);
         }
         catch (Exception ex)

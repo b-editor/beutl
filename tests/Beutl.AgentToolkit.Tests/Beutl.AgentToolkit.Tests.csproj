@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <Using Include="NUnit.Framework" />
+    <EmbeddedResource Include="..\Beutl.UnitTests\Assets\Font\BeutlTestVariable.ttf" LogicalName="ProjectFontFixture.ttf" />
   </ItemGroup>
 
   <ItemGroup>

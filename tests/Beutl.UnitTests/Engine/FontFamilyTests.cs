@@ -73,13 +73,12 @@ public class FontManagerResolutionTests
     {
         _ = TypefaceProvider.Typeface();
 
-        // "Inter 28pt" is the shape of the real failure: a subfamily name that is not the
-        // typographic family, so it never reaches the registry. This runs inside the render
-        // pass, where throwing costs the whole frame with no hint that a font was to blame.
-        var missing = new Typeface(new FontFamily("Inter 28pt"), FontStyle.Normal, FontWeight.SemiBold);
+        // Optical-size names such as "Inter 28pt" can also be real installed families.
+        // Use an absent name regardless of which project/system fonts have already loaded.
+        var missing = new Typeface(new FontFamily("Missing-" + Guid.NewGuid().ToString("N")), FontStyle.Normal, FontWeight.SemiBold);
 
         Assert.That(() => missing.ToSkia(), Throws.Nothing);
-        Assert.That(missing.ToSkia(), Is.Not.Null);
+        Assert.That(missing.ToSkia().FamilyName, Is.EqualTo(FontManager.Instance.DefaultTypeface.FontFamily.Name));
     }
 
     [Test]
@@ -94,14 +93,14 @@ public class FontManagerResolutionTests
     }
 
     [Test]
-    public void IsRegistered_distinguishes_a_known_family_from_a_subfamily_name()
+    public void IsRegistered_distinguishes_a_known_family_from_an_unregistered_name()
     {
         _ = TypefaceProvider.Typeface();
 
         Assert.Multiple(() =>
         {
             Assert.That(FontManager.Instance.IsRegistered(new FontFamily("Roboto")), Is.True);
-            Assert.That(FontManager.Instance.IsRegistered(new FontFamily("Inter 28pt")), Is.False);
+            Assert.That(FontManager.Instance.IsRegistered(new FontFamily("Missing-" + Guid.NewGuid().ToString("N"))), Is.False);
         });
     }
 }

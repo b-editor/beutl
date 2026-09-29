@@ -243,6 +243,7 @@ public sealed class ProjectPackageService
             // Re-read at its final location so relative scene/resource URIs never point at staging.
             Uri projectUri = new(Path.Combine(publishedDirectory, Path.GetFileName(projectFile)));
             Project project = CoreSerializer.RestoreFromUri<Project>(projectUri);
+            Beutl.Media.FontManager.Instance.LoadProjectFonts(project);
             progress?.Report((Strings.ImportingProject, 1.0));
             _logger.LogInformation("Project imported successfully from {PackagePath} to {ProjectDir}",
                 packagePath, publishedDirectory);

@@ -172,13 +172,21 @@ public class ResourceRelocationService
             {
                 IEnumerable<string> fontFiles = _fontFileFinder != null
                     ? _fontFileFinder(fontFamily.Name)
-                    : FindFontFiles(fontFamily.Name);
+                    : FindFontFiles(fontFamily.Name, fontsDir);
                 bool foundAnyFile = false;
                 foreach (string sourceFilePath in fontFiles)
                 {
                     foundAnyFile = true;
                     if (!copiedFiles.Add(sourceFilePath))
                         continue;
+
+                    // The project copy already includes bundled fonts. Preserve them when
+                    // sharing an imported project again, without making another copy each time.
+                    if (File.Exists(sourceFilePath) && FilePathComparison.IsSameOrDescendant(fontsDir, sourceFilePath))
+                    {
+                        count++;
+                        continue;
+                    }
 
                     string fileName = Path.GetFileName(sourceFilePath);
                     string destFilePath = GetUniqueFilePath(fontsDir, fileName);
@@ -217,12 +225,13 @@ public class ResourceRelocationService
     /// so it is bypassed during testing via <see cref="_fontFileFinder"/>.
     /// </remarks>
     [ExcludeFromCodeCoverage]
-    private static IEnumerable<string> FindFontFiles(string fontFamilyName)
+    private static IEnumerable<string> FindFontFiles(string fontFamilyName, string projectFontsDirectory)
     {
         // A material package installs its fonts under the home directory, which is not one
         // of the OS font directories the user configures.
         IReadOnlyList<string> fontDirs =
         [
+            projectFontsDirectory,
             .. GlobalConfiguration.Instance.FontConfig.FontDirectories,
             BeutlEnvironment.GetMaterialsDirectoryPath()
         ];

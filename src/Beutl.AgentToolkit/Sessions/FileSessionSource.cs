@@ -32,6 +32,7 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
         Scene scene = project.Items.OfType<Scene>().FirstOrDefault()
                       ?? throw new InvalidOperationException("The project does not contain a scene.");
 
+        Media.FontManager.Instance.LoadProjectFonts(project);
         var session = new FileEditingSession(
             Guid.NewGuid().ToString("N"),
             project,

@@ -39,6 +39,90 @@ public class StorageWriteTransactionTests
         });
     }
 
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite)]
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead)]
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite)]
+    public void StoreToUri_KeepsTemporaryBytesPrivateAndPreservesCurrentPermissions(UnixFileMode expectedMode)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix permissions are required.");
+            return;
+        }
+        string path = PathOf("private.bep");
+        var project = new Project { Name = "before", Uri = new Uri(path) };
+        CoreSerializer.StoreToUri(project, project.Uri);
+        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        bool inspected = false;
+        using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, target) =>
+        {
+            if (OperatingSystem.IsWindows() || step != StorageWriteStep.Replace || target != path) return;
+            string temporary = Directory.GetFiles(_directory, "private.bep.*.tmp").Single();
+            Assert.That(File.GetUnixFileMode(temporary), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+            Assert.That(File.ReadAllText(temporary), Does.Contain("after"));
+            // The publisher must observe a permission change made while serialization ran.
+            File.SetUnixFileMode(path, expectedMode);
+            inspected = true;
+        });
+        project.Name = "after";
+
+        CoreSerializer.StoreToUri(project, project.Uri);
+
+        Assert.That(inspected, Is.True);
+        Assert.That(File.GetUnixFileMode(path), Is.EqualTo(expectedMode));
+        Assert.That(CoreSerializer.RestoreFromUri<Project>(project.Uri).Name, Is.EqualTo("after"));
+        Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Rollback_RestoresOriginalBytesAndPermissions(bool destinationRemoved)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix permissions are required.");
+            return;
+        }
+        string path = CreateFile("private.json", "original");
+        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite;
+        File.SetUnixFileMode(path, mode);
+        using var transaction = StorageWriteTransaction.Begin();
+        Replace(path, "changed");
+        if (destinationRemoved) File.Delete(path);
+        else File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+
+        Assert.That(transaction.Rollback(), Is.True);
+
+        Assert.That(File.ReadAllText(path), Is.EqualTo("original"));
+        Assert.That(File.GetUnixFileMode(path), Is.EqualTo(mode));
+        Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
+    }
+
+    [Test]
+    public void AutoSave_PreservesPrivateElementPermissions()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix permissions are required.");
+            return;
+        }
+        string path = PathOf("private.belm");
+        var scene = new Beutl.ProjectSystem.Scene(64, 64, "scene");
+        var element = new Beutl.ProjectSystem.Element { Uri = new Uri(path), Length = TimeSpan.FromSeconds(2) };
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(element, element.Uri);
+        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        File.SetUnixFileMode(path, mode);
+        element.Start = TimeSpan.FromSeconds(1);
+        using var autoSave = new Beutl.Editor.AutoSaveService();
+
+        autoSave.SaveObjects([element]);
+
+        Assert.That(File.GetUnixFileMode(path), Is.EqualTo(mode));
+        Assert.That(CoreSerializer.RestoreFromUri<Beutl.ProjectSystem.Element>(element.Uri).Start,
+            Is.EqualTo(TimeSpan.FromSeconds(1)));
+    }
+
     [Test]
     public void Rollback_RestoresReplacedBytesAndRemovesCreatedFiles()
     {

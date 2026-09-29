@@ -800,6 +800,7 @@ public sealed class ProjectService
     {
         try
         {
+            Media.FontManager.Instance.LoadProjectFonts(project);
             _app.Project = project;
             await NotifyOpenedAsync(project);
         }
