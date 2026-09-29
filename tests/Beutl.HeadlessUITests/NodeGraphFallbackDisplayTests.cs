@@ -56,10 +56,14 @@ public class NodeGraphFallbackDisplayTests
             vm.Nodes[0].Delete.Execute();
             vm.Nodes[0].UpdateName("Changed");
             vm.Nodes[0].UpdatePosition([]);
+            vm.Nodes[0].IsSelected.Value = true;
+            vm.Nodes[1].IsSelected.Value = true;
             window.MouseDown(new Point(130, 42), MouseButton.Left);
-            window.MouseMove(new Point(180, 90), RawInputModifiers.LeftMouseButton);
-            window.MouseUp(new Point(180, 90), MouseButton.Left);
+            window.MouseMove(new Point(180, 42), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(new Point(180, 42), MouseButton.Left);
             HeadlessTestHelpers.Render(3);
+            Assert.That(vm.Nodes.All(item => item.IsSelected.Value), Is.True);
+            Assert.That(vm.Nodes[1].Position.Value, Is.EqualTo(new Point(360, 24)));
             Assert.That(vm.Nodes[0].Position.Value, Is.EqualTo(new Point(24, 24)));
             Assert.That(graph.Nodes[0].Name, Is.EqualTo("Unavailable node"));
             mutation.VerifyNoOtherCalls();

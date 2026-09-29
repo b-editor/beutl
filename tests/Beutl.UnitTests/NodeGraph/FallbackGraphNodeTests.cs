@@ -10,6 +10,26 @@ namespace Beutl.UnitTests.NodeGraph;
 
 public class FallbackGraphNodeTests
 {
+    [Test]
+    public void DisconnectUnavailableInput_UpdatesStatusAndHealthyOutput()
+    {
+        var source = new RandomSingleNode();
+        var output = new OutputNode();
+        var graph = new GraphModel();
+        graph.Nodes.AddRange([source, output]);
+        graph.Connect(output.InputPort, source.Value);
+        JsonObject json = CoreSerializer.SerializeToJsonObject(graph);
+        json["Nodes"]![1]!["$type"] = "[Missing.Plugin]Missing:Node";
+        var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+        Connection connection = restored.AllConnections.Single();
+        connection.Status = ConnectionStatus.Success;
+
+        restored.Disconnect(connection);
+
+        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Disconnected));
+        Assert.That(((RandomSingleNode)restored.Nodes[0]).Value.Connections, Is.Empty);
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void GraphRetainsUnavailableNodeAndDisplaysSavedMetadata(bool failed)

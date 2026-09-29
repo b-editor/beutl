@@ -71,5 +71,6 @@ public sealed class Connection : Hierarchical
     {
         if (Output.Value is IOutputPort outputNodePort) outputNodePort.NotifyDisconnected(this);
         if (Input.Value is IInputPort inputNodePort) inputNodePort.NotifyDisconnected(this);
+        Status = ConnectionStatus.Disconnected;
     }
 }

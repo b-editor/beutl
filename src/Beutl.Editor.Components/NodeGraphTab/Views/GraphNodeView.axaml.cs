@@ -312,6 +312,7 @@ public partial class GraphNodeView : UserControl
             OnReleased();
             if (DataContext is GraphNodeViewModel viewModel)
             {
+                if (viewModel.IsFallback && !_start.NearlyEquals(e.GetPosition(Parent as Visual))) return;
                 if (_snapshot.NearlyEquals(GetPoint()))
                 {
                     if (e.KeyModifiers == KeyModifiers.Control)
