@@ -2,7 +2,9 @@
 using System.Text.Json;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Models;
+using Beutl.Graphics3D.Textures;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
@@ -16,6 +18,68 @@ public sealed class ModelImportTests
 
     [TearDown]
     public void TearDown() => Directory.Delete(_root, recursive: true);
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Embedded_textures_survive_import_and_serialization(bool binary)
+    {
+        var source = new ModelSource();
+        source.ReadFrom(new Uri(ModelTestFiles.WriteGltf(_root, embeddedTexture: true, binary: binary)));
+        var model = new Model3D(); model.Source.CurrentValue = source;
+        var saved = new Uri(Path.Combine(_root, "saved.json"));
+        CoreSerializer.StoreToUri(model, saved);
+
+        Model3D restored = CoreSerializer.RestoreFromUri<Model3D>(saved);
+        var material = (PBRMaterial)restored.Children.Single().Material.CurrentValue!;
+        Assert.That(material.AlbedoMap.CurrentValue, Is.TypeOf<ImageTextureSource>());
+        ImageSource image = ((ImageTextureSource)material.AlbedoMap.CurrentValue!).Source.CurrentValue!;
+        Assert.That(image.Uri.Scheme, Is.EqualTo("data"));
+        using var stream = UriHelper.ResolveStream(image.Uri);
+        using var bitmap = Bitmap.FromStream(stream);
+        Assert.That((bitmap.Width, bitmap.Height), Is.EqualTo((2, 2)));
+        Assert.That(bitmap.GetPixelSpan().ToArray(), Is.All.EqualTo(255));
+    }
+
+    [Test]
+    public unsafe void Raw_embedded_texture_preserves_bgra_pixels()
+    {
+        byte* pixels = stackalloc byte[] { 0, 0, 255, 255, 0, 255, 0, 255 };
+        var texture = new Silk.NET.Assimp.Texture { MWidth = 2, MHeight = 1, PcData = (Silk.NET.Assimp.Texel*)pixels };
+        var uri = new Uri(ModelSource.EncodeEmbeddedTexture(&texture));
+        using var stream = UriHelper.ResolveStream(uri);
+        using var bitmap = Bitmap.FromStream(stream);
+        using var bgra = bitmap.Convert(BitmapColorType.Bgra8888);
+        Assert.That(bgra.GetPixelSpan().ToArray(), Is.EqualTo(new byte[] { 0, 0, 255, 255, 0, 255, 0, 255 }));
+    }
+
+    [Test]
+    public void Import_records_material_and_texture_dependencies_and_closes_files()
+    {
+        string model = Path.Combine(_root, "model.obj");
+        string material = Path.Combine(_root, "material.mtl");
+        string texture = Path.Combine(_root, "albedo.png");
+        File.WriteAllText(model, "mtllib material.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl Surface\nf 1 2 3\n");
+        File.WriteAllText(material, "newmtl Surface\nKd 1 1 1\nmap_Kd albedo.png\n");
+        using (var bitmap = new Bitmap(2, 2)) bitmap.Save(texture);
+        var source = new ModelSource();
+
+        source.ReadFrom(new Uri(model));
+
+        Assert.That(source.Dependencies, Is.EquivalentTo(new[] { model, material, texture }));
+        foreach (string path in source.Dependencies)
+        {
+            using var exclusive = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            Assert.That(exclusive.Length, Is.GreaterThan(0));
+        }
+    }
+
+    [Test]
+    public void Missing_external_buffer_reports_an_import_error()
+    {
+        string path = ModelTestFiles.WriteGltf(_root, externalBuffer: true);
+        File.Delete(Path.Combine(_root, "buffers", "geometry.bin"));
+        Assert.Throws<InvalidOperationException>(() => new ModelSource().ReadFrom(new Uri(path)));
+    }
 
     [Test]
     public void Model3D_LoadsBothMeshesSharingOneMaterial()

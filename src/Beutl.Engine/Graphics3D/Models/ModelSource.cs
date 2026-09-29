@@ -5,6 +5,7 @@ using Beutl.Engine;
 using Beutl.Graphics3D.Meshes;
 using Beutl.IO;
 using Beutl.Media;
+using Beutl.Serialization;
 using Silk.NET.Assimp;
 
 namespace Beutl.Graphics3D.Models;
@@ -48,6 +49,10 @@ public class ModelSource : EngineObject, IFileSource
     private readonly List<MeshData> _meshDataList = [];
     private readonly List<MaterialData> _materialDataList = [];
     private Matrix4x4 _toYUp = Matrix4x4.Identity;
+    private readonly HashSet<string> _dependencies = new(StringComparer.Ordinal);
+    private readonly Dictionary<nint, string> _embeddedTextures = [];
+
+    internal IReadOnlyCollection<string> Dependencies => _dependencies;
 
     public new Uri Uri
     {
@@ -85,6 +90,8 @@ public class ModelSource : EngineObject, IFileSource
         Uri = uri;
         _meshDataList.Clear();
         _materialDataList.Clear();
+        _dependencies.Clear();
+        _embeddedTextures.Clear();
 
         string path = uri.LocalPath;
         if (!System.IO.File.Exists(path))
@@ -97,6 +104,8 @@ public class ModelSource : EngineObject, IFileSource
     private unsafe void LoadWithAssimp(string path)
     {
         using var assimp = Assimp.GetApi();
+        using var fileSystem = new ModelImportFileIO(_basePath!);
+        FileIO fileIO = fileSystem.FileIO;
         var properties = assimp.CreatePropertyStore();
         if (properties == null)
             throw new OutOfMemoryException("Could not allocate Assimp import properties.");
@@ -116,7 +125,7 @@ public class ModelSource : EngineObject, IFileSource
                        PostProcessSteps.PreTransformVertices |
                        PostProcessSteps.FlipWindingOrder |
                        PostProcessSteps.FlipUVs),
-                null,
+                &fileIO,
                 properties);
 
             if (scene == null ||
@@ -133,6 +142,7 @@ public class ModelSource : EngineObject, IFileSource
 
             // Process nodes and meshes
             ProcessNode(scene->MRootNode, scene);
+            _dependencies.UnionWith(fileSystem.Paths);
         }
         finally
         {
@@ -183,11 +193,11 @@ public class ModelSource : EngineObject, IFileSource
         for (uint i = 0; i < scene->MNumMaterials; i++)
         {
             var material = scene->MMaterials[i];
-            ProcessMaterial(assimp, material);
+            ProcessMaterial(assimp, scene, material);
         }
     }
 
-    private unsafe void ProcessMaterial(Assimp assimp, Material* material)
+    private unsafe void ProcessMaterial(Assimp assimp, Scene* scene, Material* material)
     {
         // Get material name
         AssimpString nameStr = default;
@@ -233,25 +243,25 @@ public class ModelSource : EngineObject, IFileSource
         }
 
         // Get texture paths
-        string? albedoMapPath = GetTexturePath(assimp, material, TextureType.Diffuse);
+        string? albedoMapPath = GetTexturePath(assimp, scene, material, TextureType.Diffuse);
         if (albedoMapPath == null)
-            albedoMapPath = GetTexturePath(assimp, material, TextureType.BaseColor);
+            albedoMapPath = GetTexturePath(assimp, scene, material, TextureType.BaseColor);
 
-        string? normalMapPath = GetTexturePath(assimp, material, TextureType.Normals);
+        string? normalMapPath = GetTexturePath(assimp, scene, material, TextureType.Normals);
         if (normalMapPath == null)
-            normalMapPath = GetTexturePath(assimp, material, TextureType.Height);
+            normalMapPath = GetTexturePath(assimp, scene, material, TextureType.Height);
 
-        string? metallicRoughnessMapPath = GetTexturePath(assimp, material, TextureType.Unknown);
+        string? metallicRoughnessMapPath = GetTexturePath(assimp, scene, material, TextureType.Unknown);
         if (metallicRoughnessMapPath == null)
-            metallicRoughnessMapPath = GetTexturePath(assimp, material, TextureType.Metalness);
+            metallicRoughnessMapPath = GetTexturePath(assimp, scene, material, TextureType.Metalness);
 
-        string? emissiveMapPath = GetTexturePath(assimp, material, TextureType.Emissive);
+        string? emissiveMapPath = GetTexturePath(assimp, scene, material, TextureType.Emissive);
         if (emissiveMapPath == null)
-            emissiveMapPath = GetTexturePath(assimp, material, TextureType.EmissionColor);
+            emissiveMapPath = GetTexturePath(assimp, scene, material, TextureType.EmissionColor);
 
-        string? aoMapPath = GetTexturePath(assimp, material, TextureType.AmbientOcclusion);
+        string? aoMapPath = GetTexturePath(assimp, scene, material, TextureType.AmbientOcclusion);
         if (aoMapPath == null)
-            aoMapPath = GetTexturePath(assimp, material, TextureType.Lightmap);
+            aoMapPath = GetTexturePath(assimp, scene, material, TextureType.Lightmap);
 
         _materialDataList.Add(new MaterialData(
             Color.FromArgb(
@@ -275,7 +285,7 @@ public class ModelSource : EngineObject, IFileSource
             name));
     }
 
-    private unsafe string? GetTexturePath(Assimp assimp, Material* material, TextureType type)
+    private unsafe string? GetTexturePath(Assimp assimp, Scene* scene, Material* material, TextureType type)
     {
         uint textureCount = assimp.GetMaterialTextureCount(material, type);
         if (textureCount == 0)
@@ -289,7 +299,20 @@ public class ModelSource : EngineObject, IFileSource
         if (result != Return.Success || pathStr.Length == 0)
             return null;
 
-        string texturePath = pathStr.AsString.Replace(@"\\", Path.DirectorySeparatorChar.ToString());
+        // Embedded textures use keys such as "*0", not filesystem paths. Keep the
+        // encoded image in a data URI so it survives scene release, save and export.
+        Texture* embedded = FindEmbeddedTexture(scene, pathStr.AsString);
+        if (embedded != null)
+        {
+            if (!_embeddedTextures.TryGetValue((nint)embedded, out string? dataUri))
+            {
+                dataUri = EncodeEmbeddedTexture(embedded);
+                _embeddedTextures.Add((nint)embedded, dataUri);
+            }
+            return dataUri;
+        }
+
+        string texturePath = pathStr.AsString.Replace('\\', Path.DirectorySeparatorChar);
 
         // If path is relative, resolve it relative to the model file
         if (!Path.IsPathRooted(texturePath) && _basePath != null)
@@ -301,7 +324,45 @@ public class ModelSource : EngineObject, IFileSource
         if (!System.IO.File.Exists(texturePath))
             return null;
 
+        texturePath = Path.GetFullPath(texturePath);
+        _dependencies.Add(texturePath);
         return texturePath;
+    }
+
+    internal static unsafe string EncodeEmbeddedTexture(Texture* texture)
+    {
+        if (texture->MHeight == 0)
+        {
+            byte[] encoded = new ReadOnlySpan<byte>(texture->PcData, checked((int)texture->MWidth)).ToArray();
+            return UriHelper.CreateBase64DataUri("application/octet-stream", encoded).AbsoluteUri;
+        }
+
+        // aiTexel stores BGRA bytes; encode raw embedded images once for persistence.
+        int width = checked((int)texture->MWidth);
+        int height = checked((int)texture->MHeight);
+        using var bitmap = new Bitmap(width, height);
+        for (int y = 0; y < height; y++)
+            new ReadOnlySpan<byte>(texture->PcData + checked(y * width), checked(width * 4)).CopyTo(bitmap.GetRow(y));
+        using var stream = new MemoryStream();
+        if (!bitmap.Save(stream, Graphics.EncodedImageFormat.Png))
+            throw new InvalidOperationException("Failed to encode an embedded model texture.");
+        return UriHelper.CreateBase64DataUri("image/png", stream.ToArray()).AbsoluteUri;
+    }
+
+    private static unsafe Texture* FindEmbeddedTexture(Scene* scene, string key)
+    {
+        // Mirror Assimp's scene lookup. Some bundled builds do not export its C helper.
+        if (key.StartsWith('*') && uint.TryParse(key.AsSpan(1), out uint index))
+            return index < scene->MNumTextures ? scene->MTextures[index] : null;
+
+        string name = Path.GetFileName(key.Replace('\\', '/'));
+        for (uint i = 0; i < scene->MNumTextures; i++)
+        {
+            Texture* texture = scene->MTextures[i];
+            if (Path.GetFileName(texture->MFilename.AsString.Replace('\\', '/')) == name)
+                return texture;
+        }
+        return null;
     }
 
     private unsafe void ProcessNode(Node* node, Scene* scene)

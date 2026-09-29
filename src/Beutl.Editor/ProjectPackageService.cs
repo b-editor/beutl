@@ -75,11 +75,13 @@ public sealed class ProjectPackageService
             string excludedOutputPath = FilePathComparison.ResolveCanonicalPath(outputPath);
             await CopyDirectoryAsync(projectDir, tempProjectDir, excludedOutputPath, cancellationToken);
 
-            // Step 3: Open the temporary project
+            // Step 3: Read with the original base URI. Eager file sources (models in
+            // particular) must resolve their external references before rebasing the copy.
             string tempProjectFile = Path.Combine(tempProjectDir, Path.GetFileName(project.Uri.LocalPath));
             Uri tempProjectUri = new(tempProjectFile);
             progress?.Report((Strings.ExportingProject, 0.2));
-            Project tempProject = CoreSerializer.RestoreFromUri<Project>(tempProjectUri);
+            Project tempProject = CoreSerializer.RestoreFromUri<Project>(project.Uri);
+            ResourceRelocationService.RebaseProjectDirectory(tempProject, projectDir, tempProjectDir);
 
             // Step 4: Attach to the virtual root
             progress?.Report((Strings.ExportingProject, 0.3));

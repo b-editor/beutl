@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Configuration;
 using Beutl.Engine;
+using Beutl.Graphics3D.Models;
 using Beutl.IO;
 using Beutl.Logging;
 using Beutl.Media;
@@ -75,9 +76,18 @@ public class ResourceRelocationService
             string destFilePath;
             try
             {
-                string fileName = Path.GetFileName(sourceFilePath);
-                destFilePath = GetUniqueFilePath(resourcesDir, fileName);
-                await CopyFileAsync(sourceFilePath, destFilePath, cancellationToken);
+                ModelSource? model = group.Select(item => GetFileSource(stagingProject, item.Object, item.PropertyName))
+                    .OfType<ModelSource>().FirstOrDefault();
+                if (model != null)
+                {
+                    destFilePath = await CopyModelAsync(model, resourcesDir, cancellationToken);
+                }
+                else
+                {
+                    string fileName = Path.GetFileName(sourceFilePath);
+                    destFilePath = GetUniqueFilePath(resourcesDir, fileName);
+                    await CopyFileAsync(sourceFilePath, destFilePath, cancellationToken);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -110,21 +120,63 @@ public class ResourceRelocationService
         return new RelocationResult(count, failedResources);
     }
 
-    private void UpdateUri(Project stagingProject, Guid id, string propertyName, Uri newUri)
+    internal static void RebaseProjectDirectory(Project project, string sourceDirectory, string destinationDirectory)
     {
-        var obj = (CoreObject?)stagingProject.FindById(id);
-        if (obj is EngineObject engineObject)
+        string prefix = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourceDirectory)) + Path.DirectorySeparatorChar;
+        var references = ExternalResourceCollector.Collect(project, destinationDirectory).FileSources.ToArray();
+        foreach ((Guid id, string property, Uri uri) in references)
         {
-            var engineProp = engineObject.Properties.FirstOrDefault(p => p.Name == propertyName);
-            if (engineProp?.CurrentValue is IFileSource fileSource)
-            {
-                var type = fileSource.GetType();
-                var newInstance = (IFileSource)Activator.CreateInstance(type)!;
-                newInstance.ReadFrom(newUri);
-                engineProp.CurrentValue = newInstance;
-                return;
-            }
+            string path = Path.GetFullPath(uri.LocalPath);
+            if (path.StartsWith(prefix, StringComparison.Ordinal))
+                UpdateUri(project, id, property, new Uri(Path.Combine(destinationDirectory, path[prefix.Length..])));
         }
+    }
+
+    private static IFileSource? GetFileSource(Project project, Guid id, string propertyName)
+    {
+        if (project.FindById(id) is not CoreObject obj) return null;
+        if (obj is EngineObject engineObject
+            && engineObject.Properties.FirstOrDefault(p => p.Name == propertyName)?.CurrentValue is IFileSource source)
+            return source;
+        var property = PropertyRegistry.FindRegistered(obj, propertyName);
+        return property == null ? null : obj.GetValue(property) as IFileSource;
+    }
+
+    private static async Task<string> CopyModelAsync(ModelSource model, string resourcesDirectory, CancellationToken token)
+    {
+        string mainPath = Path.GetFullPath(model.Uri.LocalPath);
+        string[] files = model.Dependencies.Append(mainPath).Distinct(StringComparer.Ordinal).ToArray();
+        string commonDirectory = Path.GetDirectoryName(mainPath)!;
+        foreach (string file in files)
+        {
+            while (!FilePathComparison.IsSameOrDescendantCanonicalPath(commonDirectory, file))
+                commonDirectory = Path.GetDirectoryName(commonDirectory)
+                    ?? throw new IOException("Model dependencies must be on the same filesystem root.");
+        }
+
+        string prefix = Path.EndsInDirectorySeparator(commonDirectory) ? commonDirectory : commonDirectory + Path.DirectorySeparatorChar;
+        string directory = GetUniqueFilePath(resourcesDirectory, Path.GetFileNameWithoutExtension(mainPath));
+        Directory.CreateDirectory(directory);
+        foreach (string file in files)
+        {
+            token.ThrowIfCancellationRequested();
+            string destination = Path.Combine(directory, file[prefix.Length..]);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            await CopyFileAsync(file, destination, token);
+        }
+        return Path.Combine(directory, mainPath[prefix.Length..]);
+    }
+
+    private static void UpdateUri(Project stagingProject, Guid id, string propertyName, Uri newUri)
+    {
+        if (GetFileSource(stagingProject, id, propertyName) is { } fileSource)
+        {
+            // This is a relocation of the same source, not a user choosing another model.
+            // Replacing the property would rebuild Model3D.Children and discard their edits.
+            fileSource.ReadFrom(newUri);
+            return;
+        }
+        var obj = (CoreObject?)stagingProject.FindById(id);
 
         if (obj != null)
         {
@@ -353,14 +405,14 @@ public class ResourceRelocationService
     private static string GetUniqueFilePath(string directory, string fileName)
     {
         string destFilePath = Path.Combine(directory, fileName);
-        if (!File.Exists(destFilePath))
+        if (!Path.Exists(destFilePath))
             return destFilePath;
 
         string fileNameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
         string ext = Path.GetExtension(fileName);
         int counter = 1;
 
-        while (File.Exists(destFilePath))
+        while (Path.Exists(destFilePath))
         {
             destFilePath = Path.Combine(directory, $"{fileNameWithoutExt}_{counter}{ext}");
             counter++;

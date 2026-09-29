@@ -5,6 +5,55 @@ namespace Beutl.UnitTests.Core;
 
 public class JsonHelperTests
 {
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite)]
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead)]
+    public void JsonSave_preserves_existing_unix_permissions(UnixFileMode mode)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix permissions.");
+            return;
+        }
+        string path = Path.GetTempFileName();
+        try
+        {
+            File.SetUnixFileMode(path, mode);
+            new JsonObject { ["secret"] = "synthetic" }.JsonSave(path);
+            Assert.That(File.GetUnixFileMode(path), Is.EqualTo(mode));
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Test]
+    public void Configuration_keeps_bearer_tokens_private_on_creation_and_autosave()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix permissions.");
+            return;
+        }
+        string directory = Directory.CreateTempSubdirectory("private-config-").FullName;
+        try
+        {
+            string path = Path.Combine(directory, "settings.json");
+            var config = (Beutl.Configuration.GlobalConfiguration)Activator.CreateInstance(typeof(Beutl.Configuration.GlobalConfiguration), nonPublic: true)!;
+            config.Save(path);
+            UnixFileMode initialMode = File.GetUnixFileMode(path);
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+
+            config.AiAgentConfig.LiveMcpToken = "synthetic-test-token";
+            UnixFileMode savedMode = File.GetUnixFileMode(path);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(initialMode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+                Assert.That(savedMode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+                Assert.That(File.ReadAllText(path), Does.Contain("synthetic-test-token"));
+            });
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
     [Test]
     public void JsonSave_AndRestore_RoundTripsContent()
     {

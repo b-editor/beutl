@@ -89,7 +89,8 @@ public sealed class GlobalConfiguration
 
             json["VersionControl"] = CoreSerializer.SerializeToJsonObject(VersionControlConfig);
 
-            json.JsonSave(file);
+            // AI agent settings include the live editing endpoint's bearer token.
+            json.JsonSave(file, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
         finally
         {

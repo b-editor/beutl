@@ -97,6 +97,9 @@ public static class JsonHelper
     }
 
     public static void JsonSave(this JsonNode node, string filename)
+        => JsonSave(node, filename, unixFileMode: null);
+
+    internal static void JsonSave(this JsonNode node, string filename, UnixFileMode? unixFileMode)
     {
         // tmp に書いてから rename することで、書き込み中のクラッシュ・電源断・
         // ディスクフルでターゲットファイルがゼロバイトで残るのを防ぐ。
@@ -107,7 +110,16 @@ public static class JsonHelper
         string tmp = $"{filename}.{Guid.NewGuid():N}.tmp";
         try
         {
-            using (var stream = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            var options = new FileStreamOptions
+            {
+                Mode = FileMode.CreateNew,
+                Access = FileAccess.Write,
+                Share = FileShare.None,
+            };
+            if (!OperatingSystem.IsWindows() && (unixFileMode.HasValue || File.Exists(filename)))
+                options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+
+            using (var stream = new FileStream(tmp, options))
             using (var writer = new Utf8JsonWriter(stream, WriterOptions))
             {
                 node.WriteTo(writer, SerializerOptions);
@@ -115,6 +127,13 @@ public static class JsonHelper
                 stream.Flush(flushToDisk: true);
             }
 
+            if (!OperatingSystem.IsWindows())
+            {
+                // Read the current permissions at publication, after writing privately.
+                UnixFileMode? mode = unixFileMode ?? (File.Exists(filename) ? File.GetUnixFileMode(filename) : null);
+                if (mode is { } permissions)
+                    File.SetUnixFileMode(tmp, permissions);
+            }
             File.Move(tmp, filename, overwrite: true);
         }
         catch
