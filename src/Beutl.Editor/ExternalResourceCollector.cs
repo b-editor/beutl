@@ -1,4 +1,5 @@
 ﻿using Beutl.Engine;
+using Beutl.Graphics3D.Models;
 using Beutl.IO;
 using Beutl.Media;
 
@@ -74,7 +75,7 @@ public sealed class ExternalResourceCollector
             switch (value)
             {
                 case IFileSource fileSource:
-                    if (fileSource.Uri != null && IsExternalFile(fileSource.Uri, projectDirectory))
+                    if (fileSource.Uri != null && RequiresRelocation(fileSource, projectDirectory))
                     {
                         _fileSources.Add((obj.Id, prop.Name, fileSource.Uri));
                     }
@@ -95,7 +96,7 @@ public sealed class ExternalResourceCollector
             {
                 // Collect IFileSource
                 case IFileSource fileSource when fileSource.Uri != null:
-                    if (IsExternalFile(fileSource.Uri, projectDirectory))
+                    if (RequiresRelocation(fileSource, projectDirectory))
                     {
                         _fileSources.Add((obj.Id, property.Name, fileSource.Uri));
                     }
@@ -110,8 +111,13 @@ public sealed class ExternalResourceCollector
     }
 
     /// <summary>
-    /// Determines whether the URI points to a file outside the project directory.
+    /// Determines whether a source or its model dependencies need to be relocated.
     /// </summary>
+    internal static bool RequiresRelocation(IFileSource source, string projectDirectory)
+        => IsExternalFile(source.Uri, projectDirectory)
+           || source is ModelSource model
+           && model.Dependencies.Any(path => IsExternalFile(new Uri(path), projectDirectory));
+
     private static bool IsExternalFile(Uri uri, string projectDirectory)
     {
         if (!uri.IsFile)

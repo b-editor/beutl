@@ -6,6 +6,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
+using Beutl.Editor.Observers;
 using Beutl.Extensibility;
 using Beutl.Graphics3D.Models;
 using Beutl.PropertyAdapters;
@@ -17,6 +18,38 @@ namespace Beutl.HeadlessUITests;
 
 public class ModelSourceEditorTests
 {
+    [AvaloniaTest]
+    public void Initial_source_selection_can_be_undone_and_redone()
+    {
+        string directory = Directory.CreateTempSubdirectory("model-editor-history-").FullName;
+        try
+        {
+            string path = Path.Combine(directory, "triangle.obj");
+            File.WriteAllText(path, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+            var model = new Model3D();
+            var sequence = new OperationSequenceGenerator();
+            using var history = new HistoryManager(model, sequence);
+            using var observer = new CoreObjectOperationObserver(null, model, sequence);
+            using var subscription = history.Subscribe(observer);
+            using var vm = new ModelSourceEditorViewModel(new EnginePropertyAdapter<ModelSource?>(model.Source, model));
+            vm.Accept(new Services(history));
+            var view = new ModelSourceEditor { DataContext = vm };
+            var editor = view.FindControl<StorageFileEditor>("FileEditor")!;
+            editor.Value = new FileInfo(path);
+
+            editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, null, PropertyEditor.ValueConfirmedEvent));
+            var child = model.Children.Single();
+            Assert.That(history.UndoCount, Is.EqualTo(1));
+            Assert.That(history.Undo(), Is.True);
+            Assert.That(model.Source.CurrentValue, Is.Null);
+            Assert.That(model.Children, Is.Empty);
+            Assert.That(history.Redo(), Is.True);
+            Assert.That(model.Children.Single(), Is.SameAs(child));
+            Assert.That(model.Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(path));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]

@@ -128,7 +128,14 @@ public class ResourceRelocationService
         {
             string path = Path.GetFullPath(uri.LocalPath);
             if (path.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                // An internal model can depend on external buffers or materials.
+                // Relocate its complete bundle before asking Assimp to reopen it.
+                if (GetFileSource(project, id, property) is ModelSource model
+                    && ExternalResourceCollector.RequiresRelocation(model, sourceDirectory))
+                    continue;
                 UpdateUri(project, id, property, new Uri(Path.Combine(destinationDirectory, path[prefix.Length..])));
+            }
         }
     }
 
