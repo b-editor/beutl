@@ -461,6 +461,24 @@ public sealed class GenerativeNodeModelTests
         };
     }
 
+    [AvaloniaTest]
+    public async Task EstimateNamesTheModelTheRunWouldUseAndTheLength()
+    {
+        AiGenerativeNodeExecutor images = CreateExecutor(new CapturingImages());
+        GenerativeCostEstimate image = await images.EstimateAsync(
+            Request(new AiImageGenerationNode(), model: null, aspectRatio: "16:9"), CancellationToken.None);
+        Assert.That(image.Model, Is.EqualTo($"Wide — {Strings.AiModelCostLow}"), "The default model, labelled as the tab labels it.");
+        Assert.That(image.IsAvailable, Is.True);
+
+        GenerativeCostEstimate foreign = await images.EstimateAsync(
+            Request(new AiImageGenerationNode(), model: "gone", aspectRatio: "16:9"), CancellationToken.None);
+        Assert.That(foreign.IsAvailable, Is.False, "A model no longer offered cannot run.");
+
+        AiGenerativeNodeExecutor video = CreateVideoExecutor(new FakeVideos(AiJobStatuses.Succeeded));
+        GenerativeCostEstimate clip = await video.EstimateAsync(VideoRequest(duration: 8, audio: false, seed: null), CancellationToken.None);
+        Assert.That(clip.Detail, Is.EqualTo($"8 {Strings.AiVideoSeconds}"));
+    }
+
     private AiGenerativeNodeExecutor CreateVideoExecutor(FakeVideos videos, double sourceSeconds = 4)
     {
         var quiet = new AiModelOption(new AiModelId("quiet"), "Quiet", null, true,

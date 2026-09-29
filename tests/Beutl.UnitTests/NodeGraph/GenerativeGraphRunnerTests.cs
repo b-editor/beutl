@@ -517,6 +517,37 @@ public sealed class GenerativeGraphRunnerTests
         Assert.That(executor.Requests, Has.Count.EqualTo(1), "A changed scene is.");
     }
 
+    [Test]
+    public async Task PlanListsWhatARunWouldBillAndNothingMore()
+    {
+        var (model, upstream, downstream) = CreateChain();
+        var blank = new AiImageGenerationNode();
+        model.Nodes.Add(blank);
+        var executor = new FakeExecutor(_directory);
+        var runner = new GenerativeGraphRunner(executor, new InlineHost());
+
+        GenerativeRunPlan first = await runner.PlanAsync(model, null, force: false, CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Billed.Select(i => i.Node), Is.EquivalentTo(new GenerativeNode[] { upstream, downstream }));
+            Assert.That(first.Items.Single(i => i.Node == downstream).AfterUpstream, Is.True);
+            Assert.That(first.Items.Single(i => i.Node == blank).Problem, Is.Not.Null, "Listed, but it bills nothing.");
+            Assert.That(executor.Requests, Is.Empty, "Planning sends nothing.");
+        });
+
+        await runner.RunAsync(model, [upstream, downstream], force: false, CancellationToken.None);
+        GenerativeRunPlan settled = await runner.PlanAsync(model, [upstream, downstream], force: false, CancellationToken.None);
+        Assert.That(settled.HasBilled, Is.False, "Nothing changed, so nothing would be bought.");
+
+        downstream.Prompt.Property!.SetValue("a different prompt");
+        GenerativeRunPlan changed = await runner.PlanAsync(model, [upstream, downstream], force: false, CancellationToken.None);
+        Assert.That(changed.Billed.Select(i => i.Node), Is.EqualTo(new GenerativeNode[] { downstream }));
+        Assert.That(changed.Billed.Single().AfterUpstream, Is.False);
+
+        GenerativeRunPlan forced = await runner.PlanAsync(model, [upstream], force: true, CancellationToken.None);
+        Assert.That(forced.Billed.Select(i => i.Node), Is.EqualTo(new GenerativeNode[] { upstream }));
+    }
+
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
     {
         var model = new GraphModel();

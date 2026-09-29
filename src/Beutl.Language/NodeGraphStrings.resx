@@ -435,4 +435,34 @@
   <data name="Scene_CircularReference" xml:space="preserve">
     <value>The scene refers to itself, so it cannot be drawn here.</value>
   </data>
+  <data name="Generative_ConfirmTitle" xml:space="preserve">
+    <value>Run AI nodes</value>
+  </data>
+  <data name="Generative_ConfirmIntro" xml:space="preserve">
+    <value>These {0} generations will use your AI allowance:</value>
+  </data>
+  <data name="Generative_ConfirmRun" xml:space="preserve">
+    <value>Run</value>
+  </data>
+  <data name="Generative_ConfirmCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Generative_Available" xml:space="preserve">
+    <value>Available</value>
+  </data>
+  <data name="Generative_Unavailable" xml:space="preserve">
+    <value>Not enough allowance</value>
+  </data>
+  <data name="Generative_AvailabilityUnknown" xml:space="preserve">
+    <value>Could not be checked</value>
+  </data>
+  <data name="Generative_AfterUpstream" xml:space="preserve">
+    <value>Decided once the generations it depends on finish</value>
+  </data>
+  <data name="Generative_WillNotRun" xml:space="preserve">
+    <value>Will not run: {0}</value>
+  </data>
+  <data name="Generative_SomeUnavailable" xml:space="preserve">
+    <value>Some generations exceed your allowance and will be refused without being charged.</value>
+  </data>
 </root>

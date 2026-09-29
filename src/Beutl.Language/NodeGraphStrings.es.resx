@@ -435,4 +435,34 @@
   <data name="Scene_CircularReference" xml:space="preserve">
     <value>La escena se hace referencia a sí misma, por lo que no se puede dibujar aquí.</value>
   </data>
+  <data name="Generative_ConfirmTitle" xml:space="preserve">
+    <value>Ejecutar nodos de IA</value>
+  </data>
+  <data name="Generative_ConfirmIntro" xml:space="preserve">
+    <value>Estas {0} generaciones usarán tu asignación de IA:</value>
+  </data>
+  <data name="Generative_ConfirmRun" xml:space="preserve">
+    <value>Ejecutar</value>
+  </data>
+  <data name="Generative_ConfirmCancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Generative_Available" xml:space="preserve">
+    <value>Disponible</value>
+  </data>
+  <data name="Generative_Unavailable" xml:space="preserve">
+    <value>Asignación insuficiente</value>
+  </data>
+  <data name="Generative_AvailabilityUnknown" xml:space="preserve">
+    <value>No se pudo comprobar</value>
+  </data>
+  <data name="Generative_AfterUpstream" xml:space="preserve">
+    <value>Se decide cuando terminen las generaciones de las que depende</value>
+  </data>
+  <data name="Generative_WillNotRun" xml:space="preserve">
+    <value>No se ejecutará: {0}</value>
+  </data>
+  <data name="Generative_SomeUnavailable" xml:space="preserve">
+    <value>Algunas generaciones superan tu asignación y se rechazarán sin cargo.</value>
+  </data>
 </root>

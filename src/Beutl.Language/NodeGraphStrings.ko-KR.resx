@@ -435,4 +435,34 @@
   <data name="Scene_CircularReference" xml:space="preserve">
     <value>장면이 자기 자신을 참조하므로 여기에 그릴 수 없습니다.</value>
   </data>
+  <data name="Generative_ConfirmTitle" xml:space="preserve">
+    <value>AI 노드 실행</value>
+  </data>
+  <data name="Generative_ConfirmIntro" xml:space="preserve">
+    <value>다음 {0}건의 생성에 AI 사용량이 소비됩니다.</value>
+  </data>
+  <data name="Generative_ConfirmRun" xml:space="preserve">
+    <value>실행</value>
+  </data>
+  <data name="Generative_ConfirmCancel" xml:space="preserve">
+    <value>취소</value>
+  </data>
+  <data name="Generative_Available" xml:space="preserve">
+    <value>사용 가능</value>
+  </data>
+  <data name="Generative_Unavailable" xml:space="preserve">
+    <value>사용량 부족</value>
+  </data>
+  <data name="Generative_AvailabilityUnknown" xml:space="preserve">
+    <value>확인할 수 없음</value>
+  </data>
+  <data name="Generative_AfterUpstream" xml:space="preserve">
+    <value>의존하는 생성이 끝난 뒤 결정됩니다</value>
+  </data>
+  <data name="Generative_WillNotRun" xml:space="preserve">
+    <value>실행되지 않음: {0}</value>
+  </data>
+  <data name="Generative_SomeUnavailable" xml:space="preserve">
+    <value>사용량이 부족한 생성이 있습니다. 해당 생성은 과금되지 않고 거부됩니다.</value>
+  </data>
 </root>

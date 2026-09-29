@@ -20,6 +20,39 @@ public interface IGenerativeRunHost
     void CommitHistory(string name);
 }
 
+/// <summary>One node a run would bill, or could not send.</summary>
+/// <param name="Request">
+/// The request as the inputs stand now; null when they come from a generation that has not
+/// run yet or cannot be sent.
+/// </param>
+/// <param name="AfterUpstream">Regenerated because a generation it depends on is.</param>
+/// <param name="Problem">Why it cannot be sent, when it cannot; such a node bills nothing.</param>
+public sealed record GenerativePlanItem(
+    GenerativeNode Node,
+    GenerativeRequest? Request,
+    bool AfterUpstream,
+    string? Problem);
+
+public sealed record GenerativeRunPlan(IReadOnlyList<GenerativePlanItem> Items)
+{
+    /// <summary>The generations the run would pay for.</summary>
+    public IEnumerable<GenerativePlanItem> Billed => Items.Where(item => item.Problem is null);
+
+    public bool HasBilled => Billed.Any();
+}
+
+/// <summary>What a run is expected to cost, as far as the client can tell before sending.</summary>
+/// <param name="Model">The model it would run on, labelled as the AI tab labels it.</param>
+/// <param name="Detail">What else sets the price, such as a clip's length.</param>
+/// <param name="IsAvailable">The server's answer for the account; null when it could not be asked.</param>
+public sealed record GenerativeCostEstimate(string? Model, string? Detail, bool? IsAvailable);
+
+/// <summary>Estimates a request's cost before it is sent. Implemented by the application.</summary>
+public interface IGenerativeCostEstimator
+{
+    Task<GenerativeCostEstimate> EstimateAsync(GenerativeRequest request, CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Runs the generative nodes of a graph like a ComfyUI queue: upstream first, each
 /// node against inputs captured after its dependencies finished, and only the nodes
@@ -105,6 +138,56 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 });
             }
         }
+    }
+
+    /// <summary>
+    /// Works out which nodes a run would bill, without running anything. A node is billed
+    /// when it is forced, has no result, its request differs from its active result, or a
+    /// generative node it depends on will be regenerated (its inputs are then unknown until
+    /// that finishes). A node whose inputs cannot be sent is listed with the reason instead.
+    /// </summary>
+    public async Task<GenerativeRunPlan> PlanAsync(
+        GraphModel model,
+        IReadOnlyCollection<GenerativeNode>? targets,
+        bool force,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        IReadOnlyList<GenerativeNode> order = PlanOrder(model, targets);
+        var forced = force ? new HashSet<GenerativeNode>(targets ?? order) : [];
+        Dictionary<GraphNode, HashSet<GraphNode>> upstream = BuildUpstreamMap(model);
+        var willRun = new HashSet<GenerativeNode>();
+        var items = new List<GenerativePlanItem>();
+        foreach (GenerativeNode node in order)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            bool afterUpstream = Ancestors(node, upstream).Any(a => a is GenerativeNode g && willRun.Contains(g));
+            GenerativeRequest? request = null;
+            string? problem = null;
+            try
+            {
+                request = await host.InvokeOnRenderThreadAsync(() => CaptureRequest(model, node));
+            }
+            catch (GenerativeExecutionException ex) when (!afterUpstream)
+            {
+                problem = ex.Message;
+            }
+            catch (GenerativeExecutionException)
+            {
+                // Its inputs come from a generation that has not run yet.
+            }
+
+            bool runs = afterUpstream
+                || forced.Contains(node)
+                || request is not null
+                    && (node.ActiveGeneration is not { } active || active.Fingerprint != request.Fingerprint);
+            if (runs && problem is null)
+                willRun.Add(node);
+            if (runs || problem is not null)
+                items.Add(new GenerativePlanItem(node, request, afterUpstream, problem));
+        }
+
+        return new GenerativeRunPlan(items);
     }
 
     private async Task CancelRemainingAsync(IReadOnlyList<GenerativeNode> order, int from)

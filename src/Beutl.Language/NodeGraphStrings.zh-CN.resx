@@ -435,4 +435,34 @@
   <data name="Scene_CircularReference" xml:space="preserve">
     <value>场景引用了自身，因此无法在此处绘制。</value>
   </data>
+  <data name="Generative_ConfirmTitle" xml:space="preserve">
+    <value>运行 AI 节点</value>
+  </data>
+  <data name="Generative_ConfirmIntro" xml:space="preserve">
+    <value>以下 {0} 次生成将消耗您的 AI 额度：</value>
+  </data>
+  <data name="Generative_ConfirmRun" xml:space="preserve">
+    <value>运行</value>
+  </data>
+  <data name="Generative_ConfirmCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Generative_Available" xml:space="preserve">
+    <value>可用</value>
+  </data>
+  <data name="Generative_Unavailable" xml:space="preserve">
+    <value>额度不足</value>
+  </data>
+  <data name="Generative_AvailabilityUnknown" xml:space="preserve">
+    <value>无法确认</value>
+  </data>
+  <data name="Generative_AfterUpstream" xml:space="preserve">
+    <value>在其依赖的生成完成后确定</value>
+  </data>
+  <data name="Generative_WillNotRun" xml:space="preserve">
+    <value>不会运行：{0}</value>
+  </data>
+  <data name="Generative_SomeUnavailable" xml:space="preserve">
+    <value>部分生成超出额度，将被拒绝且不会扣费。</value>
+  </data>
 </root>
