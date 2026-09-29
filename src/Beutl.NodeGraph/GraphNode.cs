@@ -11,8 +11,6 @@ using Beutl.Utilities;
 
 namespace Beutl.NodeGraph;
 
-public sealed partial class FallbackGraphNode : GraphNode, IFallback;
-
 [FallbackType(typeof(FallbackGraphNode))]
 public abstract partial class GraphNode : EngineObject
 {
@@ -137,6 +135,9 @@ public abstract partial class GraphNode : EngineObject
     // uses this first so an independently rejected path cannot block an otherwise usable writer.
     internal bool IsInputTargetAvailable(IInputPort input)
     {
+        if (this is FallbackGraphNode
+            || input.Connection.Value?.Output.Value?.FindHierarchicalParent<GraphNode>() is FallbackGraphNode)
+            return false;
         _nestedPortManager.EnsureSynchronized();
         if (input is INestedInputPort nestedInput
             && (nestedInput.Property == null || _nestedPortManager.HasOverridingAncestor(nestedInput))) return false;

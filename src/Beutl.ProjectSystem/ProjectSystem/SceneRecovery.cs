@@ -585,14 +585,18 @@ internal sealed class SceneRecovery(Scene scene)
                     EnsureFallbackProjection(fallback);
                 }
 
-                MarkRecoveredElement(
-                    element,
-                    File.ReadAllBytes(uri.LocalPath),
-                    uri,
-                    recoveryIncidents.Length > 0,
-                    untraversedFallbacks,
-                    recoveryIncidents,
-                    storageCapture.Sources);
+                if (fallbacks.Any(fallback => !fallback.CanSerializeWithoutDataLoss)
+                    || untraversedIncidents.Length > 0)
+                {
+                    MarkRecoveredElement(
+                        element,
+                        File.ReadAllBytes(uri.LocalPath),
+                        uri,
+                        recoveryIncidents.Length > 0,
+                        untraversedFallbacks,
+                        recoveryIncidents,
+                        storageCapture.Sources);
+                }
             }
 
             return element;
@@ -742,7 +746,7 @@ internal sealed class SceneRecovery(Scene scene)
     internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
     {
         if (element.SuppressedStorageSource is not { } source
-            || EnumerateSerializedGraphFallbacks(element).Any()
+            || EnumerateSerializedGraphFallbacks(element).Any(fallback => !fallback.CanSerializeWithoutDataLoss)
             || HasUnresolvedSerializedRecoveryBlocker(element, source)
             || EnumerateSerializedGraphObjects(element).OfType<KeyFrame>().Any(static keyFrame => keyFrame.HasLossyEasing))
         {
@@ -766,7 +770,7 @@ internal sealed class SceneRecovery(Scene scene)
                 BaseUri = element.Uri,
                 Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
             });
-        if (capture.HasLossyEasing || objects.HasFallback) return true;
+        if (capture.HasLossyEasing || objects.HasLossyFallback) return true;
         if (source.UntraversedFallbacks is not { Length: > 0 } snapshots) return false;
         // Keep the original representation for fallback snapshot matching; embedding adds URI metadata.
         JsonObject current = CoreSerializer.SerializeToJsonObject(

@@ -61,6 +61,27 @@ public class FallbackTypeGeneratorTests
         """;
 
     [Test]
+    public void CompleteFallbackImplementation_IsNotOverwritten()
+    {
+        string source = FallbackScenario.Replace(
+            "public partial class FallbackObject : Serializable, Beutl.Serialization.IFallback\n    {\n    }",
+            """
+            public partial class FallbackObject : Serializable, Beutl.Serialization.IFallback
+                {
+                    public System.Text.Json.Nodes.JsonObject? Json { get; set; }
+                    public Beutl.Serialization.FallbackReason Reason { get; set; }
+                    public string? ErrorMessage { get; set; }
+                    public bool TryGetTypeName(out string? result) { result = null; return false; }
+                    public override void Serialize(Beutl.Serialization.ICoreSerializationContext context) { }
+                    public override void Deserialize(Beutl.Serialization.ICoreSerializationContext context) { }
+                }
+            """);
+        GeneratorHarnessResult result = GeneratorDriverHarness.Run(source);
+        Assert.That(result.HasSource("_Fallback.g.cs"), Is.False);
+        Assert.That(result.CompilationErrors, Is.Empty);
+    }
+
+    [Test]
     public void IFallbackImplementer_GeneratesCompilableFallbackPartial()
     {
         GeneratorHarnessResult result = GeneratorDriverHarness.Run(FallbackScenario);

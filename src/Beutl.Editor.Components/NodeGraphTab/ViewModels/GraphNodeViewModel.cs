@@ -102,6 +102,8 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
     public string FallbackMessage => FallbackHelper.GetFallbackMessage(GraphNode);
 
+    public string? FallbackHelpText => IsFallback ? FallbackMessage : null;
+
     public ReactiveProperty<Point> Position { get; }
 
     public ReactiveProperty<bool> IsExpanded { get; }

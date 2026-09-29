@@ -17,6 +17,10 @@ public enum FallbackReason
 
 public interface IFallback : ICoreSerializable
 {
+    /// <summary>Whether this fallback can persist edits while retaining all unavailable content.
+    /// The default keeps recovered files protected from lossy saves.</summary>
+    bool CanSerializeWithoutDataLoss => false;
+
     JsonObject? Json { get; set; }
 
     FallbackReason Reason { get; set; }

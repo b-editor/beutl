@@ -2,6 +2,7 @@
 using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
 
@@ -73,17 +74,11 @@ public sealed class NodeGraphMutationService : INodeGraphConnectedNodeMutationSe
 
         // Snapshot touching connections first so disconnect calls don't
         // invalidate the iteration.
-        Connection[] touching = node.EnumerateMembers()
-            .SelectMany(i => i switch
-            {
-                IOutputPort output => output.Connections,
-                IListPort list => list.Connections,
-                IInputPort { Connection: var connection } => [connection],
-                _ => [],
-            })
-            .Select(conn => graph.AllConnections.FirstOrDefault(a => a.Id == conn.Id))
-            .Where(a => a is not null)
-            .ToArray()!;
+        var memberIds = node.EnumerateMembers().Select(member => member.Id).ToHashSet();
+        if (node is FallbackGraphNode fallback) memberIds.UnionWith(fallback.GetSavedMemberIds());
+        Connection[] touching = graph.AllConnections
+            .Where(connection => memberIds.Contains(connection.Input.Id) || memberIds.Contains(connection.Output.Id))
+            .ToArray();
 
         foreach (Connection connection in touching)
         {
@@ -91,6 +86,8 @@ public sealed class NodeGraphMutationService : INodeGraphConnectedNodeMutationSe
         }
 
         graph.Nodes.Remove(node);
+        if (graph.FindHierarchicalParent<Element>() is { } element)
+            ElementRecoveryService.TryCompleteRepair(element, _historyManager);
         _historyManager.Commit(CommandNames.RemoveNode);
     }
 
@@ -184,6 +181,7 @@ public sealed class NodeGraphMutationService : INodeGraphConnectedNodeMutationSe
         GraphNode node1, INodePort? port1,
         GraphNode node2, INodePort? port2)
     {
+        if (node1 is FallbackGraphNode || node2 is FallbackGraphNode) return NodeConnectOutcome.None;
         // Case 1: one side unset, the other a dynamic-port node — materialize
         // a new port on that node.
         if (port1 is null ^ port2 is null)

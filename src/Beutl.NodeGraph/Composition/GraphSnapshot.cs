@@ -100,7 +100,7 @@ public sealed class GraphSnapshot : IDisposable
                     {
                         GraphNode? upstream = connection.Value?.Output.Value?
                             .FindHierarchicalParent<GraphNode>();
-                        if (upstream != null && inDegree.ContainsKey(upstream))
+                        if (upstream != null && upstream is not FallbackGraphNode && inDegree.ContainsKey(upstream))
                         {
                             adjacency[upstream].Add(node);
                             inDegree[node]++;
@@ -111,7 +111,7 @@ public sealed class GraphSnapshot : IDisposable
                          && inputNodePort.Connection.Value?.Output.Value is { } outputNodePort)
                 {
                     GraphNode? upstream = outputNodePort.FindHierarchicalParent<GraphNode>();
-                    if (upstream != null && inDegree.ContainsKey(upstream))
+                    if (upstream != null && upstream is not FallbackGraphNode && inDegree.ContainsKey(upstream))
                     {
                         adjacency[upstream].Add(node);
                         inDegree[node]++;
@@ -212,6 +212,7 @@ public sealed class GraphSnapshot : IDisposable
             GraphNode? inputNode = inputSock.FindHierarchicalParent<GraphNode>();
 
             if (outputNode == null || inputNode == null
+                                   || outputNode is FallbackGraphNode || inputNode is FallbackGraphNode
                                    || !nodeToResourceIndex.TryGetValue(outputNode, out int outputResourceIdx)
                                    || !nodeToResourceIndex.TryGetValue(inputNode, out int inputResourceIdx))
             {

@@ -44,6 +44,8 @@ public partial class GraphModel : EngineObject
 
     private void OnConnectionAttached(Connection obj)
     {
+        foreach (FallbackGraphNode fallback in Nodes.OfType<FallbackGraphNode>())
+            fallback.RestoreConnection(obj);
         RaiseTopologyChanged();
         RaiseEdited();
     }
@@ -69,6 +71,8 @@ public partial class GraphModel : EngineObject
 
     private void OnNodeAttached(GraphNode obj)
     {
+        if (obj is FallbackGraphNode fallback)
+            foreach (Connection connection in AllConnections) fallback.RestoreConnection(connection);
         obj.TopologyChanged += OnTopologyChanged;
         obj.Edited += OnNodeEdited;
         RaiseTopologyChanged();
@@ -89,6 +93,8 @@ public partial class GraphModel : EngineObject
 
     public Connection Connect(IInputPort inputNodePort, IOutputPort outputNodePort)
     {
+        if (outputNodePort.FindHierarchicalParent<GraphNode>() is FallbackGraphNode)
+            throw new InvalidOperationException("An unavailable node cannot supply a value.");
         if (inputNodePort.FindHierarchicalParent<GraphNode>() is { } owner
             && !owner.CanConnectInput(inputNodePort))
             throw new InvalidOperationException("This input cannot be connected in the current graph state.");

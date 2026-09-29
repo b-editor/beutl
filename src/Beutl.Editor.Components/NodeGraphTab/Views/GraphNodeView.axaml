@@ -41,6 +41,8 @@
     <!--  BoxShadow="0 32 64 #8E000000, 0 2 21 #8C000000">  -->
     <Grid RowDefinitions="Auto,Auto">
         <Border x:Name="handle"
+                AutomationProperties.Name="{Binding NodeName.Value}"
+                AutomationProperties.HelpText="{Binding FallbackHelpText}"
                 Padding="4"
                 Background="{Binding Color}"
                 CornerRadius="{DynamicResource ControlCornerRadius}"
