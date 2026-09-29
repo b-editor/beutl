@@ -47,8 +47,12 @@ public static class FallbackClassAnalyzer
             return null;
         }
 
-        // A fallback may provide its own lossless projection instead of the generated one.
-        if (iFallbackSymbol.GetMembers().All(member => symbol.FindImplementationForInterfaceMember(member) != null))
+        // Interface metadata alone does not prove that inherited serialization retains Json.
+        // Custom implementations must explicitly take ownership of the entire fallback contract.
+        INamedTypeSymbol? suppressAttribute = context.SemanticModel.Compilation
+            .GetTypeByMetadataName("Beutl.Serialization.SuppressFallbackGenerationAttribute");
+        if (suppressAttribute != null
+            && symbol.GetAttributes().Any(attribute => SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, suppressAttribute)))
         {
             return null;
         }

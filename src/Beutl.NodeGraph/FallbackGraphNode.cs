@@ -6,6 +6,7 @@ using Beutl.Serialization;
 
 namespace Beutl.NodeGraph;
 
+[SuppressFallbackGeneration]
 public sealed partial class FallbackGraphNode : GraphNode, IFallback
 {
     private JsonObject? _json;
