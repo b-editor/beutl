@@ -273,8 +273,9 @@ public class FallbackGraphNodeTests
         Assert.That(repaired.AllConnections[2].Output.Value?.Id, Is.EqualTo(source.Value.Id));
     }
 
-    [Test]
-    public void RemappedNestedFallbackEndpoints_PreserveRootReferences()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RemappedNestedFallbackEndpoints_PreserveRootReferences(bool connectedRoot)
     {
         Guid rootId = Guid.NewGuid();
         Guid nestedId = Guid.NewGuid();
@@ -294,7 +295,7 @@ public class FallbackGraphNodeTests
         var source = new RandomSingleNode();
         var graph = new GraphModel();
         graph.Nodes.AddRange([source, fallback]);
-        foreach (Guid id in new[] { rootId, nestedId })
+        foreach (Guid id in connectedRoot ? new[] { rootId, nestedId } : new[] { nestedId })
         {
             var connection = new Connection();
             connection.SetValue(Connection.InputProperty, new Reference<NodeMember>(id));
@@ -302,8 +303,8 @@ public class FallbackGraphNodeTests
             graph.AllConnections.Add(connection);
             source.Value.NotifyConnected(connection);
         }
-        NodeMember root = graph.AllConnections[0].Input.Value!;
-        NodeMember nested = graph.AllConnections[1].Input.Value!;
+        NodeMember root = ((IHierarchical)fallback).HierarchicalChildren.OfType<NodeMember>().Single(member => member.Name == "Root");
+        NodeMember nested = graph.AllConnections.Last().Input.Value!;
         root.Id = Guid.NewGuid();
         nested.Id = Guid.NewGuid();
 
@@ -314,12 +315,13 @@ public class FallbackGraphNodeTests
         Assert.That(savedFallback["NestedInputPorts"]![0]!["RootMember"]!.GetValue<Guid>(), Is.EqualTo(root.Id));
         Assert.That(JsonNode.DeepEquals(fallback.Json, payload), Is.True);
         var reloaded = (GraphModel)CoreSerializer.DeserializeFromJsonObject(saved, typeof(GraphModel));
-        Assert.That(reloaded.AllConnections[0].Input.Value?.Id, Is.EqualTo(root.Id));
-        Assert.That(reloaded.AllConnections[1].Input.Value?.Id, Is.EqualTo(nested.Id));
+        if (connectedRoot) Assert.That(reloaded.AllConnections[0].Input.Value?.Id, Is.EqualTo(root.Id));
+        Assert.That(reloaded.AllConnections.Last().Input.Value?.Id, Is.EqualTo(nested.Id));
     }
 
-    [Test]
-    public void RecoveredScene_RemappedFallbackEndpointsReconnectAfterPluginRepair()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RecoveredScene_RemappedFallbackEndpointsReconnectAfterPluginRepair(bool lossyCompanion)
     {
         string root = Path.Combine(Path.GetTempPath(), $"fallback-remapped-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -331,17 +333,20 @@ public class FallbackGraphNodeTests
             Guid inputId = graph.AllConnections[0].Input.Id;
             Guid outputId = graph.AllConnections[1].Output.Id;
             Guid connectionId = graph.AllConnections[0].Id;
+            Guid unconnectedId = ((IFallback)graph.Nodes[1]).Json!["Items"]!.AsArray().OfType<JsonObject>()
+                .Single(item => item["Name"]!.GetValue<string>() == "Maximum")["Id"]!.GetValue<Guid>();
             var healthy = new Element { Uri = new Uri(Path.Combine(root, "healthy.belm")), Length = TimeSpan.FromSeconds(1) };
-            foreach (Guid id in new[] { inputId, outputId, connectionId, graph.Nodes[1].Id })
+            foreach (Guid id in new[] { inputId, outputId, connectionId, graph.Nodes[1].Id, unconnectedId })
                 healthy.AddObject(new RectShape { Id = id });
             var drawable = new NodeGraphDrawable();
             drawable.Model.CurrentValue = graph;
             var element = new Element { Uri = elementUri, Length = TimeSpan.FromSeconds(1) };
             element.AddObject(drawable);
-            element.AddObject(new FallbackEngineObject
-            {
-                Json = new JsonObject { ["$type"] = "[Missing.Plugin]Missing:LossyObject", ["Id"] = Guid.NewGuid() }
-            });
+            if (lossyCompanion)
+                element.AddObject(new FallbackEngineObject
+                {
+                    Json = new JsonObject { ["$type"] = "[Missing.Plugin]Missing:LossyObject", ["Id"] = Guid.NewGuid() }
+                });
             var scene = new Scene(64, 64, "Remapped fallback") { Uri = sceneUri };
             scene.Children.AddRange([healthy, element]);
             CoreSerializer.StoreToUri(scene, sceneUri);
@@ -356,7 +361,8 @@ public class FallbackGraphNodeTests
             Assert.That(remappedOutputId, Is.Not.EqualTo(outputId));
             Assert.That(remappedConnectionId, Is.Not.EqualTo(connectionId));
             using var history = new HistoryHarness(element);
-            new ElementObjectService(history.History).Remove(element, element.Objects.OfType<FallbackEngineObject>().Single());
+            if (lossyCompanion)
+                new ElementObjectService(history.History).Remove(element, element.Objects.OfType<FallbackEngineObject>().Single());
             CoreSerializer.StoreToUri(element, elementUri);
 
             JsonObject saved = JsonNode.Parse(File.ReadAllText(elementUri.LocalPath))!.AsObject();
@@ -365,6 +371,7 @@ public class FallbackGraphNodeTests
             Assert.That(members["Minimum"]["Id"]!.GetValue<Guid>(), Is.EqualTo(remappedInputId));
             Assert.That(members["Value"]["Id"]!.GetValue<Guid>(), Is.EqualTo(remappedOutputId));
             Assert.That(members["Minimum"]["Connection"]!.GetValue<Guid>(), Is.EqualTo(remappedConnectionId));
+            Assert.That(members["Maximum"]["Id"]!.GetValue<Guid>(), Is.Not.EqualTo(unconnectedId));
             node.WriteDiscriminator(typeof(RandomSingleNode));
             File.WriteAllText(elementUri.LocalPath, saved.ToJsonString());
 
@@ -379,6 +386,58 @@ public class FallbackGraphNodeTests
         {
             Directory.Delete(root, true);
         }
+    }
+
+    [Test]
+    public void LosslessIdlessFallbackNode_HasStableIdentityAcrossSceneRestores()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"fallback-idless-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
+            var element = new Element { Uri = new Uri(Path.Combine(root, "element.belm")), Length = TimeSpan.FromSeconds(1) };
+            var graph = new GraphModel();
+            graph.Nodes.Add(new FallbackGraphNode { Json = new JsonObject { ["$type"] = MissingType } });
+            var drawable = new NodeGraphDrawable();
+            drawable.Model.CurrentValue = graph;
+            element.AddObject(drawable);
+            var scene = new Scene(64, 64, "Idless") { Uri = sceneUri };
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+
+            Scene first = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+            Guid firstId = ((NodeGraphDrawable)first.Children.Single().Objects.Single()).Model.CurrentValue!.Nodes.Single().Id;
+            Scene second = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+            Guid secondId = ((NodeGraphDrawable)second.Children.Single().Objects.Single()).Model.CurrentValue!.Nodes.Single().Id;
+            Assert.That(secondId, Is.EqualTo(firstId));
+            CoreSerializer.StoreToUri(second, sceneUri);
+            Scene third = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+            Assert.That(((NodeGraphDrawable)third.Children.Single().Objects.Single()).Model.CurrentValue!.Nodes.Single().Id,
+                Is.EqualTo(firstId));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
+    public void DeletingFallback_DoesNotDisconnectHealthyPortSharingAnUnconnectedMemberId()
+    {
+        GraphModel graph = RestoreConnectedGraph(false);
+        var fallback = (FallbackGraphNode)graph.Nodes[1];
+        Guid unusedId = fallback.Json!["Items"]!.AsArray().OfType<JsonObject>()
+            .Single(item => item["Name"]!.GetValue<string>() == "Maximum")["Id"]!.GetValue<Guid>();
+        var source = (RandomSingleNode)graph.Nodes[0];
+        source.Value.Id = unusedId;
+        Connection surviving = graph.AllConnections[2];
+        using var history = new HistoryHarness(graph);
+        new NodeGraphMutationService(history.History).RemoveNode(graph, fallback);
+        Assert.That(graph.AllConnections, Is.EqualTo(new[] { surviving }));
+        Assert.That(history.History.Undo(), Is.True);
+        Assert.That(surviving.Output.Value, Is.SameAs(source.Value));
+        Assert.That(graph.AllConnections, Has.Count.EqualTo(3));
     }
 
     [Test]

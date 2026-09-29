@@ -11,6 +11,5 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Beutl" />
     <InternalsVisibleTo Include="Beutl.Editor.Components" />
-    <InternalsVisibleTo Include="Beutl.Editor" />
   </ItemGroup>
 </Project>

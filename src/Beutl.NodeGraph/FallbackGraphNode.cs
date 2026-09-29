@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json.Nodes;
+using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Serialization;
 
@@ -12,7 +13,10 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
     private JsonObject? _json;
     private readonly Dictionary<Guid, JsonObject> _savedMembers = new();
     private readonly Dictionary<Guid, NodeMember> _restoredMembers = new();
+    private readonly HierarchicalList<NodeMember> _identityMembers;
     private (Guid Id, string Name, (double X, double Y) Position, bool Expanded, bool Enabled) _original;
+
+    public FallbackGraphNode() => _identityMembers = new(this);
 
     public JsonObject? Json
     {
@@ -41,6 +45,7 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
                     && double.IsFinite(x) && double.IsFinite(y)) Position = (x, y);
             }
             _original = (Id, Name, Position, IsExpanded, IsEnabled);
+            RestoreSavedMemberIdentities();
         }
     }
 
@@ -100,21 +105,20 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
         jsonContext.SetJsonObject(json);
     }
 
-    internal IEnumerable<Guid> GetSavedMemberIds()
-        => _savedMembers.Keys.Select(id => _restoredMembers.TryGetValue(id, out NodeMember? port) ? port.Id : id);
-
     internal void RestoreConnection(Connection connection)
     {
         // These ports are a view of retained endpoints, not new user-created graph content.
         using var suppression = PublishingSuppression.Enter();
         ConnectionStatus status = connection.Status;
-        if (GetPort(connection.Input.Id, input: true) is NodeMember input)
+        if (CanRestoreEndpoint(connection.Input.Value)
+            && GetPort(connection.Input.Id, input: true, connection.Id) is NodeMember input)
         {
             connection.SetValue(Connection.InputProperty, new Reference<NodeMember>(input));
             if (input is InputPort<object> single) single.Connection = connection;
             else RestoreListConnection(((IListPort)input).Connections, connection);
         }
-        if (GetPort(connection.Output.Id, input: false) is NodeMember output)
+        if (CanRestoreEndpoint(connection.Output.Value)
+            && GetPort(connection.Output.Id, input: false, connection.Id) is NodeMember output)
         {
             connection.SetValue(Connection.OutputProperty, new Reference<NodeMember>(output));
             RestoreListConnection(((IOutputPort)output).Connections, connection);
@@ -122,12 +126,37 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
         connection.Status = status;
     }
 
-    private NodeMember? GetPort(Guid id, bool input)
+    private bool CanRestoreEndpoint(NodeMember? member)
+        => member?.FindHierarchicalParent<GraphModel>() == null
+           || ReferenceEquals(member.FindHierarchicalParent<GraphNode>(), this);
+
+    private void RestoreSavedMemberIdentities()
     {
-        if (Items.FirstOrDefault(item => item.Id == id) is NodeMember existing)
-            return (input ? existing is IInputPort : existing is IOutputPort) ? existing : null;
-        // A retained key whose port has moved to a different Id no longer owns that old endpoint.
-        if (_restoredMembers.ContainsKey(id) || !_savedMembers.TryGetValue(id, out JsonObject? saved)) return null;
+        using var suppression = PublishingSuppression.Enter();
+        foreach ((Guid id, JsonObject saved) in _savedMembers)
+        {
+            if (_restoredMembers.ContainsKey(id)) continue;
+            // Identity-only children participate in scene recovery without inventing a port
+            // direction or exposing editors for an unavailable plugin's unconnected members.
+            var member = new NodeMember<object> { Id = id };
+            if (saved[nameof(Name)] is JsonValue name && name.TryGetValue<string>(out var text)) member.Name = text;
+            _restoredMembers.Add(id, member);
+            _identityMembers.Add(member);
+        }
+    }
+
+    private NodeMember? GetPort(Guid id, bool input, Guid connectionId)
+    {
+        var entry = _restoredMembers.FirstOrDefault(pair => pair.Value.Id == id);
+        if (entry.Value is not { } member) return null;
+        if (input ? member is IInputPort : member is IOutputPort) return member;
+        if (member is INodePort || !_savedMembers.TryGetValue(entry.Key, out JsonObject? saved)) return null;
+
+        // A matching Id alone cannot claim a healthy connection when an unconnected saved
+        // member collides with its endpoint. Honor saved connection bookkeeping when present.
+        if (TryGetId(saved["Connection"], out Guid savedConnection) && savedConnection != connectionId) return null;
+        if (saved["Connections"] is JsonArray savedConnections
+            && !savedConnections.Any(value => TryGetId(value, out Guid savedId) && savedId == connectionId)) return null;
 
         NodeMember port = input
             ? saved.ContainsKey("Connections") ? new ListInputPort<object>() : new InputPort<object>()
@@ -140,7 +169,8 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
             metadata["Connections"] = new JsonArray(connections
                 .Where(node => TryGetId(node, out _)).Select(node => node!.DeepClone()).ToArray());
         CoreSerializer.PopulateFromJsonObject(port, metadata);
-        _restoredMembers.Add(id, port);
+        _identityMembers.Remove(member);
+        _restoredMembers[entry.Key] = port;
         Items.Add((INodeMember)port);
         return port;
     }

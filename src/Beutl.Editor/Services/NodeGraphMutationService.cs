@@ -74,10 +74,9 @@ public sealed class NodeGraphMutationService : INodeGraphConnectedNodeMutationSe
 
         // Snapshot touching connections first so disconnect calls don't
         // invalidate the iteration.
-        var memberIds = node.EnumerateMembers().Select(member => member.Id).ToHashSet();
-        if (node is FallbackGraphNode fallback) memberIds.UnionWith(fallback.GetSavedMemberIds());
         Connection[] touching = graph.AllConnections
-            .Where(connection => memberIds.Contains(connection.Input.Id) || memberIds.Contains(connection.Output.Id))
+            .Where(connection => ReferenceEquals(connection.Input.Value?.FindHierarchicalParent<GraphNode>(), node)
+                                 || ReferenceEquals(connection.Output.Value?.FindHierarchicalParent<GraphNode>(), node))
             .ToArray();
 
         foreach (Connection connection in touching)

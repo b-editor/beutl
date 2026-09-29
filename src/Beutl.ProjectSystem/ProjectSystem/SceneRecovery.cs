@@ -154,7 +154,7 @@ internal sealed class SceneRecovery(Scene scene)
     {
         string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
         var recoveredChildren = Children
-            .Where(static child => child.SuppressedStorageSource is not null)
+            .Where(RequiresIdentityReconciliation)
             .Select(child => (
                 Child: child,
                 RelativePath: NormalizeRelativePath(
@@ -172,8 +172,9 @@ internal sealed class SceneRecovery(Scene scene)
         var persistedDescendantIdentities = new Dictionary<string, Guid>(
             _recoveredDescendantIdentities,
             StringComparer.Ordinal);
+        var recoveredSet = recoveredChildren.Select(item => item.Child).ToHashSet(ReferenceEqualityComparer.Instance);
         var healthyChildren = Children
-            .Where(static child => child.SuppressedStorageSource is null)
+            .Where(child => !recoveredSet.Contains(child))
             .Select(child => (
                 Child: child,
                 RelativePath: NormalizeRelativePath(
@@ -1647,6 +1648,9 @@ internal sealed class SceneRecovery(Scene scene)
         return false;
     }
 
+    private static bool RequiresIdentityReconciliation(Element element)
+        => element.SuppressedStorageSource != null || EnumerateSerializedGraphFallbacks(element).Any();
+
     private RecoveredSerializationState BuildRecoveredSerializationState()
     {
         if (Uri is null)
@@ -1657,8 +1661,7 @@ internal sealed class SceneRecovery(Scene scene)
                 new Dictionary<string, Guid>(_recoveredDescendantIdentities, StringComparer.Ordinal));
         }
 
-        var recoveredChildren = Children.Where(
-                static child => child.SuppressedStorageSource is not null)
+        var recoveredChildren = Children.Where(RequiresIdentityReconciliation)
             .ToArray();
         if (recoveredChildren.Length == 0)
         {
