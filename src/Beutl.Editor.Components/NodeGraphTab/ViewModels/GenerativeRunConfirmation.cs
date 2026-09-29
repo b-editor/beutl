@@ -8,7 +8,12 @@ using FluentAvalonia.UI.Controls;
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 
 /// <summary>One line of the confirmation shown before AI nodes bill anything.</summary>
-public sealed record GenerativeRunConfirmationItem(string NodeName, string Description, bool? IsAvailable, bool WillRun);
+public sealed record GenerativeRunConfirmationItem(
+    string NodeName,
+    string Description,
+    bool? IsAvailable,
+    bool WillRun,
+    int Count = 1);
 
 /// <summary>Builds what the confirmation lists from a run plan.</summary>
 internal static class GenerativeRunConfirmation
@@ -30,7 +35,7 @@ internal static class GenerativeRunConfirmation
 
             if (item.Request is not { } request || estimator is null)
             {
-                items.Add(new(name, NodeGraphStrings.Generative_AfterUpstream, null, true));
+                items.Add(new(name, NodeGraphStrings.Generative_AfterUpstream, null, true, item.Count));
                 continue;
             }
 
@@ -38,7 +43,7 @@ internal static class GenerativeRunConfirmation
             string description = string.Join(
                 " · ",
                 new[] { estimate.Model, estimate.Detail }.Where(part => !string.IsNullOrEmpty(part)));
-            items.Add(new(name, description, estimate.IsAvailable, true));
+            items.Add(new(name, description, estimate.IsAvailable, true, item.Count));
         }
 
         return items;
@@ -47,7 +52,7 @@ internal static class GenerativeRunConfirmation
     public static FAContentDialog CreateDialog(IReadOnlyList<GenerativeRunConfirmationItem> items)
     {
         var panel = new StackPanel { Spacing = 8, MinWidth = 360 };
-        int billed = items.Count(item => item.WillRun);
+        int billed = items.Where(item => item.WillRun).Sum(item => item.Count);
         panel.Children.Add(new TextBlock
         {
             Text = string.Format(NodeGraphStrings.Generative_ConfirmIntro, billed),
@@ -56,7 +61,11 @@ internal static class GenerativeRunConfirmation
         foreach (GenerativeRunConfirmationItem item in items)
         {
             var row = new StackPanel { Spacing = 2, Margin = new Avalonia.Thickness(8, 0, 0, 0) };
-            row.Children.Add(new TextBlock { Text = item.NodeName, FontWeight = Avalonia.Media.FontWeight.SemiBold });
+            row.Children.Add(new TextBlock
+            {
+                Text = item.Count > 1 ? $"{item.NodeName} × {item.Count}" : item.NodeName,
+                FontWeight = Avalonia.Media.FontWeight.SemiBold,
+            });
             if (item.Description.Length > 0)
             {
                 row.Children.Add(new TextBlock

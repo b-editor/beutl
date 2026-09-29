@@ -141,6 +141,35 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
     protected internal override void OnGenerated(GenerationRecord record)
         => AiImageGenerationNode.AdvanceSeed(Seed, SeedControl);
 
+    protected internal override GenerativeRequest BuildVariation(
+        GraphNode.Resource resource,
+        GraphCompositionContext context,
+        int index)
+    {
+        var request = (AiVideoGenerationNodeRequest)BuildRequest(resource, context);
+        if (index == 0 || request.Seed is not int seed)
+            return request;
+
+        int varied = (int)(((long)seed + index) % ((long)AiImageGenerationNode.MaxSeed + 1));
+        return request with
+        {
+            Seed = varied,
+            ParameterFingerprint = ((Resource)resource).ComputeParameterFingerprint(varied),
+        };
+    }
+
+    protected internal override void ApplyRequestInputs(GenerativeRequest request)
+    {
+        if (request is AiVideoGenerationNodeRequest { Seed: int seed } && Seed.Connection.IsNull)
+            Seed.Property?.SetValue(seed);
+    }
+
+    protected internal override void ApplyRecordInputs(GenerationRecord record)
+    {
+        if (record.Seed is int seed && Seed.Connection.IsNull)
+            Seed.Property?.SetValue(seed);
+    }
+
     public partial class Resource
     {
         private (string?, string?, int, string?, string?, bool, int?) _lastParameters;
@@ -152,15 +181,16 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
             RequireOriginal().ReportParameterFingerprint(ComputeParameterFingerprint());
         }
 
-        internal string ComputeParameterFingerprint()
+        internal string ComputeParameterFingerprint() => ComputeParameterFingerprint(null);
+
+        internal string ComputeParameterFingerprint(int? seedOverride)
         {
             var parameters = (Prompt?.Trim(), Model?.Trim(), Duration, Resolution?.Trim(), AspectRatio?.Trim(),
-                GenerateAudio, SeedControl == GenerativeSeedControl.ModelDefault ? (int?)null : Seed);
-            if (_lastParameterFingerprint is not null && parameters == _lastParameters)
+                GenerateAudio, seedOverride ?? (SeedControl == GenerativeSeedControl.ModelDefault ? (int?)null : Seed));
+            if (seedOverride is null && _lastParameterFingerprint is not null && parameters == _lastParameters)
                 return _lastParameterFingerprint;
 
-            _lastParameters = parameters;
-            return _lastParameterFingerprint = GenerativeFingerprint.Combine(
+            string fingerprint = GenerativeFingerprint.Combine(
             [
                 parameters.Item1,
                 parameters.Item2,
@@ -170,6 +200,13 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
                 parameters.Item6 ? "audio" : "silent",
                 parameters.Item7?.ToString(CultureInfo.InvariantCulture),
             ]);
+            if (seedOverride is null)
+            {
+                _lastParameters = parameters;
+                _lastParameterFingerprint = fingerprint;
+            }
+
+            return fingerprint;
         }
     }
 }

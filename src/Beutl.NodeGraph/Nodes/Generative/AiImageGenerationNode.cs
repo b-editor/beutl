@@ -139,6 +139,35 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
     private static int? SeedFor(Resource r)
         => r.SeedControl == GenerativeSeedControl.ModelDefault ? null : r.Seed;
 
+    protected internal override GenerativeRequest BuildVariation(
+        GraphNode.Resource resource,
+        GraphCompositionContext context,
+        int index)
+    {
+        var request = (AiImageGenerationNodeRequest)BuildRequest(resource, context);
+        if (index == 0 || request.Seed is not int seed)
+            return request;
+
+        int varied = (int)(((long)seed + index) % ((long)AiImageGenerationNode.MaxSeed + 1));
+        return request with
+        {
+            Seed = varied,
+            ParameterFingerprint = ((Resource)resource).ComputeParameterFingerprint(varied),
+        };
+    }
+
+    protected internal override void ApplyRequestInputs(GenerativeRequest request)
+    {
+        if (request is AiImageGenerationNodeRequest { Seed: int seed } && Seed.Connection.IsNull)
+            Seed.Property?.SetValue(seed);
+    }
+
+    protected internal override void ApplyRecordInputs(GenerationRecord record)
+    {
+        if (record.Seed is int seed && Seed.Connection.IsNull)
+            Seed.Property?.SetValue(seed);
+    }
+
     public partial class Resource
     {
         private (string?, string?, string?, string?, int?) _lastParameters;
@@ -151,14 +180,15 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
             node.ReportParameterFingerprint(ComputeParameterFingerprint());
         }
 
-        internal string ComputeParameterFingerprint()
+        internal string ComputeParameterFingerprint() => ComputeParameterFingerprint(null);
+
+        internal string ComputeParameterFingerprint(int? seedOverride)
         {
-            var parameters = (Prompt?.Trim(), Model?.Trim(), AspectRatio?.Trim(), Background?.Trim(), SeedFor(this));
-            if (_lastParameterFingerprint is not null && parameters == _lastParameters)
+            var parameters = (Prompt?.Trim(), Model?.Trim(), AspectRatio?.Trim(), Background?.Trim(), seedOverride ?? SeedFor(this));
+            if (seedOverride is null && _lastParameterFingerprint is not null && parameters == _lastParameters)
                 return _lastParameterFingerprint;
 
-            _lastParameters = parameters;
-            return _lastParameterFingerprint = GenerativeFingerprint.Combine(
+            string fingerprint = GenerativeFingerprint.Combine(
             [
                 parameters.Item1,
                 parameters.Item2,
@@ -166,6 +196,13 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
                 parameters.Item4,
                 parameters.Item5?.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ]);
+            if (seedOverride is null)
+            {
+                _lastParameters = parameters;
+                _lastParameterFingerprint = fingerprint;
+            }
+
+            return fingerprint;
         }
     }
 }

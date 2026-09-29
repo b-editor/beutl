@@ -157,6 +157,30 @@ public abstract partial class GenerativeNode : GraphNode
     /// </summary>
     protected internal abstract GenerativeRequest BuildRequest(GraphNode.Resource resource, GraphCompositionContext context);
 
+    /// <summary>
+    /// The request for the <paramref name="index"/>th of several variations queued at once.
+    /// Nodes with a seed move it on by the index; others send the same request, which the
+    /// renewed idempotency key after each result turns into a new generation.
+    /// </summary>
+    protected internal virtual GenerativeRequest BuildVariation(
+        GraphNode.Resource resource,
+        GraphCompositionContext context,
+        int index)
+        => BuildRequest(resource, context);
+
+    /// <summary>
+    /// Sets the node's inputs to reproduce <paramref name="request"/>, so a variation that was
+    /// kept does not read as stale. Runs on the UI thread.
+    /// </summary>
+    protected internal virtual void ApplyRequestInputs(GenerativeRequest request)
+    {
+    }
+
+    /// <summary>Sets the node's inputs, as far as the record says, to reproduce a kept result.</summary>
+    protected internal virtual void ApplyRecordInputs(GenerationRecord record)
+    {
+    }
+
     /// <summary>Runs on the UI thread after a generation became active.</summary>
     protected internal virtual void OnGenerated(GenerationRecord record)
     {
@@ -361,6 +385,19 @@ public abstract partial class GenerativeNode : GraphNode
 
             SwapPreview(bitmap is null ? null : Ref<Bitmap>.Create(bitmap), active.Id);
         });
+    }
+
+    /// <summary>Decodes a kept result for display, or null when its file cannot be read.</summary>
+    internal static Bitmap? DecodeThumbnail(GenerationRecord record)
+    {
+        try
+        {
+            return (record.Image ?? (MediaSource?)record.Video) is { } media ? DecodePreview(media) : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static Bitmap? DecodePreview(MediaSource media)

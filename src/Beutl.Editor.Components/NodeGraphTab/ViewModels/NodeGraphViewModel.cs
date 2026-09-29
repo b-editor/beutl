@@ -99,7 +99,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     /// Runs <paramref name="targets"/> (every generative node when null) and the generative
     /// nodes they depend on. Nodes whose request is unchanged reuse their result unless forced.
     /// </summary>
-    public async Task RunGenerativeAsync(IReadOnlyCollection<GenerativeNode>? targets, bool force)
+    public async Task RunGenerativeAsync(IReadOnlyCollection<GenerativeNode>? targets, bool force, int variations = 1)
     {
         if (IsGenerating.Value)
             return;
@@ -118,7 +118,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
             var runner = new GenerativeGraphRunner(executor, new EditorGenerativeRunHost(EditorContext));
             // Nothing is billed without saying so first: the nodes that would pay, the model
             // each runs on and whether the account can take it.
-            GenerativeRunPlan plan = await runner.PlanAsync(NodeGraph, targets, force, cts.Token);
+            GenerativeRunPlan plan = await runner.PlanAsync(NodeGraph, targets, force, cts.Token, variations);
             if (plan.HasBilled)
             {
                 IReadOnlyList<GenerativeRunConfirmationItem> items = await GenerativeRunConfirmation.DescribeAsync(
@@ -129,7 +129,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
                     return;
             }
 
-            await runner.RunAsync(NodeGraph, targets, force, cts.Token);
+            await runner.RunAsync(NodeGraph, targets, force, cts.Token, variations);
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {

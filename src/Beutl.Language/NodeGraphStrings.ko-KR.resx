@@ -465,4 +465,16 @@
   <data name="Generative_SomeUnavailable" xml:space="preserve">
     <value>사용량이 부족한 생성이 있습니다. 해당 생성은 과금되지 않고 거부됩니다.</value>
   </data>
+  <data name="Generative_Variations" xml:space="preserve">
+    <value>여러 안 생성</value>
+  </data>
+  <data name="Generative_VariationCount" xml:space="preserve">
+    <value>{0}개 안</value>
+  </data>
+  <data name="Generative_Compare" xml:space="preserve">
+    <value>생성 결과 비교…</value>
+  </data>
+  <data name="Generative_Adopt" xml:space="preserve">
+    <value>채택</value>
+  </data>
 </root>

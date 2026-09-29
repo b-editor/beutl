@@ -391,6 +391,9 @@ public partial class GraphNodeView : UserControl
     private void NodeMenuOpening(object? sender, EventArgs e)
     {
         BuildPromptLibraryMenu();
+        Variations2Item.Text = string.Format(NodeGraphStrings.Generative_VariationCount, 2);
+        Variations4Item.Text = string.Format(NodeGraphStrings.Generative_VariationCount, 4);
+        CompareItem.IsEnabled = DataContext is GraphNodeViewModel { GraphNode: Beutl.NodeGraph.Generative.GenerativeNode { Generations.Count: > 1 } };
         if (DataContext is not GraphNodeViewModel { GraphNode: Beutl.NodeGraph.Generative.GenerativeNode node } viewModel)
             return;
 
@@ -483,6 +486,18 @@ public partial class GraphNodeView : UserControl
             if (items.Count == before)
                 items.Add(new FAMenuFlyoutItem { Text = empty, IsEnabled = false });
         }
+    }
+
+    private void Variations2Click(object? sender, RoutedEventArgs e)
+        => (DataContext as GraphNodeViewModel)?.GenerateVariations(2);
+
+    private void Variations4Click(object? sender, RoutedEventArgs e)
+        => (DataContext as GraphNodeViewModel)?.GenerateVariations(4);
+
+    private void CompareClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is GraphNodeViewModel viewModel)
+            _ = viewModel.CompareGenerationsAsync();
     }
 
     private void RegenerateClick(object? sender, RoutedEventArgs e)

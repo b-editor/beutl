@@ -27,16 +27,21 @@ public interface IGenerativeRunHost
 /// </param>
 /// <param name="AfterUpstream">Regenerated because a generation it depends on is.</param>
 /// <param name="Problem">Why it cannot be sent, when it cannot; such a node bills nothing.</param>
+/// <param name="Count">How many generations it makes: more than one for variations.</param>
 public sealed record GenerativePlanItem(
     GenerativeNode Node,
     GenerativeRequest? Request,
     bool AfterUpstream,
-    string? Problem);
+    string? Problem,
+    int Count = 1);
 
 public sealed record GenerativeRunPlan(IReadOnlyList<GenerativePlanItem> Items)
 {
     /// <summary>The generations the run would pay for.</summary>
     public IEnumerable<GenerativePlanItem> Billed => Items.Where(item => item.Problem is null);
+
+    /// <summary>How many generations the run would pay for.</summary>
+    public int BilledCount => Billed.Sum(item => item.Count);
 
     public bool HasBilled => Billed.Any();
 }
@@ -64,16 +69,20 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
     /// Runs <paramref name="targets"/> (every generative node when null) together with
     /// the generative nodes they depend on. <paramref name="force"/> regenerates the
     /// targets even when their request is unchanged; dependencies are still reused.
+    /// <paramref name="variations"/> above one makes that many generations of each target,
+    /// as ComfyUI's batch does, and keeps them all to compare.
     /// </summary>
     public async Task RunAsync(
         GraphModel model,
         IReadOnlyCollection<GenerativeNode>? targets,
         bool force,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int variations = 1)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(variations, 1);
         ArgumentNullException.ThrowIfNull(model);
         IReadOnlyList<GenerativeNode> order = PlanOrder(model, targets);
-        var forced = force
+        var forced = force || variations > 1
             ? new HashSet<GenerativeNode>(targets ?? order)
             : [];
         var failed = new HashSet<GenerativeNode>();
@@ -104,6 +113,12 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
             try
             {
                 await host.InvokeOnUIThreadAsync(() => node.SetStatus(GenerativeNodeStatus.Running));
+                if (variations > 1 && forced.Contains(node))
+                {
+                    await RunVariationsAsync(model, node, variations, cancellationToken);
+                    continue;
+                }
+
                 GenerativeRequest request = await host.InvokeOnRenderThreadAsync(() => CaptureRequest(model, node));
                 if (!forced.Contains(node)
                     && node.ActiveGeneration is { } active
@@ -143,6 +158,42 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         }
     }
 
+    // One generation per variation, each against a fresh capture: the key renewed after each
+    // result is part of the next request. The last one stays active and the node's inputs are
+    // set to reproduce it; all of them are kept to compare.
+    private async Task RunVariationsAsync(
+        GraphModel model,
+        GenerativeNode node,
+        int variations,
+        CancellationToken cancellationToken)
+    {
+        GenerationRecord? last = null;
+        GenerativeRequest? lastRequest = null;
+        for (int index = 0; index < variations; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int captured = index;
+            GenerativeRequest request = await host.InvokeOnRenderThreadAsync(
+                () => CaptureRequest(model, node, captured));
+            var progress = new ProgressRelay(host, node);
+            GenerativeExecutionResult result = await executor.ExecuteAsync(request, progress, cancellationToken);
+            await host.InvokeOnUIThreadAsync(() =>
+            {
+                last = node.AddGeneration(request, result);
+                lastRequest = request;
+                node.RenewRequestKey();
+            });
+        }
+
+        await host.InvokeOnUIThreadAsync(() =>
+        {
+            node.ApplyRequestInputs(lastRequest!);
+            node.OnGenerated(last!);
+            node.SetStatus(GenerativeNodeStatus.Idle);
+            host.CommitHistory(NodeGraphStrings.AiGeneration);
+        });
+    }
+
     /// <summary>
     /// Works out which nodes a run would bill, without running anything. A node is billed
     /// when it is forced, has no result, its request differs from its active result, or a
@@ -153,11 +204,12 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         GraphModel model,
         IReadOnlyCollection<GenerativeNode>? targets,
         bool force,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int variations = 1)
     {
         ArgumentNullException.ThrowIfNull(model);
         IReadOnlyList<GenerativeNode> order = PlanOrder(model, targets);
-        var forced = force ? new HashSet<GenerativeNode>(targets ?? order) : [];
+        var forced = force || variations > 1 ? new HashSet<GenerativeNode>(targets ?? order) : [];
         Dictionary<GraphNode, HashSet<GraphNode>> upstream = BuildUpstreamMap(model);
         var willRun = new HashSet<GenerativeNode>();
         var items = new List<GenerativePlanItem>();
@@ -187,7 +239,8 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
             if (runs && problem is null)
                 willRun.Add(node);
             if (runs || problem is not null)
-                items.Add(new GenerativePlanItem(node, request, afterUpstream, problem));
+                items.Add(new GenerativePlanItem(
+                    node, request, afterUpstream, problem, variations > 1 && forced.Contains(node) ? variations : 1));
         }
 
         return new GenerativeRunPlan(items);
@@ -205,7 +258,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         });
     }
 
-    private GenerativeRequest CaptureRequest(GraphModel model, GenerativeNode node)
+    private GenerativeRequest CaptureRequest(GraphModel model, GenerativeNode node, int? variation = null)
     {
         // A snapshot of its own: the editor's snapshot belongs to the render loop and
         // may be rebuilt at any time. Evaluating here also picks up the generation a
@@ -217,7 +270,9 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         int slot = snapshot.FindSlotIndex(node);
         if (snapshot.GetResource(slot) is not { } resource || snapshot.GetContext(slot) is not { } nodeContext)
             throw new GenerativeExecutionException(NodeGraphStrings.Generative_Failed);
-        return node.BuildRequest(resource, nodeContext);
+        return variation is { } index
+            ? node.BuildVariation(resource, nodeContext, index)
+            : node.BuildRequest(resource, nodeContext);
     }
 
     /// <summary>The generative nodes to run, dependencies before dependents.</summary>

@@ -465,4 +465,16 @@
   <data name="Generative_SomeUnavailable" xml:space="preserve">
     <value>部分生成超出额度，将被拒绝且不会扣费。</value>
   </data>
+  <data name="Generative_Variations" xml:space="preserve">
+    <value>生成多个方案</value>
+  </data>
+  <data name="Generative_VariationCount" xml:space="preserve">
+    <value>{0} 个方案</value>
+  </data>
+  <data name="Generative_Compare" xml:space="preserve">
+    <value>比较生成结果…</value>
+  </data>
+  <data name="Generative_Adopt" xml:space="preserve">
+    <value>采用</value>
+  </data>
 </root>

@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Beutl.Controls;
@@ -159,6 +160,84 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
     private void CommitGenerationEdit()
         => EditorContext.GetService<HistoryManager>()?.Commit(NodeGraphStrings.Generative_History);
+
+    /// <summary>Generates several variations of this node at once, keeping them all to compare.</summary>
+    public void GenerateVariations(int count)
+    {
+        if (GraphNode is GenerativeNode node)
+            _ = NodeGraphViewModel.RunGenerativeAsync([node], force: true, variations: count);
+    }
+
+    /// <summary>Shows the compare dialog; replaced in tests.</summary>
+    internal Func<FluentAvalonia.UI.Controls.FAContentDialog, Task<FluentAvalonia.UI.Controls.FAContentDialogResult>> ShowDialogAsync { get; set; } =
+        static dialog => dialog.ShowAsync();
+
+    /// <summary>Lays the node's kept results side by side and makes the chosen one active.</summary>
+    public async Task CompareGenerationsAsync()
+    {
+        if (GraphNode is not GenerativeNode node || node.Generations.Count == 0)
+            return;
+
+        GenerationRecord[] records = [.. node.Generations];
+        Beutl.Media.Bitmap?[] thumbnails = await Task.Run(() => records.Select(GenerativeNode.DecodeThumbnail).ToArray());
+        var refs = new List<Beutl.Media.Source.Ref<Beutl.Media.Bitmap>>();
+        try
+        {
+            var list = new ListBox
+            {
+                ItemsPanel = new FuncTemplate<Panel?>(() => new WrapPanel()),
+                MaxHeight = 480,
+            };
+            for (int i = 0; i < records.Length; i++)
+            {
+                var content = new StackPanel { Spacing = 4, Width = 200 };
+                if (thumbnails[i] is { } bitmap)
+                {
+                    var bitmapRef = Beutl.Media.Source.Ref<Beutl.Media.Bitmap>.Create(bitmap);
+                    refs.Add(bitmapRef);
+                    content.Children.Add(new BitmapView
+                    {
+                        Source = bitmapRef,
+                        Height = 150,
+                        Stretch = Stretch.Uniform,
+                    });
+                }
+
+                string caption = records[i].Seed is int seed
+                    ? $"{records[i].CreatedAt.LocalDateTime:g} · {seed}"
+                    : $"{records[i].CreatedAt.LocalDateTime:g}";
+                content.Children.Add(new TextBlock { Text = caption, TextTrimming = TextTrimming.CharacterEllipsis });
+                list.Items.Add(new ListBoxItem { Content = content });
+            }
+
+            // After the items exist: set before, the selection has nothing to land on.
+            list.SelectedIndex = Array.IndexOf(records, node.ActiveGeneration);
+
+            var dialog = new FluentAvalonia.UI.Controls.FAContentDialog
+            {
+                Title = NodeGraphStrings.Generative_Compare.TrimEnd('…'),
+                Content = list,
+                PrimaryButtonText = NodeGraphStrings.Generative_Adopt,
+                CloseButtonText = NodeGraphStrings.Generative_ConfirmCancel,
+                DefaultButton = FluentAvalonia.UI.Controls.FAContentDialogButton.Primary,
+            };
+            if (await ShowDialogAsync(dialog) != FluentAvalonia.UI.Controls.FAContentDialogResult.Primary
+                || list.SelectedIndex < 0)
+            {
+                return;
+            }
+
+            GenerationRecord chosen = records[list.SelectedIndex];
+            node.SelectGeneration(chosen.Id);
+            node.ApplyRecordInputs(chosen);
+            CommitGenerationEdit();
+        }
+        finally
+        {
+            foreach (var bitmapRef in refs)
+                bitmapRef.Dispose();
+        }
+    }
 
     /// <summary>Generates this node again even when its inputs are unchanged.</summary>
     public void Regenerate()

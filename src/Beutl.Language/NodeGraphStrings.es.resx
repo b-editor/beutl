@@ -465,4 +465,16 @@
   <data name="Generative_SomeUnavailable" xml:space="preserve">
     <value>Algunas generaciones superan tu asignación y se rechazarán sin cargo.</value>
   </data>
+  <data name="Generative_Variations" xml:space="preserve">
+    <value>Generar variaciones</value>
+  </data>
+  <data name="Generative_VariationCount" xml:space="preserve">
+    <value>{0} variaciones</value>
+  </data>
+  <data name="Generative_Compare" xml:space="preserve">
+    <value>Comparar resultados…</value>
+  </data>
+  <data name="Generative_Adopt" xml:space="preserve">
+    <value>Usar este</value>
+  </data>
 </root>

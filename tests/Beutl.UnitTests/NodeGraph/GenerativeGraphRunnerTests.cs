@@ -568,6 +568,44 @@ public sealed class GenerativeGraphRunnerTests
             "A success or a settled failure needs a new key; an unsettled one keeps the way back to a paid job.");
     }
 
+    [Test]
+    public async Task VariationsKeepEverySeedAndLeaveTheLastOneActiveAndCurrent()
+    {
+        var model = new GraphModel();
+        var node = new AiImageGenerationNode();
+        node.Prompt.Property!.SetValue("a cat");
+        node.Seed.Property!.SetValue(100);
+        model.Nodes.Add(node);
+        var executor = new FakeExecutor(_directory);
+        var runner = new GenerativeGraphRunner(executor, new InlineHost());
+
+        GenerativeRunPlan plan = await runner.PlanAsync(model, [node], force: false, CancellationToken.None, variations: 3);
+        Assert.That(plan.BilledCount, Is.EqualTo(3), "Each variation is paid for.");
+
+        await runner.RunAsync(model, [node], force: false, CancellationToken.None, variations: 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(executor.Requests.Cast<AiImageGenerationNodeRequest>().Select(r => r.Seed),
+                Is.EqualTo(new int?[] { 100, 101, 102 }));
+            Assert.That(executor.Requests.Select(r => r.RequestKeySeed).Distinct().Count(), Is.EqualTo(3),
+                "Each variation goes out under its own key.");
+            Assert.That(node.Generations.Select(g => g.Seed), Is.EqualTo(new int?[] { 100, 101, 102 }));
+            Assert.That(node.ActiveGeneration, Is.SameAs(node.Generations[2]));
+            Assert.That(node.Seed.Property!.GetValue(), Is.EqualTo(102), "The inputs reproduce the kept variation.");
+        });
+
+        // The active variation matches the inputs, so it is not stale and a plain run buys nothing.
+        using (var snapshot = new GraphSnapshot())
+        {
+            snapshot.Build(model, CompositionContext.Default);
+            snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        }
+
+        Assert.That(node.IsStale, Is.False);
+        Assert.That((await runner.PlanAsync(model, [node], force: false, CancellationToken.None)).HasBilled, Is.False);
+    }
+
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
     {
         var model = new GraphModel();

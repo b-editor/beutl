@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
 using Avalonia.Headless.NUnit;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
@@ -255,6 +256,73 @@ public class NodeGraphGenerativeMenuTests
 
         public Task<GenerativeCostEstimate> EstimateAsync(GenerativeRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new GenerativeCostEstimate("Estimated model", null, true));
+    }
+
+    [AvaloniaTest]
+    public async Task CompareShowsEveryResultAndAdoptsTheChosenOneWithItsSeed()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"beutl-compare-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var graph = new GraphModel();
+            var node = new AiImageGenerationNode();
+            foreach (int seed in new[] { 7, 8, 9 })
+            {
+                string path = Path.Combine(directory, $"{seed}.png");
+                using (var bitmap = new Beutl.Media.Bitmap(8, 8))
+                using (var stream = File.Create(path))
+                    bitmap.Save(stream, Beutl.Graphics.EncodedImageFormat.Png);
+                var image = new Beutl.Media.Source.ImageSource();
+                image.ReadFrom(new Uri(path));
+                node.Generations.Add(new GenerationRecord { Image = image, Seed = seed, CreatedAt = DateTimeOffset.Now });
+            }
+
+            node.SelectGeneration(node.Generations[2].Id);
+            graph.Nodes.Add(node);
+            using var vm = new NodeGraphViewModel(graph, CreateEditor().Object);
+            GraphNodeViewModel nodeVm = vm.Nodes.Single();
+            int shown = 0;
+            int thumbnails = 0;
+            nodeVm.ShowDialogAsync = dialog =>
+            {
+                var list = (ListBox)dialog.Content!;
+                shown = list.Items.Count;
+                thumbnails = list.Items.OfType<ListBoxItem>()
+                    .Count(item => ((StackPanel)item.Content!).Children.OfType<BitmapView>().Any());
+                Assert.That(list.SelectedIndex, Is.EqualTo(2), "Starts on the active result.");
+                list.SelectedIndex = 0;
+                return Task.FromResult(FAContentDialogResult.Primary);
+            };
+
+            await nodeVm.CompareGenerationsAsync();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(shown, Is.EqualTo(3));
+                Assert.That(thumbnails, Is.EqualTo(3));
+                Assert.That(node.ActiveGeneration, Is.SameAs(node.Generations[0]));
+                Assert.That(node.Seed.Property!.GetValue(), Is.EqualTo(7), "The inputs reproduce the adopted result.");
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
+    public void ConfirmationCountsEveryVariation()
+    {
+        FAContentDialog dialog = GenerativeRunConfirmation.CreateDialog(
+        [
+            new GenerativeRunConfirmationItem("Image", "Wide", true, true, 4),
+            new GenerativeRunConfirmationItem("Edit", "Clear", true, true),
+        ]);
+        var texts = ((StackPanel)((ScrollViewer)dialog.Content!).Content!).GetLogicalDescendants()
+            .OfType<TextBlock>().Select(t => t.Text).ToArray();
+        Assert.That(texts, Does.Contain(string.Format(NodeGraphStrings.Generative_ConfirmIntro, 5)));
+        Assert.That(texts, Does.Contain("Image × 4"));
     }
 
     private static GraphNodeView OpenMenu(NodeGraphView view, GraphNode node)
