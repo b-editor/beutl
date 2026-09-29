@@ -248,6 +248,7 @@ public partial class GraphNodeView : UserControl
     {
         PointerPoint point = e.GetCurrentPoint(this);
         if (_captured
+            && DataContext is GraphNodeViewModel { IsFallback: false }
             && point.Properties.IsLeftButtonPressed
             && Parent is Canvas canvas)
         {
@@ -264,7 +265,7 @@ public partial class GraphNodeView : UserControl
 
             foreach (GraphNodeView? item in GetSelection())
             {
-                if (item != this && item.DataContext is GraphNodeViewModel itemViewModel)
+                if (item != this && item.DataContext is GraphNodeViewModel { IsFallback: false } itemViewModel)
                 {
                     itemViewModel.Position.Value += delta;
                 }
@@ -311,6 +312,7 @@ public partial class GraphNodeView : UserControl
             OnReleased();
             if (DataContext is GraphNodeViewModel viewModel)
             {
+                if (viewModel.IsFallback && !_start.NearlyEquals(e.GetPosition(Parent as Visual))) return;
                 if (_snapshot.NearlyEquals(GetPoint()))
                 {
                     if (e.KeyModifiers == KeyModifiers.Control)
