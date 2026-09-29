@@ -1,7 +1,6 @@
 ﻿using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Loader;
-using Beutl.Logging;
-using NuGet.Common;
 using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -11,7 +10,6 @@ namespace Beutl.Api.Services;
 // https://github.com/dotnet/runtime/blob/9ec7fc21862f3446c6c6f7dcfff275942e3884d3/src/libraries/System.Private.CoreLib/src/System/Runtime/Loader/AssemblyDependencyResolver.cs
 internal sealed class PluginDependencyResolver
 {
-    private readonly ILogger _logger = new LoggerAdapter(Log.CreateLogger<PluginDependencyResolver>());
     private const string NeutralCultureName = "neutral";
     private const string ResourceAssemblyExtension = ".dll";
 
@@ -26,25 +24,32 @@ internal sealed class PluginDependencyResolver
 
         if (reader != null)
         {
-            var availablePackages = new HashSet<PackageIdentity>();
-
-            GetPackageDependencies(
-                mainDirectory,
-                reader,
-                reader.GetIdentity(),
-                framework,
-                _logger,
-                availablePackages);
+            PackageIdentity root = reader.GetIdentity();
+            string packageDirectory = Path.GetDirectoryName(reader.GetNuspecFile())!;
+            foreach (PackageIdentity package in ResolvedPackageDependencies.Load(reader, framework)
+                         .OrderBy(package => PackageIdentityComparer.Default.Equals(package, root) ? 0 : 1))
+            {
+                if (PackageIdentityComparer.Default.Equals(package, root))
+                {
+                    AddPackageAssets(packageDirectory, reader, framework);
+                }
+                else
+                {
+                    string directory = Helper.ResolveInstalledDirectory(package);
+                    using var dependencyReader = new PackageFolderReader(directory);
+                    AddPackageAssets(directory, dependencyReader, framework);
+                }
+            }
         }
         else
         {
-            foreach (string item in Directory.GetFiles(mainDirectory, "*.*", SearchOption.AllDirectories))
+            string[] files = Directory.GetFiles(mainDirectory, "*.*", SearchOption.AllDirectories);
+            foreach (string item in files)
             {
                 string relative = Path.GetRelativePath(mainDirectory, item);
-                if (relative.StartsWith("runtimes")
-                    && Path.GetDirectoryName(item) is { } fullname)
+                if (relative.StartsWith("runtimes" + Path.DirectorySeparatorChar, StringComparison.Ordinal))
                 {
-                    _nativeSearchPaths.Add(fullname);
+                    continue;
                 }
                 else if (item.EndsWith(".resources.dll"))
                 {
@@ -63,27 +68,23 @@ internal sealed class PluginDependencyResolver
                     _assemblyPaths.TryAdd(Path.GetFileNameWithoutExtension(item), item);
                 }
             }
+            AddNativeSearchPaths(mainDirectory, files.Select(file => Path.GetRelativePath(mainDirectory, file)));
         }
 
         _assemblyDirectorySearchPaths = [mainDirectory];
     }
 
-    private void GetPackageDependencies(
+    private void AddPackageAssets(
         string path,
         PackageFolderReader reader,
-        PackageIdentity package,
-        NuGetFramework framework,
-        ILogger logger,
-        ISet<PackageIdentity> availablePackages)
+        NuGetFramework framework)
     {
-        if (availablePackages.Contains(package)) return;
-
-        IEnumerable<PackageDependencyGroup> deps = reader.GetPackageDependencies();
+        FrameworkSpecificGroup[] libGroups = reader.GetLibItems().ToArray();
         NuGetFramework? nearest = Helper.FrameworkReducer.GetNearest(
             framework,
-            deps.Select(x => x.TargetFramework));
+            libGroups.Select(group => group.TargetFramework));
 
-        string[] libItems = reader.GetLibItems()
+        string[] libItems = libGroups
             .Where(x => x.TargetFramework == nearest)
             .SelectMany(x => x.Items)
             .ToArray();
@@ -111,32 +112,41 @@ internal sealed class PluginDependencyResolver
             }
         }
 
-        foreach (string? item in reader.GetItems("runtimes")
-            .SelectMany(x => x.Items))
-        {
-            string add = Path.Combine(path, Path.GetDirectoryName(item)!);
-            if (Directory.Exists(add))
-            {
-                _nativeSearchPaths.Add(add);
-            }
-        }
+        AddNativeSearchPaths(path, reader.GetItems("runtimes").SelectMany(group => group.Items));
+    }
 
-        availablePackages.Add(package);
-
-        foreach (PackageDependency? dependency in deps.Where(x => x.TargetFramework == nearest)
-            .SelectMany(x => x.Packages))
+    private void AddNativeSearchPaths(string directory, IEnumerable<string> files)
+    {
+        string[] paths = files.Select(path => path.Replace('\\', '/')).ToArray();
+        foreach (string runtime in GetRuntimeIdentifiers().Distinct(StringComparer.Ordinal))
         {
-            var dependentPackage = new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion);
-            string? dependentPath = Helper.PackagePathResolver.GetInstalledPath(dependentPackage);
-            if (dependentPath != null)
-            {
-                GetPackageDependencies(
-                    dependentPath,
-                    new PackageFolderReader(dependentPath),
-                    dependentPackage,
-                    framework, logger, availablePackages);
-            }
+            string prefix = $"runtimes/{runtime}/native/";
+            string[] matches = paths.Where(path => path.StartsWith(prefix, StringComparison.Ordinal)).ToArray();
+            if (matches.Length == 0) continue;
+            foreach (string path in matches)
+                _nativeSearchPaths.Add(Path.GetDirectoryName(Path.Combine(directory, path))!);
+            // A package's best matching RID wins; do not load another architecture's
+            // identically named library or mix generic assets into a more specific set.
+            break;
         }
+    }
+
+    private static IEnumerable<string> GetRuntimeIdentifiers()
+    {
+        yield return RuntimeInformation.RuntimeIdentifier;
+        string architecture = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
+        string? os = OperatingSystem.IsWindows() ? "win" : OperatingSystem.IsMacOS() ? "osx" : OperatingSystem.IsLinux() ? "linux" : null;
+        if (os != null)
+        {
+            yield return $"{os}-{architecture}";
+            yield return os;
+        }
+        if (!OperatingSystem.IsWindows())
+        {
+            yield return $"unix-{architecture}";
+            yield return "unix";
+        }
+        yield return "any";
     }
 
     public string? ResolveAssemblyToPath(AssemblyName assemblyName)
@@ -146,9 +156,10 @@ internal sealed class PluginDependencyResolver
         {
             foreach (string searchPath in _resourceSearchPaths)
             {
+                if (!string.Equals(Path.GetFileName(searchPath), assemblyName.CultureName, StringComparison.OrdinalIgnoreCase))
+                    continue;
                 string assemblyPath = Path.Combine(
                     searchPath,
-                    assemblyName.CultureName,
                     $"{assemblyName.Name}{ResourceAssemblyExtension}");
                 if (File.Exists(assemblyPath))
                 {

@@ -14,10 +14,10 @@ public abstract class PackageLoader : IBeutlApiResource
 #pragma warning restore CA1822
     {
         NuGetFramework framework = Helper.GetFrameworkName();
-        var reader = new PackageFolderReader(installedPath);
+        using var reader = new PackageFolderReader(installedPath);
 
         NuGetFramework nearest = Helper.FrameworkReducer
-            .GetNearest(framework, reader.GetPackageDependencies().Select(x => x.TargetFramework))
+            .GetNearest(framework, reader.GetLibItems().Select(x => x.TargetFramework))
             ?? throw new Exception("Unknown Framework");
 
         string name = Path.GetFileName(installedPath);
