@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
@@ -52,6 +53,68 @@ public sealed class SceneNodeTests
         Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(0.5)), Is.EqualTo(1), "Seconds reach the time input.");
         Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(2)), Is.EqualTo(0));
         Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Convert));
+    }
+
+    [Test]
+    public void OutputActuallyDrawsTheReferencedScene()
+    {
+        var rect = new RectShape
+        {
+            Width = { CurrentValue = 20 },
+            Height = { CurrentValue = 20 },
+            AlignmentX = { CurrentValue = Beutl.Media.AlignmentX.Left },
+            AlignmentY = { CurrentValue = Beutl.Media.AlignmentY.Top },
+            Fill = { CurrentValue = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) },
+        };
+        Scene referenced = CreateScene(rect);
+        var (model, node) = CreateGraph(referenced);
+        node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
+
+        using var snapshot = new GraphSnapshot();
+        var context = new CompositionContext(TimeSpan.FromSeconds(3));
+        snapshot.Build(model, context);
+        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        var resource = (SceneNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
+        Assert.That(resource.Output, Is.Not.Null);
+
+        using var renderer = new RenderNodeRenderer(resource.Output!, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Beutl.Graphics.Rect(0, 0, 64, 48),
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
+        Assert.That(renderer.Measure().OutputBounds, Is.EqualTo(new Beutl.Graphics.Rect(0, 0, 20, 20)),
+            "The referenced scene's content is drawn, not just evaluated.");
+    }
+
+    [Test]
+    public void TimeNamesTheReferencedScenesTimeWhereverTheGraphsElementStarts()
+    {
+        Scene referenced = CreateScene(new RectShape());
+        var (model, node) = CreateGraph(referenced);
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue = model;
+        var host = new Element
+        {
+            Start = TimeSpan.FromSeconds(5),
+            Length = TimeSpan.FromSeconds(10),
+            Uri = new Uri(Path.Combine(_directory, "host.layer")),
+        };
+        host.AddObject(drawable);
+        // As in the editor: the graph's element sits in a scene of its own.
+        var outer = new Scene(64, 48, "outer") { Uri = new Uri(Path.Combine(_directory, "outer.scene")) };
+        outer.Children.Add(host);
+        var application = new BeutlApplication();
+        var project = new Project();
+        application.Project = project;
+        project.Items.Add(outer);
+        project.Items.Add(referenced);
+        Assert.That(node.Object.Start, Is.EqualTo(TimeSpan.FromSeconds(5)), "Attached, nested objects take the element's time range.");
+
+        node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
+
+        Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(6)), Is.EqualTo(1),
+            "0.5 s of the referenced scene is drawn, not 0.5 s minus the element's start.");
     }
 
     [Test]

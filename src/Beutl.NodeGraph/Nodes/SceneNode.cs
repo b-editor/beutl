@@ -72,7 +72,10 @@ public partial class SceneNode : GraphNode
         {
             var node = RequireOriginal();
             // The referenced scene is evaluated at its own time, with this render's settings.
-            var sceneContext = new CompositionContext(Time)
+            // SceneDrawable subtracts its start, which it takes from the element hosting this
+            // graph; adding it back makes Time the referenced scene's time wherever that
+            // element sits on the timeline.
+            var sceneContext = new CompositionContext(Time + node.Object.Start)
             {
                 DisableResourceShare = context.DisableResourceShare,
                 PreferProxy = context.PreferProxy,
