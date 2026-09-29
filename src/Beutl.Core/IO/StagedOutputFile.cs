@@ -10,7 +10,11 @@ internal sealed class StagedOutputFile : IDisposable
 
     public StagedOutputFile(string destinationPath)
     {
-        DestinationPath = Path.GetFullPath(destinationPath);
+        string requestedPath = Path.GetFullPath(destinationPath);
+        var destination = new FileInfo(requestedPath);
+        DestinationPath = destination.LinkTarget is null
+            ? requestedPath
+            : destination.ResolveLinkTarget(returnFinalTarget: true)!.FullName;
         string parent = Path.GetDirectoryName(DestinationPath)!;
         if (!Directory.Exists(parent))
             throw new DirectoryNotFoundException(parent);
@@ -22,7 +26,7 @@ internal sealed class StagedOutputFile : IDisposable
             Directory.CreateDirectory(_directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
 
         // Preserve the filename/extension: encoders use them to select the container format.
-        TemporaryPath = Path.Combine(_directory, Path.GetFileName(DestinationPath));
+        TemporaryPath = Path.Combine(_directory, Path.GetFileName(requestedPath));
     }
 
     public string DestinationPath { get; }

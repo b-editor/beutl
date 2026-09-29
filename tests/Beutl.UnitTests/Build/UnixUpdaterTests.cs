@@ -9,6 +9,7 @@ public class UnixUpdaterTests
     [TestCase("linux", "backup")]
     [TestCase("linux", "install")]
     [TestCase("linux", "restore")]
+    [TestCase("linux", "remove")]
     [TestCase("osx", "none")]
     [TestCase("osx", "backup")]
     [TestCase("osx", "install")]
@@ -29,6 +30,13 @@ public class UnixUpdaterTests
             WriteExecutable(Path.Combine(bin, "sleep"), "#!/bin/bash\nexit 0\n");
             WriteExecutable(Path.Combine(bin, "pgrep"), "#!/bin/bash\nexit 1\n");
             WriteExecutable(Path.Combine(bin, "osascript"), "#!/bin/bash\nexit 0\n");
+            WriteExecutable(Path.Combine(bin, "rm"), """
+                #!/bin/bash
+                if [ "$TEST_FAILURE" = remove ] && [ "$2" = "$TEST_ORIGINAL" ] && [ -f "$2/incomplete-new-file" ]; then
+                    exit 13
+                fi
+                exec /bin/rm "$@"
+                """ + "\n");
             WriteExecutable(Path.Combine(bin, "cp"), """
                 #!/bin/bash
                 if [ "$TEST_FAILURE" = backup ] && [ "$2" = "$TEST_ORIGINAL" ]; then
@@ -90,7 +98,7 @@ public class UnixUpdaterTests
             {
                 Assert.That(process.ExitCode, failure == "none" ? Is.Zero : Is.Not.Zero, output);
                 Assert.That(Directory.Exists(lockDirectory), Is.False, output);
-                if (failure != "restore")
+                if (failure is not ("restore" or "remove"))
                 {
                     Assert.That(File.Exists(Path.Combine(original, "Beutl")), Is.True, output);
                     if (File.Exists(Path.Combine(original, "Beutl")))
@@ -98,11 +106,16 @@ public class UnixUpdaterTests
                             Is.EqualTo(failure == "none" ? "updated" : "original"));
                     Assert.That(File.Exists(Path.Combine(original, "incomplete-new-file")), Is.False);
                 }
-                if (failure is "install" or "restore")
+                if (failure is "install" or "restore" or "remove")
                 {
                     Assert.That(backups, Has.Length.EqualTo(1));
                     if (backups.Length == 1)
                         Assert.That(File.ReadAllText(Path.Combine(backups[0], "Beutl")), Is.EqualTo("original"));
+                }
+                if (failure == "remove")
+                {
+                    Assert.That(Directory.GetDirectories(original, "old app_backup_*"), Is.Empty);
+                    Assert.That(File.Exists(Path.Combine(original, "incomplete-new-file")), Is.True);
                 }
                 if (failure == "none") Assert.That(backups, Is.Empty);
             });

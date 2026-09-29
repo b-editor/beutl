@@ -35,17 +35,28 @@ internal static class ResolvedPackageDependencies
         string path = Path.Combine(directory, FileName);
         if (File.Exists(path))
         {
-            Snapshot snapshot = JsonSerializer.Deserialize<Snapshot>(File.ReadAllText(path))
-                ?? throw new InvalidDataException("The package dependency snapshot is empty.");
-            if (!PackageIdentityComparer.Default.Equals(ReadIdentity(snapshot.Root), root))
-                throw new InvalidDataException("The dependency snapshot belongs to another package.");
-            if (snapshot.Framework == framework.GetShortFolderName())
+            try
             {
-                PackageIdentity[] packages = snapshot.Packages.Select(ReadIdentity).ToArray();
-                if (!packages.Contains(root, PackageIdentityComparer.Default)
-                    || packages.Select(package => package.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() != packages.Length)
-                    throw new InvalidDataException("The package dependency snapshot is inconsistent.");
-                return packages;
+                Snapshot snapshot = JsonSerializer.Deserialize<Snapshot>(File.ReadAllText(path))
+                    ?? throw new InvalidDataException("The package dependency snapshot is empty.");
+                if (!PackageIdentityComparer.Default.Equals(ReadIdentity(snapshot.Root), root))
+                    throw new InvalidDataException("The dependency snapshot belongs to another package.");
+                if (snapshot.Framework == framework.GetShortFolderName())
+                {
+                    PackageIdentity[] packages = snapshot.Packages?.Select(ReadIdentity).ToArray()
+                        ?? throw new InvalidDataException("The package dependency list is missing.");
+                    if (!packages.Contains(root, PackageIdentityComparer.Default)
+                        || packages.Select(package => package.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() != packages.Length)
+                        throw new InvalidDataException("The package dependency snapshot is inconsistent.");
+                    if (packages.All(package => PackageIdentityComparer.Default.Equals(package, root)
+                                                || Directory.Exists(Helper.ResolveInstalledDirectory(package))))
+                        return packages;
+                }
+            }
+            catch (Exception ex) when (ex is JsonException or InvalidDataException or IOException or UnauthorizedAccessException)
+            {
+                // A copied, incomplete, or stale cache must not disable a usable
+                // installation or prevent cleanup of every other package.
             }
         }
 

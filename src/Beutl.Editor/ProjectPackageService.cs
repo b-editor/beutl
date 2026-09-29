@@ -123,6 +123,12 @@ public sealed class ProjectPackageService
 
             // Step 7: Save the project
             progress?.Report((Strings.ExportingProject, 0.8));
+            foreach (CoreObject obj in ExternalResourceCollector.EnumerateObjects(tempProject))
+            {
+                if (obj.Uri is { IsFile: true } uri
+                    && !FilePathComparison.IsSameOrDescendant(tempProjectDir, uri.LocalPath))
+                    throw new IOException($"Cannot save an export sidecar outside staging: {uri}");
+            }
             CoreSerializer.StoreToUri(tempProject, tempProjectUri);
 
             // Detach from the virtual root

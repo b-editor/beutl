@@ -113,6 +113,13 @@ public class ResourceRelocationService
                 try
                 {
                     UpdateUri(stagingProject, id, prop, new Uri(destFilePath));
+                    if (GetFileSource(stagingProject, id, prop) is ModelSource relocatedModel
+                        && ExternalResourceCollector.RequiresRelocation(relocatedModel, projectDirectory))
+                    {
+                        // Some formats retain absolute buffer/material references. The
+                        // copied source is then incomplete even when its meshes can render.
+                        failedResources.Add($"{originalUri} ({id}.{prop})");
+                    }
                     count++;
                     _logger.LogDebug("Relocated file: {OriginalPath} -> {NewPath}", sourceFilePath, destFilePath);
                 }
@@ -361,6 +368,10 @@ public class ResourceRelocationService
                     // Skip if the font file fails to load
                 }
             }
+            // Re-sharing a bundle must keep its font version, not add identically
+            // named host fonts that could win the next import's family registration.
+            if (fontDir == projectFontsDirectory && foundFiles.Count > 0)
+                return foundFiles;
         }
 
         // Also search system fonts (platform-specific paths)

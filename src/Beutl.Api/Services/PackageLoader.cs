@@ -18,6 +18,7 @@ public abstract class PackageLoader : IBeutlApiResource
 
         NuGetFramework nearest = Helper.FrameworkReducer
             .GetNearest(framework, reader.GetLibItems().Select(x => x.TargetFramework))
+            ?? Helper.FrameworkReducer.GetNearest(framework, reader.GetPackageDependencies().Select(x => x.TargetFramework))
             ?? throw new Exception("Unknown Framework");
 
         string name = Path.GetFileName(installedPath);

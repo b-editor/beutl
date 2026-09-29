@@ -43,6 +43,7 @@
     <PackageReference Include="Silk.NET.Shaderc" />
     <PackageReference Include="Silk.NET.Shaderc.Native" GeneratePathProperty="true" />
     <PackageReference Include="Silk.NET.Assimp" />
+    <PackageReference Include="Ultz.Native.Assimp" GeneratePathProperty="true" />
   </ItemGroup>
 
   <!--
@@ -76,6 +77,17 @@
     <Content Include="$(PkgSilk_NET_Shaderc_Native)\runtimes\$(_ShadercNativeRid)\native\*">
       <Link>%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>False</Visible>
+    </Content>
+  </ItemGroup>
+
+  <!-- Assimp uses the same Silk loader and distro-specific RID lookup as Shaderc.
+       Make the target RID's bundled libraries available through BaseDirectoryResolver. -->
+  <ItemGroup Condition="'$(_ShadercNativeRid)' != '' And '$(PkgUltz_Native_Assimp)' != '' And Exists('$(PkgUltz_Native_Assimp)\runtimes\$(_ShadercNativeRid)\native')">
+    <Content Include="$(PkgUltz_Native_Assimp)\runtimes\$(_ShadercNativeRid)\native\*">
+      <Link>%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Visible>False</Visible>
     </Content>
   </ItemGroup>

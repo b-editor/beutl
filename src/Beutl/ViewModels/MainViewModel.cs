@@ -475,19 +475,23 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     {
         try
         {
-            await _projectService.CloseProjectAsync();
+            if (beforeDispose is null)
+            {
+                await _projectService.CloseProjectAsync();
+                if (!await _editorService.SaveSceneEditorsBeforeCloseAsync(_editorService.TabItems.ToArray()))
+                    return false;
+            }
+            else
+            {
+                await _projectService.CloseProjectForUpdateAsync(async () =>
+                    await _editorService.SaveSceneEditorsBeforeCloseAsync(_editorService.TabItems.ToArray())
+                    && beforeDispose());
+            }
         }
         catch (ProjectCloseAbortedException)
         {
             return false;
         }
-
-        if (!await _editorService.SaveSceneEditorsBeforeCloseAsync(_editorService.TabItems.ToArray()))
-            return false;
-
-        // Save/veto handlers have completed, but shell services are still usable if launching fails.
-        if (beforeDispose is not null && !beforeDispose())
-            return false;
 
         lock (_disposeGate)
         {

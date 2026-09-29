@@ -13,6 +13,42 @@ namespace Beutl.UnitTests.Editor;
 
 public class ModelPackageTests
 {
+    [Test]
+    public async Task Absolute_model_dependencies_are_reported_when_the_copy_still_uses_the_original()
+    {
+        string root = Directory.CreateTempSubdirectory("absolute-model-package-").FullName;
+        try
+        {
+            string external = Directory.CreateDirectory(Path.Combine(root, "external")).FullName;
+            string projectDirectory = Directory.CreateDirectory(Path.Combine(root, "project")).FullName;
+            string texture = Path.Combine(external, "albedo.png");
+            using (var bitmap = new Beutl.Media.Bitmap(1, 1))
+            {
+                bitmap.GetPixelSpan().Fill(255);
+                Assert.That(bitmap.Save(texture), Is.True);
+            }
+            File.WriteAllText(Path.Combine(external, "material.mtl"), $"newmtl Painted\nKd 1 1 1\nmap_Kd {texture}\n");
+            string modelPath = Path.Combine(external, "model.obj");
+            File.WriteAllText(modelPath, "mtllib material.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl Painted\nf 1 2 3\n");
+            var source = new ModelSource(); source.ReadFrom(new Uri(modelPath));
+            var model = new Model3D(); model.Source.CurrentValue = source;
+            var scene3D = new Scene3D(); scene3D.Objects.Add(model);
+            var element = new Element { Uri = new Uri(Path.Combine(projectDirectory, "model.belm")) };
+            element.Objects.Add(scene3D);
+            var scene = new Scene(64, 64, "Model") { Uri = new Uri(Path.Combine(projectDirectory, "main.scene")) };
+            scene.Children.Add(element);
+            var project = new Project { Uri = new Uri(Path.Combine(projectDirectory, "main.bep")) };
+            project.Items.Add(scene);
+            CoreSerializer.StoreToUri(project, project.Uri);
+
+            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, Path.Combine(root, "shared.beutl"));
+
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.FailedResources, Is.Not.Empty);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(false, true)]

@@ -111,6 +111,43 @@ public class UpdateShutdownTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Failed_updater_handoff_restores_the_open_project_and_selected_scene(bool throws)
+    {
+        var (main, scene) = await CreateShellAsync();
+        var project = new Project { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "project.bep")) };
+        project.Items.Add(scene);
+        CoreSerializer.StoreToUri(project, project.Uri);
+        await main.ProjectService.OpenProject(project.Uri.LocalPath).WaitAsync(TimeSpan.FromSeconds(20));
+        Project opened = main.ProjectService.CurrentProject.Value!;
+        Scene activeScene = opened.Items.OfType<Scene>().Single();
+        activeScene.Duration = TimeSpan.FromSeconds(73);
+        try
+        {
+            if (throws)
+            {
+                Exception? failure = null;
+                try { await main.TryDisposeForUpdateAsync(() => throw new IOException("launch failed")).WaitAsync(TimeSpan.FromSeconds(20)); }
+                catch (IOException exception) { failure = exception; }
+                Assert.That(failure, Is.TypeOf<IOException>());
+            }
+            else
+                Assert.That(await main.TryDisposeForUpdateAsync(() => false).WaitAsync(TimeSpan.FromSeconds(20)), Is.False);
+
+            Assert.That(main.ProjectService.CurrentProject.Value, Is.SameAs(opened));
+            Assert.That(main.EditorService.SelectedTabItem.Value?.Context.Value.Object, Is.SameAs(activeScene));
+            Assert.That(((EditViewModel)main.EditorService.SelectedTabItem.Value!.Context.Value).IsDisposingOrDisposed, Is.False);
+            Assert.That(activeScene.Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(activeScene.Uri!).Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+            Assert.That(await main.TryDisposeForUpdateAsync(() => true).WaitAsync(TimeSpan.FromSeconds(20)), Is.True);
+            await main.WaitForDisposalAsync().WaitAsync(TimeSpan.FromSeconds(20));
+            Assert.That(main.ProjectService.CurrentProject.Value, Is.Null);
+        }
+        finally { await DisposeShellAsync(main).WaitAsync(TimeSpan.FromSeconds(20)); }
+    }
+
     private static async Task<(MainViewModel Main, Scene Scene)> CreateShellAsync()
     {
         await TestReset.ResetShellAsync();

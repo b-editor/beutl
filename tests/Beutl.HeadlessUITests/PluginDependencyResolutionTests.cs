@@ -96,6 +96,33 @@ public class PluginDependencyResolutionTests
             Is.EqualTo(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll")));
     }
 
+    [TestCase("invalid-json")]
+    [TestCase("missing-list")]
+    [TestCase("wrong-root")]
+    [TestCase("missing-dependency")]
+    public void An_invalid_snapshot_falls_back_to_the_usable_installed_graph(string failure)
+    {
+        string dependency = CreatePackage("Common", "2.0.0");
+        string current = CreatePackage("Common", "3.0.0");
+        string root = CreatePackage("Root", "1.0.0", ("Common", "2.0.0"));
+        ResolvedPackageDependencies.Save(root, Helper.GetFrameworkName(), [Identity("Root", "1.0.0"), Identity("Common", "2.0.0")]);
+        string snapshot = Path.Combine(root, ResolvedPackageDependencies.FileName);
+        if (failure == "invalid-json") File.WriteAllText(snapshot, "{");
+        else if (failure == "missing-dependency") Directory.Delete(dependency, recursive: true);
+        else
+        {
+            var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(snapshot))!;
+            if (failure == "missing-list") json["Packages"] = null;
+            else json["Root"]!["Id"] = _prefix + "Other";
+            File.WriteAllText(snapshot, json.ToJsonString());
+        }
+        using var reader = new PackageFolderReader(root);
+        var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
+
+        Assert.That(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common")),
+            Is.EqualTo(Path.Combine(failure == "missing-dependency" ? current : dependency, "lib", "net10.0", _prefix + "Common.dll")));
+    }
+
     [Test]
     public async Task Cleanup_retains_the_pinned_dependency_and_removes_the_unused_version()
     {

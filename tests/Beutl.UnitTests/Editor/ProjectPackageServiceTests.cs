@@ -930,7 +930,8 @@ public class ProjectPackageServiceTests
         {
             Directory.CreateSymbolicLink(alias, _projectDir);
         }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or PlatformNotSupportedException)
+        catch (Exception ex) when (ex is UnauthorizedAccessException or PlatformNotSupportedException
+                                   || ex is IOException && OperatingSystem.IsWindows() && (ex.HResult & 0xffff) == 1314)
         {
             Assert.Ignore("Symlink creation is not available in this environment.");
         }
@@ -941,6 +942,46 @@ public class ProjectPackageServiceTests
         using var archive = ZipFile.OpenRead(output);
         Assert.That(archive.GetEntry("shared.beutl"), Is.Null);
         Assert.That(archive.GetEntry("test.bep"), Is.Not.Null);
+    }
+
+    [Test]
+    public async Task ExportAsync_FailedSidecarRelocationPreservesTheOriginalAndPreviousPackage()
+    {
+        Project project = CreateAndSaveTestProject();
+        string external = Directory.CreateDirectory(Path.Combine(_testDir, "external-scene")).FullName;
+        var scene = new Scene(64, 64, "External") { Uri = new Uri(Path.Combine(external, "external.scene")) };
+        var element = new Element { Uri = new Uri(Path.Combine(external, "clip.belm")) };
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        byte[] originalScene = File.ReadAllBytes(scene.Uri.LocalPath);
+        byte[] originalElement = File.ReadAllBytes(element.Uri.LocalPath);
+        string output = Path.Combine(_exportDir, "previous.beutl");
+        File.WriteAllText(output, "previous complete package");
+        var service = new ProjectPackageService(new FailedSceneRelocationService());
+
+        ExportResult result = await service.ExportAsync(project, output);
+
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.FailedResources, Is.Not.Empty);
+        Assert.That(File.ReadAllBytes(scene.Uri.LocalPath), Is.EqualTo(originalScene));
+        Assert.That(File.ReadAllBytes(element.Uri.LocalPath), Is.EqualTo(originalElement));
+        Assert.That(File.ReadAllText(output), Is.EqualTo("previous complete package"));
+    }
+
+    private sealed class FailedSceneRelocationService : ResourceRelocationService
+    {
+        public override Task<RelocationResult> RelocateFileSourcesAsync(
+            IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources, Project stagingProject,
+            string projectDirectory, CancellationToken cancellationToken = default)
+        {
+            Scene scene = stagingProject.Items.OfType<Scene>().Single(item => item.Name == "External");
+            Element element = scene.Children.Single();
+            string destination = Path.Combine(projectDirectory, "clip.belm");
+            File.Copy(element.Uri!.LocalPath, destination);
+            element.Uri = new Uri(destination);
+            return Task.FromResult(new RelocationResult(1, [scene.Uri!.LocalPath]));
+        }
     }
 
     [Test]

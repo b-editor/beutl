@@ -4,6 +4,39 @@ namespace Beutl.UnitTests.Core;
 
 public class StagedOutputFileTests
 {
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Linked_outputs_keep_the_link_and_publish_to_its_target(bool cancel, bool missingTarget)
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-linked-output-").FullName;
+        try
+        {
+            string target = Path.Combine(root, "actual-output");
+            string link = Path.Combine(root, "selected.mp4");
+            if (!missingTarget) File.WriteAllText(target, "original");
+            try { File.CreateSymbolicLink(link, target); }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or PlatformNotSupportedException
+                                       || ex is IOException && OperatingSystem.IsWindows() && (ex.HResult & 0xffff) == 1314)
+            {
+                Assert.Ignore("Symlink creation is not available.");
+            }
+            using (var output = new StagedOutputFile(link))
+            {
+                Assert.That(Path.GetFileName(output.TemporaryPath), Is.EqualTo("selected.mp4"));
+                File.WriteAllText(output.TemporaryPath, "complete");
+                if (cancel) Assert.Throws<OperationCanceledException>(() => output.Commit(new CancellationToken(true)));
+                else output.Commit(CancellationToken.None);
+            }
+            Assert.That(new FileInfo(link).LinkTarget, Is.Not.Null);
+            Assert.That(File.Exists(target), Is.EqualTo(!cancel || !missingTarget));
+            if (File.Exists(target)) Assert.That(File.ReadAllText(target), Is.EqualTo(cancel ? "original" : "complete"));
+            Assert.That(Directory.GetDirectories(root), Is.Empty);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     [Test]
     [TestCase(false)]
     [TestCase(true)]
