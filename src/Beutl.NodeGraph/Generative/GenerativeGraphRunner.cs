@@ -118,6 +118,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 await host.InvokeOnUIThreadAsync(() =>
                 {
                     GenerationRecord record = node.AddGeneration(request, result);
+                    node.RenewRequestKey();
                     node.OnGenerated(record);
                     node.SetStatus(GenerativeNodeStatus.Idle);
                     host.CommitHistory(NodeGraphStrings.AiGeneration);
@@ -133,6 +134,8 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 failed.Add(node);
                 await host.InvokeOnUIThreadAsync(() =>
                 {
+                    if (ex.SettledRequest)
+                        node.RenewRequestKey();
                     node.RestoreActivePreview();
                     node.SetStatus(GenerativeNodeStatus.Failed, ex.Message);
                 });

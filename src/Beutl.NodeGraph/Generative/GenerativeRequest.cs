@@ -282,7 +282,15 @@ public sealed record GenerativeProgress(string? Status, Ref<Bitmap>? Preview = n
 /// message is already localized by the executor.
 /// </summary>
 public sealed class GenerativeExecutionException(string message, Exception? innerException = null)
-    : Exception(message, innerException);
+    : Exception(message, innerException)
+{
+    /// <summary>
+    /// The server settled the request (failed and refunded, or gone), so the idempotency key
+    /// it went out under would only ever answer with this failure; the next attempt needs a
+    /// new one. False when the key is still the way back to a paid result.
+    /// </summary>
+    public bool SettledRequest { get; init; }
+}
 
 public static class GenerativeFingerprint
 {

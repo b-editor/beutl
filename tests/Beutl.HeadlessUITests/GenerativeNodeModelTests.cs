@@ -363,6 +363,7 @@ public sealed class GenerativeNodeModelTests
         AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos);
 
         string? message = null;
+        bool settled = false;
         try
         {
             await executor.ExecuteAsync(VideoRequest(duration: 4, audio: false, seed: null),
@@ -371,9 +372,11 @@ public sealed class GenerativeNodeModelTests
         catch (GenerativeExecutionException ex)
         {
             message = ex.Message;
+            settled = ex.SettledRequest;
         }
 
         Assert.That(message, Is.EqualTo(Strings.AiProviderError));
+        Assert.That(settled, Is.True, "A failed, refunded job needs a new key to be tried again.");
     }
 
     [AvaloniaTest]

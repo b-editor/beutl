@@ -320,7 +320,7 @@ internal sealed class AiGenerativeNodeExecutor(
                 requestKey.Retire(name);
             if (failure.IsResultDownloadFailure)
                 s_logger.LogError(ex, "Failed to download the AI result.");
-            throw new GenerativeExecutionException(failure.Message, ex);
+            throw new GenerativeExecutionException(failure.Message, ex) { SettledRequest = failure.RetiresName };
         }
         catch (Exception ex) when (ex is not GenerativeExecutionException)
         {
@@ -477,7 +477,7 @@ internal sealed class AiGenerativeNodeExecutor(
                 requestKey.Retire(name);
             if (failure.IsResultDownloadFailure)
                 s_logger.LogError(ex, "Failed to download the AI result.");
-            throw new GenerativeExecutionException(failure.Message, ex);
+            throw new GenerativeExecutionException(failure.Message, ex) { SettledRequest = failure.RetiresName };
         }
         catch (Exception ex) when (ex is not GenerativeExecutionException)
         {
@@ -565,7 +565,10 @@ internal sealed class AiGenerativeNodeExecutor(
         {
             // Settled and refunded: the name would only ever answer with this failure.
             requestKey.Retire(name);
-            throw new GenerativeExecutionException(AiErrorMessage.Localize(job.Error) ?? Strings.AiProviderError);
+            throw new GenerativeExecutionException(AiErrorMessage.Localize(job.Error) ?? Strings.AiProviderError)
+            {
+                SettledRequest = true,
+            };
         }
 
         // An unknown status is not an outcome; the key stays so queueing again collects it.
@@ -635,7 +638,7 @@ internal sealed class AiGenerativeNodeExecutor(
                 requestKey.Retire(name);
             if (failure.IsResultDownloadFailure)
                 s_logger.LogError(ex, "Failed to download the AI result.");
-            throw new GenerativeExecutionException(failure.Message, ex);
+            throw new GenerativeExecutionException(failure.Message, ex) { SettledRequest = failure.RetiresName };
         }
         catch (Exception ex) when (ex is not GenerativeExecutionException)
         {

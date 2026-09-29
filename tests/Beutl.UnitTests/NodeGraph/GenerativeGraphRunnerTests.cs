@@ -548,6 +548,26 @@ public sealed class GenerativeGraphRunnerTests
         Assert.That(forced.Billed.Select(i => i.Node), Is.EqualTo(new GenerativeNode[] { upstream }));
     }
 
+    [TestCase(null, true)]
+    [TestCase(true, true)]
+    [TestCase(false, false)]
+    public async Task ASettledRequestStartsANewIdempotencyKey(bool? failureSettles, bool renewed)
+    {
+        var model = new GraphModel();
+        var node = new AiImageGenerationNode();
+        node.Prompt.Property!.SetValue("a cat");
+        model.Nodes.Add(node);
+        string before = node.RequestKeySeed;
+        var executor = new FakeExecutor(_directory) { FailureSettles = failureSettles ?? false };
+        if (failureSettles is not null)
+            executor.FailFor = node;
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
+
+        Assert.That(node.RequestKeySeed != before, Is.EqualTo(renewed),
+            "A success or a settled failure needs a new key; an unsettled one keeps the way back to a paid job.");
+    }
+
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
     {
         var model = new GraphModel();
@@ -577,7 +597,9 @@ public sealed class GenerativeGraphRunnerTests
     {
         public List<GenerativeRequest> Requests { get; } = [];
 
-        public GenerativeNode? FailFor { get; init; }
+        public GenerativeNode? FailFor { get; set; }
+
+        public bool FailureSettles { get; init; }
 
         public Action? OnExecute { get; init; }
 
@@ -589,7 +611,7 @@ public sealed class GenerativeGraphRunnerTests
             Requests.Add(request);
             OnExecute?.Invoke();
             if (ReferenceEquals(request.Node, FailFor))
-                throw new GenerativeExecutionException("refused");
+                throw new GenerativeExecutionException("refused") { SettledRequest = FailureSettles };
 
             bool video = request is AiVideoGenerationNodeRequest or AiVideoEditNodeRequest;
             string path = Path.Combine(directory, $"{Guid.NewGuid():N}{(video ? ".mp4" : ".png")}");

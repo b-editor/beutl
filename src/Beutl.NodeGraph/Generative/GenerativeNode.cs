@@ -236,6 +236,13 @@ public abstract partial class GenerativeNode : GraphNode
         return removable.Length;
     }
 
+    /// <summary>
+    /// Starts a new idempotency key once the last one is settled. The key is derived from the
+    /// seed and the request, so without this an identical request — a regeneration, or a retry
+    /// after a refunded failure — would be answered with the old job instead of a new one.
+    /// </summary>
+    internal void RenewRequestKey() => RequestKeySeed = Guid.NewGuid().ToString("N");
+
     /// <summary>Adds a finished generation and makes it the one the node outputs.</summary>
     internal GenerationRecord AddGeneration(GenerativeRequest request, GenerativeExecutionResult result)
     {
