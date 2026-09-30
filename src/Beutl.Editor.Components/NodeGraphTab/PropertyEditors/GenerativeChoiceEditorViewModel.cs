@@ -81,6 +81,8 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
         }
     }
 
+    private int _loadVersion;
+
     private async Task LoadAsync(IGenerativeModelCatalog catalog)
     {
         if (_catalog is null)
@@ -89,13 +91,16 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
             _choice.Node.CatalogOperationChanged += OnCatalogOperationChanged;
         }
 
+        // Only the latest load may apply: a slower answer for the previous task would
+        // otherwise replace the models of the one now chosen.
+        int version = ++_loadVersion;
         try
         {
             IReadOnlyList<GenerativeModelInfo> models =
                 await catalog.GetModelsAsync(_choice.Node.CatalogOperationId, CancellationToken.None);
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (_disposed)
+                if (_disposed || version != _loadVersion)
                     return;
                 bool reloaded = _catalogLoaded;
                 _models = models;

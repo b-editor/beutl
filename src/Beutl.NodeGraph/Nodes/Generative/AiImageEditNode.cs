@@ -31,7 +31,9 @@ public sealed partial class AiImageEditNode : GenerativeNode, IPromptLibraryTarg
     public override GenerativeOperation Operation => GenerativeOperation.ImageEdit;
 
     public override string CatalogOperationId
-        => $"image.edit.{(Task.Property?.GetValue() ?? AiImageEditTask.RemoveBackground).ToId()}";
+        => CatalogOperationFor(Task.Property?.GetValue() ?? AiImageEditTask.RemoveBackground);
+
+    private static string CatalogOperationFor(AiImageEditTask task) => $"image.edit.{task.ToId()}";
 
     public override IPropertyAdapter<string>? ModelProperty => Model.Property;
 
@@ -67,6 +69,8 @@ public sealed partial class AiImageEditNode : GenerativeNode, IPromptLibraryTarg
 
         return new AiImageEditNodeRequest(this)
         {
+            // The evaluated task, not the port's local value, which a connection overrides.
+            CatalogOperationId = CatalogOperationFor(task),
             Task = task,
             Prompt = prompt,
             OutpaintExpansionPercent = task == AiImageEditTask.Outpaint ? r.OutpaintExpansion.ToPercent() : null,

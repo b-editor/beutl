@@ -5,8 +5,8 @@ using Beutl.Language;
 using Beutl.Logging;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
@@ -48,8 +48,9 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
             .CombineLatest(IsGenerating, (has, running) => has && !running)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        HasGenerativeNodes.Value = graph.Nodes.Any(node => node is GenerativeNode);
-        graph.Nodes.CollectionChanged += OnNodesChanged;
+        HasGenerativeNodes.Value = ContainsGenerativeNode();
+        // Raised for nodes added or removed inside groups too, which the graph also runs.
+        graph.TopologyChanged += OnTopologyChanged;
 
         graph.AllConnections.ForEachItem(
                 item =>
@@ -135,8 +136,11 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
     public void CancelGenerative() => _generativeCts?.Cancel();
 
-    private void OnNodesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        => HasGenerativeNodes.Value = NodeGraph.Nodes.Any(node => node is GenerativeNode);
+    private void OnTopologyChanged(object? sender, EventArgs e)
+        => HasGenerativeNodes.Value = ContainsGenerativeNode();
+
+    private bool ContainsGenerativeNode()
+        => NodeGraph.EnumerateGraphs().SelectMany(graph => graph.Nodes).Any(node => node is GenerativeNode);
 
     public CoreList<GraphNodeViewModel> Nodes { get; } = [];
 
@@ -216,7 +220,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     public void Dispose()
     {
         _generativeCts?.Cancel();
-        NodeGraph.Nodes.CollectionChanged -= OnNodesChanged;
+        NodeGraph.TopologyChanged -= OnTopologyChanged;
         foreach (ConnectionViewModel conn in AllConnections)
         {
             conn.Dispose();

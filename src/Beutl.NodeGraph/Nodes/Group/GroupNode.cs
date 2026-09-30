@@ -297,6 +297,9 @@ public partial class GroupNode : GraphNode
         private int _groupInputSlotIndex = -1;
         private int _groupOutputSlotIndex = -1;
 
+        /// <summary>The group's own graph as last evaluated, for reading the nodes inside it.</summary>
+        internal GraphSnapshot? InnerSnapshot => _innerSnapshot;
+
         public override void Initialize(GraphCompositionContext context)
         {
             var node = RequireOriginal();

@@ -44,7 +44,9 @@ public sealed partial class AiPromptNode : GraphNode, IPromptLibraryTarget
 
     public GenerativeOperation PromptOperation => GenerativeOperation.ImageGeneration;
 
-    public bool CanApplyPrompt => true;
+    // Applying sets the fields' own values, which a connected field would ignore.
+    public bool CanApplyPrompt => Prompt.Connection.IsNull && Style.Connection.IsNull
+        && Composition.Connection.IsNull && Motion.Connection.IsNull && Exclusions.Connection.IsNull;
 
     public string ComposePrompt() => PromptSections.Compose(
         Prompt.Property?.GetValue(),
@@ -54,16 +56,17 @@ public sealed partial class AiPromptNode : GraphNode, IPromptLibraryTarget
         Exclusions.Property?.GetValue());
 
     /// <summary>
-    /// A saved prompt is already written out with its sections, so it replaces the main
-    /// field and clears the others rather than being composed with them a second time.
+    /// A saved prompt is already written out with its sections, so it is split back into the
+    /// fields: composing them again sends the saved text, not a second copy of its labels.
     /// </summary>
     public void ApplyPrompt(string prompt)
     {
-        Prompt.Property?.SetValue(prompt);
-        Style.Property?.SetValue(string.Empty);
-        Composition.Property?.SetValue(string.Empty);
-        Motion.Property?.SetValue(string.Empty);
-        Exclusions.Property?.SetValue(string.Empty);
+        (string main, string style, string composition, string motion, string exclusions) = PromptSections.Parse(prompt);
+        Prompt.Property?.SetValue(main);
+        Style.Property?.SetValue(style);
+        Composition.Property?.SetValue(composition);
+        Motion.Property?.SetValue(motion);
+        Exclusions.Property?.SetValue(exclusions);
     }
 
     public partial class Resource

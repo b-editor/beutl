@@ -39,7 +39,9 @@ public sealed partial class AiVideoEditNode : GenerativeNode, IPromptLibraryTarg
 
     public override GenerativeOperation Operation => GenerativeOperation.VideoEdit;
 
-    public override string CatalogOperationId => (Task.Property?.GetValue() ?? AiVideoEditMode.Edit) switch
+    public override string CatalogOperationId => CatalogOperationFor(Task.Property?.GetValue() ?? AiVideoEditMode.Edit);
+
+    private static string CatalogOperationFor(AiVideoEditMode mode) => mode switch
     {
         AiVideoEditMode.Extend => "video.extend",
         AiVideoEditMode.Motion => "video.motion",
@@ -91,6 +93,8 @@ public sealed partial class AiVideoEditNode : GenerativeNode, IPromptLibraryTarg
 
         return new AiVideoEditNodeRequest(this)
         {
+            // The evaluated task, not the port's local value, which a connection overrides.
+            CatalogOperationId = CatalogOperationFor(r.Task),
             Mode = r.Task,
             Prompt = prompt,
             DurationSeconds = r.Duration,

@@ -6,13 +6,13 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-using FluentAvalonia.UI.Controls;
 using Beutl.Controls;
-using Beutl.Language;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
+using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
 

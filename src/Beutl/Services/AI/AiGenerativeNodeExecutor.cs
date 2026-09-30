@@ -73,6 +73,13 @@ internal sealed class AiGenerativeNodeExecutor(
         int? seed = capabilities is { SupportsSeed: false } ? null : request.Seed;
         AiModelId? model = chosen is not null ? new AiModelId(chosen.Id) : null;
         AiImageReferenceLimits referenceLimits = catalog.GetImageReferenceLimits(AiOperations.ImageGeneration);
+        // Checked here so an oversized input reads as one, not as a failure inside the dispatch.
+        if (request.References.Any(reference => reference.EncodedPng.LongLength > AiRequestLimits.MaxImageUploadBytes)
+            || request.References.Sum(reference => reference.EncodedPng.LongLength) > referenceLimits.MaxTotalBytes)
+        {
+            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
+        }
+
         AiUploadSource[] references = request.References
             .Select(reference => AiUploadSource.FromBytes(reference.Name, reference.EncodedPng))
             .ToArray();
@@ -198,6 +205,12 @@ internal sealed class AiGenerativeNodeExecutor(
             || (request.LastFrame is not null && !limits.SupportsLastFrame))
         {
             throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
+        }
+
+        if (request.FirstFrame?.EncodedPng.LongLength > AiRequestLimits.MaxFrameUploadBytes
+            || request.LastFrame?.EncodedPng.LongLength > AiRequestLimits.MaxFrameUploadBytes)
+        {
+            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
         }
 
         var references = new List<(string Role, AiUploadSource Upload, byte[] Bytes)>();

@@ -1,9 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
 using Beutl.Extensibility;
-using Beutl.Language;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Composition;
@@ -474,6 +474,12 @@ public abstract partial class GenerativeNode : GraphNode
         }
     }
 
+    /// <summary>
+    /// The largest clip read into a request: the service's source limit. Anything larger is
+    /// refused before it is read, rather than loaded whole only to be refused later.
+    /// </summary>
+    internal const long MaxVideoInputBytes = 32L * 1024 * 1024;
+
     /// <summary>Reads a clip handed to a generation as input.</summary>
     protected static GenerativeFileInput? ReadVideoInput(VideoSource? source, string name)
     {
@@ -490,7 +496,12 @@ public abstract partial class GenerativeNode : GraphNode
         };
         try
         {
-            return new GenerativeFileInput($"{name}{extension}", mediaType, File.ReadAllBytes(path));
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (stream.Length > MaxVideoInputBytes)
+                throw new GenerativeExecutionException(Strings.AiFileTooLarge);
+            byte[] content = new byte[stream.Length];
+            stream.ReadExactly(content);
+            return new GenerativeFileInput($"{name}{extension}", mediaType, content);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

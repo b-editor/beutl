@@ -2,12 +2,14 @@
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Graphics;
-using Beutl.NodeGraph.Composition;
 using Beutl.Media;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Generative;
+using Beutl.NodeGraph.Nodes.Group;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -574,6 +576,94 @@ public sealed class GenerativeGraphRunnerTests
         Assert.That(executor.Requests, Is.Empty);
     }
 
+    [Test]
+    public async Task AiNodesInsideAGroupRunBetweenWhatFeedsAndReadsTheGroup()
+    {
+        // A group only mirrors its inner ports once it is attached, as in the editor.
+        using var scene = new SceneHistoryHarness("generative-group");
+        var application = new BeutlApplication();
+        application.Items.Add(scene.Scene);
+        var model = new GraphModel();
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue = model;
+        scene.AddElement().AddObject(drawable);
+        var upstream = new AiImageGenerationNode();
+        upstream.Prompt.Property!.SetValue("a cat");
+        var downstream = new AiImageGenerationNode();
+        downstream.Prompt.Property!.SetValue("the same cat, in watercolor");
+        var group = new GroupNode();
+        var input = new GroupInput();
+        var output = new GroupOutput();
+        var edit = new AiImageEditNode();
+        edit.Task.Property!.SetValue(AiImageEditTask.RemoveBackground);
+        // Listed first so only the dependencies, not the node order, put it in the middle.
+        model.Nodes.AddRange([downstream, group, upstream]);
+        group.Group.Nodes.AddRange([input, output, edit]);
+        input.AddNodePort(edit.Source, out _);
+        output.AddNodePort(edit.Output, out _);
+        model.Connect(group.Items.OfType<IInputPort>().Single(), upstream.Output);
+        model.Connect(downstream.References, group.Items.OfType<IOutputPort>().Single());
+        var executor = new FakeExecutor(_directory);
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { upstream, edit, downstream }));
+            Assert.That(edit.ActiveGeneration?.Image, Is.Not.Null);
+            Assert.That(((AiImageGenerationNodeRequest)executor.Requests[2]).References, Has.Count.EqualTo(1),
+                "The group's generated output reaches the node after it.");
+        });
+
+        // Run from the group's own graph, as its tab does: the graph around it still feeds it.
+        executor.Requests.Clear();
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(group.Group, [edit], force: true, CancellationToken.None);
+        Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { edit }));
+    }
+
+    [Test]
+    public async Task VariationsPaidForBeforeAFailureAreCommitted()
+    {
+        var model = new GraphModel();
+        var node = new AiImageGenerationNode();
+        node.Prompt.Property!.SetValue("a cat");
+        node.Seed.Property!.SetValue(100);
+        node.SeedControl.Property!.SetValue(GenerativeSeedControl.Increment);
+        model.Nodes.Add(node);
+        var executor = new FakeExecutor(_directory) { FailAfter = 2 };
+        var host = new InlineHost();
+
+        await new GenerativeGraphRunner(executor, host).RunAsync(model, [node], force: false, CancellationToken.None, variations: 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Generations, Has.Count.EqualTo(2));
+            Assert.That(host.Commits, Is.EqualTo(1), "The kept results are one undoable, saved step.");
+            Assert.That(node.Status, Is.EqualTo(GenerativeNodeStatus.Failed));
+            Assert.That(node.Seed.Property!.GetValue(), Is.EqualTo(101),
+                "The seed control runs first, so the inputs still reproduce the active variation.");
+        });
+    }
+
+    [Test]
+    public async Task ProgressDeliveredAfterTheRunEndedIsDropped()
+    {
+        var model = new GraphModel();
+        var node = new AiImageGenerationNode();
+        node.Prompt.Property!.SetValue("a cat");
+        model.Nodes.Add(node);
+        var executor = new FakeExecutor(_directory);
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
+        executor.LastProgress!.Report(new GenerativeProgress("late"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Status, Is.EqualTo(GenerativeNodeStatus.Idle));
+            Assert.That(node.StatusMessage, Is.Null);
+        });
+    }
+
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
     {
         var model = new GraphModel();
@@ -609,14 +699,20 @@ public sealed class GenerativeGraphRunnerTests
 
         public Action? OnExecute { get; init; }
 
+        /// <summary>Fails every request after this many succeeded.</summary>
+        public int? FailAfter { get; init; }
+
+        public IProgress<GenerativeProgress>? LastProgress { get; private set; }
+
         public Task<GenerativeExecutionResult> ExecuteAsync(
             GenerativeRequest request,
             IProgress<GenerativeProgress> progress,
             CancellationToken cancellationToken)
         {
             Requests.Add(request);
+            LastProgress = progress;
             OnExecute?.Invoke();
-            if (ReferenceEquals(request.Node, FailFor))
+            if (ReferenceEquals(request.Node, FailFor) || Requests.Count > FailAfter)
                 throw new GenerativeExecutionException("refused") { SettledRequest = FailureSettles };
 
             bool video = request is AiVideoGenerationNodeRequest or AiVideoEditNodeRequest;

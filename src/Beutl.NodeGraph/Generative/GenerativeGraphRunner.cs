@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Language;
 using Beutl.NodeGraph.Composition;
+using Beutl.NodeGraph.Nodes.Group;
 
 namespace Beutl.NodeGraph.Generative;
 
@@ -43,6 +44,8 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(variations, 1);
         ArgumentNullException.ThrowIfNull(model);
+        // A group's graph is run as part of the graph around it, which supplies its inputs.
+        model = model.GetRootGraph();
         IReadOnlyList<GenerativeNode> order = PlanOrder(model, targets);
         var forced = force || variations > 1
             ? new HashSet<GenerativeNode>(targets ?? order)
@@ -59,6 +62,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         for (int i = 0; i < order.Count; i++)
         {
             GenerativeNode node = order[i];
+            var progress = new ProgressRelay(host, node);
             if (cancellationToken.IsCancellationRequested)
             {
                 await CancelRemainingAsync(order, i);
@@ -77,7 +81,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 await host.InvokeOnUIThreadAsync(() => node.SetStatus(GenerativeNodeStatus.Running));
                 if (variations > 1 && forced.Contains(node))
                 {
-                    await RunVariationsAsync(model, node, variations, cancellationToken);
+                    await RunVariationsAsync(model, node, variations, progress, cancellationToken);
                     continue;
                 }
 
@@ -90,8 +94,8 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                     continue;
                 }
 
-                var progress = new ProgressRelay(host, node);
                 GenerativeExecutionResult result = await executor.ExecuteAsync(request, progress, cancellationToken);
+                progress.Close();
                 await host.InvokeOnUIThreadAsync(() =>
                 {
                     GenerationRecord record = node.AddGeneration(request, result);
@@ -103,11 +107,13 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                progress.Close();
                 await CancelRemainingAsync(order, i);
                 throw;
             }
             catch (GenerativeExecutionException ex)
             {
+                progress.Close();
                 failed.Add(node);
                 await host.InvokeOnUIThreadAsync(() =>
                 {
@@ -122,38 +128,50 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
 
     // One generation per variation, each against a fresh capture: the key renewed after each
     // result is part of the next request. The last one stays active and the node's inputs are
-    // set to reproduce it; all of them are kept to compare.
+    // set to reproduce it; all of them are kept to compare. Results already paid for are
+    // committed even when a later variation fails or the run is stopped.
     private async Task RunVariationsAsync(
         GraphModel model,
         GenerativeNode node,
         int variations,
+        ProgressRelay progress,
         CancellationToken cancellationToken)
     {
         GenerationRecord? last = null;
         GenerativeRequest? lastRequest = null;
-        for (int index = 0; index < variations; index++)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            int captured = index;
-            GenerativeRequest request = await host.InvokeOnRenderThreadAsync(
-                () => CaptureRequest(model, node, captured));
-            var progress = new ProgressRelay(host, node);
-            GenerativeExecutionResult result = await executor.ExecuteAsync(request, progress, cancellationToken);
-            await host.InvokeOnUIThreadAsync(() =>
+            for (int index = 0; index < variations; index++)
             {
-                last = node.AddGeneration(request, result);
-                lastRequest = request;
-                node.RenewRequestKey();
-            });
+                cancellationToken.ThrowIfCancellationRequested();
+                int captured = index;
+                GenerativeRequest request = await host.InvokeOnRenderThreadAsync(
+                    () => CaptureRequest(model, node, captured));
+                GenerativeExecutionResult result = await executor.ExecuteAsync(request, progress, cancellationToken);
+                await host.InvokeOnUIThreadAsync(() =>
+                {
+                    last = node.AddGeneration(request, result);
+                    lastRequest = request;
+                    node.RenewRequestKey();
+                });
+            }
+        }
+        finally
+        {
+            progress.Close();
+            if (last is not null)
+            {
+                await host.InvokeOnUIThreadAsync(() =>
+                {
+                    // Seed controls move the seed on first; the kept request then sets it back.
+                    node.OnGenerated(last);
+                    node.ApplyRequestInputs(lastRequest!);
+                    host.CommitHistory(NodeGraphStrings.AiGeneration);
+                });
+            }
         }
 
-        await host.InvokeOnUIThreadAsync(() =>
-        {
-            node.ApplyRequestInputs(lastRequest!);
-            node.OnGenerated(last!);
-            node.SetStatus(GenerativeNodeStatus.Idle);
-            host.CommitHistory(NodeGraphStrings.AiGeneration);
-        });
+        await host.InvokeOnUIThreadAsync(() => node.SetStatus(GenerativeNodeStatus.Idle));
     }
 
     private async Task CancelRemainingAsync(IReadOnlyList<GenerativeNode> order, int from)
@@ -177,12 +195,37 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         using var snapshot = new GraphSnapshot();
         snapshot.Build(model, context);
         snapshot.Evaluate(CompositionTarget.Graphics, context);
-        int slot = snapshot.FindSlotIndex(node);
-        if (snapshot.GetResource(slot) is not { } resource || snapshot.GetContext(slot) is not { } nodeContext)
+        GraphSnapshot? owner = FindOwningSnapshot(snapshot, model, node);
+        int slot = owner?.FindSlotIndex(node) ?? -1;
+        if (owner?.GetResource(slot) is not { } resource || owner.GetContext(slot) is not { } nodeContext)
             throw new GenerativeExecutionException(NodeGraphStrings.Generative_Failed);
         return variation is { } index
             ? node.BuildVariation(resource, nodeContext, index)
             : node.BuildRequest(resource, nodeContext);
+    }
+
+    // A node inside groups is evaluated by its group's own snapshot, nested in the outer one.
+    private static GraphSnapshot? FindOwningSnapshot(GraphSnapshot snapshot, GraphModel model, GraphNode node)
+    {
+        var groups = new Stack<GroupNode>();
+        for (GraphModel? graph = node.FindHierarchicalParent<GraphModel>();
+             graph is not null && !ReferenceEquals(graph, model);
+             graph = graph.HierarchicalParent is GroupNode group ? group.FindHierarchicalParent<GraphModel>() : null)
+        {
+            if (graph.HierarchicalParent is not GroupNode owner)
+                return null;
+            groups.Push(owner);
+        }
+
+        GraphSnapshot current = snapshot;
+        foreach (GroupNode group in groups)
+        {
+            if (current.GetResource(current.FindSlotIndex(group)) is not GroupNode.Resource { InnerSnapshot: { } inner })
+                return null;
+            current = inner;
+        }
+
+        return current;
     }
 
     /// <summary>The generative nodes to run, dependencies before dependents.</summary>
@@ -191,7 +234,8 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         IReadOnlyCollection<GenerativeNode>? targets)
     {
         Dictionary<GraphNode, HashSet<GraphNode>> upstream = BuildUpstreamMap(model);
-        IEnumerable<GenerativeNode> roots = targets ?? model.Nodes.OfType<GenerativeNode>();
+        IEnumerable<GenerativeNode> roots = targets
+            ?? model.EnumerateGraphs().SelectMany(graph => graph.Nodes).OfType<GenerativeNode>();
         var order = new List<GenerativeNode>();
         var visited = new HashSet<GraphNode>();
         var visiting = new HashSet<GraphNode>();
@@ -237,29 +281,62 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         }
     }
 
+    // Across groups as well: what feeds a group feeds the nodes inside it, through its input
+    // node, and what the group outputs depends on the nodes inside it, through its output node.
     private static Dictionary<GraphNode, HashSet<GraphNode>> BuildUpstreamMap(GraphModel model)
     {
         var map = new Dictionary<GraphNode, HashSet<GraphNode>>();
-        foreach (Connection connection in model.AllConnections)
+        GraphModel[] graphs = model.EnumerateGraphs().ToArray();
+        foreach (Connection connection in graphs.SelectMany(graph => graph.AllConnections))
         {
             GraphNode? input = connection.Input.Value?.FindHierarchicalParent<GraphNode>();
             GraphNode? output = connection.Output.Value?.FindHierarchicalParent<GraphNode>();
             if (input is null || output is null || ReferenceEquals(input, output))
                 continue;
-            if (!map.TryGetValue(input, out HashSet<GraphNode>? parents))
-                map[input] = parents = [];
-            parents.Add(output);
+            ParentsOf(input).Add(output);
+        }
+
+        GroupNode[] groups = graphs.SelectMany(graph => graph.Nodes).OfType<GroupNode>().ToArray();
+        foreach (GroupNode group in groups)
+        {
+            if (group.Group.Input is { } groupInput && map.TryGetValue(group, out HashSet<GraphNode>? outer))
+                ParentsOf(groupInput).UnionWith(outer);
+        }
+
+        foreach (GroupNode group in groups)
+        {
+            if (group.Group.Output is { } groupOutput)
+                ParentsOf(group).Add(groupOutput);
         }
 
         return map;
+
+        HashSet<GraphNode> ParentsOf(GraphNode node)
+        {
+            if (!map.TryGetValue(node, out HashSet<GraphNode>? parents))
+                map[node] = parents = [];
+            return parents;
+        }
     }
 
+    // Reports are delivered later on the UI thread; once the node's run is over, those still
+    // queued are dropped so they cannot replace its final preview or status.
     private sealed class ProgressRelay(IGenerativeRunHost host, GenerativeNode node) : IProgress<GenerativeProgress>
     {
+        private volatile bool _closed;
+
+        public void Close() => _closed = true;
+
         public void Report(GenerativeProgress value)
         {
             _ = host.InvokeOnUIThreadAsync(() =>
             {
+                if (_closed)
+                {
+                    value.Preview?.Dispose();
+                    return;
+                }
+
                 if (value.Preview is not null)
                     node.ShowPreview(value.Preview);
                 if (value.Status is not null)

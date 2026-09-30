@@ -61,9 +61,12 @@ public sealed class GroupNodeTemplates(string directory)
         try
         {
             string text = File.ReadAllText(template.FilePath);
-            JsonObject json = JsonNode.Parse(text)!.AsObject();
+            // The files are the user's to edit: a root that is not an object is a load failure.
+            if (JsonNode.Parse(text) is not JsonObject json)
+                throw new JsonException("A node template must be a JSON object.");
             text = RenewIdentifiers(json.ToJsonString());
-            JsonObject renewed = JsonNode.Parse(text)!.AsObject();
+            if (JsonNode.Parse(text) is not JsonObject renewed)
+                throw new JsonException("A node template must be a JSON object.");
             if (CoreSerializer.DeserializeFromJsonObject(renewed, typeof(GraphNode)) is not GroupNode group)
                 return null;
 

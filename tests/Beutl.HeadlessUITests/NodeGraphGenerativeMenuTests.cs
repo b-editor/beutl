@@ -3,11 +3,11 @@ using Avalonia.Controls.PanAndZoom;
 using Avalonia.Headless.NUnit;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
+using Beutl.Controls;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
-using Beutl.Controls;
 using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
@@ -140,10 +140,11 @@ public class NodeGraphGenerativeMenuTests
             Assert.That(promptItems.Single(i => i.Text == "a dog").IsEnabled, Is.True);
 
             ((GraphNodeViewModel)promptView.DataContext!).ApplyPrompt("a cat\nStyle: watercolor");
-            Assert.That(prompt.Prompt.Property!.GetValue(), Is.EqualTo("a cat\nStyle: watercolor"));
-            Assert.That(prompt.Style.Property!.GetValue(), Is.Empty, "The saved text already holds its sections.");
-            Assert.That(prompt.ComposePrompt(), Is.EqualTo("a cat Style: watercolor"),
-                "Applied text is composed like typed text, whitespace included.");
+            Assert.That(prompt.Prompt.Property!.GetValue(), Is.EqualTo("a cat"));
+            Assert.That(prompt.Style.Property!.GetValue(), Is.EqualTo("watercolor"),
+                "The saved sections go back into their own fields.");
+            Assert.That(prompt.ComposePrompt(), Is.EqualTo("a cat\nStyle: watercolor"),
+                "Applying a saved prompt sends the text that was saved.");
 
             GraphNodeView imageView = OpenMenu(view, image);
             var imageItems = imageView.FindControl<FAMenuFlyoutSubItem>("PromptLibraryMenu")!

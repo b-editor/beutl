@@ -92,6 +92,17 @@ public sealed class GroupNodeTemplatesTests
         Assert.That(store.List().Select(t => t.Name), Is.EqualTo(new[] { "Cat", "Cat (2)" }));
     }
 
+    [TestCase("[]")]
+    [TestCase("null")]
+    public void ATemplateThatIsNotAnObjectFailsToLoadInsteadOfThrowing(string content)
+    {
+        Directory.CreateDirectory(_directory);
+        string path = Path.Combine(_directory, "Broken.json");
+        File.WriteAllText(path, content);
+
+        Assert.That(new GroupNodeTemplates(_directory).Instantiate(new GroupNodeTemplate("Broken", path)), Is.Null);
+    }
+
     private static (GroupNode Group, AiPromptNode Prompt, AiImageGenerationNode Image) CreateGroup()
     {
         var group = new GroupNode();
