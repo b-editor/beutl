@@ -53,7 +53,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
             : [];
         var failed = new HashSet<GenerativeNode>();
         ExceptionDispatchInfo? unexpected = null;
-        Dictionary<GraphNode, HashSet<GraphNode>> upstream = BuildUpstreamMap(model);
+        Dictionary<object, HashSet<object>> upstream = BuildUpstreamMap(model);
 
         await host.InvokeOnUIThreadAsync(() =>
         {
@@ -251,26 +251,26 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         GraphModel model,
         IReadOnlyCollection<GenerativeNode>? targets)
     {
-        Dictionary<GraphNode, HashSet<GraphNode>> upstream = BuildUpstreamMap(model);
+        Dictionary<object, HashSet<object>> upstream = BuildUpstreamMap(model);
         IEnumerable<GenerativeNode> roots = targets
             ?? model.EnumerateGraphs().SelectMany(graph => graph.Nodes).OfType<GenerativeNode>();
         var order = new List<GenerativeNode>();
-        var visited = new HashSet<GraphNode>();
-        var visiting = new HashSet<GraphNode>();
+        var visited = new HashSet<object>();
+        var visiting = new HashSet<object>();
 
-        void Visit(GraphNode node)
+        void Visit(object vertex)
         {
-            if (visited.Contains(node) || !visiting.Add(node))
+            if (visited.Contains(vertex) || !visiting.Add(vertex))
                 return;
-            if (upstream.TryGetValue(node, out HashSet<GraphNode>? parents))
+            if (upstream.TryGetValue(vertex, out HashSet<object>? parents))
             {
-                foreach (GraphNode parent in parents)
+                foreach (object parent in parents)
                     Visit(parent);
             }
 
-            visiting.Remove(node);
-            visited.Add(node);
-            if (node is GenerativeNode generative)
+            visiting.Remove(vertex);
+            visited.Add(vertex);
+            if (vertex is GenerativeNode generative)
                 order.Add(generative);
         }
 
@@ -279,16 +279,16 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         return order;
     }
 
-    private static IEnumerable<GraphNode> Ancestors(GraphNode node, Dictionary<GraphNode, HashSet<GraphNode>> upstream)
+    private static IEnumerable<object> Ancestors(GraphNode node, Dictionary<object, HashSet<object>> upstream)
     {
-        var seen = new HashSet<GraphNode>();
-        var stack = new Stack<GraphNode>();
+        var seen = new HashSet<object>();
+        var stack = new Stack<object>();
         stack.Push(node);
         while (stack.Count > 0)
         {
-            if (!upstream.TryGetValue(stack.Pop(), out HashSet<GraphNode>? parents))
+            if (!upstream.TryGetValue(stack.Pop(), out HashSet<object>? parents))
                 continue;
-            foreach (GraphNode parent in parents)
+            foreach (object parent in parents)
             {
                 if (seen.Add(parent))
                 {
@@ -299,42 +299,57 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         }
     }
 
-    // Across groups as well: what feeds a group feeds the nodes inside it, through its input
-    // node, and what the group outputs depends on the nodes inside it, through its output node.
-    private static Dictionary<GraphNode, HashSet<GraphNode>> BuildUpstreamMap(GraphModel model)
+    // What depends on what, across groups as well. Nodes are the vertices, except at a group's
+    // boundary, where each port is one: a node inside depends only on what feeds the group inputs
+    // it reads, and what reads one group output depends only on what feeds that output.
+    private static Dictionary<object, HashSet<object>> BuildUpstreamMap(GraphModel model)
     {
-        var map = new Dictionary<GraphNode, HashSet<GraphNode>>();
+        var map = new Dictionary<object, HashSet<object>>();
         GraphModel[] graphs = model.EnumerateGraphs().ToArray();
         foreach (Connection connection in graphs.SelectMany(graph => graph.AllConnections))
         {
-            GraphNode? input = connection.Input.Value?.FindHierarchicalParent<GraphNode>();
-            GraphNode? output = connection.Output.Value?.FindHierarchicalParent<GraphNode>();
-            if (input is null || output is null || ReferenceEquals(input, output))
+            if (connection.Input.Value is not { } input || connection.Output.Value is not { } output)
                 continue;
-            ParentsOf(input).Add(output);
+            object? target = Vertex(input);
+            object? source = Vertex(output);
+            if (target is null || source is null || ReferenceEquals(target, source))
+                continue;
+            ParentsOf(target).Add(source);
         }
 
-        GroupNode[] groups = graphs.SelectMany(graph => graph.Nodes).OfType<GroupNode>().ToArray();
-        foreach (GroupNode group in groups)
+        foreach (GroupNode group in graphs.SelectMany(graph => graph.Nodes).OfType<GroupNode>())
         {
-            if (group.Group.Input is { } groupInput && map.TryGetValue(group, out HashSet<GraphNode>? outer))
-                ParentsOf(groupInput).UnionWith(outer);
-        }
-
-        foreach (GroupNode group in groups)
-        {
+            // The group's items are its outputs, in its output node's order, then its inputs.
+            int outputs = group.Group.Output?.Items.Count ?? 0;
             if (group.Group.Output is { } groupOutput)
-                ParentsOf(group).Add(groupOutput);
+            {
+                for (int i = 0; i < groupOutput.Items.Count && i < group.Items.Count; i++)
+                    ParentsOf(group.Items[i]).Add(groupOutput.Items[i]);
+            }
+
+            if (group.Group.Input is { } groupInput)
+            {
+                for (int i = 0; i < groupInput.Items.Count && outputs + i < group.Items.Count; i++)
+                    ParentsOf(groupInput.Items[i]).Add(group.Items[outputs + i]);
+            }
         }
 
         return map;
 
-        HashSet<GraphNode> ParentsOf(GraphNode node)
+        HashSet<object> ParentsOf(object vertex)
         {
-            if (!map.TryGetValue(node, out HashSet<GraphNode>? parents))
-                map[node] = parents = [];
+            if (!map.TryGetValue(vertex, out HashSet<object>? parents))
+                map[vertex] = parents = [];
             return parents;
         }
+
+        static object? Vertex(NodeMember port)
+            => port.FindHierarchicalParent<GraphNode>() switch
+            {
+                GroupNode or GroupInput or GroupOutput => port,
+                { } node => node,
+                null => null,
+            };
     }
 
     // Reports are delivered later on the UI thread; once the node's run is over, those still

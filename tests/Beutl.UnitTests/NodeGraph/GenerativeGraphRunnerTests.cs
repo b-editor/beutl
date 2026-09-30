@@ -331,15 +331,14 @@ public sealed class GenerativeGraphRunnerTests
     }
 
     [Test]
-    public void EditNodeWithoutASourceFailsWithTheTabsMessage()
+    public async Task EditNodeWithoutASourceFailsWithTheTabsMessage()
     {
         var edit = new AiImageEditNode();
         var model = new GraphModel();
         model.Nodes.Add(edit);
         var executor = new FakeExecutor(_directory);
 
-        new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None)
-            .GetAwaiter().GetResult();
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
 
         Assert.That(edit.StatusMessage, Is.EqualTo(Beutl.Language.Strings.AiEditSelectSource));
         Assert.That(executor.Requests, Is.Empty);
@@ -619,6 +618,39 @@ public sealed class GenerativeGraphRunnerTests
         executor.Requests.Clear();
         await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(group.Group, [edit], force: true, CancellationToken.None);
         Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { edit }));
+    }
+
+    [Test]
+    public async Task AGroupedNodeWaitsOnlyForTheGroupInputItReads()
+    {
+        using var scene = new SceneHistoryHarness("generative-group-inputs");
+        var application = new BeutlApplication();
+        application.Items.Add(scene.Scene);
+        var model = new GraphModel();
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue = model;
+        scene.AddElement().AddObject(drawable);
+        var used = new AiImageGenerationNode();
+        used.Prompt.Property!.SetValue("a cat");
+        var unrelated = new AiImageGenerationNode();
+        unrelated.Prompt.Property!.SetValue("a dog");
+        var group = new GroupNode();
+        var input = new GroupInput();
+        var edit = new AiImageEditNode();
+        var other = new AiImageEditNode();
+        model.Nodes.AddRange([used, unrelated, group]);
+        group.Group.Nodes.AddRange([input, edit, other]);
+        input.AddNodePort(edit.Source, out _);
+        input.AddNodePort(other.Source, out _);
+        IInputPort[] groupInputs = group.Items.OfType<IInputPort>().ToArray();
+        model.Connect(groupInputs[0], used.Output);
+        model.Connect(groupInputs[1], unrelated.Output);
+        var executor = new FakeExecutor(_directory);
+
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, [edit], force: false, CancellationToken.None);
+
+        Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { used, edit }),
+            "What feeds another input of the group is not bought for this node.");
     }
 
     [Test]
