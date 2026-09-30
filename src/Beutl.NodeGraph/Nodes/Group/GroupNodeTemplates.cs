@@ -12,8 +12,8 @@ public sealed record GroupNodeTemplate(string Name, string FilePath);
 
 /// <summary>
 /// Saves group nodes as reusable templates and inserts copies of them. A template is the
-/// workflow, not its results: generation history and idempotency keys are left out, and every
-/// identifier is renewed on insert so a template can be added any number of times.
+/// workflow, not its results: generation history and idempotency keys are left out. Identifiers are
+/// renewed when a copy is added, so a template can be added any number of times.
 /// </summary>
 public sealed class GroupNodeTemplates(string directory)
 {
@@ -54,31 +54,33 @@ public sealed class GroupNodeTemplates(string directory)
         return new GroupNodeTemplate(Path.GetFileNameWithoutExtension(path), path);
     }
 
-    /// <summary>A new group node built from the template, with identifiers of its own.</summary>
-    public GroupNode? Instantiate(GroupNodeTemplate template)
+    /// <summary>
+    /// The group as it was saved, identifiers included. Adding it to a graph takes a copy with
+    /// identifiers of its own, made the way elements are duplicated, then <see cref="RenewRequestKeys"/>.
+    /// </summary>
+    public GroupNode? Load(GroupNodeTemplate template)
     {
         ArgumentNullException.ThrowIfNull(template);
         try
         {
-            string text = File.ReadAllText(template.FilePath);
             // The files are the user's to edit: a root that is not an object is a load failure.
-            if (JsonNode.Parse(text) is not JsonObject json)
+            if (JsonNode.Parse(File.ReadAllText(template.FilePath)) is not JsonObject json)
                 throw new JsonException("A node template must be a JSON object.");
-            text = RenewIdentifiers(json.ToJsonString());
-            if (JsonNode.Parse(text) is not JsonObject renewed)
-                throw new JsonException("A node template must be a JSON object.");
-            if (CoreSerializer.DeserializeFromJsonObject(renewed, typeof(GraphNode)) is not GroupNode group)
-                return null;
-
-            foreach (GenerativeNode node in EnumerateNodes(group.Group).OfType<GenerativeNode>())
-                node.RenewRequestKey();
-            return group;
+            return CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphNode)) as GroupNode;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             s_logger.LogWarning(ex, "Failed to load node template {Path}.", template.FilePath);
             return null;
         }
+    }
+
+    /// <summary>Gives every AI node in the group a key of its own, so no copy shares a request.</summary>
+    public static void RenewRequestKeys(GroupNode group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        foreach (GenerativeNode node in EnumerateNodes(group.Group).OfType<GenerativeNode>())
+            node.RenewRequestKey();
     }
 
     private static IEnumerable<GraphNode> EnumerateNodes(GraphModel model)
@@ -107,41 +109,6 @@ public sealed class GroupNodeTemplates(string directory)
             case JsonArray array:
                 foreach (JsonNode? item in array)
                     StripResults(item);
-                break;
-        }
-    }
-
-    // Every object's "Id" is a GUID, and connections, references and bindings point at those
-    // same strings. Replacing each wherever it appears keeps all of them pointing at the copy.
-    private static string RenewIdentifiers(string text)
-    {
-        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        CollectIds(JsonNode.Parse(text), ids);
-        foreach (string id in ids)
-            text = text.Replace(id, Guid.NewGuid().ToString(), StringComparison.OrdinalIgnoreCase);
-        return text;
-    }
-
-    private static void CollectIds(JsonNode? node, HashSet<string> ids)
-    {
-        switch (node)
-        {
-            case JsonObject obj:
-                if (obj.TryGetPropertyValue("Id", out JsonNode? id)
-                    && id is JsonValue value
-                    && value.TryGetValue(out string? text)
-                    && Guid.TryParse(text, out Guid guid)
-                    && guid != Guid.Empty)
-                {
-                    ids.Add(text);
-                }
-
-                foreach (KeyValuePair<string, JsonNode?> child in obj)
-                    CollectIds(child.Value, ids);
-                break;
-            case JsonArray array:
-                foreach (JsonNode? item in array)
-                    CollectIds(item, ids);
                 break;
         }
     }

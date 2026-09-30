@@ -1,7 +1,9 @@
-﻿using Beutl.NodeGraph;
+﻿using Beutl.Editor.Services;
+using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Generative;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.Serialization;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -70,7 +72,19 @@ public sealed class GroupNodeTemplatesTests
                 "Two copies must not answer each other's paid requests.");
             Assert.That(b.Prompt.Connection.Value?.Output.Value,
                 Is.SameAs(second.Group.Nodes.OfType<AiPromptNode>().Single().Output));
+            Assert.That(Ids(first).Intersect(Ids(second)), Is.Empty,
+                "No object anywhere in the two copies shares an identifier.");
         });
+    }
+
+    private static HashSet<string> Ids(GroupNode group)
+    {
+        string json = CoreSerializer.SerializeToJsonObject(group).ToJsonString();
+        return System.Text.RegularExpressions.Regex
+            .Matches(json, "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+            .Select(match => match.Value)
+            .Where(id => id != Guid.Empty.ToString())
+            .ToHashSet();
     }
 
     [TestCase("")]

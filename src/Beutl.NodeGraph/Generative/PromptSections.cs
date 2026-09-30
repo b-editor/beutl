@@ -23,26 +23,45 @@ public static class PromptSections
         return string.Join("\n", sections);
     }
 
+    private static readonly string[] s_labels = ["Style", "Composition", "Motion", "Avoid"];
+
     /// <summary>
     /// Splits text written by <see cref="Compose"/> back into its fields, so composing them
     /// again gives the same text. That holds only for such text: other lines without a section
-    /// label are joined into the main field with spaces, and a line that happens to start with a
-    /// label is read as that section.
+    /// label are joined into the main field with spaces.
     /// </summary>
+    /// <remarks>
+    /// Sections are read from the end, in the order <see cref="Compose"/> writes them, each at
+    /// most once. A labelled line before them — a main field that itself starts with "Style: " —
+    /// stays in the main field instead of being taken for, or overwritten by, a section.
+    /// </remarks>
     public static (string Main, string Style, string Composition, string Motion, string Exclusions) Parse(string? text)
     {
-        var main = new List<string>();
-        string style = string.Empty, composition = string.Empty, motion = string.Empty, exclusions = string.Empty;
-        foreach (string line in (text ?? string.Empty).Split('\n'))
+        string[] lines = (text ?? string.Empty).Split('\n');
+        var sections = new string[s_labels.Length];
+        Array.Fill(sections, string.Empty);
+        int end = lines.Length;
+        int limit = s_labels.Length;
+        while (end > 0 && FindSection(lines[end - 1], limit) is { } found)
         {
-            if (TryStrip(line, "Style", out string? value)) style = value;
-            else if (TryStrip(line, "Composition", out value)) composition = value;
-            else if (TryStrip(line, "Motion", out value)) motion = value;
-            else if (TryStrip(line, "Avoid", out value)) exclusions = value;
-            else main.Add(line);
+            sections[found.Index] = found.Value;
+            limit = found.Index;
+            end--;
         }
 
-        return (string.Join(" ", main), style, composition, motion, exclusions);
+        return (string.Join(" ", lines[..end]), sections[0], sections[1], sections[2], sections[3]);
+    }
+
+    // The last label before limit that the line starts with, since Compose writes them in order.
+    private static (int Index, string Value)? FindSection(string line, int limit)
+    {
+        for (int i = limit - 1; i >= 0; i--)
+        {
+            if (TryStrip(line, s_labels[i], out string? value))
+                return (i, value);
+        }
+
+        return null;
     }
 
     private static bool TryStrip(string line, string label, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? value)

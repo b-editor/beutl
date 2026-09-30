@@ -179,6 +179,21 @@ public sealed class GenerativeGraphRunnerTests
             Is.EqualTo(PromptSections.Compose("  a   cat ", "watercolor", exclusions: "text,\n watermark")));
     }
 
+    [TestCase("a cat", "watercolor", "", "", "text")]
+    [TestCase("Style: first", "actual", "", "", "")]
+    [TestCase("Avoid: nothing", "", "wide", "slow pan", "blur")]
+    [TestCase("", "watercolor", "", "", "")]
+    public void AComposedPromptParsesBackToTheSameText(
+        string main, string style, string composition, string motion, string exclusions)
+    {
+        string composed = PromptSections.Compose(main, style, composition, motion, exclusions);
+
+        var parsed = PromptSections.Parse(composed);
+
+        Assert.That(PromptSections.Compose(parsed.Main, parsed.Style, parsed.Composition, parsed.Motion, parsed.Exclusions),
+            Is.EqualTo(composed), "A labelled first line stays in the main field instead of being lost.");
+    }
+
     [Test]
     public async Task EditingAConnectedPromptNodeMakesTheImageStale()
     {

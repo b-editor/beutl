@@ -446,7 +446,7 @@ public abstract partial class GenerativeNode : GraphNode
     /// </summary>
     protected static GenerativeImageInput? RasterizeInput(RenderNode? node, string name, GraphCompositionContext context)
     {
-        using Bitmap? bitmap = Rasterize(node, context);
+        using Bitmap? bitmap = RenderToBitmap(node, context);
         if (bitmap is null)
             return null;
 
@@ -456,7 +456,8 @@ public abstract partial class GenerativeNode : GraphNode
         return new GenerativeImageInput($"{name}.png", stream.ToArray());
     }
 
-    private static Bitmap? Rasterize(RenderNode? node, GraphCompositionContext context)
+    // A copy the caller owns, to encode for upload; the rasterization stays with its renderer.
+    private static Bitmap? RenderToBitmap(RenderNode? node, GraphCompositionContext context)
     {
         if (node is null)
             return null;
