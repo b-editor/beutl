@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
+using Beutl.Extensibility;
 using Beutl.NodeGraph;
 using Reactive.Bindings.Extensions;
 
@@ -16,6 +17,10 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 public partial class NodeGraphView : UserControl
 {
     private readonly CompositeDisposable _disposables = [];
+    private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
+    private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
+    private TopLevel? _nativeInputRoot;
+    private IDisposable? _nativeInputRegistration;
     private Point _rightClickedPosition;
     internal Point _leftClickedPosition;
     private bool _rangeSelectionPressed;
@@ -26,7 +31,14 @@ public partial class NodeGraphView : UserControl
     internal ContextMenu? PortDropMenu => _portDropMenu;
 
     public NodeGraphView()
+        : this(NativeScrollInput.UsesGestureAxes)
     {
+    }
+
+    internal NodeGraphView(Func<PointerWheelEventArgs, bool> usesGestureAxes, Func<TopLevel, IDisposable?>? attachNativeInput = null)
+    {
+        _usesGestureAxes = usesGestureAxes;
+        _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
         InitializeComponent();
         InitializeMenuItems();
         this.SubscribeDataContextChange<NodeGraphViewModel>(OnDataContextAttached, OnDataContextDetached);
@@ -35,10 +47,49 @@ public partial class NodeGraphView : UserControl
         AddHandler(PointerReleasedEvent, OnNodeGraphPointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, OnNodeGraphPointerMoved, RoutingStrategies.Tunnel);
 
+        zoomBorder.AddHandler(KeyDownEvent, OnGraphKeyDown, RoutingStrategies.Tunnel);
+        zoomBorder.AddHandler(PointerWheelChangedEvent, OnGraphPointerWheelChanged, RoutingStrategies.Tunnel);
+        // Register before ZoomBorder attaches its built-in magnify handler.
+        zoomBorder.AddHandler(PointerTouchPadGestureMagnifyEvent, OnGraphMagnify);
+
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
         AddHandler(DragDrop.DropEvent, OnDrop);
         zoomBorder.ZoomChanged += OnZoomChanged;
+    }
+
+    private void OnGraphKeyDown(object? sender, KeyEventArgs e)
+    {
+        // Leave the event unhandled so the editor still receives key and text input.
+        zoomBorder.EnableKeyboardNavigation = !ContextCommandInput.IsFromTextInput(e);
+    }
+
+    private void OnGraphPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier())
+        {
+            Point point = e.GetPosition(canvas);
+            zoomBorder.ZoomDeltaTo(e.Delta.Y, point.X, point.Y, true);
+            e.Handled = true;
+        }
+        else if (_usesGestureAxes(e))
+        {
+            // Match the timeline's scroll distance and preserve the OS gesture axes/direction.
+            zoomBorder.PanDelta(e.Delta.X * 50, e.Delta.Y * 50, true);
+            e.Handled = true;
+        }
+    }
+
+    private void OnGraphMagnify(object? sender, PointerDeltaEventArgs e)
+    {
+        // Native magnification is a relative scale change, not a mouse-wheel delta.
+        double factor = 1 + e.Delta.X;
+        if (double.IsFinite(factor) && factor > 0)
+        {
+            Point point = e.GetPosition(canvas);
+            zoomBorder.ZoomTo(factor, point.X, point.Y, true);
+        }
+        e.Handled = true;
     }
 
     private void OnDrop(object? sender, DragEventArgs e)
@@ -85,6 +136,13 @@ public partial class NodeGraphView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        DetachNativeInput();
+        if (TopLevel.GetTopLevel(this) is { } root)
+        {
+            _nativeInputRegistration = _attachNativeInput(root);
+            _nativeInputRoot = root;
+            root.Closed += OnNativeInputRootClosed;
+        }
         _initialMatrix = (DataContext as NodeGraphViewModel)?.Matrix.Value;
         LayoutUpdated += OnLayoutUpdated;
 
@@ -96,6 +154,22 @@ public partial class NodeGraphView : UserControl
             }
             LayoutUpdated -= OnLayoutUpdated;
         }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        DetachNativeInput();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnNativeInputRootClosed(object? sender, EventArgs e) => DetachNativeInput();
+
+    private void DetachNativeInput()
+    {
+        if (_nativeInputRoot != null) _nativeInputRoot.Closed -= OnNativeInputRootClosed;
+        _nativeInputRoot = null;
+        _nativeInputRegistration?.Dispose();
+        _nativeInputRegistration = null;
     }
 
     private void UpdateRangeSelection()
