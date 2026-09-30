@@ -46,7 +46,9 @@ jobs:
           global-json-file: global.json
 
       - name: Verify bundled libSkiaSharp
-        run: python3 native/SkiaSharp/verify.py
+        run: |
+          python3 -m unittest discover -s native/SkiaSharp -p 'test_*.py'
+          python3 native/SkiaSharp/verify.py
 
       - name: Resolve .NET SDK version
         id: dotnet-sdk

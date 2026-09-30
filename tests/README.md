@@ -59,8 +59,10 @@ can discard that clear. These paths are covered by `SkiaVulkanLayoutInteropTests
 The pinned Linux x64/ARM64 and Windows x64/ARM64 binaries, build manifests and notices are committed
 under `src/Beutl.Engine/runtimes/`. Ordinary `dotnet build`, `dotnet test` and `dotnet run` use those
 files directly; no native build or artifact download is needed. Published apps and the engine's NuGet
-package include them too. CI verifies the pinned source, patch and binary hashes with
-`python3 native/SkiaSharp/verify.py`. macOS continues to use Skia's Metal backend and the upstream package.
+package include them too. CI verifies the pinned source, patch and binary hashes, target architecture,
+and required Vulkan exports with `python3 native/SkiaSharp/verify.py`. The ELF/PE checks do not load the
+libraries, so all four runtimes can be verified on any host. macOS continues to use Skia's Metal backend
+and the upstream package.
 
 When updating `native/SkiaSharp/source.json` or the patch, rebuild all four runtimes with the manual
 `Build libSkiaSharp` workflow. Extract each artifact's `runtimes/` directory into `src/Beutl.Engine/`,
