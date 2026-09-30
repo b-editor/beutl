@@ -145,6 +145,72 @@ public class SceneCompositorTests
     }
 
     [Test]
+    public async Task DetachingDuringDisposal_ReleasesEveryCapturedResource()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            for (int iteration = 0; iteration < 128; iteration++)
+            {
+                Scene scene = CreateScene(basePath);
+                var application = new BeutlApplication();
+                application.Items.Add(scene);
+                Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
+                for (int index = 0; index < 127; index++)
+                    element.Objects.Add(new TestGraphicsObject());
+                scene.Children.Add(element);
+                using var compositor = new SceneCompositor(scene);
+                CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
+                using var start = new Barrier(2);
+                Task detach = Task.Run(() =>
+                {
+                    if (!start.SignalAndWait(TimeSpan.FromSeconds(10)))
+                        throw new TimeoutException("Disposal did not start.");
+                    element.Objects.Clear();
+                });
+
+                Assert.That(start.SignalAndWait(TimeSpan.FromSeconds(10)), Is.True);
+                compositor.Dispose();
+                await detach.WaitAsync(TimeSpan.FromSeconds(10));
+
+                Assert.That(frame.Objects.All(resource => resource.IsDisposed), Is.True,
+                    $"Detachment left an undisposed resource at iteration {iteration}.");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void DisposalCallbacks_CanDetachObjectsOnAnotherThread()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            var application = new BeutlApplication();
+            application.Items.Add(scene);
+            Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
+            element.Objects.Add(new DisposalCallbackObject(() =>
+                Task.Run(() => element.Objects.Clear()).WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult()));
+            scene.Children.Add(element);
+            using var compositor = new SceneCompositor(scene);
+            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
+
+            compositor.Dispose();
+
+            Assert.That(frame.Objects.All(resource => resource.IsDisposed), Is.True);
+            Assert.That(element.Objects, Is.Empty);
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void EvaluateGraphics_DisabledElement_IsExcluded()
     {
         string basePath = GetTempPath();
@@ -1206,6 +1272,27 @@ public class SceneCompositorTests
     private class TestGraphicsObject : EngineObject
     {
         public override CompositionTarget GetCompositionTarget() => CompositionTarget.Graphics;
+    }
+
+    [Beutl.Engine.SuppressResourceClassGeneration]
+    private sealed class DisposalCallbackObject(Action onDispose) : TestGraphicsObject
+    {
+        public override Resource ToResource(CompositionContext context)
+        {
+            var resource = new CallbackResource(onDispose);
+            bool updateOnly = true;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+
+        private sealed class CallbackResource(Action callback) : Resource
+        {
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing) callback();
+                base.Dispose(disposing);
+            }
+        }
     }
 
     [Beutl.Engine.SuppressResourceClassGeneration]

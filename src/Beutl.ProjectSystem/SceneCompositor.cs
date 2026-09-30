@@ -17,6 +17,7 @@ public sealed class SceneCompositor : ICompositor
 {
     private readonly ConditionalWeakTable<EngineObject, EngineObject.Resource> _resourceCache = new();
     private readonly ConcurrentQueue<EngineObject.Resource> _detachedResources = new();
+    private readonly object _resourceCacheLock = new();
 
     // Mute flags are read live from the layers inside the snapshot, so only the
     // lookup shape (membership, ZIndex) and HasSolo require invalidation.
@@ -214,13 +215,18 @@ public sealed class SceneCompositor : ICompositor
         {
             if (sender is not EngineObject senderObj) return;
 
-            if (weakRef.TryGetTarget(out SceneCompositor? compositor)
-                && compositor._resourceCache.TryGetValue(senderObj, out var resource))
+            if (weakRef.TryGetTarget(out SceneCompositor? compositor))
             {
-                compositor._resourceCache.Remove(senderObj);
-                // Detachment runs on the editing thread while the current frame may still use this
-                // resource's native handles. Release it on the evaluation thread before the next frame.
-                compositor._detachedResources.Enqueue(resource);
+                lock (compositor._resourceCacheLock)
+                {
+                    if (compositor._resourceCache.TryGetValue(senderObj, out var resource))
+                    {
+                        compositor._resourceCache.Remove(senderObj);
+                        // Detachment runs on the editing thread while the current frame may still use this
+                        // resource's native handles. Transfer ownership before teardown can drain the queue.
+                        compositor._detachedResources.Enqueue(resource);
+                    }
+                }
             }
 
             senderObj.DetachedFromHierarchy -= Handler;
@@ -366,12 +372,18 @@ public sealed class SceneCompositor : ICompositor
             layer.PropertyChanged -= OnLayerPropertyChanged;
         }
 
-        foreach (var kvp in _resourceCache)
+        lock (_resourceCacheLock)
         {
-            kvp.Value.Dispose();
+            foreach (var kvp in _resourceCache)
+            {
+                _detachedResources.Enqueue(kvp.Value);
+            }
+
+            _resourceCache.Clear();
         }
 
-        _resourceCache.Clear();
+        // The cache is empty and all earlier detachments have enqueued their resources. Release them
+        // outside the lock because resource disposal can itself trigger hierarchy callbacks.
         DisposeDetachedResources();
     }
 }
