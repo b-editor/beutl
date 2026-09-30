@@ -1,14 +1,6 @@
 name: Build libSkiaSharp
 
 on:
-  workflow_call:
-    inputs:
-      rids:
-        type: string
-        default: '["linux-x64", "linux-arm64", "win-x64", "win-arm64"]'
-      artifact-prefix:
-        type: string
-        required: true
   workflow_dispatch:
     inputs:
       rids:
@@ -38,7 +30,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: native/SkiaSharp/artifacts/runtimes/${{ matrix.rid }}
-          key: skia-native-v1-${{ runner.os }}-${{ matrix.rid }}-${{ hashFiles('native/SkiaSharp/**') }}
+          key: skia-native-v1-${{ runner.os }}-${{ matrix.rid }}-${{ hashFiles('native/SkiaSharp/source.json', 'native/SkiaSharp/build.py', 'native/SkiaSharp/vulkan-image-layout.patch', 'native/SkiaSharp/libSkiaSharp.map') }}
 
       - name: Install Linux build dependencies
         if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Linux'
@@ -60,7 +52,10 @@ jobs:
 
       - name: Build pinned Skia and verify exports
         if: steps.cache.outputs.cache-hit != 'true'
-        run: python3 native/SkiaSharp/build.py --rid ${{ matrix.rid }}
+        run: python3 native/SkiaSharp/build.py --rid ${{ matrix.rid }} --output-dir native/SkiaSharp/artifacts
+
+      - name: Verify native runtime
+        run: python3 native/SkiaSharp/verify.py --rid ${{ matrix.rid }} --native-root native/SkiaSharp/artifacts
 
       - name: Upload native runtime
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

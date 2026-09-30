@@ -6,6 +6,11 @@
 # Unified patches require stable line endings; blank context lines contain one space.
 native/SkiaSharp/*.patch text eol=lf whitespace=-blank-at-eol
 
+# Pinned native runtimes are committed alongside the engine.
+src/Beutl.Engine/runtimes/**/libSkiaSharp.* binary
+# Keep upstream license text as provided, including its whitespace.
+src/Beutl.Engine/runtimes/**/Skia.NOTICES -whitespace
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

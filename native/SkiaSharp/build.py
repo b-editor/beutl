@@ -160,6 +160,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rid", required=True, choices=("linux-x64", "linux-arm64", "win-x64", "win-arm64"))
     parser.add_argument("--source-dir", type=Path, default=ROOT / "artifacts/skia-source")
-    parser.add_argument("--output-dir", type=Path, default=HERE / "artifacts")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "src" / "Beutl.Engine")
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 2, 8))
     build(parser.parse_args())

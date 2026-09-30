@@ -21,13 +21,7 @@ on:
         value: ${{ jobs.build-executable.outputs.artifact-run-id }}
 
 jobs:
-  skia-native:
-    uses: ./.github/workflows/build-skia-native.yml
-    with:
-      artifact-prefix: executable-skia-native
-
   build-executable:
-    needs: skia-native
     runs-on: ubuntu-latest
     outputs:
       artifact-run-id: ${{ steps.run-id.outputs.run-id }}
@@ -52,12 +46,8 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Download libSkiaSharp
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: executable-skia-native-*
-          path: native/SkiaSharp/artifacts
-          merge-multiple: true
+      - name: Verify bundled libSkiaSharp
+        run: python3 native/SkiaSharp/verify.py
 
       - name: Restore
         run: |

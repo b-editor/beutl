@@ -12,13 +12,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  skia-native:
-    uses: ./.github/workflows/build-skia-native.yml
-    with:
-      artifact-prefix: test-skia-native
-
   build:
-    needs: skia-native
     permissions:
       contents: read
 
@@ -51,11 +45,8 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Download libSkiaSharp
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: test-skia-native-linux-x64
-          path: native/SkiaSharp/artifacts
+      - name: Verify bundled libSkiaSharp
+        run: python3 native/SkiaSharp/verify.py
 
       - name: Resolve .NET SDK version
         id: dotnet-sdk

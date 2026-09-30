@@ -56,13 +56,21 @@ surfaces; an initial `Undefined` layout must be replaced when the backend clears
 can discard that clear. These paths are covered by `SkiaVulkanLayoutInteropTests` and
 `SkiaImageState_FollowsInitializationBeforeUntouchedSnapshot`.
 
-On Linux, install `clang`, `lld`, `ninja-build`, `libfontconfig1-dev`, `libgl1-mesa-dev` and
-`libegl1-mesa-dev`, then run `python3 native/SkiaSharp/build.py --rid linux-x64` (or `linux-arm64` on ARM).
-On Windows, run the script with `--rid win-x64` or `win-arm64` from the matching Visual Studio C++
-developer shell, with Python 3 and Ninja installed. The generated files go to
-`native/SkiaSharp/artifacts/`; the build also accepts an absolute `BeutlSkiaSharpNativeRoot` ending in a
-directory separator. CI caches these files and includes them in published apps and the engine's NuGet
-package. macOS continues to use Skia's Metal backend and the upstream native package.
+The pinned Linux x64/ARM64 and Windows x64/ARM64 binaries, build manifests and notices are committed
+under `src/Beutl.Engine/runtimes/`. Ordinary `dotnet build`, `dotnet test` and `dotnet run` use those
+files directly; no native build or artifact download is needed. Published apps and the engine's NuGet
+package include them too. CI verifies the pinned source, patch and binary hashes with
+`python3 native/SkiaSharp/verify.py`. macOS continues to use Skia's Metal backend and the upstream package.
+
+When updating `native/SkiaSharp/source.json` or the patch, rebuild all four runtimes with the manual
+`Build libSkiaSharp` workflow. Extract each artifact's `runtimes/` directory into `src/Beutl.Engine/`,
+run the verification script, and commit the binaries together with their `build.json` and notices.
+To rebuild locally on Linux, install `clang`, `lld`, `ninja-build`, `libfontconfig1-dev`,
+`libgl1-mesa-dev` and `libegl1-mesa-dev`, then run `python3 native/SkiaSharp/build.py --rid linux-x64`
+(or `linux-arm64` on ARM). On Windows, use `--rid win-x64` or `win-arm64` from the matching Visual
+Studio C++ developer shell, with Python 3 and Ninja installed. The script updates the matching committed
+runtime by default; `--output-dir` selects a separate directory. Builds can use such a directory via an
+absolute `BeutlSkiaSharpNativeRoot` ending in a directory separator.
 
 Skia-owned images have a separate initialization limitation in `VulkanContext`'s allocation hook.
 Ganesh allocates its own filter and scratch images through the intercepted

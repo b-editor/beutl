@@ -7,6 +7,20 @@ namespace Beutl.UnitTests.Build;
 [TestFixture]
 public class SkiaNativeAssetSelectionTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task RepositoryBuildsUseCommittedBinariesWithoutAnOverride(bool ridSpecific)
+    {
+        using var fixture = new AssetFixture("project", ridSpecific, "4.152.1", useBundledAssets: true);
+        (int exitCode, string output) = await fixture.Resolve();
+        Assert.That(exitCode, Is.Zero, output);
+        using JsonDocument result = JsonDocument.Parse(output);
+        string selected = result.RootElement.GetProperty("Items").GetProperty(fixture.ItemName)[0]
+            .GetProperty("Identity").GetString()!;
+        Assert.That(Path.GetFullPath(selected), Is.EqualTo(Path.GetFullPath(fixture.PatchedLibrary)));
+        Assert.That(File.Exists(selected), Is.True);
+    }
+
     [TestCase("standalone", false)]
     [TestCase("standalone", true)]
     [TestCase("engine", false)]
@@ -58,22 +72,27 @@ public class SkiaNativeAssetSelectionTests
         private readonly string _repository;
         private readonly string _project;
 
-        public AssetFixture(string referenceKind, bool ridSpecific, string version)
+        public AssetFixture(string referenceKind, bool ridSpecific, string version, bool useBundledAssets = false)
         {
             DirectoryInfo? repository = new(AppContext.BaseDirectory);
             while (repository != null && !File.Exists(Path.Combine(repository.FullName, "native", "SkiaSharp", "Beutl.Engine.targets")))
                 repository = repository.Parent;
             _repository = repository?.FullName ?? throw new InvalidOperationException("Beutl repository not found.");
-            string nativeRoot = Path.Combine(_directory, "patched");
+            string nativeRoot = useBundledAssets
+                ? Path.Combine(_repository, "src", "Beutl.Engine")
+                : Path.Combine(_directory, "patched");
             const string assetPath = "runtimes/linux-x64/native/libSkiaSharp.so";
             StockLibrary = Path.Combine(_directory, "stock", "libSkiaSharp.so");
             PatchedLibrary = Path.Combine(nativeRoot, assetPath);
             Directory.CreateDirectory(Path.GetDirectoryName(StockLibrary)!);
-            Directory.CreateDirectory(Path.GetDirectoryName(PatchedLibrary)!);
             File.WriteAllText(StockLibrary, "stock");
-            File.WriteAllText(PatchedLibrary, "patched");
-            File.WriteAllText(Path.Combine(Path.GetDirectoryName(PatchedLibrary)!, "Skia.LICENSE"), "license");
-            File.WriteAllText(Path.Combine(Path.GetDirectoryName(PatchedLibrary)!, "Skia.NOTICES"), "notices");
+            if (!useBundledAssets)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(PatchedLibrary)!);
+                File.WriteAllText(PatchedLibrary, "patched");
+                File.WriteAllText(Path.Combine(Path.GetDirectoryName(PatchedLibrary)!, "Skia.LICENSE"), "license");
+                File.WriteAllText(Path.Combine(Path.GetDirectoryName(PatchedLibrary)!, "Skia.NOTICES"), "notices");
+            }
             ItemName = ridSpecific ? "NativeCopyLocalItems" : "RuntimeTargetsCopyLocalItems";
             var references = new XElement("ItemGroup");
             string? referenceItem = referenceKind switch
@@ -88,10 +107,13 @@ public class SkiaNativeAssetSelectionTests
                 references.Add(new XElement(referenceItem, new XAttribute("Include",
                     referenceKind is "project" or "transitive" ? "Beutl.Engine.csproj" : "Beutl.Engine.dll")));
             var project = new XElement("Project",
+                useBundledAssets
+                    ? new XElement("Import", new XAttribute("Project", Path.Combine(_repository, "Directory.Build.props")))
+                    : null,
                 new XElement("PropertyGroup",
                     new XElement("NETCoreSdkRuntimeIdentifier", "linux-x64"),
                     new XElement("RuntimeIdentifier", ridSpecific ? "linux-x64" : ""),
-                    new XElement("BeutlSkiaSharpNativeRoot", nativeRoot + Path.DirectorySeparatorChar)),
+                    useBundledAssets ? null : new XElement("BeutlSkiaSharpNativeRoot", nativeRoot + Path.DirectorySeparatorChar)),
                 new XElement("Target", new XAttribute("Name", "ResolvePackageAssets"),
                     references,
                     new XElement("ItemGroup", new XElement(ItemName, new XAttribute("Include", StockLibrary),

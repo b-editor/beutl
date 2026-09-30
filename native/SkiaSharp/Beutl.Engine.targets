@@ -32,7 +32,7 @@
                              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="false" Visible="false" />
     </ItemGroup>
     <Error Condition="'$(_BeutlSkiaSharpFile)' != '' And ('@(_BeutlSkiaRuntime)' != '' Or '@(_BeutlSkiaNative)' != '') And !Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/$(_BeutlSkiaSharpFile)')"
-           Text="Beutl requires its patched libSkiaSharp for $(_BeutlSkiaSharpRid). Run python3 native/SkiaSharp/build.py --rid $(_BeutlSkiaSharpRid), or set BeutlSkiaSharpNativeRoot to the native CI artifact directory." />
+           Text="Beutl requires its patched libSkiaSharp for $(_BeutlSkiaSharpRid). Restore the committed files in src/Beutl.Engine/runtimes, or set BeutlSkiaSharpNativeRoot to the native runtime directory." />
     <Error Condition="'%(_BeutlSkiaRuntime.NuGetPackageVersion)' != '' And '%(_BeutlSkiaRuntime.NuGetPackageVersion)' != '4.152.1'"
            Text="Update native/SkiaSharp/source.json and rebuild libSkiaSharp together with the SkiaSharp packages." />
     <Error Condition="'%(_BeutlSkiaNative.NuGetPackageVersion)' != '' And '%(_BeutlSkiaNative.NuGetPackageVersion)' != '4.152.1'"
