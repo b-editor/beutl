@@ -1,4 +1,5 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections.Concurrent;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Beutl.Collections.Pooled;
@@ -15,6 +16,7 @@ namespace Beutl;
 public sealed class SceneCompositor : ICompositor
 {
     private readonly ConditionalWeakTable<EngineObject, EngineObject.Resource> _resourceCache = new();
+    private readonly ConcurrentQueue<EngineObject.Resource> _detachedResources = new();
 
     // Mute flags are read live from the layers inside the snapshot, so only the
     // lookup shape (membership, ZIndex) and HasSolo require invalidation.
@@ -79,6 +81,7 @@ public sealed class SceneCompositor : ICompositor
 
     public CompositionFrame EvaluateGraphics(TimeSpan time)
     {
+        DisposeDetachedResources();
         using var currentElements = new PooledList<Element>();
         SortLayers(time, currentElements, CompositionTarget.Graphics);
 
@@ -106,6 +109,7 @@ public sealed class SceneCompositor : ICompositor
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange)
     {
+        DisposeDetachedResources();
         using var eligibleElements = new PooledList<Element>();
         LayerSnapshot snapshot = GetLayerSnapshot();
         foreach (Element item in Scene.Children)
@@ -213,14 +217,24 @@ public sealed class SceneCompositor : ICompositor
             if (weakRef.TryGetTarget(out SceneCompositor? compositor)
                 && compositor._resourceCache.TryGetValue(senderObj, out var resource))
             {
-                resource.Dispose();
                 compositor._resourceCache.Remove(senderObj);
+                // Detachment runs on the editing thread while the current frame may still use this
+                // resource's native handles. Release it on the evaluation thread before the next frame.
+                compositor._detachedResources.Enqueue(resource);
             }
 
             senderObj.DetachedFromHierarchy -= Handler;
         }
 
         obj.DetachedFromHierarchy += Handler;
+    }
+
+    private void DisposeDetachedResources()
+    {
+        while (_detachedResources.TryDequeue(out var resource))
+        {
+            resource.Dispose();
+        }
     }
 
     // timeに掛かるElementを、solo/muteでフィルタしつつZIndex順に振り分ける
@@ -358,5 +372,6 @@ public sealed class SceneCompositor : ICompositor
         }
 
         _resourceCache.Clear();
+        DisposeDetachedResources();
     }
 }

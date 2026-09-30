@@ -6,9 +6,11 @@ using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Audio;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
@@ -52,6 +54,94 @@ public class SceneCompositorTests
             IsAudioMuted = audioMuted,
             IsVideoMuted = videoMuted,
         };
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DetachedGraphicsResource_KeepsItsPathAliveUntilTheNextEvaluation(bool reattach)
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            var application = new BeutlApplication();
+            application.Items.Add(scene);
+            var shape = new RectShape();
+            Element element = CreateElement(basePath, isEnabled: true, shape);
+            scene.Children.Add(element);
+            using var compositor = new SceneCompositor(scene);
+            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
+            var resource = (RectShape.Resource)frame.Objects.Single();
+            var geometry = resource.GetGeometry()!;
+            SKPath path = geometry.GetCachedPath();
+
+            // The UI can remove this object after the render thread obtains its native path.
+            element.Objects.Clear();
+            Assert.That(path.Handle, Is.Not.EqualTo(IntPtr.Zero),
+                "Detaching must not release a path that the current frame is about to draw.");
+            Assert.That(resource.IsDisposed, Is.False);
+            using (var bitmap = new SKBitmap(100, 100))
+            using (var canvas = new SKCanvas(bitmap))
+            using (var paint = new SKPaint { Color = SKColors.Red })
+            {
+                canvas.Clear(SKColors.Transparent);
+                canvas.DrawPath(path, paint);
+                Assert.That(bitmap.GetPixel(50, 50), Is.EqualTo(SKColors.Red));
+            }
+
+            if (reattach)
+                element.Objects.Add(shape);
+
+            CompositionFrame next = compositor.EvaluateGraphics(TimeSpan.Zero);
+            Assert.That(resource.IsDisposed, Is.True);
+            Assert.That(geometry.IsDisposed, Is.True);
+            Assert.That(path.Handle, Is.EqualTo(IntPtr.Zero));
+            if (reattach)
+            {
+                Assert.That(next.Objects.Single(), Is.Not.SameAs(resource));
+                Assert.That(next.Objects.Single().IsDisposed, Is.False);
+            }
+            else
+            {
+                Assert.That(next.Objects, Is.Empty);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DetachedAudioResource_IsReleasedByTheNextEvaluationOrDisposal(bool disposeCompositor)
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            var application = new BeutlApplication();
+            application.Items.Add(scene);
+            Element element = CreateElement(basePath, isEnabled: true, new TestAudioObject());
+            scene.Children.Add(element);
+            using var compositor = new SceneCompositor(scene);
+            var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+            EngineObject.Resource resource = compositor.EvaluateAudio(range).Objects.Single();
+
+            scene.Children.Remove(element);
+            Assert.That(resource.IsDisposed, Is.False);
+
+            if (disposeCompositor)
+                compositor.Dispose();
+            else
+                Assert.That(compositor.EvaluateAudio(range).Objects, Is.Empty);
+
+            Assert.That(resource.IsDisposed, Is.True);
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
     }
 
     [Test]
