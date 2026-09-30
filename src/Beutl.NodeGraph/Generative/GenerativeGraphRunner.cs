@@ -1,4 +1,5 @@
-﻿using Beutl.Composition;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Composition;
 using Beutl.Language;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes.Group;
@@ -51,6 +52,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
             ? new HashSet<GenerativeNode>(targets ?? order)
             : [];
         var failed = new HashSet<GenerativeNode>();
+        ExceptionDispatchInfo? unexpected = null;
         Dictionary<GraphNode, HashSet<GraphNode>> upstream = BuildUpstreamMap(model);
 
         await host.InvokeOnUIThreadAsync(() =>
@@ -123,7 +125,23 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                     node.SetStatus(GenerativeNodeStatus.Failed, ex.Message);
                 });
             }
+            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            {
+                // Anything else is not the node's to explain, but it must not stay running, and
+                // what depends on it must not run on its old result.
+                progress.Close();
+                failed.Add(node);
+                await host.InvokeOnUIThreadAsync(() =>
+                {
+                    node.RestoreActivePreview();
+                    node.SetStatus(GenerativeNodeStatus.Failed);
+                });
+                if (unexpected is null)
+                    unexpected = ExceptionDispatchInfo.Capture(ex);
+            }
         }
+
+        unexpected?.Throw();
     }
 
     // One generation per variation, each against a fresh capture: the key renewed after each

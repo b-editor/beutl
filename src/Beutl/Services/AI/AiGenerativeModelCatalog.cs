@@ -23,7 +23,20 @@ internal sealed class AiGenerativeModelCatalog(
     {
         AiModelCatalog loaded = await catalog.GetAsync(cancellationToken);
         var id = new AiOperationId(operationId);
+        // As the dialogs refresh before loading their picker: without entitlements every model
+        // reads as unavailable and an empty model input would not resolve to the default.
         AiEntitlements? current = entitlements.Entitlements.Value;
+        if (current is null)
+        {
+            try
+            {
+                current = await entitlements.RefreshAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Signed out or offline: the server gives the reason when the node runs.
+            }
+        }
         // Only a reported refusal rules the operation out, as in the picker.
         bool operationIsAvailable = current is not null
             && current.Availability.GetState(id) != AiOperationAvailabilityState.Unavailable;

@@ -82,6 +82,7 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
     }
 
     private int _loadVersion;
+    private bool _rebuilding;
 
     private async Task LoadAsync(IGenerativeModelCatalog catalog)
     {
@@ -180,10 +181,20 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
 
         _values = options.Select(option => option.Value).ToArray();
         _items = options.Select(option => new EnumItem(option.Label, string.Empty, option.Value)).ToArray();
-        if (_editorRef?.TryGetTarget(out EnumEditor? editor) == true)
-            editor.Items = _items;
-        _selectedIndex.Value = -1;
-        _selectedIndex.Value = Array.IndexOf(_values, shown);
+        // The combo box confirms the index it is given; that must not store the shown default
+        // model into an input left empty.
+        _rebuilding = true;
+        try
+        {
+            if (_editorRef?.TryGetTarget(out EnumEditor? editor) == true)
+                editor.Items = _items;
+            _selectedIndex.Value = -1;
+            _selectedIndex.Value = Array.IndexOf(_values, shown);
+        }
+        finally
+        {
+            _rebuilding = false;
+        }
     }
 
     private GenerativeModelInfo? CurrentModel()
@@ -208,7 +219,8 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<int> args
+        if (!_rebuilding
+            && e is PropertyEditorValueChangedEventArgs<int> args
             && args.NewValue >= 0
             && args.NewValue < _values.Length)
         {

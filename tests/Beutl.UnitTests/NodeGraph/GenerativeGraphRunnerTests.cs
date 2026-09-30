@@ -664,6 +664,31 @@ public sealed class GenerativeGraphRunnerTests
         });
     }
 
+    [Test]
+    public async Task AnUnexpectedFailureStillEndsTheNodeAndBlocksWhatDependsOnIt()
+    {
+        var (model, upstream, downstream) = CreateChain();
+        var executor = new FakeExecutor(_directory) { OnExecute = () => throw new IOException("disk") };
+
+        Exception? thrown = null;
+        try
+        {
+            await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
+        }
+        catch (IOException ex)
+        {
+            thrown = ex;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.Not.Null, "The caller still hears about it.");
+            Assert.That(upstream.Status, Is.EqualTo(GenerativeNodeStatus.Failed));
+            Assert.That(downstream.Status, Is.EqualTo(GenerativeNodeStatus.Blocked));
+            Assert.That(executor.Requests, Has.Count.EqualTo(1));
+        });
+    }
+
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)
     {
         var model = new GraphModel();

@@ -125,7 +125,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         catch (Exception ex)
         {
             s_logger.LogError(ex, "Failed to run generative nodes.");
-            GenerativeError.Value = ex.Message;
+            GenerativeError.Value = NodeGraphStrings.Generative_Failed;
         }
         finally
         {

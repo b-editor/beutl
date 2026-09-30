@@ -188,8 +188,12 @@ public abstract partial class GenerativeNode : GraphNode
 
     internal void SetStatus(GenerativeNodeStatus status, string? message = null)
     {
-        Status = status;
-        StatusMessage = message;
+        lock (_previewLock)
+        {
+            Status = status;
+            StatusMessage = message;
+        }
+
         UpdateBusy();
         _statusMonitor?.Value = FormatStatus();
         StatusChanged?.Invoke(this, EventArgs.Empty);
@@ -226,17 +230,21 @@ public abstract partial class GenerativeNode : GraphNode
     {
         if (_previewMonitor is null)
             return;
-        if (Status == GenerativeNodeStatus.Running)
-        {
-            _previewMonitor.SetBusy(true);
-            return;
-        }
 
-        Guid activeId = Volatile.Read(ref _active)?.Id ?? Guid.Empty;
-        bool loading;
+        // Under the lock the status is set under: a preview decoded off the UI thread must not
+        // publish a busy state computed from a status that has since changed.
         lock (_previewLock)
-            loading = activeId != Guid.Empty && _previewShownFor != activeId;
-        _previewMonitor.SetBusy(loading, loading ? NodeGraphStrings.Generative_Loading : null);
+        {
+            if (Status == GenerativeNodeStatus.Running)
+            {
+                _previewMonitor.SetBusy(true);
+                return;
+            }
+
+            Guid activeId = Volatile.Read(ref _active)?.Id ?? Guid.Empty;
+            bool loading = activeId != Guid.Empty && _previewShownFor != activeId;
+            _previewMonitor.SetBusy(loading, loading ? NodeGraphStrings.Generative_Loading : null);
+        }
     }
 
     /// <summary>Makes a kept generation the one the node outputs.</summary>
