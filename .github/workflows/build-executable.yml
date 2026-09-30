@@ -46,6 +46,9 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Verify bundled libSkiaSharp
+        run: python3 native/SkiaSharp/verify.py
+
       - name: Restore
         run: |
           chmod +x build.sh

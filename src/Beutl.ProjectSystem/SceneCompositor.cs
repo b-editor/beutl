@@ -1,4 +1,5 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections.Concurrent;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Beutl.Collections.Pooled;
@@ -15,6 +16,8 @@ namespace Beutl;
 public sealed class SceneCompositor : ICompositor
 {
     private readonly ConditionalWeakTable<EngineObject, EngineObject.Resource> _resourceCache = new();
+    private readonly ConcurrentQueue<EngineObject.Resource> _detachedResources = new();
+    private readonly object _resourceCacheLock = new();
 
     // Mute flags are read live from the layers inside the snapshot, so only the
     // lookup shape (membership, ZIndex) and HasSolo require invalidation.
@@ -79,6 +82,7 @@ public sealed class SceneCompositor : ICompositor
 
     public CompositionFrame EvaluateGraphics(TimeSpan time)
     {
+        DisposeDetachedResources();
         using var currentElements = new PooledList<Element>();
         SortLayers(time, currentElements, CompositionTarget.Graphics);
 
@@ -106,6 +110,7 @@ public sealed class SceneCompositor : ICompositor
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange)
     {
+        DisposeDetachedResources();
         using var eligibleElements = new PooledList<Element>();
         LayerSnapshot snapshot = GetLayerSnapshot();
         foreach (Element item in Scene.Children)
@@ -210,17 +215,32 @@ public sealed class SceneCompositor : ICompositor
         {
             if (sender is not EngineObject senderObj) return;
 
-            if (weakRef.TryGetTarget(out SceneCompositor? compositor)
-                && compositor._resourceCache.TryGetValue(senderObj, out var resource))
+            if (weakRef.TryGetTarget(out SceneCompositor? compositor))
             {
-                resource.Dispose();
-                compositor._resourceCache.Remove(senderObj);
+                lock (compositor._resourceCacheLock)
+                {
+                    if (compositor._resourceCache.TryGetValue(senderObj, out var resource))
+                    {
+                        compositor._resourceCache.Remove(senderObj);
+                        // Detachment runs on the editing thread while the current frame may still use this
+                        // resource's native handles. Transfer ownership before teardown can drain the queue.
+                        compositor._detachedResources.Enqueue(resource);
+                    }
+                }
             }
 
             senderObj.DetachedFromHierarchy -= Handler;
         }
 
         obj.DetachedFromHierarchy += Handler;
+    }
+
+    private void DisposeDetachedResources()
+    {
+        while (_detachedResources.TryDequeue(out var resource))
+        {
+            resource.Dispose();
+        }
     }
 
     // timeに掛かるElementを、solo/muteでフィルタしつつZIndex順に振り分ける
@@ -352,11 +372,18 @@ public sealed class SceneCompositor : ICompositor
             layer.PropertyChanged -= OnLayerPropertyChanged;
         }
 
-        foreach (var kvp in _resourceCache)
+        lock (_resourceCacheLock)
         {
-            kvp.Value.Dispose();
+            foreach (var kvp in _resourceCache)
+            {
+                _detachedResources.Enqueue(kvp.Value);
+            }
+
+            _resourceCache.Clear();
         }
 
-        _resourceCache.Clear();
+        // The cache is empty and all earlier detachments have enqueued their resources. Release them
+        // outside the lock because resource disposal can itself trigger hierarchy callbacks.
+        DisposeDetachedResources();
     }
 }

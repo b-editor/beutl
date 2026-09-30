@@ -151,7 +151,6 @@ public class RenderTargetSnapshotTests
     }
 
     [Test]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void CreateSnapshotBitmap_ProducesDestinationAcceptedBySnapshotInto()
     {
         VulkanTestEnvironment.EnsureAvailable();

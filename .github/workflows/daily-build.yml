@@ -9,7 +9,7 @@ jobs:
     uses: ./.github/workflows/build-version.yml
 
   daily-build:
-    needs: [determine-version]
+    needs: determine-version
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,6 +25,9 @@ jobs:
       uses: actions/setup-dotnet@v6
       with:
         global-json-file: global.json
+
+    - name: Verify bundled libSkiaSharp
+      run: python3 native/SkiaSharp/verify.py
 
     - name: Restore
       run: |

@@ -1,0 +1,10 @@
+{
+  "skiaSharpVersion": "4.152.1",
+  "nativeVersion": "152.0.0",
+  "skiaSharpCommit": "47f1630989b6d4d5c347b01dcfc10f0fb49cce74",
+  "repository": "https://github.com/mono/skia.git",
+  "commit": "723c5a03a7d18de5fb1a041e6cae2f09c4cb3c7e",
+  "rid": "linux-arm64",
+  "patchSha256": "faac086edcbbe92f3063f104ef7645980535336692f7019ea2573bc65a5830f5",
+  "binarySha256": "13fbc62e1264845a7ea6419cfb5e67bf0876d1e4a9e1968e92525362d587c0ad"
+}

@@ -1,0 +1,7 @@
+{
+  "skiaSharpVersion": "4.152.1",
+  "nativeVersion": "152.0.0",
+  "skiaSharpCommit": "47f1630989b6d4d5c347b01dcfc10f0fb49cce74",
+  "repository": "https://github.com/mono/skia.git",
+  "commit": "723c5a03a7d18de5fb1a041e6cae2f09c4cb3c7e"
+}

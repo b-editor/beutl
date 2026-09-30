@@ -164,7 +164,6 @@ public class ShaderScaleUniformTests
     // Vacuity guard: the GLSL shader must compile AND visibly change the render, so the parity test below is
     // not passing on a silent no-op.
     [Test]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void Glsl_DevicePx_CompilesAndApplies()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -182,7 +181,6 @@ public class ShaderScaleUniformTests
     }
 
     [Test]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void Glsl_DevicePx_Supersampled_KeepsLogicalAppearance()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -241,7 +239,6 @@ public class ShaderScaleUniformTests
     // Vacuity guard: the scale-aware GLSL shader must compile AND visibly change the render, so the parity
     // test below is not passing on a silent no-op.
     [Test]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void Glsl_ScaleAware_CompilesAndApplies()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -259,7 +256,6 @@ public class ShaderScaleUniformTests
     }
 
     [Test]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void Glsl_ScaleAware_ReducedScale_MatchesReference()
     {
         VulkanTestEnvironment.EnsureAvailable();

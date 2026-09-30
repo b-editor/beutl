@@ -6,6 +6,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Optimize>true</Optimize>
     <RootDirectory>$(MSBuildThisFileDirectory)</RootDirectory>
+    <BeutlSkiaSharpNativeRoot Condition="'$(BeutlSkiaSharpNativeRoot)' == ''">$(MSBuildThisFileDirectory)src/Beutl.Engine/</BeutlSkiaSharpNativeRoot>
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Preserve reflection bindings for dynamic editor models; projects can opt into compiled bindings. -->
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
