@@ -260,6 +260,9 @@ You can keep editing when this finishes.</value>
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>Cannot render the frame because a referenced source file is missing: {0} ({1} missing).</value>
   </data>
+  <data name="FlatpakUpdateCompleted" xml:space="preserve">
+    <value>The update is complete. Reopen Beutl to use the new version.</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>The application needs to be restarted.
 Do you want to restart the application?</value>

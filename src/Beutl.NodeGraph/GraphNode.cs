@@ -11,6 +11,7 @@ using Beutl.Utilities;
 
 namespace Beutl.NodeGraph;
 
+[FallbackType(typeof(FallbackGraphNode))]
 public abstract partial class GraphNode : EngineObject
 {
     public static readonly CoreProperty<bool> IsExpandedProperty;
@@ -368,6 +369,11 @@ public abstract partial class GraphNode : EngineObject
 
     public override void Deserialize(ICoreSerializationContext context)
     {
+        if (this is FallbackGraphNode fallback)
+        {
+            fallback.RestoreMetadata((context as IJsonSerializationContext)?.GetJsonObject());
+            return;
+        }
         base.Deserialize(context);
         if (context.GetValue<string>(nameof(Position)) is { } posStr)
         {

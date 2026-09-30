@@ -262,7 +262,7 @@ public sealed class SchemaGenerator
                 ErrorCode.UnknownType,
                 $"No effect recipe matched name='{name}' intent='{intent}'.",
                 name ?? intent,
-                "Call list_effect_recipes to inspect available recipe names and intent tags."));
+                "No matching recipe is available; this does not establish that the intended expression is unsupported. Compose supported building blocks using targeted get_schema calls, or use list_effect_recipes with an intent filter if another example would help."));
         }
 
         return new EffectRecipe(
@@ -759,9 +759,9 @@ public sealed class SchemaGenerator
                     CreateBrightness(115)),
                 blendMode: BlendMode.Plus,
                 opacity: 60f,
-                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true to get a fresh objectId inside a DrawableGroup, then apply this patch's <element-id>/<drawable-id> against that new object so the additive layer glows over the untouched original while staying gate-clean.",
+                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true to get a fresh objectId inside a DrawableGroup, then apply this patch's <element-id>/<drawable-id> against that new object so the additive layer glows over the untouched original.",
                 "Lower Opacity (e.g. 35-50) or switch BlendMode to Screen (14) for bright footage that blows out; BlendMode 12 is Plus (additive).",
-                "Do not duplicate into two plain drawables: wrapInGroup=true makes the Element contain an IFlowOperator, avoiding the evaluate_edit_quality elementStructure Major issue."),
+                "Do not duplicate into two plain drawables: wrapInGroup=true makes the Element contain an IFlowOperator, so both drawables flow through the group."),
             CreateEffectRecipe(
                 "screen-light-leak",
                 "Soft Screen light-leak and lens-wash glow for a duplicated drawable copy: gentler than additive Plus and self-limiting on bright footage.",
@@ -771,7 +771,7 @@ public sealed class SchemaGenerator
                     CreateBrightness(120)),
                 blendMode: BlendMode.Screen,
                 opacity: 50f,
-                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true and apply this patch to the returned copy so it stays gate-clean.",
+                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true and apply this patch to the returned copy to preserve the source drawable.",
                 "BlendMode 14 is Screen; it cannot exceed white, making it the safe choice for bright content that would blow out under Plus."),
             CreateEffectRecipe(
                 "multiply-contrast-glaze",
@@ -782,7 +782,7 @@ public sealed class SchemaGenerator
                     CreateBrightness(80)),
                 blendMode: BlendMode.Multiply,
                 opacity: 50f,
-                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true and apply this patch to the returned copy so it stays gate-clean.",
+                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true and apply this patch to the returned copy to preserve the source drawable.",
                 "This is the self-composite darkening glaze part; a true edge vignette also needs the drawable's own dark radial fill."),
             CreateEffectRecipe(
                 "chromatic-aberration-lite",
@@ -1486,7 +1486,7 @@ public sealed class SchemaGenerator
             [typeof(LayerEffect)] = Metadata(["composite", "layer"], []),
             [typeof(DelayAnimationEffect)] = Metadata(["motion", "trail", "delay"], []),
             [typeof(PixelSortEffect)] = Metadata(["glitch", "pixel", "scanline", "gpu"], ["Runs on the Vulkan shader backend, which falls back to the bundled SwiftShader software rasterizer when no hardware GPU is present, so it stays active; the software path is slower."]),
-            [typeof(CSharpScriptEffect)] = Metadata(["advanced", "script", "programmable"], ["Prefer built-in effects for low-context agents unless script code is explicitly requested."]),
+            [typeof(CSharpScriptEffect)] = Metadata(["advanced", "script", "programmable", "glsl", "multi-pass"], ["Low-level fallback when built-in composition and declarative shader effects cannot express the required passes, and C#/CustomEffect is permitted. This is not a declarative GPU-pass API. Inside Context.CustomEffect, CreateGlslShader(fragmentSource, inputCount) and shader.Render(execution, inputs, outputBounds, pushConstants) compose GPU passes. The caller owns returned targets; dispose intermediates, preserve the source on an empty preview result, and return the final target through execution.ForEach. Use the destination-callback overload for clamped size/scale. Keep shader source constant and pass changing values as push constants; GLSL inputs are linear premultiplied RGBA."]),
             [typeof(SKSLScriptEffect)] = Metadata(["advanced", "shader", "programmable", "organic", "procedural"], ["Requires shader source. Prefer for organic heat, ink, glass, smoke, grain, caustic, or procedural fields when blurred gradients look flat; call validate_shader to compile-check the script before apply_edit, since a compile error makes the effect a no-op: the source passes through unchanged."]),
             [typeof(GLSLScriptEffect)] = Metadata(["advanced", "shader", "gpu"], ["Needs GLSL shader source; runs on the Vulkan shader backend (hardware GPU, MoltenVK, or the bundled SwiftShader software fallback), so it does not require a dedicated GPU."]),
             [typeof(NodeGraphFilterEffect)] = Metadata(["advanced", "nodegraph", "programmable"], ["Requires a node graph resource to be useful."])

@@ -260,6 +260,9 @@ Podrás seguir editando cuando termine.</value>
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>No se puede renderizar el fotograma porque falta un archivo de origen referenciado: {0} ({1} faltantes).</value>
   </data>
+  <data name="FlatpakUpdateCompleted" xml:space="preserve">
+    <value>La actualización se ha completado. Vuelve a abrir Beutl para usar la nueva versión.</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>La aplicación debe reiniciarse.
 ¿Quieres reiniciar la aplicación?</value>

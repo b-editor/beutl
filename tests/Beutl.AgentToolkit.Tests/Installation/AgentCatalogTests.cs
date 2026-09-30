@@ -72,12 +72,10 @@ public sealed class AgentCatalogTests
     }
 
     [Test]
-    public void Agents_with_non_json_mcp_configs_have_no_mcp_location()
+    public void Agents_with_unsupported_mcp_configs_have_no_mcp_location()
     {
         Assert.Multiple(() =>
         {
-            Assert.That(AgentCatalog.Find("codex")!.ProjectMcp, Is.Null);
-            Assert.That(AgentCatalog.Find("codex")!.GlobalMcp, Is.Null);
             Assert.That(AgentCatalog.Find("opencode")!.ProjectMcp, Is.Null);
             Assert.That(AgentCatalog.Find("goose")!.GlobalMcp, Is.Null);
             Assert.That(AgentCatalog.Find("continue")!.ProjectMcp, Is.Null);
@@ -141,6 +139,12 @@ public sealed class AgentCatalogTests
                 agent.SubagentsDirectory(AgentInstallScope.Global),
                 Is.EqualTo(Path.Combine(".codex", "agents")));
             Assert.That(agent.SubagentFormat, Is.EqualTo(SubagentFileFormat.CodexToml));
+            foreach (AgentInstallScope scope in Enum.GetValues<AgentInstallScope>())
+            {
+                Assert.That(agent.Mcp(scope)!.ConfigFileName, Is.EqualTo(Path.Combine(".codex", "config.toml")));
+                Assert.That(agent.Mcp(scope)!.ServersPropertyName, Is.EqualTo("mcp_servers"));
+                Assert.That(agent.Mcp(scope)!.Format, Is.EqualTo(McpConfigFormat.CodexToml));
+            }
         });
     }
 

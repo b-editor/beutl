@@ -209,7 +209,7 @@ public class DeviceExtentLimitTests
         Assert.Throws<InvalidOperationException>(() => pass.Resize(32, 32));
         pass.Resize(16, 16);
 
-        device.Verify(c => c.CreateTexture2D(16, 16, TextureFormat.RGBA8Unorm), Times.Exactly(2),
+        device.Verify(c => c.CreateTexture2D(16, 16, TextureFormat.RGBA16Float), Times.Exactly(2),
             "returning to the old size after a failed replacement must reallocate it");
     }
 

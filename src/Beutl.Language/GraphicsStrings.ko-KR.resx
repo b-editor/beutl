@@ -1244,6 +1244,15 @@
   <data name="TransparentMaterial_Roughness" xml:space="preserve">
     <value>거칠기</value>
   </data>
+  <data name="UnlitMaterial" xml:space="preserve">
+    <value>언릿 재질</value>
+  </data>
+  <data name="UnlitMaterial_ColorMap" xml:space="preserve">
+    <value>색상 맵</value>
+  </data>
+  <data name="DrawableObject3D" xml:space="preserve">
+    <value>2D 드로어블</value>
+  </data>
   <data name="Amount" xml:space="preserve">
     <value>양</value>
   </data>

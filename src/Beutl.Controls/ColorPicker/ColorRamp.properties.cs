@@ -20,7 +20,7 @@ public partial class ColorRamp : ColorPickerComponent
     /// <summary>
     /// Defines the <see cref="BorderBrush"/> property
     /// </summary>
-    public static readonly StyledProperty<IBrush> BorderBrushProperty =
+    public static readonly StyledProperty<IBrush?> BorderBrushProperty =
         Border.BorderBrushProperty.AddOwner<ColorRamp>();
 
     /// <summary>
@@ -65,7 +65,7 @@ public partial class ColorRamp : ColorPickerComponent
     /// <summary>
     /// Gets or sets the Brush used to render the border of this ColorRamp
     /// </summary>
-    public IBrush BorderBrush
+    public IBrush? BorderBrush
     {
         get => GetValue(BorderBrushProperty);
         set => SetValue(BorderBrushProperty, value);

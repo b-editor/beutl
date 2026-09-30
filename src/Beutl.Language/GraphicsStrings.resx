@@ -1245,6 +1245,15 @@
   <data name="TransparentMaterial_Roughness" xml:space="preserve">
     <value>Roughness</value>
   </data>
+  <data name="UnlitMaterial" xml:space="preserve">
+    <value>Unlit Material</value>
+  </data>
+  <data name="UnlitMaterial_ColorMap" xml:space="preserve">
+    <value>Color Map</value>
+  </data>
+  <data name="DrawableObject3D" xml:space="preserve">
+    <value>2D Drawable</value>
+  </data>
   <data name="Amount" xml:space="preserve">
     <value>Amount</value>
   </data>

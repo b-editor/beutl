@@ -104,26 +104,26 @@ public class ProgressRing : RangeBase
 
     static void OnMinimumPropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
-        sender.Minimum = (double)e.NewValue;
+        sender.Minimum = e.GetNewValue<double>();
     }
 
     static void OnMaximumPropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
-        sender.Maximum = (double)e.NewValue;
+        sender.Maximum = e.GetNewValue<double>();
     }
 
     static void OnValuePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
-        sender.ValueAngle = ((double)e.NewValue - sender.Minimum) * (sender.EndAngle - sender.StartAngle) / (sender.Maximum - sender.Minimum);
+        sender.ValueAngle = (e.GetNewValue<double>() - sender.Minimum) * (sender.EndAngle - sender.StartAngle) / (sender.Maximum - sender.Minimum);
     }
 
     static void OnStartAnglePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
-        sender.StartAngle = (double)e.NewValue;
+        sender.StartAngle = e.GetNewValue<double>();
     }
 
     static void OnEndAnglePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
-        sender.EndAngle = (double)e.NewValue;
+        sender.EndAngle = e.GetNewValue<double>();
     }
 }

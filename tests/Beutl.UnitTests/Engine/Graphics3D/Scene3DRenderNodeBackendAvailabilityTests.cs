@@ -142,6 +142,8 @@ public sealed class Scene3DRenderNodeBackendAvailabilityTests
     private static Scene3D.Resource CreateScene()
     {
         var scene = new Scene3D();
+        // An opaque background answers over the whole scene, so the controls do not depend on geometry.
+        scene.BackgroundColor.CurrentValue = Colors.Black;
         scene.RenderWidth.CurrentValue = (float)s_sceneBounds.Width;
         scene.RenderHeight.CurrentValue = (float)s_sceneBounds.Height;
         return (Scene3D.Resource)scene.ToResource(CompositionContext.Default);

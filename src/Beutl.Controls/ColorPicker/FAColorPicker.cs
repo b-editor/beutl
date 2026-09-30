@@ -258,14 +258,15 @@ public partial class FAColorPicker : TemplatedControl
         }
     }
 
-    private void OnDisplayItemChanged(object sender, SelectionChangedEventArgs e)
+    private void OnDisplayItemChanged(object? sender, SelectionChangedEventArgs? e)
     {
-        if (!_templateApplied)
+        if (!_templateApplied || _displayItemTabControl == null)
             return;
 
         int selIndex = _displayItemTabControl.SelectedIndex;
         if (selIndex == 0)
         {
+            if (_spectrum == null) return;
             _spectrum.Shape = ColorSpectrumShape.Spectrum;
             UpdatePickerComponents();
 
@@ -277,6 +278,7 @@ public partial class FAColorPicker : TemplatedControl
         }
         else if (selIndex == 1)
         {
+            if (_spectrum == null) return;
             _spectrum.Shape = ColorSpectrumShape.Wheel;
 
             if (_thirdComponentSlider != null)
@@ -292,6 +294,7 @@ public partial class FAColorPicker : TemplatedControl
         }
         else if (selIndex == 2)
         {
+            if (_spectrum == null) return;
             _spectrum.Shape = ColorSpectrumShape.Triangle;
             PseudoClasses.Set(":spectrum", false);
             PseudoClasses.Set(":wheel", false);
@@ -342,33 +345,33 @@ public partial class FAColorPicker : TemplatedControl
                     _spectrum.Component = ColorComponent.Hue;
                     _thirdComponentSlider.Component = ColorComponent.Hue;
 
-                    _hueButton.IsChecked = true;
+                    if (_hueButton != null) _hueButton.IsChecked = true;
                     break;
                 case ColorSpectrumComponents.ValueHue:
                     _spectrum.Component = ColorComponent.Saturation;
                     _thirdComponentSlider.Component = ColorComponent.Saturation;
-                    _satButton.IsChecked = true;
+                    if (_satButton != null) _satButton.IsChecked = true;
                     break;
                 case ColorSpectrumComponents.SaturationHue:
                     _spectrum.Component = ColorComponent.Value;
                     _thirdComponentSlider.Component = ColorComponent.Value;
-                    _valButton.IsChecked = true;
+                    if (_valButton != null) _valButton.IsChecked = true;
                     break;
 
                 case ColorSpectrumComponents.BlueGreen:
                     _spectrum.Component = ColorComponent.Red;
                     _thirdComponentSlider.Component = ColorComponent.Red;
-                    _redButton.IsChecked = true;
+                    if (_redButton != null) _redButton.IsChecked = true;
                     break;
                 case ColorSpectrumComponents.BlueRed:
                     _spectrum.Component = ColorComponent.Green;
                     _thirdComponentSlider.Component = ColorComponent.Green;
-                    _greenButton.IsChecked = true;
+                    if (_greenButton != null) _greenButton.IsChecked = true;
                     break;
                 case ColorSpectrumComponents.GreenRed:
                     _spectrum.Component = ColorComponent.Blue;
                     _thirdComponentSlider.Component = ColorComponent.Blue;
-                    _blueButton.IsChecked = true;
+                    if (_blueButton != null) _blueButton.IsChecked = true;
                     break;
             }
         }
@@ -591,22 +594,22 @@ public partial class FAColorPicker : TemplatedControl
 
     private void UpdateRamps(Color2 col, bool hue, bool sat, bool val, bool red, bool green, bool blue)
     {
-        if (hue && _hueBox != null)
+        if (hue && _hueRamp != null)
             _hueRamp.Color = col;
 
-        if (sat && _satBox != null)
+        if (sat && _satRamp != null)
             _satRamp.Color = col;
 
-        if (val && _valBox != null)
+        if (val && _valRamp != null)
             _valRamp.Color = col;
 
-        if (red && _redBox != null)
+        if (red && _redRamp != null)
             _redRamp.Color = col;
 
-        if (green && _greenBox != null)
+        if (green && _greenRamp != null)
             _greenRamp.Color = col;
 
-        if (blue && _blueBox != null)
+        if (blue && _blueRamp != null)
             _blueRamp.Color = col;
     }
 
@@ -645,9 +648,9 @@ public partial class FAColorPicker : TemplatedControl
             _opacityComponentSlider.Color = col;
     }
 
-    private void OnHexBoxKeyDown(object sender, KeyEventArgs e)
+    private void OnHexBoxKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter)
+        if (e.Key == Key.Enter && _hexBox != null)
         {
             if (Color2.TryParse(_hexBox.Text.AsSpan(), out Color2 c))
             {
@@ -718,9 +721,9 @@ public partial class FAColorPicker : TemplatedControl
         }
     }
 
-    private void OnComponentRBChecked(object sender, RoutedEventArgs e)
+    private void OnComponentRBChecked(object? sender, RoutedEventArgs e)
     {
-        if (!_templateApplied || _ignoreRadioChange || (sender as RadioButton).IsChecked != true)
+        if (!_templateApplied || _ignoreRadioChange || sender is not RadioButton { IsChecked: true })
             return;
 
         if (sender == _hueButton)
@@ -796,7 +799,7 @@ public partial class FAColorPicker : TemplatedControl
             // If we expand the ColorPicker and we were in the Text entry area while compact
             // make sure we find another tab to switch to so we don't end up with a blank
             // space from the text area being moved
-            if (_displayItemTabControl.SelectedIndex == 4)
+            if (_displayItemTabControl?.SelectedIndex == 4)
             {
                 for (int i = 3; i >= 0; i--)
                 {
@@ -831,9 +834,9 @@ public partial class FAColorPicker : TemplatedControl
         }
     }
 
-    private void OnColorTypeRBChecked(object sender, RoutedEventArgs e)
+    private void OnColorTypeRBChecked(object? sender, RoutedEventArgs e)
     {
-        if (((ToggleButton)sender).IsChecked != true)
+        if (sender is not ToggleButton { IsChecked: true })
             return;
 
         if (sender == _rgbButton)
@@ -860,11 +863,11 @@ public partial class FAColorPicker : TemplatedControl
             {
                 ColorTextType = ColorTextType.Hex;
             }
-            else if (param.ToString().Contains("rgba"))
+            else if (param.ToString()?.Contains("rgba") == true)
             {
                 ColorTextType = ColorTextType.RGBA;
             }
-            else if (param.ToString().Contains("rgb"))
+            else if (param.ToString()?.Contains("rgb") == true)
             {
                 ColorTextType = ColorTextType.RGB;
             }
@@ -985,43 +988,43 @@ public partial class FAColorPicker : TemplatedControl
 
 
     //Template Items
-    private TabControl _displayItemTabControl;
+    private TabControl? _displayItemTabControl;
 
-    private ColorSpectrum _spectrum;
-    private ColorRamp _thirdComponentSlider;
-    private ColorRamp _opacityComponentSlider;
+    private ColorSpectrum? _spectrum;
+    private ColorRamp? _thirdComponentSlider;
+    private ColorRamp? _opacityComponentSlider;
 
-    private RadioButton _hueButton;
-    private RadioButton _satButton;
-    private RadioButton _valButton;
-    private RadioButton _redButton;
-    private RadioButton _greenButton;
-    private RadioButton _blueButton;
+    private RadioButton? _hueButton;
+    private RadioButton? _satButton;
+    private RadioButton? _valButton;
+    private RadioButton? _redButton;
+    private RadioButton? _greenButton;
+    private RadioButton? _blueButton;
 
-    private ColorRamp _hueRamp;
-    private ColorRamp _satRamp;
-    private ColorRamp _valRamp;
-    private ColorRamp _redRamp;
-    private ColorRamp _greenRamp;
-    private ColorRamp _blueRamp;
-    private ColorRamp _alphaRamp;
+    private ColorRamp? _hueRamp;
+    private ColorRamp? _satRamp;
+    private ColorRamp? _valRamp;
+    private ColorRamp? _redRamp;
+    private ColorRamp? _greenRamp;
+    private ColorRamp? _blueRamp;
+    private ColorRamp? _alphaRamp;
 
-    private FANumberBox _hueBox;
-    private FANumberBox _satBox;
-    private FANumberBox _valBox;
-    private FANumberBox _redBox;
-    private FANumberBox _greenBox;
-    private FANumberBox _blueBox;
-    private FANumberBox _alphaBox;
+    private FANumberBox? _hueBox;
+    private FANumberBox? _satBox;
+    private FANumberBox? _valBox;
+    private FANumberBox? _redBox;
+    private FANumberBox? _greenBox;
+    private FANumberBox? _blueBox;
+    private FANumberBox? _alphaBox;
 
-    private TextBox _hexBox;
+    private TextBox? _hexBox;
 
-    private Panel _textEntryTabHost;
-    private Grid _rootGrid;
-    private StackPanel _textEntryArea;
+    private Panel? _textEntryTabHost;
+    private Grid? _rootGrid;
+    private StackPanel? _textEntryArea;
 
-    private ToggleButton _rgbButton;
-    private ToggleButton _hsvButton;
+    private ToggleButton? _rgbButton;
+    private ToggleButton? _hsvButton;
 
     private bool _ignoreRadioChange;
 

@@ -6,6 +6,7 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Graphics3D.Meshes;
 using Beutl.Graphics3D.Nodes;
 using Beutl.Media;
 using SkiaSharp;
@@ -299,7 +300,13 @@ internal sealed class Renderer3D : IRenderer3D
         if (gizmoTarget != null && gizmoMode != GizmoMode.None)
         {
             _gizmoPass.SetColorTexture(colorOutput!);
-            _gizmoPass.Execute(camera, gizmoTarget, gizmoMode, aspectRatio);
+            _gizmoPass.Execute(
+                camera,
+                gizmoTarget,
+                GetWorldPosition(objects, gizmoTarget),
+                GetWorldOrientation(objects, gizmoTarget),
+                gizmoMode,
+                aspectRatio);
             _gizmoPass.PrepareForSampling();
             colorOutput = _gizmoPass.OutputTexture;
         }
@@ -315,7 +322,8 @@ internal sealed class Renderer3D : IRenderer3D
 
     /// <summary>
     /// Separates objects into opaque and transparent lists.
-    /// Transparent objects are sorted by distance from camera (far to near).
+    /// Transparent objects are sorted by depth along the camera's view (far to near); objects at the same depth,
+    /// such as unmoved 2D cards, keep the scene's order, as 2D drawing would.
     /// </summary>
     private static void SeparateObjectsByTransparency(
         IReadOnlyList<Object3D.Resource> objects, Camera3D.Resource camera,
@@ -340,13 +348,22 @@ internal sealed class Renderer3D : IRenderer3D
                 {
                     Object = obj,
                     WorldMatrix = world,
-                    DistanceToCamera = Vector3.Distance(world.Translation, camera.Position),
+                    DistanceToCamera = GizmoHitTester.GetViewDepth(
+                        camera.Position,
+                        camera.Target,
+                        float.NegativeInfinity,
+                        world.Translation),
+                    Order = transparentEntries.Count,
                 });
             }
         }
 
         // Sort transparent objects from far to near (painter's algorithm)
-        transparentEntries.Sort((a, b) => b.DistanceToCamera.CompareTo(a.DistanceToCamera));
+        transparentEntries.Sort(static (a, b) =>
+        {
+            int byDepth = b.DistanceToCamera.CompareTo(a.DistanceToCamera);
+            return byDepth != 0 ? byDepth : a.Order.CompareTo(b.Order);
+        });
     }
 
     /// <summary>
@@ -364,38 +381,128 @@ internal sealed class Renderer3D : IRenderer3D
     /// </summary>
     private static (Vector3 Center, float Radius) CalculateSceneBounds(IReadOnlyList<Object3D.Resource> objects)
     {
-        if (objects.Count == 0)
-            return (Vector3.Zero, 10f);
-
-        // Calculate bounding box from all object positions
         var min = new Vector3(float.MaxValue);
         var max = new Vector3(float.MinValue);
 
-        foreach (var obj in objects)
+        foreach (Object3D.Resource obj in objects)
         {
-            if (!obj.IsEnabled)
-                continue;
-
-            var pos = obj.Position;
-            var scale = obj.Scale;
-
-            // Approximate object bounds (position ± scale)
-            min = Vector3.Min(min, pos - scale);
-            max = Vector3.Max(max, pos + scale);
+            Include(obj, Matrix4x4.Identity);
         }
 
-        // If no visible objects, return default bounds
         if (min.X == float.MaxValue)
-            return (Vector3.Zero, 10f);
+            return (Vector3.Zero, 1f);
 
-        // Calculate center and radius
         var center = (min + max) * 0.5f;
-        var radius = Vector3.Distance(min, max) * 0.5f;
-
-        // Ensure minimum radius
-        radius = Math.Max(radius, 5f);
-
+        var radius = Math.Max(Vector3.Distance(min, max) * 0.5f, 1f);
         return (center, radius);
+
+        void Include(Object3D.Resource obj, Matrix4x4 parentMatrix)
+        {
+            if (!obj.IsEnabled)
+                return;
+
+            Matrix4x4 world = obj.GetWorldMatrix() * parentMatrix;
+            // Only shadow casters and lit receivers need to be in the shadow map; a transparent surface such
+            // as a 2D card does not sample it.
+            bool takesPartInShadows = obj.CastsVisibleShadow
+                || (obj.ReceiveShadows && obj.Material?.IsTransparent != true);
+            if (takesPartInShadows && obj.GetMesh() is { VertexCount: > 0 } mesh)
+            {
+                BoundingBox box = mesh.GetBoundingBox();
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = new Vector3(
+                        (i & 1) == 0 ? box.Min.X : box.Max.X,
+                        (i & 2) == 0 ? box.Min.Y : box.Max.Y,
+                        (i & 4) == 0 ? box.Min.Z : box.Max.Z);
+                    Vector3 transformed = Vector3.Transform(corner, world);
+                    min = Vector3.Min(min, transformed);
+                    max = Vector3.Max(max, transformed);
+                }
+            }
+
+            foreach (Object3D.Resource child in obj.GetChildResources())
+            {
+                Include(child, world);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Where <paramref name="target"/> sits in the scene, with the transforms of the groups it is nested in.
+    /// </summary>
+    internal static Vector3 GetWorldPosition(IReadOnlyList<Object3D.Resource> roots, Object3D.Resource target)
+    {
+        return (target.GetWorldMatrix() * GetParentWorldMatrix(roots, target)).Translation;
+    }
+
+    /// <summary>
+    /// How <paramref name="target"/> is turned in the scene: its own rotation followed by the rotation of the
+    /// groups it is nested in, without their scale.
+    /// </summary>
+    internal static Quaternion GetWorldOrientation(IReadOnlyList<Object3D.Resource> roots, Object3D.Resource target)
+    {
+        Quaternion local = Quaternion.CreateFromYawPitchRoll(
+            target.Rotation.Y * MathF.PI / 180f,
+            target.Rotation.X * MathF.PI / 180f,
+            target.Rotation.Z * MathF.PI / 180f);
+        return Quaternion.Concatenate(local, GetRotation(GetParentWorldMatrix(roots, target)));
+    }
+
+    // The rotation part of a transform that may also scale unevenly or shear: its axes made orthonormal.
+    private static Quaternion GetRotation(Matrix4x4 matrix)
+    {
+        var x = new Vector3(matrix.M11, matrix.M12, matrix.M13);
+        var y = new Vector3(matrix.M21, matrix.M22, matrix.M23);
+        if (x.LengthSquared() < 1e-12f || y.LengthSquared() < 1e-12f)
+            return Quaternion.Identity;
+
+        x = Vector3.Normalize(x);
+        y -= x * Vector3.Dot(x, y);
+        if (y.LengthSquared() < 1e-12f)
+            return Quaternion.Identity;
+
+        y = Vector3.Normalize(y);
+        Vector3 z = Vector3.Cross(x, y);
+        var rotation = new Matrix4x4(
+            x.X, x.Y, x.Z, 0,
+            y.X, y.Y, y.Z, 0,
+            z.X, z.Y, z.Z, 0,
+            0, 0, 0, 1);
+        return Quaternion.Normalize(Quaternion.CreateFromRotationMatrix(rotation));
+    }
+
+    /// <summary>
+    /// The combined transform of the groups <paramref name="target"/> is nested in, or the identity for an
+    /// object at the root.
+    /// </summary>
+    internal static Matrix4x4 GetParentWorldMatrix(IReadOnlyList<Object3D.Resource> roots, Object3D.Resource target)
+    {
+        return TryFindParentMatrix(roots, target, Matrix4x4.Identity, out Matrix4x4 parent)
+            ? parent
+            : Matrix4x4.Identity;
+
+        static bool TryFindParentMatrix(
+            IReadOnlyList<Object3D.Resource> objects,
+            Object3D.Resource target,
+            Matrix4x4 parentMatrix,
+            out Matrix4x4 parent)
+        {
+            foreach (Object3D.Resource obj in objects)
+            {
+                if (ReferenceEquals(obj, target))
+                {
+                    parent = parentMatrix;
+                    return true;
+                }
+
+                if (TryFindParentMatrix(obj.GetChildResources(), target, obj.GetWorldMatrix() * parentMatrix, out parent))
+                    return true;
+            }
+
+            parent = default;
+            return false;
+        }
     }
 
     private void CopyToOutputTexture()
@@ -455,8 +562,8 @@ internal sealed class Renderer3D : IRenderer3D
             Width,
             Height,
             _lastCamera,
-            gizmoTarget.Position,
-            gizmoTarget.Rotation,
+            GetWorldPosition(_lastObjects ?? [], gizmoTarget),
+            GetWorldOrientation(_lastObjects ?? [], gizmoTarget),
             gizmoMode);
     }
 

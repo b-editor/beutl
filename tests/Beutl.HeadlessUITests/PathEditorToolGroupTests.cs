@@ -23,8 +23,12 @@ namespace Beutl.HeadlessUITests;
 public class PathEditorToolGroupTests
 {
     [AvaloniaTest]
+    [TestCase(280, 180, false)]
+    [TestCase(280, 180, true)]
     [TestCase(320, 180, false)]
     [TestCase(320, 180, true)]
+    [TestCase(640, 180, false)]
+    [TestCase(640, 180, true)]
     [TestCase(640, 420, false)]
     [TestCase(640, 420, true)]
     public async Task Tool_groups_expose_names_and_preserve_mouse_and_keyboard_operations(int width, int height, bool light)
@@ -50,6 +54,18 @@ public class PathEditorToolGroupTests
         {
             window.Show();
             HeadlessTestHelpers.Render();
+            var toolbar = view.FindControl<Beutl.Controls.ToolTabBar>("EditorToolBar")!;
+            var viewport = view.FindControl<Panel>("Viewport")!;
+            var inspector = view.FindControl<Border>("Inspector")!;
+            Assert.That(toolbar.Bounds.Bottom, Is.LessThanOrEqualTo(viewport.Bounds.Top));
+            if (width >= 560) Assert.That(viewport.Bounds.Right, Is.LessThanOrEqualTo(inspector.Bounds.Left));
+            Button compactSettings = view.FindControl<Button>("CompactSettingsButton")!;
+            Assert.That(compactSettings.IsVisible, Is.EqualTo(width < 560));
+            if (compactSettings.IsVisible)
+            {
+                Click(compactSettings);
+                HeadlessTestHelpers.Render(3);
+            }
             StackPanel modes = view.FindControl<StackPanel>("DragModeTools")!;
             StackPanel display = view.FindControl<StackPanel>("DisplayTools")!;
             Border separator = view.FindControl<Border>("ToolGroupSeparator")!;
@@ -57,16 +73,22 @@ public class PathEditorToolGroupTests
             ToggleButton stroke = view.FindControl<ToggleButton>("StrokeToggleButton")!;
             ToggleButton fill = view.FindControl<ToggleButton>("FillToggleButton")!;
             ShapePath path = view.FindControl<ShapePath>("path")!;
-            Assert.That(modes.Bounds.Bottom, Is.LessThan(separator.Bounds.Top));
-            Assert.That(separator.Bounds.Bottom, Is.LessThan(display.Bounds.Top));
+            var properties = view.FindControl<Border>("PointProperties")!;
+            Assert.That(modes.TranslatePoint(new Point(0, modes.Bounds.Height), properties)!.Value.Y,
+                Is.LessThan(separator.TranslatePoint(default, properties)!.Value.Y));
+            Assert.That(separator.TranslatePoint(new Point(0, separator.Bounds.Height), properties)!.Value.Y,
+                Is.LessThan(display.TranslatePoint(default, properties)!.Value.Y));
             foreach (Button button in buttons.Cast<Button>().Concat(new Button[] { stroke, fill }))
             {
                 string? tip = ToolTip.GetTip(button) as string;
                 Assert.That(tip, Is.Not.Null.And.Not.Empty);
                 Assert.That(ControlAutomationPeer.CreatePeerForElement(button)!.GetName(), Is.EqualTo(tip));
-                Point point = button.TranslatePoint(default, view)!.Value;
+                button.BringIntoView();
+                HeadlessTestHelpers.Render(3);
+                var topLevel = TopLevel.GetTopLevel(button)!;
+                Point point = button.TranslatePoint(default, topLevel)!.Value;
                 Assert.That(point.X, Is.GreaterThanOrEqualTo(0));
-                Assert.That(point.Y + button.Bounds.Height, Is.LessThanOrEqualTo(height));
+                Assert.That(point.Y + button.Bounds.Height, Is.LessThanOrEqualTo(topLevel.Bounds.Height));
             }
 
             CheckMode("Symmetry");
@@ -119,19 +141,24 @@ public class PathEditorToolGroupTests
 
             void Click(Button button)
             {
-                Point point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
-                window.MouseMove(point);
-                window.MouseDown(point, MouseButton.Left);
-                window.MouseUp(point, MouseButton.Left);
+                button.BringIntoView();
+                HeadlessTestHelpers.Render(3);
+                var topLevel = TopLevel.GetTopLevel(button)!;
+                Point point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), topLevel)!.Value;
+                topLevel.MouseMove(point);
+                topLevel.MouseDown(point, MouseButton.Left);
+                topLevel.MouseUp(point, MouseButton.Left);
                 HeadlessTestHelpers.Render();
             }
 
             void PressSpace(Button button)
             {
+                button.BringIntoView();
+                HeadlessTestHelpers.Render(3);
                 button.Focus(NavigationMethod.Tab);
                 Assert.That(button.IsFocused, Is.True);
-                window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
-                window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+                TopLevel.GetTopLevel(button)!.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+                TopLevel.GetTopLevel(button)!.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
                 HeadlessTestHelpers.Render();
             }
         }

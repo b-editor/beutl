@@ -83,8 +83,8 @@ public partial class ColorPaletteItem : Control
     }
 
     private bool _isPressed;
-    private ColorPaletteItemBorderRenderHelper _helper;
-    private SolidColorBrush _colorBrush;
+    private ColorPaletteItemBorderRenderHelper? _helper;
+    private SolidColorBrush? _colorBrush;
 
     // Keep this separate from the /Internal/BorderRenderHelper - as this removes the
     // background in drawing and is specific to the ColorPaletteItem
@@ -93,8 +93,8 @@ public partial class ColorPaletteItem : Control
     {
         private bool _useComplexRendering;
         private bool? _backendSupportsIndividualCorners;
-        private StreamGeometry _backgroundGeometryCache;
-        private StreamGeometry _borderGeometryCache;
+        private StreamGeometry? _backgroundGeometryCache;
+        private StreamGeometry? _borderGeometryCache;
         private Size _size;
         private Thickness _borderThickness;
         private CornerRadius _cornerRadius;
@@ -124,8 +124,8 @@ public partial class ColorPaletteItem : Control
 
                 var boundRect = new Rect(finalSize);
                 var innerRect = boundRect.Deflate(borderThickness);
-                BorderGeometryKeypoints backgroundKeypoints = null;
-                StreamGeometry backgroundGeometry = null;
+                BorderGeometryKeypoints? backgroundKeypoints = null;
+                StreamGeometry? backgroundGeometry = null;
 
                 if (innerRect.Width != 0 && innerRect.Height != 0)
                 {
@@ -153,7 +153,7 @@ public partial class ColorPaletteItem : Control
                     {
                         CreateGeometry(ctx, boundRect, borderGeometryKeypoints);
 
-                        if (backgroundGeometry != null)
+                        if (backgroundGeometry != null && backgroundKeypoints != null)
                         {
                             CreateGeometry(ctx, innerRect, backgroundKeypoints);
                         }
@@ -170,7 +170,7 @@ public partial class ColorPaletteItem : Control
 
         public void Render(DrawingContext context,
             Size finalSize, Thickness borderThickness, CornerRadius cornerRadius,
-            IBrush background, IBrush borderBrush, BoxShadows boxShadows)
+            IBrush? background, IBrush? borderBrush, BoxShadows boxShadows)
         {
             if (_size != finalSize
                 || _borderThickness != borderThickness
@@ -180,7 +180,7 @@ public partial class ColorPaletteItem : Control
             RenderCore(context, background, borderBrush, boxShadows);
         }
 
-        void RenderCore(DrawingContext context, IBrush background, IBrush borderBrush, BoxShadows boxShadows)
+        void RenderCore(DrawingContext context, IBrush? background, IBrush? borderBrush, BoxShadows boxShadows)
         {
             if (_useComplexRendering)
             {
@@ -199,7 +199,7 @@ public partial class ColorPaletteItem : Control
             else
             {
                 var borderThickness = _borderThickness.Top;
-                IPen pen = null;
+                IPen? pen = null;
 
                 if (borderThickness > 0)
                 {

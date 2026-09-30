@@ -38,7 +38,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             .DisposeWith(_disposables);
 
         PasteCommand = new AsyncReactiveCommand()
-            .WithSubscribe(PasteAsync)
+            .WithSubscribe(() => PasteAsync())
             .DisposeWith(_disposables);
 
         RemoveCommand = new ReactiveCommand()
@@ -83,10 +83,10 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         }
     }
 
-    private async Task PasteAsync()
+    internal async Task PasteAsync(IClipboard? clipboard = null)
     {
         if (!Parent.IsEditable) return;
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
+        clipboard ??= ClipboardHelper.GetClipboard();
         if (clipboard == null) return;
 
         try
@@ -131,6 +131,13 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                     history.Commit(CommandNames.PasteKeyFrame);
                 }
 
+                return;
+            }
+            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection) is { } selectionJson)
+            {
+                if (!Parent.IsEditable || !ReferenceEquals(Parent.Property.Animation, Animation)
+                    || !Animation.KeyFrames.Contains(Model)) return;
+                Parent.PasteSelection(selectionJson, Model.KeyTime);
                 return;
             }
 

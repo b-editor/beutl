@@ -18,97 +18,40 @@ namespace Beutl.AgentToolkit.Tests.Tools;
 public sealed class McpToolBindingTests
 {
     [Test]
-    public async Task Evaluate_edit_quality_binds_palette_role_colors_through_mcp_arguments()
+    public async Task Frame_measurement_returns_raw_data_for_a_static_empty_scene()
     {
         string workspace = CreateWorkspace();
         await using InProcessMcpServer server = await InProcessMcpServer.StartAsync(workspace);
         await using McpClient client = await McpClient.CreateAsync(server.ClientTransport);
+        AssertMcpCallSucceeded(await client.CallToolAsync("create_project", new Dictionary<string, object?>
+        {
+            ["path"] = "static.bep",
+            ["width"] = 32,
+            ["height"] = 18,
+            ["frameRate"] = 30,
+            ["duration"] = "00:00:03"
+        }), "create_project");
 
-        CallToolResult create = await client.CallToolAsync(
-            "create_project",
-            new Dictionary<string, object?>
-            {
-                ["path"] = "palette-role-colors.bep",
-                ["width"] = 320,
-                ["height"] = 180,
-                ["frameRate"] = 30,
-                ["duration"] = "00:00:03"
-            });
-        AssertMcpCallSucceeded(create, "create_project");
-
-        CallToolResult result = await client.CallToolAsync(
-            "evaluate_edit_quality",
-            new Dictionary<string, object?>
-            {
-                ["staticLayout"] = true,
-                ["timeSeconds"] = new[] { 0.5 },
-                ["paletteRoleColors"] = new object[]
-                {
-                    new Dictionary<string, object?>
-                    {
-                        ["role"] = "bg-base",
-                        ["color"] = "#101820"
-                    },
-                    new Dictionary<string, object?>
-                    {
-                        ["role"] = "accent",
-                        ["color"] = "#F2AA4C"
-                    }
-                }
-            });
-
+        CallToolResult result = await client.CallToolAsync("measure_frame_differences", new Dictionary<string, object?>
+        {
+            ["timeSeconds"] = new[] { 0.5, 1.5 },
+            ["pixelDeltaThreshold"] = 32,
+            ["foregroundLumaThreshold"] = 16
+        });
+        AssertToolResultSuccess(result);
+        using JsonDocument document = JsonDocument.Parse(ReadText(result));
+        JsonElement value = document.RootElement.GetProperty("value");
         Assert.Multiple(() =>
         {
-            Assert.That(ReadText(result), Does.Not.Contain("An error occurred invoking 'evaluate_edit_quality'"));
-            AssertToolResultSuccess(result);
-        });
-    }
-
-    [Test]
-    public async Task Evaluate_edit_quality_binds_stringified_palette_role_colors_through_mcp_arguments()
-    {
-        string workspace = CreateWorkspace();
-        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync(workspace);
-        await using McpClient client = await McpClient.CreateAsync(server.ClientTransport);
-
-        CallToolResult create = await client.CallToolAsync(
-            "create_project",
-            new Dictionary<string, object?>
+            Assert.That(value.GetProperty("minimumChangedPixelRatio").GetDouble(), Is.Zero);
+            Assert.That(value.GetProperty("averageChangedPixelRatio").GetDouble(), Is.Zero);
+            Assert.That(value.GetProperty("pixelDeltaThreshold").GetInt32(), Is.EqualTo(32));
+            Assert.That(value.GetProperty("foregroundLumaThreshold").GetInt32(), Is.EqualTo(16));
+            Assert.That(value.EnumerateObject().Select(property => property.Name), Is.EquivalentTo(new[]
             {
-                ["path"] = "palette-role-colors-string.bep",
-                ["width"] = 320,
-                ["height"] = 180,
-                ["frameRate"] = 30,
-                ["duration"] = "00:00:03"
-            });
-        AssertMcpCallSucceeded(create, "create_project");
-
-        string paletteRoleColors = JsonSerializer.Serialize(new object[]
-        {
-            new Dictionary<string, object?>
-            {
-                ["role"] = "bg-base",
-                ["color"] = "#101820"
-            },
-            new Dictionary<string, object?>
-            {
-                ["role"] = "accent",
-                ["color"] = "#F2AA4C"
-            }
-        });
-        CallToolResult result = await client.CallToolAsync(
-            "evaluate_edit_quality",
-            new Dictionary<string, object?>
-            {
-                ["staticLayout"] = true,
-                ["timeSeconds"] = new[] { 0.5 },
-                ["paletteRoleColors"] = paletteRoleColors
-            });
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(ReadText(result), Does.Not.Contain("An error occurred invoking 'evaluate_edit_quality'"));
-            AssertToolResultSuccess(result);
+                "pixelDeltaThreshold", "foregroundLumaThreshold", "minimumChangedPixelRatio",
+                "averageChangedPixelRatio", "samples", "pairVariations", "frameCoverage"
+            }));
         });
     }
 
@@ -314,16 +257,14 @@ public sealed class McpToolBindingTests
                 .AddSingleton<DestructiveGuard>()
                 .AddSingleton<StillRenderer>()
                 .AddSingleton<StoryboardRenderer>()
-                .AddSingleton<MotionVariationAnalyzer>()
+                .AddSingleton<FrameDifferenceAnalyzer>()
                 .AddSingleton<AudioRhythmAnalyzer>()
-                .AddSingleton<QualityAnalyzer>()
                 .AddSingleton<EncoderRegistration>()
                 .AddSingleton<VideoExporter>()
                 .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
                 .AddSingleton<RenderJobManager>()
                 .AddSingleton<FileSessionSource>()
                 .AddSingleton<IProjectSessionGateway, FileProjectSessionGateway>()
-                .AddSingleton(_ => new CreativeMemoryStore(workspace))
                 .AddSingleton<AgentSessionManager>();
 
             builder.Services
@@ -332,7 +273,6 @@ public sealed class McpToolBindingTests
                 .WithRequestFilters(filters => filters.AddToolkitCallToolErrorFilter())
                 .WithTools<SessionTools>()
                 .WithTools<QueryTools>()
-                .WithTools<DesignTools>()
                 .WithTools<EditTools>()
                 .WithTools<RenderTools>();
 

@@ -286,7 +286,7 @@ public sealed class GpuPassFusion3DBoundaryTests
         var cube = new Cube3D();
         cube.Material.CurrentValue = material;
         var light = new DirectionalLight3D();
-        light.Direction.CurrentValue = new Vector3(0, 0, -1);
+        light.Direction.CurrentValue = new Vector3(0, 0, 1);
         light.Intensity.CurrentValue = 1;
         light.IsEnabled = true;
 

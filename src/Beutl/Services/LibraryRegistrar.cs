@@ -83,6 +83,9 @@ public static class LibraryRegistrar
             .AddMultiple(GraphicsStrings.Model3D, m => m
                 .BindEngineObject<Model3D>()
             )
+            .AddMultiple(GraphicsStrings.DrawableObject3D, m => m
+                .BindEngineObject<DrawableObject3D>()
+            )
             // Lights
             .AddMultiple(GraphicsStrings.DirectionalLight3D, m => m
                 .BindEngineObject<DirectionalLight3D>()

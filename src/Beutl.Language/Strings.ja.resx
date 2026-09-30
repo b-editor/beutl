@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -1657,6 +1657,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiImageGeneration" xml:space="preserve">
     <value>AI 画像生成</value>
   </data>
+  <data name="AiImageGenerationSection" xml:space="preserve">
+    <value>画像生成</value>
+  </data>
   <data name="AiPrompt" xml:space="preserve">
     <value>プロンプト</value>
   </data>
@@ -1756,6 +1759,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitle" xml:space="preserve">
     <value>AI字幕</value>
   </data>
+  <data name="AiSubtitleSection" xml:space="preserve">
+    <value>字幕</value>
+  </data>
   <data name="AiSubtitle_AudioSource" xml:space="preserve">
     <value>音声ソース</value>
   </data>
@@ -1792,6 +1798,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiImageEdit" xml:space="preserve">
     <value>AI画像編集</value>
   </data>
+  <data name="AiImageEditSection" xml:space="preserve">
+    <value>画像編集</value>
+  </data>
   <data name="AiEditTask" xml:space="preserve">
     <value>タスク</value>
   </data>
@@ -1815,6 +1824,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>AI動画生成</value>
+  </data>
+  <data name="AiVideoGenerationSection" xml:space="preserve">
+    <value>動画生成</value>
   </data>
   <data name="AiVideoPrompt_Placeholder" xml:space="preserve">
     <value>生成したい動画を説明してください...</value>
@@ -1863,6 +1875,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiJobCenter" xml:space="preserve">
     <value>AIジョブ</value>
+  </data>
+  <data name="AiJobCenterSection" xml:space="preserve">
+    <value>ジョブ</value>
   </data>
   <data name="AiJobCenter_Description" xml:space="preserve">
     <value>編集を止めずに生成状況を確認し、結果の再利用やシーンへの追加ができます。</value>
@@ -3016,6 +3031,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiVideoEditing" xml:space="preserve">
     <value>動画編集</value>
   </data>
+  <data name="AiVideoEditingSection" xml:space="preserve">
+    <value>動画編集</value>
+  </data>
   <data name="AiVideoExtend" xml:space="preserve">
     <value>動画延長</value>
   </data>
@@ -3144,5 +3162,140 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="OpenInFileManager" xml:space="preserve">
     <value>ファイルマネージャーで開く</value>
+  </data>
+  <data name="PathEditor_MoveTool" xml:space="preserve">
+    <value>選択 (V)・Shift: 選択に追加</value>
+  </data>
+  <data name="PathEditor_PenTool" xml:space="preserve">
+    <value>ペン (P)・クリック: 点を追加・ドラッグ: 曲線</value>
+  </data>
+  <data name="PathEditor_BendTool" xml:space="preserve">
+    <value>曲線 (B)・点をクリックしてハンドルを追加／削除</value>
+  </data>
+  <data name="PathEditor_HandTool" xml:space="preserve">
+    <value>手のひら (H)・Space＋ドラッグ: 移動</value>
+  </data>
+  <data name="PathEditor_ZoomIn" xml:space="preserve">
+    <value>拡大 (+)</value>
+  </data>
+  <data name="PathEditor_ZoomOut" xml:space="preserve">
+    <value>縮小 (-)</value>
+  </data>
+  <data name="PathEditor_Fit" xml:space="preserve">
+    <value>パスを全体表示 (Shift+1)</value>
+  </data>
+  <data name="PathEditor_NoSelection" xml:space="preserve">
+    <value>点を選択してください</value>
+  </data>
+  <data name="PathEditor_SelectedPoints" xml:space="preserve">
+    <value>{0} 個の点を選択中</value>
+  </data>
+  <data name="PathEditor_PointX" xml:space="preserve">
+    <value>点の X 座標</value>
+  </data>
+  <data name="PathEditor_PointY" xml:space="preserve">
+    <value>点の Y 座標</value>
+  </data>
+  <data name="PathEditor_MirrorBoth" xml:space="preserve">
+    <value>角度と長さを揃える</value>
+  </data>
+  <data name="PathEditor_MirrorAngle" xml:space="preserve">
+    <value>角度を揃える</value>
+  </data>
+  <data name="PathEditor_Independent" xml:space="preserve">
+    <value>ハンドルを独立 (Alt／Option)</value>
+  </data>
+  <data name="PathEditor_Display" xml:space="preserve">
+    <value>表示</value>
+  </data>
+  <data name="PathEditor_EmptyHint" xml:space="preserve">
+    <value>プロパティパネルでパスを選択すると編集を開始できます。</value>
+  </data>
+  <data name="PathEditor_PointSettings" xml:space="preserve">
+    <value>ポイント設定</value>
+  </data>
+  <data name="PathEditor_Handles" xml:space="preserve">
+    <value>ハンドル</value>
+  </data>
+  <data name="PathEditor_StrokeLabel" xml:space="preserve">
+    <value>線</value>
+  </data>
+  <data name="PathEditor_FillLabel" xml:space="preserve">
+    <value>塗り</value>
+  </data>
+  <data name="PathEditor_SelectionPosition" xml:space="preserve">
+    <value>選択範囲の位置</value>
+  </data>
+  <data name="PathEditor_ActivePoint" xml:space="preserve">
+    <value>アクティブな点</value>
+  </data>
+  <data name="PathEditor_IncomingControlPoint" xml:space="preserve">
+    <value>入側の制御点</value>
+  </data>
+  <data name="PathEditor_OutgoingControlPoint" xml:space="preserve">
+    <value>出側の制御点</value>
+  </data>
+  <data name="GraphSpeedGraph" xml:space="preserve">
+    <value>速度グラフ</value>
+  </data>
+  <data name="GraphTypeHint" xml:space="preserve">
+    <value>値グラフと速度グラフ（単位/秒）を切り替え</value>
+  </data>
+  <data name="GraphSnap" xml:space="preserve">
+    <value>スナップ</value>
+  </data>
+  <data name="GraphTransformBox" xml:space="preserve">
+    <value>変形枠</value>
+  </data>
+  <data name="GraphAutoZoomHeight" xml:space="preserve">
+    <value>高さを自動調整</value>
+  </data>
+  <data name="GraphFitAll" xml:space="preserve">
+    <value>全体を表示 (F)</value>
+  </data>
+  <data name="GraphFitSelection" xml:space="preserve">
+    <value>選択範囲を表示 (Shift+F)</value>
+  </data>
+  <data name="GraphEasyEase" xml:space="preserve">
+    <value>イージーイーズ (F9)</value>
+  </data>
+  <data name="GraphEasyEaseIn" xml:space="preserve">
+    <value>イーズイン (Shift+F9)</value>
+  </data>
+  <data name="GraphEasyEaseOut" xml:space="preserve">
+    <value>イーズアウト (Ctrl/Cmd+F9)</value>
+  </data>
+  <data name="GraphValueGraph" xml:space="preserve">
+    <value>値グラフ</value>
+  </data>
+  <data name="GraphValue" xml:space="preserve">
+    <value>値</value>
+  </data>
+  <data name="GraphVelocity" xml:space="preserve">
+    <value>キーフレーム速度 (Ctrl/Cmd+Shift+K)</value>
+  </data>
+  <data name="GraphIncoming" xml:space="preserve">
+    <value>入る速度</value>
+  </data>
+  <data name="GraphOutgoing" xml:space="preserve">
+    <value>出る速度</value>
+  </data>
+  <data name="GraphInfluence" xml:space="preserve">
+    <value>影響度（%）</value>
+  </data>
+  <data name="GraphChannels" xml:space="preserve">
+    <value>チャンネル</value>
+  </data>
+  <data name="GraphHandleMode" xml:space="preserve">
+    <value>ハンドルの連動</value>
+  </data>
+  <data name="GraphVelocityTitle" xml:space="preserve">
+    <value>キーフレーム速度</value>
+  </data>
+  <data name="GraphAlpha" xml:space="preserve">
+    <value>アルファ</value>
+  </data>
+  <data name="EnableAnimation" xml:space="preserve">
+    <value>アニメーションを有効にする</value>
   </data>
 </root>

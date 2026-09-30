@@ -1244,6 +1244,15 @@
   <data name="TransparentMaterial_Roughness" xml:space="preserve">
     <value>粗糙度</value>
   </data>
+  <data name="UnlitMaterial" xml:space="preserve">
+    <value>无光照材质</value>
+  </data>
+  <data name="UnlitMaterial_ColorMap" xml:space="preserve">
+    <value>颜色贴图</value>
+  </data>
+  <data name="DrawableObject3D" xml:space="preserve">
+    <value>2D 可绘制对象</value>
+  </data>
   <data name="Amount" xml:space="preserve">
     <value>数量</value>
   </data>

@@ -1,12 +1,63 @@
 ﻿using System.Reflection;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Shaders;
 using Moq;
+using PhysicalDeviceLimits = Silk.NET.Vulkan.PhysicalDeviceLimits;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
 public sealed class GLSLFilterPipelineLifetimeTests
 {
+    [TestCase(0)]
+    [TestCase(-1)]
+    [TestCase(GLSLFilterPipeline.PortableInputLimit + 1)]
+    [TestCase(int.MaxValue)]
+    public void Create_RejectsUnsupportedInputCountBeforeCompilerOrGpuAllocation(int inputCount)
+    {
+        var fixture = new PipelineFixture();
+        Assert.Throws<ArgumentOutOfRangeException>(() => GLSLFilterPipeline.Create(
+            fixture.Context.Object, "fragment shader", ShaderOutputCoverage.MayLeavePixelsUnwritten,
+            inputCount: inputCount));
+        fixture.Context.Verify(x => x.CreateShaderCompiler(), Times.Never);
+        fixture.Context.Verify(x => x.CreateRenderPass3D(
+            It.IsAny<IReadOnlyList<TextureFormat>>(), It.IsAny<TextureFormat?>(),
+            It.IsAny<AttachmentLoadOp>(), It.IsAny<AttachmentLoadOp>()), Times.Never);
+    }
+
+    [Test]
+    public void Create_AcceptsThePortableInputCountBoundary()
+    {
+        var fixture = new PipelineFixture();
+        using GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
+            fixture.Context.Object, "fragment shader", ShaderOutputCoverage.MayLeavePixelsUnwritten,
+            inputCount: GLSLFilterPipeline.PortableInputLimit);
+        Assert.That(pipeline, Is.Not.Null);
+        fixture.Context.Verify(x => x.CreatePipeline3D(
+            It.IsAny<IRenderPass3D>(), It.IsAny<byte[]>(), It.IsAny<byte[]>(),
+            It.Is<DescriptorBinding[]>(bindings => bindings.Length == GLSLFilterPipeline.PortableInputLimit),
+            It.IsAny<VertexInputDescription>(), It.IsAny<PipelineOptions>()), Times.Once);
+    }
+
+    [TestCase(8u, 64u, 64u, 64u, 64u)]
+    [TestCase(64u, 8u, 64u, 64u, 64u)]
+    [TestCase(64u, 64u, 8u, 64u, 64u)]
+    [TestCase(64u, 64u, 64u, 8u, 64u)]
+    [TestCase(64u, 64u, 64u, 64u, 8u)]
+    public void InputCountLimit_RespectsEveryApplicableDeviceLimit(
+        uint stageSamplers, uint stageImages, uint setSamplers, uint setImages, uint stageResources)
+    {
+        var limits = new PhysicalDeviceLimits
+        {
+            MaxPerStageDescriptorSamplers = stageSamplers,
+            MaxPerStageDescriptorSampledImages = stageImages,
+            MaxDescriptorSetSamplers = setSamplers,
+            MaxDescriptorSetSampledImages = setImages,
+            MaxPerStageResources = stageResources,
+        };
+        Assert.That(VulkanDevice.GetMaxFragmentShaderInputTextures(limits), Is.EqualTo(8));
+    }
+
     [TestCase(ShaderStage.Vertex)]
     [TestCase(ShaderStage.Fragment)]
     public void Create_WhenCompilationFails_DisposesCompiler(ShaderStage failingStage)

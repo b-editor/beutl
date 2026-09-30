@@ -28,7 +28,7 @@ public sealed partial class DrawableTextureSource : TextureSource
     [Range(1, 8192)]
     public IProperty<int> TextureHeight { get; } = Property.CreateAnimatable(256);
 
-    public partial class Resource
+    public partial class Resource : IRecordedTextureSource
     {
         private DrawableRenderNode? _drawableNode;
         private RenderTarget? _renderTarget;
@@ -52,6 +52,12 @@ public sealed partial class DrawableTextureSource : TextureSource
                 TextureDomain,
                 sanitizedDensity);
         }
+
+        Rect IRecordedTextureSource.TextureDomain => TextureDomain;
+
+        float IRecordedTextureSource.ResolveDensity(float density) => ResolveDensity(density);
+
+        RenderNode? IRecordedTextureSource.RecordContent(float density) => RecordDrawable(density);
 
         internal DrawableRenderNode? RecordDrawable(float density)
         {

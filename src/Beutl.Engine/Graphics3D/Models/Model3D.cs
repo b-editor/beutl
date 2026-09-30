@@ -19,6 +19,8 @@ public sealed partial class Model3D : Group3D
     public Model3D()
     {
         ScanProperties<Model3D>();
+        // Model files are usually authored in meters; show one meter as 100 px.
+        Scale.CurrentValue = new System.Numerics.Vector3(100);
         Source.ValueChanged += (_, _) => SourceChanged();
     }
 

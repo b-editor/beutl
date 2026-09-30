@@ -40,16 +40,16 @@ Pass threshold: at least 95% of render/export attempts for supported content suc
 | Missing FFmpeg libs | n/a | pending | `codec_unavailable` |
 | Unsupported output extension | n/a | pending | `codec_unavailable` |
 
-## SC-011: AI Editing Quality Gate
+## Editing-only API boundary
 
-Pass threshold: all representative guidance-produced projects run `evaluate_edit_quality` and have no unresolved critical or major issues.
+| Fixture | Expected behavior | Result |
+|---|---|---|
+| Static or empty scene | Render and measure successfully; pixel change is zero | pending |
+| Sparse or dark scene | Report pixel measurements without aesthetic warnings | pending |
+| Named preset reused | Apply successfully without style-rotation restrictions | pending |
+| Invalid type, reference, range, or output path | Return the corresponding technical validation error | pending |
 
-| Fixture | Expected Gate | Result | Notes |
-|---|---|---|---|
-| title-card | mixed-case text, aligned backing plate, no foreground RectShape dominance | pending | |
-| motion-graphics | `evaluate_motion_variation` passes and quality gate passes | pending | |
-| palette-stress | dark teal/cyan/magenta and oversaturation are detected | pending | negative fixture |
-| cut-rhythm-stress | unmotivated hard cuts are detected unless allowed | pending | negative fixture |
+Visual fulfillment is assessed from the requested edit and actual rendered result, not a Beutl quality gate.
 
 ## Run Record
 

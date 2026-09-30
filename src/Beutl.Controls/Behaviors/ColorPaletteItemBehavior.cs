@@ -32,13 +32,13 @@ public class ColorPaletteItemBehavior : Behavior<ColorPaletteItem>
         }
     }
 
-    private void OnPointerReleased(object sender, PointerReleasedEventArgs e)
+    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (AssociatedObject != null && _isPressed)
         {
             _isPressed = false;
 
-            SimpleColorPickerFlyoutPresenter fp = AssociatedObject.FindAncestorOfType<SimpleColorPickerFlyoutPresenter>();
+            SimpleColorPickerFlyoutPresenter? fp = AssociatedObject.FindAncestorOfType<SimpleColorPickerFlyoutPresenter>();
             if (fp?.Content is SimpleColorPicker cp)
             {
                 cp.SetColor(AssociatedObject.Color);
@@ -46,7 +46,7 @@ public class ColorPaletteItemBehavior : Behavior<ColorPaletteItem>
                 return;
             }
 
-            BrushEditorFlyoutPresenter fp2 = AssociatedObject.FindAncestorOfType<BrushEditorFlyoutPresenter>();
+            BrushEditorFlyoutPresenter? fp2 = AssociatedObject.FindAncestorOfType<BrushEditorFlyoutPresenter>();
             if (fp2 != null)
             {
                 fp2.SetColorPaletteItem(AssociatedObject.Color);
@@ -55,7 +55,7 @@ public class ColorPaletteItemBehavior : Behavior<ColorPaletteItem>
         }
     }
 
-    private void OnPointerPressed(object sender, PointerPressedEventArgs e)
+    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (AssociatedObject != null
             && e.GetCurrentPoint(AssociatedObject).Properties.IsLeftButtonPressed)

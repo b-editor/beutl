@@ -211,7 +211,11 @@ public class CustomFilterEffectContext
     public EffectTarget CreateTarget(Rect bounds)
         => CreateTargetCore(bounds, WorkingScale);
 
-    private EffectTarget CreateTargetCore(Rect bounds, float requestedDensity)
+    // Native shader passes initialize their own attachment and can reuse render-owned pooled targets.
+    internal EffectTarget CreateNativeTarget(Rect bounds)
+        => CreateTargetCore(bounds, WorkingScale, native: true);
+
+    private EffectTarget CreateTargetCore(Rect bounds, float requestedDensity, bool native = false)
     {
         float w = requestedDensity;
         // Re-clamp at allocation site: bounds may exceed what node-level clamps saw, and planning's budget
@@ -233,7 +237,7 @@ public class CustomFilterEffectContext
         var deviceBounds = new PixelRect(
             deviceOrigin,
             new PixelSize(width, height));
-        return AllocateTarget(bounds, w, deviceBounds);
+        return AllocateTarget(bounds, w, deviceBounds, native);
     }
 
     /// <summary>
@@ -544,7 +548,8 @@ public class CustomFilterEffectContext
     private EffectTarget AllocateTarget(
         Rect bounds,
         float density,
-        PixelRect deviceBounds)
+        PixelRect deviceBounds,
+        bool native = false)
     {
         Vector effectItemGridOffset = deviceBounds
             .ToRect(density)
@@ -555,7 +560,9 @@ public class CustomFilterEffectContext
             density,
             deviceBounds,
             effectItemGridOffset,
-            preserveImperativeRasterPlacement: true);
+            preserveImperativeRasterPlacement: true,
+            preferLease: native,
+            clearContents: !native);
         if (allocated != null)
         {
             return allocated;

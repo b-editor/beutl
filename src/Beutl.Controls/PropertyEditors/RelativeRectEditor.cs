@@ -137,7 +137,7 @@ public class RelativeRectEditor : Vector4Editor
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
-        void SubscribeEvents(TextBox textBox)
+        void SubscribeEvents(TextBox? textBox)
         {
             if (textBox != null)
             {
@@ -174,7 +174,7 @@ public class RelativeRectEditor : Vector4Editor
         UpdateErrors();
     }
 
-    private void OnInnerTextBoxGotFocus(object sender, FocusChangedEventArgs e)
+    private void OnInnerTextBoxGotFocus(object? sender, FocusChangedEventArgs e)
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
@@ -186,7 +186,7 @@ public class RelativeRectEditor : Vector4Editor
         }
     }
 
-    private void OnInnerTextBoxLostFocus(object sender, RoutedEventArgs e)
+    private void OnInnerTextBoxLostFocus(object? sender, RoutedEventArgs e)
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
@@ -205,10 +205,10 @@ public class RelativeRectEditor : Vector4Editor
         }
     }
 
-    private static bool TryParse(string s, out float result, out Graphics.RelativeUnit unit)
+    private static bool TryParse(string? s, out float result, out Graphics.RelativeUnit unit)
         => RelativeUnitParser.TryParse(s, out result, out unit);
 
-    private void OnInnerTextBoxTextChanged(TextBox sender, string newValue, string oldValue)
+    private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
         if (sender.IsKeyboardFocusWithin
             && TryParse(newValue, out float newValue2, out Graphics.RelativeUnit newUnit))
@@ -271,7 +271,10 @@ public class RelativeRectEditor : Vector4Editor
     private void UpdateErrors()
     {
         if (TryParse(InnerFirstTextBox.Text, out _, out _)
-            && (IsUniform || TryParse(InnerSecondTextBox.Text, out _, out _) || TryParse(InnerThirdTextBox.Text, out _, out _) || TryParse(InnerFourthTextBox.Text, out _, out _)))
+            && (IsUniform
+                || (TryParse(InnerSecondTextBox?.Text, out _, out _)
+                    && TryParse(InnerThirdTextBox?.Text, out _, out _)
+                    && TryParse(InnerFourthTextBox?.Text, out _, out _))))
         {
             DataValidationErrors.ClearErrors(this);
         }
@@ -281,7 +284,7 @@ public class RelativeRectEditor : Vector4Editor
         }
     }
 
-    private void OnInnerTextBoxPointerWheelChanged(object sender, PointerWheelEventArgs e)
+    private void OnInnerTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (!DataValidationErrors.GetHasErrors(this)
             && sender is TextBox textBox

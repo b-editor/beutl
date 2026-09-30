@@ -1585,6 +1585,24 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiPromptTooLongFormat" xml:space="preserve">
     <value>La indicación final no puede superar los {0} caracteres.</value>
   </data>
+  <data name="AiImageGenerationSection" xml:space="preserve">
+    <value>Generación de imágenes</value>
+  </data>
+  <data name="AiImageEditSection" xml:space="preserve">
+    <value>Edición de imágenes</value>
+  </data>
+  <data name="AiVideoGenerationSection" xml:space="preserve">
+    <value>Generación de vídeo</value>
+  </data>
+  <data name="AiVideoEditingSection" xml:space="preserve">
+    <value>Edición de vídeo</value>
+  </data>
+  <data name="AiSubtitleSection" xml:space="preserve">
+    <value>Subtítulos</value>
+  </data>
+  <data name="AiJobCenterSection" xml:space="preserve">
+    <value>Trabajos</value>
+  </data>
   <data name="AiImageGenerationIdle" xml:space="preserve">
     <value>Describe la imagen y haz clic en Generar.</value>
   </data>
@@ -1647,5 +1665,140 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="OpenInFileManager" xml:space="preserve">
     <value>Abrir en el gestor de archivos</value>
+  </data>
+  <data name="PathEditor_MoveTool" xml:space="preserve">
+    <value>Mover (V) · Mayús: añadir a la selección</value>
+  </data>
+  <data name="PathEditor_PenTool" xml:space="preserve">
+    <value>Pluma (P) · Clic: añadir punto · Arrastrar: curva</value>
+  </data>
+  <data name="PathEditor_BendTool" xml:space="preserve">
+    <value>Curvar (B) · Haz clic en un punto para añadir o quitar controles</value>
+  </data>
+  <data name="PathEditor_HandTool" xml:space="preserve">
+    <value>Mano (H) · Espacio + arrastrar: desplazar</value>
+  </data>
+  <data name="PathEditor_ZoomIn" xml:space="preserve">
+    <value>Acercar (+)</value>
+  </data>
+  <data name="PathEditor_ZoomOut" xml:space="preserve">
+    <value>Alejar (-)</value>
+  </data>
+  <data name="PathEditor_Fit" xml:space="preserve">
+    <value>Ajustar trazado (Mayús+1)</value>
+  </data>
+  <data name="PathEditor_NoSelection" xml:space="preserve">
+    <value>Ningún punto seleccionado</value>
+  </data>
+  <data name="PathEditor_SelectedPoints" xml:space="preserve">
+    <value>{0} puntos seleccionados</value>
+  </data>
+  <data name="PathEditor_PointX" xml:space="preserve">
+    <value>Posición X del punto</value>
+  </data>
+  <data name="PathEditor_PointY" xml:space="preserve">
+    <value>Posición Y del punto</value>
+  </data>
+  <data name="PathEditor_MirrorBoth" xml:space="preserve">
+    <value>Reflejar ángulo y longitud</value>
+  </data>
+  <data name="PathEditor_MirrorAngle" xml:space="preserve">
+    <value>Reflejar ángulo</value>
+  </data>
+  <data name="PathEditor_Independent" xml:space="preserve">
+    <value>Controles independientes (Alt / Opción)</value>
+  </data>
+  <data name="PathEditor_Display" xml:space="preserve">
+    <value>Vista previa</value>
+  </data>
+  <data name="PathEditor_EmptyHint" xml:space="preserve">
+    <value>Selecciona un trazado en el panel de propiedades para empezar a editar.</value>
+  </data>
+  <data name="PathEditor_PointSettings" xml:space="preserve">
+    <value>Ajustes de puntos</value>
+  </data>
+  <data name="PathEditor_Handles" xml:space="preserve">
+    <value>Controles</value>
+  </data>
+  <data name="PathEditor_StrokeLabel" xml:space="preserve">
+    <value>Trazo</value>
+  </data>
+  <data name="PathEditor_FillLabel" xml:space="preserve">
+    <value>Relleno</value>
+  </data>
+  <data name="PathEditor_SelectionPosition" xml:space="preserve">
+    <value>Posición de la selección</value>
+  </data>
+  <data name="PathEditor_ActivePoint" xml:space="preserve">
+    <value>Punto activo</value>
+  </data>
+  <data name="PathEditor_IncomingControlPoint" xml:space="preserve">
+    <value>Punto de control de entrada</value>
+  </data>
+  <data name="PathEditor_OutgoingControlPoint" xml:space="preserve">
+    <value>Punto de control de salida</value>
+  </data>
+  <data name="GraphSpeedGraph" xml:space="preserve">
+    <value>Gráfico de velocidad</value>
+  </data>
+  <data name="GraphTypeHint" xml:space="preserve">
+    <value>Cambiar entre valores y velocidad (unidades/segundo)</value>
+  </data>
+  <data name="GraphSnap" xml:space="preserve">
+    <value>Ajustar</value>
+  </data>
+  <data name="GraphTransformBox" xml:space="preserve">
+    <value>Cuadro de transformación</value>
+  </data>
+  <data name="GraphAutoZoomHeight" xml:space="preserve">
+    <value>Altura automática</value>
+  </data>
+  <data name="GraphFitAll" xml:space="preserve">
+    <value>Ajustar todo (F)</value>
+  </data>
+  <data name="GraphFitSelection" xml:space="preserve">
+    <value>Ajustar selección (Shift+F)</value>
+  </data>
+  <data name="GraphEasyEase" xml:space="preserve">
+    <value>Suavizado (F9)</value>
+  </data>
+  <data name="GraphEasyEaseIn" xml:space="preserve">
+    <value>Suavizado de entrada (Shift+F9)</value>
+  </data>
+  <data name="GraphEasyEaseOut" xml:space="preserve">
+    <value>Suavizado de salida (Ctrl/Cmd+F9)</value>
+  </data>
+  <data name="GraphValueGraph" xml:space="preserve">
+    <value>Gráfico de valores</value>
+  </data>
+  <data name="GraphValue" xml:space="preserve">
+    <value>Valor</value>
+  </data>
+  <data name="GraphVelocity" xml:space="preserve">
+    <value>Velocidad de fotograma clave (Ctrl/Cmd+Shift+K)</value>
+  </data>
+  <data name="GraphIncoming" xml:space="preserve">
+    <value>Entrada</value>
+  </data>
+  <data name="GraphOutgoing" xml:space="preserve">
+    <value>Salida</value>
+  </data>
+  <data name="GraphInfluence" xml:space="preserve">
+    <value>Influencia (%)</value>
+  </data>
+  <data name="GraphChannels" xml:space="preserve">
+    <value>Canales</value>
+  </data>
+  <data name="GraphHandleMode" xml:space="preserve">
+    <value>Modo de tangentes</value>
+  </data>
+  <data name="GraphVelocityTitle" xml:space="preserve">
+    <value>Velocidad de fotograma clave</value>
+  </data>
+  <data name="GraphAlpha" xml:space="preserve">
+    <value>Alfa</value>
+  </data>
+  <data name="EnableAnimation" xml:space="preserve">
+    <value>Activar animación</value>
   </data>
 </root>

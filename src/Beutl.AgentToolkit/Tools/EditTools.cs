@@ -117,17 +117,13 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                     ResolvedEdit resolved = ResolvePatchEdit(current, patch!, schemaVersion);
                     return (resolved.Document, resolved.KnownNewIds);
                 });
-            if (CompositionTemplateCatalog.TryInferTemplateName(patch ?? desired!) is { } inferredName)
-            {
-                sessions.RecordCompositionUse(inferredName);
-            }
 
             return CreateApplyEditResponse(result, includeDocument, quiet);
         });
     }
 
     [McpServerTool(Name = "duplicate_object")]
-    [Description("Duplicates one EngineObject (e.g. a Drawable) within its owning timeline Element.Objects, minting fresh Ids on every nested node, and returns the new object's Id. The copy is appended after the original (front-most within the Element), so applying an additive-blend look to the returned objectId layers an emissive glow over the untouched original — see get_effect_recipe \"additive-bloom\". Pass wrapInGroup=true for additive bloom so the original and copy live under a DrawableGroup IFlowOperator and evaluate_edit_quality stays gate-clean; duplicate then move the copy to a separate Element when you need independent timing or z-order.")]
+    [Description("Duplicates one EngineObject (e.g. a Drawable) within its owning timeline Element.Objects, minting fresh Ids on every nested node, and returns the new object's Id. The copy is appended after the original (front-most within the Element), so applying an additive-blend look to the returned objectId layers an emissive glow over the untouched original — see get_effect_recipe \"additive-bloom\". Pass wrapInGroup=true for additive bloom so the original and copy live under a DrawableGroup IFlowOperator and both drawables are processed together; duplicate then move the copy to a separate Element when you need independent timing or z-order.")]
     public ToolResult<DuplicateObjectResponse> DuplicateObject(
         [Description("Id of the object to duplicate. Must be an object inside some timeline Element.Objects (e.g. a drawable).")]
         string objectId,
@@ -176,7 +172,6 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         string? tag = null,
         JsonObject? inputProps = null,
         string? seed = null,
-        bool avoidRecent = true,
         bool includeDetailedPlan = false)
     {
         return Execute(() =>
@@ -187,9 +182,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 name,
                 tag,
                 inputProps,
-                sessions.ResolveCompositionSeed(seed),
-                avoidRecent ? sessions.GetAvoidedCompositions() : null,
-                EnforceFirstSelection(name, avoidRecent));
+                sessions.ResolveCompositionSeed(seed));
             // Resolve the patch and plan inside the session dispatch so a LiveEditor plan does not
             // read the UI-owned scene on the MCP request thread.
             ResolvedEdit resolved = null!;
@@ -226,7 +219,6 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         JsonObject? inputProps = null,
         string? seed = null,
         string? planId = null,
-        bool avoidRecent = true,
         JsonNode? expectedChangeSet = null)
     {
         return Execute(() =>
@@ -249,7 +241,6 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                             "The live composition change set differs from the stored planId.",
                             planId,
                             "Run plan_composition again and pass the new planId."));
-                sessions.RecordCompositionUse(state.CompositionName);
                 sessions.RemoveCompositionPlan(state.Id);
                 return new ApplyCompositionResponse(
                     SchemaVersion.Current,
@@ -266,9 +257,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                 name,
                 tag,
                 inputProps,
-                sessions.ResolveCompositionSeed(seed),
-                avoidRecent ? sessions.GetAvoidedCompositions() : null,
-                EnforceFirstSelection(name, avoidRecent));
+                sessions.ResolveCompositionSeed(seed));
             JsonArray? normalizedExpectedChangeSet = NormalizeExpectedChangeSet(expectedChangeSet);
             ReconcileResult result = _reconciler.ApplyValidated(
                 session,
@@ -286,7 +275,6 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                         "The live composition change set differs from expectedChangeSet.",
                         null,
                         "Run plan_composition again and submit the updated expectedChangeSet."));
-            sessions.RecordCompositionUse(composition.Name);
             return new ApplyCompositionResponse(
                 SchemaVersion.Current,
                 CreateCompositionRunSummary(composition),
@@ -444,11 +432,6 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
                && node.GetValueKind() == JsonValueKind.String
             ? node.GetValue<string>()
             : null;
-    }
-
-    private static bool EnforceFirstSelection(string? name, bool avoidRecent)
-    {
-        return avoidRecent && !string.IsNullOrWhiteSpace(name);
     }
 
     private static TimeSpan ReadSceneStart(JsonObject current)

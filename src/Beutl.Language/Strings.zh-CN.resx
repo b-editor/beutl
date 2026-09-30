@@ -1585,6 +1585,24 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AiPromptTooLongFormat" xml:space="preserve">
     <value>最终组合的提示词不能超过 {0} 个字符。</value>
   </data>
+  <data name="AiImageGenerationSection" xml:space="preserve">
+    <value>图像生成</value>
+  </data>
+  <data name="AiImageEditSection" xml:space="preserve">
+    <value>图像编辑</value>
+  </data>
+  <data name="AiVideoGenerationSection" xml:space="preserve">
+    <value>视频生成</value>
+  </data>
+  <data name="AiVideoEditingSection" xml:space="preserve">
+    <value>视频编辑</value>
+  </data>
+  <data name="AiSubtitleSection" xml:space="preserve">
+    <value>字幕</value>
+  </data>
+  <data name="AiJobCenterSection" xml:space="preserve">
+    <value>任务</value>
+  </data>
   <data name="AiImageGenerationIdle" xml:space="preserve">
     <value>描述图像并点击“生成”。</value>
   </data>
@@ -1647,5 +1665,140 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="OpenInFileManager" xml:space="preserve">
     <value>在文件管理器中打开</value>
+  </data>
+  <data name="PathEditor_MoveTool" xml:space="preserve">
+    <value>选择 (V) · Shift：添加到选择</value>
+  </data>
+  <data name="PathEditor_PenTool" xml:space="preserve">
+    <value>钢笔 (P) · 单击：添加点 · 拖动：曲线</value>
+  </data>
+  <data name="PathEditor_BendTool" xml:space="preserve">
+    <value>弯曲 (B) · 单击点以添加或移除手柄</value>
+  </data>
+  <data name="PathEditor_HandTool" xml:space="preserve">
+    <value>抓手 (H) · 空格 + 拖动：平移</value>
+  </data>
+  <data name="PathEditor_ZoomIn" xml:space="preserve">
+    <value>放大 (+)</value>
+  </data>
+  <data name="PathEditor_ZoomOut" xml:space="preserve">
+    <value>缩小 (-)</value>
+  </data>
+  <data name="PathEditor_Fit" xml:space="preserve">
+    <value>适合路径 (Shift+1)</value>
+  </data>
+  <data name="PathEditor_NoSelection" xml:space="preserve">
+    <value>未选择点</value>
+  </data>
+  <data name="PathEditor_SelectedPoints" xml:space="preserve">
+    <value>已选择 {0} 个点</value>
+  </data>
+  <data name="PathEditor_PointX" xml:space="preserve">
+    <value>点的 X 坐标</value>
+  </data>
+  <data name="PathEditor_PointY" xml:space="preserve">
+    <value>点的 Y 坐标</value>
+  </data>
+  <data name="PathEditor_MirrorBoth" xml:space="preserve">
+    <value>镜像角度和长度</value>
+  </data>
+  <data name="PathEditor_MirrorAngle" xml:space="preserve">
+    <value>镜像角度</value>
+  </data>
+  <data name="PathEditor_Independent" xml:space="preserve">
+    <value>独立手柄 (Alt / Option)</value>
+  </data>
+  <data name="PathEditor_Display" xml:space="preserve">
+    <value>预览</value>
+  </data>
+  <data name="PathEditor_EmptyHint" xml:space="preserve">
+    <value>在属性面板中选择路径以开始编辑。</value>
+  </data>
+  <data name="PathEditor_PointSettings" xml:space="preserve">
+    <value>点设置</value>
+  </data>
+  <data name="PathEditor_Handles" xml:space="preserve">
+    <value>手柄</value>
+  </data>
+  <data name="PathEditor_StrokeLabel" xml:space="preserve">
+    <value>描边</value>
+  </data>
+  <data name="PathEditor_FillLabel" xml:space="preserve">
+    <value>填充</value>
+  </data>
+  <data name="PathEditor_SelectionPosition" xml:space="preserve">
+    <value>选择区域位置</value>
+  </data>
+  <data name="PathEditor_ActivePoint" xml:space="preserve">
+    <value>活动点</value>
+  </data>
+  <data name="PathEditor_IncomingControlPoint" xml:space="preserve">
+    <value>入向控制点</value>
+  </data>
+  <data name="PathEditor_OutgoingControlPoint" xml:space="preserve">
+    <value>出向控制点</value>
+  </data>
+  <data name="GraphSpeedGraph" xml:space="preserve">
+    <value>速度图表</value>
+  </data>
+  <data name="GraphTypeHint" xml:space="preserve">
+    <value>切换数值图表和速度图表（单位/秒）</value>
+  </data>
+  <data name="GraphSnap" xml:space="preserve">
+    <value>吸附</value>
+  </data>
+  <data name="GraphTransformBox" xml:space="preserve">
+    <value>变换框</value>
+  </data>
+  <data name="GraphAutoZoomHeight" xml:space="preserve">
+    <value>自动高度</value>
+  </data>
+  <data name="GraphFitAll" xml:space="preserve">
+    <value>适合全部 (F)</value>
+  </data>
+  <data name="GraphFitSelection" xml:space="preserve">
+    <value>适合所选 (Shift+F)</value>
+  </data>
+  <data name="GraphEasyEase" xml:space="preserve">
+    <value>缓动 (F9)</value>
+  </data>
+  <data name="GraphEasyEaseIn" xml:space="preserve">
+    <value>缓入 (Shift+F9)</value>
+  </data>
+  <data name="GraphEasyEaseOut" xml:space="preserve">
+    <value>缓出 (Ctrl/Cmd+F9)</value>
+  </data>
+  <data name="GraphValueGraph" xml:space="preserve">
+    <value>值图表</value>
+  </data>
+  <data name="GraphValue" xml:space="preserve">
+    <value>值</value>
+  </data>
+  <data name="GraphVelocity" xml:space="preserve">
+    <value>关键帧速度 (Ctrl/Cmd+Shift+K)</value>
+  </data>
+  <data name="GraphIncoming" xml:space="preserve">
+    <value>传入</value>
+  </data>
+  <data name="GraphOutgoing" xml:space="preserve">
+    <value>传出</value>
+  </data>
+  <data name="GraphInfluence" xml:space="preserve">
+    <value>影响（%）</value>
+  </data>
+  <data name="GraphChannels" xml:space="preserve">
+    <value>通道</value>
+  </data>
+  <data name="GraphHandleMode" xml:space="preserve">
+    <value>切线模式</value>
+  </data>
+  <data name="GraphVelocityTitle" xml:space="preserve">
+    <value>关键帧速度</value>
+  </data>
+  <data name="GraphAlpha" xml:space="preserve">
+    <value>Alpha</value>
+  </data>
+  <data name="EnableAnimation" xml:space="preserve">
+    <value>启用动画</value>
   </data>
 </root>

@@ -58,7 +58,7 @@ public partial class ColorRamp : ColorPickerComponent
 
         var radius = (float)CornerRadius.TopLeft;
 
-        if (Component == ColorComponent.Alpha)
+        if (Component == ColorComponent.Alpha && CheckeredBrush != null)
             context.FillRectangle(CheckeredBrush, rect, radius);
 
         context.FillRectangle(_lgb, rect, radius);
@@ -384,9 +384,9 @@ public partial class ColorRamp : ColorPickerComponent
     /// Shared brush that renders the checkered pattern for seeing the alpha
     /// component of the color. This brush is shared among all components
     /// </summary>
-    public static IBrush CheckeredBrush { get; } = CreateCheckeredBrush();
+    public static IBrush? CheckeredBrush { get; } = CreateCheckeredBrush();
 
-    private static IBrush CreateCheckeredBrush()
+    private static IBrush? CreateCheckeredBrush()
     {
         return null;
         //this is only created once
@@ -433,5 +433,5 @@ public partial class ColorRamp : ColorPickerComponent
     private LinearGradientBrush _lgb = new LinearGradientBrush();
 
     private bool _isDown;
-    private IPen _borderPen;
+    private IPen? _borderPen;
 }

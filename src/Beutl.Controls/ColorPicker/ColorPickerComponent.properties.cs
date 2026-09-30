@@ -27,7 +27,7 @@ public abstract partial class ColorPickerComponent : Control
     /// <summary>
     /// Event raised when the <see cref="Color"/> property changes
     /// </summary>
-    public event TypedEventHandler<ColorPickerComponent, ColorChangedEventArgs> ColorChanged;
+    public event TypedEventHandler<ColorPickerComponent, ColorChangedEventArgs>? ColorChanged;
 
     /// <summary>
     /// Gets or sets the color this component is displaying

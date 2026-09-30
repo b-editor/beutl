@@ -15,11 +15,22 @@ public class UpdateDialogViewModel
 {
     private readonly CancellationTokenSource _cts = new();
     private readonly ILogger _logger = Log.CreateLogger<UpdateDialogViewModel>();
+    private readonly FlatpakUpdater? _flatpak;
+    private readonly HttpClient? _httpClient;
+    private Task? _startTask;
     private string? _downloadFile;
 
-    public UpdateDialogViewModel(AppUpdateResponse update)
+    public UpdateDialogViewModel(AppUpdateResponse update) : this(update, FlatpakUpdater.IsRunning)
+    {
+    }
+
+    internal UpdateDialogViewModel(AppUpdateResponse update, bool isFlatpak,
+        FlatpakUpdater? flatpak = null, HttpClient? httpClient = null)
     {
         Update = update;
+        IsFlatpak = isFlatpak;
+        _flatpak = flatpak;
+        _httpClient = httpClient;
     }
 
     public AppUpdateResponse Update { get; set; }
@@ -34,8 +45,16 @@ public class UpdateDialogViewModel
 
     public ReactiveProperty<bool> IsPrimaryButtonEnabled { get; } = new();
 
+    internal bool IsFlatpak { get; }
+    internal Task? UpdateTask => _startTask;
+
+    public string PrimaryButtonText => IsFlatpak ? "" : Strings.Next;
+
+    public ReactiveProperty<string> CloseButtonText { get; } = new(Strings.Cancel);
+
     public async Task HandlePrimaryButtonClick()
     {
+        if (IsFlatpak) return;
         try
         {
             var metadata = await BeutlApiApplication.LoadMetadata();
@@ -221,11 +240,43 @@ public class UpdateDialogViewModel
 
     public void Start()
     {
-        Task.Run(async () =>
+        _startTask ??= Task.Run(async () =>
         {
             _logger.LogInformation("Starting update process");
-            _downloadFile = await DownloadFile();
-            if (_downloadFile == null) return;
+            FlatpakUpdater? flatpak = null;
+            try
+            {
+                if (IsFlatpak) flatpak = _flatpak ?? FlatpakUpdater.Create();
+                _downloadFile = await DownloadFile(flatpak?.DownloadPath, _httpClient);
+                if (_downloadFile == null) return;
+                if (flatpak != null)
+                {
+                    ProgressText.Value = ExtensionsStrings.Installing;
+                    IsIndeterminate.Value = true;
+                    await flatpak.InstallAsync(_cts.Token);
+                    ProgressText.Value = MessageStrings.FlatpakUpdateCompleted;
+                    return;
+                }
+            }
+            catch (OperationCanceledException) { ProgressText.Value = MessageStrings.Canceled; return; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to install update");
+                ProgressText.Value = ex.Message;
+                ProgressValue.Value = 0;
+                return;
+            }
+            finally
+            {
+                if (IsFlatpak)
+                {
+                    IsIndeterminate.Value = false;
+                    CloseButtonText.Value = Strings.Close;
+                    try { if (flatpak != null) File.Delete(flatpak.DownloadPath); }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    { _logger.LogWarning(ex, "Failed to remove update download"); }
+                }
+            }
 
             var metadata = await BeutlApiApplication.LoadMetadata();
             if (metadata == null)
@@ -263,7 +314,7 @@ public class UpdateDialogViewModel
         });
     }
 
-    private async Task<string?> DownloadFile()
+    internal async Task<string?> DownloadFile(string? destinationPath = null, HttpClient? httpClient = null, long? maximumBytes = null)
     {
         try
         {
@@ -272,13 +323,18 @@ public class UpdateDialogViewModel
             IsIndeterminate.Value = false;
             ProgressText.Value = MessageStrings.Downloading;
             var ct = _cts.Token;
+            if (IsFlatpak && (!Uri.TryCreate(Update.DownloadUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps))
+                throw new InvalidDataException(MessageStrings.DownloadFailed);
 
             _logger.LogInformation("Downloading update from {DownloadUrl}", Update.DownloadUrl);
-            using var client = new HttpClient();
+            using var client = httpClient ?? new HttpClient();
             using var response =
                 await client.GetAsync(Update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            response.EnsureSuccessStatusCode();
             long? contentLength = response.Content.Headers.ContentLength;
-            var file = response.Content.Headers.ContentDisposition?.FileName;
+            long limit = maximumBytes ?? (IsFlatpak ? FlatpakUpdater.MaximumBundleBytes : long.MaxValue);
+            if (contentLength > limit) throw new InvalidDataException(MessageStrings.DownloadFailed);
+            var file = destinationPath ?? response.Content.Headers.ContentDisposition?.FileName;
             if (file == null)
             {
                 // urlからファイル名を取得
@@ -288,35 +344,33 @@ public class UpdateDialogViewModel
 
             _logger.LogInformation("Guessed file name: {FileName}", file);
 
-            var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp");
+            var directory = destinationPath != null ? Path.GetDirectoryName(destinationPath)!
+                : Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp");
             if (!Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
             }
 
-            file = Path.Combine(directory, file);
+            file = destinationPath ?? Path.Combine(directory, file);
 
             await using var destination = File.Create(file);
             await using Stream download = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
 
-            if (!contentLength.HasValue)
+            IsIndeterminate.Value = !contentLength.HasValue;
+            const int bufferSize = 81920;
+            byte[] buffer = new byte[bufferSize];
+            long totalBytesRead = 0;
+            int bytesRead;
+            while ((bytesRead = await download.ReadAsync(buffer, ct).ConfigureAwait(false)) != 0)
             {
-                IsIndeterminate.Value = true;
-                await download.CopyToAsync(destination, ct).ConfigureAwait(false);
+                totalBytesRead += bytesRead;
+                if (totalBytesRead > limit || (contentLength.HasValue && totalBytesRead > contentLength.Value))
+                    throw new InvalidDataException(MessageStrings.DownloadFailed);
+                await destination.WriteAsync(buffer.AsMemory(0, bytesRead), ct).ConfigureAwait(false);
+                if (contentLength > 0) ProgressValue.Value = totalBytesRead / (double)contentLength.Value;
             }
-            else
-            {
-                const int bufferSize = 81920;
-                byte[] buffer = new byte[bufferSize];
-                long totalBytesRead = 0;
-                int bytesRead;
-                while ((bytesRead = await download.ReadAsync(buffer, ct).ConfigureAwait(false)) != 0)
-                {
-                    await destination.WriteAsync(buffer.AsMemory(0, bytesRead), ct).ConfigureAwait(false);
-                    totalBytesRead += bytesRead;
-                    ProgressValue.Value = totalBytesRead / (double)contentLength.Value;
-                }
-            }
+            if (totalBytesRead == 0 || (contentLength.HasValue && totalBytesRead != contentLength.Value))
+                throw new InvalidDataException(MessageStrings.DownloadFailed);
 
             ProgressText.Value = MessageStrings.DownloadComplete;
             ProgressValue.Value = 1;

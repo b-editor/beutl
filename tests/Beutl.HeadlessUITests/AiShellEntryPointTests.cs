@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Globalization;
+using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Language;
@@ -79,6 +80,83 @@ public sealed class AiShellEntryPointTests
         finally
         {
             mainView.DataContext = null;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task WorkspaceSectionNames_AreLocalizedForEverySupportedCulture()
+    {
+        await TestReset.ResetShellAsync();
+        MainViewModel mainViewModel = TestShell.MainViewModel;
+        EditViewModel editor = await OpenEditor("ai-workspace-localized-section-names");
+        CultureInfo previousCulture = CultureInfo.CurrentCulture;
+        CultureInfo previousUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            foreach (CultureInfo culture in LocalizeService.Instance.SupportedCultures())
+            {
+                CultureInfo.CurrentCulture = culture;
+                CultureInfo.CurrentUICulture = culture;
+                await using AiWorkspaceViewModel workspace = mainViewModel.CreateAiWorkspaceViewModel(editor);
+
+                string[] expected = culture.Name switch
+                {
+                    "en-US" =>
+                    [
+                        "Image generation",
+                        "Image editing",
+                        "Video generation",
+                        "Video editing",
+                        "Subtitles",
+                        "Jobs",
+                    ],
+                    "ja-JP" =>
+                    [
+                        "画像生成",
+                        "画像編集",
+                        "動画生成",
+                        "動画編集",
+                        "字幕",
+                        "ジョブ",
+                    ],
+                    "es" =>
+                    [
+                        "Generación de imágenes",
+                        "Edición de imágenes",
+                        "Generación de vídeo",
+                        "Edición de vídeo",
+                        "Subtítulos",
+                        "Trabajos",
+                    ],
+                    "ko-KR" =>
+                    [
+                        "이미지 생성",
+                        "이미지 편집",
+                        "동영상 생성",
+                        "동영상 편집",
+                        "자막",
+                        "작업",
+                    ],
+                    "zh-CN" =>
+                    [
+                        "图像生成",
+                        "图像编辑",
+                        "视频生成",
+                        "视频编辑",
+                        "字幕",
+                        "任务",
+                    ],
+                    _ => throw new InvalidOperationException($"Unexpected supported culture: {culture.Name}")
+                };
+                string[] actual = workspace.Sections.Select(section => section.DisplayName).ToArray();
+
+                Assert.That(actual, Is.EqualTo(expected), $"AI workspace section labels for {culture.Name}");
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
         }
     }
 

@@ -3,8 +3,6 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
-using Beutl.Engine;
-using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -13,18 +11,19 @@ namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
 public sealed record GraphEditorItemViewModel(string Name, KeyFrameAnimation Object);
 
-public sealed class GraphEditorTabViewModel : IToolContext
+public sealed partial class GraphEditorTabViewModel : IToolContext
 {
     private readonly IEditorContext _editorContext;
+    private readonly IEditorClock _clock;
     private readonly CompositeDisposable _disposables = [];
     private readonly CompositeDisposable _animationDisposables = [];
+    private GraphEditorViewModel? _activeGraph;
     private bool _disposed;
 
     public GraphEditorTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
-        Element.Subscribe(_ => Refresh()).DisposeWith(_disposables);
-
+        _clock = editorContext.GetRequiredService<IEditorClock>();
         // Element の DetachedFromHierarchy を購読
         Element.CombineWithPrevious()
             .Subscribe(v =>
@@ -33,6 +32,8 @@ public sealed class GraphEditorTabViewModel : IToolContext
                     old.DetachedFromHierarchy -= OnElementDetached;
                 if (v.NewValue is IHierarchical @new)
                     @new.DetachedFromHierarchy += OnElementDetached;
+                if (v.OldValue != null) v.OldValue.Edited -= OnElementEdited;
+                if (v.NewValue != null) v.NewValue.Edited += OnElementEdited;
             })
             .DisposeWith(_disposables);
 
@@ -44,6 +45,17 @@ public sealed class GraphEditorTabViewModel : IToolContext
                 Type type = t.First.Object.ValueType;
                 Type viewModelType = typeof(GraphEditorViewModel<>).MakeGenericType(type);
                 return (GraphEditorViewModel)Activator.CreateInstance(viewModelType, _editorContext, t.First.Object, t.Second)!;
+            })
+            .Do(graph =>
+            {
+                var previous = _activeGraph;
+                _activeGraph = graph;
+                if (previous != null)
+                {
+                    // Stop pending clipboard edits immediately; bindings can release the old graph later.
+                    previous.DeactivateClipboardContext();
+                    Dispatcher.UIThread.Post(previous.Dispose);
+                }
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -61,6 +73,13 @@ public sealed class GraphEditorTabViewModel : IToolContext
             })
             .ToReadOnlyReactivePropertySlim(Strings.GraphEditor)
             .DisposeWith(_disposables)!;
+
+        SelectedTreeItem.Subscribe(item =>
+        {
+            if (!_synchronizingTree) SelectTreeItem(item);
+        }).DisposeWith(_disposables);
+        Element.Subscribe(_ => Refresh()).DisposeWith(_disposables);
+        _clock.CurrentTime.Subscribe(_ => UpdateKeyFrameStates()).DisposeWith(_disposables);
     }
 
     public IReadOnlyReactiveProperty<string> Header { get; }
@@ -82,8 +101,13 @@ public sealed class GraphEditorTabViewModel : IToolContext
         _disposed = true;
         if (Element.Value is IHierarchical h)
             h.DetachedFromHierarchy -= OnElementDetached;
+        if (Element.Value is { } element) element.Edited -= OnElementEdited;
         _animationDisposables.Dispose();
         _disposables.Dispose();
+        _activeGraph?.Dispose();
+        foreach (var item in _treeCache.Values) item.Dispose();
+        _treeCache.Clear();
+        SelectedTreeItem.Dispose();
     }
 
     public object? GetService(Type serviceType)
@@ -93,51 +117,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
     public void Refresh()
     {
-        var selected = SelectedItem.Value;
-        if (Element.Value == null)
-        {
-            _animationDisposables.Clear();
-            Items.Clear();
-            return;
-        }
-
-        var tmp = new List<GraphEditorItemViewModel>();
-        var searcher = new ObjectSearcher(Element.Value, v => v is EngineObject);
-        foreach (IProperty prop in searcher.SearchAll().OfType<EngineObject>().SelectMany(o => o.Properties))
-        {
-            if (prop.Animation is not KeyFrameAnimation anm) continue;
-
-            string name = Property.GetLocalizedName(prop);
-            var item = new GraphEditorItemViewModel(
-                name,
-                anm);
-            tmp.Add(item);
-        }
-        // IAutomaticallyGeneratedPortがついているNodeMemberのプロパティからアニメーションを探す
-        searcher = new ObjectSearcher(Element.Value, v => v is IDynamicPort);
-        foreach (INodeMember member in searcher.SearchAll().OfType<INodeMember>())
-        {
-            if (member.Property is not IAnimatablePropertyAdapter { Animation: KeyFrameAnimation anm, DisplayName: { } displayName })
-                continue;
-
-            var item = new GraphEditorItemViewModel(displayName, anm);
-            tmp.Add(item);
-        }
-
-
-        if (Items.SequenceEqual(tmp)) return;
-
-        _animationDisposables.Clear();
-        Items.Clear();
-        Items.AddRange(tmp);
-        SelectedItem.Value = Items.FirstOrDefault(i => i.Object == selected?.Object);
-
-        // 各アニメーションの DetachedFromHierarchy を購読
-        foreach (var item in Items)
-        {
-            item.Object.DetachedFromHierarchy += OnAnimationDetached;
-            _animationDisposables.Add(Disposable.Create(item.Object, obj => obj.DetachedFromHierarchy -= OnAnimationDetached));
-        }
+        if (!_disposed) RefreshTree();
     }
 
     private void OnElementDetached(object? sender, HierarchyAttachmentEventArgs e)
@@ -152,30 +132,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
     private void OnAnimationDetached(object? sender, HierarchyAttachmentEventArgs e)
     {
-        if (_disposed) return;
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_disposed) return;
-            if (sender is KeyFrameAnimation animation)
-            {
-                var item = Items.FirstOrDefault(i => i.Object == animation);
-                if (item != null)
-                {
-                    if (SelectedItem.Value?.Object == animation)
-                    {
-                        SelectedItem.Value = null;
-                    }
-
-                    item.Object.DetachedFromHierarchy -= OnAnimationDetached;
-                    Items.Remove(item);
-                }
-            }
-
-            if (Items.Count == 0)
-            {
-                _editorContext.CloseToolTab(this);
-            }
-        });
+        ScheduleRefresh();
     }
 
     /// <summary>
@@ -198,12 +155,19 @@ public sealed class GraphEditorTabViewModel : IToolContext
     {
         if (animation == null)
         {
+            SelectedTreeItem.Value = null;
             SelectedItem.Value = null;
         }
         else
         {
             Refresh();
-            SelectedItem.Value = Items.FirstOrDefault(i => i.Object == animation);
+            var item = _treeCache.Values.FirstOrDefault(i => i.PropertyItem == null && i.Animation == animation);
+            if (item != null)
+            {
+                ExpandAncestors(item);
+                SelectedTreeItem.Value = item;
+                SelectTreeItem(item);
+            }
         }
     }
 
@@ -213,11 +177,20 @@ public sealed class GraphEditorTabViewModel : IToolContext
         {
             var scene = _editorContext.GetRequiredService<Scene>();
             if (json.TryGetPropertyValueAsJsonValue("elementId", out Guid elmId)
-                && json.TryGetPropertyValueAsJsonValue("animationId", out Guid anmId)
                 && scene.FindById(elmId) is Element elm)
             {
                 Element.Value = elm;
-                Select(Items.FirstOrDefault(i => i.Object.Id == anmId)?.Object);
+                if (json.TryGetPropertyValueAsJsonValue("propertyPath", out string? path)
+                    && path != null && _treeCache.TryGetValue(path, out var item))
+                {
+                    ExpandAncestors(item);
+                    SelectedTreeItem.Value = item;
+                    SelectTreeItem(item);
+                }
+                else if (json.TryGetPropertyValueAsJsonValue("animationId", out Guid anmId))
+                {
+                    Select(Items.FirstOrDefault(i => i.Object.Id == anmId)?.Object);
+                }
             }
         }
         catch
@@ -227,10 +200,11 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
     public void WriteToJson(JsonObject json)
     {
-        if (SelectedAnimation.Value is { Element.Id: { } elmId, Animation: ICoreObject { Id: var anmId } })
-        {
-            json["elementId"] = elmId;
-            json["animationId"] = anmId;
-        }
+        if (Element.Value is { } element) json["elementId"] = element.Id;
+        else json.Remove("elementId");
+        if (SelectedAnimation.Value is { Animation: ICoreObject { Id: var anmId } }) json["animationId"] = anmId;
+        else json.Remove("animationId");
+        if (SelectedTreeItem.Value is { } item) json["propertyPath"] = item.Key;
+        else json.Remove("propertyPath");
     }
 }

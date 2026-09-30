@@ -57,7 +57,7 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_AmbientIntensity), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 1f), NumberStep(0.1, 0.01)]
-    public IProperty<float> AmbientIntensity { get; } = Property.CreateAnimatable(0.1f);
+    public IProperty<float> AmbientIntensity { get; } = Property.CreateAnimatable(0.2f);
 
     /// <summary>
     /// Gets the width of the 3D render target.
@@ -77,7 +77,7 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// Gets the background color of the 3D scene.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_BackgroundColor), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> BackgroundColor { get; } = Property.CreateAnimatable(Colors.Black);
+    public IProperty<Color> BackgroundColor { get; } = Property.CreateAnimatable(Colors.Transparent);
 
     /// <summary>
     /// Gets the target object ID for gizmo visualization.

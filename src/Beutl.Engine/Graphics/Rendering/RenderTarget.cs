@@ -1,4 +1,6 @@
 ﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Composite;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media;
 using Beutl.Threading;
 using SkiaSharp;
@@ -23,12 +25,14 @@ public class RenderTarget : IDisposable
     private bool _hasTransparentContents;
 
     private RenderTarget(SKSurfaceCounter<SKSurface> surface, int width, int height,
-        SKSurfaceCounter<ITexture2D>? texture = null)
+        SKSurfaceCounter<ITexture2D>? texture = null,
+        RenderTargetPixelFormat? knownPixelFormat = null)
     {
         _surface = surface;
         Width = width;
         Height = height;
         _texture = texture;
+        KnownPixelFormat = knownPixelFormat;
     }
 
     /// <summary>
@@ -84,6 +88,10 @@ public class RenderTarget : IDisposable
     internal bool SharesSurfaceOwnership => _surface.RefCount > 1;
 
     internal ITexture2D? Texture => _texture?.Value;
+
+    // Only the engine's own surface creation paths can establish this without reading pixels.
+    // Arbitrary surfaces supplied by subclasses and null targets still need format validation.
+    internal RenderTargetPixelFormat? KnownPixelFormat { get; }
 
     /// <summary>
     /// Whether <see cref="Create"/> would attach a new target to a graphics context rather than raster it on
@@ -202,7 +210,10 @@ public class RenderTarget : IDisposable
                 new SKSurfaceCounter<SKSurface>(surface),
                 width,
                 height,
-                textureRef);
+                textureRef,
+                context is null or VulkanContext or CompositeContext
+                    ? RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                    : null);
             try
             {
                 if (!result.HasTransparentContents)
@@ -582,7 +593,7 @@ public class RenderTarget : IDisposable
     {
         _surface.AddRef();
         _texture?.AddRef();
-        return new RenderTarget(_surface, Width, Height, _texture)
+        return new RenderTarget(_surface, Width, Height, _texture, KnownPixelFormat)
         {
             _hasTransparentContents = _hasTransparentContents,
         };

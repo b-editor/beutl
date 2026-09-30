@@ -70,12 +70,12 @@ public sealed class LightingPass : GraphicsNode3D
         _dummyShadowCubeArray?.Dispose();
 
         // Create output texture
-        OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
+        OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
 
         // Create lighting render pass and framebuffer (single color attachment)
         // Use Load for depth to preserve GeometryPass depth for TransparentPass
         RenderPass = Context.CreateRenderPass3D(
-            [TextureFormat.RGBA8Unorm],
+            [TextureFormat.RGBA16Float],
             TextureFormat.Depth32Float,
             AttachmentLoadOp.Clear,  // Clear color for background
             AttachmentLoadOp.Load);  // Preserve depth from GeometryPass
@@ -542,7 +542,9 @@ public sealed class LightingPass : GraphicsNode3D
             }
 
             vec3 H = normalize(V + L);
-            vec3 radiance = light.color * light.intensity * attenuation * spotEffect;
+            // Scaled by PI so a white surface facing an intensity-1 light shows its albedo: the Lambert term
+            // divides by PI to conserve energy, which would otherwise leave that surface at a third of it.
+            vec3 radiance = light.color * light.intensity * attenuation * spotEffect * PI;
 
             float NDF = DistributionGGX(N, H, roughness);
             float G = GeometrySmith(N, V, L, roughness);

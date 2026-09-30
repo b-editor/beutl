@@ -8,7 +8,7 @@ namespace Beutl.Graphics3D.Nodes;
 
 /// <summary>
 /// Gizmo pass for rendering 3D manipulation gizmos.
-/// Renders directly to the lighting pass output texture with depth testing.
+/// Renders directly to the lighting pass output texture, over the scene, depth testing only against itself.
 /// </summary>
 public sealed class GizmoPass : GraphicsNode3D
 {
@@ -88,12 +88,14 @@ public sealed class GizmoPass : GraphicsNode3D
         RenderPass?.Dispose();
 
         // Create render pass (single color attachment with depth)
-        // Use Load for color to preserve existing content, Load for depth to use existing depth buffer
+        // Color is loaded to draw over the scene. Depth is cleared so the gizmo stays visible inside the
+        // object it is attached to, while its own handles still occlude each other. This is the last pass to
+        // use the shared depth buffer in a frame.
         RenderPass = Context.CreateRenderPass3D(
-            [TextureFormat.RGBA8Unorm],
+            [TextureFormat.RGBA16Float],
             TextureFormat.Depth32Float,
-            AttachmentLoadOp.Load,  // Preserve color content
-            AttachmentLoadOp.Load); // Use existing depth
+            AttachmentLoadOp.Load,
+            AttachmentLoadOp.Clear);
 
         // Framebuffer will be created when SetColorTexture is called
 
@@ -179,6 +181,8 @@ public sealed class GizmoPass : GraphicsNode3D
     public void Execute(
         Camera.Camera3D.Resource camera,
         Object3D.Resource? gizmoTarget,
+        Vector3 position,
+        Quaternion orientation,
         GizmoMode gizmoMode,
         float aspectRatio)
     {
@@ -217,21 +221,18 @@ public sealed class GizmoPass : GraphicsNode3D
 
         // Create model matrix
         // For Rotate and Scale modes, apply object's rotation so the gizmo aligns with the object
+        var scaleMatrix = Matrix4x4.CreateScale(GizmoHitTester.GetWorldScale(camera, position, aspectRatio));
         Matrix4x4 modelMatrix;
         if (gizmoMode is GizmoMode.Rotate or GizmoMode.Scale)
         {
             // Apply rotation then translation
-            var rotation = gizmoTarget.Rotation;
-            var rotationMatrix = Matrix4x4.CreateFromYawPitchRoll(
-                rotation.Y * MathF.PI / 180f,
-                rotation.X * MathF.PI / 180f,
-                rotation.Z * MathF.PI / 180f);
-            modelMatrix = rotationMatrix * Matrix4x4.CreateTranslation(gizmoTarget.Position);
+            var rotationMatrix = Matrix4x4.CreateFromQuaternion(orientation);
+            modelMatrix = scaleMatrix * rotationMatrix * Matrix4x4.CreateTranslation(position);
         }
         else
         {
             // Translate mode uses world-aligned gizmo
-            modelMatrix = Matrix4x4.CreateTranslation(gizmoTarget.Position);
+            modelMatrix = scaleMatrix * Matrix4x4.CreateTranslation(position);
         }
 
         // Update uniform buffer

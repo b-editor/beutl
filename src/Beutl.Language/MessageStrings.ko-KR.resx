@@ -260,6 +260,9 @@
   <data name="SaveFrameMissingSourceFile" xml:space="preserve">
     <value>참조된 소스 파일이 없어 프레임을 렌더링할 수 없습니다: {0}({1}개 누락).</value>
   </data>
+  <data name="FlatpakUpdateCompleted" xml:space="preserve">
+    <value>업데이트가 완료되었습니다. 새 버전을 사용하려면 Beutl을 다시 여세요.</value>
+  </data>
   <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>애플리케이션을 다시 시작해야 합니다.
 애플리케이션을 다시 시작하시겠습니까?</value>

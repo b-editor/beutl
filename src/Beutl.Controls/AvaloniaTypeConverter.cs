@@ -155,7 +155,7 @@ public static class AvaloniaTypeConverter
         }
     }
 
-    public static unsafe WriteableBitmap ToAvaWriteableBitmap(this Media.Bitmap bitmap, WriteableBitmap previous = null)
+    public static unsafe WriteableBitmap ToAvaWriteableBitmap(this Media.Bitmap bitmap, WriteableBitmap? previous = null)
     {
         var pixelFormat = bitmap.ColorType.ToAvaPixelFormat();
         var alphaFormat = bitmap.AlphaType.ToAvaAlphaFormat();

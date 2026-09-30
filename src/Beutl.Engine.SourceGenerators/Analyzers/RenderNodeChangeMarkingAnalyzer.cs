@@ -59,7 +59,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         if (process is null)
             return;
 
-        var analysis = new TypeAnalysis(context.Compilation, type, renderNodeType);
+        var analysis = new TypeAnalysis(context.Compilation, type, renderNodeType, context.CancellationToken);
         ImmutableHashSet<ISymbol> processClosure = analysis.CollectCallClosure(process);
         for (INamedTypeSymbol? current = type; current is not null && !SymbolEqualityComparer.Default.Equals(current, renderNodeType); current = current.BaseType)
         {
@@ -527,7 +527,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     private sealed class TypeAnalysis(
         Compilation compilation,
         INamedTypeSymbol type,
-        INamedTypeSymbol renderNodeType)
+        INamedTypeSymbol renderNodeType,
+        CancellationToken cancellationToken)
     {
         private readonly Dictionary<IMethodSymbol, ImmutableHashSet<ISymbol>> _readStateByProcess =
             new(SymbolEqualityComparer.Default);
@@ -677,6 +678,20 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                 {
                     if (GetStateReference(body.Model, node) is not { Symbol: { } symbol } reference)
                         continue;
+
+                    // A write through a ref local lands on whatever the local is bound to, which is the
+                    // node's state when every binding this member gives it names that state.
+                    if (symbol is ILocalSymbol { RefKind: RefKind.Ref } alias)
+                    {
+                        if (ChangesTheState(body.Model, reference.Access)
+                            && ResolveRefTarget(body.Model, body.Body, alias, trackedState, cancellationToken)
+                            is { } aliased)
+                        {
+                            yield return new StateAssignment(aliased, reference.Access.GetLocation());
+                        }
+
+                        continue;
+                    }
 
                     if (!trackedState.Contains(symbol.OriginalDefinition))
                         continue;
@@ -860,6 +875,167 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         }
 
         private readonly record struct BodyWithModel(SyntaxNode Body, SemanticModel Model);
+    }
+
+    /// <summary>
+    /// The tracked state of this instance that <paramref name="alias"/> is bound to by every binding
+    /// <paramref name="body"/> gives it, or null when any binding names something else or cannot be read.
+    /// </summary>
+    /// <remarks>
+    /// The walk is flow-insensitive, so a local rebound with <c>alias = ref other</c> can reach either
+    /// storage at a later write. Reporting only when every binding names the same state keeps this rule
+    /// from reporting a write that may have landed elsewhere - the direction it is documented never to err
+    /// in. A ref parameter is never followed: what it names on entry is the caller's storage.
+    /// </remarks>
+    private static ISymbol? ResolveRefTarget(
+        SemanticModel model,
+        SyntaxNode body,
+        ILocalSymbol alias,
+        ImmutableHashSet<ISymbol> trackedState,
+        CancellationToken cancellationToken)
+        => ResolveRefTarget(
+            model,
+            body,
+            alias,
+            trackedState,
+            new HashSet<ISymbol>(SymbolEqualityComparer.Default),
+            new Dictionary<ISymbol, ISymbol?>(SymbolEqualityComparer.Default),
+            cancellationToken);
+
+    private static ISymbol? ResolveRefTarget(
+        SemanticModel model,
+        SyntaxNode body,
+        ILocalSymbol alias,
+        ImmutableHashSet<ISymbol> trackedState,
+        HashSet<ISymbol> visited,
+        Dictionary<ISymbol, ISymbol?> resolved,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // A local already resolved answers from the cache, so a chain of rebindings costs one resolution per
+        // local however many bindings name it.
+        if (resolved.TryGetValue(alias, out ISymbol? known))
+            return known;
+
+        // visited holds the chain being resolved, not every local seen, so a local reached again through a
+        // sibling binding is not taken for a cycle.
+        if (!visited.Add(alias))
+            return null;
+
+        try
+        {
+            ISymbol? target = ResolveRefTargetCore(
+                model, body, alias, trackedState, visited, resolved, cancellationToken);
+            resolved[alias] = target;
+            return target;
+        }
+        finally
+        {
+            visited.Remove(alias);
+        }
+    }
+
+    private static ISymbol? ResolveRefTargetCore(
+        SemanticModel model,
+        SyntaxNode body,
+        ILocalSymbol alias,
+        ImmutableHashSet<ISymbol> trackedState,
+        HashSet<ISymbol> visited,
+        Dictionary<ISymbol, ISymbol?> resolved,
+        CancellationToken cancellationToken)
+    {
+        var bindings = new List<ExpressionSyntax>();
+        foreach (SyntaxReference declaration in alias.DeclaringSyntaxReferences)
+        {
+            if (declaration.GetSyntax() is not VariableDeclaratorSyntax
+                {
+                    Initializer.Value: RefExpressionSyntax { Expression: { } initial },
+                })
+            {
+                return null;
+            }
+
+            bindings.Add(initial);
+        }
+
+        foreach (AssignmentExpressionSyntax rebinding in body.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+        {
+            if (rebinding.Right is RefExpressionSyntax { Expression: { } rebound }
+                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(rebinding.Left).Symbol, alias))
+            {
+                bindings.Add(rebound);
+            }
+        }
+
+        ISymbol? target = null;
+        foreach (ExpressionSyntax binding in bindings)
+        {
+            if (ResolveBindingTarget(
+                    model, body, binding, trackedState, visited, resolved, cancellationToken) is not { } bound
+                || (target is not null && !SymbolEqualityComparer.Default.Equals(target, bound)))
+            {
+                return null;
+            }
+
+            target = bound;
+        }
+
+        return target;
+    }
+
+    /// <summary>The tracked state of this instance whose storage <paramref name="binding"/> names.</summary>
+    /// <remarks>
+    /// An element of the state, and a field of state that is a value type, are storage inside that state,
+    /// so a write through a ref to them changes it.
+    /// </remarks>
+    private static ISymbol? ResolveBindingTarget(
+        SemanticModel model,
+        SyntaxNode body,
+        ExpressionSyntax binding,
+        ImmutableHashSet<ISymbol> trackedState,
+        HashSet<ISymbol> visited,
+        Dictionary<ISymbol, ISymbol?> resolved,
+        CancellationToken cancellationToken)
+    {
+        ExpressionSyntax storage = binding;
+        while (true)
+        {
+            storage = storage is ParenthesizedExpressionSyntax parenthesized ? parenthesized.Expression : storage;
+
+            if (storage is ElementAccessExpressionSyntax element)
+            {
+                storage = element.Expression;
+                continue;
+            }
+
+            if (storage is MemberAccessExpressionSyntax { Expression: not (ThisExpressionSyntax or BaseExpressionSyntax) } member
+                && model.GetTypeInfo(member.Expression).Type is { IsValueType: true })
+            {
+                storage = member.Expression;
+                continue;
+            }
+
+            break;
+        }
+
+        SimpleNameSyntax? name = storage switch
+        {
+            SimpleNameSyntax simple => simple,
+            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax or BaseExpressionSyntax } member
+                => member.Name,
+            _ => null,
+        };
+
+        if (name is null || model.GetSymbolInfo(name).Symbol is not { } symbol)
+            return null;
+
+        if (symbol is ILocalSymbol { RefKind: RefKind.Ref } chained)
+            return ResolveRefTarget(model, body, chained, trackedState, visited, resolved, cancellationToken);
+
+        return IsOnThisInstance(name) && trackedState.Contains(symbol.OriginalDefinition)
+            ? symbol
+            : null;
     }
 
     private static bool IsOnThisInstance(SimpleNameSyntax name)

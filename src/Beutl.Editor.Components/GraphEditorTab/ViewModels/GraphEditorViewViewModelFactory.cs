@@ -73,7 +73,11 @@ public abstract class GraphEditorViewViewModelFactory
 
     public abstract double MinValue { get; }
 
-    public static IEnumerable<GraphEditorViewViewModelFactory> GetFactory(GraphEditorViewModel parent)
+    public virtual IReadOnlyList<string> ChannelNames => ["Self"];
+
+    public static IEnumerable<GraphEditorViewViewModelFactory> GetFactory(GraphEditorViewModel parent) => GetFactory(parent.Animation.ValueType);
+
+    internal static IEnumerable<GraphEditorViewViewModelFactory> GetFactory(Type type)
     {
         static bool IsAssignableToGenericType(Type givenType, Type genericType)
         {
@@ -93,7 +97,6 @@ public abstract class GraphEditorViewViewModelFactory
             return IsAssignableToGenericType(baseType, genericType);
         }
 
-        Type type = parent.Animation.ValueType;
         if (s_registry.TryGetValue(type, out GraphEditorViewViewModelFactory? factory))
         {
             yield return factory;
@@ -139,6 +142,8 @@ public abstract class GraphEditorViewViewModelFactory
         public override double MaxValue { get; }
 
         public override double MinValue { get; }
+
+        public override IReadOnlyList<string> ChannelNames => _fields.Select(x => x.Name).ToArray();
 
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
@@ -212,6 +217,8 @@ public abstract class GraphEditorViewViewModelFactory
 
     private sealed class ColorFactory : GraphEditorViewViewModelFactory
     {
+        public override IReadOnlyList<string> ChannelNames => ["Red", "Green", "Blue", "Alpha"];
+
         private static double OECF_sRGB(double linear)
         {
             return linear <= 0.0031308 ? linear * 12.92 : ((Math.Pow(linear, 1.0 / 2.4) * 1.055) - 0.055);

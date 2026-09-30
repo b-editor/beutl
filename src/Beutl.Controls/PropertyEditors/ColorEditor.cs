@@ -21,10 +21,10 @@ public class ColorEditor : PropertyEditor
     public static readonly StyledProperty<bool> IsLivePreviewEnabledProperty =
         AvaloniaProperty.Register<ColorEditor, bool>(nameof(IsLivePreviewEnabled));
 
-    private SimpleColorPickerFlyout _flyout;
+    private SimpleColorPickerFlyout? _flyout;
 
     private bool _flyoutActive;
-    private Button _button;
+    private Button? _button;
 
     private Color _oldValue = Colors.White;
     private Color _value = Colors.White;
@@ -66,12 +66,16 @@ public class ColorEditor : PropertyEditor
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        _flyout.Closed -= OnFlyoutClosed;
-        _flyout.Confirmed -= OnFlyoutConfirmed;
+        if (_flyout != null)
+        {
+            _flyout.Closed -= OnFlyoutClosed;
+            _flyout.Confirmed -= OnFlyoutConfirmed;
+        }
     }
 
-    private void OnButtonClick(object sender, RoutedEventArgs e)
+    private void OnButtonClick(object? sender, RoutedEventArgs e)
     {
+        if (_flyout == null) return;
         _flyout.Hide();
 
         Color color = Value;
@@ -107,17 +111,18 @@ public class ColorEditor : PropertyEditor
     {
         if (_flyoutActive)
         {
-            Value = _flyout.ColorPicker.Color;
+            Value = sender.ColorPicker.Color;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
                 Value, _oldValue, ValueConfirmedEvent));
         }
     }
 
-    private void OnFlyoutClosed(object sender, EventArgs e)
+    private void OnFlyoutClosed(object? sender, EventArgs e)
     {
         if (IsLivePreviewEnabled)
         {
-            _flyout.ColorPicker.ColorChanged -= OnColorPickerColorChanged;
+            if (_flyout != null)
+                _flyout.ColorPicker.ColorChanged -= OnColorPickerColorChanged;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
                 Value, _oldValue, ValueConfirmedEvent));
         }

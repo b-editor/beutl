@@ -6,7 +6,7 @@ using Beutl.Language;
 namespace Beutl.Graphics3D.Meshes;
 
 /// <summary>
-/// A procedural plane mesh on the XZ plane with Y+ normal.
+/// A procedural plane mesh on the XZ plane facing up (-Y).
 /// </summary>
 [Display(Name = nameof(GraphicsStrings.PlaneMesh), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class PlaneMesh : Mesh
@@ -20,15 +20,15 @@ public sealed partial class PlaneMesh : Mesh
     /// Gets the width of the plane (X-axis).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> Width { get; } = Property.CreateAnimatable(1f);
+    [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
+    public IProperty<float> Width { get; } = Property.CreateAnimatable(1000f);
 
     /// <summary>
     /// Gets the height of the plane (Z-axis).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> Height { get; } = Property.CreateAnimatable(1f);
+    [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
+    public IProperty<float> Height { get; } = Property.CreateAnimatable(1000f);
 
     /// <summary>
     /// Gets the number of segments along the width (X-axis).
@@ -115,5 +115,7 @@ public sealed partial class PlaneMesh : Mesh
                 indices[ii++] = bottomLeft;
             }
         }
+
+        CoordinateSystem3D.ConvertFromYUp(vertices);
     }
 }

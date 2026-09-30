@@ -163,9 +163,9 @@ public class NavigationProvider : INavigationProvider
         void NavigateCore(Predicate<TContext> predicate, Func<TContext> factory)
         {
             TContext? context = FindCore(predicate);
-            context ??= factory();
+            context ??= factory() ?? throw new InvalidOperationException("The page context factory returned null.");
 
-            _frame.Navigate(_pageResolver.GetPageType(context?.GetType()), context, _transitionInfo);
+            _frame.Navigate(_pageResolver.GetPageType(context.GetType()), context, _transitionInfo);
         }
 
         if (Dispatcher.UIThread.CheckAccess())

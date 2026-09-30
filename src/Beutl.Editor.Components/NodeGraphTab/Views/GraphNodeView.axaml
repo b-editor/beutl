@@ -41,6 +41,8 @@
     <!--  BoxShadow="0 32 64 #8E000000, 0 2 21 #8C000000">  -->
     <Grid RowDefinitions="Auto,Auto">
         <Border x:Name="handle"
+                AutomationProperties.Name="{Binding NodeName.Value}"
+                AutomationProperties.HelpText="{Binding FallbackMessage}"
                 Padding="4"
                 Background="{Binding Color}"
                 CornerRadius="{DynamicResource ControlCornerRadius}"
@@ -99,7 +101,7 @@
                             <icons:FluentIconSource Icon="Save" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
-                    <ui:FAMenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">
+                    <ui:FAMenuFlyoutItem Click="RenameClick" IsEnabled="{Binding !IsFallback}" Text="{x:Static lang:Strings.Rename}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Rename" />
                         </ui:FAMenuFlyoutItem.IconSource>
@@ -109,7 +111,7 @@
             <Border.KeyBindings>
                 <KeyBinding Command="{Binding Delete}" Gesture="Delete" />
             </Border.KeyBindings>
-            <Grid ColumnDefinitions="Auto,*,Auto">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto">
                 <ToggleButton x:Name="expandToggle"
                               Width="30"
                               Padding="5"
@@ -117,14 +119,21 @@
                               IsChecked="{Binding IsExpanded.Value}"
                               Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />
 
-                <TextBlock Grid.Column="1"
+                <icons:FluentIcon Grid.Column="1"
+                                  VerticalAlignment="Center"
+                                  Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                  Icon="Warning"
+                                  IsVisible="{Binding IsFallback}"
+                                  ToolTip.Tip="{Binding FallbackMessage}" />
+
+                <TextBlock Grid.Column="2"
                            Margin="8,0,0,0"
                            VerticalAlignment="Center"
                            IsHitTestVisible="False"
                            Text="{Binding NodeName.Value}"
                            TextTrimming="CharacterEllipsis" />
 
-                <Button Grid.Column="2"
+                <Button Grid.Column="3"
                         Click="OpenNodeClick"
                         IsVisible="{Binding IsGroupNode}"
                         Theme="{StaticResource TransparentButton}">
@@ -138,6 +147,10 @@
                 Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                 ClipToBounds="False">
             <StackPanel x:Name="stackPanel">
+                <StackPanel x:Name="fallbackMessage" Margin="8" IsVisible="{Binding IsFallback}" Spacing="8">
+                    <TextBlock Text="{Binding FallbackMessage}" TextWrapping="Wrap" />
+                    <SelectableTextBlock Text="{Binding ActualTypeName}" TextWrapping="Wrap" />
+                </StackPanel>
                 <ItemsControl x:Name="itemsControl"
                               ClipToBounds="False"
                               ItemsSource="{Binding Items}">

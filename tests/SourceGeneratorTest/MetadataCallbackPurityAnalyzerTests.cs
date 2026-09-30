@@ -4326,6 +4326,1266 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "makes");
     }
 
+    // The constructs below run members without naming them, and the rule does not follow them. A member
+    // with a body in this compilation could read anything, so the rule says it did not look.
+    private const string ListSource = """
+        internal sealed class Widths
+        {
+            public int Length => 2;
+
+            public float this[int index] => Settings.Offset;
+
+            public Widths Slice(int start, int length) => this;
+        }
+        """;
+
+    private static IEnumerable<Diagnostic> Unfollowed(ImmutableArray<Diagnostic> diagnostics, string construct)
+        => diagnostics.Where(d => d.Id == "BESG004" && d.GetMessage().Contains($"through {construct},"));
+
+    [Test]
+    public void AListPatternOverAMemberWithSource_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            "if (new Widths() is [var first, _]) width += first;");
+
+        Assert.That(Unfollowed(diagnostics, "a list pattern"), Is.Not.Empty,
+            "a list pattern asks for Length and the indexer, and the rule reads neither body");
+    }
+
+    [Test]
+    public void ASlicePatternOverAMemberWithSource_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            "if (new Widths() is [_, .. var rest]) width += rest.Length;");
+
+        Assert.That(Unfollowed(diagnostics, "a slice pattern"), Is.Not.Empty);
+    }
+
+    [Test]
+    public void AnIndexFromTheEndOverAMemberWithSource_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            "width += new Widths()[^1];");
+
+        Assert.That(Unfollowed(diagnostics, "an index or a range"), Is.Not.Empty,
+            "^1 runs Length and the int indexer, neither of which is named");
+    }
+
+    [Test]
+    public void AConditionalIndexFromTheEndOverAMemberWithSource_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            """
+            Widths? items = new Widths();
+            width += items?[^1] ?? 0f;
+            """);
+
+        Assert.That(Unfollowed(diagnostics, "an index or a range"), Is.Not.Empty,
+            "a conditional access runs the same Length and indexer as the plain one");
+    }
+
+    [Test]
+    public void AForEachOverAStructConstrainedTypeParameter_IsReportedAsReplaceable()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal interface ISequence
+            {
+                Enumerator GetEnumerator();
+            }
+
+            internal struct Enumerator
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => false;
+            }
+
+            internal struct Sequence : ISequence
+            {
+                public Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal static class Helper
+            {
+                public static float Sum<T>(T items)
+                    where T : struct, ISequence
+                {
+                    float total = 0f;
+                    foreach (float item in items)
+                        total += item;
+
+                    return total;
+                }
+            }
+            """,
+            "width += Helper.Sum(new Sequence());");
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty,
+            "T can be any struct implementing ISequence, so its GetEnumerator is not one known body");
+    }
+
+    [TestCase("[]")]
+    [TestCase("[..]")]
+    [TestCase("[_]")]
+    [TestCase("[_, ..]")]
+    public void AListPatternWithNoElement_DoesNotReportTheIndexer(string pattern)
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            $"if (new Widths() is {pattern}) width += 1f;");
+
+        Assert.That(
+            Unfollowed(diagnostics, "a list pattern").Select(static d => d.GetMessage()),
+            Has.None.Contains("this[int]"),
+            "a pattern with no element tests the length alone and never reads through the indexer");
+    }
+
+    [Test]
+    public void ARangeBoundedFromTheStart_DoesNotReportLength()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            ListSource,
+            "width += new Widths()[1..2].Length;");
+
+        Assert.That(
+            Unfollowed(diagnostics, "an index or a range").Select(static d => d.GetMessage()),
+            Has.None.Contains(".Length'"),
+            "both ends count from the start, so the slice is taken without asking for the length");
+    }
+
+    [Test]
+    public void AForEachOverAMadeSequenceWithANarrowedEnumerator_AdvancesTheSealedEnumerator()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Widths
+            {
+                public virtual Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal sealed class QuietWidths : Widths
+            {
+                public override QuietEnumerator GetEnumerator() => new QuietEnumerator();
+            }
+
+            internal class Enumerator
+            {
+                public virtual float Current
+                {
+                    get
+                    {
+                        _ = Settings.Offset;
+                        return 0f;
+                    }
+                }
+
+                public virtual bool MoveNext() => false;
+            }
+
+            internal sealed class QuietEnumerator : Enumerator
+            {
+                public override float Current => 0f;
+            }
+            """,
+            """
+            Widths items = new QuietWidths();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "QuietWidths hands back a QuietEnumerator, which is sealed, so its Current is the one the loop reads");
+    }
+
+    [Test]
+    public void APositionalPatternOverADeconstructWithSource_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Pair
+            {
+                public void Deconstruct(out float first, out float second)
+                {
+                    first = Settings.Offset;
+                    second = 0f;
+                }
+            }
+            """,
+            "if (new Pair() is (var first, _)) width += first;");
+
+        Assert.That(Unfollowed(diagnostics, "a positional pattern"), Is.Not.Empty);
+    }
+
+    [Test]
+    public void ConstructsOverMembersWithoutSource_AreNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            "",
+            """
+            float[] values = { 1f, 2f };
+            if (values is [var first, .. var rest]) width += first + rest.Length;
+            width += values[^1];
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "an array has no member body anywhere, which is the no-source case every call already has");
+    }
+
+    // A member an override can replace is followed as the binder bound it, which is only one of the bodies
+    // that can run unless the callback shows where the value was made.
+    private const string OverridableSource = """
+        internal class Widths
+        {
+            public virtual Enumerator GetEnumerator() => new Enumerator();
+        }
+
+        internal sealed class LoudWidths : Widths
+        {
+            public override Enumerator GetEnumerator()
+            {
+                _ = Settings.Offset;
+                return new Enumerator();
+            }
+        }
+
+        internal struct Enumerator
+        {
+            public float Current => 0f;
+
+            public bool MoveNext() => false;
+        }
+
+        internal static class Source
+        {
+            public static Widths Make() => new LoudWidths();
+        }
+        """;
+
+    [Test]
+    public void AForEachWhoseGetEnumeratorAnOverrideCanReplace_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            OverridableSource,
+            """
+            Widths items = Source.Make();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty,
+            "the base body is pure, but the value came from somewhere the rule cannot read and the override "
+            + "that runs here is not");
+    }
+
+    [Test]
+    public void AForEachOverASequenceItMade_RunsTheOverrideAndIsNotReportedForTheBase()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Widths
+            {
+                public virtual Enumerator GetEnumerator()
+                {
+                    _ = Settings.Offset;
+                    return new Enumerator();
+                }
+            }
+
+            internal sealed class QuietWidths : Widths
+            {
+                public override Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal struct Enumerator
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => false;
+            }
+            """,
+            """
+            Widths items = new QuietWidths();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "the local holds a QuietWidths for its whole life, so its override is the body that runs");
+    }
+
+    [Test]
+    public void AUsingWhoseDisposeAnOverrideCanReplace_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Resource : IDisposable
+            {
+                public virtual void Dispose()
+                {
+                }
+            }
+
+            internal static class Source
+            {
+                public static Resource Make() => new Resource();
+            }
+            """,
+            "using (Resource resource = Source.Make()) width += 1f;");
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty);
+    }
+
+    [Test]
+    public void AUsingOverASealedResource_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Resource : IDisposable
+            {
+                public void Dispose()
+                {
+                }
+            }
+
+            internal static class Source
+            {
+                public static Resource Make() => new Resource();
+            }
+            """,
+            "using (Resource resource = Source.Make()) width += 1f;");
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "nothing can replace a sealed type's Dispose, so the body the rule read is the one that runs");
+    }
+
+    [Test]
+    public void AWithOnARecordThatCanBeDerivedFrom_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal record Box(float Width);
+
+            internal static class Source
+            {
+                public static Box Make() => new Box(1f);
+            }
+            """,
+            "width += (Source.Make() with { Width = 2f }).Width;");
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty,
+            "a with copies through a virtual clone, so a derived record's copy constructor may be what runs");
+    }
+
+    [Test]
+    public void AWithOnASealedRecord_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed record Box(float Width);
+
+            internal static class Source
+            {
+                public static Box Make() => new Box(1f);
+            }
+            """,
+            "width += (Source.Make() with { Width = 2f }).Width;");
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty);
+    }
+
+    [Test]
+    public void ADeconstructionAnOverrideCanReplace_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Pair
+            {
+                public virtual void Deconstruct(out float first, out float second)
+                {
+                    first = 0f;
+                    second = 0f;
+                }
+            }
+
+            internal static class Source
+            {
+                public static Pair Make() => new Pair();
+            }
+            """,
+            """
+            var (first, _) = Source.Make();
+            width += first;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty);
+    }
+
+    [Test]
+    public void AForEachOverASealedTypeInheritingAVirtualGetEnumerator_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Widths
+            {
+                public virtual Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal sealed class FixedWidths : Widths
+            {
+            }
+
+            internal struct Enumerator
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => false;
+            }
+
+            internal static class Source
+            {
+                public static FixedWidths Make() => new FixedWidths();
+            }
+            """,
+            """
+            FixedWidths items = Source.Make();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "a sealed receiver is exactly its type, so the inherited body is the one that runs");
+    }
+
+    [Test]
+    public void ADeconstructionOfAValueItMade_RunsTheOverrideAndIsNotReportedForTheBase()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Pair
+            {
+                public virtual void Deconstruct(out float first, out float second)
+                {
+                    first = Settings.Offset;
+                    second = 0f;
+                }
+            }
+
+            internal sealed class QuietPair : Pair
+            {
+                public override void Deconstruct(out float first, out float second)
+                {
+                    first = 0f;
+                    second = 0f;
+                }
+            }
+            """,
+            """
+            Pair pair = new QuietPair();
+            var (first, _) = pair;
+            width += first;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "the local holds a QuietPair for its whole life, so its override is the Deconstruct that runs");
+    }
+
+    [Test]
+    public void APositionalPatternOverARecordsGeneratedDeconstruct_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            "internal sealed record Pair(float First, float Second);",
+            "if (new Pair(1f, 2f) is (var first, _)) width += first;");
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "the compiler writes that Deconstruct, and it reads only the record's own properties");
+    }
+
+    [Test]
+    public void AnAwaitOnASourceAwaiterWhoseContinuationReadsState_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Awaitable
+            {
+                public Awaiter GetAwaiter() => new Awaiter();
+            }
+
+            internal sealed class Awaiter : System.Runtime.CompilerServices.INotifyCompletion
+            {
+                public bool IsCompleted => false;
+
+                public float GetResult() => 0f;
+
+                public void OnCompleted(Action continuation)
+                {
+                    _ = Settings.Offset;
+                    continuation();
+                }
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure() => await new Awaitable();
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        Assert.That(
+            Unfollowed(diagnostics, "an await").Select(static d => d.GetMessage()),
+            Has.Some.Contains("OnCompleted"),
+            "an awaiter that is not complete is handed the continuation, which is a call the await makes");
+    }
+
+    [Test]
+    public void AnAwaitOnACriticalAwaiter_ReportsOnlyUnsafeOnCompleted()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Awaitable
+            {
+                public Awaiter GetAwaiter() => new Awaiter();
+            }
+
+            internal sealed class Awaiter : System.Runtime.CompilerServices.ICriticalNotifyCompletion
+            {
+                public bool IsCompleted => false;
+
+                public float GetResult() => 0f;
+
+                public void OnCompleted(Action continuation)
+                {
+                    _ = Settings.Offset;
+                    continuation();
+                }
+
+                public void UnsafeOnCompleted(Action continuation) => continuation();
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure() => await new Awaitable();
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        IEnumerable<string> messages = diagnostics
+            .Where(static d => d.Id == "BESG004")
+            .Select(static d => d.GetMessage());
+        Assert.Multiple(() =>
+        {
+            Assert.That(messages, Has.Some.Contains("UnsafeOnCompleted"));
+            Assert.That(messages, Has.None.Contains(".OnCompleted("),
+                "an awaiter implementing ICriticalNotifyCompletion is handed the continuation through "
+                + "UnsafeOnCompleted, so OnCompleted never runs for this await");
+        });
+    }
+
+    [Test]
+    public void ANestedDeconstructionIntoASealedPart_IsNotReportedAsReplaceable()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Pair
+            {
+                public virtual void Deconstruct(out float first, out float second)
+                {
+                    first = 0f;
+                    second = 0f;
+                }
+            }
+
+            internal sealed class FixedPair : Pair
+            {
+            }
+
+            internal sealed class Outer
+            {
+                public void Deconstruct(out float width, out FixedPair inner)
+                {
+                    width = 0f;
+                    inner = new FixedPair();
+                }
+            }
+
+            internal static class Source
+            {
+                public static Outer Make() => new Outer();
+            }
+            """,
+            """
+            var (outerWidth, (first, _)) = Source.Make();
+            width += outerWidth + first;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.GetMessage().Contains("an override can replace it")),
+            Is.Empty,
+            "the inner part is handed out as a FixedPair, which is sealed, so the Deconstruct it inherits "
+            + "is the one that runs");
+    }
+
+    [Test]
+    public void APositionalPatternOverARecordWhoseGetterReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed record Pair(float First, float Second)
+            {
+                public float First
+                {
+                    get => Settings.Offset;
+                    init { }
+                }
+            }
+            """,
+            "if (new Pair(1f, 2f) is (var first, _)) width += first;");
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "the generated Deconstruct reads First through the getter the author wrote");
+    }
+
+    [Test]
+    public void AQueryOperatorOnASealedResultOfTheOneBefore_IsNotReportedAsReplaceable()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual FixedWidths Where(Func<float, bool> predicate) => new FixedWidths();
+
+                public virtual float Select(Func<float, float> selector) => 0f;
+            }
+
+            internal sealed class FixedWidths : Widths
+            {
+            }
+
+            internal static class Source
+            {
+                public static Widths Make() => new Widths();
+            }
+            """,
+            """
+            Widths items = Source.Make();
+            width += from item in items where item > 0f select item + 1f;
+            """);
+
+        Assert.That(
+            diagnostics
+                .Where(static d => d.GetMessage().Contains("an override can replace it"))
+                .Select(static d => d.GetMessage()),
+            Has.None.Contains(".Select("),
+            "Where hands back a FixedWidths, which is sealed, so the Select it inherits is the one that runs");
+    }
+
+    [Test]
+    public void ADeconstructionOfARecordItMade_ReadsTheOverridingGetter()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal record Pair(float First, float Second)
+            {
+                public virtual float First
+                {
+                    get => Settings.Offset;
+                    init { }
+                }
+            }
+
+            internal sealed record QuietPair : Pair
+            {
+                public QuietPair()
+                    : base(1f, 2f)
+                {
+                }
+
+                public override float First
+                {
+                    get => 0f;
+                    init { }
+                }
+            }
+            """,
+            """
+            Pair pair = new QuietPair();
+            var (first, _) = pair;
+            width += first;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "the generated Deconstruct reads First through dispatch, and the value is a QuietPair whose "
+            + "getter reads nothing static");
+    }
+
+    [Test]
+    public void AClauseLocalCast_DoesNotReplaceTheChainsResultType()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual FixedWidths Where(Func<float, bool> predicate) => new FixedWidths();
+
+                public virtual float SelectMany(
+                    Func<float, OtherWidths> collection,
+                    Func<float, float, float> result) => 0f;
+            }
+
+            internal sealed class FixedWidths : Widths
+            {
+            }
+
+            internal class Others
+            {
+                public virtual OtherWidths Cast<T>() => new OtherWidths();
+            }
+
+            internal class OtherWidths
+            {
+            }
+
+            internal static class Source
+            {
+                public static Widths Make() => new Widths();
+
+                public static Others MakeOthers() => new Others();
+            }
+            """,
+            """
+            Widths items = Source.Make();
+            Others others = Source.MakeOthers();
+            width += from item in items where item > 0f from float other in others select item + other;
+            """);
+
+        Assert.That(
+            diagnostics
+                .Where(static d => d.GetMessage().Contains("an override can replace it"))
+                .Select(static d => d.GetMessage()),
+            Has.None.Contains(".SelectMany("),
+            "the Cast runs on the second from's own source, so SelectMany still runs on the FixedWidths "
+            + "Where handed back");
+    }
+
+    [Test]
+    public void AUsingThroughAnInterfaceADerivedClassCanReimplement_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Resource : IDisposable
+            {
+                public void Dispose()
+                {
+                }
+            }
+
+            internal static class Source
+            {
+                public static Resource Make() => new Resource();
+            }
+            """,
+            "using (Resource resource = Source.Make()) width += 1f;");
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("an override can replace it")),
+            Is.Not.Empty,
+            "using disposes through IDisposable, which a derived class can reimplement even though this "
+            + "Dispose is not virtual");
+    }
+
+    [Test]
+    public void ABasePositionalPatternOverASealedDerivedRecord_ReadsTheDerivedGetter()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal record Pair(float First, float Second)
+            {
+                public virtual float First
+                {
+                    get => Settings.Offset;
+                    init { }
+                }
+            }
+
+            internal sealed record QuietPair : Pair
+            {
+                public QuietPair()
+                    : base(1f, 2f)
+                {
+                }
+
+                public override float First
+                {
+                    get => 0f;
+                    init { }
+                }
+            }
+
+            internal static class Source
+            {
+                public static QuietPair Make() => new QuietPair();
+            }
+            """,
+            """
+            QuietPair quiet = Source.Make();
+            if (quiet is Pair(var first, _)) width += first;
+            """);
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "the value is a QuietPair, which is sealed, so its getter is the one the generated body runs");
+    }
+
+    [Test]
+    public void AUsingOverAMadeValueThatReimplementsIDisposable_ReadsTheReimplementation()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Resource : IDisposable
+            {
+                public void Dispose()
+                {
+                }
+            }
+
+            internal sealed class LoudResource : Resource, IDisposable
+            {
+                public new void Dispose() => _ = Settings.Offset;
+            }
+            """,
+            """
+            Resource resource = new LoudResource();
+            using (resource) width += 1f;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "using disposes through IDisposable, and LoudResource reimplements it with a body that reads "
+            + "a mutable static");
+    }
+
+    [Test]
+    public void AForEachOverAMadeValueThatReimplementsIEnumerable_ReadsTheReimplementation()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Widths : IEnumerable<float>
+            {
+                IEnumerator<float> IEnumerable<float>.GetEnumerator() => new List<float>().GetEnumerator();
+
+                IEnumerator IEnumerable.GetEnumerator() => new List<float>().GetEnumerator();
+            }
+
+            internal sealed class LoudWidths : Widths, IEnumerable<float>
+            {
+                IEnumerator<float> IEnumerable<float>.GetEnumerator()
+                {
+                    _ = Settings.Offset;
+                    return new List<float>().GetEnumerator();
+                }
+            }
+            """,
+            """
+            Widths items = new LoudWidths();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "the loop asks IEnumerable<float> for the enumerator, and LoudWidths reimplements it");
+    }
+
+    [Test]
+    public void AQueryOperatorOverriddenByTheSealedResultBeforeIt_ReadsTheOverride()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual Widths Where(Func<float, bool> predicate) => this;
+
+                public virtual float Select(Func<float, float> selector) => 0f;
+            }
+
+            internal sealed class LoudWidths : Widths
+            {
+                public override float Select(Func<float, float> selector) => Settings.Offset;
+            }
+
+            internal sealed class Source : Widths
+            {
+                public override LoudWidths Where(Func<float, bool> predicate) => new LoudWidths();
+            }
+            """,
+            """
+            Widths items = new Source();
+            width += from item in items where item > 0f select item + 1f;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "Where hands back a LoudWidths, which is sealed, so its Select override is what runs");
+    }
+
+    [Test]
+    public void AWithOnAMadeRecord_RunsTheOverridingInitSetter()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal record Box
+            {
+                public virtual float Width
+                {
+                    get => 0f;
+                    init { }
+                }
+            }
+
+            internal sealed record LoudBox : Box
+            {
+                public override float Width
+                {
+                    get => 0f;
+                    init => _ = Settings.Offset;
+                }
+            }
+            """,
+            """
+            Box box = new LoudBox();
+            width += (box with { Width = 2f }).Width;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "the clone is a LoudBox, so its init accessor is the one the initializer runs");
+    }
+
+    private const string LoudAwaitable = """
+        internal sealed class Awaitable
+        {
+            public Awaiter GetAwaiter() => new Awaiter();
+        }
+
+        internal sealed class Awaiter : System.Runtime.CompilerServices.INotifyCompletion
+        {
+            public bool IsCompleted => Settings.Offset > 0f;
+
+            public void GetResult()
+            {
+            }
+
+            public void OnCompleted(Action continuation) => continuation();
+        }
+
+        internal sealed class BoolAwaitable
+        {
+            public BoolAwaiter GetAwaiter() => new BoolAwaiter();
+        }
+
+        internal sealed class BoolAwaiter : System.Runtime.CompilerServices.INotifyCompletion
+        {
+            public bool IsCompleted => Settings.Offset > 0f;
+
+            public bool GetResult() => false;
+
+            public void OnCompleted(Action continuation) => continuation();
+        }
+        """;
+
+    [Test]
+    public void AnAwaitUsingWhoseDisposeAsyncReturnsASourceAwaitable_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            LoudAwaitable + """
+
+            internal sealed class Resource
+            {
+                public Awaitable DisposeAsync() => new Awaitable();
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure()
+                {
+                    await using (new Resource())
+                    {
+                    }
+
+                    return 0f;
+                }
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        Assert.That(Unfollowed(diagnostics, "an await using"), Is.Not.Empty,
+            "the scope awaits what DisposeAsync hands back, which is an await written nowhere");
+    }
+
+    [Test]
+    public void AnAwaitUsingWhoseAwaitableHasAnExtensionGetAwaiter_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Pending
+            {
+            }
+
+            internal static class PendingAwaiting
+            {
+                public static Awaiter GetAwaiter(this Pending pending) => new Awaiter();
+            }
+
+            internal sealed class Awaiter : System.Runtime.CompilerServices.INotifyCompletion
+            {
+                public bool IsCompleted => Settings.Offset > 0f;
+
+                public void GetResult()
+                {
+                }
+
+                public void OnCompleted(Action continuation) => continuation();
+            }
+
+            internal sealed class Resource
+            {
+                public Pending DisposeAsync() => new Pending();
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure()
+                {
+                    await using (new Resource())
+                    {
+                    }
+
+                    return 0f;
+                }
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        Assert.That(
+            Unfollowed(diagnostics, "an await using").Select(static d => d.GetMessage()),
+            Has.Some.Contains("IsCompleted"),
+            "the extension GetAwaiter is what the scope runs, and the awaiter it hands back is read too");
+    }
+
+    [Test]
+    public void AnAwaitUsingWithSeveralExtensionGetAwaiters_ReadsTheNearestOne()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Pending
+            {
+            }
+
+            internal sealed class LoudPending : Pending
+            {
+            }
+
+            internal static class PendingAwaiting
+            {
+                public static QuietAwaiter GetAwaiter(this Pending pending) => new QuietAwaiter();
+
+                public static LoudAwaiter GetAwaiter(this LoudPending pending) => new LoudAwaiter();
+            }
+
+            internal sealed class QuietAwaiter : System.Runtime.CompilerServices.INotifyCompletion
+            {
+                public bool IsCompleted => true;
+
+                public void GetResult()
+                {
+                }
+
+                public void OnCompleted(Action continuation) => continuation();
+            }
+
+            internal sealed class LoudAwaiter : System.Runtime.CompilerServices.INotifyCompletion
+            {
+                public bool IsCompleted => Settings.Offset > 0f;
+
+                public void GetResult()
+                {
+                }
+
+                public void OnCompleted(Action continuation) => continuation();
+            }
+
+            internal sealed class Resource
+            {
+                public LoudPending DisposeAsync() => new LoudPending();
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure()
+                {
+                    await using (new Resource())
+                    {
+                    }
+
+                    return 0f;
+                }
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        IEnumerable<string> messages = Unfollowed(diagnostics, "an await using").Select(static d => d.GetMessage());
+        Assert.Multiple(() =>
+        {
+            Assert.That(messages, Has.Some.Contains("LoudAwaiter"),
+                "the extension on LoudPending is the nearer one, so its awaiter is what the scope runs");
+            Assert.That(messages, Has.None.Contains("QuietAwaiter"));
+        });
+    }
+
+    [Test]
+    public void AnAwaitForEachOverASourceAsyncEnumerator_IsReportedAsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            LoudAwaitable + """
+
+            internal sealed class Widths
+            {
+                public Enumerator GetAsyncEnumerator() => new Enumerator();
+            }
+
+            internal sealed class Enumerator
+            {
+                public float Current => 0f;
+
+                public BoolAwaitable MoveNextAsync() => new BoolAwaitable();
+            }
+
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure()
+                {
+                    float total = 0f;
+                    await foreach (float item in new Widths())
+                        total += item;
+
+                    return total;
+                }
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        Assert.That(Unfollowed(diagnostics, "an await foreach"), Is.Not.Empty,
+            "the loop awaits what MoveNextAsync hands back, which is an await written nowhere");
+    }
+
+    [Test]
+    public void AQueryOperatorOverriddenByAnUnsealedNarrowedResult_ReadsTheOverride()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            internal class Widths
+            {
+                public virtual Widths Where(Func<float, bool> predicate) => this;
+
+                public virtual float Select(Func<float, float> selector) => 0f;
+            }
+
+            internal class LoudWidths : Widths
+            {
+                public override float Select(Func<float, float> selector) => Settings.Offset;
+            }
+
+            internal sealed class Source : Widths
+            {
+                public override LoudWidths Where(Func<float, bool> predicate) => new LoudWidths();
+            }
+            """,
+            """
+            Widths items = new Source();
+            width += from item in items where item > 0f select item + 1f;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "Where hands back at least a LoudWidths, so its Select override is at least what runs");
+    }
+
+    [Test]
+    public void AForEachOverAnUnsealedNarrowedEnumerator_ReadsItsOverride()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal class Widths
+            {
+                public virtual Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal sealed class LoudWidths : Widths
+            {
+                public override LoudEnumerator GetEnumerator() => new LoudEnumerator();
+            }
+
+            internal class Enumerator
+            {
+                public virtual float Current => 0f;
+
+                public virtual bool MoveNext() => false;
+            }
+
+            internal class LoudEnumerator : Enumerator
+            {
+                public override float Current => Settings.Offset;
+            }
+            """,
+            """
+            Widths items = new LoudWidths();
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG004" && d.GetMessage().Contains("Offset")),
+            Is.Not.Empty,
+            "GetEnumerator hands back at least a LoudEnumerator, so its Current override is at least what runs");
+    }
+
+    [Test]
+    public void AnAwaitOnAFrameworkTask_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal static class Helper
+            {
+                public static async System.Threading.Tasks.Task<float> Measure()
+                    => await System.Threading.Tasks.Task.FromResult(1f);
+            }
+            """,
+            "width += Helper.Measure().Result;");
+
+        Assert.That(diagnostics.Where(static d => d.Id == "BESG004"), Is.Empty,
+            "a Task's awaiter has no source here, which is the no-source case every call already has");
+    }
+
     /// <summary>Runs a loop over the sequence a case declares, inside a callback that reads its result.</summary>
     /// <remarks>
     /// Exactly one member of the sequence is impure in each reported case, so a report can only have come

@@ -12,11 +12,11 @@ public sealed class SimpleColorPickerFlyout : FAPickerFlyoutBase
 {
     public SimpleColorPicker ColorPicker => _picker ??= new SimpleColorPicker();
 
-    public event TypedEventHandler<SimpleColorPickerFlyout, EventArgs> Confirmed;
+    public event TypedEventHandler<SimpleColorPickerFlyout, EventArgs>? Confirmed;
 
-    public event TypedEventHandler<SimpleColorPickerFlyout, EventArgs> Dismissed;
+    public event TypedEventHandler<SimpleColorPickerFlyout, EventArgs>? Dismissed;
 
-    public event TypedEventHandler<SimpleColorPickerFlyout, EventArgs> CloseClicked;
+    public event TypedEventHandler<SimpleColorPickerFlyout, EventArgs>? CloseClicked;
 
     protected override Control CreatePresenter()
     {
@@ -32,7 +32,7 @@ public sealed class SimpleColorPickerFlyout : FAPickerFlyoutBase
         return pfp;
     }
 
-    private void OnFlyoutKeyDown(object sender, KeyEventArgs e)
+    private void OnFlyoutKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key is Key.Enter or Key.Escape)
         {
@@ -99,5 +99,5 @@ public sealed class SimpleColorPickerFlyout : FAPickerFlyoutBase
     }
 
     private bool _showButtons = true;
-    private SimpleColorPicker _picker;
+    private SimpleColorPicker? _picker;
 }

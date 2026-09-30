@@ -274,18 +274,18 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public void Resolve_quality_sample_times_rejects_an_explicit_list_with_fewer_than_two_distinct_times()
+    public void Resolve_frame_sample_times_rejects_an_explicit_list_with_fewer_than_two_distinct_times()
     {
         var scene = new Scene(16, 9, "quality") { Duration = TimeSpan.FromSeconds(4) };
 
         Assert.Multiple(() =>
         {
-            Assert.That(() => RenderTools.ResolveQualitySampleTimes(scene, [1.0], sampleCount: 4),
+            Assert.That(() => RenderTools.ResolveFrameSampleTimes(scene, [1.0], sampleCount: 4),
                 Throws.TypeOf<ReconcileException>());
-            Assert.That(() => RenderTools.ResolveQualitySampleTimes(scene, [1.0, 1.0], sampleCount: 4),
+            Assert.That(() => RenderTools.ResolveFrameSampleTimes(scene, [1.0, 1.0], sampleCount: 4),
                 Throws.TypeOf<ReconcileException>());
             // An omitted list still falls back to auto-generated samples.
-            Assert.That(RenderTools.ResolveQualitySampleTimes(scene, null, sampleCount: 4), Has.Count.EqualTo(4));
+            Assert.That(RenderTools.ResolveFrameSampleTimes(scene, null, sampleCount: 4), Has.Count.EqualTo(4));
         });
     }
 
@@ -464,7 +464,7 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public async Task Render_storyboard_cut_eye_trace_flags_corner_to_corner_jump()
+    public async Task Render_storyboard_cut_eye_trace_measures_corner_to_corner_displacement()
     {
         string workspace = CreateWorkspace();
         Scene scene = CreateEyeTraceScene(workspace, jumpAcrossCut: true);
@@ -487,18 +487,16 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(trace.LeftFrame, Is.EqualTo("left-focal"));
             Assert.That(trace.RightFrame, Is.EqualTo("right-focal"));
-            Assert.That(trace.ExceedsEyeTraceBudget, Is.True);
             Assert.That(trace.DisplacementRatio, Is.GreaterThan(0.33));
             Assert.That(trace.LeftFocalPoint.X, Is.LessThan(0.30));
             Assert.That(trace.LeftFocalPoint.Y, Is.LessThan(0.30));
             Assert.That(trace.RightFocalPoint.X, Is.GreaterThan(0.70));
             Assert.That(trace.RightFocalPoint.Y, Is.GreaterThan(0.70));
-            Assert.That(result.Value.Result.ReviewNotes, Has.Some.Contains("Murch"));
         });
     }
 
     [Test]
-    public async Task Render_storyboard_cut_eye_trace_allows_aligned_focal_points()
+    public async Task Render_storyboard_cut_eye_trace_measures_aligned_focal_points()
     {
         string workspace = CreateWorkspace();
         Scene scene = CreateEyeTraceScene(workspace, jumpAcrossCut: false);
@@ -519,9 +517,7 @@ public sealed class RenderToolsStoryboardTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(trace.ExceedsEyeTraceBudget, Is.False);
             Assert.That(trace.DisplacementRatio, Is.LessThanOrEqualTo(0.33));
-            Assert.That(result.Value.Result.ReviewNotes, Is.Empty);
         });
     }
 
@@ -544,7 +540,6 @@ public sealed class RenderToolsStoryboardTests
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.Result!.CutEyeTrace, Is.Empty);
-            Assert.That(result.Value.Result.ReviewNotes, Is.Empty);
         });
     }
 
@@ -834,7 +829,7 @@ public sealed class RenderToolsStoryboardTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(renderScaleParameters, Has.Length.EqualTo(7));
+            Assert.That(renderScaleParameters, Has.Length.EqualTo(4));
             foreach (ParameterInfo parameter in renderScaleParameters)
             {
                 string? description = parameter.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description;
@@ -847,11 +842,7 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [TestCase("render_storyboard")]
-    [TestCase("evaluate_motion_variation")]
-    [TestCase("evaluate_edit_quality")]
-    [TestCase("suggest_quality_fixes")]
-    [TestCase("final_preflight")]
-    [TestCase("compare_revisions")]
+    [TestCase("measure_frame_differences")]
     public async Task Every_remaining_render_scale_tool_rejects_over_limit_extent_before_rendering(
         string toolName)
     {
@@ -875,55 +866,11 @@ public sealed class RenderToolsStoryboardTests
                         renderScale: 9,
                         cancellationToken: CancellationToken.None)).Error;
                 break;
-            case "evaluate_motion_variation":
-                error = (await tools.EvaluateMotionVariation(
+            case "measure_frame_differences":
+                error = (await tools.MeasureFrameDifferences(
                     timeSeconds: [0, 0.5],
                     renderScale: 9,
                     cancellationToken: CancellationToken.None)).Error;
-                break;
-            case "evaluate_edit_quality":
-                error = (await tools.EvaluateEditQuality(
-                    timeSeconds: [0],
-                    renderScale: 9,
-                    staticLayout: true,
-                    cancellationToken: CancellationToken.None)).Error;
-                break;
-            case "suggest_quality_fixes":
-                error = (await tools.SuggestQualityFixes(
-                    renderScale: 9,
-                    cancellationToken: CancellationToken.None)).Error;
-                break;
-            case "final_preflight":
-                error = (await tools.FinalPreflight(
-                    timeSeconds: [0],
-                    renderScale: 9,
-                    staticLayout: true,
-                    cancellationToken: CancellationToken.None)).Error;
-                break;
-            case "compare_revisions":
-                string sessionKey = manager.GetSessionKey(session);
-                manager.StoreQualityReviewBaseline(new QualityReviewBaseline(
-                    sessionKey,
-                    DateTimeOffset.UtcNow,
-                    [TimeSpan.Zero],
-                    new QualityAnalysisOptions(
-                        VideoType: null,
-                        StyleProfile: null,
-                        RenderScale: 9,
-                        AllowAllCaps: false,
-                        AllowHardCuts: false,
-                        RelaxAesthetics: false,
-                        AllowStillness: false,
-                        AllowDenseText: false,
-                        AllowMultiObjectElements: false,
-                        AllowMinimalDensity: false,
-                        PlannedForegroundElementsPerShot: 0,
-                        BeatTimesSeconds: null,
-                        PaletteRoleColors: null),
-                    null!,
-                    []));
-                error = ReadToolResult<CompareRevisionsResponse>(
-                    await tools.CompareRevisions(cancellationToken: CancellationToken.None)).Error;
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(toolName), toolName, null);
@@ -960,7 +907,7 @@ public sealed class RenderToolsStoryboardTests
     public async Task Same_root_disk_writing_tools_reject_busy_output_operation_before_creating_files()
     {
         string workspace = CreateWorkspace();
-        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
         var outputOperations = new RejectingOutputOperationLeaseProvider();
         RenderTools tools = CreateTools(workspace, session, outputOperations);
 
@@ -971,16 +918,6 @@ public sealed class RenderToolsStoryboardTests
                 outputDirectory: "busy-storyboard",
                 basename: "busy",
                 cancellationToken: CancellationToken.None));
-        ToolResult<QualityReviewResponse> quality = await tools.EvaluateEditQuality(
-            timeSeconds: [0.5, 1.5],
-            sampleCount: 2,
-            cancellationToken: CancellationToken.None);
-        ToolResult<FinalPreflightResponse> preflight = await tools.FinalPreflight(
-            outputPrefix: "busy-preflight.png",
-            timeSeconds: [0.5, 1.5],
-            sampleCount: 2,
-            staticLayout: true,
-            cancellationToken: CancellationToken.None);
         ToolResult<ExportVideoResult> export = await tools.ExportVideo(
             "busy-export.unknown",
             cancellationToken: CancellationToken.None);
@@ -989,16 +926,14 @@ public sealed class RenderToolsStoryboardTests
         {
             AssertWorkspaceBusy(still);
             AssertWorkspaceBusy(storyboard);
-            AssertWorkspaceBusy(quality);
-            AssertWorkspaceBusy(preflight);
             AssertWorkspaceBusy(export);
-            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(5));
+            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(3));
             Assert.That(Directory.GetFiles(workspace, "*", SearchOption.AllDirectories), Is.Empty);
         });
     }
 
     [Test]
-    public async Task Busy_output_operation_is_rejected_before_session_or_baseline_capture()
+    public async Task Busy_output_operation_is_rejected_before_session_capture()
     {
         string workspace = CreateWorkspace();
         var outputOperations = new RejectingOutputOperationLeaseProvider();
@@ -1008,14 +943,8 @@ public sealed class RenderToolsStoryboardTests
             await tools.RenderStill("busy-still.png", cancellationToken: CancellationToken.None));
         ToolResult<RenderStoryboardResult> storyboard = ReadToolResult<RenderStoryboardResult>(
             await tools.RenderStoryboard(background: true, cancellationToken: CancellationToken.None));
-        ToolResult<MotionVariationResponse> motion = await tools.EvaluateMotionVariation(
+        ToolResult<FrameDifferenceResponse> motion = await tools.MeasureFrameDifferences(
             cancellationToken: CancellationToken.None);
-        ToolResult<QualityReviewResponse> quality = await tools.EvaluateEditQuality(
-            cancellationToken: CancellationToken.None);
-        ToolResult<FinalPreflightResponse> preflight = await tools.FinalPreflight(
-            cancellationToken: CancellationToken.None);
-        ToolResult<CompareRevisionsResponse> compare = ReadToolResult<CompareRevisionsResponse>(
-            await tools.CompareRevisions(cancellationToken: CancellationToken.None));
         ToolResult<ExportVideoResult> export = await tools.ExportVideo(
             "busy-export.unknown",
             background: true,
@@ -1026,11 +955,8 @@ public sealed class RenderToolsStoryboardTests
             AssertWorkspaceBusy(still);
             AssertWorkspaceBusy(storyboard);
             AssertWorkspaceBusy(motion);
-            AssertWorkspaceBusy(quality);
-            AssertWorkspaceBusy(preflight);
-            AssertWorkspaceBusy(compare);
             AssertWorkspaceBusy(export);
-            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(7));
+            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(4));
             Assert.That(Directory.GetFiles(workspace, "*", SearchOption.AllDirectories), Is.Empty);
         });
     }
@@ -1039,7 +965,7 @@ public sealed class RenderToolsStoryboardTests
     public async Task Background_enqueue_failure_releases_the_caller_owned_output_operation_once()
     {
         string workspace = CreateWorkspace();
-        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
         var outputOperations = new TrackingOutputOperationLeaseProvider();
         var renderJobs = new RenderJobManager();
         renderJobs.Dispose();
@@ -1071,7 +997,7 @@ public sealed class RenderToolsStoryboardTests
     public async Task Background_storyboard_transfers_its_output_operation_to_the_queued_job()
     {
         string workspace = CreateWorkspace();
-        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
         var outputOperations = new TrackingOutputOperationLeaseProvider();
         using var renderJobs = new RenderJobManager();
         var blockerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1131,8 +1057,8 @@ public sealed class RenderToolsStoryboardTests
     public async Task Render_still_holds_output_operation_until_the_file_is_complete()
     {
         string workspace = CreateWorkspace();
-        string expectedPath = Path.Combine(workspace, "agent-output", "leased-still.png");
-        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        string expectedPath = Path.Combine(workspace, "leased-still.png");
+        using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
         var outputOperations = new CompletionObservingOutputOperationLeaseProvider(
             () => File.Exists(expectedPath) && new FileInfo(expectedPath).Length > 0);
         RenderTools tools = CreateTools(workspace, session, outputOperations);
@@ -1145,56 +1071,8 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(1));
             Assert.That(outputOperations.FileWasCompleteWhenReleased, Is.True);
-        });
-    }
-
-    [Test]
-    public async Task Suggest_quality_fixes_only_reserves_output_for_motion_analysis()
-    {
-        string workspace = CreateWorkspace();
-        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
-        var outputOperations = new BlockingOutputOperationLeaseProvider();
-        RenderTools tools = CreateTools(workspace, session, outputOperations);
-        var renderEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseRender = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        Task renderBlocker = RenderThread.Dispatcher.InvokeAsync(() =>
-        {
-            renderEntered.TrySetResult();
-            releaseRender.Task.GetAwaiter().GetResult();
-        });
-        await renderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Task<ToolResult<QualityFixSuggestionsResponse>> motionTask = tools.SuggestQualityFixes(
-            includeMotion: true,
-            cancellationToken: CancellationToken.None).AsTask();
-        try
-        {
-            await outputOperations.Acquired.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(motionTask.IsCompleted, Is.False);
-                Assert.That(outputOperations.TryBeginOutputOperation(), Is.Null);
-                Assert.That(outputOperations.Lease!.DisposeCount, Is.Zero);
-            });
-        }
-        finally
-        {
-            releaseRender.TrySetResult();
-            await renderBlocker.WaitAsync(TimeSpan.FromSeconds(5));
-        }
-
-        ToolResult<QualityFixSuggestionsResponse> motion = await motionTask;
-        ToolResult<QualityFixSuggestionsResponse> documentOnly = await tools.SuggestQualityFixes(
-            includeMotion: false,
-            cancellationToken: CancellationToken.None);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(motion.IsSuccess, Is.True, motion.Error?.Message);
-            Assert.That(documentOnly.IsSuccess, Is.True, documentOnly.Error?.Message);
-            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(2));
-            Assert.That(outputOperations.Lease!.DisposeCount, Is.EqualTo(1));
+            Assert.That(result.Value!.OutputPath, Is.EqualTo(expectedPath));
+            Assert.That(Directory.GetDirectories(workspace), Is.Empty, "A bare output filename must not create a hidden output directory.");
         });
     }
 
@@ -1226,47 +1104,18 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public async Task Evaluate_edit_quality_static_layout_true_passes_without_major_motion_continuity_issue()
-    {
-        string workspace = CreateWorkspace();
-        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
-        RenderTools tools = CreateTools(workspace, session);
-
-        ToolResult<QualityReviewResponse> result = await tools.EvaluateEditQuality(
-            sampleCount: 3,
-            staticLayout: true,
-            cancellationToken: CancellationToken.None);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.PassesQualityGate, Is.True);
-            Assert.That(result.Value.Issues, Has.None.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
-        });
-    }
-
-    [Test]
-    public void Resolve_sample_times_clamp_to_the_last_renderable_tick_not_the_exclusive_end()
+    public void Resolve_frame_sample_times_clamp_the_exclusive_scene_end_to_the_last_renderable_tick()
     {
         var scene = new Scene(320, 180, "clamp-edge") { Duration = TimeSpan.FromSeconds(2) };
 
-        IReadOnlyList<TimeSpan> motion = RenderTools.ResolveSampleTimes(scene, [0.0, 2.0], sampleCount: 2);
-        IReadOnlyList<TimeSpan> quality = RenderTools.ResolveQualitySampleTimes(scene, [0.0, 999.0], sampleCount: 2);
+        IReadOnlyList<TimeSpan> samples = RenderTools.ResolveFrameSampleTimes(
+            scene, [0.0, scene.Duration.TotalSeconds], sampleCount: 2);
 
-        Assert.Multiple(() =>
-        {
-            // A sample at exactly Duration renders no active elements (Range end is exclusive); both
-            // resolvers must pull it back to the last renderable tick instead.
-            Assert.That(motion[^1], Is.EqualTo(scene.Duration - TimeSpan.FromTicks(1)));
-            Assert.That(motion[^1], Is.LessThan(scene.Duration));
-            Assert.That(quality[^1], Is.EqualTo(scene.Duration - TimeSpan.FromTicks(1)));
-            Assert.That(quality[^1], Is.LessThan(scene.Duration));
-        });
+        Assert.That(samples, Is.EqualTo(new[] { TimeSpan.Zero, scene.Duration - TimeSpan.FromTicks(1) }));
     }
 
     [Test]
-    public async Task Evaluate_edit_quality_rejects_times_that_all_clamp_to_a_single_sample()
+    public async Task Frame_measurement_rejects_times_that_all_clamp_to_a_single_sample()
     {
         string workspace = CreateWorkspace();
         var scene = new Scene(320, 180, "clamp-collapse")
@@ -1280,7 +1129,7 @@ public sealed class RenderToolsStoryboardTests
 
         // Both times sit past the 2s duration, so each clamps to 2s and Distinct() collapses to one
         // sample — which must surface as a validation error, not an unmapped analyzer exception.
-        ToolResult<QualityReviewResponse> result = await tools.EvaluateEditQuality(
+        ToolResult<FrameDifferenceResponse> result = await tools.MeasureFrameDifferences(
             timeSeconds: [5.0, 6.0],
             sampleCount: 2,
             cancellationToken: CancellationToken.None);
@@ -1290,222 +1139,6 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(result.Error.Target, Is.EqualTo("timeSeconds"));
-        });
-    }
-
-    [Test]
-    public async Task Evaluate_edit_quality_static_layout_false_reports_motion_continuity_as_advisory()
-    {
-        string workspace = CreateWorkspace();
-        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
-        RenderTools tools = CreateTools(workspace, session);
-
-        ToolResult<QualityReviewResponse> result = await tools.EvaluateEditQuality(
-            sampleCount: 3,
-            staticLayout: false,
-            cancellationToken: CancellationToken.None);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.PassesQualityGate, Is.True);
-            Assert.That(result.Value.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "minor"));
-        });
-    }
-
-    [Test]
-    public async Task Final_preflight_static_layout_true_is_ready_for_storyboard_without_motion_blockers()
-    {
-        string workspace = CreateWorkspace();
-        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
-        RenderTools tools = CreateTools(workspace, session);
-
-        ToolResult<FinalPreflightResponse> result = await tools.FinalPreflight(
-            outputPrefix: "preflight/static",
-            sampleCount: 3,
-            staticLayout: true,
-            requireAnimatedProperties: true,
-            cancellationToken: CancellationToken.None);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.ReadyForStoryboard, Is.True);
-            Assert.That(result.Value.ReadyForExport, Is.False);
-            Assert.That(result.Value.Motion, Is.Null);
-            Assert.That(result.Value.Blockers, Has.None.Contains("Motion"));
-            Assert.That(result.Value.Blockers, Has.None.Contains("animatedPropertyCount"));
-        });
-    }
-
-    [Test]
-    public async Task Final_preflight_reports_low_motion_as_advisory_and_blocks_only_on_the_requested_check()
-    {
-        string workspace = CreateWorkspace();
-        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
-        RenderTools tools = CreateTools(workspace, session);
-
-        ToolResult<FinalPreflightResponse> result = await tools.FinalPreflight(
-            outputPrefix: "preflight/motion",
-            sampleCount: 3,
-            staticLayout: false,
-            requireAnimatedProperties: true,
-            cancellationToken: CancellationToken.None);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.ReadyForExport, Is.False);
-            Assert.That(result.Value.ReadyForStoryboard, Is.False);
-            Assert.That(result.Value.Motion, Is.Not.Null);
-            Assert.That(result.Value.Advisories, Has.Some.Contains("Motion variation did not pass"));
-            Assert.That(result.Value.Blockers, Has.None.Contains("Motion variation did not pass"));
-            Assert.That(result.Value.Blockers, Has.Some.Contains("animatedPropertyCount is 0"));
-        });
-    }
-
-    [Test]
-    public async Task Final_preflight_includes_non_blocking_quality_issues_in_advisories()
-    {
-        string workspace = CreateWorkspace();
-        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
-        RenderTools tools = CreateTools(workspace, session);
-
-        ToolResult<FinalPreflightResponse> result = await tools.FinalPreflight(
-            outputPrefix: "preflight/quality-advisories",
-            sampleCount: 2,
-            staticLayout: true,
-            styleProfile: "motion-graphics",
-            plannedForegroundElementsPerShot: 10,
-            cancellationToken: CancellationToken.None);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.Quality.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "layerDensity" && issue.Severity == "minor"));
-            Assert.That(result.Value.Advisories, Has.Some.Contains("[layerDensity]"));
-            Assert.That(result.Value.Blockers, Has.None.Contains("layerDensity"));
-        });
-    }
-
-    [Test]
-    public async Task Final_preflight_default_output_prefix_includes_session_id_to_avoid_collisions()
-    {
-        string workspace = CreateWorkspace();
-        using var firstSession = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
-        using var secondSession = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
-        RenderTools firstTools = CreateTools(workspace, firstSession);
-        RenderTools secondTools = CreateTools(workspace, secondSession);
-
-        ToolResult<FinalPreflightResponse> first = await firstTools.FinalPreflight(
-            sampleCount: 2,
-            staticLayout: true,
-            cancellationToken: CancellationToken.None);
-        ToolResult<FinalPreflightResponse> second = await secondTools.FinalPreflight(
-            sampleCount: 2,
-            staticLayout: true,
-            cancellationToken: CancellationToken.None);
-
-        string firstFile = Path.GetFileName(first.Value!.StillFrames[0].OutputPath);
-        string secondFile = Path.GetFileName(second.Value!.StillFrames[0].OutputPath);
-        Assert.Multiple(() =>
-        {
-            Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
-            Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
-            Assert.That(first.Value.StillFrames[0].OutputPath, Is.Not.EqualTo(second.Value.StillFrames[0].OutputPath));
-            Assert.That(firstFile, Does.Contain(firstSession.SessionId));
-            Assert.That(secondFile, Does.Contain(secondSession.SessionId));
-            Assert.That(firstFile, Does.Not.StartWith("preflight-still-"));
-            Assert.That(secondFile, Does.Not.StartWith("preflight-still-"));
-        });
-    }
-
-    [Test]
-    public async Task Compare_revisions_reports_introduced_resolved_issues_regression_and_image_pairs()
-    {
-        string workspace = CreateWorkspace();
-        Scene scene = CreateRevisionCompareScene(workspace);
-        using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
-
-        ToolResult<QualityReviewResponse> baseline = await tools.EvaluateEditQuality(
-            timeSeconds: [0.5, 1.5],
-            sampleCount: 2,
-            allowStillness: true,
-            paletteRoleColors: CreateRevisionPaletteRolesJson(),
-            cancellationToken: CancellationToken.None);
-        FixRevisionElementStructure(scene);
-        AddRevisionAccentFlood(scene, workspace);
-
-        CallToolResult call = await tools.CompareRevisions(returnImageContent: true, cancellationToken: CancellationToken.None);
-        ToolResult<CompareRevisionsResponse> result = ReadToolResult<CompareRevisionsResponse>(call);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(baseline.IsSuccess, Is.True, baseline.Error?.Message);
-            Assert.That(baseline.Value!.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "elementStructure"));
-            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.IssuesResolved, Has.Some.Matches<QualityIssue>(issue => issue.Category == "elementStructure"));
-            Assert.That(result.Value.IssuesIntroduced, Has.Some.Matches<QualityIssue>(issue => issue.Category == "paletteBalance"));
-            Assert.That(result.Value.Regression, Is.True);
-            Assert.That(result.Value.MetricDeltas.Select(delta => delta.Metric), Does.Contain("paletteBalance.roleShare.accent"));
-            Assert.That(result.Value.StillPairs, Has.Count.EqualTo(2));
-            Assert.That(result.Value.StillPairs.Select(pair => pair.PreviousPath), Has.All.Matches<string>(File.Exists));
-            Assert.That(result.Value.StillPairs.Select(pair => pair.CurrentPath), Has.All.Matches<string>(File.Exists));
-            Assert.That(call.Content.OfType<ImageContentBlock>().Count(), Is.EqualTo(4));
-        });
-    }
-
-    [Test]
-    public async Task Compare_revisions_returns_typed_error_without_cached_baseline()
-    {
-        string workspace = CreateWorkspace();
-        using var session = new AgentToolkitTestSession(CreateRevisionCompareScene(workspace));
-        RenderTools tools = CreateTools(workspace, session);
-
-        CallToolResult call = await tools.CompareRevisions(cancellationToken: CancellationToken.None);
-        ToolResult<CompareRevisionsResponse> result = ReadToolResult<CompareRevisionsResponse>(call);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.StaleHandle));
-            Assert.That(result.Error.Message, Does.Contain("cached quality baseline"));
-        });
-    }
-
-    [Test]
-    public async Task Compare_revisions_updates_cache_to_current_report_after_compare()
-    {
-        string workspace = CreateWorkspace();
-        Scene scene = CreateRevisionCompareScene(workspace);
-        using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
-
-        ToolResult<QualityReviewResponse> baseline = await tools.EvaluateEditQuality(
-            timeSeconds: [0.5, 1.5],
-            sampleCount: 2,
-            allowStillness: true,
-            paletteRoleColors: CreateRevisionPaletteRolesJson(),
-            cancellationToken: CancellationToken.None);
-        SetRevisionTextColor(scene, Colors.White);
-        AddRevisionAccentFlood(scene, workspace);
-        ToolResult<CompareRevisionsResponse> first = ReadToolResult<CompareRevisionsResponse>(
-            await tools.CompareRevisions(cancellationToken: CancellationToken.None));
-        ToolResult<CompareRevisionsResponse> second = ReadToolResult<CompareRevisionsResponse>(
-            await tools.CompareRevisions(cancellationToken: CancellationToken.None));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(baseline.IsSuccess, Is.True, baseline.Error?.Message);
-            Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
-            Assert.That(first.Value!.IssuesIntroduced, Is.Not.Empty);
-            Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
-            Assert.That(second.Value!.IssuesIntroduced, Is.Empty);
-            Assert.That(second.Value.IssuesResolved, Is.Empty);
-            Assert.That(second.Value.Regression, Is.False);
         });
     }
 
@@ -1544,7 +1177,7 @@ public sealed class RenderToolsStoryboardTests
         RenderJobManager? renderJobs = null)
     {
         var stillRenderer = new StillRenderer();
-        var motionVariationAnalyzer = new MotionVariationAnalyzer(stillRenderer);
+        var motionVariationAnalyzer = new FrameDifferenceAnalyzer(stillRenderer);
         var tools = new RenderTools(
             manager,
             new WorkspaceGuard(workspace),
@@ -1553,7 +1186,6 @@ public sealed class RenderToolsStoryboardTests
             new StoryboardRenderer(),
             motionVariationAnalyzer,
             new AudioRhythmAnalyzer(),
-            new QualityAnalyzer(motionVariationAnalyzer, stillRenderer),
             new VideoExporter(new EncoderRegistration()),
             renderJobs ?? new RenderJobManager(),
             outputOperations);
@@ -1720,76 +1352,6 @@ public sealed class RenderToolsStoryboardTests
         }
     }
 
-    private static Scene CreateRevisionCompareScene(string workspace)
-    {
-        var scene = new Scene(160, 90, "revision-compare")
-        {
-            Duration = TimeSpan.FromSeconds(2),
-            Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
-        };
-        AddColorRectElement(scene, workspace, "[role:background] bg-base", TimeSpan.Zero, TimeSpan.FromSeconds(2), 160, 90, Color.Parse("#ff102030"));
-        var block = new TextBlock
-        {
-            Name = "Launch",
-            Text = { CurrentValue = "Launch" },
-            Size = { CurrentValue = 28 },
-            Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ff1a2028")) }
-        };
-        AddElement(scene, workspace, "revision text", TimeSpan.Zero, TimeSpan.FromSeconds(2), 10, block);
-        // A multi-object Element with no flow operator: the revision fixes this while the
-        // accent flood worsens palette balance, which is what the regression flag detects.
-        scene.Children[^1].AddObject(new EllipseShape { Name = "stray accent" });
-        return scene;
-    }
-
-    private static void SetRevisionTextColor(Scene scene, Color color)
-    {
-        TextBlock text = scene.Children
-            .SelectMany(element => element.Objects)
-            .OfType<TextBlock>()
-            .Single();
-        text.Fill.CurrentValue = new SolidColorBrush(color);
-    }
-
-    private static void AddRevisionAccentFlood(Scene scene, string workspace)
-    {
-        var rect = new RectShape
-        {
-            Name = "[role:accent] flooded accent field",
-            Width = { CurrentValue = 130 },
-            Height = { CurrentValue = 90 },
-            Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ffff3030")) },
-            Transform =
-            {
-                CurrentValue = new TransformGroup
-                {
-                    Children = { new TranslateTransform(-15, 0) }
-                }
-            }
-        };
-        AddElement(scene, workspace, "accent flood", TimeSpan.Zero, TimeSpan.FromSeconds(2), 5, rect);
-    }
-
-    private static void FixRevisionElementStructure(Scene scene)
-    {
-        Element element = scene.Children.Single(item => item.Objects.Count > 1);
-        element.RemoveObject(element.Objects.OfType<EllipseShape>().Single());
-    }
-
-    private static PaletteRoleColor[] CreateRevisionPaletteRoles()
-    {
-        return
-        [
-            new PaletteRoleColor("bg-base", "#102030"),
-            new PaletteRoleColor("accent", "#ff3030")
-        ];
-    }
-
-    private static JsonElement CreateRevisionPaletteRolesJson()
-    {
-        return JsonSerializer.SerializeToElement(CreateRevisionPaletteRoles(), s_jsonOptions);
-    }
-
     private static Scene CreateStaticStoryboardScene(string workspace)
     {
         var scene = new Scene(320, 180, "storyboard")
@@ -1803,9 +1365,9 @@ public sealed class RenderToolsStoryboardTests
         return scene;
     }
 
-    private static Scene CreateStaticQualityScene(string workspace)
+    private static Scene CreateStaticScene(string workspace)
     {
-        var scene = new Scene(320, 180, "static-quality")
+        var scene = new Scene(320, 180, "static-scene")
         {
             Duration = TimeSpan.FromSeconds(3),
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))

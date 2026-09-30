@@ -14,18 +14,18 @@ namespace Beutl.Controls.PropertyEditors;
 [TemplatePart("PART_InnerAutoCompleteBox", typeof(AutoCompleteBox))]
 public class AutoCompleteStringEditor : StringEditor
 {
-    public static readonly StyledProperty<IEnumerable> ItemsSourceProperty =
-        AvaloniaProperty.Register<AutoCompleteStringEditor, IEnumerable>(nameof(ItemsSource));
+    public static readonly StyledProperty<IEnumerable?> ItemsSourceProperty =
+        AvaloniaProperty.Register<AutoCompleteStringEditor, IEnumerable?>(nameof(ItemsSource));
 
     public static readonly StyledProperty<AutoCompleteFilterMode> FilterModeProperty =
         AvaloniaProperty.Register<AutoCompleteStringEditor, AutoCompleteFilterMode>(
             nameof(FilterMode));
 
     private readonly CompositeDisposable _acDisposables = [];
-    private AutoCompleteBox _autoCompleteBox;
-    private string _acOldValue;
+    private AutoCompleteBox? _autoCompleteBox;
+    private string _acOldValue = string.Empty;
 
-    public IEnumerable ItemsSource
+    public IEnumerable? ItemsSource
     {
         get => GetValue(ItemsSourceProperty);
         set => SetValue(ItemsSourceProperty, value);

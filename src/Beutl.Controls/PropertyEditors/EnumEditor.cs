@@ -6,28 +6,28 @@ using Avalonia.Interactivity;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class EnumItem(string displayName, string description, object value)
+public class EnumItem(string? displayName, string? description, object value)
 {
-    public string DisplayName { get; } = displayName;
+    public string DisplayName { get; } = displayName ?? string.Empty;
 
-    public string Description { get; } = description;
+    public string? Description { get; } = description;
 
     public object Value { get; } = value;
 }
 
 public class EnumEditor : PropertyEditor
 {
-    public static readonly StyledProperty<IReadOnlyList<EnumItem>> ItemsProperty =
-        AvaloniaProperty.Register<EnumEditor, IReadOnlyList<EnumItem>>(nameof(Items));
+    public static readonly StyledProperty<IReadOnlyList<EnumItem>?> ItemsProperty =
+        AvaloniaProperty.Register<EnumEditor, IReadOnlyList<EnumItem>?>(nameof(Items));
 
     public static readonly DirectProperty<EnumEditor, int> SelectedIndexProperty =
         SelectingItemsControl.SelectedIndexProperty.AddOwner<EnumEditor>(
             o => o.SelectedIndex, (o, v) => o.SelectedIndex = v, defaultBindingMode: BindingMode.TwoWay);
 
     private int _selectedIndex;
-    private IDisposable _disposable;
+    private IDisposable? _disposable;
 
-    public IReadOnlyList<EnumItem> Items
+    public IReadOnlyList<EnumItem>? Items
     {
         get => GetValue(ItemsProperty);
         set => SetValue(ItemsProperty, value);
@@ -39,7 +39,7 @@ public class EnumEditor : PropertyEditor
         set => SetAndRaise(SelectedIndexProperty, ref _selectedIndex, value);
     }
 
-    protected ComboBox InnerComboBox { get; private set; }
+    protected ComboBox InnerComboBox { get; private set; } = null!;
 
     protected int PrevSelectedIndex { get; set; }
 
@@ -76,7 +76,7 @@ public class EnumEditor : PropertyEditor
         return measured;
     }
 
-    protected virtual void OnComboBoxSelectionChanged(object sender, SelectionChangedEventArgs e)
+    protected virtual void OnComboBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         // 必ず選択されている
         if (e.AddedItems.Count > 0)

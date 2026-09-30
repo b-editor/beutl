@@ -342,6 +342,8 @@ public partial class NodeGraphView : UserControl
             [!Line.EndPointProperty] = connVM.OutputPortPosition.ToBinding(),
             [!ConnectionLine.InputPortProperty] = connVM.InputPortVM.ToBinding(),
             [!ConnectionLine.OutputPortProperty] = connVM.OutputPortVM.ToBinding(),
+            [!IsVisibleProperty] = connVM.InputPortVM.CombineLatest(connVM.OutputPortVM,
+                (input, output) => input != null && output != null).ToBinding(),
             ConnectionViewModel = connVM
         };
     }

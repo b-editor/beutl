@@ -46,7 +46,7 @@ public static class TextBoxAttachment
         obj.SetValue(EnterDownBehaviorProperty, value);
     }
 
-    private static void OnTextBoxKeyDown(object sender, KeyEventArgs e)
+    private static void OnTextBoxKeyDown(object? sender, KeyEventArgs e)
     {
         if (sender is TextBox tb
             && e.Key == Key.Enter)

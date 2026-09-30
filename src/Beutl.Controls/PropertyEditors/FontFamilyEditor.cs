@@ -15,7 +15,7 @@ public class FontFamilyEditor : PropertyEditor
             defaultValue: Media.FontFamily.Default,
             defaultBindingMode: BindingMode.TwoWay);
 
-    private DropDownButton _button;
+    private DropDownButton? _button;
     private bool _flyoutActive;
 
     public Media.FontFamily Value
@@ -56,7 +56,7 @@ public class FontFamilyEditor : PropertyEditor
         return measured;
     }
 
-    private Task<Media.FontFamily> Select()
+    private Task<Media.FontFamily?> Select()
     {
         var viewModel = new FontFamilyPickerFlyoutViewModel();
         viewModel.SelectedItem.Value = viewModel.Items.FirstOrDefault(f => (Media.FontFamily)f.UserData == Value);
@@ -75,7 +75,7 @@ public class FontFamilyEditor : PropertyEditor
 
         var dialog = new FontFamilyPickerFlyout(viewModel);
         dialog.ShowAt(this);
-        var tcs = new TaskCompletionSource<Media.FontFamily>();
+        var tcs = new TaskCompletionSource<Media.FontFamily?>();
         dialog.Pinned += (_, item) => viewModel.Pin(item);
         dialog.Unpinned += (_, item) => viewModel.Unpin(item);
         dialog.Dismissed += (_, _) => tcs.SetResult(null);
@@ -84,7 +84,7 @@ public class FontFamilyEditor : PropertyEditor
         return tcs.Task;
     }
 
-    private async void OnButtonClick(object sender, RoutedEventArgs e)
+    private async void OnButtonClick(object? sender, RoutedEventArgs e)
     {
         if (_flyoutActive) return;
 

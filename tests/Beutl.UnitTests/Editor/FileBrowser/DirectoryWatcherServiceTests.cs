@@ -47,6 +47,47 @@ public class DirectoryWatcherServiceTests
         Assert.That(service.ShouldExcludePath(path), Is.EqualTo(expected));
     }
 
+    [TestCase("project.bep.0123456789abcdef0123456789abcdef.tmp", true)]
+    [TestCase("main.scene.0123456789abcdef0123456789abcdef.tmp", true)]
+    [TestCase("clip.belm.0123456789abcdef0123456789abcdef.tmp", true)]
+    [TestCase("clip.BELM.0123456789ABCDEF0123456789ABCDEF.tmp", true)]
+    [TestCase("clip.belm.\u00a00123456789abcdef0123456789abcdef.tmp", false)]
+    [TestCase("clip.belm.0123456789abcdef0123456789abcdef .tmp", false)]
+    [TestCase("clip.belm.\u00a00123456789abcdef0123456789abcdef.tmp", false)]
+    [TestCase("clip.belm.0123456789abcdef0123456789abcde.tmp", false)]
+    [TestCase("clip.belm.0123456789abcdef0123456789abcdef0.tmp", false)]
+    [TestCase("clip.belm.0123456789abcdef0123456789abcdeg.tmp", false)]
+    [TestCase("clip.belm.0123456789abcdef0123456789abcde .tmp", false)]
+    [TestCase("clip.belm.01234567-89ab-cdef-0123-456789abcdef.tmp", false)]
+    [TestCase("clip.belm.backup.tmp", false)]
+    [TestCase("clip.belm.tmp", false)]
+    [TestCase("clip.png.0123456789abcdef0123456789abcdef.tmp", false)]
+    [TestCase("notes.tmp", false)]
+    public void Atomic_editor_save_sidecars_do_not_refresh_the_browser(string name, bool excluded)
+    {
+        using var service = new DirectoryWatcherService();
+
+        Assert.That(service.ShouldExcludePath(Path.Combine(_projectRoot, name)), Is.EqualTo(excluded));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Special_directories_ignore_editor_save_sidecars_but_keep_the_completed_file(bool template)
+    {
+        string directory = template
+            ? BeutlEnvironment.GetTemplatesDirectoryPath()
+            : BeutlEnvironment.GetMaterialsDirectoryPath();
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "item.belm");
+        using var service = new DirectoryWatcherService();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.ShouldExcludePath($"{path}.{Guid.NewGuid():N}.tmp"), Is.True);
+            Assert.That(service.ShouldExcludePath(path), Is.False);
+        });
+    }
+
     [TestCase(".GIT", ".git")]
     [TestCase("assets/.GIT/objects/ab/cdef", ".git")]
     [TestCase(".BEUTL", ".beutl")]
@@ -110,6 +151,89 @@ public class DirectoryWatcherServiceTests
         });
 
         Assert.That(failures, Is.Empty);
+    }
+
+    [Test]
+    public void Editor_entry_checks_are_coalesced_without_reloading_content()
+    {
+        string document = CreateFile("main.scene");
+        string temporary = $"{document}.{Guid.NewGuid():N}.tmp";
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue);
+        int reloads = 0;
+        IReadOnlyCollection<string>? entries = null;
+        service.Changed += () => reloads++;
+        service.EntriesChanged += paths => entries = paths;
+
+        service.NotifyPathChanged(document);
+        Action stale = TakePostedAction(posted);
+        service.NotifyPathChanged(temporary);
+        Action current = TakePostedAction(posted);
+        stale();
+        Assert.That(entries, Is.Null);
+        current();
+
+        Assert.That(reloads, Is.Zero);
+        Assert.That(entries, Is.EquivalentTo(new[] { document, temporary }));
+    }
+
+    [Test]
+    public void Entry_checks_do_not_downgrade_a_pending_content_change()
+    {
+        string document = CreateFile("main.scene");
+        string asset = CreateFile("clip.png");
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue);
+        int reloads = 0;
+        int checks = 0;
+        service.Changed += () => reloads++;
+        service.EntriesChanged += _ => checks++;
+
+        service.NotifyPathChanged(asset);
+        Action stale = TakePostedAction(posted);
+        service.NotifyPathChanged(document);
+        Action current = TakePostedAction(posted);
+        stale();
+        current();
+        Assert.That(reloads, Is.EqualTo(1));
+        Assert.That(checks, Is.Zero);
+
+        service.NotifyPathChanged(document);
+        TakePostedAction(posted)();
+        Assert.That(reloads, Is.EqualTo(1));
+        Assert.That(checks, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Changing_folders_discards_pending_editor_entry_checks()
+    {
+        string document = CreateFile("main.scene");
+        string next = Path.Combine(_projectRoot, "next");
+        Directory.CreateDirectory(next);
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue);
+        IReadOnlyCollection<string>? entries = null;
+        service.EntriesChanged += paths => entries = paths;
+        service.NotifyPathChanged(document);
+        Action stale = TakePostedAction(posted);
+        service.Watch(next);
+        string nextDocument = Path.Combine(next, "next.scene");
+        service.NotifyPathChanged(nextDocument);
+        Action current = TakePostedAction(posted);
+        stale();
+        current();
+        Assert.That(entries, Is.EquivalentTo(new[] { nextDocument }));
+    }
+
+    [Test]
+    public void Reserved_metadata_documents_do_not_schedule_entry_checks()
+    {
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue);
+        string document = CreateFile(".beutl/hidden.scene");
+        service.NotifyPathChanged(document);
+        service.NotifyPathChanged($"{document}.{Guid.NewGuid():N}.tmp");
+        Assert.That(posted, Is.Empty);
     }
 
     [Test]

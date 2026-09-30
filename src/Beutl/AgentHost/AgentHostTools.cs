@@ -20,16 +20,11 @@ public sealed record AttachActiveEditorResponse(string Session, string Source, A
 
     public IReadOnlyList<string> NextSteps { get; } =
     [
-        "Call read_document_summary to observe the scene without pulling the full document.",
-        "For vague or no-context motion graphics, call list_creative_directions and synthesize an original pitch from at least two inspiration seeds before authoring.",
-        "Call list_effects and list_effect_recipes to discover Beutl visual effects before settling on a repeated look.",
-        "Build original scenes with apply_edit; call list_compositions only when the user explicitly asks for a template, starter, or named composition style.",
-        "Call list_examples to choose a compact declarative snippet only when you need a targeted patch.",
-        "Call get_schema with includeProperties/includeExamples filters for detailed discovery.",
-        "Call read_document when you need the normalized declarative scene.",
-        "Call apply_edit with a patch or desired document.",
-        "Use apply_edit.createdIds or read_document to get new Ids before follow-up edits.",
-        "Use evaluate_edit_quality(staticLayout:true) during authoring, final_preflight before export, and export_video only after critical/major quality blockers are resolved."
+        "Call read_document_summary for element handles, or read_document for the editable scene data.",
+        "Call get_schema(type=...) for the properties needed by the edit; catalog enumeration is optional. Supported building blocks can be combined without a named recipe.",
+        "Use apply_edit for Id-based patches. Choose natural content-based names and compact ZIndex values; PortalObject.Count is a relative layer span.",
+        "Use measure_object_bounds for coordinates and transforms, validate_shader for compilation, and render_still/render_storyboard for rendered evidence. Runtime editing does not require Beutl source code.",
+        "Use export_video for the requested output. Tool success confirms the operation only; Beutl does not decide creative direction, visual quality, or task completion."
     ];
 }
 

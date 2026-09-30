@@ -52,11 +52,11 @@ public sealed class FlipPass : GraphicsNode3D
         _sampler?.Dispose();
 
         // Create output and depth textures
-        OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
+        OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         _depthTexture = Context.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
         // Create render pass and framebuffer
-        RenderPass = Context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], TextureFormat.Depth32Float);
+        RenderPass = Context.CreateRenderPass3D([TextureFormat.RGBA16Float], TextureFormat.Depth32Float);
         Framebuffer = Context.CreateFramebuffer3D(RenderPass, [OutputTexture], _depthTexture);
 
         // Create pipeline

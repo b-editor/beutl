@@ -57,8 +57,16 @@ public static class AgentToolkitInstaller
         string? mcpConfigPath = null;
         if (options.InstallStdioMcp || options.InstallLiveMcp)
         {
-            mcpConfigPath = GetSafeTargetPath(agentRoot, options.McpConfigFileName);
-            await WriteMcpConfigAsync(mcpConfigPath, options, cancellationToken).ConfigureAwait(false);
+            mcpConfigPath = GetSafeTargetPath(options.McpConfigRoot ?? agentRoot, options.McpConfigFileName);
+            if (options.McpConfigFormat == McpConfigFormat.CodexToml)
+            {
+                await CodexMcpConfigWriter.WriteAsync(mcpConfigPath, options, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await WriteMcpConfigAsync(mcpConfigPath, options, cancellationToken).ConfigureAwait(false);
+            }
+
             installedFiles.Add(mcpConfigPath);
         }
 

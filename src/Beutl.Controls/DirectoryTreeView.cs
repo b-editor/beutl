@@ -30,9 +30,9 @@ public sealed class DirectoryTreeView : TreeView
     private readonly MenuItem _rename;
     private readonly MenuItem _addfolder;
     private readonly List<object> _menuItem;
-    private readonly Func<string, object> _contextFactory;
+    private readonly Func<string, object>? _contextFactory;
 
-    public DirectoryTreeView(FileSystemWatcher watcher, Func<string, object> contextFactory = null)
+    public DirectoryTreeView(FileSystemWatcher watcher, Func<string, object>? contextFactory = null)
     {
         _watcher = watcher;
         _directoryInfo = new DirectoryInfo(watcher.Path);
@@ -152,7 +152,7 @@ public sealed class DirectoryTreeView : TreeView
     //    }
     //}
 
-    private void ContextMenu_ContextMenuOpening(object sender, System.ComponentModel.CancelEventArgs e)
+    private void ContextMenu_ContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         _remove.IsEnabled = CanRemove();
         _open.IsEnabled = CanOpen();
@@ -183,7 +183,7 @@ public sealed class DirectoryTreeView : TreeView
         return SelectedItem is DirectoryTreeItem or FileTreeItem;
     }
 
-    private void Open(object sender, RoutedEventArgs e)
+    private void Open(object? sender, RoutedEventArgs e)
     {
         if (SelectedItem is DirectoryTreeItem directoryTree)
         {
@@ -198,7 +198,7 @@ public sealed class DirectoryTreeView : TreeView
         }
     }
 
-    private async void Copy(object sender, RoutedEventArgs e)
+    private async void Copy(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard, StorageProvider: IStorageProvider storageProvider })
         {
@@ -221,7 +221,7 @@ public sealed class DirectoryTreeView : TreeView
         return SelectedItem is DirectoryTreeItem or FileTreeItem;
     }
 
-    private async void Remove(object sender, RoutedEventArgs e)
+    private async void Remove(object? sender, RoutedEventArgs e)
     {
         if (SelectedItem is DirectoryTreeItem directory)
         {
@@ -257,7 +257,7 @@ public sealed class DirectoryTreeView : TreeView
         }
     }
 
-    private void Rename(object sender, RoutedEventArgs e)
+    private void Rename(object? sender, RoutedEventArgs e)
     {
         if (SelectedItem is DirectoryTreeItem directory)
         {
@@ -269,7 +269,7 @@ public sealed class DirectoryTreeView : TreeView
         }
     }
 
-    private void AddDirectory(object sender, RoutedEventArgs e)
+    private void AddDirectory(object? sender, RoutedEventArgs e)
     {
         string baseDir = _directoryInfo.FullName;
         if (SelectedItem is DirectoryTreeItem directoryTree)
@@ -298,7 +298,7 @@ public sealed class DirectoryTreeView : TreeView
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
-            string parent = Path.GetDirectoryName(e.FullPath);
+            string? parent = Path.GetDirectoryName(e.FullPath);
 
             if (parent == _directoryInfo.FullName)
             {
@@ -327,12 +327,12 @@ public sealed class DirectoryTreeView : TreeView
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
-            string parent = Path.GetDirectoryName(e.FullPath);
-            string filename = Path.GetFileName(e.Name);
+            string? parent = Path.GetDirectoryName(e.FullPath);
+            string? filename = Path.GetFileName(e.Name);
 
             if (parent == _directoryInfo.FullName)
             {
-                TreeViewItem item = _items.FirstOrDefault(i => i.Header is string str && str == filename);
+                TreeViewItem? item = _items.FirstOrDefault(i => i.Header is string str && str == filename);
                 if (item != null)
                 {
                     _items.Remove(item);
@@ -345,13 +345,13 @@ public sealed class DirectoryTreeView : TreeView
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
-            string parent = Path.GetDirectoryName(e.FullPath);
-            string oldFilename = Path.GetFileName(e.OldName);
-            string newFilename = Path.GetFileName(e.Name);
+            string? parent = Path.GetDirectoryName(e.FullPath);
+            string? oldFilename = Path.GetFileName(e.OldName);
+            string? newFilename = Path.GetFileName(e.Name);
 
             if (parent == _directoryInfo.FullName)
             {
-                TreeViewItem item = _items.FirstOrDefault(i => i.Header is string str && str == oldFilename);
+                TreeViewItem? item = _items.FirstOrDefault(i => i.Header is string str && str == oldFilename);
                 if (item is DirectoryTreeItem dir)
                 {
                     dir.Info = new DirectoryInfo(e.FullPath);
@@ -362,14 +362,15 @@ public sealed class DirectoryTreeView : TreeView
                     file.Info = new FileInfo(e.FullPath);
                 }
 
-                item.DataContext = _contextFactory?.Invoke(e.FullPath);
+                if (item != null)
+                    item.DataContext = _contextFactory?.Invoke(e.FullPath);
             }
 
             Sort();
         });
     }
 
-    private void OnDragOver(object sender, DragEventArgs e)
+    private void OnDragOver(object? sender, DragEventArgs e)
     {
         if (e.DataTransfer.Contains(DataFormat.File))
         {
@@ -377,13 +378,13 @@ public sealed class DirectoryTreeView : TreeView
         }
     }
 
-    private void OnDrop(object sender, DragEventArgs e)
+    private void OnDrop(object? sender, DragEventArgs e)
     {
         if (e.DataTransfer.Contains(DataFormat.File) && e.Source is ILogical logical)
         {
             e.DragEffects = DragDropEffects.Copy;
 
-            TreeViewItem treeViewItem = logical.FindLogicalAncestorOfType<TreeViewItem>();
+            TreeViewItem? treeViewItem = logical.FindLogicalAncestorOfType<TreeViewItem>();
             string baseDir = _directoryInfo.FullName;
 
             if (treeViewItem is DirectoryTreeItem directoryTreeItem)
@@ -444,11 +445,11 @@ public sealed class DirectoryTreeView : TreeView
             }
             else if (item.Header is TextBlock tb)
             {
-                return tb.Text;
+                return tb.Text ?? string.Empty;
             }
             else
             {
-                return item.Header.ToString();
+                return item.Header?.ToString() ?? string.Empty;
             }
         }
 
@@ -515,17 +516,18 @@ public sealed class FileTreeItem : TreeViewItem
         }
     }
 
-    private void TextBox_LostFocus(object sender, RoutedEventArgs e)
+    private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
         EndRename();
     }
 
-    private void TextBox_TemplateApplied(object sender, TemplateAppliedEventArgs e)
+    private void TextBox_TemplateApplied(object? sender, TemplateAppliedEventArgs e)
     {
-        ((TextBox)sender).Focus();
+        if (sender is TextBox textBox)
+            textBox.Focus();
     }
 
-    private void TextBox_KeyUp(object sender, KeyEventArgs e)
+    private void TextBox_KeyUp(object? sender, KeyEventArgs e)
     {
         if (sender is TextBox tb)
         {
@@ -550,8 +552,9 @@ public sealed class FileTreeItem : TreeViewItem
         {
             _isRenaming = false;
             string old = Info.FullName;
-            string @new = Path.Combine(Info.DirectoryName, tb.Text);
-            if (File.Exists(@new))
+            string @new = Path.Combine(Info.DirectoryName ?? throw new InvalidOperationException("The file has no parent directory."), tb.Text ?? Info.Name);
+            bool isDifferentPath = !string.Equals(old, @new, StringComparison.Ordinal);
+            if (isDifferentPath && DirectoryTreeRename.HasDistinctDestination(old, @new))
             {
                 string content = MessageStrings.RenameConflict;
                 content = string.Format(content, Info.Name, tb.Text);
@@ -566,7 +569,7 @@ public sealed class FileTreeItem : TreeViewItem
 
                 await dialog.ShowAsync();
             }
-            else if (string.Compare(old, @new, StringComparison.OrdinalIgnoreCase) != 0)
+            else if (isDifferentPath)
             {
                 File.Move(old, @new);
                 _info = new FileInfo(@new);
@@ -589,8 +592,9 @@ public sealed class FileTreeItem : TreeViewItem
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
 
-            TreeView parent = this.FindLogicalAncestorOfType<TreeView>();
-            parent.SelectedItem = this;
+            TreeView? parent = this.FindLogicalAncestorOfType<TreeView>();
+            if (parent != null)
+                parent.SelectedItem = this;
             Refresh();
 
             var data = new DataTransfer();
@@ -601,7 +605,7 @@ public sealed class FileTreeItem : TreeViewItem
         }
     }
 
-    private void FileTreeItem_DoubleTapped(object sender, RoutedEventArgs e)
+    private void FileTreeItem_DoubleTapped(object? sender, RoutedEventArgs e)
     {
         Refresh();
         Process.Start(new ProcessStartInfo(Info.FullName)
@@ -615,14 +619,14 @@ public sealed class DirectoryTreeItem : TreeViewItem
 {
     private readonly AvaloniaList<TreeViewItem> _items = [];
     private readonly FileSystemWatcher _watcher;
-    private readonly Func<string, object> _contextFactory;
+    private readonly Func<string, object>? _contextFactory;
     // //サブフォルダを作成済みかどうか
     private bool _isAdd;
     private DirectoryInfo _info;
     // 名前を変更中
     private bool _isRenaming;
 
-    public DirectoryTreeItem(DirectoryInfo info, FileSystemWatcher watcher, Func<string, object> contextFactory = null)
+    public DirectoryTreeItem(DirectoryInfo info, FileSystemWatcher watcher, Func<string, object>? contextFactory = null)
     {
         _info = info;
         Header = info.Name;
@@ -697,11 +701,11 @@ public sealed class DirectoryTreeItem : TreeViewItem
             }
             else if (item.Header is TextBlock tb)
             {
-                return tb.Text;
+                return tb.Text ?? string.Empty;
             }
             else
             {
-                return item.Header?.ToString();
+                return item.Header?.ToString() ?? string.Empty;
             }
         }
 
@@ -745,17 +749,18 @@ public sealed class DirectoryTreeItem : TreeViewItem
         }
     }
 
-    private void TextBox_LostFocus(object sender, RoutedEventArgs e)
+    private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
         EndRename();
     }
 
-    private void TextBox_TemplateApplied(object sender, TemplateAppliedEventArgs e)
+    private void TextBox_TemplateApplied(object? sender, TemplateAppliedEventArgs e)
     {
-        ((TextBox)sender).Focus();
+        if (sender is TextBox textBox)
+            textBox.Focus();
     }
 
-    private void TextBox_KeyUp(object sender, KeyEventArgs e)
+    private void TextBox_KeyUp(object? sender, KeyEventArgs e)
     {
         if (sender is TextBox tb)
         {
@@ -780,8 +785,9 @@ public sealed class DirectoryTreeItem : TreeViewItem
         {
             _isRenaming = false;
             string old = Info.FullName;
-            string @new = Path.Combine(Info.Parent.FullName, tb.Text);
-            if (Directory.Exists(@new))
+            string @new = Path.Combine(Info.Parent?.FullName ?? throw new InvalidOperationException("The directory has no parent."), tb.Text ?? Info.Name);
+            bool isDifferentPath = !string.Equals(old, @new, StringComparison.Ordinal);
+            if (isDifferentPath && DirectoryTreeRename.HasDistinctDestination(old, @new))
             {
                 string content = MessageStrings.RenameConflict;
                 content = string.Format(content, Info.Name, tb.Text);
@@ -796,7 +802,7 @@ public sealed class DirectoryTreeItem : TreeViewItem
 
                 await dialog.ShowAsync();
             }
-            else if (string.Compare(old, @new, StringComparison.OrdinalIgnoreCase) != 0)
+            else if (isDifferentPath)
             {
                 Directory.Move(old, @new);
                 _info = new DirectoryInfo(@new);
@@ -833,7 +839,7 @@ public sealed class DirectoryTreeItem : TreeViewItem
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             Refresh();
-            string parent = Path.GetDirectoryName(e.FullPath);
+            string? parent = Path.GetDirectoryName(e.FullPath);
 
             if (parent == Info.FullName)
             {
@@ -863,12 +869,12 @@ public sealed class DirectoryTreeItem : TreeViewItem
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             Refresh();
-            string parent = Path.GetDirectoryName(e.FullPath);
-            string filename = Path.GetFileName(e.Name);
+            string? parent = Path.GetDirectoryName(e.FullPath);
+            string? filename = Path.GetFileName(e.Name);
 
             if (parent == Info.FullName)
             {
-                TreeViewItem item = _items.FirstOrDefault(i => i.Header is string str && str == filename);
+                TreeViewItem? item = _items.FirstOrDefault(i => i.Header is string str && str == filename);
                 if (item != null)
                 {
                     _items.Remove(item);
@@ -882,13 +888,13 @@ public sealed class DirectoryTreeItem : TreeViewItem
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             Refresh();
-            string parent = Path.GetDirectoryName(e.FullPath);
-            string oldFilename = Path.GetFileName(e.OldName);
-            string newFilename = Path.GetFileName(e.Name);
+            string? parent = Path.GetDirectoryName(e.FullPath);
+            string? oldFilename = Path.GetFileName(e.OldName);
+            string? newFilename = Path.GetFileName(e.Name);
 
             if (parent == Info.FullName)
             {
-                TreeViewItem item = _items.FirstOrDefault(i => i.Header is string str && str == oldFilename);
+                TreeViewItem? item = _items.FirstOrDefault(i => i.Header is string str && str == oldFilename);
                 if (item is DirectoryTreeItem dir)
                 {
                     dir.Info = new DirectoryInfo(e.FullPath);
@@ -899,10 +905,31 @@ public sealed class DirectoryTreeItem : TreeViewItem
                     file.Info = new FileInfo(e.FullPath);
                 }
 
-                item.DataContext = _contextFactory?.Invoke(e.FullPath);
+                if (item != null)
+                    item.DataContext = _contextFactory?.Invoke(e.FullPath);
             }
 
             Sort();
         });
+    }
+}
+
+internal static class DirectoryTreeRename
+{
+    public static bool HasDistinctDestination(string source, string destination)
+    {
+        if (!File.Exists(destination) && !Directory.Exists(destination))
+            return false;
+
+        if (!string.Equals(source, destination, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        string? parent = Path.GetDirectoryName(destination);
+        if (parent is null)
+            return false;
+
+        string targetName = Path.GetFileName(destination);
+        return Directory.EnumerateFileSystemEntries(parent)
+            .Any(entry => string.Equals(Path.GetFileName(entry), targetName, StringComparison.Ordinal));
     }
 }

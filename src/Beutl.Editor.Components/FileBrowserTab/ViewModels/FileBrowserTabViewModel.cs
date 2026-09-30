@@ -82,6 +82,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             else
                 RefreshItems();
         };
+        _directoryWatcher.EntriesChanged += RefreshChangedEntries;
 
         // プロジェクトディレクトリの取得
         _projectDirectory = GetProjectDirectory();
@@ -221,6 +222,55 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
                 }
             },
             DispatcherPriority.Background);
+    }
+
+    private void RefreshChangedEntries(IReadOnlyCollection<string> paths)
+    {
+        if (_disposed) return;
+
+        try
+        {
+            // A deleted directory can no longer be distinguished from a temporary file by its
+            // attributes. Refresh home results if a previously displayed favorite/media path is affected.
+            if (IsHomeView.Value && paths.Any(path =>
+                    FavoriteItems.Any(item => string.Equals(item.FullPath, path, StringComparison.Ordinal)
+                        && !(item.IsDirectory ? Directory.Exists(path) : File.Exists(path)))
+                    || MediaFileItems.Any(item => item.FullPath.StartsWith(
+                        path + Path.DirectorySeparatorChar, StringComparison.Ordinal))))
+            {
+                RefreshHomeView();
+                return;
+            }
+
+            string? root = IsHomeView.Value ? _projectDirectory : _rootPath;
+            var items = IsHomeView.Value ? ProjectDirectoryItems
+                : ViewMode.Value == FileBrowserViewMode.Tree ? TreeRootItems : Items;
+            // A recursive deletion reports children too. Remove vanished parent entries before
+            // inspecting their children so one missing directory cannot abort the batch.
+            foreach (string directory in paths.Select(Path.GetDirectoryName).OfType<string>()
+                         .Distinct(StringComparer.Ordinal).OrderBy(directory => directory.Length))
+            {
+                if (!string.IsNullOrEmpty(root)
+                    && string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)), directory, StringComparison.Ordinal)
+                    && FileSystemEnumerator.HasEntriesChanged(items, root))
+                {
+                    Refresh();
+                    return;
+                }
+
+                // Check only the affected directory, including collapsed tree placeholders.
+                // Unchanged autosaves keep the existing items, selection and thumbnail work.
+                foreach (var item in items)
+                    item.RefreshEntriesForDirectory(directory);
+                if (IsHomeView.Value)
+                    foreach (var item in FavoriteItems)
+                        item.RefreshEntriesForDirectory(directory);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Failed to check file browser entries after a save");
+        }
     }
 
     private void RefreshItems()

@@ -60,11 +60,11 @@ public sealed class TransparentPass : GraphicsNode3D
         OutputTexture?.Dispose();
 
         // Create output texture (same format as LightingPass output)
-        OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
+        OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
 
         // Create render pass with Load operation to preserve existing content
         RenderPass = Context.CreateRenderPass3D(
-            [TextureFormat.RGBA8Unorm],
+            [TextureFormat.RGBA16Float],
             TextureFormat.Depth32Float,
             AttachmentLoadOp.Load,  // Preserve color from LightingPass
             AttachmentLoadOp.Load); // Preserve depth from GeometryPass

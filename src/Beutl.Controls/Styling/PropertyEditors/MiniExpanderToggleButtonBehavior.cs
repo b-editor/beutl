@@ -28,17 +28,17 @@ public class MiniExpanderToggleButtonBehavior : Behavior<ContentPresenter>
         }
     }
 
-    private void OnPointerExited(object sender, PointerEventArgs e)
+    private void OnPointerExited(object? sender, PointerEventArgs e)
     {
-        if (AssociatedObject.TemplatedParent is ToggleButton parent)
+        if (AssociatedObject?.TemplatedParent is ToggleButton parent)
         {
             (parent.Classes as IPseudoClasses).Set(":pointerover", parent.IsPointerOver);
         }
     }
 
-    private void OnPointerEntered(object sender, PointerEventArgs e)
+    private void OnPointerEntered(object? sender, PointerEventArgs e)
     {
-        if (AssociatedObject.TemplatedParent is ToggleButton parent)
+        if (AssociatedObject?.TemplatedParent is ToggleButton parent)
         {
             (parent.Classes as IPseudoClasses).Set(":pointerover", false);
         }

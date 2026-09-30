@@ -282,12 +282,32 @@ public class FileSystemItemViewModel : IDisposable
         }
     }
 
+    internal void RefreshEntriesForDirectory(string directory)
+    {
+        if (!IsDirectory || Children is null)
+            return;
+
+        if (string.Equals(FullPath, directory, StringComparison.Ordinal))
+        {
+            bool changed = _childrenLoaded
+                ? FileSystemEnumerator.HasEntriesChanged(Children, FullPath)
+                : (Children.Count > 0) != new DirectoryInfo(FullPath)
+                    .EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible);
+            if (changed) Refresh();
+        }
+        else if (_childrenLoaded)
+        {
+            foreach (var child in Children)
+                child.RefreshEntriesForDirectory(directory);
+        }
+    }
+
     private void AddPlaceholderIfNeeded()
     {
         try
         {
             var dirInfo = new DirectoryInfo(FullPath);
-            if (dirInfo.EnumerateFileSystemInfos().Any(e => (e.Attributes & FileAttributes.Hidden) == 0))
+            if (dirInfo.EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible))
             {
                 // プレースホルダーを追加して展開矢印を表示させる
                 Children!.Add(new FileSystemItemViewModel(FullPath, false));

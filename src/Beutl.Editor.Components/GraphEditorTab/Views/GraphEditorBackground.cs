@@ -9,6 +9,15 @@ namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
 public sealed class GraphEditorBackground : Control
 {
+    public static readonly StyledProperty<bool> IsSpeedGraphProperty
+        = AvaloniaProperty.Register<GraphEditorBackground, bool>(nameof(IsSpeedGraph));
+
+    public bool IsSpeedGraph
+    {
+        get => GetValue(IsSpeedGraphProperty);
+        set => SetValue(IsSpeedGraphProperty, value);
+    }
+
     public static readonly DirectProperty<GraphEditorBackground, double> ScaleProperty
         = AvaloniaProperty.RegisterDirect<GraphEditorBackground, double>(
             nameof(Scale),
@@ -44,7 +53,7 @@ public sealed class GraphEditorBackground : Control
 
     static GraphEditorBackground()
     {
-        AffectsRender<GraphEditorBackground>(ScaleProperty, BaselineProperty, OffsetProperty, ViewportProperty);
+        AffectsRender<GraphEditorBackground>(IsSpeedGraphProperty, ScaleProperty, BaselineProperty, OffsetProperty, ViewportProperty);
     }
 
     public GraphEditorBackground()
@@ -117,26 +126,23 @@ public sealed class GraphEditorBackground : Control
         context.FillRectangle(Brushes.Transparent, new Rect(Bounds.Size));
         var viewport = new Rect((Point)_offset, _viewport);
 
-        double PixelsPer1 = 1 * Math.Clamp(_scale, 1, 1.75);
-        double PixelsPer5 = PixelsPer1 * 5;
-        double PixelsPer100 = PixelsPer5 * 20;
-
         double originY = _baseline;
-        for (double y = originY - PixelsPer100; y >= viewport.Top; y -= PixelsPer100)
+        if (!(_scale > 0) || !double.IsFinite(_scale) || !double.IsFinite(originY)) return;
+        double step = GraphEditorGridMetrics.Step(_scale);
+        foreach (var (_, y) in GraphEditorGridMetrics.MajorTicks(_scale, originY, viewport.Top, viewport.Bottom))
         {
-            if (y < viewport.Bottom)
-            {
+            if (y >= viewport.Top && y <= viewport.Bottom)
                 context.DrawLine(_pen, new(viewport.Left, y), new(viewport.Right, y));
-            }
+            using (context.PushOpacity(0.35))
+                for (int minor = 1; minor < 4; minor++)
+                {
+                    double yy = y - step * _scale * minor / 4;
+                    if (yy >= viewport.Top && yy <= viewport.Bottom)
+                        context.DrawLine(_pen, new(viewport.Left, yy), new(viewport.Right, yy));
+                }
         }
 
-        for (double y = originY; y < viewport.Bottom; y += PixelsPer100)
-        {
-            if (viewport.Top <= y)
-            {
-                context.DrawLine(_pen, new(viewport.Left, y), new(viewport.Right, y));
-            }
-        }
+        if (IsSpeedGraph) return;
 
         using (context.PushOpacity(0.1))
         {

@@ -32,18 +32,18 @@ public class NumberEditor<TValue> : StringEditor
             nameof(SmallChange),
             defaultValue: TValue.One);
 
-    public static readonly StyledProperty<string> NumberFormatProperty =
-        AvaloniaProperty.Register<NumberEditor<TValue>, string>(
+    public static readonly StyledProperty<string?> NumberFormatProperty =
+        AvaloniaProperty.Register<NumberEditor<TValue>, string?>(
             nameof(NumberFormat),
             defaultValue: null);
 
-    private TValue _value;
-    private TValue _oldValue;
+    private TValue _value = TValue.Zero;
+    private TValue _oldValue = TValue.Zero;
     private readonly CompositeDisposable _disposables = [];
     private bool _headerPressed;
     private Point _headerDragStart;
     private double _scrubAccumulator;
-    private TextBlock _headerText;
+    private TextBlock? _headerText;
 
     public NumberEditor()
     {
@@ -74,7 +74,7 @@ public class NumberEditor<TValue> : StringEditor
         set => SetValue(SmallChangeProperty, value);
     }
 
-    public string NumberFormat
+    public string? NumberFormat
     {
         get => GetValue(NumberFormatProperty);
         set => SetValue(NumberFormatProperty, value);
@@ -84,6 +84,7 @@ public class NumberEditor<TValue> : StringEditor
     {
         _disposables.Clear();
         base.OnApplyTemplate(e);
+        if (InnerTextBox == null) return;
         InnerTextBox.AddDisposableHandler(PointerWheelChangedEvent, OnTextBoxPointerWheelChanged, RoutingStrategies.Tunnel)
             .DisposeWith(_disposables);
 
@@ -100,14 +101,16 @@ public class NumberEditor<TValue> : StringEditor
         }
     }
 
-    private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
+    private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (InnerTextBox == null) return;
+        if (_headerText is not { } headerText) return;
         if (!InnerTextBox.IsKeyboardFocusWithin && _headerPressed)
         {
-            Point point = e.GetPosition(_headerText);
+            Point point = e.GetPosition(headerText);
 
             // ポインタロック + デルタ取得
-            Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
+            Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
             double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
             TValue delta = NumberEditorHelper.ConsumeScrubAccumulator<TValue>(ref _scrubAccumulator, scaledX) * SmallChange;
             TValue oldValue = Value;
@@ -124,7 +127,7 @@ public class NumberEditor<TValue> : StringEditor
         }
     }
 
-    private void OnTextBlockPointerReleased(object sender, PointerReleasedEventArgs e)
+    private void OnTextBlockPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (_headerPressed)
         {
@@ -140,16 +143,18 @@ public class NumberEditor<TValue> : StringEditor
         }
     }
 
-    private void OnTextBlockPointerPressed(object sender, PointerPressedEventArgs e)
+    private void OnTextBlockPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        PointerPoint pointerPoint = e.GetCurrentPoint(_headerText);
+        if (InnerTextBox == null) return;
+        if (_headerText is not { } headerText) return;
+        PointerPoint pointerPoint = e.GetCurrentPoint(headerText);
         if (pointerPoint.Properties.IsLeftButtonPressed
             && !DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;
             _headerDragStart = pointerPoint.Position;
             _scrubAccumulator = 0;
-            PointerLockHelper.Pressed(_headerText, _headerDragStart);
+            PointerLockHelper.Pressed(headerText, _headerDragStart);
             _headerPressed = true;
             e.Handled = true;
         }
@@ -157,6 +162,7 @@ public class NumberEditor<TValue> : StringEditor
 
     protected override void OnTextBoxGotFocus(FocusChangedEventArgs e)
     {
+        if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;
@@ -165,6 +171,7 @@ public class NumberEditor<TValue> : StringEditor
 
     protected override void OnTextBoxLostFocus(RoutedEventArgs e)
     {
+        if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && Value != _oldValue)
         {
@@ -175,13 +182,16 @@ public class NumberEditor<TValue> : StringEditor
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
         if (InnerTextBox?.IsKeyboardFocusWithin == true
-            && TValue.TryParse(newValue, CultureInfo.CurrentCulture, out TValue newValue2))
+            && TValue.TryParse(newValue, CultureInfo.CurrentCulture, out TValue? newValue2)
+            && newValue2 is not null)
         {
-            bool invalidOldValue = !TValue.TryParse(oldValue, CultureInfo.CurrentCulture, out TValue oldValue2);
+            bool invalidOldValue = !TValue.TryParse(oldValue, CultureInfo.CurrentCulture, out TValue? oldValue2)
+                || oldValue2 is null;
             if (invalidOldValue)
             {
                 oldValue2 = newValue2;
             }
+            oldValue2 ??= newValue2;
 
             if (invalidOldValue || newValue2 != oldValue2)
             {
@@ -195,6 +205,7 @@ public class NumberEditor<TValue> : StringEditor
 
     private void UpdateErrors()
     {
+        if (InnerTextBox == null) return;
         if (TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _))
         {
             DataValidationErrors.ClearErrors(InnerTextBox);
@@ -205,11 +216,13 @@ public class NumberEditor<TValue> : StringEditor
         }
     }
 
-    private void OnTextBoxPointerWheelChanged(object sender, PointerWheelEventArgs e)
+    private void OnTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
+        if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && InnerTextBox.IsKeyboardFocusWithin
-            && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out TValue value))
+            && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out TValue? value)
+            && value is not null)
         {
             TValue delta = LargeChange;
             double wheelDelta = e.Delta.Y;

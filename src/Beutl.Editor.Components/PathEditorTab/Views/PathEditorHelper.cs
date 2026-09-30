@@ -2,6 +2,8 @@
 
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Beutl.Composition;
+using Beutl.Controls;
 using Beutl.Engine;
 using Beutl.Media;
 using BtlPoint = Beutl.Graphics.Point;
@@ -10,6 +12,15 @@ namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public static class PathEditorHelper
 {
+    internal static void UpdateThumbPositions(Panel canvas, IPathEditorView view, CompositionContext context)
+    {
+        foreach (Thumb thumb in canvas.Children.OfType<Thumb>())
+        {
+            if (GetProperty(thumb) is { } property)
+                SetCanvasPosition(thumb, view.Matrix.Transform(property.GetValue(context).ToAvaPoint()) * view.Scale);
+        }
+    }
+
     public static IProperty<BtlPoint>[] GetControlPointProperties(object datacontext)
     {
         return datacontext switch

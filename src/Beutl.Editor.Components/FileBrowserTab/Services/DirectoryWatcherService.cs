@@ -36,6 +36,8 @@ internal sealed class DirectoryWatcherService : IDisposable
     private string? _watchedCanonicalPath;
     private string? _watchedRequestedPath;
     private CancellationTokenSource? _debounceCts;
+    private readonly HashSet<string> _pendingEntryPaths = new(StringComparer.Ordinal);
+    private bool _pendingContentChange;
     private int _errorRearmCount;
     private string? _failingCanonicalPath;
     private bool _disposed;
@@ -64,6 +66,9 @@ internal sealed class DirectoryWatcherService : IDisposable
 
     // ファイルシステムに変更があったときに発火する。UIスレッドで呼び出される。
     public event Action? Changed;
+
+    // These writes may add/remove visible entries, but do not require reloading unchanged items.
+    public event Action<IReadOnlyCollection<string>>? EntriesChanged;
 
     internal bool IsWatching
     {
@@ -147,6 +152,7 @@ internal sealed class DirectoryWatcherService : IDisposable
             watchGeneration = ++_stateGeneration;
             previousDebounce = _debounceCts;
             _debounceCts = null;
+            ClearPendingChanges();
             previousWatcher = _watcher;
             _watcher = null;
             _watchedCanonicalPath = null;
@@ -252,6 +258,7 @@ internal sealed class DirectoryWatcherService : IDisposable
             _watchedRequestedPath = null;
             debounce = _debounceCts;
             _debounceCts = null;
+            ClearPendingChanges();
             _stateGeneration++;
         }
 
@@ -327,6 +334,14 @@ internal sealed class DirectoryWatcherService : IDisposable
         string templatesDirectoryPath,
         string materialsDirectoryPath)
     {
+        // Atomic saves create <document>.<guid:N>.tmp before replacing the document. These
+        // transient events must not rebuild the browser on every edit, even inside templates.
+        // Directories with these names are visible entries too.
+        if (IsEditorSaveTemporaryFile(path) && !Directory.Exists(path))
+        {
+            return true;
+        }
+
         // Templates and materials live below BEUTL_HOME/.beutl by default, so their explicit
         // exception must win over the reserved-metadata rule. Cache by containing directory: a
         // watcher burst commonly reports hundreds of sibling files, and canonical resolution only
@@ -344,10 +359,34 @@ internal sealed class DirectoryWatcherService : IDisposable
             return true;
         }
 
-        return path.EndsWith(".bep", StringComparison.OrdinalIgnoreCase) ||
-               path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase) ||
-               path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase);
+        return IsEditorDocument(path) && !Directory.Exists(path);
     }
+
+    private bool ShouldCheckEntries(string path)
+        => (IsEditorDocument(path) || IsEditorSaveTemporaryFile(path))
+           && (!HasReservedMetadataSegment(path)
+               || IsTemplateOrMaterialPath(path,
+                   BeutlEnvironment.GetTemplatesDirectoryPath(),
+                   BeutlEnvironment.GetMaterialsDirectoryPath()));
+
+    internal static bool IsEditorSaveTemporaryFile(ReadOnlySpan<char> path)
+    {
+        if (!path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        ReadOnlySpan<char> name = path[..^4];
+        int separator = name.LastIndexOf('.');
+        return separator >= 0
+               // TryParseExact trims whitespace; generated suffixes must already be 32 hex digits.
+               && name.Length - separator - 1 == 32
+               && Guid.TryParseExact(name[(separator + 1)..], "N", out _)
+               && IsEditorDocument(name[..separator]);
+    }
+
+    private static bool IsEditorDocument(ReadOnlySpan<char> path)
+        => path.EndsWith(".bep", StringComparison.OrdinalIgnoreCase)
+           || path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase)
+           || path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase);
 
     private bool IsTemplateOrMaterialPath(
         string path,
@@ -572,7 +611,10 @@ internal sealed class DirectoryWatcherService : IDisposable
     {
         if (IsCurrentWatcher(sender))
         {
-            NotifyPathChanged(e.FullPath, sender);
+            if (e.Name is not null)
+                NotifyPathChanged(e.FullPath, sender);
+            if (e is RenamedEventArgs { OldName: not null } renamed)
+                NotifyPathChanged(renamed.OldFullPath, sender);
         }
     }
 
@@ -586,9 +628,11 @@ internal sealed class DirectoryWatcherService : IDisposable
                 return;
         }
 
+        bool entriesOnly;
         try
         {
-            if (ShouldExcludePath(path))
+            entriesOnly = ShouldExcludePath(path);
+            if (entriesOnly && !ShouldCheckEntries(path))
                 return;
         }
         catch (Exception ex) when (ex is IOException
@@ -614,6 +658,19 @@ internal sealed class DirectoryWatcherService : IDisposable
             }
 
             deliveryGeneration = ++_stateGeneration;
+            if (entriesOnly)
+            {
+                // The watcher uses a canonical root; the displayed items retain the requested
+                // spelling (including directory aliases such as /var on macOS).
+                string requestedPath = sourceWatcher is FileSystemWatcher watcher && _watchedRequestedPath is { } root
+                    ? Path.GetFullPath(Path.Combine(root, Path.GetRelativePath(watcher.Path, path)))
+                    : Path.GetFullPath(path);
+                _pendingEntryPaths.Add(requestedPath);
+            }
+            else
+            {
+                _pendingContentChange = true;
+            }
             previousDebounce = _debounceCts;
             _debounceCts = nextDebounce;
             _ = PostDeliveryAfterDelayAsync(nextDebounce, token, deliveryGeneration);
@@ -654,6 +711,7 @@ internal sealed class DirectoryWatcherService : IDisposable
             if (ownsDebounce)
             {
                 _debounceCts = null;
+                ClearPendingChanges();
             }
         }
 
@@ -678,8 +736,21 @@ internal sealed class DirectoryWatcherService : IDisposable
             _errorRearmCount = 0;
             _failingCanonicalPath = null;
             debounce.Dispose();
-            Changed?.Invoke();
+            bool contentChanged = _pendingContentChange;
+            string[] entryPaths = _pendingEntryPaths.ToArray();
+            ClearPendingChanges();
+            if (contentChanged)
+                Changed?.Invoke();
+            else
+                EntriesChanged?.Invoke(entryPaths);
         }
+    }
+
+    // Called while holding _stateSync.
+    private void ClearPendingChanges()
+    {
+        _pendingEntryPaths.Clear();
+        _pendingContentChange = false;
     }
 
     // A delivered event resets the rearm budget.
@@ -708,6 +779,7 @@ internal sealed class DirectoryWatcherService : IDisposable
             _stateGeneration++;
             debounce = _debounceCts;
             _debounceCts = null;
+            ClearPendingChanges();
             watcher = _watcher;
             _watcher = null;
             _watchedCanonicalPath = null;

@@ -40,4 +40,18 @@ public class RelativeRectEditorTests
         Assert.That(confirmed, Is.Not.Empty);
         Assert.That(confirmed[^1].Rect.X, Is.EqualTo(5f));
     }
+
+    [AvaloniaTest]
+    public void Non_uniform_rect_requires_every_component_to_parse()
+    {
+        var editor = new RelativeRectEditor { Header = "Rect", Unit = RelativeUnit.Absolute, IsUniform = false };
+        using var host = new EditorTestHost<RelativeRectEditor>(editor);
+
+        host.Require<TextBox>("PART_InnerFirstTextBox").Text = "1";
+        host.Require<TextBox>("PART_InnerSecondTextBox").Text = "invalid";
+        host.Require<TextBox>("PART_InnerThirdTextBox").Text = "3";
+        host.Require<TextBox>("PART_InnerFourthTextBox").Text = "4";
+
+        Assert.That(DataValidationErrors.GetHasErrors(editor), Is.True);
+    }
 }

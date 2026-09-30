@@ -11,7 +11,6 @@ public sealed class ToolSurfaceTests
     private static readonly Type[] s_sharedPublicToolTypes =
     [
         typeof(QueryTools),
-        typeof(DesignTools),
         typeof(SessionTools),
         typeof(EditTools),
         typeof(HistoryTools),
@@ -28,11 +27,6 @@ public sealed class ToolSurfaceTests
             Assert.That(names, Is.EquivalentTo(new[]
             {
                 "get_started",
-                "list_creative_directions",
-                "record_creative_direction",
-                "derive_palette",
-                "get_background_grammar",
-                "plan_original_scaffold",
                 "get_schema",
                 "list_fonts",
                 "list_effects",
@@ -61,12 +55,8 @@ public sealed class ToolSurfaceTests
                 "apply_composition",
                 "render_still",
                 "render_storyboard",
-                "evaluate_motion_variation",
+                "measure_frame_differences",
                 "analyze_audio_rhythm",
-                "evaluate_edit_quality",
-                "suggest_quality_fixes",
-                "final_preflight",
-                "compare_revisions",
                 "export_video",
                 "read_render_job",
                 "cancel_render_job"
@@ -88,34 +78,6 @@ public sealed class ToolSurfaceTests
         {
             Assert.That(internalElementNames, Does.Contain("add_element"));
             Assert.That(publicNames.Intersect(internalElementNames), Is.Empty);
-        });
-    }
-
-    [Test]
-    public void Quality_surfaces_expose_only_active_intent_flags()
-    {
-        MethodBase[] methods =
-        [
-            typeof(RenderTools).GetMethod(nameof(RenderTools.EvaluateEditQuality))!,
-            typeof(RenderTools).GetMethod(nameof(RenderTools.SuggestQualityFixes))!,
-            typeof(RenderTools).GetMethod(nameof(RenderTools.FinalPreflight))!,
-            typeof(QualityAnalyzer).GetMethod(nameof(QualityAnalyzer.AnalyzeAsync))!,
-            typeof(QualityAnalysisOptions).GetConstructors().Single()
-        ];
-
-        Assert.Multiple(() =>
-        {
-            foreach (MethodBase method in methods)
-            {
-                string[] parameterNames = method.GetParameters().Select(parameter => parameter.Name!).ToArray();
-                int multiObjectIndex = Array.FindIndex(parameterNames, name =>
-                    string.Equals(name, "allowMultiObjectElements", StringComparison.OrdinalIgnoreCase));
-                Assert.That(multiObjectIndex, Is.GreaterThanOrEqualTo(0), method.Name);
-                Assert.That(
-                    parameterNames[multiObjectIndex + 1],
-                    Is.EqualTo("allowMinimalDensity").IgnoreCase,
-                    method.Name);
-            }
         });
     }
 

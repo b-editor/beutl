@@ -30,11 +30,11 @@ public enum PropertyEditorStyle
 [TemplatePart("PART_ReorderHandle", typeof(Control))]
 public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, IListItemEditor
 {
-    public static readonly StyledProperty<string> HeaderProperty =
-        AvaloniaProperty.Register<PropertyEditor, string>(nameof(Header));
+    public static readonly StyledProperty<string?> HeaderProperty =
+        AvaloniaProperty.Register<PropertyEditor, string?>(nameof(Header));
 
-    public static readonly StyledProperty<string> DescriptionProperty =
-        AvaloniaProperty.Register<PropertyEditor, string>(nameof(Description));
+    public static readonly StyledProperty<string?> DescriptionProperty =
+        AvaloniaProperty.Register<PropertyEditor, string?>(nameof(Description));
 
     public static readonly StyledProperty<string?> HoverInfoProperty =
         AvaloniaProperty.Register<PropertyEditor, string?>(nameof(HoverInfo));
@@ -48,11 +48,11 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     public static readonly StyledProperty<PropertyEditorStyle> EditorStyleProperty =
         AvaloniaProperty.Register<PropertyEditor, PropertyEditorStyle>(nameof(EditorStyle), PropertyEditorStyle.Normal);
 
-    public static readonly StyledProperty<object> MenuContentProperty =
-        AvaloniaProperty.Register<PropertyEditor, object>(nameof(MenuContent));
+    public static readonly StyledProperty<object?> MenuContentProperty =
+        AvaloniaProperty.Register<PropertyEditor, object?>(nameof(MenuContent));
 
-    public static readonly StyledProperty<IDataTemplate> MenuContentTemplateProperty =
-        AvaloniaProperty.Register<PropertyEditor, IDataTemplate>(nameof(MenuContentTemplate));
+    public static readonly StyledProperty<IDataTemplate?> MenuContentTemplateProperty =
+        AvaloniaProperty.Register<PropertyEditor, IDataTemplate?>(nameof(MenuContentTemplate));
 
     public static readonly StyledProperty<float> KeyFrameIndexProperty =
         AvaloniaProperty.Register<PropertyEditor, float>(nameof(KeyFrameIndex), 0);
@@ -60,8 +60,8 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     public static readonly StyledProperty<int> KeyFrameCountProperty =
         AvaloniaProperty.Register<PropertyEditor, int>(nameof(KeyFrameCount), 0, coerce: (_, v) => Math.Max(v, 0));
 
-    public static readonly StyledProperty<Control> ReorderHandleProperty =
-        AvaloniaProperty.Register<PropertyEditor, Control>(nameof(ReorderHandle), null);
+    public static readonly StyledProperty<Control?> ReorderHandleProperty =
+        AvaloniaProperty.Register<PropertyEditor, Control?>(nameof(ReorderHandle), null);
 
     public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangedEvent =
         RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanged), RoutingStrategies.Bubble);
@@ -77,13 +77,13 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         MarginProperty.OverrideDefaultValue<PropertyEditor>(new(4, 0));
     }
 
-    public string Header
+    public string? Header
     {
         get => GetValue(HeaderProperty);
         set => SetValue(HeaderProperty, value);
     }
 
-    public string Description
+    public string? Description
     {
         get => GetValue(DescriptionProperty);
         set => SetValue(DescriptionProperty, value);
@@ -109,13 +109,13 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         set => SetValue(EditorStyleProperty, value);
     }
 
-    public object MenuContent
+    public object? MenuContent
     {
         get => GetValue(MenuContentProperty);
         set => SetValue(MenuContentProperty, value);
     }
 
-    public IDataTemplate MenuContentTemplate
+    public IDataTemplate? MenuContentTemplate
     {
         get => GetValue(MenuContentTemplateProperty);
         set => SetValue(MenuContentTemplateProperty, value);
@@ -133,13 +133,13 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         set => SetValue(KeyFrameCountProperty, value);
     }
 
-    public Control ReorderHandle
+    public Control? ReorderHandle
     {
         get => GetValue(ReorderHandleProperty);
         private set => SetValue(ReorderHandleProperty, value);
     }
 
-    public event EventHandler DeleteRequested;
+    public event EventHandler? DeleteRequested;
 
     public event EventHandler<PropertyEditorValueChangedEventArgs> ValueChanged
     {
@@ -212,8 +212,8 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     {
         _eventRevokers.Clear();
         base.OnApplyTemplate(e);
-        Button leftButton = e.NameScope.Find<Button>("PART_LeftButton");
-        Button rightButton = e.NameScope.Find<Button>("PART_RightButton");
+        Button? leftButton = e.NameScope.Find<Button>("PART_LeftButton");
+        Button? rightButton = e.NameScope.Find<Button>("PART_RightButton");
         if (leftButton == null ^ rightButton == null)
         {
             throw new Exception("Cannot include only one of the buttons");
@@ -226,16 +226,16 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         }
 
         ReorderHandle = e.NameScope.Find<Control>("PART_ReorderHandle");
-        Button deleteButton = e.NameScope.Find<Button>("PART_DeleteButton");
+        Button? deleteButton = e.NameScope.Find<Button>("PART_DeleteButton");
         deleteButton?.AddDisposableHandler(Button.ClickEvent, OnDeleteButtonClick).DisposeWith(_eventRevokers);
     }
 
-    private void OnDeleteButtonClick(object sender, RoutedEventArgs e)
+    private void OnDeleteButtonClick(object? sender, RoutedEventArgs e)
     {
         DeleteRequested?.Invoke(this, e);
     }
 
-    private void OnLeftButtonClick(object sender, RoutedEventArgs e)
+    private void OnLeftButtonClick(object? sender, RoutedEventArgs e)
     {
         float value = MathF.Ceiling(KeyFrameIndex) - 1;
         if (0 <= value)
@@ -244,7 +244,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         }
     }
 
-    private void OnRightButtonClick(object sender, RoutedEventArgs e)
+    private void OnRightButtonClick(object? sender, RoutedEventArgs e)
     {
         float value = MathF.Floor(KeyFrameIndex) + 1;
         if (value < KeyFrameCount)
