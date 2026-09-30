@@ -116,19 +116,6 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         try
         {
             var runner = new GenerativeGraphRunner(executor, new EditorGenerativeRunHost(EditorContext));
-            // Nothing is billed without saying so first: the nodes that would pay, the model
-            // each runs on and whether the account can take it.
-            GenerativeRunPlan plan = await runner.PlanAsync(NodeGraph, targets, force, cts.Token, variations);
-            if (plan.HasBilled)
-            {
-                IReadOnlyList<GenerativeRunConfirmationItem> items = await GenerativeRunConfirmation.DescribeAsync(
-                    plan,
-                    executor as IGenerativeCostEstimator,
-                    cts.Token);
-                if (!await ConfirmRunAsync(items))
-                    return;
-            }
-
             await runner.RunAsync(NodeGraph, targets, force, cts.Token, variations);
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
@@ -147,12 +134,6 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     }
 
     public void CancelGenerative() => _generativeCts?.Cancel();
-
-    /// <summary>Asks before a run bills anything; replaced in tests.</summary>
-    internal Func<IReadOnlyList<GenerativeRunConfirmationItem>, Task<bool>> ConfirmRunAsync { get; set; } =
-        static async items =>
-            await GenerativeRunConfirmation.CreateDialog(items).ShowAsync()
-                == FluentAvalonia.UI.Controls.FAContentDialogResult.Primary;
 
     private void OnNodesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         => HasGenerativeNodes.Value = NodeGraph.Nodes.Any(node => node is GenerativeNode);

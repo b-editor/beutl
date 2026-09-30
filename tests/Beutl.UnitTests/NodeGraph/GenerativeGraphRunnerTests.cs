@@ -517,37 +517,6 @@ public sealed class GenerativeGraphRunnerTests
         Assert.That(executor.Requests, Has.Count.EqualTo(1), "A changed scene is.");
     }
 
-    [Test]
-    public async Task PlanListsWhatARunWouldBillAndNothingMore()
-    {
-        var (model, upstream, downstream) = CreateChain();
-        var blank = new AiImageGenerationNode();
-        model.Nodes.Add(blank);
-        var executor = new FakeExecutor(_directory);
-        var runner = new GenerativeGraphRunner(executor, new InlineHost());
-
-        GenerativeRunPlan first = await runner.PlanAsync(model, null, force: false, CancellationToken.None);
-        Assert.Multiple(() =>
-        {
-            Assert.That(first.Billed.Select(i => i.Node), Is.EquivalentTo(new GenerativeNode[] { upstream, downstream }));
-            Assert.That(first.Items.Single(i => i.Node == downstream).AfterUpstream, Is.True);
-            Assert.That(first.Items.Single(i => i.Node == blank).Problem, Is.Not.Null, "Listed, but it bills nothing.");
-            Assert.That(executor.Requests, Is.Empty, "Planning sends nothing.");
-        });
-
-        await runner.RunAsync(model, [upstream, downstream], force: false, CancellationToken.None);
-        GenerativeRunPlan settled = await runner.PlanAsync(model, [upstream, downstream], force: false, CancellationToken.None);
-        Assert.That(settled.HasBilled, Is.False, "Nothing changed, so nothing would be bought.");
-
-        downstream.Prompt.Property!.SetValue("a different prompt");
-        GenerativeRunPlan changed = await runner.PlanAsync(model, [upstream, downstream], force: false, CancellationToken.None);
-        Assert.That(changed.Billed.Select(i => i.Node), Is.EqualTo(new GenerativeNode[] { downstream }));
-        Assert.That(changed.Billed.Single().AfterUpstream, Is.False);
-
-        GenerativeRunPlan forced = await runner.PlanAsync(model, [upstream], force: true, CancellationToken.None);
-        Assert.That(forced.Billed.Select(i => i.Node), Is.EqualTo(new GenerativeNode[] { upstream }));
-    }
-
     [TestCase(null, true)]
     [TestCase(true, true)]
     [TestCase(false, false)]
@@ -579,9 +548,6 @@ public sealed class GenerativeGraphRunnerTests
         var executor = new FakeExecutor(_directory);
         var runner = new GenerativeGraphRunner(executor, new InlineHost());
 
-        GenerativeRunPlan plan = await runner.PlanAsync(model, [node], force: false, CancellationToken.None, variations: 3);
-        Assert.That(plan.BilledCount, Is.EqualTo(3), "Each variation is paid for.");
-
         await runner.RunAsync(model, [node], force: false, CancellationToken.None, variations: 3);
 
         Assert.Multiple(() =>
@@ -596,6 +562,7 @@ public sealed class GenerativeGraphRunnerTests
         });
 
         // The active variation matches the inputs, so it is not stale and a plain run buys nothing.
+        executor.Requests.Clear();
         using (var snapshot = new GraphSnapshot())
         {
             snapshot.Build(model, CompositionContext.Default);
@@ -603,7 +570,8 @@ public sealed class GenerativeGraphRunnerTests
         }
 
         Assert.That(node.IsStale, Is.False);
-        Assert.That((await runner.PlanAsync(model, [node], force: false, CancellationToken.None)).HasBilled, Is.False);
+        await runner.RunAsync(model, [node], force: false, CancellationToken.None);
+        Assert.That(executor.Requests, Is.Empty);
     }
 
     private async Task<(GraphModel Model, AiImageGenerationNode Node)> GenerateTimesAsync(int count)

@@ -201,64 +201,6 @@ public class NodeGraphGenerativeMenuTests
     }
 
     [AvaloniaTest]
-    public async Task RunAsksBeforeBillingAndSendsNothingWhenCancelled()
-    {
-        var graph = new GraphModel();
-        var node = new AiImageGenerationNode();
-        node.Prompt.Property!.SetValue("a cat");
-        graph.Nodes.Add(node);
-        var executor = new CountingExecutor();
-        Mock<IEditorContext> editor = CreateEditor();
-        editor.Setup(x => x.GetService(typeof(IGenerativeNodeExecutor))).Returns(executor);
-        using var vm = new NodeGraphViewModel(graph, editor.Object);
-        IReadOnlyList<GenerativeRunConfirmationItem>? asked = null;
-        vm.ConfirmRunAsync = items =>
-        {
-            asked = items;
-            return Task.FromResult(false);
-        };
-
-        await vm.RunGenerativeAsync(null, force: false);
-
-        Assert.That(asked, Is.Not.Null);
-        Assert.That(asked!.Single().Description, Does.Contain("Estimated"));
-        Assert.That(asked.Single().IsAvailable, Is.True);
-        Assert.That(executor.Executed, Is.Zero, "Cancelled, so nothing was sent.");
-
-        vm.ConfirmRunAsync = _ => Task.FromResult(true);
-        await vm.RunGenerativeAsync(null, force: false);
-        Assert.That(executor.Executed, Is.EqualTo(1));
-
-        asked = null;
-        vm.ConfirmRunAsync = items =>
-        {
-            asked = items;
-            return Task.FromResult(true);
-        };
-        await vm.RunGenerativeAsync(null, force: false);
-        Assert.That(asked, Is.Null, "Nothing would be billed, so nothing is asked.");
-    }
-
-    private sealed class CountingExecutor : IGenerativeNodeExecutor, IGenerativeCostEstimator
-    {
-        public int Executed { get; private set; }
-
-        public Task<GenerativeExecutionResult> ExecuteAsync(
-            GenerativeRequest request, IProgress<GenerativeProgress> progress, CancellationToken cancellationToken)
-        {
-            Executed++;
-            string path = Path.Combine(Path.GetTempPath(), $"beutl-confirm-{Guid.NewGuid():N}.png");
-            using (var bitmap = new Beutl.Media.Bitmap(4, 4))
-            using (var stream = File.Create(path))
-                bitmap.Save(stream, Beutl.Graphics.EncodedImageFormat.Png);
-            return Task.FromResult(new GenerativeExecutionResult(new Uri(path), null, null));
-        }
-
-        public Task<GenerativeCostEstimate> EstimateAsync(GenerativeRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(new GenerativeCostEstimate("Estimated model", null, true));
-    }
-
-    [AvaloniaTest]
     public async Task CompareShowsEveryResultAndAdoptsTheChosenOneWithItsSeed()
     {
         string directory = Path.Combine(Path.GetTempPath(), $"beutl-compare-{Guid.NewGuid():N}");
@@ -309,20 +251,6 @@ public class NodeGraphGenerativeMenuTests
         {
             Directory.Delete(directory, recursive: true);
         }
-    }
-
-    [AvaloniaTest]
-    public void ConfirmationCountsEveryVariation()
-    {
-        FAContentDialog dialog = GenerativeRunConfirmation.CreateDialog(
-        [
-            new GenerativeRunConfirmationItem("Image", "Wide", true, true, 4),
-            new GenerativeRunConfirmationItem("Edit", "Clear", true, true),
-        ]);
-        var texts = ((StackPanel)((ScrollViewer)dialog.Content!).Content!).GetLogicalDescendants()
-            .OfType<TextBlock>().Select(t => t.Text).ToArray();
-        Assert.That(texts, Does.Contain(string.Format(NodeGraphStrings.Generative_ConfirmIntro, 5)));
-        Assert.That(texts, Does.Contain("Image × 4"));
     }
 
     [AvaloniaTest]

@@ -25,7 +25,7 @@ internal sealed class AiGenerativeNodeExecutor(
     IGenerativePromptLibrary? promptLibrary = null,
     IAiImageEditingService? editing = null,
     IAiVideoService? videos = null,
-    IAiJobKindRegistry? jobKinds = null) : IGenerativeNodeExecutor, IGenerativeCostEstimator
+    IAiJobKindRegistry? jobKinds = null) : IGenerativeNodeExecutor
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AiGenerativeNodeExecutor>();
 
@@ -644,91 +644,6 @@ internal sealed class AiGenerativeNodeExecutor(
         {
             s_logger.LogError(ex, "Failed to run a generative node.");
             throw new GenerativeExecutionException(Strings.AiUnexpectedError, ex);
-        }
-    }
-
-    /// <summary>
-    /// What a request is expected to cost, from the same catalog and availability check the
-    /// run makes: the client knows the model's cost tier and whether the server would take it,
-    /// not a price, which is all the AI tab shows as well.
-    /// </summary>
-    public async Task<GenerativeCostEstimate> EstimateAsync(
-        GenerativeRequest request,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        (_, IReadOnlyList<GenerativeModelInfo> offered) =
-            await models.LoadAsync(request.CatalogOperationId, cancellationToken);
-        GenerativeModelInfo? chosen;
-        try
-        {
-            chosen = ResolveModel(request.ModelId, offered);
-        }
-        catch (GenerativeExecutionException)
-        {
-            return new GenerativeCostEstimate(request.ModelId, null, false);
-        }
-
-        AiModelId? model = chosen is not null ? new AiModelId(chosen.Id) : null;
-        string? detail = null;
-        AiOperationAvailabilityRequest? check;
-        switch (request)
-        {
-            case AiImageGenerationNodeRequest:
-                check = new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration, model);
-                break;
-            case AiImageEditNodeRequest edit:
-                check = new AiOperationAvailabilityRequest.Fixed(
-                    AiOperations.ImageEdit(new AiImageEditTaskId(edit.Task.ToId())), model);
-                break;
-            case AiVideoGenerationNodeRequest video:
-                detail = $"{video.DurationSeconds} {Strings.AiVideoSeconds}";
-                check = new AiOperationAvailabilityRequest.Video(AiOperations.VideoGeneration, video.DurationSeconds, model);
-                break;
-            case AiVideoEditNodeRequest edit:
-                int? seconds = edit.Mode == AiVideoEditMode.Edit ? TryReadRequestDuration(edit.SourceVideo) : edit.DurationSeconds;
-                detail = seconds is { } s ? $"{s} {Strings.AiVideoSeconds}" : null;
-                AiOperationId operation = edit.Mode switch
-                {
-                    AiVideoEditMode.Extend => AiOperations.VideoExtension,
-                    AiVideoEditMode.Motion => AiOperations.VideoMotion,
-                    _ => AiOperations.VideoEditing,
-                };
-                check = seconds is { } length
-                    ? new AiOperationAvailabilityRequest.Video(operation, length, model)
-                    : null;
-                break;
-            default:
-                check = null;
-                break;
-        }
-
-        bool? available = null;
-        if (check is not null)
-        {
-            try
-            {
-                available = await availability.CheckAsync(check, cancellationToken);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // Unanswered is neither a go-ahead nor a shortfall; the run checks again.
-                s_logger.LogWarning(ex, "Failed to check AI availability for a node estimate.");
-            }
-        }
-
-        return new GenerativeCostEstimate(chosen?.Label ?? request.ModelId, detail, available);
-    }
-
-    private int? TryReadRequestDuration(GenerativeFileInput source)
-    {
-        try
-        {
-            return (int)Math.Clamp(Math.Ceiling(ReadDuration(source)), 1, AiRequestLimits.MaxVideoDurationSeconds);
-        }
-        catch (GenerativeExecutionException)
-        {
-            return null;
         }
     }
 

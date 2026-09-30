@@ -435,35 +435,8 @@
   <data name="Scene_CircularReference" xml:space="preserve">
     <value>シーンが自分自身を参照しているため、ここでは描画できません。</value>
   </data>
-  <data name="Generative_ConfirmTitle" xml:space="preserve">
-    <value>AIノードを実行</value>
-  </data>
-  <data name="Generative_ConfirmIntro" xml:space="preserve">
-    <value>次の{0}件の生成で AI の利用枠を消費します。</value>
-  </data>
-  <data name="Generative_ConfirmRun" xml:space="preserve">
-    <value>実行</value>
-  </data>
   <data name="Generative_ConfirmCancel" xml:space="preserve">
     <value>キャンセル</value>
-  </data>
-  <data name="Generative_Available" xml:space="preserve">
-    <value>利用可能</value>
-  </data>
-  <data name="Generative_Unavailable" xml:space="preserve">
-    <value>利用枠が不足しています</value>
-  </data>
-  <data name="Generative_AvailabilityUnknown" xml:space="preserve">
-    <value>確認できませんでした</value>
-  </data>
-  <data name="Generative_AfterUpstream" xml:space="preserve">
-    <value>依存する生成の完了後に内容が決まります</value>
-  </data>
-  <data name="Generative_WillNotRun" xml:space="preserve">
-    <value>実行されません: {0}</value>
-  </data>
-  <data name="Generative_SomeUnavailable" xml:space="preserve">
-    <value>利用枠が足りない生成があります。これらは課金されずに拒否されます。</value>
   </data>
   <data name="Generative_Variations" xml:space="preserve">
     <value>複数案を生成</value>
