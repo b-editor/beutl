@@ -25,7 +25,9 @@ public static class PromptSections
 
     /// <summary>
     /// Splits text written by <see cref="Compose"/> back into its fields, so composing them
-    /// again gives the same text. Lines without a section label belong to the main field.
+    /// again gives the same text. That holds only for such text: other lines without a section
+    /// label are joined into the main field with spaces, and a line that happens to start with a
+    /// label is read as that section.
     /// </summary>
     public static (string Main, string Style, string Composition, string Motion, string Exclusions) Parse(string? text)
     {
