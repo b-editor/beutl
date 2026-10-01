@@ -109,6 +109,25 @@ public class ImageTextureSourceUploadTests
     }
 
     [Test]
+    public void GetTexture_ReleasesBothKindsWhenTheSourceIsCleared()
+    {
+        var (definition, context, created) = CreateSource(nameof(GetTexture_ReleasesBothKindsWhenTheSourceIsCleared));
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+        resource.GetTexture(context.Object);
+        resource.GetTexture(context.Object, 1f, TextureContentKind.Data);
+
+        definition.Source.CurrentValue = null;
+        bool updateOnly = false;
+        resource.Update(definition, CompositionContext.Default, ref updateOnly);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(resource.GetTexture(context.Object, 1f, TextureContentKind.Data), Is.Null);
+            Assert.That(created.All(texture => texture.Disposed), Is.True, "Both uploads must be released.");
+        }
+    }
+
+    [Test]
     public void GetTexture_ReleasesTheTextureWhenTheUploadFails()
     {
         bool failUploads = true;
