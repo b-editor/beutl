@@ -2,6 +2,7 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using Beutl.Configuration;
 using Beutl.Logging;
@@ -17,6 +18,9 @@ public sealed class FontManager
     private readonly Lock _gate = new();
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
     internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
+    private Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _projectFonts = [];
+    private WeakReference<Project>? _projectFontsOwner;
+    private readonly Dictionary<string, SKTypeface> _projectFontCache = [];
     private readonly HashSet<FontFamily> _reportedMissingFamilies = [];
     // Keyed by reference to a matched typeface; null when it has no wght axis.
     private readonly Dictionary<SKTypeface, WeightAxis?> _weightAxes = [];
@@ -132,7 +136,7 @@ public sealed class FontManager
             // 内部状態が壊れて無限ループや null 例外になり得るのでスナップショットを返す。
             lock (_gate)
             {
-                return _fonts.Keys.ToArray();
+                return _fonts.Keys.Concat(_projectFonts.Keys).Distinct().ToArray();
             }
         }
     }
@@ -141,11 +145,51 @@ public sealed class FontManager
     {
         get
         {
-            lock (_gate) return _fonts.Count;
+            lock (_gate) return _fonts.Keys.Concat(_projectFonts.Keys).Distinct().Count();
         }
     }
 
     public Typeface DefaultTypeface { get; }
+
+    public void LoadProjectFonts(Project project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var fonts = new List<SKTypeface>();
+        if (project.Uri is { IsFile: true } uri)
+        {
+            string directory = Path.Combine(Path.GetDirectoryName(uri.LocalPath)!, "resources", "fonts");
+            if (Directory.Exists(directory))
+            {
+                foreach (string file in EnumerateFontCandidates(directory))
+                {
+                    if (LoadFont(file, copyToMemory: true) is { } typeface)
+                        fonts.Add(typeface);
+                }
+            }
+        }
+
+        lock (_gate)
+        {
+            // A bundle's family takes precedence as a unit, including nearest-weight
+            // matching. Keep system fonts separate so the next project can restore them.
+            _projectFonts = fonts.GroupBy(font => font.FamilyName).ToDictionary(
+                group => new FontFamily(group.Key), group => TypefaceCollection.Create(group.ToArray()));
+            _projectFontsOwner = new WeakReference<Project>(project);
+        }
+    }
+
+    public void ClearProjectFonts(Project? expectedProject = null)
+    {
+        lock (_gate)
+        {
+            if (expectedProject is not null
+                && (_projectFontsOwner is null || !_projectFontsOwner.TryGetTarget(out Project? owner)
+                    || !ReferenceEquals(owner, expectedProject)))
+                return;
+            _projectFonts = [];
+            _projectFontsOwner = null;
+        }
+    }
 
     public void AddFont(Stream stream)
     {
@@ -257,10 +301,25 @@ public sealed class FontManager
         }
     }
 
-    private SKTypeface? LoadFont(string file)
+    private SKTypeface? LoadFont(string file, bool copyToMemory = false)
     {
         try
         {
+            if (copyToMemory)
+            {
+                byte[] bytes = File.ReadAllBytes(file);
+                string hash = Convert.ToHexString(SHA256.HashData(bytes));
+                lock (_gate)
+                {
+                    // Registered faces can still be held by renderers. Cache immutable font
+                    // bytes across project switches instead of disposing or duplicating them.
+                    if (_projectFontCache.TryGetValue(hash, out SKTypeface? cached)) return cached;
+                    using var stream = new MemoryStream(bytes, writable: false);
+                    SKTypeface? face = SKTypeface.FromStream(stream);
+                    if (face is not null) _projectFontCache.Add(hash, face);
+                    return face;
+                }
+            }
             return SKTypeface.FromFile(file);
         }
         catch (Exception ex)
@@ -274,7 +333,7 @@ public sealed class FontManager
     {
         lock (_gate)
         {
-            return _fonts.TryGetValue(fontFamily, out FrozenDictionary<Typeface, SKTypeface>? value)
+            return TryGetTypefaces(fontFamily, out FrozenDictionary<Typeface, SKTypeface>? value)
                 ? value.Keys
                 : [];
         }
@@ -286,7 +345,7 @@ public sealed class FontManager
         {
             // An unregistered family is ordinary input (uninstalled font, or a subfamily name such
             // as "Inter 28pt"), so this runs inside the render pass and must not throw.
-            if (_fonts.TryGetValue(typeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? typefaces))
+            if (TryGetTypefaces(typeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? typefaces))
             {
                 return InstantiateWeight(typefaces.Get(typeface), typeface.Weight);
             }
@@ -301,11 +360,14 @@ public sealed class FontManager
                     DefaultTypeface.FontFamily.Name);
             }
 
-            return _fonts.TryGetValue(DefaultTypeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? fallback)
+            return TryGetTypefaces(DefaultTypeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? fallback)
                 ? InstantiateWeight(fallback.Get(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight)), typeface.Weight)
                 : SKTypeface.Default;
         }
     }
+
+    private bool TryGetTypefaces(FontFamily family, out FrozenDictionary<Typeface, SKTypeface> typefaces)
+        => _projectFonts.TryGetValue(family, out typefaces!) || _fonts.TryGetValue(family, out typefaces!);
 
     // A variable font registers once, as its default instance, so every weight resolves to that instance.
     // Move the matched typeface along its wght axis to the requested weight instead; a typeface without the
@@ -374,7 +436,7 @@ public sealed class FontManager
     {
         lock (_gate)
         {
-            return _fonts.ContainsKey(fontFamily);
+            return _projectFonts.ContainsKey(fontFamily) || _fonts.ContainsKey(fontFamily);
         }
     }
 }

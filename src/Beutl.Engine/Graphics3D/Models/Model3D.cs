@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Textures;
@@ -45,7 +46,9 @@ public sealed partial class Model3D : Group3D
 
     internal void SourceChanged()
     {
-        if (_deserializing)
+        // History restores the recorded children along with Source. Regenerating
+        // them here would replay the collection edits twice and lose their IDs.
+        if (_deserializing || RecordingSuppression.IsSuppressed)
             return;
 
         var source = Source.CurrentValue;
@@ -73,7 +76,7 @@ public sealed partial class Model3D : Group3D
             // Set material if available
             if (meshData.MaterialIndex >= 0 && meshData.MaterialIndex < source.MaterialCount)
             {
-                var materialData = source.GetMaterialData(i);
+                var materialData = source.GetMaterialData(meshData.MaterialIndex);
                 var material = CreateMaterial(materialData);
                 meshObject.Material.CurrentValue = material;
             }

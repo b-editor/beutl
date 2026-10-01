@@ -5,18 +5,28 @@ namespace Beutl.UnitTests;
 internal static class TestWorkerProgram
 {
     public const string PackageInstallWorkerArgument = "--package-install-worker";
+    public const string BitmapSaveWorkerArgument = "--bitmap-save-worker";
+    public const string ProjectFontWorkerArgument = "--project-font-worker";
 
-    private static int Main(string[] args)
+    private static async Task<int> Main(string[] args)
     {
-        if (args is not [PackageInstallWorkerArgument])
-        {
-            Console.Error.WriteLine("Run tests with dotnet test. Direct execution requires a supported worker argument.");
-            return 2;
-        }
-
         try
         {
-            PackageInstallerCrashRecoveryTests.RunCrashWorker();
+            switch (args)
+            {
+                case [PackageInstallWorkerArgument]:
+                    PackageInstallerCrashRecoveryTests.RunCrashWorker();
+                    break;
+                case [BitmapSaveWorkerArgument, var linear]:
+                    Engine.BitmapTests.RunSaveFailureWorker(bool.Parse(linear));
+                    break;
+                case [ProjectFontWorkerArgument, var package, var destination]:
+                    await Editor.ProjectPackageFontTests.RunImportWorker(package, destination);
+                    break;
+                default:
+                    Console.Error.WriteLine("Run tests with dotnet test. Direct execution requires a supported worker argument.");
+                    return 2;
+            }
             return 0;
         }
         catch (Exception exception)
@@ -24,5 +34,29 @@ internal static class TestWorkerProgram
             Console.Error.WriteLine(exception);
             return 1;
         }
+    }
+
+    internal static async Task RunAsync(params string[] arguments)
+    {
+        var start = new System.Diagnostics.ProcessStartInfo("dotnet")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        start.ArgumentList.Add("exec");
+        start.ArgumentList.Add(typeof(TestWorkerProgram).Assembly.Location);
+        foreach (string argument in arguments) start.ArgumentList.Add(argument);
+        using var process = System.Diagnostics.Process.Start(start)!;
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+        Task<string> stderr = process.StandardError.ReadToEndAsync();
+        try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30)); }
+        catch
+        {
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync();
+            throw;
+        }
+        Assert.That(process.ExitCode, Is.Zero, await stdout + await stderr);
     }
 }

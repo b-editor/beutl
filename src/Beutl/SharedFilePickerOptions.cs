@@ -108,28 +108,17 @@ public static class SharedFilePickerOptions
         {
             FileTypeChoices =
             [
-                new FilePickerFileType("All Images")
+                new FilePickerFileType("PNG, JPEG, WebP")
                 {
                     Patterns =
                     [
-                        // SKEncodedImageFormat
-                        "*.bmp",
-                        "*.gif",
-                        "*.ico",
+                        "*.png",
                         "*.jpg",
                         "*.jpeg",
-                        "*.png",
-                        "*.wbmp",
-                        "*.webp",
-                        "*.pkm",
-                        "*.ktx",
-                        "*.astc",
-                        "*.dng",
-                        "*.heif",
-                        "*.avif"
+                        "*.webp"
                     ],
-                    AppleUniformTypeIdentifiers = ["public.image"],
-                    MimeTypes = ["image/*"]
+                    AppleUniformTypeIdentifiers = ["public.png", "public.jpeg", "org.webmproject.webp"],
+                    MimeTypes = ["image/png", "image/jpeg", "image/webp"]
                 }
             ]
         };

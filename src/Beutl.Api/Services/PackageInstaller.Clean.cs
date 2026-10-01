@@ -19,7 +19,7 @@ public partial class PackageInstaller
 
         NuGetFramework framework = Helper.GetFrameworkName();
 
-        var availablePackages = new HashSet<PackageDependencyInfo>(PackageIdentityComparer.Default);
+        var availablePackages = new HashSet<PackageIdentity>(PackageIdentityComparer.Default);
 
         installedPackages ??= _installedPackageRepository.GetLocalPackages();
 
@@ -31,19 +31,8 @@ public partial class PackageInstaller
             string directory = Helper.ResolveInstalledDirectory(packageId);
             if (Directory.Exists(directory))
             {
-                var reader = new PackageFolderReader(directory);
-
-                IEnumerable<PackageDependencyGroup> deps = reader.GetPackageDependencies();
-                NuGetFramework? nearest = Helper.FrameworkReducer.GetNearest(
-                    framework,
-                    deps.Select(x => x.TargetFramework));
-
-                Helper.GetPackageDependencies(
-                    new PackageDependencyInfo(packageId, deps
-                        .Where(x => x.TargetFramework == nearest)
-                        .SelectMany(x => x.Packages)),
-                    framework,
-                    availablePackages);
+                using var reader = new PackageFolderReader(directory);
+                availablePackages.UnionWith(ResolvedPackageDependencies.Load(reader, framework, preserveCandidates: true));
             }
         }
 

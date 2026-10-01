@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 
 using Beutl.Graphics;
+using Beutl.IO;
 
 using SkiaSharp;
 
@@ -184,16 +185,15 @@ public sealed class Bitmap : ICloneable, IDisposable
         ThrowIfDisposed();
         format = format == EncodedImageFormat.Default ? Image.ToImageFormat(file) : format;
 
-        using var stream = new FileStream(file, FileMode.Create);
-
-        // 画像フォーマットはsRGBガンマ前提のため、リニア色空間の場合はsRGBに変換
-        if (!_colorSpace.IsSrgb)
+        using var output = new StagedOutputFile(file);
+        using (var stream = new FileStream(output.TemporaryPath, FileMode.CreateNew))
         {
-            using var srgb = Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
-            return srgb._skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
+            if (!Save(stream, format, quality))
+                return false;
         }
 
-        return _skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
+        output.Commit(CancellationToken.None);
+        return true;
     }
 
     public bool Save(Stream stream, EncodedImageFormat format = EncodedImageFormat.Default, int quality = 100)
@@ -202,14 +202,26 @@ public sealed class Bitmap : ICloneable, IDisposable
         ThrowIfDisposed();
         format = format == EncodedImageFormat.Default ? EncodedImageFormat.Png : format;
 
+        // SKManagedWStream invokes Stream.Write from native code. An I/O exception escaping
+        // that callback terminates the process instead of reaching the caller's catch block.
+        using SKData? data = Encode(format, quality);
+        if (data == null)
+            return false;
+
+        data.SaveTo(stream);
+        return true;
+    }
+
+    private SKData? Encode(EncodedImageFormat format, int quality)
+    {
         // 画像フォーマットはsRGBガンマ前提のため、リニア色空間の場合はsRGBに変換
         if (!_colorSpace.IsSrgb)
         {
             using var srgb = Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
-            return srgb._skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
+            return srgb._skBitmap.Encode((SKEncodedImageFormat)format, quality);
         }
 
-        return _skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
+        return _skBitmap.Encode((SKEncodedImageFormat)format, quality);
     }
 
     public Bitmap Convert(BitmapColorType colorType, BitmapAlphaType? alphaType = null, BitmapColorSpace? colorSpace = null)

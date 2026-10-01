@@ -198,11 +198,7 @@ public static class CoreSerializer
         string temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            using (var stream = new FileStream(
-                       temporaryPath,
-                       FileMode.CreateNew,
-                       FileAccess.Write,
-                       FileShare.None))
+            using (var stream = StorageWriteTransaction.CreateTemporaryFile(temporaryPath, path))
             using (var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions))
             {
                 json.WriteTo(writer, JsonHelper.SerializerOptions);
@@ -873,11 +869,7 @@ public static class CoreSerializer
             string tempPath = $"{rehomedPath}.{Guid.NewGuid():N}.tmp";
             try
             {
-                using (var stream = new FileStream(
-                           tempPath,
-                           FileMode.CreateNew,
-                           FileAccess.Write,
-                           FileShare.None))
+                using (var stream = StorageWriteTransaction.CreateTemporaryFile(tempPath, rehomedPath))
                 {
                     stream.Write(suppressed.RawBytes);
                     stream.Flush(flushToDisk: true);
@@ -935,7 +927,7 @@ public static class CoreSerializer
             string tmp = $"{path}.{Guid.NewGuid():N}.tmp";
             try
             {
-                using (var stream = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                using (var stream = StorageWriteTransaction.CreateTemporaryFile(tmp, path))
                 using (var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions))
                 {
                     SerializeToJsonObject(obj, options)
@@ -1051,11 +1043,7 @@ public static class CoreSerializer
         string tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            using (var stream = new FileStream(
-                       tempPath,
-                       FileMode.CreateNew,
-                       FileAccess.Write,
-                       FileShare.None))
+            using (var stream = StorageWriteTransaction.CreateTemporaryFile(tempPath, path))
             {
                 stream.Write(bytes);
                 stream.Flush(flushToDisk: true);
@@ -1129,11 +1117,7 @@ public static class CoreSerializer
         string tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            using (var stream = new FileStream(
-                       tempPath,
-                       FileMode.CreateNew,
-                       FileAccess.Write,
-                       FileShare.None))
+            using (var stream = StorageWriteTransaction.CreateTemporaryFile(tempPath, path))
             {
                 stream.Write(bytes);
                 stream.Flush(flushToDisk: true);

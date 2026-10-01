@@ -282,13 +282,19 @@ public sealed class ProjectService
         close.GetAwaiter().GetResult();
     }
 
-    internal async Task CloseProjectAsync(CancellationToken cancellationToken = default)
+    internal Task CloseProjectAsync(CancellationToken cancellationToken = default)
+        => CloseProjectWithCallbackAsync(null, cancellationToken);
+
+    internal Task CloseProjectForUpdateAsync(Func<Task<bool>> beforeCommit)
+        => CloseProjectWithCallbackAsync(beforeCommit, CancellationToken.None);
+
+    private async Task CloseProjectWithCallbackAsync(Func<Task<bool>>? beforeCommit, CancellationToken cancellationToken)
     {
         await using ProjectTransitionScope transition = await BeginTransitionAsync(
             ProjectTransitionPurpose.Normal,
             this,
             cancellationToken);
-        await CloseProjectCoreAsync(transition.Context, cancellationToken);
+        await CloseProjectCoreAsync(transition.Context, cancellationToken, beforeCommit: beforeCommit);
     }
 
     internal async Task<bool> TryCloseProjectAsync(
@@ -638,11 +644,14 @@ public sealed class ProjectService
     private async Task CloseProjectCoreAsync(
         ProjectTransitionContext transition,
         CancellationToken cancellationToken,
-        ProjectCloseIntent closeIntent = ProjectCloseIntent.SaveChanges)
+        ProjectCloseIntent closeIntent = ProjectCloseIntent.SaveChanges,
+        Func<Task<bool>>? beforeCommit = null)
     {
         VerifyTransition(transition);
         if (_app.Project is not { } closingProject)
         {
+            if (beforeCommit is not null && !await beforeCommit())
+                throw new ProjectCloseAbortedException(MessageStrings.OperationFailed);
             return;
         }
 
@@ -654,6 +663,10 @@ public sealed class ProjectService
             await NotifyClosingAsync(closeContext, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             await NotifyClosingFinalizingAsync(closeContext);
+            // Keep the project published until the updater accepts the handoff. On
+            // failure, the existing aborted-close completions restore its editor tabs.
+            if (beforeCommit is not null && !await beforeCommit())
+                throw new ProjectCloseAbortedException(MessageStrings.OperationFailed);
             CloseProjectImmediately();
         }
         finally
@@ -669,6 +682,7 @@ public sealed class ProjectService
         {
             PublishProjectChange((New: null, project));
             _app.Project = null;
+            Media.FontManager.Instance.ClearProjectFonts(project);
             try
             {
                 GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile = null;
@@ -800,6 +814,7 @@ public sealed class ProjectService
     {
         try
         {
+            Media.FontManager.Instance.LoadProjectFonts(project);
             _app.Project = project;
             await NotifyOpenedAsync(project);
         }
@@ -840,6 +855,7 @@ public sealed class ProjectService
             if (ReferenceEquals(_app.Project, project))
             {
                 _app.Project = null;
+                Media.FontManager.Instance.ClearProjectFonts(project);
             }
         }
         finally
@@ -991,6 +1007,9 @@ public sealed class ProjectService
         private bool _completed;
 
         internal ProjectCloseIntent CloseIntent { get; } = closeIntent;
+
+        // The snapshot phase may have saved these editors or obtained permission to discard them.
+        internal EditorService? PreparedEditorService { get; set; }
 
         internal void RegisterCompletion(Func<bool, Task> completion)
         {

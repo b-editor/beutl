@@ -914,6 +914,9 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                     }
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
+                ResolvedPackageDependencies.Save(Helper.ResolveInstalledDirectory(package), nuGetFramework,
+                    packagesToInstall.Where(item => !CoreLibraries.IncludedInPackageDependencies(item.Id, item.Version)));
                 context.Phase = PackageInstallPhase.ResolvedDependencies;
                 context.InstalledPaths = installedPaths;
             }

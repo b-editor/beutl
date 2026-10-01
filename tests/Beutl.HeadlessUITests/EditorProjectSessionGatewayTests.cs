@@ -122,6 +122,55 @@ public class EditorProjectSessionGatewayTests
     }
 
     [AvaloniaTest]
+    public async Task OpenProject_rejects_a_distinct_case_variant_project()
+    {
+        await TestReset.ResetShellAsync();
+        string root = NewWorkspace("gateway-case-" + Guid.NewGuid().ToString("N"));
+        string first = Path.Combine(root, "Project.bep");
+        string second = Path.Combine(root, "project.bep");
+        ProjectOperations.Save(ProjectOperations.CreateProject(new ProjectCreateOptions(
+            first, 64, 64, 30, TimeSpan.FromSeconds(1), Name: "First")));
+        if (File.Exists(second))
+            Assert.Ignore("Requires a case-sensitive filesystem.");
+        ProjectOperations.Save(ProjectOperations.CreateProject(new ProjectCreateOptions(
+            second, 64, 64, 30, TimeSpan.FromSeconds(1), Name: "Second")));
+        (EditorProjectSessionGateway gateway, AgentSessionManager sessions) = CreateGateway(root);
+        ProjectSessionResult opened = await gateway.OpenProjectAsync(first);
+
+        ReconcileException? rejection = await ExpectRejectionAsync(() => gateway.OpenProjectAsync(second));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejection!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(opened.Project));
+            Assert.That(sessions.CurrentSession, Is.SameAs(opened.Session));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task OpenProject_accepts_a_directory_alias_of_the_open_project()
+    {
+        await TestReset.ResetShellAsync();
+        string first = CreateProjectFilesOnDisk("gateway-alias-target", TimeSpan.FromSeconds(1));
+        string alias = Path.Combine(NewWorkspace("gateway-alias"), "link");
+        try
+        {
+            Directory.CreateSymbolicLink(alias, Path.GetDirectoryName(first)!);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Symlink creation is not available in this environment.");
+        }
+        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        ProjectSessionResult opened = await gateway.OpenProjectAsync(first);
+
+        ProjectSessionResult reattached = await gateway.OpenProjectAsync(Path.Combine(alias, Path.GetFileName(first)));
+
+        Assert.That(reattached.Project, Is.SameAs(opened.Project));
+        Assert.That(reattached.Session.Root, Is.SameAs(opened.Session.Root));
+    }
+
+    [AvaloniaTest]
     public async Task CreateProject_creates_at_the_requested_path_and_opens_in_editor()
     {
         await TestReset.ResetShellAsync();

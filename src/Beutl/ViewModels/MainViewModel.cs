@@ -2,13 +2,16 @@
 using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 using Beutl.AgentHost;
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;
+using Beutl.Editor.VersionControl;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
@@ -197,6 +200,42 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     internal ProjectDiskDeletion ProjectDiskDeletion { get; }
 
+    internal async Task<ExportResult> ExportProjectAsync(
+        Project project,
+        string outputPath,
+        IProgress<(string Message, double Progress)>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+            return await Dispatcher.UIThread.InvokeAsync(() => ExportProjectAsync(project, outputPath, progress, cancellationToken));
+
+        cancellationToken.ThrowIfCancellationRequested();
+        ExportResult result = new(false, []);
+        await _projectService.RunExclusiveOfTransitionsAsync(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            // The native picker may have stayed open while another operation changed projects.
+            if (!ReferenceEquals(_projectService.CurrentProject.Value, project))
+                return;
+
+            using IDisposable output = _editorService.BeginObservedOutputOperation();
+            using IDisposable suspension = _editorService.SuspendEditors();
+            using IProjectFileWriteLease fileWrite = await _editorService.BeginProjectFileWriteAsync(cancellationToken);
+            foreach (EditViewModel editor in _editorService.TabItems.Select(tab => tab.Context.Value).OfType<EditViewModel>().ToArray())
+            {
+                editor.HistoryManager.FlushPendingMutations();
+                editor.HistoryManager.Commit();
+            }
+
+            if (!await _editorService.SaveProjectFilesAsync(project, cancellationToken))
+                throw new IOException(MessageStrings.FileSaveException);
+
+            // Keep the saved graph and its files stable while the package service copies them.
+            result = await ProjectPackageService.Current.ExportAsync(project, outputPath, progress, cancellationToken);
+        });
+        return result;
+    }
+
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
     public ReadOnlyObservableCollection<ToolTabExtension> ToolTabExtensions { get; }
@@ -360,6 +399,11 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         }
 
         _projectService.CloseProjectOrThrow();
+        Task<bool> saveEditors = _editorService.SaveSceneEditorsBeforeCloseAsync(_editorService.TabItems.ToArray());
+        WaitOnUiThread(saveEditors);
+        if (!saveEditors.GetAwaiter().GetResult())
+            throw new ProjectCloseAbortedException(MessageStrings.FileSaveException);
+
         lock (_disposeGate)
         {
             _disposeTask ??= DisposeCoreAsync();
@@ -412,11 +456,57 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         }
     }
 
-    private async Task<bool> CloseProjectAndBeginDisposeAsync()
+    internal Task<bool> TryDisposeForUpdateAsync(Func<bool> startInstaller)
+    {
+        ArgumentNullException.ThrowIfNull(startInstaller);
+        TaskCompletionSource<bool> completion;
+        lock (_disposeGate)
+        {
+            // An update must not launch from a second, overlapping close request.
+            if (_disposeTask is not null || _closeForShutdownTask is { IsCompleted: false })
+                return Task.FromResult(false);
+
+            completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _closeForShutdownTask = completion.Task;
+        }
+
+        // Publish the shared close before invoking callbacks that may re-enter the shell.
+        _ = CompleteUpdateCloseAsync(startInstaller, completion);
+        return completion.Task;
+    }
+
+    private async Task CompleteUpdateCloseAsync(Func<bool> startInstaller, TaskCompletionSource<bool> completion)
     {
         try
         {
-            await _projectService.CloseProjectAsync();
+            completion.TrySetResult(await CloseProjectAndBeginDisposeAsync(startInstaller));
+        }
+        catch (OperationCanceledException ex)
+        {
+            completion.TrySetCanceled(ex.CancellationToken);
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
+    }
+
+    private async Task<bool> CloseProjectAndBeginDisposeAsync(Func<bool>? beforeDispose = null)
+    {
+        try
+        {
+            if (beforeDispose is null)
+            {
+                await _projectService.CloseProjectAsync();
+                if (!await _editorService.SaveSceneEditorsBeforeCloseAsync(_editorService.TabItems.ToArray()))
+                    return false;
+            }
+            else
+            {
+                await _projectService.CloseProjectForUpdateAsync(async () =>
+                    await _editorService.SaveSceneEditorsBeforeCloseAsync(_editorService.TabItems.ToArray())
+                    && beforeDispose());
+            }
         }
         catch (ProjectCloseAbortedException)
         {

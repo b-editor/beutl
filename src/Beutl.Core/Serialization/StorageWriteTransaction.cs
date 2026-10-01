@@ -89,8 +89,36 @@ internal sealed class StorageWriteTransaction : IDisposable
         }
         else
         {
-            File.Move(temporaryPath, destinationPath, overwrite);
+            MovePreservingPermissions(temporaryPath, destinationPath, overwrite);
         }
+    }
+
+    internal static FileStream CreateTemporaryFile(string temporaryPath, string destinationPath, bool privateContents = false)
+    {
+        var options = new FileStreamOptions
+        {
+            Mode = FileMode.CreateNew,
+            Access = FileAccess.Write,
+            Share = FileShare.None,
+        };
+        // Keep replacement bytes private for the entire write, not only after publication.
+        // Brand-new files retain the normal creation permissions subject to the user's umask.
+        if (!OperatingSystem.IsWindows() && (privateContents || File.Exists(destinationPath)))
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        return new FileStream(temporaryPath, options);
+    }
+
+    private static UnixFileMode? MovePreservingPermissions(string temporaryPath, string destinationPath, bool overwrite)
+    {
+        UnixFileMode? previousMode = null;
+        if (!OperatingSystem.IsWindows() && overwrite && File.Exists(destinationPath))
+        {
+            previousMode = File.GetUnixFileMode(destinationPath);
+            File.SetUnixFileMode(temporaryPath, previousMode.Value);
+        }
+
+        File.Move(temporaryPath, destinationPath, overwrite);
+        return previousMode;
     }
 
     /// <summary>
@@ -227,7 +255,7 @@ internal sealed class StorageWriteTransaction : IDisposable
             }
             else
             {
-                WriteBytesAtomically(entry.FullPath, entry.PreviousBytes);
+                WriteBytesAtomically(entry.FullPath, entry.PreviousBytes, entry.PreviousMode);
             }
 
             return true;
@@ -251,21 +279,19 @@ internal sealed class StorageWriteTransaction : IDisposable
         }
     }
 
-    private static void WriteBytesAtomically(string path, byte[] bytes)
+    private static void WriteBytesAtomically(string path, byte[] bytes, UnixFileMode? previousMode)
     {
         string temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            using (var stream = new FileStream(
-                       temporaryPath,
-                       FileMode.CreateNew,
-                       FileAccess.Write,
-                       FileShare.None))
+            using (var stream = CreateTemporaryFile(temporaryPath, path, privateContents: true))
             {
                 stream.Write(bytes);
                 stream.Flush(flushToDisk: true);
             }
 
+            if (!OperatingSystem.IsWindows() && previousMode is { } mode)
+                File.SetUnixFileMode(temporaryPath, mode);
             File.Move(temporaryPath, path, overwrite: true);
         }
         finally
@@ -292,7 +318,7 @@ internal sealed class StorageWriteTransaction : IDisposable
             ThrowIfCompleted();
             if (_files.TryGetValue(fullPath, out FileEntry? journaled))
             {
-                File.Move(temporaryPath, destinationPath, overwrite);
+                MovePreservingPermissions(temporaryPath, destinationPath, overwrite);
                 journaled.IsCompatibilityGate |= isCompatibilityGate;
                 return;
             }
@@ -300,8 +326,8 @@ internal sealed class StorageWriteTransaction : IDisposable
             // A move that may not overwrite either creates the destination or fails, so only a replacement has
             // previous bytes to keep. The entry is added after the move because a failed move changes nothing.
             byte[]? previousBytes = overwrite && File.Exists(fullPath) ? File.ReadAllBytes(fullPath) : null;
-            File.Move(temporaryPath, destinationPath, overwrite);
-            var entry = new FileEntry(fullPath, previousBytes) { IsCompatibilityGate = isCompatibilityGate };
+            UnixFileMode? previousMode = MovePreservingPermissions(temporaryPath, destinationPath, overwrite);
+            var entry = new FileEntry(fullPath, previousBytes, previousMode) { IsCompatibilityGate = isCompatibilityGate };
             _files.Add(fullPath, entry);
             _journal.Add(entry);
         }
@@ -323,12 +349,14 @@ internal sealed class StorageWriteTransaction : IDisposable
         }
     }
 
-    private sealed class FileEntry(string fullPath, byte[]? previousBytes)
+    private sealed class FileEntry(string fullPath, byte[]? previousBytes, UnixFileMode? previousMode)
     {
         public string FullPath { get; } = fullPath;
 
         // Null when the destination did not exist until this transaction created it.
         public byte[]? PreviousBytes { get; } = previousBytes;
+
+        public UnixFileMode? PreviousMode { get; } = previousMode;
 
         public bool IsCompatibilityGate { get; set; }
     }

@@ -1,10 +1,13 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Configuration;
 using Beutl.Engine;
+using Beutl.Graphics3D.Models;
 using Beutl.IO;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
+using Beutl.NodeGraph;
+using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
@@ -58,13 +61,15 @@ public class ResourceRelocationService
         string resourcesDir = Path.Combine(projectDirectory, "resources");
         Directory.CreateDirectory(resourcesDir);
 
+        var references = sources.ToArray();
+        var sceneDirectories = CreateSceneDirectories(references, stagingProject, resourcesDir, cancellationToken);
         int count = 0;
         List<string> failedResources = [];
-        foreach (var group in sources.GroupBy(i => i.OriginalUri))
+        foreach (var group in references.GroupBy(i => i.OriginalUri))
         {
             cancellationToken.ThrowIfCancellationRequested();
             var originalUri = group.Key;
-            string sourceFilePath = originalUri.LocalPath;
+            string sourceFilePath = Path.GetFullPath(originalUri.LocalPath);
             if (!File.Exists(sourceFilePath))
             {
                 _logger.LogWarning("Source file not found: {FilePath}", sourceFilePath);
@@ -75,9 +80,21 @@ public class ResourceRelocationService
             string destFilePath;
             try
             {
-                string fileName = Path.GetFileName(sourceFilePath);
-                destFilePath = GetUniqueFilePath(resourcesDir, fileName);
-                await CopyFileAsync(sourceFilePath, destFilePath, cancellationToken);
+                ModelSource? model = group.Select(item => GetFileSource(stagingProject, item.Object, item.PropertyName))
+                    .OfType<ModelSource>().FirstOrDefault();
+                if (model != null)
+                {
+                    destFilePath = await CopyModelAsync(model, resourcesDir, cancellationToken);
+                }
+                else
+                {
+                    var sceneDirectory = sceneDirectories.FirstOrDefault(pair => sourceFilePath.StartsWith(pair.Key, StringComparison.Ordinal));
+                    destFilePath = sceneDirectory.Key != null
+                        ? Path.Combine(sceneDirectory.Value, sourceFilePath[sceneDirectory.Key.Length..])
+                        : GetUniqueFilePath(resourcesDir, Path.GetFileName(sourceFilePath));
+                    Directory.CreateDirectory(Path.GetDirectoryName(destFilePath)!);
+                    await CopyFileAsync(sourceFilePath, destFilePath, cancellationToken);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -96,6 +113,13 @@ public class ResourceRelocationService
                 try
                 {
                     UpdateUri(stagingProject, id, prop, new Uri(destFilePath));
+                    if (GetFileSource(stagingProject, id, prop) is ModelSource relocatedModel
+                        && ExternalResourceCollector.RequiresRelocation(relocatedModel, projectDirectory))
+                    {
+                        // Some formats retain absolute buffer/material references. The
+                        // copied source is then incomplete even when its meshes can render.
+                        failedResources.Add($"{originalUri} ({id}.{prop})");
+                    }
                     count++;
                     _logger.LogDebug("Relocated file: {OriginalPath} -> {NewPath}", sourceFilePath, destFilePath);
                 }
@@ -110,21 +134,105 @@ public class ResourceRelocationService
         return new RelocationResult(count, failedResources);
     }
 
-    private void UpdateUri(Project stagingProject, Guid id, string propertyName, Uri newUri)
+    private static Dictionary<string, string> CreateSceneDirectories(
+        IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources,
+        Project project,
+        string resourcesDirectory,
+        CancellationToken cancellationToken)
     {
-        var obj = (CoreObject?)stagingProject.FindById(id);
-        if (obj is EngineObject engineObject)
+        // Scene include/exclude patterns are relative to the scene directory. Keep
+        // each external tree separate so its **/*.belm glob cannot load other scenes' clips.
+        // Only collected references are copied; unrelated files stay outside the package.
+        var directories = new Dictionary<string, string>(StringComparer.Ordinal);
+        var scenes = sources
+            .Where(source => source.PropertyName == nameof(CoreObject.Uri) && FindObject(project, source.Object) is Scene)
+            .Select(source => (Path: source.OriginalUri.LocalPath, Directory: Path.GetDirectoryName(Path.GetFullPath(source.OriginalUri.LocalPath))!))
+            .OrderBy(scene => scene.Directory.Length);
+        foreach (var scene in scenes)
         {
-            var engineProp = engineObject.Properties.FirstOrDefault(p => p.Name == propertyName);
-            if (engineProp?.CurrentValue is IFileSource fileSource)
+            cancellationToken.ThrowIfCancellationRequested();
+            string prefix = Path.EndsInDirectorySeparator(scene.Directory)
+                ? scene.Directory
+                : scene.Directory + Path.DirectorySeparatorChar;
+            if (directories.Keys.Any(parent => prefix.StartsWith(parent, StringComparison.Ordinal)))
+                continue;
+
+            string destination = GetUniqueFilePath(resourcesDirectory, Path.GetFileNameWithoutExtension(scene.Path));
+            Directory.CreateDirectory(destination);
+            directories.Add(prefix, destination);
+        }
+        return directories;
+    }
+
+    internal static void RebaseProjectDirectory(Project project, string sourceDirectory, string destinationDirectory)
+    {
+        string prefix = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourceDirectory)) + Path.DirectorySeparatorChar;
+        var references = ExternalResourceCollector.Collect(project, destinationDirectory).FileSources.ToArray();
+        foreach ((Guid id, string property, Uri uri) in references)
+        {
+            string path = Path.GetFullPath(uri.LocalPath);
+            if (path.StartsWith(prefix, StringComparison.Ordinal))
             {
-                var type = fileSource.GetType();
-                var newInstance = (IFileSource)Activator.CreateInstance(type)!;
-                newInstance.ReadFrom(newUri);
-                engineProp.CurrentValue = newInstance;
-                return;
+                // An internal model can depend on external buffers or materials.
+                // Relocate its complete bundle before asking Assimp to reopen it.
+                if (GetFileSource(project, id, property) is ModelSource model
+                    && ExternalResourceCollector.RequiresRelocation(model, sourceDirectory))
+                    continue;
+                UpdateUri(project, id, property, new Uri(Path.Combine(destinationDirectory, path[prefix.Length..])));
             }
         }
+    }
+
+    private static IFileSource? GetFileSource(Project project, Guid id, string propertyName)
+    {
+        if (FindObject(project, id) is not { } obj) return null;
+        if (propertyName == nameof(INodeMember.Property) && obj is INodeMember { Property: { } adapter })
+            return adapter.GetValue() as IFileSource;
+        if (obj is EngineObject engineObject
+            && engineObject.Properties.FirstOrDefault(p => p.Name == propertyName)?.CurrentValue is IFileSource source)
+            return source;
+        var property = PropertyRegistry.FindRegistered(obj, propertyName);
+        return property == null ? null : obj.GetValue(property) as IFileSource;
+    }
+
+    private static CoreObject? FindObject(Project project, Guid id)
+        => ExternalResourceCollector.EnumerateObjects(project).FirstOrDefault(obj => obj.Id == id);
+
+    private static async Task<string> CopyModelAsync(ModelSource model, string resourcesDirectory, CancellationToken token)
+    {
+        string mainPath = Path.GetFullPath(model.Uri.LocalPath);
+        string[] files = model.Dependencies.Append(mainPath).Distinct(StringComparer.Ordinal).ToArray();
+        string commonDirectory = Path.GetDirectoryName(mainPath)!;
+        foreach (string file in files)
+        {
+            while (!FilePathComparison.IsSameOrDescendantCanonicalPath(commonDirectory, file))
+                commonDirectory = Path.GetDirectoryName(commonDirectory)
+                    ?? throw new IOException("Model dependencies must be on the same filesystem root.");
+        }
+
+        string prefix = Path.EndsInDirectorySeparator(commonDirectory) ? commonDirectory : commonDirectory + Path.DirectorySeparatorChar;
+        string directory = GetUniqueFilePath(resourcesDirectory, Path.GetFileNameWithoutExtension(mainPath));
+        Directory.CreateDirectory(directory);
+        foreach (string file in files)
+        {
+            token.ThrowIfCancellationRequested();
+            string destination = Path.Combine(directory, file[prefix.Length..]);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            await CopyFileAsync(file, destination, token);
+        }
+        return Path.Combine(directory, mainPath[prefix.Length..]);
+    }
+
+    private static void UpdateUri(Project stagingProject, Guid id, string propertyName, Uri newUri)
+    {
+        if (GetFileSource(stagingProject, id, propertyName) is { } fileSource)
+        {
+            // This is a relocation of the same source, not a user choosing another model.
+            // Replacing the property would rebuild Model3D.Children and discard their edits.
+            fileSource.ReadFrom(newUri);
+            return;
+        }
+        var obj = FindObject(stagingProject, id);
 
         if (obj != null)
         {
@@ -172,13 +280,21 @@ public class ResourceRelocationService
             {
                 IEnumerable<string> fontFiles = _fontFileFinder != null
                     ? _fontFileFinder(fontFamily.Name)
-                    : FindFontFiles(fontFamily.Name);
+                    : FindFontFiles(fontFamily.Name, fontsDir);
                 bool foundAnyFile = false;
                 foreach (string sourceFilePath in fontFiles)
                 {
                     foundAnyFile = true;
                     if (!copiedFiles.Add(sourceFilePath))
                         continue;
+
+                    // The project copy already includes bundled fonts. Preserve them when
+                    // sharing an imported project again, without making another copy each time.
+                    if (File.Exists(sourceFilePath) && FilePathComparison.IsSameOrDescendant(fontsDir, sourceFilePath))
+                    {
+                        count++;
+                        continue;
+                    }
 
                     string fileName = Path.GetFileName(sourceFilePath);
                     string destFilePath = GetUniqueFilePath(fontsDir, fileName);
@@ -217,12 +333,13 @@ public class ResourceRelocationService
     /// so it is bypassed during testing via <see cref="_fontFileFinder"/>.
     /// </remarks>
     [ExcludeFromCodeCoverage]
-    private static IEnumerable<string> FindFontFiles(string fontFamilyName)
+    private static IEnumerable<string> FindFontFiles(string fontFamilyName, string projectFontsDirectory)
     {
         // A material package installs its fonts under the home directory, which is not one
         // of the OS font directories the user configures.
         IReadOnlyList<string> fontDirs =
         [
+            projectFontsDirectory,
             .. GlobalConfiguration.Instance.FontConfig.FontDirectories,
             BeutlEnvironment.GetMaterialsDirectoryPath()
         ];
@@ -251,6 +368,10 @@ public class ResourceRelocationService
                     // Skip if the font file fails to load
                 }
             }
+            // Re-sharing a bundle must keep its font version, not add identically
+            // named host fonts that could win the next import's family registration.
+            if (fontDir == projectFontsDirectory && foundFiles.Count > 0)
+                return foundFiles;
         }
 
         // Also search system fonts (platform-specific paths)
@@ -344,14 +465,14 @@ public class ResourceRelocationService
     private static string GetUniqueFilePath(string directory, string fileName)
     {
         string destFilePath = Path.Combine(directory, fileName);
-        if (!File.Exists(destFilePath))
+        if (!Path.Exists(destFilePath))
             return destFilePath;
 
         string fileNameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
         string ext = Path.GetExtension(fileName);
         int counter = 1;
 
-        while (File.Exists(destFilePath))
+        while (Path.Exists(destFilePath))
         {
             destFilePath = Path.Combine(directory, $"{fileNameWithoutExt}_{counter}{ext}");
             counter++;

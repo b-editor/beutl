@@ -1,10 +1,19 @@
 ﻿using System.Globalization;
+using Beutl.IO;
 using SkiaSharp;
 
 namespace Beutl.AgentToolkit.Rendering;
 
 public sealed class StoryboardRenderer
 {
+    private readonly Action<string, byte[]> _writeFile;
+
+    public StoryboardRenderer() : this(File.WriteAllBytes)
+    {
+    }
+
+    internal StoryboardRenderer(Action<string, byte[]> writeFile) => _writeFile = writeFile;
+
     internal const int CellGap = 16;
     internal const int LabelHeight = 32;
     internal const int Padding = 16;
@@ -24,8 +33,9 @@ public sealed class StoryboardRenderer
         }
 
         byte[] png = RenderContactSheetPng(frames).Bytes;
-        using Stream stream = File.Create(outputPath);
-        stream.Write(png, 0, png.Length);
+        using var output = new StagedOutputFile(outputPath);
+        _writeFile(output.TemporaryPath, png);
+        output.Commit(CancellationToken.None);
         return outputPath;
     }
 

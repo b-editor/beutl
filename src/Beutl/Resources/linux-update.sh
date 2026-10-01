@@ -49,6 +49,8 @@ done
 # ロックの取得
 LOCKDIR="/tmp/${APP_PROCESS_NAME}_update.lock"
 LOCK_WAIT_TIME=10  # ロック取得タイムアウト（秒）
+LOCK_HELD=false
+BACKUP_APP_PATH=""
 
 acquire_lock() {
     local start_time
@@ -68,11 +70,17 @@ acquire_lock() {
 }
 
 release_lock() {
-    rm -rf "$LOCKDIR"
+    if [ "$LOCK_HELD" = true ]; then
+        rmdir "$LOCKDIR"
+        LOCK_HELD=false
+    fi
 }
+
+trap release_lock EXIT
 
 echo "@(MessageStrings.AcquiringLock)"
 if acquire_lock; then
+    LOCK_HELD=true
     echo "@(MessageStrings.LockAcquired)"
 else
     echo "@(MessageStrings.FailedToAcquireLock)"
@@ -84,10 +92,8 @@ if [ -d "$TARGET_APP_PATH" ]; then
     TIMESTAMP=$(date +%Y%m%d%H%M%S)
     BACKUP_APP_PATH="${TARGET_APP_PATH}_backup_${TIMESTAMP}"
     echo "@(MessageStrings.CreatingBackup) $BACKUP_APP_PATH"
-    cp -R "$TARGET_APP_PATH" "$BACKUP_APP_PATH"
-    if [ $? -ne 0 ]; then
+    if ! cp -R "$TARGET_APP_PATH" "$BACKUP_APP_PATH"; then
         echo "@(MessageStrings.FailedToCreateBackup)"
-        release_lock
         exit 1
     fi
     rm -rf "$TARGET_APP_PATH"
@@ -95,11 +101,16 @@ fi
 
 # 更新ファイルの配置
 echo "@(MessageStrings.UpdatingFiles)"
-cp -R "$UPDATE_DIR" "$TARGET_APP_PATH"
-if [ $? -ne 0 ]; then
+if ! cp -R "$UPDATE_DIR" "$TARGET_APP_PATH"; then
     echo "@(MessageStrings.UpdateFailedRestoringBackup)"
-    cp -R "$BACKUP_APP_PATH" "$TARGET_APP_PATH"
-    release_lock
+    # Remove the partial installation first: cp -R into an existing directory would nest
+    # the backup instead of restoring the original layout. Retain the backup on any failure.
+    rm -rf "$TARGET_APP_PATH"
+    if [ -n "$BACKUP_APP_PATH" ]; then
+        if ! cp -R "$BACKUP_APP_PATH" "$TARGET_APP_PATH"; then
+            echo "@(MessageStrings.FailedToRestoreBackup)" >&2
+        fi
+    fi
     exit 1
 fi
 
@@ -107,7 +118,9 @@ fi
 rm -rf "$UPDATE_DIR"
 
 # 正常時はバックアップも削除（必要に応じてバックアップを保持してください）
-rm -rf "$BACKUP_APP_PATH"
+if [ -n "$BACKUP_APP_PATH" ]; then
+    rm -rf "$BACKUP_APP_PATH"
+fi
 echo "@(MessageStrings.UpdateCompleted)"
 
 # ロック解除

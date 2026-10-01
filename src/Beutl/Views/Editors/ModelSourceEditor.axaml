@@ -23,6 +23,6 @@
                 <local:PropertyEditorMenu />
             </editor:StorageFileEditor.MenuContent>
         </editor:StorageFileEditor>
-        <TextBlock x:Name="message" Theme="{StaticResource ErrorTextBlockStyle}" IsVisible="False" />
+        <TextBlock x:Name="message" Theme="{StaticResource ErrorTextBlockStyle}" IsVisible="False" TextWrapping="Wrap" />
     </StackPanel>
 </UserControl>

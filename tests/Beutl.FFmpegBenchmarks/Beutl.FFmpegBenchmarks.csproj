@@ -45,6 +45,13 @@
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\FFmpegNativeRid.cs" Link="Linked\FFmpegNativeRid.cs" />
   </ItemGroup>
 
+  <!-- Wait for the worker build before enumerating its output, including in parallel solution builds. -->
+  <Target Name="BuildWorkerForCopy" BeforeTargets="CopyWorkerBinary">
+    <MSBuild Projects="..\..\src\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework)" />
+  </Target>
+
   <!-- IPC テスト用: ビルド済みワーカーとその依存DLLを出力ディレクトリにコピー -->
   <Target Name="CopyWorkerBinary" AfterTargets="Build">
     <PropertyGroup>

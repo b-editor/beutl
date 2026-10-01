@@ -37,7 +37,8 @@ internal static class TestReset
         TestShell.Editor.SelectedTabItem.Value = null;
         foreach (EditorTabItem tab in TestShell.Editor.TabItems.ToArray())
         {
-            await TestShell.Editor.CloseTabItem(tab);
+            // Test teardown discards synthetic edits; persistence is asserted by each test itself.
+            await TestShell.Editor.CloseTabItem(tab, saveChanges: false);
         }
 
         HeadlessTestHelpers.Settle();

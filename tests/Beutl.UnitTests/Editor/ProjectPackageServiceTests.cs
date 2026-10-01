@@ -1,7 +1,10 @@
 ﻿using System.Collections.Concurrent;
+using System.IO.Compression;
 using Beutl.Editor;
+using Beutl.Graphics;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -469,7 +472,7 @@ public class ProjectPackageServiceTests
 
     #endregion
 
-    #region GetUniqueDirectoryPath Tests (tested indirectly)
+    #region Import Destination Collision Tests
 
     [Test]
     public async Task ImportAsync_WithMultipleExistingDirectories_IncrementsCounter()
@@ -621,7 +624,412 @@ public class ProjectPackageServiceTests
 
     #endregion
 
+    [Test]
+    public void ExportAsync_CancelledBeforeZipCreation_PreservesTheExistingPackage()
+    {
+        Project project = CreateAndSaveTestProject();
+        string output = Path.Combine(_exportDir, "previous.beutlpkg");
+        File.WriteAllText(output, "previous complete package");
+        using var cancellation = new CancellationTokenSource();
+        var progress = new InlineProgress(value =>
+        {
+            if (value.Progress == 0.9) cancellation.Cancel();
+        });
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await ProjectPackageService.Current.ExportAsync(project, output, progress, cancellation.Token));
+
+        Assert.That(File.ReadAllText(output), Is.EqualTo("previous complete package"));
+        Assert.That(Directory.GetDirectories(_exportDir), Is.Empty);
+    }
+
+    [Test]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ExportAsync_ExcludesGitDirectoriesAndWorktreePointers(bool worktree)
+    {
+        Project project = CreateAndSaveTestProject();
+        string git = Path.Combine(_projectDir, ".git");
+        if (worktree)
+            File.WriteAllText(git, "gitdir: /private/original/repository/.git/worktrees/project");
+        else
+        {
+            Directory.CreateDirectory(Path.Combine(git, "objects"));
+            File.WriteAllText(Path.Combine(git, "objects", "removed-content"), "private deleted content");
+        }
+        string nested = Directory.CreateDirectory(Path.Combine(_projectDir, "nested")).FullName;
+        File.WriteAllText(Path.Combine(nested, ".git"), "gitdir: /private/submodule");
+        File.WriteAllText(Path.Combine(nested, "asset.txt"), "shared asset");
+        File.WriteAllText(Path.Combine(_projectDir, ".gitignore"), ".beutl/");
+        string output = Path.Combine(_exportDir, "shared.beutlpkg");
+
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, output);
+
+        Assert.That(result.Success, Is.True);
+        using var archive = ZipFile.OpenRead(output);
+        string[] entries = archive.Entries.Select(entry => entry.FullName).ToArray();
+        Assert.That(entries.Any(path => path.Split('/').Any(part => part.Equals(".git", StringComparison.OrdinalIgnoreCase))), Is.False);
+        Assert.That(entries, Does.Contain(".gitignore").And.Contain("nested/asset.txt"));
+        Assert.That(worktree ? File.Exists(git) : Directory.Exists(git), Is.True, "Export must not alter the source repository.");
+    }
+
+    [Test]
+    [TestCase(".git", false)]
+    [TestCase(".git", true)]
+    [TestCase(".GIT", false)]
+    [TestCase(".GIT", true)]
+    public async Task ImportAsync_RemovesGitMetadataBeforePublishing(string gitName, bool worktree)
+    {
+        CreateAndSaveTestProject();
+        string git = Path.Combine(_projectDir, gitName);
+        if (worktree)
+            File.WriteAllText(git, "gitdir: /untrusted/repository");
+        else
+        {
+            Directory.CreateDirectory(git);
+            File.WriteAllText(Path.Combine(git, "config"), "[core]\nfsmonitor = untrusted-command\n");
+        }
+        string nested = Directory.CreateDirectory(Path.Combine(_projectDir, "assets")).FullName;
+        File.WriteAllText(Path.Combine(nested, ".git"), "gitdir: /untrusted/submodule");
+        File.WriteAllText(Path.Combine(nested, "keep.txt"), "shared asset");
+        File.WriteAllText(Path.Combine(_projectDir, ".gitignore"), "*.tmp");
+        File.WriteAllText(Path.Combine(_projectDir, ".gitattributes"), "*.scene text");
+        string package = Path.Combine(_exportDir, "legacy.beutlpkg");
+        ZipFile.CreateFromDirectory(_projectDir, package);
+
+        Project? imported = await ProjectPackageService.Current.ImportAsync(package, _importDir);
+
+        Assert.That(imported, Is.Not.Null);
+        string root = Path.GetDirectoryName(imported!.Uri!.LocalPath)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.GetFileSystemEntries(root, "*", SearchOption.AllDirectories)
+                .Any(path => Path.GetFileName(path).Equals(".git", StringComparison.OrdinalIgnoreCase)), Is.False);
+            Assert.That(File.ReadAllText(Path.Combine(root, "assets", "keep.txt")), Is.EqualTo("shared asset"));
+            Assert.That(File.Exists(Path.Combine(root, ".gitignore")), Is.True);
+            Assert.That(File.Exists(Path.Combine(root, ".gitattributes")), Is.True);
+            Assert.That(worktree ? File.Exists(git) : Directory.Exists(git), Is.True);
+            Assert.That(Directory.GetDirectories(_importDir, ".beutl-import-*"), Is.Empty);
+        });
+    }
+
+    [Test]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ImportAsync_ConcurrentImportsPreserveBothSuccessfulDestinations(bool secondFails)
+    {
+        CreateAndSaveTestProject();
+        string package = Path.Combine(_exportDir, "shared.beutlpkg");
+        ZipFile.CreateFromDirectory(_projectDir, package);
+        string secondPackage = package;
+        if (secondFails)
+        {
+            string other = Directory.CreateDirectory(Path.Combine(_exportDir, "other")).FullName;
+            secondPackage = Path.Combine(other, "shared.beutlpkg");
+            using var archive = ZipFile.Open(secondPackage, ZipArchiveMode.Create);
+            using var writer = new StreamWriter(archive.CreateEntry("test.bep").Open());
+            writer.Write("invalid project");
+        }
+
+        using var arrived = new CountdownEvent(2);
+        using var releaseFirst = new ManualResetEventSlim();
+        using var releaseSecond = new ManualResetEventSlim();
+        InlineProgress Gate(ManualResetEventSlim release) => new(value =>
+        {
+            if (value.Progress != 0.3) return;
+            arrived.Signal();
+            if (!release.Wait(TimeSpan.FromSeconds(20))) throw new TimeoutException();
+        });
+        Task<Project?> firstTask = Task.Run(() => ProjectPackageService.Current.ImportAsync(package, _importDir, Gate(releaseFirst)));
+        Task<Project?> secondTask = Task.Run(() => ProjectPackageService.Current.ImportAsync(secondPackage, _importDir, Gate(releaseSecond)));
+        try
+        {
+            Assert.That(arrived.Wait(TimeSpan.FromSeconds(10)), Is.True);
+            releaseFirst.Set();
+            Project? first = await firstTask;
+            Assert.That(first, Is.Not.Null);
+            string firstFile = first!.Uri!.LocalPath;
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName(firstFile)!, "keep.txt"), "edits after first import");
+
+            releaseSecond.Set();
+            Project? second = await secondTask;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.Exists(firstFile), Is.True);
+                Assert.That(File.ReadAllText(Path.Combine(Path.GetDirectoryName(firstFile)!, "keep.txt")), Is.EqualTo("edits after first import"));
+                Assert.That(second is null, Is.EqualTo(secondFails));
+                if (!secondFails)
+                {
+                    Assert.That(second!.Uri, Is.Not.EqualTo(first.Uri));
+                    Assert.That(File.Exists(second.Uri!.LocalPath), Is.True);
+                }
+                Assert.That(Directory.GetDirectories(_importDir, ".beutl-import-*"), Is.Empty);
+            });
+        }
+        finally
+        {
+            releaseFirst.Set();
+            releaseSecond.Set();
+            await Task.WhenAll(firstTask, secondTask);
+        }
+    }
+
+    [Test]
+    public async Task ImportAsync_RelativeSceneUrisUseThePublishedDirectory()
+    {
+        Project original = CreateAndSaveTestProjectWithItems();
+        string package = Path.Combine(_exportDir, "scenes.beutlpkg");
+        ZipFile.CreateFromDirectory(_projectDir, package);
+
+        Project? imported = await ProjectPackageService.Current.ImportAsync(package, _importDir);
+
+        Assert.That(imported, Is.Not.Null);
+        string root = Path.GetDirectoryName(imported!.Uri!.LocalPath)!;
+        Assert.That(imported.Items, Has.Count.EqualTo(original.Items.Count));
+        Assert.That(imported.Items[0].Uri!.LocalPath, Is.EqualTo(Path.Combine(root, "test_scene.scene")));
+        Assert.That(File.Exists(imported.Items[0].Uri!.LocalPath), Is.True);
+        Assert.That(Directory.GetDirectories(_importDir, ".beutl-import-*"), Is.Empty);
+    }
+
+    [Test]
+    public void ImportAsync_CancelledAfterExtractionRemovesOnlyItsStaging()
+    {
+        CreateAndSaveTestProject();
+        string package = Path.Combine(_exportDir, "cancelled.beutlpkg");
+        ZipFile.CreateFromDirectory(_projectDir, package);
+        string existing = Directory.CreateDirectory(Path.Combine(_importDir, "cancelled")).FullName;
+        File.WriteAllText(Path.Combine(existing, "keep.txt"), "existing data");
+        using var cancellation = new CancellationTokenSource();
+        var progress = new InlineProgress(value =>
+        {
+            if (value.Progress == 0.8) cancellation.Cancel();
+        });
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await ProjectPackageService.Current.ImportAsync(package, _importDir, progress, cancellation.Token));
+        Assert.That(File.ReadAllText(Path.Combine(existing, "keep.txt")), Is.EqualTo("existing data"));
+        Assert.That(Directory.GetDirectories(_importDir), Is.EqualTo(new[] { existing }));
+    }
+
+    [Test]
+    public async Task ExportAsync_PreservesExistingPackagePermissions()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix file permissions are required.");
+            return;
+        }
+
+        Project project = CreateAndSaveTestProject();
+        string package = Path.Combine(_exportDir, "private.beutlpkg");
+        File.WriteAllText(package, "previous package");
+        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        File.SetUnixFileMode(package, mode);
+
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, package);
+
+        Assert.That(result.Success, Is.True);
+        Assert.That(File.GetUnixFileMode(package), Is.EqualTo(mode));
+        using var archive = ZipFile.OpenRead(package);
+        Assert.That(archive.GetEntry("test.bep"), Is.Not.Null);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ExportAsync_KeepsStagedPrivateFilesInAnOwnerOnlyDirectory(bool cancel)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix file permissions are required.");
+            return;
+        }
+
+        Project project = CreateAndSaveTestProject();
+        string fileName = $"private-{Guid.NewGuid():N}.txt";
+        string source = Path.Combine(_projectDir, fileName);
+        File.WriteAllText(source, "private client data");
+        File.SetUnixFileMode(source, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        string? staging = null;
+        UnixFileMode? stagingMode = null;
+        string? copiedContents = null;
+        using var cancellation = new CancellationTokenSource();
+        var progress = new InlineProgress(value =>
+        {
+            if (value.Progress == 0.2 && !OperatingSystem.IsWindows())
+            {
+                staging = Directory.EnumerateDirectories(Path.GetTempPath(), "beutl_export_*")
+                    .Single(directory => File.Exists(Path.Combine(directory, Path.GetFileName(_projectDir), fileName)));
+                stagingMode = File.GetUnixFileMode(staging);
+                copiedContents = File.ReadAllText(Path.Combine(staging, Path.GetFileName(_projectDir), fileName));
+            }
+            if (cancel && value.Progress == 0.9)
+                cancellation.Cancel();
+        });
+        string output = Path.Combine(_exportDir, "private.beutl");
+        File.WriteAllText(output, "previous package");
+
+        if (cancel)
+        {
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await ProjectPackageService.Current.ExportAsync(project, output, progress, cancellation.Token));
+            Assert.That(File.ReadAllText(output), Is.EqualTo("previous package"));
+        }
+        else
+        {
+            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, output, progress);
+            Assert.That(result.Success, Is.True);
+        }
+
+        UnixFileMode finalSourceMode = File.GetUnixFileMode(source);
+        Assert.Multiple(() =>
+        {
+            Assert.That(staging, Is.Not.Null);
+            Assert.That(stagingMode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute));
+            Assert.That(copiedContents, Is.EqualTo("private client data"));
+            Assert.That(Directory.Exists(staging), Is.False);
+            Assert.That(finalSourceMode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        });
+    }
+
+    [TestCase("shared.beutl")]
+    [TestCase("exports/shared.beutl")]
+    public async Task ExportAsync_ReplacingAPackageInTheProjectDoesNotEmbedItsPreviousContents(string relativeOutput)
+    {
+        Project project = CreateAndSaveTestProject();
+        string source = Path.Combine(_projectDir, "removed-private.txt");
+        File.WriteAllText(source, "private data from an earlier export");
+        string output = Path.Combine(_projectDir, relativeOutput);
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        Assert.That((await ProjectPackageService.Current.ExportAsync(project, output)).Success, Is.True);
+        using (var previous = ZipFile.OpenRead(output))
+            Assert.That(previous.GetEntry("removed-private.txt"), Is.Not.Null);
+        File.Delete(source);
+
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, output);
+
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.FailedResources, Is.Empty);
+        using var archive = ZipFile.OpenRead(output);
+        Assert.Multiple(() =>
+        {
+            Assert.That(archive.GetEntry("test.bep"), Is.Not.Null);
+            Assert.That(archive.GetEntry("removed-private.txt"), Is.Null);
+            Assert.That(archive.GetEntry(relativeOutput), Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_ExcludesAnOutputReachedThroughADirectoryAlias()
+    {
+        Project project = CreateAndSaveTestProject();
+        string output = Path.Combine(_projectDir, "shared.beutl");
+        File.WriteAllText(output, "previous private package");
+        string alias = Path.Combine(_exportDir, "alias");
+        try
+        {
+            Directory.CreateSymbolicLink(alias, _projectDir);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or PlatformNotSupportedException
+                                   || ex is IOException && OperatingSystem.IsWindows() && (ex.HResult & 0xffff) == 1314)
+        {
+            Assert.Ignore("Symlink creation is not available in this environment.");
+        }
+
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, Path.Combine(alias, "shared.beutl"));
+
+        Assert.That(result.Success, Is.True);
+        using var archive = ZipFile.OpenRead(output);
+        Assert.That(archive.GetEntry("shared.beutl"), Is.Null);
+        Assert.That(archive.GetEntry("test.bep"), Is.Not.Null);
+    }
+
+    [Test]
+    public async Task ExportAsync_FailedSidecarRelocationPreservesTheOriginalAndPreviousPackage()
+    {
+        Project project = CreateAndSaveTestProject();
+        string external = Directory.CreateDirectory(Path.Combine(_testDir, "external-scene")).FullName;
+        var scene = new Scene(64, 64, "External") { Uri = new Uri(Path.Combine(external, "external.scene")) };
+        var element = new Element { Uri = new Uri(Path.Combine(external, "clip.belm")) };
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        byte[] originalScene = File.ReadAllBytes(scene.Uri.LocalPath);
+        byte[] originalElement = File.ReadAllBytes(element.Uri.LocalPath);
+        string output = Path.Combine(_exportDir, "previous.beutl");
+        File.WriteAllText(output, "previous complete package");
+        var service = new ProjectPackageService(new FailedSceneRelocationService());
+
+        ExportResult result = await service.ExportAsync(project, output);
+
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.FailedResources, Is.Not.Empty);
+        Assert.That(File.ReadAllBytes(scene.Uri.LocalPath), Is.EqualTo(originalScene));
+        Assert.That(File.ReadAllBytes(element.Uri.LocalPath), Is.EqualTo(originalElement));
+        Assert.That(File.ReadAllText(output), Is.EqualTo("previous complete package"));
+    }
+
+    private sealed class FailedSceneRelocationService : ResourceRelocationService
+    {
+        public override Task<RelocationResult> RelocateFileSourcesAsync(
+            IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources, Project stagingProject,
+            string projectDirectory, CancellationToken cancellationToken = default)
+        {
+            Scene scene = stagingProject.Items.OfType<Scene>().Single(item => item.Name == "External");
+            Element element = scene.Children.Single();
+            string destination = Path.Combine(projectDirectory, "clip.belm");
+            File.Copy(element.Uri!.LocalPath, destination);
+            element.Uri = new Uri(destination);
+            return Task.FromResult(new RelocationResult(1, [scene.Uri!.LocalPath]));
+        }
+    }
+
+    [Test]
+    public async Task ExportAsync_ImportAsync_PreservesAssetInCaseVariantDirectory()
+    {
+        Project project = CreateAndSaveTestProjectWithItems();
+        string assetDir = Path.Combine(_testDir, "Project");
+        Directory.CreateDirectory(assetDir);
+        string asset = Path.Combine(assetDir, "asset.png");
+        using (var bitmap = new Bitmap(4, 4))
+            Assert.That(bitmap.Save(asset, EncodedImageFormat.Png), Is.True);
+        byte[] imageBytes = File.ReadAllBytes(asset);
+        var source = new ImageSource();
+        source.ReadFrom(new Uri(asset));
+        var image = new SourceImage();
+        image.Source.CurrentValue = source;
+        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        element.Objects.Add(image);
+        CoreSerializer.StoreToUri(element, new Uri(Path.Combine(_projectDir, "image.belm")));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        project = CoreSerializer.RestoreFromUri<Project>(project.Uri!);
+        string package = Path.Combine(_exportDir, "assets.beutlpkg");
+
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, package);
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.FailedResources, Is.Empty);
+        File.Delete(asset);
+
+        Project? imported = await ProjectPackageService.Current.ImportAsync(package, _importDir);
+
+        Assert.That(imported, Is.Not.Null);
+        ImageSource importedSource = imported!.Items.OfType<Scene>().Single().Children.Single()
+            .Objects.OfType<SourceImage>().Single().Source.CurrentValue!;
+        string importedRoot = Path.GetDirectoryName(imported.Uri!.LocalPath)!;
+        Assert.That(importedSource.Uri.LocalPath, Does.StartWith(importedRoot + Path.DirectorySeparatorChar));
+        Assert.That(File.ReadAllBytes(importedSource.Uri.LocalPath), Is.EqualTo(imageBytes));
+    }
+
     #region Helper Methods
+
+    private sealed class InlineProgress(Action<(string Message, double Progress)> report)
+        : IProgress<(string Message, double Progress)>
+    {
+        public void Report((string Message, double Progress) value) => report(value);
+    }
 
     private Project CreateAndSaveTestProject()
     {

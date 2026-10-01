@@ -6,6 +6,51 @@ namespace Beutl.AgentToolkit.Tests.Rendering;
 public sealed class StoryboardRendererTests
 {
     [Test]
+    public void Write_failure_preserves_the_previous_contact_sheet()
+    {
+        string directory = Directory.CreateTempSubdirectory("beutl-contact-sheet-").FullName;
+        try
+        {
+            string output = WriteFrame(directory, "existing.png", 8, 8, SKColors.Red);
+            byte[] previous = File.ReadAllBytes(output);
+            var frame = new StoryboardContactSheetFrame("frame", 0, output);
+            var renderer = new StoryboardRenderer((path, bytes) =>
+            {
+                File.WriteAllBytes(path, bytes[..16]);
+                throw new IOException("Disk full after a partial write.");
+            });
+
+            Assert.Throws<IOException>(() => renderer.RenderContactSheet([frame], output));
+
+            Assert.That(File.ReadAllBytes(output), Is.EqualTo(previous));
+            Assert.That(Directory.GetDirectories(directory), Is.Empty);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Test]
+    public void Successful_write_preserves_permissions_and_produces_a_complete_contact_sheet()
+    {
+        string directory = Directory.CreateTempSubdirectory("beutl-contact-sheet-").FullName;
+        try
+        {
+            string output = WriteFrame(directory, "existing.png", 8, 8, SKColors.Red);
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(output, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+
+            new StoryboardRenderer().RenderContactSheet([new("frame", 0, output)], output);
+
+            using SKBitmap bitmap = SKBitmap.Decode(output);
+            Assert.That(bitmap, Is.Not.Null);
+            Assert.That(bitmap.Width, Is.GreaterThan(8));
+            if (!OperatingSystem.IsWindows())
+                Assert.That(File.GetUnixFileMode(output), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+            Assert.That(Directory.GetDirectories(directory), Is.Empty);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Test]
     public void Calculate_layout_uses_three_column_grid()
     {
         StoryboardContactSheetLayout layout = StoryboardRenderer.CalculateLayout(

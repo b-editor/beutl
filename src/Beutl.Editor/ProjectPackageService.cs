@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
+using Beutl.IO;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Serialization;
@@ -64,20 +65,23 @@ public sealed class ProjectPackageService
         {
             // Step 1: Create a temporary directory
             progress?.Report((Strings.ExportingProject, 0.0));
-            tempDir = Path.Combine(Path.GetTempPath(), $"beutl_export_{Guid.NewGuid():N}");
-            Directory.CreateDirectory(tempDir);
+            // The copy can contain private files even when the final package is shared.
+            tempDir = Directory.CreateTempSubdirectory("beutl_export_").FullName;
 
             // Step 2: Copy the project directory
             string projectDir = Path.GetDirectoryName(project.Uri.LocalPath)!;
             string tempProjectDir = Path.Combine(tempDir, Path.GetFileName(projectDir));
             progress?.Report((Strings.ExportingProject, 0.1));
-            await CopyDirectoryAsync(projectDir, tempProjectDir, cancellationToken);
+            string excludedOutputPath = FilePathComparison.ResolveCanonicalPath(outputPath);
+            await CopyDirectoryAsync(projectDir, tempProjectDir, excludedOutputPath, cancellationToken);
 
-            // Step 3: Open the temporary project
+            // Step 3: Read with the original base URI. Eager file sources (models in
+            // particular) must resolve their external references before rebasing the copy.
             string tempProjectFile = Path.Combine(tempProjectDir, Path.GetFileName(project.Uri.LocalPath));
             Uri tempProjectUri = new(tempProjectFile);
             progress?.Report((Strings.ExportingProject, 0.2));
-            Project tempProject = CoreSerializer.RestoreFromUri<Project>(tempProjectUri);
+            Project tempProject = CoreSerializer.RestoreFromUri<Project>(project.Uri);
+            ResourceRelocationService.RebaseProjectDirectory(tempProject, projectDir, tempProjectDir);
 
             // Step 4: Attach to the virtual root
             progress?.Report((Strings.ExportingProject, 0.3));
@@ -119,6 +123,12 @@ public sealed class ProjectPackageService
 
             // Step 7: Save the project
             progress?.Report((Strings.ExportingProject, 0.8));
+            foreach (CoreObject obj in ExternalResourceCollector.EnumerateObjects(tempProject))
+            {
+                if (obj.Uri is { IsFile: true } uri
+                    && !FilePathComparison.IsSameOrDescendant(tempProjectDir, uri.LocalPath))
+                    throw new IOException($"Cannot save an export sidecar outside staging: {uri}");
+            }
             CoreSerializer.StoreToUri(tempProject, tempProjectUri);
 
             // Detach from the virtual root
@@ -126,12 +136,11 @@ public sealed class ProjectPackageService
 
             // Step 8: Create the ZIP file
             progress?.Report((Strings.ExportingProject, 0.9));
-            if (File.Exists(outputPath))
+            using (var output = new StagedOutputFile(outputPath))
             {
-                File.Delete(outputPath);
+                await Task.Run(() => ZipFile.CreateFromDirectory(tempProjectDir, output.TemporaryPath), cancellationToken);
+                output.Commit(cancellationToken);
             }
-
-            await Task.Run(() => ZipFile.CreateFromDirectory(tempProjectDir, outputPath), cancellationToken);
 
             progress?.Report((Strings.ExportingProject, 1.0));
             _logger.LogInformation("Project exported successfully to {OutputPath}", outputPath);
@@ -205,42 +214,49 @@ public sealed class ProjectPackageService
             throw new FileNotFoundException("Package file not found.", packagePath);
         }
 
+        string? stagingDirectory = null;
+        string? publishedDirectory = null;
         try
         {
             progress?.Report((Strings.ImportingProject, 0.0));
-            string packageName = Path.GetFileNameWithoutExtension(packagePath);
-            string projectDir = GetUniqueDirectoryPath(destinationDirectory, packageName);
+            cancellationToken.ThrowIfCancellationRequested();
+            destinationDirectory = Path.GetFullPath(destinationDirectory);
+            Directory.CreateDirectory(destinationDirectory);
+            stagingDirectory = Path.Combine(destinationDirectory, $".beutl-import-{Guid.NewGuid():N}");
+            if (OperatingSystem.IsWindows())
+                Directory.CreateDirectory(stagingDirectory);
+            else
+                Directory.CreateDirectory(stagingDirectory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
 
-            try
+            // Keep untrusted contents private until extraction, sanitization and validation finish.
+            string projectDir = Path.Combine(stagingDirectory, "project");
+            progress?.Report((Strings.ImportingProject, 0.3));
+            await ZipFile.ExtractToDirectoryAsync(packagePath, projectDir, cancellationToken);
+            await Task.Run(() => RemoveGitMetadata(projectDir, cancellationToken), cancellationToken);
+
+            progress?.Report((Strings.ImportingProject, 0.6));
+            string? projectFile = Directory.GetFiles(projectDir, "*.bep", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault();
+
+            if (projectFile == null)
             {
-                progress?.Report((Strings.ImportingProject, 0.3));
-                await Task.Run(() => ZipFile.ExtractToDirectory(packagePath, projectDir), cancellationToken);
-
-                progress?.Report((Strings.ImportingProject, 0.6));
-                string? projectFile = Directory.GetFiles(projectDir, "*.bep", SearchOption.TopDirectoryOnly)
-                    .FirstOrDefault();
-
-                if (projectFile == null)
-                {
-                    _logger.LogError("No project file found in package");
-                    CleanupTempDirectory(projectDir);
-                    return null;
-                }
-
-                progress?.Report((Strings.ImportingProject, 0.8));
-                Uri projectUri = new(projectFile);
-                Project project = CoreSerializer.RestoreFromUri<Project>(projectUri);
-
-                progress?.Report((Strings.ImportingProject, 1.0));
-                _logger.LogInformation("Project imported successfully from {PackagePath} to {ProjectDir}",
-                    packagePath, projectDir);
-                return project;
+                _logger.LogError("No project file found in package");
+                return null;
             }
-            catch
-            {
-                CleanupTempDirectory(projectDir);
-                throw;
-            }
+
+            progress?.Report((Strings.ImportingProject, 0.8));
+            _ = CoreSerializer.RestoreFromUri<Project>(new Uri(projectFile));
+            publishedDirectory = PublishImportedDirectory(
+                projectDir, destinationDirectory, Path.GetFileNameWithoutExtension(packagePath), cancellationToken);
+
+            // Re-read at its final location so relative scene/resource URIs never point at staging.
+            Uri projectUri = new(Path.Combine(publishedDirectory, Path.GetFileName(projectFile)));
+            Project project = CoreSerializer.RestoreFromUri<Project>(projectUri);
+            progress?.Report((Strings.ImportingProject, 1.0));
+            _logger.LogInformation("Project imported successfully from {PackagePath} to {ProjectDir}",
+                packagePath, publishedDirectory);
+            publishedDirectory = null;
+            return project;
         }
         catch (OperationCanceledException)
         {
@@ -250,6 +266,12 @@ public sealed class ProjectPackageService
         catch (Exception ex)
         {
             return LogImportError(ex);
+        }
+        finally
+        {
+            // Only remove directories owned by this import, never another import's destination.
+            CleanupTempDirectory(publishedDirectory);
+            CleanupTempDirectory(stagingDirectory);
         }
     }
 
@@ -266,35 +288,71 @@ public sealed class ProjectPackageService
         return null;
     }
 
-    /// <summary>
-    /// Gets a unique directory path that does not conflict with existing directories.
-    /// </summary>
-    private static string GetUniqueDirectoryPath(string parentDirectory, string directoryName)
+    private static string PublishImportedDirectory(
+        string sourceDirectory, string parentDirectory, string directoryName, CancellationToken cancellationToken)
     {
-        string path = Path.Combine(parentDirectory, directoryName);
-        if (!Directory.Exists(path))
-            return path;
-
-        int counter = 1;
-        while (Directory.Exists(path))
+        for (int counter = 0; ; counter++)
         {
-            path = Path.Combine(parentDirectory, $"{directoryName}_{counter}");
-            counter++;
+            cancellationToken.ThrowIfCancellationRequested();
+            string path = Path.Combine(parentDirectory, counter == 0 ? directoryName : $"{directoryName}_{counter}");
+            try
+            {
+                // The validated directory is nonempty. A competing publication cannot replace it.
+                Directory.Move(sourceDirectory, path);
+                return path;
+            }
+            catch (IOException) when (Directory.Exists(path) || File.Exists(path))
+            {
+                // Another process may have claimed the name after we started extracting.
+            }
         }
+    }
 
-        return path;
+    private static void RemoveGitMetadata(string directory, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        // Resolve through the filesystem too, including aliases accepted by its name comparison.
+        string gitPath = Path.Combine(directory, ".git");
+        if (Directory.Exists(gitPath))
+            Directory.Delete(gitPath, recursive: true);
+        else if (File.Exists(gitPath))
+            File.Delete(gitPath);
+
+        foreach (string path in Directory.GetFileSystemEntries(directory))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.Equals(Path.GetFileName(path), ".git", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Directory.Exists(path))
+                    Directory.Delete(path, recursive: true);
+                else
+                    File.Delete(path);
+            }
+            else if (Directory.Exists(path))
+            {
+                RemoveGitMetadata(path, cancellationToken);
+            }
+        }
     }
 
     /// <summary>
     /// Copies a directory asynchronously.
     /// </summary>
-    private static async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
+    private static async Task CopyDirectoryAsync(
+        string sourceDir, string destDir, string excludedOutputPath, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(destDir);
 
         foreach (string file in Directory.GetFiles(sourceDir))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            // Linked worktrees and submodules use a .git file rather than a directory.
+            if (string.Equals(Path.GetFileName(file), ".git", StringComparison.OrdinalIgnoreCase))
+                continue;
+            // Replacing a package inside the project must not embed its previous contents,
+            // including assets the user has since removed. Resolve aliases of the output too.
+            if (string.Equals(FilePathComparison.ResolveCanonicalPath(file), excludedOutputPath, StringComparison.Ordinal))
+                continue;
             string destFile = Path.Combine(destDir, Path.GetFileName(file));
             await CopyFileAsync(file, destFile, cancellationToken);
         }
@@ -304,12 +362,12 @@ public sealed class ProjectPackageService
             cancellationToken.ThrowIfCancellationRequested();
             string dirName = Path.GetFileName(subDir);
 
-            // Skip the .beutl folder (view state, etc.)
-            if (dirName == ".beutl")
+            // Share the current project, not local view state or recoverable repository history.
+            if (dirName == ".beutl" || string.Equals(dirName, ".git", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             string destSubDir = Path.Combine(destDir, dirName);
-            await CopyDirectoryAsync(subDir, destSubDir, cancellationToken);
+            await CopyDirectoryAsync(subDir, destSubDir, excludedOutputPath, cancellationToken);
         }
     }
 

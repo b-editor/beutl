@@ -4,6 +4,73 @@ namespace Beutl.UnitTests.Engine;
 
 public class BitmapTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Save_PropagatesWriteFailuresWithoutTerminatingTheProcess(bool linear)
+    {
+        await TestWorkerProgram.RunAsync(TestWorkerProgram.BitmapSaveWorkerArgument, linear.ToString());
+    }
+
+    internal static void RunSaveFailureWorker(bool linear)
+    {
+        using var bitmap = new Bitmap(8, 8,
+            colorSpace: linear ? BitmapColorSpace.LinearSrgb : BitmapColorSpace.Srgb);
+        using var stream = new FailingWriteStream();
+        Assert.Throws<IOException>(() => bitmap.Save(stream));
+        Assert.That(stream.CanWrite, Is.True, "Save must not dispose the caller's stream.");
+    }
+
+    private sealed class FailingWriteStream : MemoryStream
+    {
+        public override void Write(byte[] buffer, int offset, int count) => throw new IOException("write failed");
+        public override void Write(ReadOnlySpan<byte> buffer) => throw new IOException("write failed");
+    }
+
+    [Test]
+    public void Save_UnsupportedFormatPreservesThePreviousFile()
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-bitmap-save-").FullName;
+        try
+        {
+            string output = Path.Combine(root, "image.png");
+            using var bitmap = new Bitmap(8, 8);
+            Assert.That(bitmap.Save(output), Is.True);
+            byte[] previous = File.ReadAllBytes(output);
+
+            Assert.That(bitmap.Save(output, Beutl.Graphics.EncodedImageFormat.Gif), Is.False);
+
+            Assert.That(File.ReadAllBytes(output), Is.EqualTo(previous));
+            Assert.That(Directory.GetDirectories(root), Is.Empty);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Test]
+    public void Save_PreservesPrivatePermissions()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix permissions are required.");
+            return;
+        }
+        string root = Directory.CreateTempSubdirectory("beutl-bitmap-save-").FullName;
+        try
+        {
+            string output = Path.Combine(root, "image.png");
+            File.WriteAllText(output, "previous");
+            File.SetUnixFileMode(output, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            using var bitmap = new Bitmap(8, 8);
+
+            Assert.That(bitmap.Save(output), Is.True);
+
+            Assert.That(File.GetUnixFileMode(output), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+            using var restored = Bitmap.FromFile(output);
+            Assert.That(restored.Width, Is.EqualTo(8));
+            Assert.That(Directory.GetDirectories(root), Is.Empty);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [Test]
     public void Constructor_BasicSize_PropertiesAreInitialized()
     {

@@ -11,9 +11,7 @@ public interface IWorkspaceGuard
 
 public sealed class WorkspaceGuard : IWorkspaceGuard
 {
-    private readonly StringComparison _comparison;
     private readonly string _canonicalRoot;
-    private readonly string _canonicalRootWithSeparator;
 
     public WorkspaceGuard(string root)
     {
@@ -24,9 +22,7 @@ public sealed class WorkspaceGuard : IWorkspaceGuard
 
         Root = Path.GetFullPath(root);
         Directory.CreateDirectory(Root);
-        _comparison = OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
         _canonicalRoot = PathBoundary.ResolveExistingPath(Root);
-        _canonicalRootWithSeparator = EnsureTrailingSeparator(_canonicalRoot);
     }
 
     public string Root { get; }
@@ -43,7 +39,10 @@ public sealed class WorkspaceGuard : IWorkspaceGuard
             : Path.GetFullPath(Path.Combine(Root, requestedPath));
 
         string resolved = PathBoundary.ResolveDeepestExistingTarget(absolute);
-        if (!IsInsideRoot(resolved))
+        // Both paths use their on-disk spelling. macOS and Windows can also host
+        // case-sensitive directories, so an OS-wide case-insensitive comparison is unsafe.
+        if (!FilePathComparison.IsSameOrDescendantCanonicalPath(
+                Path.TrimEndingDirectorySeparator(_canonicalRoot), Path.TrimEndingDirectorySeparator(resolved)))
         {
             throw new WorkspaceBoundaryException(requestedPath, resolved, "Write target is outside the configured workspace.");
         }
@@ -51,19 +50,6 @@ public sealed class WorkspaceGuard : IWorkspaceGuard
         return resolved;
     }
 
-    private bool IsInsideRoot(string path)
-    {
-        string normalized = Path.TrimEndingDirectorySeparator(path);
-        return string.Equals(normalized, _canonicalRoot, _comparison)
-               || EnsureTrailingSeparator(normalized).StartsWith(_canonicalRootWithSeparator, _comparison);
-    }
-
-    private static string EnsureTrailingSeparator(string path)
-    {
-        return Path.EndsInDirectorySeparator(path)
-            ? path
-            : path + Path.DirectorySeparatorChar;
-    }
 }
 
 public sealed class WorkspaceBoundaryException : Exception

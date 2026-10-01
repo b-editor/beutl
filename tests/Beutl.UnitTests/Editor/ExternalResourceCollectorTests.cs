@@ -414,6 +414,24 @@ public class ExternalResourceCollectorTests
         }
     }
 
+    [Test]
+    public void Collect_WithCaseVariantSibling_RelocatesTheReference()
+    {
+        string projectDir = Path.Combine(_testProjectDir, "Project");
+        string siblingDir = Path.Combine(_testProjectDir, "project");
+        Directory.CreateDirectory(projectDir);
+        Directory.CreateDirectory(siblingDir);
+        string asset = Path.Combine(siblingDir, "asset.png");
+        File.WriteAllText(asset, "image");
+        var root = new TestEngineObjectWithFileSource(new TestFileSource(new Uri(asset)));
+
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, projectDir);
+
+        // Even if the current volume aliases the two names, relocate the reference so a
+        // relative ../project URI remains valid when imported on a case-sensitive volume.
+        Assert.That(collector.FileSources.Select(source => source.OriginalUri), Is.EqualTo(new[] { new Uri(asset) }));
+    }
+
     // Test helper classes
     private class TestHierarchical : Hierarchical
     {

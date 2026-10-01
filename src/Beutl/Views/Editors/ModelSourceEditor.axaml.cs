@@ -118,8 +118,19 @@ public partial class ModelSourceEditor : UserControl
         if (DataContext is not ModelSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
-        var newValue = new ModelSource();
-        newValue.ReadFrom(new Uri(fi.FullName));
-        vm.SetValue(newValue);
+        try
+        {
+            var newValue = new ModelSource();
+            newValue.ReadFrom(new Uri(fi.FullName));
+            vm.SetValue(newValue);
+            message.IsVisible = false;
+            message.Text = null;
+        }
+        catch (Exception ex)
+        {
+            FileEditor.Value = vm.FileInfo.Value;
+            message.Text = ex.Message;
+            message.IsVisible = true;
+        }
     }
 }

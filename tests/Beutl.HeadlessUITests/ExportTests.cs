@@ -322,6 +322,7 @@ public class ExportTests
     private sealed class CancellableMp4EncoderExtension : ControllableEncodingExtension
     {
         public CancellableController? Controller { get; private set; }
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public override IEnumerable<string> SupportExtensions()
         {
@@ -330,14 +331,12 @@ public class ExportTests
 
         public override EncodingController CreateController(string file)
         {
-            return Controller = new CancellableController(file);
+            return Controller = new CancellableController(file, Started);
         }
     }
 
-    private sealed class CancellableController(string outputFile) : EncodingController(outputFile)
+    private sealed class CancellableController(string outputFile, TaskCompletionSource started) : EncodingController(outputFile)
     {
-        public TaskCompletionSource Started { get; } = new(
-            TaskCreationOptions.RunContinuationsAsynchronously);
 
         public override VideoEncoderSettings VideoSettings { get; } = new();
 
@@ -348,7 +347,7 @@ public class ExportTests
             ISampleProvider sampleProvider,
             CancellationToken cancellationToken)
         {
-            Started.TrySetResult();
+            started.TrySetResult();
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
         }
     }
@@ -391,7 +390,7 @@ public class ExportTests
 
         try
         {
-            await extension.Controller!.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await extension.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
             item.Cancel();
 
             try

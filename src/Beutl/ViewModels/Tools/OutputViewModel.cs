@@ -9,6 +9,7 @@ using Beutl.Editor.Services;
 using Beutl.FFmpegIpc;
 using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
+using Beutl.IO;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Encoding;
@@ -275,11 +276,24 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         bool succeeded = false;
         try
         {
+            WasCancelled.Value = false;
+            string destination = DestinationFile.Value
+                ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
+            ControllableEncodingExtension encoder = SelectedEncoder.Value
+                ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
+            EncodingController settingsController = Controller.Value
+                ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
+            using var output = new StagedOutputFile(destination);
+            EncodingController controller = encoder.CreateController(output.TemporaryPath);
+            EncoderSettingsJson.CopyTo(settingsController.VideoSettings, controller.VideoSettings);
+            EncoderSettingsJson.CopyTo(settingsController.AudioSettings, controller.AudioSettings);
+            VideoEncoderSettings videoSettings = controller.VideoSettings;
+            AudioEncoderSettings audioSettings = controller.AudioSettings;
+
             _logger.LogInformation("Starting encoding process.");
             LogEncodingSettings();
             _isEncoding.Value = true;
             IsCompleted.Value = false;
-            WasCancelled.Value = false;
             ProgressText.Value = "";
             ProgressMain.Value = Strings.Encoding;
             ProgressSub.Value = string.Empty;
@@ -290,20 +304,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             CurrentFrame.Value = 0;
             TotalFrames.Value = 0;
             FrameProgressText.Value = "0 / 0";
-            _activeDestination = DestinationFile.Value;
+            _activeDestination = output.DestinationPath;
             stopwatch.Start();
 
             await Task.Run(async () =>
             {
                 _isIndeterminate.Value = false;
-                if (VideoSettings.Value?.Settings is not VideoEncoderSettings videoSettings
-                    || AudioSettings.Value?.Settings is not AudioEncoderSettings audioSettings)
-                {
-                    ProgressText.Value = MessageStrings.UnexpectedError;
-                    _logger.LogWarning("Encoder settings are null. (Encoder: {Encoder})", SelectedEncoder.Value);
-                    return;
-                }
-
                 videoSettings.SourceSize = Model.FrameSize;
 
                 ProgressMax.Value = Model.Duration.TotalSeconds * 2;
@@ -314,16 +320,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 TotalFrames.Value = totalFrames;
                 FrameProgressText.Value = $"0 / {totalFrames}";
 
-                EncodingController? controller = Controller.Value;
-                if (controller == null)
-                {
-                    _logger.LogWarning("Encoding controller is null.");
-                    return;
-                }
-                else
-                {
-                    _logger.LogInformation("Using encoding controller: {Controller}", controller);
-                }
+                _logger.LogInformation("Using encoding controller: {Controller}", controller);
 
                 ClearEditViewModelCaches();
 
@@ -339,7 +336,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 using var sampleProvider = new SampleProviderImpl(
                     Model, composer, audioSettings.SampleRate, sampleProgress);
 
-                string? destinationPath = _activeDestination;
+                string destinationPath = output.TemporaryPath;
 
                 using (frameProgress
                            .Subscribe(t =>
@@ -362,7 +359,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 }
             });
 
-            cancellationToken.ThrowIfCancellationRequested();
+            output.Commit(cancellationToken);
             succeeded = true;
             ProgressValue.Value = ProgressMax.Value;
             CurrentFrame.Value = TotalFrames.Value;
@@ -476,7 +473,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         ProgressText.Value = Strings.Cancel;
         ProgressMain.Value = Strings.Cancel;
         _logger.LogInformation("Encoding cancelled.");
-        TryDeletePartialFile(_activeDestination);
     }
 
     private void UpdateProgressIndicators(TimeSpan elapsed, double value, double max, string? destinationPath)
@@ -544,29 +540,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             < (long)gb => $"{bytes / mb:0.0} MB",
             _ => $"{bytes / gb:0.00} GB"
         };
-    }
-
-    private void TryDeletePartialFile(string? path)
-    {
-        if (string.IsNullOrEmpty(path)) return;
-        if (!string.Equals(path, DestinationFile.Value, StringComparison.Ordinal))
-        {
-            _logger.LogDebug("Skip deleting partial file because destination changed.");
-            return;
-        }
-
-        try
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-                _logger.LogInformation("Deleted partial output file: {Path}", path);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to delete partial output file: {Path}", path);
-        }
     }
 
     private void ShowCompletionNotification(string path)
