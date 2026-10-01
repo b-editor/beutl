@@ -75,10 +75,21 @@ public class ModelSourceEditorTests
             var editor = view.FindControl<StorageFileEditor>("FileEditor")!;
             var message = view.FindControl<TextBlock>("message")!;
             var progress = view.FindControl<ProgressBar>("progress")!;
+            using var release = new ManualResetEventSlim();
+            Func<Uri, ModelSource> read = view.ReadModel;
+            view.ReadModel = uri =>
+            {
+                release.Wait();
+                return read(uri);
+            };
 
             editor.Value = new FileInfo(invalid);
-            Assert.DoesNotThrow(() => editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, new FileInfo(valid), PropertyEditor.ValueConfirmedEvent)));
-            Assert.That(progress.IsVisible, Is.True);
+            try
+            {
+                Assert.DoesNotThrow(() => editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, new FileInfo(valid), PropertyEditor.ValueConfirmedEvent)));
+                Assert.That(progress.IsVisible, Is.True);
+            }
+            finally { release.Set(); }
             await view.LoadingTask;
             HeadlessTestHelpers.Render();
             Assert.Multiple(() =>
@@ -130,12 +141,16 @@ public class ModelSourceEditorTests
                 return read(uri);
             };
 
-            Confirm(editor, invalid);
-            Task first = view.LoadingTask;
-            await started.WaitAsync();
-            Confirm(editor, valid);
-            Task second = view.LoadingTask;
-            releaseInvalid.Set();
+            Task first, second;
+            try
+            {
+                Confirm(editor, invalid);
+                first = view.LoadingTask;
+                await started.WaitAsync();
+                Confirm(editor, valid);
+                second = view.LoadingTask;
+            }
+            finally { releaseInvalid.Set(); }
             await Task.WhenAll(first, second);
 
             Assert.Multiple(() =>
@@ -169,17 +184,20 @@ public class ModelSourceEditorTests
                 return read(uri);
             };
 
-            Confirm(editor, valid);
-            Assert.That(progress.IsVisible, Is.True);
             var (other, otherVm, _, _) = CreateEditor();
             using var __ = otherVm;
-            if (switchTarget)
-                view.DataContext = otherVm;
-            else
-                editor.Value = null;
-            Assert.That(progress.IsVisible, Is.False);
+            try
+            {
+                Confirm(editor, valid);
+                Assert.That(progress.IsVisible, Is.True);
+                if (switchTarget)
+                    view.DataContext = otherVm;
+                else
+                    editor.Value = null;
+                Assert.That(progress.IsVisible, Is.False);
+            }
+            finally { release.Set(); }
 
-            release.Set();
             await view.LoadingTask;
             Assert.Multiple(() =>
             {
@@ -210,13 +228,16 @@ public class ModelSourceEditorTests
                 return read(uri);
             };
 
-            Confirm(editor, valid);
             var replacement = new ModelSource();
             replacement.ReadFrom(new Uri(valid));
-            model.Source.CurrentValue = replacement;
-            Assert.That(progress.IsVisible, Is.False);
+            try
+            {
+                Confirm(editor, valid);
+                model.Source.CurrentValue = replacement;
+                Assert.That(progress.IsVisible, Is.False);
+            }
+            finally { release.Set(); }
 
-            release.Set();
             await view.LoadingTask;
             Assert.That(model.Source.CurrentValue, Is.SameAs(replacement));
         }
