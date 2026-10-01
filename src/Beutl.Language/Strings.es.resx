@@ -1801,4 +1801,7 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="EnableAnimation" xml:space="preserve">
     <value>Activar animación</value>
   </data>
+  <data name="ModelFile" xml:space="preserve">
+    <value>Archivo de modelo 3D</value>
+  </data>
 </root>

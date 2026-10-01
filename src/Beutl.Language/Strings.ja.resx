@@ -3298,4 +3298,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="EnableAnimation" xml:space="preserve">
     <value>アニメーションを有効にする</value>
   </data>
+  <data name="ModelFile" xml:space="preserve">
+    <value>3Dモデルファイル</value>
+  </data>
 </root>

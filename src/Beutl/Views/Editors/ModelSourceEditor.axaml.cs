@@ -2,6 +2,7 @@
 using Avalonia.Platform.Storage;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics3D.Models;
+using Beutl.Language;
 using Beutl.ViewModels.Editors;
 using Silk.NET.Assimp;
 
@@ -108,29 +109,56 @@ public partial class ModelSourceEditor : UserControl
 
         FileEditor.OpenOptions = new FilePickerOpenOptions
         {
-            FileTypeFilter = [new FilePickerFileType("3D Model File") { Patterns = s_modelExtensions }]
+            FileTypeFilter = [new FilePickerFileType(Strings.ModelFile) { Patterns = s_modelExtensions }]
         };
         FileEditor.ValueConfirmed += FileEditorOnValueConfirmed;
     }
+
+    private int _loadVersion;
+
+    // テストから読み込み完了を待つために公開している
+    internal Task LoadingTask { get; private set; } = Task.CompletedTask;
 
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (DataContext is not ModelSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
+        LoadingTask = LoadAsync(vm, fi);
+    }
+
+    // 大きなモデルでUIが固まらないよう、Assimpによる読み込みはバックグラウンドで行う
+    private async Task LoadAsync(ModelSourceEditorViewModel vm, FileInfo fi)
+    {
+        int version = ++_loadVersion;
+        message.IsVisible = false;
+        message.Text = null;
+        progress.IsVisible = true;
+
+        // 読み込み中に別のファイルが選ばれたり、エディタの対象が変わった場合は結果を捨てる
+        bool IsStale() => version != _loadVersion || DataContext != vm || vm.IsDisposed;
+
         try
         {
             var newValue = new ModelSource();
-            newValue.ReadFrom(new Uri(fi.FullName));
+            var uri = new Uri(fi.FullName);
+            await Task.Run(() => newValue.ReadFrom(uri));
+            if (IsStale()) return;
+
             vm.SetValue(newValue);
-            message.IsVisible = false;
-            message.Text = null;
         }
         catch (Exception ex)
         {
+            if (IsStale()) return;
+
             FileEditor.Value = vm.FileInfo.Value;
             message.Text = ex.Message;
             message.IsVisible = true;
+        }
+        finally
+        {
+            if (version == _loadVersion)
+                progress.IsVisible = false;
         }
     }
 }
