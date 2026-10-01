@@ -87,9 +87,12 @@ Passing omitted tests cannot establish that selection is sound on future changes
 
 Roslyn detects ordinary method body changes and stable method identities, including
 overloads. The dynamic test-to-method map is unioned with a conservative static
-reverse-reference graph from **both** base and current source. Identifier names
-are matched across overloads/receiver types; this is intentionally a superset, not
-a semantic proof. It also handles method groups and literal reflection names.
+reverse-reference graph from **both** base and current source. MSBuild evaluates
+the requested test projects' Compile/ProjectReference closure, including linked
+sources. Actual call/member expressions, method groups and literal reflection
+names are matched across overloads; ordinary non-generic static classes also use
+the receiver type name (including aliases). Other receiver types are conservative
+name matches. This is intentionally a superset, not a semantic proof.
 New methods expand through current callers; changes with no execution evidence or
 static path to a test fall back. New/changed tests and changed parameter inventories
 are always selected.

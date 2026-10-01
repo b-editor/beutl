@@ -28,7 +28,7 @@ foreach (var (path, source) in input)
         var key = path + "::" + className + "." + node.Identifier.ValueText + ":" + Hash(signature);
         var attributes = node.AttributeLists.SelectMany(x => x.Attributes)
             .Select(a => a.Name.ToString().Split('.').Last().Replace("Attribute", "")).ToArray();
-        var references = References(node);
+        var references = References(node, root);
         var span = tree.GetLineSpan(node.Span);
         bool opaque = references.Any(x => x is "dynamic" or "GetMethod" or "GetMethods" or "Invoke"
             or "CreateInstance" or "GetProperty" or "GetField" or "GetType" or "LoadFrom"
@@ -40,6 +40,11 @@ foreach (var (path, source) in input)
             hash = Hash(Tokens(node)), signature = Hash(signature),
             start = span.StartLinePosition.Line + 1, end = span.EndLinePosition.Line + 1,
             references, opaque,
+            staticClass = node.Modifiers.Any(SyntaxKind.StaticKeyword)
+                && types.LastOrDefault()?.Modifiers.Any(SyntaxKind.StaticKeyword) == true
+                && types.All(t => t.TypeParameterList == null)
+                && !node.ParameterList.Parameters.Any(p => p.Modifiers.Any(SyntaxKind.ThisKeyword))
+                ? types.Last().Identifier.ValueText : null,
             lifecycle = attributes.Any(a => a is "SetUp" or "TearDown" or "OneTimeSetUp" or "OneTimeTearDown"),
             test = attributes.Any(a => a is "Test" or "TestCase" or "TestCaseSource" or "Theory" or "AvaloniaTest"),
         });
@@ -54,14 +59,43 @@ foreach (var (path, source) in input)
         hash = Hash(source), skeleton = Hash(Tokens(skeleton)), methods,
         parseError = tree.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error),
         conditional = root.DescendantTrivia(descendIntoTrivia: true).Any(t => t.IsDirective),
-        references = References(skeleton),
+        references = References(skeleton, root),
     };
 }
 File.WriteAllText(args[1], JsonSerializer.Serialize(files));
 
 static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 static string Tokens(SyntaxNode node) => string.Join(' ', node.DescendantTokens().Select(t => t.Text));
-static string[] References(SyntaxNode node) => node.DescendantNodes().OfType<SimpleNameSyntax>()
-    .Select(n => n.Identifier.ValueText)
-    .Concat(node.DescendantTokens().Where(t => t.IsKind(SyntaxKind.StringLiteralToken)).Select(t => t.ValueText))
-    .Distinct().ToArray();
+static string[] References(SyntaxNode node, SyntaxNode root)
+{
+    var result = new HashSet<string>();
+    var aliases = root.DescendantNodes().OfType<UsingDirectiveSyntax>()
+        .Where(u => u.Alias != null && u.Name != null)
+        .GroupBy(u => u.Alias!.Name.Identifier.ValueText)
+        .ToDictionary(g => g.Key, g => g.Select(u => u.Name!.ToString().Split('.').Last()).ToArray());
+    foreach (var name in node.DescendantNodes().OfType<SimpleNameSyntax>())
+    {
+        if (name.Parent is MemberAccessExpressionSyntax access && access.Name == name)
+        {
+            var receiver = access.Expression.ToString().Replace("global::", "").Split('.').Last();
+            result.Add(receiver + "|" + name.Identifier.ValueText);
+            if (aliases.TryGetValue(receiver, out var targets))
+                foreach (var target in targets)
+                    result.Add(target + "|" + name.Identifier.ValueText);
+        }
+        else if (name.Parent is MemberBindingExpressionSyntax)
+            result.Add("?|" + name.Identifier.ValueText);
+        else if (name.Parent is InvocationExpressionSyntax invocation && invocation.Expression == name
+            || name.Parent is ArgumentSyntax
+            || name.Parent is EqualsValueClauseSyntax
+            || name.Parent is ReturnStatementSyntax
+            || name.Parent is ArrowExpressionClauseSyntax
+            || name.Parent is AssignmentExpressionSyntax assignment && assignment.Right == name
+            || name.Parent is LambdaExpressionSyntax)
+            result.Add(name.Identifier.ValueText);
+    }
+    foreach (var token in node.DescendantTokens().Where(t => t.IsKind(SyntaxKind.StringLiteralToken)))
+        if (SyntaxFacts.IsValidIdentifier(token.ValueText))
+            result.Add(token.ValueText);
+    return result.ToArray();
+}

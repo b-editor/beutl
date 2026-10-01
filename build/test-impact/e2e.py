@@ -38,7 +38,7 @@ def main():
         shadow = out / "shadow"
         shadow.mkdir()
         report = impact.select(SimpleNamespace(**common, baseline=collection / "baseline.json"), root, shadow)
-        assert not report["fallbackReasons"], report["fallbackReasons"]
+        assert not report["fallbackReasons"], report["fallbackReasons"][:10]
         selected = [t for k, t in report["tests"].items() if report["reasons"][k]]
         assert report["totalMethods"] == 8 and len(selected) == 2, report["reasons"]
         assert report["selectedCases"] == 6 and report["totalCases"] == 32

@@ -81,12 +81,12 @@ def fingerprint(root, tfm, configuration):
     }
 
 
-def source_index(root, out):
+def source_index(root, out, scope):
     paths = git(root, "ls-files", "-z", "--", "*.cs").split("\0")
     # Include newly added files for local selection, even before git add.
     paths += git(root, "ls-files", "--others", "--exclude-standard", "-z", "--", "*.cs").split("\0")
     sources = {p: (root / p).read_text(encoding="utf-8-sig") for p in sorted(set(paths))
-               if p and (root / p).is_file() and not p.startswith("build/test-impact/")}
+               if p and p in scope and (root / p).is_file() and not p.startswith("build/test-impact/")}
     project = HERE / "Indexer/Indexer.csproj"
     run(["dotnet", "build", project, "--nologo", "-v:q", "-m:1", "-p:NuGetAudit=false"], root,
         log=out / "index-build.log")
@@ -109,6 +109,29 @@ def project_paths(root, requested):
     if not projects:
         raise ValueError("No test projects found")
     return projects
+
+
+def compilation_scope(root, projects, tfm, configuration):
+    """Evaluate the requested tests' Compile/ProjectReference closure, including linked files."""
+    pending = [root / p for p in projects]
+    visited, sources = set(), set()
+    while pending:
+        project = pending.pop().resolve()
+        if project in visited:
+            continue
+        if not project.is_relative_to(root):
+            raise ValueError("ProjectReference outside the repository cannot be analyzed")
+        visited.add(project)
+        evaluated = json.loads(run(["dotnet", "msbuild", project, "-nologo",
+            "-getItem:Compile,ProjectReference", f"-p:TargetFramework={tfm}",
+            f"-p:Configuration={configuration}"], root))["Items"]
+        for item in evaluated["Compile"]:
+            path = Path(item["FullPath"]).resolve()
+            if path.is_relative_to(root):
+                sources.add(path.relative_to(root).as_posix())
+        for item in evaluated["ProjectReference"]:
+            pending.append(Path(item["FullPath"]))
+    return sources
 
 
 def source_resources(root):
@@ -216,6 +239,13 @@ def source_methods(test, lookup):
     return lookup.get((test["className"], test["name"]), set())
 
 
+def references_method(references, method):
+    name = method["name"]
+    if method.get("staticClass"):
+        return name in references or method["staticClass"] + "|" + name in references
+    return any(reference.rsplit("|", 1)[-1] == name for reference in references)
+
+
 def coverage_methods(paths, root, index):
     """If a CLR method ran at all, retain all its points, not only its previously hit lines."""
     covered, opaque = set(), set()
@@ -271,12 +301,12 @@ def collect(args, root, out):
     sha = git(root, "rev-parse", "HEAD")
     if sha != git(root, "rev-parse", args.base):
         raise ValueError("Baseline --base must equal the checked-out HEAD")
-    index = source_index(root, out)
     projects = project_paths(root, args.project)
     if not args.no_build:
         for i, project in enumerate(projects):
             run(["dotnet", "build", project, "-f", args.tfm, "-c", args.configuration,
                  "-m:1", "-v:q", "-p:NuGetAudit=false"], root, timeout=600, log=out / f"build-{i}.log")
+    index = source_index(root, out, compilation_scope(root, projects, args.tfm, args.configuration))
     tests = discover(root, projects, args.tfm, args.configuration, out)
     lookup = test_source_lookup(index)
     baseline = {"schema": SCHEMA, "sha": sha, "fingerprint": fingerprint(root, args.tfm, args.configuration),
@@ -380,20 +410,29 @@ def choose(baseline, current, tests, changed_files, expected_sha, environment, r
         affected = set(changed)
         # Union old and new references: replacing/removing a call must not erase its old edge.
         reverse = collections.defaultdict(set)
+        static_reverse = collections.defaultdict(set)
         for method in [*old_methods.values(), *new_methods.values()]:
             for reference in method["references"]:
-                reverse[reference].add(method["key"])
+                reverse[reference.rsplit("|", 1)[-1]].add(method["key"])
+                static_reverse[reference].add(method["key"])
+
+        def callers(key):
+            method = all_methods[key]
+            name = method["name"]
+            if method.get("staticClass"):
+                return static_reverse[name] | static_reverse[method["staticClass"] + "|" + name]
+            return reverse[name]
+
         queue = list(changed)
         while queue:
             key = queue.pop()
-            for caller in reverse[all_methods[key]["name"]] - affected:
+            for caller in callers(key) - affected:
                 affected.add(caller)
                 queue.append(caller)
-        names = {all_methods[k]["name"] for k in affected}
         # References in field/property initializers, constructors, fixture attributes and
         # TestCaseSource properties cannot be represented by ordinary method edges.
         for path, file in current.items():
-            if names.intersection(file["references"]):
+            if any(references_method(file["references"], all_methods[k]) for k in affected):
                 fallback.append(f"reference-outside-method:{path}")
         for key, test in tests.items():
             profile = baseline["profiles"].get(key)
@@ -427,7 +466,7 @@ def choose(baseline, current, tests, changed_files, expected_sha, environment, r
             reachable, pending = {seed}, [seed]
             while pending:
                 key = pending.pop()
-                for caller in reverse[all_methods[key]["name"]] - reachable:
+                for caller in callers(key) - reachable:
                     reachable.add(caller)
                     pending.append(caller)
             if not (reachable & (observed | test_sources)):
@@ -472,7 +511,7 @@ def select(args, root, out):
     try:
         projects = project_paths(root, args.project)
         tests = discover(root, projects, args.tfm, args.configuration, out)
-        current = source_index(root, out)
+        current = source_index(root, out, compilation_scope(root, projects, args.tfm, args.configuration))
         sha = git(root, "rev-parse", args.base)
         changed = set(filter(None, git(root, "diff", "--name-only", "--no-renames", "-z", sha, "--").split("\0")))
         changed.update(filter(None, git(root, "ls-files", "--others", "--exclude-standard", "-z").split("\0")))

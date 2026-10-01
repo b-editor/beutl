@@ -160,6 +160,26 @@ class SelectorTests(unittest.TestCase):
         self.assertEqual(0, report["selectedMethods"])
         self.assertFalse(report["safeToSkip"])
 
+    def test_static_class_receiver_avoids_unrelated_same_name_chain(self):
+        for index in [self.old, self.current]:
+            index["src/Value.cs"]["methods"][0]["staticClass"] = "Product"
+            index["tests/Suite/Tests.cs"]["methods"][0]["references"] = ["Product|Value"]
+            index["tests/Suite/Tests.cs"]["methods"][1]["references"] = ["OtherType|Value"]
+        self.current["src/Other.cs"]["references"] = ["instance|Value"]
+        report = self.choose()
+        self.assertFalse(report["fallbackReasons"])
+        self.assertEqual(1, report["selectedMethods"])
+
+    def test_unqualified_static_call_is_conservative(self):
+        for index in [self.old, self.current]:
+            index["src/Value.cs"]["methods"][0]["staticClass"] = "Product"
+        self.assertEqual(1, self.choose()["selectedMethods"])
+
+    def test_instance_receivers_remain_conservative(self):
+        for index in [self.old, self.current]:
+            index["tests/Suite/Tests.cs"]["methods"][1]["references"] = ["instance|Value"]
+        self.assertEqual(2, self.choose()["selectedMethods"])
+
     def test_comparison_detects_missed_failure_and_missing_cases(self):
         report = self.choose()
         with tempfile.TemporaryDirectory() as folder:
@@ -254,6 +274,27 @@ class RoslynTests(unittest.TestCase):
         c = self.index("class C { int A(int x) => 1; }")
         self.assertEqual(a["methods"][0]["hash"], b["methods"][0]["hash"])
         self.assertNotEqual(a["methods"][0]["key"], c["methods"][0]["key"])
+
+    def test_static_receiver_aliases_method_groups_and_type_names(self):
+        index = self.index("""using Alias = X.Utility;
+            namespace X; static class Utility { public static int Value() => 1; }
+            class C { Utility field; void M() { Alias.Value(); Run(Utility.Value); } }""")
+        value, caller = index["methods"]
+        self.assertEqual("Utility", value["staticClass"])
+        self.assertIn("Utility|Value", caller["references"])
+        self.assertIn("Alias|Value", caller["references"])
+        self.assertNotIn("Utility", index["references"])
+
+    def test_generic_static_and_extension_methods_do_not_use_receiver_shortcut(self):
+        index = self.index("""static class C<T> { static void Method() {} }
+            static class Extensions { static void Method(this string text) {} }""")
+        self.assertTrue(all(m["staticClass"] is None for m in index["methods"]))
+
+    def test_real_smoke_scope_contains_linked_sources_not_the_desktop_app(self):
+        scope = impact.compilation_scope(self.root, ["build/test-impact/Smoke/Smoke.csproj"], "net10.0", "Debug")
+        self.assertIn("src/Beutl.Core/CultureNameValidation.cs", scope)
+        self.assertIn("tests/Beutl.UnitTests/Core/CultureNameValidationTests.cs", scope)
+        self.assertNotIn("src/Beutl.Api/Services/PluginDependencyResolver.cs", scope)
 
 
 if __name__ == "__main__":
