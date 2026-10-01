@@ -19,9 +19,12 @@ import zipfile
 
 HERE = Path(__file__).resolve().parent
 SCHEMA = 1
+# Isolated success cannot certify process-wide UI state or timing under suite load.
+# See issues/2553 (Win32 HWND state) and pull/2551 (ad-block deadline sensitivity).
+SUITE_SENSITIVE = {"Beutl.HeadlessUITests", "Beutl.E2ETests", "Beutl.Graphics3DTests"}
 RISK_PATH = re.compile(
     r"(^native/|^external/|/runtimes/|/Assets/|/Fixtures/|SourceGenerators/|"
-    r"/Graphics/|/Graphics3D/|/Rendering/|/Shaders/|/GPU/|/Gpu|/Vulkan|/Skia|"
+    r"/Graphics/|/Graphics3D/|/Rendering/|Renderer|/Shaders/|/GPU/|/Gpu|/Vulkan|/Skia|"
     r"Beutl\.Extensions\.(FFmpeg|AVFoundation|MediaFoundation)|Beutl\.FFmpegWorker/)", re.I)
 
 
@@ -88,7 +91,8 @@ def source_index(root, out, scope):
     sources = {p: (root / p).read_text(encoding="utf-8-sig") for p in sorted(set(paths))
                if p and p in scope and (root / p).is_file() and not p.startswith("build/test-impact/")}
     project = HERE / "Indexer/Indexer.csproj"
-    run(["dotnet", "build", project, "--nologo", "-v:q", "-m:1", "-p:NuGetAudit=false"], root,
+    run(["dotnet", "build", project, "--nologo", "-v:q", "-m:1", "-p:NuGetAudit=false",
+         "--disable-build-servers"], root,
         log=out / "index-build.log")
     write_json(out / "sources.json", sources)
     run(["dotnet", HERE / "Indexer/bin/Debug/net10.0/Indexer.dll", out / "sources.json",
@@ -273,6 +277,8 @@ def coverage_methods(paths, root, index):
                         continue
                     if index[file]["conditional"] or index[file]["parseError"]:
                         opaque.add("conditional-or-unparsed-source")
+                    if index[file].get("opaque"):
+                        opaque.add("dynamic-or-reflection-file")
                     line = int(point.attrib["sl"])
                     for member in index[file]["methods"]:
                         if member["start"] <= line <= member["end"]:
@@ -292,6 +298,18 @@ def quote_where(value):
     return "'" + value + "'"
 
 
+def validate_isolated(test, executed):
+    if set(executed) != {test["key"]}:
+        raise ValueError("Isolation failed: NUnit executed different methods")
+    actual = executed[test["key"]]["cases"]
+    expected = collections.Counter(c["fullname"] for c in test["cases"])
+    if collections.Counter(c["fullname"] for c in actual) != expected:
+        raise ValueError("Isolation failed: not every parameterized case ran")
+    if any(c["result"] != "Passed" for c in actual):
+        raise ValueError("Skipped/failed cases cannot establish a baseline")
+    return actual
+
+
 def collect(args, root, out):
     start = time.monotonic()
     if git(root, "status", "--porcelain", "--untracked-files=all"):
@@ -305,13 +323,14 @@ def collect(args, root, out):
     if not args.no_build:
         for i, project in enumerate(projects):
             run(["dotnet", "build", project, "-f", args.tfm, "-c", args.configuration,
-                 "-m:1", "-v:q", "-p:NuGetAudit=false"], root, timeout=600, log=out / f"build-{i}.log")
+                 "-m:1", "-v:q", "-p:NuGetAudit=false", "--disable-build-servers"],
+                root, timeout=600, log=out / f"build-{i}.log")
     index = source_index(root, out, compilation_scope(root, projects, args.tfm, args.configuration))
     tests = discover(root, projects, args.tfm, args.configuration, out)
     lookup = test_source_lookup(index)
     baseline = {"schema": SCHEMA, "sha": sha, "fingerprint": fingerprint(root, args.tfm, args.configuration),
                 "projects": projects, "index": index, "tests": tests, "profiles": {}, "errors": {},
-                "collectionSeconds": 0, "complete": False}
+                "collectionSeconds": 0, "complete": False, "finalized": False}
     candidates = [t for t in tests.values() if fnmatch.fnmatchcase(t["key"], args.method_pattern)]
     profile_start = time.monotonic()
     baseline["setupSeconds"] = profile_start - start
@@ -332,14 +351,7 @@ def collect(args, root, out):
             if len(result_files) != 1:
                 raise ValueError("Missing/ambiguous NUnit results for isolated method")
             executed = parse_cases(ET.parse(result_files[0]).getroot(), test["project"])
-            if set(executed) != {test["key"]}:
-                raise ValueError("Isolation failed: NUnit executed different methods")
-            actual = executed[test["key"]]["cases"]
-            expected = collections.Counter(c["fullname"] for c in test["cases"])
-            if collections.Counter(c["fullname"] for c in actual) != expected:
-                raise ValueError("Isolation failed: not every parameterized case ran")
-            if any(c["result"] != "Passed" for c in actual):
-                raise ValueError("Skipped/failed cases cannot establish a baseline")
+            actual = validate_isolated(test, executed)
             coverage = list(folder.rglob("coverage.opencover.xml"))
             if len(coverage) != 1:
                 raise ValueError("Missing/ambiguous isolated OpenCover report")
@@ -355,7 +367,9 @@ def collect(args, root, out):
         baseline["collectionSeconds"] = time.monotonic() - start
         write_json(out / "baseline.json", baseline)
     baseline["collectionSeconds"] = time.monotonic() - start
-    baseline["complete"] = len(baseline["profiles"]) == len(tests) and not baseline["errors"]
+    baseline["finalized"] = git(root, "rev-parse", "HEAD") == sha and not git(
+        root, "status", "--porcelain", "--untracked-files=all")
+    baseline["complete"] = baseline["finalized"] and len(baseline["profiles"]) == len(tests) and not baseline["errors"]
     write_json(out / "baseline.json", baseline)
     (out / "collection.md").write_text(
         f"# Test impact baseline\n\nSHA: `{sha}`\n\n"
@@ -379,9 +393,15 @@ def choose(baseline, current, tests, changed_files, expected_sha, environment, r
         fallback.append("baseline-sha-mismatch")
     elif baseline.get("fingerprint") != environment:
         fallback.append("baseline-environment-mismatch")
+    elif not baseline.get("finalized"):
+        fallback.append("baseline-interrupted-or-checkout-changed")
     else:
         old = baseline["index"]
         old_methods, new_methods = methods(old), methods(current)
+        for key, profile in baseline["profiles"].items():
+            if key not in baseline["tests"] or not (profile["methods"] or profile["opaque"]) \
+                    or not set(profile["methods"]).issubset(old_methods):
+                raise ValueError("Corrupt baseline profile: " + key)
         lookup = test_source_lookup(current)
         all_methods = dict(old_methods, **new_methods)
         changed = set()
@@ -437,6 +457,8 @@ def choose(baseline, current, tests, changed_files, expected_sha, environment, r
         for key, test in tests.items():
             profile = baseline["profiles"].get(key)
             src = source_methods(test, lookup)
+            if Path(test["project"]).stem in SUITE_SENSITIVE:
+                reasons[key].append("suite-interaction-policy")
             if key not in baseline["tests"]:
                 reasons[key].append("new-test")
             elif collections.Counter(c["fullname"] for c in test["cases"]) != collections.Counter(
@@ -481,18 +503,25 @@ def choose(baseline, current, tests, changed_files, expected_sha, environment, r
             "fallbackReasons": sorted(set(fallback)), "affectedMethods": sorted(affected),
             "tests": tests, "reasons": reasons,
             "collectionSeconds": baseline.get("collectionSeconds") if baseline else None,
+            "profiledTestMethods": sorted(baseline.get("profiles", {})) if baseline else [],
             "profiledMethods": len(baseline.get("profiles", {})) if baseline else 0}
 
 
 def render(report, path):
     comparison = report.get("comparison")
+    elapsed = report.get("collectionSeconds")
+    elapsed = f"{elapsed:.2f}s" if isinstance(elapsed, (int, float)) else "unavailable"
     lines = ["# Test impact (shadow only)", "", "The full suite and Vulkan validation remain required.", "",
              f"Methods: **{report['selectedMethods']} / {report['totalMethods']} selected**; "
              f"cases: **{report['selectedCases']} / {report['totalCases']}**.", "",
-             f"Baseline collection: {report.get('collectionSeconds')} seconds; "
+             f"Baseline collection: {elapsed}; "
              f"profiled methods: {report['profiledMethods']}.", "",
              "## Full fallback reasons", ""]
-    lines += ["- " + r.replace("\n", " ") for r in report["fallbackReasons"]] or ["None."]
+    lines += ["- " + r.replace("\n", " ") for r in report["fallbackReasons"][:25]] or ["None."]
+    if len(report["fallbackReasons"]) > 25:
+        lines.append(f"- {len(report['fallbackReasons']) - 25} more reasons in selection.json.")
+    if not report.get("inventoryComplete", True):
+        lines += ["", "**Inventory is incomplete: totals above are only known methods. All tests must run.**"]
     if comparison:
         lines += ["", "## Comparison with full execution", "", "```json",
                   json.dumps(comparison, indent=2), "```", "",
@@ -570,12 +599,14 @@ def compare(report, results):
             "observedMethods": len(seen), "missingMethods": missing, "unknownMethodsOrAssemblies": sorted(unknown),
             "missingCases": missing_cases,
             "missedFailedMethods": sorted(k for k in failed if not report["reasons"][k]),
+            "isolatedPassButFullFailedMethods": sorted(failed & set(report.get("profiledTestMethods", []))),
             "failedMethods": len(failed), "caseOutcomes": dict(outcomes), **dict(durations)}
 
 
 def download_baseline(args, root, out):
     """Only read artifacts from successful manual main runs at the exact requested SHA."""
     try:
+        (out / "baseline.json").unlink(missing_ok=True)
         if not re.fullmatch(r"[0-9a-f]{40}", args.base):
             raise ValueError("Expected a full SHA")
         repo = os.environ["GITHUB_REPOSITORY"]

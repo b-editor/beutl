@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
+from unittest.mock import patch
 
 import impact
 
@@ -32,7 +33,7 @@ class SelectorTests(unittest.TestCase):
                                                   member("test-b", "Other", ("OtherValue",), "Tests"))}
         self.current = copy.deepcopy(self.old)
         self.current["src/Value.cs"]["methods"][0]["hash"] = "v2"
-        self.baseline = dict(schema=impact.SCHEMA, sha="base", fingerprint={"sdk": "10"}, index=self.old,
+        self.baseline = dict(schema=impact.SCHEMA, sha="base", fingerprint={"sdk": "10"}, index=self.old, finalized=True,
                              tests=copy.deepcopy(self.tests), profiles={
                                  self.a: dict(methods=["value", "test-a"], opaque=[]),
                                  self.b: dict(methods=["other", "test-b"], opaque=[])}, collectionSeconds=12.5)
@@ -84,6 +85,7 @@ class SelectorTests(unittest.TestCase):
 
     def test_new_test_is_selected(self):
         del self.baseline["tests"][self.b]
+        del self.baseline["profiles"][self.b]
         self.assertIn("new-test", self.choose()["reasons"][self.b])
 
     def test_changed_test_is_selected(self):
@@ -100,6 +102,15 @@ class SelectorTests(unittest.TestCase):
                 self.baseline[key] = saved
         self.baseline = None
         self.assert_all(self.choose(), "missing-baseline")
+
+    def test_interrupted_collection_is_not_a_valid_partial_baseline(self):
+        self.baseline["finalized"] = False
+        self.assert_all(self.choose(), "interrupted")
+
+    def test_corrupt_profile_is_rejected_before_any_skip(self):
+        self.baseline["profiles"][self.a] = dict(methods=[], opaque=[])
+        with self.assertRaisesRegex(ValueError, "Corrupt baseline"):
+            self.choose()
 
     def test_shared_build_and_resource_changes(self):
         for path in ["Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props",
@@ -191,14 +202,33 @@ class SelectorTests(unittest.TestCase):
             result = impact.compare(report, folder)
             self.assertEqual("complete", result["status"])
             self.assertEqual([self.b], result["missedFailedMethods"])
+            self.assertEqual([self.b], result["isolatedPassButFullFailedMethods"])
             self.assertEqual(2, result["omittedTestSeconds"])
             report["tests"][self.a]["cases"].append(dict(fullname="another parameter"))
             self.assertEqual("incomplete", impact.compare(report, folder)["status"])
         with tempfile.TemporaryDirectory() as empty:
             self.assertEqual("incomplete", impact.compare(report, empty)["status"])
 
+    def test_headless_suite_stays_selected_after_isolated_success(self):
+        self.tests[self.b]["project"] = "tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj"
+        report = self.choose([])
+        self.assertEqual(1, report["selectedMethods"])
+        self.assertIn("suite-interaction-policy", report["reasons"][self.b])
+
 
 class FormatTests(unittest.TestCase):
+    def test_isolation_rejects_missing_extra_failed_and_skipped_cases(self):
+        test = dict(key="one", cases=[dict(fullname="parameter 1"), dict(fullname="parameter 2")])
+        passed = dict(cases=[dict(fullname="parameter 1", result="Passed"),
+                             dict(fullname="parameter 2", result="Passed")])
+        self.assertEqual(2, len(impact.validate_isolated(test, {"one": passed})))
+        for actual in ({}, {"one": passed, "extra": passed},
+                       {"one": dict(cases=passed["cases"][:1])},
+                       {"one": dict(cases=[dict(c, result="Skipped") for c in passed["cases"]])},
+                       {"one": dict(cases=[dict(c, result="Failed") for c in passed["cases"]])}):
+            with self.subTest(actual=actual), self.assertRaises(ValueError):
+                impact.validate_isolated(test, actual)
+
     def test_discovery_groups_custom_named_cases_by_real_method(self):
         xml = ET.fromstring('''<test-run>
             <test-case classname="Tests" methodname="Parameter" fullname="Tests.A custom name" />
@@ -240,10 +270,10 @@ class RoslynTests(unittest.TestCase):
         impact.run(["dotnet", "build", impact.HERE / "Indexer/Indexer.csproj", "-v:q", "-m:1",
                     "-p:NuGetAudit=false", "-p:UseSharedCompilation=false"], cls.root)
 
-    def index(self, source):
+    def index(self, source, extra=None):
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
-            impact.write_json(folder / "input.json", {"Example.cs": source})
+            impact.write_json(folder / "input.json", dict({"Example.cs": source}, **(extra or {})))
             impact.run(["dotnet", impact.HERE / "Indexer/bin/Debug/net10.0/Indexer.dll",
                         folder / "input.json", folder / "output.json"], self.root)
             return impact.read_json(folder / "output.json")["Example.cs"]
@@ -289,6 +319,30 @@ class RoslynTests(unittest.TestCase):
         index = self.index("""static class C<T> { static void Method() {} }
             static class Extensions { static void Method(this string text) {} }""")
         self.assertTrue(all(m["staticClass"] is None for m in index["methods"]))
+
+    def test_global_alias_and_collection_method_group(self):
+        index = self.index("class C { void M() { var callbacks = new[] { Alias.Read }; } }",
+                           {"Usings.cs": "global using Alias = X.Utility;"})
+        self.assertIn("Utility|Read", index["methods"][0]["references"])
+
+    def test_reflection_is_opaque_inside_methods_and_constructors(self):
+        index = self.index('''class C { C() { typeof(C).GetMethod("M"); }
+            void M() { var method = typeof(C).GetMethod("M"); method.Invoke(this, null); } }''')
+        self.assertTrue(index["opaque"])
+        self.assertTrue(index["methods"][0]["opaque"])
+
+    def test_compile_scope_recurses_project_references_and_keeps_linked_paths(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            test = root / "tests/Test.csproj"
+            lib = root / "src/Lib.csproj"
+            responses = [dict(Items=dict(Compile=[dict(FullPath=str(root / "shared/Linked.cs"))],
+                                           ProjectReference=[dict(FullPath=str(lib))])),
+                         dict(Items=dict(Compile=[dict(FullPath=str(root / "src/Lib.cs"))], ProjectReference=[]))]
+            with patch.object(impact, "run", side_effect=[json.dumps(r) for r in responses]) as command:
+                scope = impact.compilation_scope(root, ["tests/Test.csproj"], "net10.0", "Debug")
+            self.assertEqual({"shared/Linked.cs", "src/Lib.cs"}, scope)
+            self.assertEqual(lib, command.call_args_list[1].args[0][2])
 
     def test_real_smoke_scope_contains_linked_sources_not_the_desktop_app(self):
         scope = impact.compilation_scope(self.root, ["build/test-impact/Smoke/Smoke.csproj"], "net10.0", "Debug")

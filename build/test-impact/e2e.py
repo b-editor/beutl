@@ -34,7 +34,8 @@ def main():
     assert original.count(before) == 1
     try:
         source.write_bytes(original.replace(before, after))
-        impact.run(["dotnet", "build", project, "-m:1", "-v:q", "-p:NuGetAudit=false"], root)
+        impact.run(["dotnet", "build", project, "-m:1", "-v:q", "-p:NuGetAudit=false",
+                    "--disable-build-servers"], root)
         shadow = out / "shadow"
         shadow.mkdir()
         report = impact.select(SimpleNamespace(**common, baseline=collection / "baseline.json"), root, shadow)

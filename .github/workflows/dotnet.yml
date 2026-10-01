@@ -56,7 +56,7 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
-          fetch-depth: 0 # Compare the tested PR merge tree with the exact base SHA.
+          fetch-depth: 2 # Include both parents of the tested PR merge commit.
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6.0.0
@@ -196,30 +196,6 @@ jobs:
             --report artifacts/test-impact/shadow/selection.json --results artifacts/test-impact/full
           cat artifacts/test-impact/shadow/selection.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Collect optional method baseline
-        if: github.event_name == 'workflow_dispatch' && inputs.collect_test_impact && github.ref == 'refs/heads/main'
-        continue-on-error: true
-        timeout-minutes: 20
-        env:
-          IMPACT_SHA: ${{ github.sha }}
-          IMPACT_PROJECT: ${{ inputs.impact_project }}
-          IMPACT_MAX_METHODS: ${{ inputs.impact_max_methods }}
-          BEUTL_REQUIRE_GPU: "1"
-        run: |
-          python3 build/test-impact/impact.py collect --base "$IMPACT_SHA" --no-build \
-            --project "$IMPACT_PROJECT" --max-methods "$IMPACT_MAX_METHODS" \
-            --budget-seconds 600 --out artifacts/test-impact/collection
-          cat artifacts/test-impact/collection/collection.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Save optional method baseline
-        if: github.event_name == 'workflow_dispatch' && inputs.collect_test_impact && github.ref == 'refs/heads/main'
-        continue-on-error: true
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: TestImpactBaseline-${{ github.sha }}
-          path: artifacts/test-impact/collection/baseline.json
-          retention-days: 7
-
       # A validation error names API misuse the driver is not required to diagnose - a render pass instance
       # begun inside another, a handle submitted to a device that never created it - so a suite that runs
       # green while reporting one has already entered undefined behaviour. The layer stays off for the run
@@ -250,6 +226,30 @@ jobs:
         env:
           BEUTL_REQUIRE_GPU: "1"
           BEUTL_VULKAN_VALIDATION: "1"
+
+      - name: Collect optional method baseline
+        if: github.event_name == 'workflow_dispatch' && inputs.collect_test_impact && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          IMPACT_SHA: ${{ github.sha }}
+          IMPACT_PROJECT: ${{ inputs.impact_project }}
+          IMPACT_MAX_METHODS: ${{ inputs.impact_max_methods }}
+          BEUTL_REQUIRE_GPU: "1"
+        run: |
+          python3 build/test-impact/impact.py collect --base "$IMPACT_SHA" --no-build \
+            --project "$IMPACT_PROJECT" --max-methods "$IMPACT_MAX_METHODS" \
+            --budget-seconds 600 --out artifacts/test-impact/collection
+          cat artifacts/test-impact/collection/collection.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save optional method baseline
+        if: github.event_name == 'workflow_dispatch' && inputs.collect_test_impact && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: TestImpactBaseline-${{ github.sha }}
+          path: artifacts/test-impact/collection/baseline.json
+          retention-days: 7
 
       - name: Capture runner diagnostics after failure
         if: failure()

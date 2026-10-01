@@ -39,6 +39,8 @@ are grouped together. The collector accepts a profile only when the execution XM
 contains exactly that method, every discovered case, and only passed results.
 Skipped, failed, timed-out, changed-discovery and missing-coverage runs are left
 unprofiled, with the reason saved in `baseline.json`.
+An interrupted collection or a checkout changed during collection is not finalized
+and is rejected. A deliberately bounded, finalized partial collection is accepted.
 
 Coverlet's OpenCover output is collected **separately for each method** with
 `IncludeTestAssembly=true` and no source/attribute exclusion. This includes
@@ -140,3 +142,21 @@ cases, and writes `evidence.json`. The source edit is restored in `finally`;
 rebuild before using that checkout's smoke binary for another purpose. This tests
 the real collector/adapter, parameter grouping, source linking, selector and
 comparison without building the desktop application or loading GPU/native code.
+
+## Suite interactions remain a separate safety gate
+
+Headless UI, E2E and Graphics3D methods are **always selected**, even with complete
+isolated profiles. [Issue #2553](https://github.com/b-editor/beutl/issues/2553)
+reports seven failures out of 16 Windows headless window tests run together, while
+one failing case passes alone; the author suspects shared window-manager state,
+but the root cause is not established. [PR #2551](https://github.com/b-editor/beutl/pull/2551)
+describes ad-block test failures when scheduling load consumes short production
+timeouts. Isolated collection changes order, process lifetime and load, so it
+cannot rule out either failure mode. These references are selection policy inputs,
+not fixes to those issues.
+
+The comparison lists `isolatedPassButFullFailedMethods` as well as
+`missedFailedMethods`. Neither a selected-only pass nor zero omitted failures
+overrides a failed full run. Incomplete full results stay inconclusive. Removing
+this mandatory-suite policy would require independent evidence about suite
+interactions, not just additional per-method coverage.
