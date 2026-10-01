@@ -1,5 +1,10 @@
-﻿using Beutl.Graphics3D.Textures;
+﻿using Beutl.Composition;
+using Beutl.Graphics.Backend;
+using Beutl.Graphics3D.Textures;
 using Beutl.Media;
+using Beutl.Media.Source;
+using Moq;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
@@ -49,10 +54,112 @@ public class ImageTextureSourceUploadTests
         Assert.That(upload.GetPixelSpan<Half>().ToArray(), Is.EqualTo(source.GetPixelSpan<Half>().ToArray()));
     }
 
-    // An opaque, untagged (so sRGB) 8-bit bitmap whose x-th pixel stores x in every color channel.
-    private static Bitmap Gradient()
+    [Test]
+    public void DataUpload_KeepsSrgbStorageIn8Bits()
     {
-        var bitmap = new Bitmap(256, 1, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
+        using var source = Gradient(BitmapColorType.Srgba8888);
+
+        using Bitmap upload = ImageTextureSource.Resource.CreateUploadBitmap(source, TextureContentKind.Data);
+
+        Assert.That(upload.ColorType, Is.EqualTo(BitmapColorType.Bgra8888));
+        // Every channel holds x, so the RGBA to BGRA swap leaves the bytes as stored.
+        Assert.That(upload.GetPixelSpan<byte>().ToArray(), Is.EqualTo(source.GetPixelSpan<byte>().ToArray()));
+    }
+
+    [Test]
+    public void GetTexture_CachesOneUploadPerContentKind()
+    {
+        var (definition, context, created) = CreateSource(nameof(GetTexture_CachesOneUploadPerContentKind));
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+
+        ITexture2D? color = resource.GetTexture(context.Object);
+        ITexture2D? data = resource.GetTexture(context.Object, 1f, TextureContentKind.Data);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(color!.Format, Is.EqualTo(TextureFormat.RGBA16Float));
+            Assert.That(data!.Format, Is.EqualTo(TextureFormat.BGRA8Unorm));
+            Assert.That(resource.GetTexture(context.Object, 1f, TextureContentKind.Color), Is.SameAs(color));
+            Assert.That(resource.GetTexture(context.Object, 1f, TextureContentKind.Data), Is.SameAs(data));
+            Assert.That(created, Has.Count.EqualTo(2), "Alternating kinds must not re-upload either texture.");
+        }
+    }
+
+    [Test]
+    public void GetTexture_ReplacesBothKindsWhenTheSourceChanges()
+    {
+        var (definition, context, created) = CreateSource(nameof(GetTexture_ReplacesBothKindsWhenTheSourceChanges));
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+        resource.GetTexture(context.Object);
+        resource.GetTexture(context.Object, 1f, TextureContentKind.Data);
+
+        definition.Source.CurrentValue = Image(nameof(GetTexture_ReplacesBothKindsWhenTheSourceChanges) + "-next");
+        bool updateOnly = false;
+        resource.Update(definition, CompositionContext.Default, ref updateOnly);
+        ITexture2D? color = resource.GetTexture(context.Object);
+        ITexture2D? data = resource.GetTexture(context.Object, 1f, TextureContentKind.Data);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(created, Has.Count.EqualTo(4));
+            Assert.That(color, Is.SameAs(created[2]));
+            Assert.That(data, Is.SameAs(created[3]));
+            Assert.That(created[0].Disposed && created[1].Disposed, Is.True, "Stale uploads must be released.");
+        }
+    }
+
+    [Test]
+    public void GetTexture_ReleasesTheTextureWhenTheUploadFails()
+    {
+        bool failUploads = true;
+        var (definition, context, created) = CreateSource(
+            nameof(GetTexture_ReleasesTheTextureWhenTheUploadFails), () => failUploads);
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+
+        Assert.That(() => resource.GetTexture(context.Object), Throws.InvalidOperationException);
+        failUploads = false;
+
+        Assert.That(created.Single().Disposed, Is.True);
+        Assert.That(resource.GetTexture(context.Object), Is.SameAs(created[1]), "The next draw must retry the upload.");
+    }
+
+    private static (ImageTextureSource, Mock<IGraphicsContext>, List<FakeTexture>) CreateSource(
+        string name, Func<bool>? failUploads = null)
+    {
+        var created = new List<FakeTexture>();
+        var context = new Mock<IGraphicsContext>();
+        context.Setup(c => c.CreateTexture2D(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<TextureFormat>()))
+            .Returns((int width, int height, TextureFormat format) =>
+            {
+                var texture = new FakeTexture(width, height, format, failUploads ?? (() => false));
+                created.Add(texture);
+                return texture;
+            });
+
+        var definition = new ImageTextureSource();
+        definition.Source.CurrentValue = Image(name);
+        return (definition, context, created);
+    }
+
+    private static ImageSource Image(string name)
+    {
+        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{nameof(ImageTextureSourceUploadTests)}-{name}.png");
+        using (var bitmap = new SKBitmap(2, 2))
+        {
+            bitmap.Erase(new SKColor(128, 128, 255));
+            using SKData encoded = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+            File.WriteAllBytes(path, encoded.ToArray());
+        }
+
+        var image = new ImageSource();
+        image.ReadFrom(new Uri(path));
+        return image;
+    }
+
+    // An opaque, untagged (so sRGB) 8-bit bitmap whose x-th pixel stores x in every color channel.
+    private static Bitmap Gradient(BitmapColorType colorType = BitmapColorType.Bgra8888)
+    {
+        var bitmap = new Bitmap(256, 1, colorType, BitmapAlphaType.Premul);
         Span<byte> bytes = bitmap.GetPixelSpan<byte>();
         for (int x = 0; x < 256; x++)
         {
@@ -63,5 +170,51 @@ public class ImageTextureSourceUploadTests
         }
 
         return bitmap;
+    }
+
+    // Moq cannot intercept Upload, whose span parameter cannot be boxed.
+    private sealed class FakeTexture(int width, int height, TextureFormat format, Func<bool> failUploads) : ITexture2D
+    {
+        public bool Disposed { get; private set; }
+
+        public int Width => width;
+
+        public int Height => height;
+
+        public TextureFormat Format => format;
+
+        public IntPtr NativeHandle => IntPtr.Zero;
+
+        public IntPtr NativeViewHandle => IntPtr.Zero;
+
+        public bool RequiresSkiaFlushForBackendInterop => false;
+
+        public void Upload(ReadOnlySpan<byte> data)
+        {
+            if (failUploads())
+                throw new InvalidOperationException("Upload failed.");
+        }
+
+        public byte[] DownloadPixels() => throw new NotSupportedException();
+
+        public SKSurface CreateSkiaSurface() => throw new NotSupportedException();
+
+        public void PrepareForRender()
+        {
+        }
+
+        public void PrepareForSampling()
+        {
+        }
+
+        public void PrepareForSkiaRendering()
+        {
+        }
+
+        public void PrepareForSkiaSampling(bool requireCompletion)
+        {
+        }
+
+        public void Dispose() => Disposed = true;
     }
 }

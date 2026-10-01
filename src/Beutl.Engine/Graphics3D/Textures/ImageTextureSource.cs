@@ -60,13 +60,22 @@ public sealed partial class ImageTextureSource : TextureSource
                         ? TextureFormat.RGBA16Float
                         : TextureFormat.BGRA8Unorm);
 
-                // Upload pixel data
-                unsafe
+                // Upload pixel data; the texture reaches the cache only once it holds them, so a failed upload must
+                // release it here.
+                try
                 {
-                    var data = new ReadOnlySpan<byte>(
-                        (void*)uploadBitmap.Data,
-                        uploadBitmap.ByteCount);
-                    texture.Upload(data);
+                    unsafe
+                    {
+                        var data = new ReadOnlySpan<byte>(
+                            (void*)uploadBitmap.Data,
+                            uploadBitmap.ByteCount);
+                        texture.Upload(data);
+                    }
+                }
+                catch
+                {
+                    texture.Dispose();
+                    throw;
                 }
 
                 cached.Texture = texture;
@@ -89,6 +98,15 @@ public sealed partial class ImageTextureSource : TextureSource
         {
             if (contentKind == TextureContentKind.Data)
             {
+                if (source.ColorType == BitmapColorType.Srgba8888)
+                {
+                    // Srgba8888 decodes sRGB when read, so read its stored bytes as plain Rgba8888 instead.
+                    using var stored = new Bitmap(
+                        source.Data, source.Width, source.Height, source.RowBytes,
+                        BitmapColorType.Rgba8888, source.AlphaType, source.ColorSpace);
+                    return stored.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul);
+                }
+
                 return source.Convert(
                     HasAtMost8BitsPerChannel(source.ColorType) ? BitmapColorType.Bgra8888 : BitmapColorType.RgbaF16,
                     BitmapAlphaType.Unpremul,
