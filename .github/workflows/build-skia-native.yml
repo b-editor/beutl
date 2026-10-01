@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: Build libSkiaSharp
 
 on:
@@ -21,16 +23,16 @@ jobs:
         rid: ${{ fromJSON(inputs.rids) }}
     runs-on: ${{ matrix.rid == 'linux-arm64' && 'ubuntu-22.04-arm' || startsWith(matrix.rid, 'win-') && 'windows-latest' || 'ubuntu-22.04' }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Restore native binary cache
         id: cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6.1.0
         with:
           path: native/SkiaSharp/artifacts/runtimes/${{ matrix.rid }}
-          key: skia-native-v1-${{ runner.os }}-${{ matrix.rid }}-${{ hashFiles('native/SkiaSharp/source.json', 'native/SkiaSharp/build.py', 'native/SkiaSharp/vulkan-image-layout.patch', 'native/SkiaSharp/libSkiaSharp.map') }}
+          key: skia-native-v1-${{ runner.os }}-${{ matrix.rid }}-${{ hashFiles('native/SkiaSharp/source.json', 'native/SkiaSharp/build.py', 'native/SkiaSharp/patches.py', 'native/SkiaSharp/vulkan-image-layout.patch', 'native/SkiaSharp/libSkiaSharp.map') }}-${{ startsWith(matrix.rid, 'linux-') && hashFiles('native/SkiaSharp/fontconfig-missing-family.patch') || 'no-fontconfig' }}
 
       - name: Install Linux build dependencies
         if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Linux'
@@ -57,8 +59,12 @@ jobs:
       - name: Verify native runtime
         run: python3 native/SkiaSharp/verify.py --rid ${{ matrix.rid }} --native-root native/SkiaSharp/artifacts
 
+      - name: Test Fontconfig initialization
+        if: runner.os == 'Linux'
+        run: python3 native/SkiaSharp/test_fontconfig.py --native-root native/SkiaSharp/artifacts -v
+
       - name: Upload native runtime
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ${{ inputs.artifact-prefix }}-${{ matrix.rid }}
           path: native/SkiaSharp/artifacts/

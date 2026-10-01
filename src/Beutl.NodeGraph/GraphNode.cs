@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Engine;
@@ -7,7 +8,6 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Composition;
 using Beutl.Serialization;
-using Beutl.Utilities;
 
 namespace Beutl.NodeGraph;
 
@@ -375,14 +375,10 @@ public abstract partial class GraphNode : EngineObject
             return;
         }
         base.Deserialize(context);
-        if (context.GetValue<string>(nameof(Position)) is { } posStr)
+        if (context.GetValue<string>(nameof(Position)) is { } posStr
+            && TryParsePosition(posStr, out var position))
         {
-            var tokenizer = new RefStringTokenizer(posStr);
-            if (tokenizer.TryReadDouble(out double x)
-                && tokenizer.TryReadDouble(out double y))
-            {
-                Position = (x, y);
-            }
+            Position = position;
         }
 
         if (context.GetValue<JsonArray>(nameof(Items)) is { } itemsArray)
@@ -412,11 +408,28 @@ public abstract partial class GraphNode : EngineObject
     {
         _nestedPortManager.EnsureSynchronized(force: true);
         base.Serialize(context);
-        context.SetValue(nameof(Position), $"{Position.X},{Position.Y}");
+        context.SetValue(nameof(Position), string.Create(CultureInfo.InvariantCulture, $"{Position.X:R},{Position.Y:R}"));
 
         context.SetValue(nameof(Items), Items);
         if (_nestedInputPorts.Count > 0)
             context.SetValue(nameof(NestedInputPorts), _nestedInputPorts);
+    }
+
+    internal static bool TryParsePosition(string value, out (double X, double Y) position)
+    {
+        position = default;
+        ReadOnlySpan<char> span = value.AsSpan();
+        int separator = span.IndexOf(',');
+        // Older invariant-culture saves use the same two-field format. A comma-decimal save
+        // can have more fields, but its original coordinates cannot be inferred reliably.
+        if (separator < 0 || span[(separator + 1)..].Contains(',')) return false;
+
+        if (!double.TryParse(span[..separator], NumberStyles.Float, CultureInfo.InvariantCulture, out double x)
+            || !double.TryParse(span[(separator + 1)..], NumberStyles.Float, CultureInfo.InvariantCulture, out double y)
+            || !double.IsFinite(x) || !double.IsFinite(y)) return false;
+
+        position = (x, y);
+        return true;
     }
 
     public partial class Resource

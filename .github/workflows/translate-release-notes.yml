@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: Translate Release Notes
 
 on:
@@ -119,7 +121,7 @@ jobs:
 
       - name: Upload the notes for opencode
         if: steps.state.outputs.mode == 'translate'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: translation-input
           path: translation-input.md
@@ -135,7 +137,7 @@ jobs:
     permissions: {}
     steps:
       - name: Download the notes
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: translation-input
           path: ${{ runner.temp }}/input
@@ -195,7 +197,7 @@ jobs:
           fi
 
       - name: Upload the translation
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: translation
           path: ${{ runner.temp }}/opencode/translation.md
@@ -216,7 +218,7 @@ jobs:
 
       - name: Download the translation
         if: steps.state.outputs.mode == 'translate' && needs.translate.result == 'success'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: translation
           path: ${{ runner.temp }}/translation

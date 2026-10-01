@@ -31,7 +31,7 @@ public class BrowserAdBlockTests
     [Test]
     public void PartyConstraintsUseFetchMetadataAndDoNotGuessSharedSuffixes()
     {
-        var rules = BrowserAdBlockRules.Parse("||ads.example.co.jp^$third-party");
+        var rules = BrowserAdBlockTestRules.Parse("||ads.example.co.jp^$third-party");
         var request = new Uri("https://ads.example.co.jp/banner.js");
         var page = new Uri("https://www.example.co.jp/");
         Assert.That(rules.ShouldBlock(request, page, "script", isThirdParty: false), Is.False);
@@ -41,20 +41,23 @@ public class BrowserAdBlockTests
 
     [TestCase("https://ads.example.com/banner.js", true)]
     [TestCase("https://cdn.ads.example.com/banner.js", true)]
+    [TestCase("https://nested.cdn.ads.example.com/banner.js", true)]
     [TestCase("https://notads.example.com/banner.js", false)]
     [TestCase("https://ads.example.com.evil.test/banner.js", false)]
     [TestCase("https://safe.test/?url=https://ads.example.com/banner.js", false)]
     [TestCase("https://ads.example.com/allowed.js", false)]
+    [TestCase("https://cdn.ads.example.com/allowed.js", false)]
+    [TestCase("https://cdn.ads.example.com/allowed.js?extra=1", true)]
     public void NetworkRulesRespectHostBoundariesAndExceptions(string url, bool blocked)
     {
-        var rules = BrowserAdBlockRules.Parse("||ads.example.com^\n@@||ads.example.com/allowed.js|");
+        var rules = BrowserAdBlockTestRules.Parse("||ads.example.com^\n@@||ads.example.com/allowed.js|");
         Assert.That(rules.ShouldBlock(new Uri(url), new Uri("https://publisher.test/"), "script"), Is.EqualTo(blocked));
     }
 
     [Test]
     public void OptionsArePreservedAndUnknownRestrictionsAreNotBroadened()
     {
-        var rules = BrowserAdBlockRules.Parse("/banner*$script,domain=publisher.test\n||assets.test^$redirect=noopjs\n@@||ads.test^$unknown-option\nexample.test##+js(remove,ad)");
+        var rules = BrowserAdBlockTestRules.Parse("/banner*$script,domain=publisher.test\n||assets.test^$redirect=noopjs\n@@||ads.test^$unknown-option\nexample.test##+js(remove,ad)");
         Assert.That(rules.ShouldBlock(new Uri("https://cdn.test/banner.js"), new Uri("https://publisher.test/"), "script"), Is.True);
         Assert.That(rules.ShouldBlock(new Uri("https://cdn.test/banner.png"), new Uri("https://publisher.test/"), "image"), Is.False);
         Assert.That(rules.ShouldBlock(new Uri("https://cdn.test/banner.js"), new Uri("https://other.test/"), "script"), Is.False);

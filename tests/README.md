@@ -64,8 +64,20 @@ and required Vulkan exports with `python3 native/SkiaSharp/verify.py`. The ELF/P
 libraries, so all four runtimes can be verified on any host. macOS continues to use Skia's Metal backend
 and the upstream package.
 
-When updating `native/SkiaSharp/source.json` or the patch, rebuild all four runtimes with the manual
-`Build libSkiaSharp` workflow. Extract each artifact's `runtimes/` directory into `src/Beutl.Engine/`,
+Linux also applies `native/SkiaSharp/fontconfig-missing-family.patch`, which stops family enumeration
+when Fontconfig returns `FcResultNoMatch` for a missing `family` property (for example, some WOFF
+fonts). Each Linux manifest records this patch separately; the Windows runtimes do not use it.
+`python3 native/SkiaSharp/test_fontconfig.py -v` checks the real native font manager in subprocesses
+with a 20-second timeout, using isolated Fontconfig configurations and the existing test fonts.
+It covers missing families mixed with usable fonts, only missing families, and normal family aliases
+and deduplication. It also checks that the listed families can still create typefaces. No system fonts
+or configuration are changed. The native Linux build workflow runs these checks for both architectures,
+and the ordinary .NET workflow includes them in Python test discovery.
+
+When updating `native/SkiaSharp/source.json` or the Vulkan patch, rebuild all four runtimes with the manual
+`Build libSkiaSharp` workflow. For the Fontconfig patch, select only `["linux-x64", "linux-arm64"]`
+in the workflow's `rids` input.
+Extract each artifact's `runtimes/` directory into `src/Beutl.Engine/`,
 run the verification script, and commit the binaries together with their `build.json` and notices.
 To rebuild locally on Linux, install `clang`, `lld`, `ninja-build`, `libfontconfig1-dev`,
 `libgl1-mesa-dev` and `libegl1-mesa-dev`, then run `python3 native/SkiaSharp/build.py --rid linux-x64`
