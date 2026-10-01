@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: Daily build
 on:
   schedule:
@@ -16,13 +18,13 @@ jobs:
         rid: [linux_x64, win_x64, win_arm64, osx_x64, osx_arm64]
     steps:
     - name: Checkout
-      uses: actions/checkout@v7
+      uses: actions/checkout@v7.0.1
       with:
         submodules: recursive
         persist-credentials: false
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v6
+      uses: actions/setup-dotnet@v6.0.0
       with:
         global-json-file: global.json
 
@@ -51,7 +53,7 @@ jobs:
           --version ${{ needs.determine-version.outputs.nugetVer }}
 
     - name: Save
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@v7.0.1
       with:
         name: beutl_${{ matrix.rid }}
         path: ./artifacts/

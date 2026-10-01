@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: Release
 
 on:
@@ -82,37 +84,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download executable artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           run-id: ${{ needs.build-executable.outputs.artifact-run-id }}
           path: artifacts
 
       - name: Download Windows installer artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           run-id: ${{ needs.build-windows-installer.outputs.artifact-run-id }}
           path: artifacts
 
       - name: Download Debian package artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           run-id: ${{ needs.build-debian-package.outputs.artifact-run-id }}
           path: artifacts
 
       - name: Download Flatpak artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           run-id: ${{ needs.build-flatpak-package.outputs.artifact-run-id }}
           path: artifacts
 
       - name: Download macOS app artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           run-id: ${{ needs.build-app-bundle.outputs.artifact-run-id }}
           path: artifacts
 
       - name: Download NuGet artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           run-id: ${{ needs.build-nuget.outputs.artifact-run-id }}
           path: artifacts
@@ -120,7 +122,7 @@ jobs:
       - name: Print
         run: ls artifacts
 
-      - uses: ncipollo/release-action@v1
+      - uses: ncipollo/release-action@v1.21.0
         id: create_release
         with:
           artifacts: "artifacts/**/*.zip,artifacts/**/*.deb,artifacts/**/*.flatpak,artifacts/beutl-setup/beutl-setup.exe,artifacts/beutl-standalone-setup/beutl-standalone-setup.exe,artifacts/beutl-arm64-setup/beutl-arm64-setup.exe,artifacts/beutl-standalone-arm64-setup/beutl-standalone-arm64-setup.exe"

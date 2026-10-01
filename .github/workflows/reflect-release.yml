@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: Reflect Release to beutl-reflect-release
 
 on:
@@ -24,7 +26,7 @@ jobs:
 
       - name: Get OIDC token
         id: oidc
-        uses: actions/github-script@v9
+        uses: actions/github-script@v9.0.0
         with:
           script: |
             const token = await core.getIDToken('https://github.com/b-editor/beutl');

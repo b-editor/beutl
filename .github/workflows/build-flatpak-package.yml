@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: Build Flatpak Package
 
 on:
@@ -30,7 +32,7 @@ jobs:
         run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Install flatpak toolchain
         run: |
@@ -40,7 +42,7 @@ jobs:
             https://flathub.org/repo/flathub.flatpakrepo
 
       - name: Cache Flatpak runtimes and builder cache
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: |
             ~/.local/share/flatpak
@@ -50,7 +52,7 @@ jobs:
             flatpak-${{ runner.os }}-
 
       - name: Download Linux executable artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: beutl-linux_x64-standalone-${{ inputs.semVer }}
           path: artifacts
@@ -115,7 +117,7 @@ jobs:
             net.beditor.Beutl
 
       - name: Upload Flatpak artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: beutl-flatpak-${{ inputs.semVer }}
           path: ${{ github.workspace }}/artifacts/Beutl-${{ inputs.semVer }}.flatpak
