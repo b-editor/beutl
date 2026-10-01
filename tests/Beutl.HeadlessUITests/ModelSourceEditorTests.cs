@@ -117,20 +117,26 @@ public class ModelSourceEditorTests
             string invalid = Path.Combine(directory, "truncated.glb");
             File.WriteAllText(valid, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
             File.WriteAllText(invalid, "glTF");
-            var model = new Model3D();
-            using var history = new HistoryManager(model, new OperationSequenceGenerator());
-            using var vm = new ModelSourceEditorViewModel(new EnginePropertyAdapter<ModelSource?>(model.Source, model));
-            vm.Accept(new Services(history));
-            var view = new ModelSourceEditor { DataContext = vm };
-            var editor = view.FindControl<StorageFileEditor>("FileEditor")!;
+            var (model, vm, view, editor) = CreateEditor();
+            using var _ = vm;
             var message = view.FindControl<TextBlock>("message")!;
+            using var started = new SemaphoreSlim(0);
+            using var releaseInvalid = new ManualResetEventSlim();
+            Func<Uri, ModelSource> read = view.ReadModel;
+            view.ReadModel = uri =>
+            {
+                started.Release();
+                if (uri.LocalPath == invalid) releaseInvalid.Wait();
+                return read(uri);
+            };
 
-            editor.Value = new FileInfo(invalid);
-            editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, null, PropertyEditor.ValueConfirmedEvent));
+            Confirm(editor, invalid);
             Task first = view.LoadingTask;
-            editor.Value = new FileInfo(valid);
-            editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, null, PropertyEditor.ValueConfirmedEvent));
-            await Task.WhenAll(first, view.LoadingTask);
+            await started.WaitAsync();
+            Confirm(editor, valid);
+            Task second = view.LoadingTask;
+            releaseInvalid.Set();
+            await Task.WhenAll(first, second);
 
             Assert.Multiple(() =>
             {
@@ -140,6 +146,64 @@ public class ModelSourceEditorTests
             });
         }
         finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Clearing_the_file_or_switching_the_target_cancels_a_pending_load(bool switchTarget)
+    {
+        string directory = Directory.CreateTempSubdirectory("model-editor-cancel-").FullName;
+        try
+        {
+            string valid = Path.Combine(directory, "triangle.obj");
+            File.WriteAllText(valid, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+            var (model, vm, view, editor) = CreateEditor();
+            using var _ = vm;
+            var progress = view.FindControl<ProgressBar>("progress")!;
+            using var release = new ManualResetEventSlim();
+            Func<Uri, ModelSource> read = view.ReadModel;
+            view.ReadModel = uri =>
+            {
+                release.Wait();
+                return read(uri);
+            };
+
+            Confirm(editor, valid);
+            Assert.That(progress.IsVisible, Is.True);
+            var (other, otherVm, _, _) = CreateEditor();
+            using var __ = otherVm;
+            if (switchTarget)
+                view.DataContext = otherVm;
+            else
+                editor.Value = null;
+            Assert.That(progress.IsVisible, Is.False);
+
+            release.Set();
+            await view.LoadingTask;
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.Source.CurrentValue, Is.Null);
+                Assert.That(other.Source.CurrentValue, Is.Null);
+                Assert.That(progress.IsVisible, Is.False);
+            });
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    private static (Model3D Model, ModelSourceEditorViewModel Vm, ModelSourceEditor View, StorageFileEditor Editor) CreateEditor()
+    {
+        var model = new Model3D();
+        var vm = new ModelSourceEditorViewModel(new EnginePropertyAdapter<ModelSource?>(model.Source, model));
+        vm.Accept(new Services(new HistoryManager(model, new OperationSequenceGenerator())));
+        var view = new ModelSourceEditor { DataContext = vm };
+        return (model, vm, view, view.FindControl<StorageFileEditor>("FileEditor")!);
+    }
+
+    private static void Confirm(StorageFileEditor editor, string path)
+    {
+        editor.Value = new FileInfo(path);
+        editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, null, PropertyEditor.ValueConfirmedEvent));
     }
 
     private sealed record Services(HistoryManager History) : IServiceProvider, IPropertyEditorContextVisitor
