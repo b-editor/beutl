@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Threading;
 using Beutl.Utilities;
 
 namespace Beutl.Animation;
@@ -7,46 +8,21 @@ namespace Beutl.Animation;
 // https://github.com/AvaloniaUI/Avalonia/blob/d3b21f589389b8bedfa75ed06d546658745e2089/src/Avalonia.Animation/KeySpline.cs#L20
 public class KeySpline
 {
-    // コントロールポイント
-    private float _controlPointX1;
-    private float _controlPointY1;
-    private float _controlPointX2;
-    private float _controlPointY2;
-    private bool _isSpecified;
-    private bool _isDirty;
-
-    // The parameter that corresponds to the most recent time
-    private float _parameter;
-
-    // Cached coefficients
-    private float _bx;        // 3*points[0].X
-    private float _cx;        // 3*points[1].X
-    private float _cx_bx;     // 2*(Cx - Bx)
-    private float _three_Cx;  // 3 - Cx
-
-    private float _by;        // 3*points[0].Y
-    private float _cy;        // 3*points[1].Y
+    // Evaluations use one immutable set of control points and coefficients.
+    private readonly Lock _updateLock = new();
+    private SplineState _state;
 
     // constants
     private const float Accuracy = 0.001f;   // 1/3 the desired accuracy in X
     private const float Fuzz = 0.000001f;    // computational zero
 
-    public KeySpline()
+    public KeySpline() : this(0, 0, 1, 1)
     {
-        _controlPointX1 = 0.0f;
-        _controlPointY1 = 0.0f;
-        _controlPointX2 = 1.0f;
-        _controlPointY2 = 1.0f;
-        _isDirty = true;
     }
 
     public KeySpline(float x1, float y1, float x2, float y2)
     {
-        _controlPointX1 = x1;
-        _controlPointY1 = y1;
-        _controlPointX2 = x2;
-        _controlPointY2 = y2;
-        _isDirty = true;
+        _state = new SplineState(x1, y1, x2, y2);
     }
 
     public static bool TryParse(string s, [NotNullWhen(true)] out KeySpline? keySpline, IFormatProvider? provider = null)
@@ -84,112 +60,93 @@ public class KeySpline
 
     public float ControlPointX1
     {
-        get => _controlPointX1;
+        get => Volatile.Read(ref _state).ControlPointX1;
         set
         {
-            if (IsValidXValue(value))
-            {
-                _controlPointX1 = value;
-                _isDirty = true;
-            }
-            else
+            if (!IsValidXValue(value))
             {
                 throw new ArgumentException("Invalid KeySpline X1 value. Must be >= 0.0 and <= 1.0.");
+            }
+
+            lock (_updateLock)
+            {
+                SplineState state = _state;
+                Volatile.Write(ref _state,
+                    new SplineState(value, state.ControlPointY1, state.ControlPointX2, state.ControlPointY2));
             }
         }
     }
 
     public float ControlPointY1
     {
-        get => _controlPointY1;
+        get => Volatile.Read(ref _state).ControlPointY1;
         set
         {
-            _controlPointY1 = value;
-            _isDirty = true;
+            lock (_updateLock)
+            {
+                SplineState state = _state;
+                Volatile.Write(ref _state,
+                    new SplineState(state.ControlPointX1, value, state.ControlPointX2, state.ControlPointY2));
+            }
         }
     }
 
     public float ControlPointX2
     {
-        get => _controlPointX2;
+        get => Volatile.Read(ref _state).ControlPointX2;
         set
         {
-            if (IsValidXValue(value))
-            {
-                _controlPointX2 = value;
-                _isDirty = true;
-            }
-            else
+            if (!IsValidXValue(value))
             {
                 throw new ArgumentException("Invalid KeySpline X2 value. Must be >= 0.0 and <= 1.0.");
+            }
+
+            lock (_updateLock)
+            {
+                SplineState state = _state;
+                Volatile.Write(ref _state,
+                    new SplineState(state.ControlPointX1, state.ControlPointY1, value, state.ControlPointY2));
             }
         }
     }
 
     public float ControlPointY2
     {
-        get => _controlPointY2;
+        get => Volatile.Read(ref _state).ControlPointY2;
         set
         {
-            _controlPointY2 = value;
-            _isDirty = true;
+            lock (_updateLock)
+            {
+                SplineState state = _state;
+                Volatile.Write(ref _state,
+                    new SplineState(state.ControlPointX1, state.ControlPointY1, state.ControlPointX2, value));
+            }
         }
     }
 
     public float GetSplineProgress(float linearProgress)
     {
-        if (_isDirty)
-        {
-            Build();
-        }
-
-        if (!_isSpecified)
+        SplineState state = Volatile.Read(ref _state);
+        if (!state.IsSpecified)
         {
             return linearProgress;
         }
         else
         {
-            SetParameterFromX(linearProgress);
-
-            return GetBezierValue(_by, _cy, _parameter);
+            float parameter = GetParameterFromX(state, linearProgress);
+            return GetBezierValue(state.By, state.Cy, parameter);
         }
     }
 
     public bool IsValid()
     {
-        return IsValidXValue(_controlPointX1) && IsValidXValue(_controlPointX2);
+        SplineState state = Volatile.Read(ref _state);
+        return IsValidXValue(state.ControlPointX1) && IsValidXValue(state.ControlPointX2);
     }
 
     private static bool IsValidXValue(float value)
     {
         return value >= 0.0f && value <= 1.0f;
-    }
-
-    private void Build()
-    {
-        if (_controlPointX1 == 0 && _controlPointY1 == 0 && _controlPointX2 == 1 && _controlPointY2 == 1)
-        {
-            // This KeySpline would have no effect on the progress.
-            _isSpecified = false;
-        }
-        else
-        {
-            _isSpecified = true;
-
-            _parameter = 0;
-
-            // X coefficients
-            _bx = 3 * _controlPointX1;
-            _cx = 3 * _controlPointX2;
-            _cx_bx = 2 * (_cx - _bx);
-            _three_Cx = 3 - _cx;
-
-            // Y coefficients
-            _by = 3 * _controlPointY1;
-            _cy = 3 * _controlPointY2;
-        }
-
-        _isDirty = false;
     }
 
     private static float GetBezierValue(float b, float c, float t)
@@ -200,29 +157,30 @@ public class KeySpline
         return b * t * s * s + c * t2 * s + t2 * t;
     }
 
-    private void GetXAndDx(float t, out float x, out float dx)
+    private static void GetXAndDx(SplineState state, float t, out float x, out float dx)
     {
         float s = 1.0f - t;
         float t2 = t * t;
         float s2 = s * s;
 
-        x = _bx * t * s2 + _cx * t2 * s + t2 * t;
-        dx = _bx * s2 + _cx_bx * s * t + _three_Cx * t2;
+        x = state.Bx * t * s2 + state.Cx * t2 * s + t2 * t;
+        dx = state.Bx * s2 + state.CxBx * s * t + state.ThreeCx * t2;
     }
 
-    private void SetParameterFromX(float time)
+    private static float GetParameterFromX(SplineState state, float time)
     {
         // Dynamic search interval to clamp with
         float bottom = 0;
         float top = 1;
+        float parameter = 0;
 
         if (time == 0)
         {
-            _parameter = 0;
+            return 0;
         }
         else if (time == 1)
         {
-            _parameter = 1;
+            return 1;
         }
         else
         {
@@ -230,17 +188,17 @@ public class KeySpline
             while (top - bottom > Fuzz)
             {
                 // Get x and dx/dt at the current parameter
-                GetXAndDx(_parameter, out float x, out float dx);
+                GetXAndDx(state, parameter, out float x, out float dx);
                 float absdx = MathF.Abs(dx);
 
                 // Clamp down the search interval, relying on the monotonicity of X(t)
                 if (x > time)
                 {
-                    top = _parameter;      // because parameter > solution
+                    top = parameter;      // because parameter > solution
                 }
                 else
                 {
-                    bottom = _parameter;  // because parameter < solution
+                    bottom = parameter;  // because parameter < solution
                 }
 
                 // The desired accuracy is in ultimately in y, not in x, so the
@@ -254,28 +212,62 @@ public class KeySpline
                 if (absdx > Fuzz)
                 {
                     // Nonzero derivative, use Newton-Raphson to obtain the next guess
-                    float next = _parameter - (x - time) / dx;
+                    float next = parameter - (x - time) / dx;
 
                     // If next guess is out of the search interval then clamp it in
                     if (next >= top)
                     {
-                        _parameter = (_parameter + top) / 2;
+                        parameter = (parameter + top) / 2;
                     }
                     else if (next <= bottom)
                     {
-                        _parameter = (_parameter + bottom) / 2;
+                        parameter = (parameter + bottom) / 2;
                     }
                     else
                     {
                         // Next guess is inside the search interval, accept it
-                        _parameter = next;
+                        parameter = next;
                     }
                 }
                 else    // Zero derivative, halve the search interval
                 {
-                    _parameter = (bottom + top) / 2;
+                    parameter = (bottom + top) / 2;
                 }
             }
         }
+
+        return parameter;
+    }
+
+    private sealed class SplineState
+    {
+        public SplineState(float x1, float y1, float x2, float y2)
+        {
+            ControlPointX1 = x1;
+            ControlPointY1 = y1;
+            ControlPointX2 = x2;
+            ControlPointY2 = y2;
+            IsSpecified = x1 != 0 || y1 != 0 || x2 != 1 || y2 != 1;
+
+            // Cache the coefficients together with the control points.
+            Bx = 3 * x1;
+            Cx = 3 * x2;
+            CxBx = 2 * (Cx - Bx);
+            ThreeCx = 3 - Cx;
+            By = 3 * y1;
+            Cy = 3 * y2;
+        }
+
+        public float ControlPointX1 { get; }
+        public float ControlPointY1 { get; }
+        public float ControlPointX2 { get; }
+        public float ControlPointY2 { get; }
+        public bool IsSpecified { get; }
+        public float Bx { get; }
+        public float Cx { get; }
+        public float CxBx { get; }
+        public float ThreeCx { get; }
+        public float By { get; }
+        public float Cy { get; }
     }
 }

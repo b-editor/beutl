@@ -72,6 +72,84 @@ public class KeySplineTests
     }
 
     [Test]
+    public void GetSplineProgress_ConcurrentCallersReceiveTheirOwnProgress()
+    {
+        var keySpline = new KeySpline(1f / 3, 0f, 2f / 3, 1f);
+        int mismatches = 0;
+
+        for (int run = 0; run < 3; run++)
+        {
+            using var barrier = new Barrier(2);
+            void Evaluate(float progress)
+            {
+                float expected = 3 * progress * progress - 2 * progress * progress * progress;
+                barrier.SignalAndWait();
+                for (int i = 0; i < 100_000; i++)
+                {
+                    if (MathF.Abs(keySpline.GetSplineProgress(progress) - expected) > 0.001f)
+                    {
+                        Interlocked.Increment(ref mismatches);
+                    }
+                }
+            }
+
+            Parallel.Invoke(() => Evaluate(0.25f), () => Evaluate(0.5f));
+        }
+
+        Assert.That(mismatches, Is.Zero);
+    }
+
+    [Test]
+    public void GetSplineProgress_UsesUpdatedControlPoints()
+    {
+        var keySpline = new KeySpline(1f / 3, 0f, 2f / 3, 1f);
+
+        Assert.That(keySpline.GetSplineProgress(0.25f), Is.EqualTo(0.15625f).Within(0.001f));
+
+        keySpline.ControlPointY1 = 1f;
+        Assert.That(keySpline.GetSplineProgress(0.25f), Is.EqualTo(0.578125f).Within(0.001f));
+
+        keySpline.ControlPointY1 = 0f;
+        keySpline.ControlPointX1 = 0f;
+        keySpline.ControlPointX2 = 1f;
+        Assert.That(keySpline.GetSplineProgress(0.25f), Is.EqualTo(0.25f));
+    }
+
+    [Test]
+    public void GetSplineProgress_ConcurrentUpdatesUseCompleteCoefficients()
+    {
+        var keySpline = new KeySpline(1f / 3, 0f, 2f / 3, 1f);
+        int mismatches = 0;
+
+        using var barrier = new Barrier(2);
+        Parallel.Invoke(
+            () =>
+            {
+                barrier.SignalAndWait();
+                for (int i = 0; i < 50_000; i++)
+                {
+                    keySpline.ControlPointY1 = i % 2;
+                }
+            },
+            () =>
+            {
+                barrier.SignalAndWait();
+                for (int i = 0; i < 50_000; i++)
+                {
+                    float actual = keySpline.GetSplineProgress(0.25f);
+                    if (MathF.Abs(actual - 0.15625f) > 0.001f
+                        && MathF.Abs(actual - 0.578125f) > 0.001f)
+                    {
+                        Interlocked.Increment(ref mismatches);
+                    }
+                }
+            });
+
+        Assert.That(mismatches, Is.Zero);
+        Assert.That(keySpline.GetSplineProgress(0.25f), Is.EqualTo(0.578125f).Within(0.001f));
+    }
+
+    [Test]
     public void IsValid_ShouldReturnTrueForValidControlPoints()
     {
         var keySpline = new KeySpline(0.1f, 0.2f, 0.3f, 0.4f);

@@ -68,7 +68,7 @@ public class SplineEasing : Easing
 
     public override bool TryGetOutputRange(out float minimum, out float maximum)
     {
-        // KeySpline.Build caches 3*Y1 and 3*Y2. Finite control points can still overflow those
+        // KeySpline caches 3*Y1 and 3*Y2. Finite control points can still overflow those
         // coefficients, in which case Ease may produce a non-finite value despite a finite hull.
         float bx = 3f * X1;
         float cx = 3f * X2;
