@@ -37,6 +37,20 @@ public class BrowserAdBlockMatchingBudgetTests
             Is.EqualTo(blocked));
     }
 
+    [TestCase(9.999, true)]
+    [TestCase(10, false)]
+    [TestCase(10.001, false)]
+    public void RequestMatchDeadlineDiscardsMatchesCompletedAtOrAfterTenMilliseconds(double elapsedMilliseconds, bool blocked)
+    {
+        var request = new Uri("http://a/");
+        // Keep time frozen through five URL-index checks, the exception pass, and the
+        // pre-match check for this single unindexed rule. Advance after the blocking regex.
+        var clock = new ElapsedTimeProvider(TimeSpan.FromMilliseconds(elapsedMilliseconds), checksBeforeElapsed: 7);
+        var rules = BrowserAdBlockTestRules.Parse("||a^", clock);
+
+        Assert.That(rules.ShouldBlock(request, null, "script"), Is.EqualTo(blocked));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void RepeatedRegexTimeoutsAbortTheWholeDecisionInsteadOfKeepingAPartialBlock(bool freezeRequestClock)
@@ -56,15 +70,16 @@ public class BrowserAdBlockMatchingBudgetTests
         });
     }
 
-    private sealed class ElapsedTimeProvider(TimeSpan elapsed) : TimeProvider
+    private sealed class ElapsedTimeProvider(TimeSpan elapsed, int checksBeforeElapsed = 0) : TimeProvider
     {
         private bool _started;
+        private int _checksBeforeElapsed = checksBeforeElapsed;
 
         public override long TimestampFrequency => TimeSpan.TicksPerSecond;
 
         public override long GetTimestamp()
         {
-            if (_started) return TimeSpan.TicksPerSecond + elapsed.Ticks;
+            if (_started && _checksBeforeElapsed-- <= 0) return TimeSpan.TicksPerSecond + elapsed.Ticks;
             _started = true;
             return TimeSpan.TicksPerSecond;
         }
