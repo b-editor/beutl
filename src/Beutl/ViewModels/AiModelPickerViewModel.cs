@@ -4,11 +4,11 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Beutl.Api.Services;
+using Beutl.Helpers;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
-using ReactiveUI.Avalonia;
 
 namespace Beutl.ViewModels;
 
@@ -87,7 +87,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
             .DisposeWith(_disposables);
         Label = Strings.AiModel;
         Observable
-            .Interval(s_reloadInterval, AvaloniaScheduler.Instance)
+            .Interval(s_reloadInterval, UiThreadScheduler.Instance)
             .Subscribe(_ => ReloadOnSchedule())
             .DisposeWith(_disposables);
     }

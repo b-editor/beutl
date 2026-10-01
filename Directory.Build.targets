@@ -1,6 +1,13 @@
 <Project>
   <Import Project="$(MSBuildThisFileDirectory)native/SkiaSharp/Beutl.Engine.targets" />
 
+  <!-- ReactiveUI imports its binding extensions transitively, but Beutl uses System.Reactive.
+       Keep Switch() unambiguous in the application and projects that reference it. -->
+  <ItemGroup>
+    <Using Remove="ReactiveUI.Binding.Reactive" />
+    <Using Remove="ReactiveUI.Binding.Reactive.ObservableForProperty" />
+  </ItemGroup>
+
   <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>NuGetVersion</_Parameter1>

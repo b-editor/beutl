@@ -7,7 +7,7 @@ using Beutl.Configuration;
 using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
 using Beutl.Services;
-using ReactiveUI.Avalonia;
+using ReactiveUI.Avalonia.Reactive;
 
 namespace Beutl;
 
@@ -67,7 +67,7 @@ internal static class Program
     {
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .UseReactiveUI(_ => { })
+            .UseReactiveUI(builder => builder.WithMainThreadScheduler(UiThreadScheduler.Instance))
             .With(new Win32PlatformOptions()
             {
                 WinUICompositionBackdropCornerRadius = 8f

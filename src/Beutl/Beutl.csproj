@@ -61,7 +61,7 @@
     <PackageReference Include="PanAndZoom" />
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Condition="'$(Configuration)' == 'Debug'" />
-    <PackageReference Include="ReactiveUI.Avalonia" />
+    <PackageReference Include="ReactiveUI.Avalonia.Reactive" />
     <PackageReference Include="Svg.Controls.Skia.Avalonia" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Xaml.Behaviors.Avalonia" />
