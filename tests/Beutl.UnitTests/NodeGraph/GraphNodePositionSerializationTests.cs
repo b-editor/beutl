@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Utilities;
@@ -22,6 +22,11 @@ public class GraphNodePositionSerializationTests
             Assert.That(json["Nodes"]![0]!["Position"]!.GetValue<string>(), Is.EqualTo("120.5,80.25"));
             Assert.That(RestoreGraph(json, unavailable: false).Nodes[0].Position, Is.EqualTo((120.5, 80.25)));
             Assert.That(RestoreGraph(json, unavailable: true).Nodes[0].Position, Is.EqualTo((120.5, 80.25)));
+
+            const double preciseX = 1.2345678901234567;
+            JsonObject preciseJson = CreateGraphJson((preciseX, 80.25));
+            Assert.That(RestoreGraph(preciseJson, unavailable: false).Nodes[0].Position.X, Is.EqualTo(preciseX));
+            Assert.That(RestoreGraph(preciseJson, unavailable: true).Nodes[0].Position.X, Is.EqualTo(preciseX));
         }
         finally
         {
