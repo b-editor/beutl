@@ -190,13 +190,13 @@ public sealed partial class PBRMaterial : Material3D
             var renderPass = context.RenderPass;
             var graphicsContext = context.GraphicsContext;
 
-            // Determine which textures are available
+            // Determine which textures are available. Normal, metallic-roughness and AO maps hold raw values, not colors.
             int textureFlags = 0;
             ITexture2D? albedoTex = AlbedoMap?.GetTexture(graphicsContext, context.SurfaceDensity);
-            ITexture2D? normalTex = NormalMap?.GetTexture(graphicsContext, context.SurfaceDensity);
-            ITexture2D? metallicRoughnessTex = MetallicRoughnessMap?.GetTexture(graphicsContext, context.SurfaceDensity);
+            ITexture2D? normalTex = NormalMap?.GetTexture(graphicsContext, context.SurfaceDensity, TextureContentKind.Data);
+            ITexture2D? metallicRoughnessTex = MetallicRoughnessMap?.GetTexture(graphicsContext, context.SurfaceDensity, TextureContentKind.Data);
             ITexture2D? emissiveTex = EmissiveMap?.GetTexture(graphicsContext, context.SurfaceDensity);
-            ITexture2D? aoTex = AOMap?.GetTexture(graphicsContext, context.SurfaceDensity);
+            ITexture2D? aoTex = AOMap?.GetTexture(graphicsContext, context.SurfaceDensity, TextureContentKind.Data);
 
             if (albedoTex != null) textureFlags |= 1;
             if (normalTex != null) textureFlags |= 2;
