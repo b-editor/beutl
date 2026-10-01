@@ -39,6 +39,23 @@ class NativeBinaryVerificationTests(unittest.TestCase):
             with self.subTest(rid=rid), contextlib.redirect_stdout(io.StringIO()):
                 verify.verify(self.native_root, [rid])
 
+    def test_linux_runtimes_require_the_fontconfig_patch_hash(self):
+        for rid in ("linux-x64", "linux-arm64"):
+            for recorded in (None, "0" * 64):
+                with self.subTest(rid=rid, recorded=recorded), tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary)
+                    directory = root / "runtimes" / rid / "native"
+                    shutil.copytree(self.native_root / "runtimes" / rid / "native", directory)
+                    manifest_path = directory / "build.json"
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    if recorded is None:
+                        manifest.pop("fontconfigPatchSha256", None)
+                    else:
+                        manifest["fontconfigPatchSha256"] = recorded
+                    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, "fontconfigPatchSha256"):
+                        verify.verify(root, [rid])
+
     def test_swapped_architectures_fail_even_with_a_matching_hash(self):
         for rid in verify.RIDS:
             other = rid.replace("x64", "arm64") if rid.endswith("x64") else rid.replace("arm64", "x64")
