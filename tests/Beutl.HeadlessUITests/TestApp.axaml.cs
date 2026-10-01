@@ -3,13 +3,13 @@ using Avalonia.Markup.Xaml;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Extensibility;
+using Beutl.Helpers;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Services;
 using Beutl.Services.StartupTasks;
 using Beutl.Services.Tutorials;
 using Beutl.ViewModels;
 using Reactive.Bindings;
-using ReactiveUI.Avalonia;
 
 namespace Beutl.HeadlessUITests;
 
@@ -41,7 +41,7 @@ public sealed class TestApp : Application
         NotificationService.Handler = new NotificationServiceHandler();
         TutorialService.Current = new TutorialServiceHandler();
         AppHelper.GetContextCommandManager = () => GetMainViewModel().ContextCommandManager;
-        ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
+        ReactivePropertyScheduler.SetDefault(UiThreadScheduler.Instance);
 
         if (s_globalServicesInitialized)
         {

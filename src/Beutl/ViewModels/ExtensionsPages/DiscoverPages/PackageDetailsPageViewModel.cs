@@ -2,13 +2,13 @@
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 using Reactive.Bindings;
-using ReactiveUI.Avalonia;
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
@@ -149,11 +149,11 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             PackageReleaseResolver.ObserveWhenReleasesReady(
                 _handler.InstalledPackageRepository.GetPackageObservable(package.Name),
                 releasesReady,
-                AvaloniaScheduler.Instance);
+                UiThreadScheduler.Instance);
 
         PackageReleaseResolver.ObserveLatest(
                 releaseResolutionRequests,
-                AvaloniaScheduler.Instance,
+                UiThreadScheduler.Instance,
                 () => SelectedRelease.Value,
                 () => AllReleases,
                 version => Package.GetReleaseAsync(version, _lifetimeCts.Token),

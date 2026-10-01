@@ -13,6 +13,7 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics.Backend;
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Pages;
@@ -26,7 +27,6 @@ using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
-using ReactiveUI.Avalonia;
 
 namespace Beutl;
 
@@ -144,7 +144,7 @@ public sealed class App : Application
             LibraryRegistrar.RegisterAll,
             NodesRegistrar.RegisterAll);
 
-        ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
+        ReactivePropertyScheduler.SetDefault(UiThreadScheduler.Instance);
     }
 
     public override void OnFrameworkInitializationCompleted()
