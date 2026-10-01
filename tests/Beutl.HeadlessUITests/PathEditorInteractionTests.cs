@@ -70,11 +70,16 @@ public class PathEditorInteractionTests
     }
 
     [AvaloniaTest]
-    [TestCase(RawInputModifiers.Control, false)]
-    [TestCase(RawInputModifiers.Meta, false)]
-    [TestCase(RawInputModifiers.Control, true)]
-    [TestCase(RawInputModifiers.Meta, true)]
-    public async Task Control_and_command_click_toggle_points_in_the_selection(RawInputModifiers modifier, bool preview)
+    [TestCase(RawInputModifiers.Control, false, false)]
+    [TestCase(RawInputModifiers.Meta, false, false)]
+    [TestCase(RawInputModifiers.Control, true, false)]
+    [TestCase(RawInputModifiers.Meta, true, false)]
+    [TestCase(RawInputModifiers.Control, false, true)]
+    [TestCase(RawInputModifiers.Meta, false, true)]
+    [TestCase(RawInputModifiers.Control, true, true)]
+    [TestCase(RawInputModifiers.Meta, true, true)]
+    public async Task Control_and_command_click_toggle_points_in_the_selection(
+        RawInputModifiers modifier, bool preview, bool moveOnHover)
     {
         using var editor = await Fixture.Create();
         IPathEditorView view = editor.View;
@@ -91,7 +96,21 @@ public class PathEditorInteractionTests
         try
         {
             ClickAnchor(0);
+            Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[0] }));
+            bool moved = false;
+            if (moveOnHover)
+            {
+                // Reproduce layout work invalidating coordinates between mouse move and press.
+                editor.Window.PointerMoved += (_, _) =>
+                {
+                    if (moved) return;
+                    moved = true;
+                    if (overlay != null) overlay.Matrix *= Matrix.CreateTranslation(40, 30);
+                    else editor.View.Matrix *= Matrix.CreateTranslation(40, 30);
+                };
+            }
             ClickAnchor(1, modifier);
+            Assert.That(moved, Is.EqualTo(moveOnHover));
             Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[0], editor.Figure.Segments[1] }));
             ClickAnchor(0, modifier);
             Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[1] }));
@@ -115,8 +134,7 @@ public class PathEditorInteractionTests
             var anchor = editor.Figure.Segments[index];
             var thumb = ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Thumb>()
                 .Single(t => ReferenceEquals(t.DataContext, anchor) && !t.Classes.Contains("control"));
-            Point point = PathEditorHelper.GetCanvasPosition(thumb);
-            editor.Click(point.X, point.Y, modifiers);
+            editor.ClickControl(thumb, modifiers);
         }
     }
 
