@@ -17,10 +17,12 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
     private static void* s_pendingExportInfoPtr;
 
     private readonly MetalContext _metalContext;
+    private readonly MetalVulkanTimeline? _timeline;
     private readonly IntPtr _metalTexture;
 
     public MetalVulkanTexture2D(
         MetalContext metalContext,
+        MetalVulkanTimeline? timeline,
         VulkanContext vulkanContext,
         int width,
         int height,
@@ -37,6 +39,7 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         }
 
         _metalContext = metalContext;
+        _timeline = timeline;
 
         // Export Metal texture from Vulkan image using VK_EXT_metal_objects
         _metalTexture = ExportMetalTexture();
@@ -80,27 +83,27 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         return surface;
     }
 
-    public override void PrepareForSkiaRendering()
+    protected override void SubmitForSkia(bool requireCompletion)
     {
-        bool requiresWait = RequiresVulkanToSkiaHandoff
-            || _currentLayout != SkiaInteropLayout;
-        base.PrepareForSkiaRendering();
-        if (requiresWait)
+        // MoltenVK and Skia's Metal queue share no submission order. Without a shared timeline, or for a CPU
+        // reader, the backend work has to finish before Skia touches the texture.
+        if (_timeline is null || requireCompletion)
         {
-            // MoltenVK and Skia's Metal queue do not share Beutl's Vulkan submission semaphore.
             _context.FlushCommands(waitForCompletion: true);
+            return;
         }
+
+        _timeline.OrderVulkanWorkBeforeSkia();
     }
 
-    public override void PrepareForSkiaSampling(bool requireCompletion)
+    internal override bool OrdersSkiaWritesOnGpu => _timeline is not null;
+
+    internal override void OrderSkiaWritesBeforeBackend()
     {
-        bool requiresWait = RequiresVulkanToSkiaHandoff;
-        base.PrepareForSkiaSampling(requireCompletion: false);
-        if (requiresWait)
-        {
-            // CPU completion is the cross-API hand-off until an exported Metal event is available.
-            _context.FlushCommands(waitForCompletion: true);
-        }
+        if (_timeline is null)
+            throw new NotSupportedException("This texture has no shared Metal/Vulkan timeline.");
+
+        _timeline.OrderSkiaWritesBeforeVulkan(_metalTexture);
     }
 
     private IntPtr ExportMetalTexture()

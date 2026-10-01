@@ -25,6 +25,10 @@ internal sealed class CompositeContext : IGraphicsContext
         }
 
         Vulkan = new VulkanContext(vulkanInstance, physicalDevice);
+        if (Metal != null)
+        {
+            Timeline = MetalVulkanTimeline.TryCreate(Metal, Vulkan);
+        }
     }
 
     public GraphicsBackend Backend => GraphicsBackend.Metal;
@@ -34,6 +38,9 @@ internal sealed class CompositeContext : IGraphicsContext
     public MetalContext? Metal { get; }
 
     public VulkanContext Vulkan { get; }
+
+    /// <summary>Gets the GPU-side ordering between Skia's Metal queue and the Vulkan queue, when the device has one.</summary>
+    internal MetalVulkanTimeline? Timeline { get; }
 
     public bool Supports3DRendering => Vulkan.Supports3DRendering;
 
@@ -52,7 +59,7 @@ internal sealed class CompositeContext : IGraphicsContext
             // the refusal cannot be left to the Vulkan path this shares its limits with.
             Vulkan.ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
 
-            var texture = new MetalVulkanTexture2D(Metal, Vulkan, width, height, format);
+            var texture = new MetalVulkanTexture2D(Metal, Timeline, Vulkan, width, height, format);
             VulkanContext.RecordTextureAllocation(format);
             return texture;
         }
@@ -164,6 +171,14 @@ internal sealed class CompositeContext : IGraphicsContext
     {
         if (_disposed) return;
         _disposed = true;
+
+        if (Timeline != null)
+        {
+            // Either queue may still wait on or signal the timeline until both are idle.
+            Vulkan.WaitIdle();
+            Metal?.WaitIdle();
+            Timeline.Dispose();
+        }
 
         Vulkan.Dispose();
         Metal?.Dispose();

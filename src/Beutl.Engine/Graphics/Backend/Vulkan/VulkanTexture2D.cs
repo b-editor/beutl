@@ -282,7 +282,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         TransitionTo(SkiaInteropLayout);
         if (requiresSubmission)
         {
-            _context.FlushCommands(waitForCompletion: false);
+            SubmitForSkia(requireCompletion: false);
         }
         MarkSkiaAccess();
         _hasTransparentContents = false;
@@ -292,9 +292,29 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     {
         if (RequiresVulkanToSkiaHandoff)
         {
-            _context.FlushCommands(requireCompletion);
+            SubmitForSkia(requireCompletion);
         }
         MarkSkiaAccess();
+    }
+
+    /// <summary>Submits the backend work Skia is about to consume.</summary>
+    /// <remarks>
+    /// Skia shares this texture's Vulkan queue, so submission order carries the hand-off; only a CPU reader
+    /// needs the work finished.
+    /// </remarks>
+    protected virtual void SubmitForSkia(bool requireCompletion)
+    {
+        _context.FlushCommands(requireCompletion);
+    }
+
+    /// <summary>Gets whether a backend pass can read what Skia drew here without the CPU waiting for Skia.</summary>
+    internal virtual bool OrdersSkiaWritesOnGpu => false;
+
+    /// <summary>Holds the next backend batch until Skia's submitted writes to this texture finish.</summary>
+    /// <remarks>Call only when <see cref="OrdersSkiaWritesOnGpu"/> is <see langword="true"/>, after Skia submitted.</remarks>
+    internal virtual void OrderSkiaWritesBeforeBackend()
+    {
+        throw new NotSupportedException("This texture cannot order Skia's writes on the GPU.");
     }
 
     protected void MarkSkiaAccess()

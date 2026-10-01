@@ -16,6 +16,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
     private readonly uint _graphicsQueueFamilyIndex;
     private readonly string[] _enabledExtensions;
     private readonly PhysicalDeviceFeatures _enabledFeatures;
+    private readonly bool _timelineSemaphores;
     private bool _disposed;
 
     public VulkanDevice(Vk vk, Instance instance, PhysicalDevice physicalDevice)
@@ -26,7 +27,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
         _graphicsQueueFamilyIndex = FindGraphicsQueueFamily();
         _enabledExtensions = GetRequiredDeviceExtensions();
-        _device = CreateDevice(_enabledExtensions, out _enabledFeatures);
+        _device = CreateDevice(_enabledExtensions, out _enabledFeatures, out _timelineSemaphores);
 
         _vk.GetDeviceQueue(_device, _graphicsQueueFamilyIndex, 0, out _graphicsQueue);
 
@@ -104,6 +105,13 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
     public string[] EnabledExtensions => _enabledExtensions;
 
+    /// <summary>Whether the logical device enabled timeline semaphores.</summary>
+    /// <remarks>
+    /// Only macOS asks for them: there Skia renders through Metal on another queue, and a timeline semaphore
+    /// exported as an <c>MTLSharedEvent</c> orders the two queues on the GPU instead of the CPU.
+    /// </remarks>
+    public bool SupportsTimelineSemaphores => _timelineSemaphores;
+
     /// <summary>Whether the logical device enabled 64-bit integer arithmetic in shaders.</summary>
     public bool SupportsShaderInt64 => _enabledFeatures.ShaderInt64;
 
@@ -172,7 +180,10 @@ internal sealed unsafe class VulkanDevice : IDisposable
         return extensions.ToArray();
     }
 
-    private Device CreateDevice(string[] extensions, out PhysicalDeviceFeatures enabledFeatures)
+    private Device CreateDevice(
+        string[] extensions,
+        out PhysicalDeviceFeatures enabledFeatures,
+        out bool timelineSemaphores)
     {
         float queuePriority = 1.0f;
         var queueCreateInfo = new DeviceQueueCreateInfo
@@ -202,6 +213,27 @@ internal sealed unsafe class VulkanDevice : IDisposable
             PQueueCreateInfos = &queueCreateInfo,
             PEnabledFeatures = &features
         };
+
+        var timelineFeatures = new PhysicalDeviceTimelineSemaphoreFeatures
+        {
+            SType = StructureType.PhysicalDeviceTimelineSemaphoreFeatures,
+        };
+        timelineSemaphores = false;
+        if (OperatingSystem.IsMacOS())
+        {
+            var availableFeatures2 = new PhysicalDeviceFeatures2
+            {
+                SType = StructureType.PhysicalDeviceFeatures2,
+                PNext = &timelineFeatures,
+            };
+            _vk.GetPhysicalDeviceFeatures2(_physicalDevice, &availableFeatures2);
+            timelineSemaphores = timelineFeatures.TimelineSemaphore;
+            if (timelineSemaphores)
+            {
+                timelineFeatures.PNext = null;
+                createInfo.PNext = &timelineFeatures;
+            }
+        }
 
         var extensionPtrs = new byte*[extensions.Length];
         for (int i = 0; i < extensions.Length; i++)

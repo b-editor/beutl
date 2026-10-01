@@ -15,6 +15,19 @@ internal sealed class MetalContext : IDisposable
     private static readonly IntPtr s_commitSelector = GetValidSelector("commit");
     private static readonly IntPtr s_waitUntilCompletedSelector = GetValidSelector("waitUntilCompleted");
     private static readonly IntPtr s_releaseSelector = GetValidSelector("release");
+    private static readonly IntPtr s_newBufferSelector = GetValidSelector("newBufferWithLength:options:");
+    private static readonly IntPtr s_blitCommandEncoderSelector = GetValidSelector("blitCommandEncoder");
+    private static readonly IntPtr s_copyFromTextureToBufferSelector = GetValidSelector(
+        "copyFromTexture:sourceSlice:sourceLevel:sourceOrigin:sourceSize:toBuffer:destinationOffset:destinationBytesPerRow:destinationBytesPerImage:");
+    private static readonly IntPtr s_endEncodingSelector = GetValidSelector("endEncoding");
+    private static readonly IntPtr s_encodeSignalEventSelector = GetValidSelector("encodeSignalEvent:value:");
+    private static readonly IntPtr s_encodeWaitForEventSelector = GetValidSelector("encodeWaitForEvent:value:");
+
+    // MTLResourceStorageModePrivate: the probe buffer is only ever written by the GPU.
+    private const nuint PrivateStorageMode = 2 << 4;
+
+    // Wide enough for one texel of every colour format a shared texture uses (RGBA32F at most).
+    private const nuint ProbeTexelBytes = 16;
 
     public MetalContext()
     {
@@ -71,6 +84,84 @@ internal sealed class MetalContext : IDisposable
 
     public GRContext SkiaContext => _grContext;
 
+    /// <summary>Creates a GPU-private buffer for <see cref="CommitSignalAfterReading"/> to copy into.</summary>
+    public IntPtr CreateProbeBuffer()
+    {
+        IntPtr buffer = objc_msgSend_IntPtr(_metalDevice, s_newBufferSelector, ProbeTexelBytes, PrivateStorageMode);
+        return buffer != IntPtr.Zero
+            ? buffer
+            : throw new InvalidOperationException("Failed to create the Metal hand-off probe buffer.");
+    }
+
+    public static void ReleaseHandle(IntPtr handle) => ReleaseObject(handle);
+
+    /// <summary>
+    /// Signals <paramref name="sharedEvent"/> on Skia's queue once every command already committed to it has
+    /// finished writing <paramref name="texture"/>.
+    /// </summary>
+    /// <remarks>
+    /// A signal only waits for the commands before it in its own command buffer, and a queue starts its command
+    /// buffers in order without finishing them in order, so a bare signal could fire while Skia is still drawing.
+    /// Reading one texel first gives the signal a pass that Metal's hazard tracking holds until those writes
+    /// finish; MoltenVK creates the shared textures tracked.
+    /// </remarks>
+    public void CommitSignalAfterReading(IntPtr texture, IntPtr probeBuffer, IntPtr sharedEvent, ulong value)
+    {
+        IntPtr pool = objc_autoreleasePoolPush();
+        try
+        {
+            IntPtr commandBuffer = CreateCommandBuffer();
+            IntPtr blit = objc_msgSend_IntPtr(commandBuffer, s_blitCommandEncoderSelector);
+            if (blit == IntPtr.Zero)
+                throw new InvalidOperationException("Failed to create a Metal blit encoder.");
+
+            objc_msgSend_copyTexelToBuffer(
+                blit,
+                s_copyFromTextureToBufferSelector,
+                texture,
+                0,
+                0,
+                default,
+                new MTLSize(1, 1, 1),
+                probeBuffer,
+                0,
+                ProbeTexelBytes,
+                ProbeTexelBytes);
+            objc_msgSend_void(blit, s_endEncodingSelector);
+            objc_msgSend_void(commandBuffer, s_encodeSignalEventSelector, sharedEvent, value);
+            objc_msgSend_void(commandBuffer, s_commitSelector);
+        }
+        finally
+        {
+            objc_autoreleasePoolPop(pool);
+        }
+    }
+
+    /// <summary>Holds every command buffer Skia commits after this call until <paramref name="sharedEvent"/> reaches <paramref name="value"/>.</summary>
+    /// <remarks>A wait blocks its queue, not only its own command buffer, so later Skia submissions stay behind it.</remarks>
+    public void CommitWaitForEvent(IntPtr sharedEvent, ulong value)
+    {
+        IntPtr pool = objc_autoreleasePoolPush();
+        try
+        {
+            IntPtr commandBuffer = CreateCommandBuffer();
+            objc_msgSend_void(commandBuffer, s_encodeWaitForEventSelector, sharedEvent, value);
+            objc_msgSend_void(commandBuffer, s_commitSelector);
+        }
+        finally
+        {
+            objc_autoreleasePoolPop(pool);
+        }
+    }
+
+    private IntPtr CreateCommandBuffer()
+    {
+        IntPtr commandBuffer = objc_msgSend_IntPtr(_commandQueue, s_commandBufferSelector);
+        return commandBuffer != IntPtr.Zero
+            ? commandBuffer
+            : throw new InvalidOperationException("Failed to create a Metal command buffer.");
+    }
+
     public void WaitIdle()
     {
         // Create a command buffer and commit it with waitUntilCompleted
@@ -125,4 +216,36 @@ internal sealed class MetalContext : IDisposable
 
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern void objc_msgSend_void(IntPtr receiver, IntPtr selector);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector, nuint length, nuint options);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void objc_msgSend_void(IntPtr receiver, IntPtr selector, IntPtr sharedEvent, ulong value);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void objc_msgSend_copyTexelToBuffer(
+        IntPtr receiver,
+        IntPtr selector,
+        IntPtr sourceTexture,
+        nuint sourceSlice,
+        nuint sourceLevel,
+        MTLOrigin sourceOrigin,
+        MTLSize sourceSize,
+        IntPtr destinationBuffer,
+        nuint destinationOffset,
+        nuint destinationBytesPerRow,
+        nuint destinationBytesPerImage);
+
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern IntPtr objc_autoreleasePoolPush();
+
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern void objc_autoreleasePoolPop(IntPtr pool);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct MTLOrigin(nuint X, nuint Y, nuint Z);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct MTLSize(nuint Width, nuint Height, nuint Depth);
 }
