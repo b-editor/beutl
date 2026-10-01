@@ -2,6 +2,7 @@
 """Experimental method impact reports. This program never skips the CI test gate."""
 import argparse
 import collections
+from concurrent.futures import ThreadPoolExecutor
 import fnmatch
 import hashlib
 import json
@@ -85,12 +86,23 @@ def fingerprint(root, tfm, configuration):
     }
 
 
-def source_index(root, out, scope, timings=None):
+def source_index(root, out, scope, timings=None, cache=None, environment=None):
     paths = git(root, "ls-files", "-z", "--", "*.cs").split("\0")
     # Include newly added files for local selection, even before git add.
     paths += git(root, "ls-files", "--others", "--exclude-standard", "-z", "--", "*.cs").split("\0")
     sources = {p: (root / p).read_text(encoding="utf-8-sig") for p in sorted(set(paths))
                if p and p in scope and (root / p).is_file() and not p.startswith("build/test-impact/")}
+    # Only cache immutable syntax results in this process, never discovery, coverage,
+    # MSBuild evaluations or executable files. Hash every source together: global
+    # aliases can change the references in otherwise unchanged files.
+    cache_key = hashlib.sha256(json.dumps([str(root.resolve()), git(root, "rev-parse", "HEAD"),
+        environment, sources], sort_keys=True).encode()).hexdigest()
+    if cache is not None and environment is not None and cache_key in cache:
+        result = json.loads(cache[cache_key])
+        write_json(out / "index.json", result)
+        if timings is not None:
+            timings.update(indexerBuildSeconds=0, sourceIndexSeconds=0, sourceIndexCacheHit=True)
+        return result
     project = HERE / "Indexer/Indexer.csproj"
     began = time.monotonic()
     run(["dotnet", "build", project, "--nologo", "-v:q", "-m:1", "-p:NuGetAudit=false",
@@ -105,7 +117,14 @@ def source_index(root, out, scope, timings=None):
     (out / "sources.json").unlink()
     if timings is not None:
         timings["sourceIndexSeconds"] = time.monotonic() - began
-    return read_json(out / "index.json")
+    result = read_json(out / "index.json")
+    if cache is not None and environment is not None:
+        if len(cache) >= 2:
+            cache.pop(next(iter(cache)))
+        cache[cache_key] = json.dumps(result)
+    if timings is not None:
+        timings["sourceIndexCacheHit"] = False
+    return result
 
 
 def project_paths(root, requested):
@@ -124,24 +143,29 @@ def project_paths(root, requested):
 
 def compilation_scope(root, projects, tfm, configuration):
     """Evaluate the requested tests' Compile/ProjectReference closure, including linked files."""
-    pending = [root / p for p in projects]
+    pending = {root / p for p in projects}
     visited, sources = set(), set()
-    while pending:
-        project = pending.pop().resolve()
-        if project in visited:
-            continue
-        if not project.is_relative_to(root):
-            raise ValueError("ProjectReference outside the repository cannot be analyzed")
-        visited.add(project)
-        evaluated = json.loads(run(["dotnet", "msbuild", project, "-nologo",
+
+    def evaluate(project):
+        return json.loads(run(["dotnet", "msbuild", project, "-nologo",
             "-getItem:Compile,ProjectReference", f"-p:TargetFramework={tfm}",
             f"-p:Configuration={configuration}"], root))["Items"]
-        for item in evaluated["Compile"]:
-            path = Path(item["FullPath"]).resolve()
-            if path.is_relative_to(root):
-                sources.add(path.relative_to(root).as_posix())
-        for item in evaluated["ProjectReference"]:
-            pending.append(Path(item["FullPath"]))
+
+    # Independent evaluations at each graph level share no output files: no targets
+    # are executed. Bound concurrency so this advisory step cannot saturate a runner.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        while pending:
+            batch = sorted({p.resolve() for p in pending} - visited)
+            pending = set()
+            if any(not p.is_relative_to(root) for p in batch):
+                raise ValueError("ProjectReference outside the repository cannot be analyzed")
+            visited.update(batch)
+            for evaluated in pool.map(evaluate, batch):
+                for item in evaluated["Compile"]:
+                    path = Path(item["FullPath"]).resolve()
+                    if path.is_relative_to(root):
+                        sources.add(path.relative_to(root).as_posix())
+                pending.update(Path(item["FullPath"]) for item in evaluated["ProjectReference"])
     return sources
 
 
@@ -317,6 +341,24 @@ def validate_isolated(test, executed):
     return actual
 
 
+def duration_priority(candidates, results):
+    """Historical aggregate durations are scheduling hints, never coverage evidence."""
+    durations = collections.defaultdict(float)
+    if results and Path(results).is_dir():
+        for path in sorted(Path(results).glob("*.xml")):
+            try:
+                xml = ET.parse(path).getroot()
+                for case in xml.iter("test-case"):
+                    identity = (case.get("classname"), case.get("methodname"))
+                    duration = float(case.get("duration", "0"))
+                    if 0 <= duration < float("inf"):
+                        durations[identity] += duration
+            except (ET.ParseError, ValueError, OSError):
+                continue
+    return sorted(candidates, key=lambda t: (
+        -durations[(t["className"], t["name"])], t["key"]))
+
+
 def collect(args, root, out):
     start = time.monotonic()
     timings = {}
@@ -338,16 +380,19 @@ def collect(args, root, out):
     began = time.monotonic()
     scope = compilation_scope(root, projects, args.tfm, args.configuration)
     timings["compileScopeSeconds"] = time.monotonic() - began
-    index = source_index(root, out, scope, timings)
+    environment = fingerprint(root, args.tfm, args.configuration)
+    index = source_index(root, out, scope, timings, getattr(args, "index_cache", None), environment)
     began = time.monotonic()
     tests = discover(root, projects, args.tfm, args.configuration, out)
     timings["discoverySeconds"] = time.monotonic() - began
     lookup = test_source_lookup(index)
-    baseline = {"schema": SCHEMA, "sha": sha, "fingerprint": fingerprint(root, args.tfm, args.configuration),
+    baseline = {"schema": SCHEMA, "sha": sha, "fingerprint": environment,
                 "projects": projects, "index": index, "tests": tests, "profiles": {}, "errors": {},
                 "collectionSeconds": 0, "complete": False, "finalized": False, "timings": timings}
     candidates = [t for t in tests.values() if any(fnmatch.fnmatchcase(t["key"], pattern)
                   for pattern in args.method_pattern.split(";"))]
+    candidates = duration_priority(candidates, getattr(args, "duration_results", None))
+    baseline["profileOrder"] = [t["key"] for t in candidates[:args.max_methods]]
     profile_start = time.monotonic()
     baseline["setupSeconds"] = profile_start - start
     for i, test in enumerate(candidates[:args.max_methods]):
@@ -577,7 +622,7 @@ def select(args, root, out):
             began = time.monotonic()
             scope = compilation_scope(root, projects, args.tfm, args.configuration)
             timings["compileScopeSeconds"] = time.monotonic() - began
-            current = source_index(root, out, scope, timings)
+            current = source_index(root, out, scope, timings, getattr(args, "index_cache", None), environment)
             resources = source_resources(root)
         report = choose(baseline, current, tests, changed, sha, environment, resources)
         report["projects"] = projects
@@ -690,6 +735,7 @@ def main():
             p.add_argument("--budget-seconds", type=int, default=600)
             p.add_argument("--method-timeout", type=int, default=60)
             p.add_argument("--method-pattern", default="*")
+            p.add_argument("--duration-results", type=Path, help="Full-run NUnit XML directory; ranking only")
     p = sub.add_parser("compare")
     p.add_argument("--report", type=Path, required=True)
     p.add_argument("--results", type=Path, required=True)
@@ -712,3 +758,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

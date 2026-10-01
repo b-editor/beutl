@@ -2,6 +2,7 @@
 """Bounded, disposable-checkout experiment on an existing test project, after CI gates."""
 import argparse
 import collections
+import json
 from pathlib import Path
 import statistics
 import time
@@ -42,16 +43,16 @@ def inspect_execution(folder, tests):
             "engineSeconds": float(assembly.attrib["duration"])}
 
 
-def execute(root, folder, tests, selected):
+def execute(root, folder, tests, selected, coverage=True):
     if not tests:
         raise ValueError("A zero-method candidate is not a useful timing experiment")
     folder.mkdir()
     where = " or ".join(f"(class == {impact.quote_where(t['className'])} and "
                         f"method == {impact.quote_where(t['name'])})" for t in tests.values()) if selected else None
-    impact.settings(folder / "test.runsettings", folder, where, coverage=True)
+    impact.settings(folder / "test.runsettings", folder, where, coverage=coverage)
     start = time.monotonic()
     impact.run(impact.test_command(PROJECT, "net10.0", "Debug") + ["--settings", folder / "test.runsettings",
-        "--collect:XPlat Code Coverage", "--results-directory", folder], root, timeout=180, log=folder / "test.log")
+        "--results-directory", folder] + (["--collect:XPlat Code Coverage"] if coverage else []), root, timeout=180, log=folder / "test.log")
     wall = time.monotonic() - start
     result = inspect_execution(folder, tests)
     return dict(result, wallSeconds=wall, outsideEngineSeconds=wall - result["engineSeconds"])
@@ -70,14 +71,16 @@ def render(evidence, path):
              f"baseline/tested checkout: `{evidence['baseSha']}`.", "",
              f"Scope: `{PROJECT}`. Full solution and Vulkan gates are unchanged.", "",
              "All paired runs use the same edited build, SDK, environment, OpenCover settings and zero NUnit "
-             "workers. Order is full/selected/selected/full. This is not the normal parallel CI workload.", ""]
+             "workers within each coverage mode. Order is full/selected/selected/full. This is not the normal parallel CI workload. "
+             "First/subsequent executions are retained individually; OS/filesystem caches are not flushed. "
+             "Cold/warm analysis refers only to the process-local syntax cache, not a cold machine.", ""]
     baseline = evidence.get("baseline", {})
     if baseline:
         lines += [f"Baseline: {baseline['profiledMethods']}/{baseline['totalMethods']} methods; "
                   f"{baseline['collectionSeconds']:.2f}s total, {baseline['setupSeconds']:.2f}s setup.", "",
                   "Collection phase timings (seconds): `" + str(baseline["timings"]) + "`.", "",
                   "Extrapolated full-project collection cost: `" + str(baseline["fullProfileEstimateSeconds"]) +
-                  "` seconds (sample median × method count + setup; cheap methods were deliberately sampled, "
+                  "` seconds (sample median × method count + setup; methods were ranked by full-run duration, "
                   "so this is not a reliable forecast for slow/native methods or the whole solution).", ""]
     lines += ["| Change | Methods | Cases | Full mean | Selected mean | Execution saving | After analysis |",
               "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"]
@@ -103,6 +106,16 @@ def render(evidence, path):
               "it is not a direct startup-only measurement. Saving after analysis excludes baseline collection "
               "and build, listed separately; a fresh baseline makes this bounded experiment net additional work. "
               "Two samples per variant cannot establish a stable performance improvement. No whole-CI saving is inferred.", ""]
+    for item in evidence["scenarios"]:
+        for mode, data in item.get("modes", {}).items():
+            lines += ["", f"### {item['name']} / {mode}", "",
+                      f"Warm analysis: {item['warmAnalysisSeconds']:.2f}s; timings: `{item['warmTimings']}`.", "",
+                      "Summary (seconds; break-even is executions): `" + str(data["summary"]) + "`.", "",
+                      "Raw paired runs: `" + str(data["runs"]) + "`."]
+    lines += ["", f"Total experiment cost: {evidence.get('totalExperimentSeconds', 0):.2f}s.", "",
+              "No persistent analysis cache or executable cache is used. Dependency/SDK/config changes still invalidate "
+              "the baseline. Cold/warm results are checked for identical selection. Baseline break-even excludes edit/restore "
+              "builds, assumes the exact valid baseline remains usable, and is undefined for nonpositive net savings.", ""]
     if evidence.get("error"):
         lines += ["Error: " + evidence["error"], ""]
     path.write_text("\n".join(lines))
@@ -117,7 +130,7 @@ def main():
     out.mkdir(parents=True)
     base = impact.git(root, "rev-parse", "HEAD")
     evidence = {"status": "incomplete", "baseSha": base, "project": PROJECT, "scenarios": []}
-    common = dict(base=base, project=[PROJECT], tfm="net10.0", configuration="Debug")
+    common = dict(base=base, project=[PROJECT], tfm="net10.0", configuration="Debug", index_cache={})
     started = time.monotonic()
 
     def build(folder, label):
@@ -129,13 +142,13 @@ def main():
     try:
         collection = out / "collection"
         collection.mkdir()
-        baseline = impact.collect(SimpleNamespace(**common, no_build=True, max_methods=8,
+        baseline = impact.collect(SimpleNamespace(**common, no_build=True, max_methods=16,
             budget_seconds=300, method_timeout=60,
-            method_pattern="*FFmpegErrorMessageMapperTests.*;*IpcMessageErrorCodeTests.*;*PrefetchSlotTests.*"),
+            method_pattern="*", duration_results=root / "artifacts/test-impact/full"),
             root, collection)
         evidence["fingerprint"] = baseline["fingerprint"]
         evidence["baseline"] = dict(profiledMethods=len(baseline["profiles"]), totalMethods=len(baseline["tests"]),
-            **{k: baseline[k] for k in ("collectionSeconds", "setupSeconds", "timings", "fullProfileEstimateSeconds", "errors")})
+            **{k: baseline[k] for k in ("collectionSeconds", "setupSeconds", "timings", "fullProfileEstimateSeconds", "errors", "profileOrder")})
         if not baseline["profiles"] or not baseline["finalized"]:
             raise ValueError("No usable finalized baseline was collected")
         for name, path, before, after in SCENARIOS:
@@ -158,19 +171,39 @@ def main():
                                                   "fallbackReasons", "analysisSeconds", "timings")})
                 if not report["inventoryComplete"] or not report["affectedMethods"]:
                     raise ValueError("Experiment did not analyze a nonzero ordinary-method change")
+                warm = folder / "shadow-warm"
+                warm.mkdir()
+                warm_report = impact.select(SimpleNamespace(**common, baseline=collection / "baseline.json"), root, warm)
+                if any(report[k] != warm_report[k] for k in ("tests", "reasons", "fallbackReasons", "affectedMethods")):
+                    raise ValueError("Cold/warm analysis changed the selection")
+                item["warmAnalysisSeconds"] = warm_report["analysisSeconds"]
+                item["warmTimings"] = warm_report["timings"]
                 selected = {k: t for k, t in report["tests"].items() if report["reasons"][k]}
-                for i, kind in enumerate(("full", "selected", "selected", "full")):
-                    results = folder / f"{i}-{kind}"
-                    run = execute(root, results, selected if kind == "selected" else report["tests"], kind == "selected")
-                    item["runs"].append(dict(run, kind=kind))
-                    if kind == "full":
-                        comparison = impact.compare(report, results)
-                        item.setdefault("comparisons", []).append(comparison)
-                        if comparison["status"] != "complete" or comparison["missedFailedMethods"]:
-                            raise ValueError("Full execution did not validate the comparison")
+                item["modes"] = {}
+                for mode, coverage in (("coverage", True), ("no-coverage", False)):
+                    runs = []
+                    for i, kind in enumerate(("full", "selected", "selected", "full")):
+                        results = folder / f"{mode}-{i}-{kind}"
+                        run = execute(root, results, selected if kind == "selected" else report["tests"],
+                                      kind == "selected", coverage=coverage)
+                        runs.append(dict(run, kind=kind, coverage=coverage,
+                                         order=i, temperature="first" if i == 0 else "subsequent"))
+                        if kind == "full":
+                            comparison = impact.compare(report, results)
+                            item.setdefault("comparisons", []).append(comparison)
+                            if comparison["status"] != "complete" or comparison["missedFailedMethods"]:
+                                raise ValueError("Full execution did not validate the comparison")
+                        print(f"{name} {mode} {kind}: {run['cases']} cases in {run['wallSeconds']:.2f}s", flush=True)
+                    summary = summarize_runs(runs, report["analysisSeconds"])
+                    summary["savingAfterWarmAnalysisSeconds"] = summary["executionSavingSeconds"] - item["warmAnalysisSeconds"]
+                    summary["savingWithFreshBaselineSeconds"] = summary["savingAfterAnalysisSeconds"] - baseline["collectionSeconds"]
+                    summary["baselineBreakEvenRuns"] = (baseline["collectionSeconds"] / summary["savingAfterAnalysisSeconds"]
+                                                         if summary["savingAfterAnalysisSeconds"] > 0 else None)
+                    item["modes"][mode] = dict(runs=runs, summary=summary)
+                    if coverage:
+                        item["runs"], item["summary"] = runs, summary
                     impact.write_json(out / "measurement.json", evidence)
-                    print(f"{name} {kind}: {run['cases']} cases in {run['wallSeconds']:.2f}s", flush=True)
-                item["summary"] = summarize_runs(item["runs"], report["analysisSeconds"])
+
             finally:
                 source.write_bytes(original)
                 item["restoreBuildSeconds"] = build(folder, "restore-build")
@@ -182,7 +215,9 @@ def main():
         evidence["totalExperimentSeconds"] = time.monotonic() - started
         impact.write_json(out / "measurement.json", evidence)
         render(evidence, out / "measurement.md")
+        print("MEASUREMENT_JSON=" + json.dumps(evidence), flush=True)
 
 
 if __name__ == "__main__":
     main()
+

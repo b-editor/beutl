@@ -132,11 +132,14 @@ set and transitive coverage check still apply.
 For a same-repository PR, explicitly include `<!-- test-impact-measure -->` in its
 description **before** triggering a PR run. After both existing gates pass, the
 optional 20-minute measurement step reuses the built `Beutl.FFmpegIpc.Tests`
-project. It profiles at most eight existing methods (five-minute profiling budget),
+project. It profiles at most sixteen existing methods (five-minute profiling budget),
+ranked by descending summed case duration from the mandatory full run's NUnit XML.
+This ranking changes collection order only, never test eligibility or coverage evidence.
+If timing XML is unavailable, deterministic method-key order is used. It
 then temporarily applies two nonzero ordinary-method edits: an equivalent
 `FFmpegErrorMessageMapper.TryClassify` string search and one extra assertion in
-its existing test. Each scenario runs full/selected/selected/full with identical
-coverage settings and NUnit worker count, verifies the complete case inventories,
+its existing test. Each scenario runs full/selected/selected/full separately with coverage enabled
+and disabled, using identical settings and NUnit worker count within each pair, verifies the complete case inventories,
 then restores and rebuilds the original source. Run only in a disposable checkout:
 
 ```sh
@@ -195,3 +198,35 @@ The comparison lists `isolatedPassButFullFailedMethods` as well as
 overrides a failed full run. Incomplete full results stay inconclusive. Removing
 this mandatory-suite policy would require independent evidence about suite
 interactions, not just additional per-method coverage.
+
+
+## Analysis overhead and measurement revision
+
+Compilation-scope evaluation uses at most two concurrent, read-only MSBuild queries
+per dependency level; each project is evaluated once, including diamond references.
+It still evaluates every invocation, so changed project/dependency inputs cannot
+reuse a stale scope. Discovery always runs against the current built project.
+
+The measurement keeps a bounded (two-entry), process-local syntax-result cache.
+Its key contains the repository path, HEAD SHA, complete scoped source contents and
+environment fingerprint (SDK, TFM, configuration, OS/runtime and tool hash).
+Global aliases require hashing all sources together. No executable or discovery
+result is cached; nothing is restored from a disk or cross-run cache. Changed inputs
+force a fresh Indexer build and parse. Each scenario measures a cache-cold analysis
+and then an identical-input warm analysis, verifying identical selection before
+execution. Warm analysis is a repeated-query opportunity, not the cost of analyzing
+a new edit; both times and hit/miss flags are reported. No OS cache is flushed.
+
+Both coverage modes retain ABBA raw timings (two samples per variant), complete
+method/case inventories and unchanged NUnit workers. The first execution and
+subsequent executions are labeled; this is not a machine-cold benchmark. Baseline,
+edit/restore builds and total experiment costs are separate. Reports include net
+savings with cold/warm analysis, fresh-baseline cost and an illustrative baseline
+break-even count only when savings after cold analysis are positive. Exact-SHA
+baseline validity still limits amortization; a new dependency environment requires
+new collection. The prior eight-method sample and this duration-ranked sample
+have different coverage, so any difference is not attributed solely to parser speed.
+
+The profiling budget remains 300 seconds and the entire optional measurement step
+20 minutes. Sixteen method starts and sixteen paired executions bound added work;
+all original full-solution/Vulkan gates and always-selected suites are unchanged.
