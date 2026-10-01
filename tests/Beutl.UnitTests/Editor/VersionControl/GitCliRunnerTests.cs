@@ -8,14 +8,14 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 public class GitCliRunnerTests : RealGitTestRepository
 {
     [Test]
-    public void Failed_process_start_clears_the_active_process_count()
+    public async Task Failed_process_start_clears_the_active_process_count()
     {
         string missingExecutable = Path.Combine(
             Root,
             $"missing-git-{Guid.NewGuid():N}");
         var runner = new GitCliRunner(missingExecutable);
 
-        Assert.ThrowsAsync<GitOperationException>(async () => await runner.RunAsync(
+        await Assert.ThrowsAsync<GitOperationException>(async () => await runner.RunAsync(
             Repository,
             ["status"],
             GitCommandOptions.Local,
@@ -91,7 +91,7 @@ public class GitCliRunnerTests : RealGitTestRepository
             IsolatedGitEnvironment);
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(3));
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () => await runner.RunAsync(
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await runner.RunAsync(
             Repository,
             ["-c", "alias.wait=!sleep 30", "wait"],
             new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
@@ -552,7 +552,7 @@ public class GitCliRunnerTests : RealGitTestRepository
 
     [TestCase(false)]
     [TestCase(true)]
-    public void Git_process_stderr_retains_only_the_bounded_tail_with_or_without_progress(
+    public async Task Git_process_stderr_retains_only_the_bounded_tail_with_or_without_progress(
         bool reportProgress)
     {
         const string Start = "stderr-start";
@@ -567,7 +567,7 @@ public class GitCliRunnerTests : RealGitTestRepository
                          + "printf x >&2; i=$((i+1)); done; "
                          + $"printf '\\n{Tail}\\n' >&2; exit 7";
 
-        GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
+        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
             async () => await runner.RunAsync(
                 Repository,
                 ["-c", $"alias.noisy=!{command}", "noisy"],
@@ -778,9 +778,9 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
-    public void Nonzero_exit_throws_typed_error_with_verbatim_stderr()
+    public async Task Nonzero_exit_throws_typed_error_with_verbatim_stderr()
     {
-        GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
+        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
             async () => await RunGitAsync("rev-parse", "--verify", "definitely-not-a-ref"));
 
         Assert.Multiple(() =>
@@ -797,7 +797,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         var runner = CreateRunner(TimeSpan.FromSeconds(10));
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
 
-        Assert.ThrowsAsync<OperationCanceledException>(
+        await Assert.ThrowsAsync<OperationCanceledException>(
             async () => await runner.RunAsync(
                 Repository,
                 ["-c", "alias.wait=!printf output; sleep 30", "wait"],
@@ -829,7 +829,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         {
             descendant = await WaitForRecordedProcessAsync(pidPath);
             Assert.That(descendant, Is.Not.Null);
-            Assert.ThrowsAsync<TimeoutException>(
+            await Assert.ThrowsAsync<TimeoutException>(
                 async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
             stopwatch.Stop();
 
@@ -878,7 +878,7 @@ public class GitCliRunnerTests : RealGitTestRepository
             var stopwatch = Stopwatch.StartNew();
             cancellation.Cancel();
 
-            OperationCanceledException? exception = Assert.ThrowsAsync<OperationCanceledException>(
+            OperationCanceledException? exception = await Assert.ThrowsAsync<OperationCanceledException>(
                 async () => await runTask.WaitAsync(TimeSpan.FromSeconds(3)));
             stopwatch.Stop();
 
@@ -925,7 +925,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         {
             orphan = await WaitForRecordedProcessAsync(pidPath);
             Assert.That(orphan, Is.Not.Null);
-            Assert.ThrowsAsync<TimeoutException>(
+            await Assert.ThrowsAsync<TimeoutException>(
                 async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
 
             Assert.That(runner.HasActiveProcess, Is.False);
@@ -1005,7 +1005,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         {
             survivor = await WaitForRecordedProcessAsync(pidPath);
             Assert.That(survivor, Is.Not.Null);
-            Assert.ThrowsAsync<TimeoutException>(
+            await Assert.ThrowsAsync<TimeoutException>(
                 async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
             // Well past the launched process's exit.
             await Task.Delay(500);
@@ -1068,7 +1068,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         {
             escaped = await WaitForRecordedProcessAsync(pidPath);
             Assert.That(escaped, Is.Not.Null);
-            Assert.ThrowsAsync<TimeoutException>(
+            await Assert.ThrowsAsync<TimeoutException>(
                 async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
             await Task.Delay(200);
 
@@ -1110,7 +1110,7 @@ public class GitCliRunnerTests : RealGitTestRepository
                 Assert.Inconclusive("The runner collected the exit status before the test could.");
             }
 
-            GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
+            GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
                 async () => await runTask.WaitAsync(TimeSpan.FromSeconds(5)));
             Assert.Multiple(() =>
             {
@@ -1177,12 +1177,12 @@ public class GitCliRunnerTests : RealGitTestRepository
             if (callerCancellation)
             {
                 cancellation.Cancel();
-                Assert.ThrowsAsync<OperationCanceledException>(
+                await Assert.ThrowsAsync<OperationCanceledException>(
                     async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
             }
             else
             {
-                Assert.ThrowsAsync<TimeoutException>(
+                await Assert.ThrowsAsync<TimeoutException>(
                     async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
             }
 
@@ -1336,7 +1336,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         }
         else
         {
-            var error = Assert.ThrowsAsync<GitOperationException>(async () => await run);
+            var error = await Assert.ThrowsAsync<GitOperationException>(async () => await run);
             Assert.Multiple(() =>
             {
                 Assert.That(error!.ExitCode, Is.EqualTo(exitCode));
@@ -1438,7 +1438,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         GitRepositoryLockEventArgs? eventArgs = null;
         runner.RepositoryLockFailed += (_, e) => eventArgs = e;
 
-        GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
+        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
             async () => await runner.RunAsync(
                 Repository,
                 ["add", "--", "locked.txt"],
@@ -1475,7 +1475,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         GitRepositoryLockEventArgs? eventArgs = null;
         runner.RepositoryLockFailed += (_, e) => eventArgs = e;
 
-        GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
+        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
             async () => await runner.RunAsync(
                 Repository,
                 ["config", "--local", "test.lock", "blocked"],
@@ -1772,7 +1772,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Null);
 
         cancellation.Cancel();
-        Assert.ThrowsAsync<OperationCanceledException>(async () => await activeCommand);
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await activeCommand);
         Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Not.Null);
     }
 

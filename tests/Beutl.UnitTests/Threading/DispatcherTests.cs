@@ -52,44 +52,44 @@ public class DispatcherTests
     }
 
     [Test]
-    public void InvokeSyncVoid_Cancel()
+    public async Task InvokeSyncVoid_Cancel()
     {
         var dispatcher = Dispatcher.Spawn();
 
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             async () => await dispatcher.InvokeAsync(() => { }, ct: new(true)));
 
         dispatcher.Shutdown();
     }
 
     [Test]
-    public void InvokeAsyncVoid_Cancel()
+    public async Task InvokeAsyncVoid_Cancel()
     {
         var dispatcher = Dispatcher.Spawn();
 
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             async () => await dispatcher.InvokeAsync(async () => await Task.Delay(100), ct: new(true)));
 
         dispatcher.Shutdown();
     }
 
     [Test]
-    public void InvokeSync_Cancel()
+    public async Task InvokeSync_Cancel()
     {
         var dispatcher = Dispatcher.Spawn();
 
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             async () => await dispatcher.InvokeAsync(() => 100, ct: new(true)));
 
         dispatcher.Shutdown();
     }
 
     [Test]
-    public void InvokeAsync_Cancel()
+    public async Task InvokeAsync_Cancel()
     {
         var dispatcher = Dispatcher.Spawn();
 
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             async () => await dispatcher.InvokeAsync(async () => await Task.FromResult(100), ct: new(true)));
 
         dispatcher.Shutdown();
@@ -144,9 +144,9 @@ public class DispatcherTests
     }
 
     [Test]
-    public void YieldOutsideDispatcher()
+    public async Task YieldOutsideDispatcher()
     {
-        Assert.CatchAsync<DispatcherException>(async () =>
+        await Assert.CatchAsync<DispatcherException>(async () =>
         {
             await Dispatcher.Yield();
             Assert.Pass();

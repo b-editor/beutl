@@ -38,12 +38,12 @@ public sealed class ExportOrchestrationTests
     }
 
     [Test]
-    public void Missing_encoder_surfaces_codec_unavailable()
+    public async Task Missing_encoder_surfaces_codec_unavailable()
     {
         var exporter = new VideoExporter(new EncoderRegistration());
         var scene = new Scene(64, 64, "export") { Duration = TimeSpan.FromSeconds(1) };
 
-        Assert.ThrowsAsync<CodecUnavailableException>(async () =>
+        await Assert.ThrowsAsync<CodecUnavailableException>(async () =>
             await exporter.ExportAsync(
                 scene,
                 Path.Combine(CreateWorkspace(), "movie.unknown"),
@@ -54,7 +54,7 @@ public sealed class ExportOrchestrationTests
     }
 
     [Test]
-    public void Missing_ffmpeg_libraries_surface_codec_unavailable_without_starting_worker()
+    public async Task Missing_ffmpeg_libraries_surface_codec_unavailable_without_starting_worker()
     {
         var exporter = new VideoExporter(new EncoderRegistration());
         var scene = new Scene(64, 64, "export") { Duration = TimeSpan.FromSeconds(1) };
@@ -64,7 +64,7 @@ public sealed class ExportOrchestrationTests
         {
             // .mkv is FFmpeg-only (AVFoundation does not support it), so there is no fallback
             // encoder and the missing-libraries failure surfaces as CodecUnavailable on every OS.
-            Assert.ThrowsAsync<CodecUnavailableException>(async () =>
+            await Assert.ThrowsAsync<CodecUnavailableException>(async () =>
                 await exporter.ExportAsync(
                     scene,
                     Path.Combine(CreateWorkspace(), "movie.mkv"),

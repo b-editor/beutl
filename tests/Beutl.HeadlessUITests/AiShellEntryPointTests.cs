@@ -336,7 +336,7 @@ public sealed class AiShellEntryPointTests
         workspace.Show(AiWorkspaceSection.ImageGeneration);
         workspace.Show(AiWorkspaceSection.ImageEdit);
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await workspace.DisposeAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await workspace.DisposeAsync());
         Assert.That(second.IsDisposed, Is.True, "all pages must start disposal even when one faults");
     }
 

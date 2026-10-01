@@ -70,9 +70,9 @@ public sealed class PublicApiCancellationTests
         cancellationTokenSource.Cancel();
         PackageManager manager = app.GetResource<PackageManager>();
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await manager.CheckUpdate(cancellationTokenSource.Token));
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await manager.CheckUpdate("package-name", cancellationTokenSource.Token));
     }
 
@@ -177,7 +177,7 @@ public sealed class PublicApiCancellationTests
         await handler.BlockingRequestStarted.WaitAsync(TimeSpan.FromSeconds(5));
         await app.DisposeAsync();
 
-        Assert.CatchAsync<OperationCanceledException>(async () => await operation);
+        await Assert.CatchAsync<OperationCanceledException>(async () => await operation);
         await handler.CancellationObserved.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
@@ -270,7 +270,7 @@ public sealed class PublicApiCancellationTests
         await handler.BlockingRequestStarted.WaitAsync(TimeSpan.FromSeconds(5));
         cancellationTokenSource.Cancel();
 
-        Assert.CatchAsync<OperationCanceledException>(async () => await operation);
+        await Assert.CatchAsync<OperationCanceledException>(async () => await operation);
         await handler.CancellationObserved.WaitAsync(TimeSpan.FromSeconds(5));
     }
 

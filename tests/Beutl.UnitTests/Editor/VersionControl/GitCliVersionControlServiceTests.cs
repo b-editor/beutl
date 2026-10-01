@@ -89,20 +89,20 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<GitIdentityRequiredException>(
+        await Assert.ThrowsAsync<GitIdentityRequiredException>(
             async () => await service.InitializeAsync(
                 new InitOptions(
                     new RepositoryInfo(projectRoot, projectRoot),
                     UseLfsWhenAvailable: false),
                 CancellationToken.None));
 
-        Assert.Multiple(() =>
+        await Assert.MultipleAsync(async () =>
         {
             Assert.That(service.Repository, Is.Null);
             Assert.That(Directory.Exists(Path.Combine(projectRoot, ".git")), Is.False);
             Assert.That(File.Exists(Path.Combine(projectRoot, ".gitignore")), Is.False);
             Assert.That(File.Exists(Path.Combine(projectRoot, ".gitattributes")), Is.False);
-            Assert.ThrowsAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await service.SetLocalIdentityAsync(
                     new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
                     CancellationToken.None));
@@ -200,7 +200,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Identity = new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
         };
 
-        Exception? exception = Assert.CatchAsync<Exception>(
+        Exception? exception = await Assert.CatchAsync<Exception>(
             async () => await service.InitializeAsync(options, CancellationToken.None));
         IReadOnlyList<Exception> reportedFailures = exception is AggregateException aggregate
             ? aggregate.Flatten().InnerExceptions
@@ -253,14 +253,14 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         if (cancelCommit)
         {
-            Assert.CatchAsync<OperationCanceledException>(
+            await Assert.CatchAsync<OperationCanceledException>(
                 async () => await service.InitializeAsync(
                     new InitOptions(Repository, UseLfsWhenAvailable: false),
                     cancellation.Token));
         }
         else
         {
-            Assert.ThrowsAsync<GitOperationException>(
+            await Assert.ThrowsAsync<GitOperationException>(
                 async () => await service.InitializeAsync(
                     new InitOptions(Repository, UseLfsWhenAvailable: false),
                     CancellationToken.None));
@@ -310,7 +310,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<GitOperationException>(
+        await Assert.ThrowsAsync<GitOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(Repository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -352,7 +352,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<GitOperationException>(
+        await Assert.ThrowsAsync<GitOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(Repository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -379,7 +379,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.DoesNotThrowAsync(
+        await Assert.DoesNotThrowAsync(
             async () => await service.InitializeAsync(
                 new InitOptions(repository, UseLfsWhenAvailable: false)
                 {
@@ -418,7 +418,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => CreateRunner());
 
-        Assert.ThrowsAsync<GitIdentityRequiredException>(
+        await Assert.ThrowsAsync<GitIdentityRequiredException>(
             async () => await service.InitializeAsync(
                 new InitOptions(Repository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -446,7 +446,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => CreateRunner());
 
-        Assert.ThrowsAsync<DetachedHeadNotSupportedException>(
+        await Assert.ThrowsAsync<DetachedHeadNotSupportedException>(
             async () => await service.InitializeAsync(
                 new InitOptions(Repository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -474,7 +474,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken.None);
         using GitCliVersionControlService service = CreateService();
 
-        Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(otherRepository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -483,7 +483,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public void InitializeAsync_rejects_discovery_from_a_different_repository()
+    public async Task InitializeAsync_rejects_discovery_from_a_different_repository()
     {
         string projectRoot = CreateTemporaryDirectory();
         string discoveredRoot = CreateTemporaryDirectory();
@@ -494,7 +494,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(
                     new RepositoryInfo(projectRoot, projectRoot),
@@ -505,7 +505,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public void DiscoverRepositoryAsync_rejects_control_characters_before_running_Git()
+    public async Task DiscoverRepositoryAsync_rejects_control_characters_before_running_Git()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -520,7 +520,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<ArgumentException>(
             async () => await service.DiscoverRepositoryAsync(
                 projectRoot,
                 CancellationToken.None));
@@ -528,7 +528,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public void DiscoverRepositoryAsync_rejects_a_prefix_for_another_project_root()
+    public async Task DiscoverRepositoryAsync_rejects_a_prefix_for_another_project_root()
     {
         string projectRoot = CreateTemporaryDirectory();
         var runner = new MismatchedDiscoveryRunner(projectRoot, "another-project/");
@@ -538,7 +538,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.DiscoverRepositoryAsync(
                 projectRoot,
                 CancellationToken.None));
@@ -1096,7 +1096,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             _ => CreateRunner(),
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(
                     new RepositoryInfo(projectRoot, projectRoot),
@@ -1133,7 +1133,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => CreateRunner());
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(Repository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -1500,7 +1500,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         CreateFileSymbolicLinkOrIgnore(hygienePath, externalPath);
         using var service = CreateService();
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
 
         Assert.Multiple(() =>
@@ -1523,7 +1523,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllBytesAsync(hygienePath, originalBytes);
         using var service = CreateService();
 
-        InvalidDataException? exception = Assert.ThrowsAsync<InvalidDataException>(
+        InvalidDataException? exception = await Assert.ThrowsAsync<InvalidDataException>(
             async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
 
         Assert.Multiple(() =>
@@ -1643,7 +1643,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 }
             });
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
 
         int retainedPathStart = exception!.Message.IndexOf('\'');
@@ -1679,7 +1679,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             _ => CreateRunner(),
             deleteVerifiedHygieneFile: _ => false);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
 
         int retainedPathStart = exception!.Message.IndexOf('\'');
@@ -1748,7 +1748,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 return Task.CompletedTask;
             });
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
 
         Assert.Multiple(() =>
@@ -1769,7 +1769,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "changed\n");
         using var service = CreateService();
 
-        Assert.ThrowsAsync<DetachedHeadNotSupportedException>(
+        await Assert.ThrowsAsync<DetachedHeadNotSupportedException>(
             async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
         bool ignoreWrittenWhileDetached = File.Exists(Path.Combine(Root, ".gitignore"));
         await RunGitAsync("switch", "main");
@@ -1804,7 +1804,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<DetachedHeadNotSupportedException>(
+        await Assert.ThrowsAsync<DetachedHeadNotSupportedException>(
             async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
 
         Assert.Multiple(() =>
@@ -1824,7 +1824,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(attributesPath, "custom attributes\n");
         using var service = CreateService();
 
-        Assert.ThrowsAsync<GitOperationException>(
+        await Assert.ThrowsAsync<GitOperationException>(
             async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
 
         Assert.Multiple(() =>
@@ -1851,12 +1851,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public void HasCheckedOutCommitAsync_surfaces_failures_other_than_a_missing_commit()
+    public async Task HasCheckedOutCommitAsync_surfaces_failures_other_than_a_missing_commit()
     {
         string directory = CreateTemporaryDirectory();
         using var service = CreateService();
 
-        Assert.CatchAsync<GitOperationException>(
+        await Assert.CatchAsync<GitOperationException>(
             async () => await service.HasCheckedOutCommitAsync(
                 new RepositoryInfo(directory, directory),
                 CancellationToken.None));
@@ -1887,7 +1887,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             _ => CreateRunner(),
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
 
         Assert.Multiple(() =>
@@ -2049,7 +2049,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         if (cancelCommit)
         {
-            Assert.CatchAsync<OperationCanceledException>(
+            await Assert.CatchAsync<OperationCanceledException>(
                 async () => await service.CommitAllAsync(
                     "beutl: snapshot on save",
                     SnapshotKind.Save,
@@ -2057,7 +2057,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         }
         else
         {
-            Assert.ThrowsAsync<GitOperationException>(
+            await Assert.ThrowsAsync<GitOperationException>(
                 async () => await service.CommitAllAsync(
                     "beutl: snapshot on save",
                     SnapshotKind.Save,
@@ -2096,7 +2096,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         if (cancelAdd)
         {
-            Assert.CatchAsync<OperationCanceledException>(
+            await Assert.CatchAsync<OperationCanceledException>(
                 async () => await service.CommitAllAsync(
                     "beutl: snapshot on save",
                     SnapshotKind.Save,
@@ -2104,7 +2104,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         }
         else
         {
-            Assert.ThrowsAsync<GitOperationException>(
+            await Assert.ThrowsAsync<GitOperationException>(
                 async () => await service.CommitAllAsync(
                     "beutl: snapshot on save",
                     SnapshotKind.Save,
@@ -2155,7 +2155,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Exception? exception = Assert.CatchAsync<Exception>(
+        Exception? exception = await Assert.CatchAsync<Exception>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -2194,7 +2194,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Exception? exception = Assert.CatchAsync<Exception>(
+        Exception? exception = await Assert.CatchAsync<Exception>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -2228,7 +2228,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Exception? exception = Assert.CatchAsync<Exception>(
+        Exception? exception = await Assert.CatchAsync<Exception>(
             async () => await service.InitializeAsync(
                 new InitOptions(projectRepository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -2266,7 +2266,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<GitOperationException>(
+        await Assert.ThrowsAsync<GitOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -2406,7 +2406,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<ProjectCheckpointStateChangedException>(
+        await Assert.ThrowsAsync<ProjectCheckpointStateChangedException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -2525,7 +2525,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Exception? exception = Assert.CatchAsync<Exception>(
+        Exception? exception = await Assert.CatchAsync<Exception>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -2575,7 +2575,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Exception? exception = Assert.CatchAsync<Exception>(
+        Exception? exception = await Assert.CatchAsync<Exception>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -2613,7 +2613,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -2647,7 +2647,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<IOException>(async () => await service.CommitAllAsync(
+        await Assert.ThrowsAsync<IOException>(async () => await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
             CancellationToken.None));
@@ -2675,7 +2675,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "changed\n");
         using var service = CreateService();
 
-        Assert.ThrowsAsync<DetachedHeadNotSupportedException>(
+        await Assert.ThrowsAsync<DetachedHeadNotSupportedException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -2812,7 +2812,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             isWorktreeMutationAllowed: static () => true,
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -2862,7 +2862,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             isWorktreeMutationAllowed: static () => true,
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -2896,7 +2896,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             isWorktreeMutationAllowed: static () => true,
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -3033,7 +3033,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 _ => CreateRunner(),
                 projectFile: projectFile);
 
-            exception = Assert.ThrowsAsync<InvalidOperationException>(
+            exception = await Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await service.CommitAllAsync(
                     "beutl: snapshot on save",
                     SnapshotKind.Save,
@@ -3146,7 +3146,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 }
             });
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.SetLocalIdentityAsync(
                 new GitIdentity("Replacement Name", "replacement@example.invalid"),
                 CancellationToken.None));
@@ -3186,7 +3186,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 return !Path.Exists(path);
             });
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.SetLocalIdentityAsync(
                 new GitIdentity("Replacement Name", "replacement@example.invalid"),
                 CancellationToken.None));
@@ -3241,7 +3241,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 return !Path.Exists(path);
             });
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.SetLocalIdentityAsync(
                 new GitIdentity("Replacement Name", "replacement@example.invalid"),
                 CancellationToken.None));
@@ -3303,7 +3303,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<GitOperationException>(
+        await Assert.ThrowsAsync<GitOperationException>(
             async () => await service.SetLocalIdentityAsync(
                 new GitIdentity("Replacement Name", "replacement@example.invalid"),
                 CancellationToken.None));
@@ -3341,7 +3341,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<OperationCanceledException>(
+        await Assert.ThrowsAsync<OperationCanceledException>(
             async () => await service.SetLocalIdentityAsync(
                 new GitIdentity("Replacement Name", "replacement@example.invalid"),
                 cancellationSource.Token));
@@ -3376,14 +3376,14 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         var replacement = new GitIdentity("Replacement Name", "replacement@example.invalid");
         if (succeeds)
         {
-            Assert.DoesNotThrowAsync(
+            await Assert.DoesNotThrowAsync(
                 async () => await service.SetLocalIdentityAsync(
                     replacement,
                     CancellationToken.None));
         }
         else
         {
-            Assert.ThrowsAsync<GitOperationException>(
+            await Assert.ThrowsAsync<GitOperationException>(
                 async () => await service.SetLocalIdentityAsync(
                     replacement,
                     CancellationToken.None));
@@ -3453,7 +3453,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         service.RecoverableLockAvailable += (_, lockInfo) =>
             completion.TrySetResult(lockInfo);
 
-        Assert.ThrowsAsync<GitOperationException>(
+        await Assert.ThrowsAsync<GitOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -3508,7 +3508,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         service.RecoverableLockAvailable += (_, lockInfo) =>
             completion.TrySetResult(lockInfo);
 
-        GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
+        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -3593,7 +3593,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     1,
                     $"fatal: Unable to create '{expectedLock.LockPath}': index.lock exists.")));
 
-        InvalidOperationException? actual = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? actual = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 _ => Task.FromException<bool>(expectedFailure),
                 CancellationToken.None));
@@ -3798,7 +3798,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Is.TypeOf<CommitResult.Committed>());
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "manual\n");
 
-        Assert.ThrowsAsync<GitOperationException>(async () => await service.CommitAllAsync(
+        await Assert.ThrowsAsync<GitOperationException>(async () => await service.CommitAllAsync(
             "manual snapshot",
             SnapshotKind.Manual,
             CancellationToken.None));
@@ -3862,7 +3862,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => CreateRunner(TimeSpan.FromSeconds(3)));
 
-        Assert.ThrowsAsync<GitOperationException>(async () => await service.CommitAllAsync(
+        await Assert.ThrowsAsync<GitOperationException>(async () => await service.CommitAllAsync(
             "manual snapshot",
             SnapshotKind.Manual,
             CancellationToken.None));
@@ -3880,7 +3880,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
         using var service = CreateService();
 
-        Assert.ThrowsAsync<GitOperationException>(async () => await service.CommitAllAsync(
+        await Assert.ThrowsAsync<GitOperationException>(async () => await service.CommitAllAsync(
             "manual snapshot",
             SnapshotKind.Manual,
             CancellationToken.None));
@@ -4290,7 +4290,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
         using var service = CreateService();
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "manual snapshot",
                 SnapshotKind.Manual,
@@ -4318,7 +4318,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
         using var service = CreateService();
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "manual snapshot",
                 SnapshotKind.Manual,
@@ -4642,13 +4642,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "value\n", "baseline");
         using var service = CreateService();
 
-        Assert.Multiple(() =>
+        await Assert.MultipleAsync(async () =>
         {
-            Assert.ThrowsAsync<ArgumentException>(
+            await Assert.ThrowsAsync<ArgumentException>(
                 async () => await service.GetCommitFilesAsync(
                     "--format=%H",
                     CancellationToken.None));
-            Assert.ThrowsAsync<ArgumentException>(
+            await Assert.ThrowsAsync<ArgumentException>(
                 async () => await service.GetDiffAsync(
                     "--format=%H",
                     path: null,
@@ -4685,15 +4685,15 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     [TestCase("abcdz")]
     [TestCase("--abcd")]
     [TestCase("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0")]
-    public void Commit_read_apis_reject_unsafe_or_out_of_range_object_names(string sha)
+    public async Task Commit_read_apis_reject_unsafe_or_out_of_range_object_names(string sha)
     {
         using var service = CreateService();
 
-        Assert.Multiple(() =>
+        await Assert.MultipleAsync(async () =>
         {
-            Assert.ThrowsAsync<ArgumentException>(
+            await Assert.ThrowsAsync<ArgumentException>(
                 async () => await service.GetCommitFilesAsync(sha, CancellationToken.None));
-            Assert.ThrowsAsync<ArgumentException>(
+            await Assert.ThrowsAsync<ArgumentException>(
                 async () => await service.GetDiffAsync(sha, null, CancellationToken.None));
         });
     }
@@ -4778,7 +4778,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             _ => CreateRunner(),
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -4853,7 +4853,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             _ => CreateRunner(),
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -5256,9 +5256,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(
             CancellationToken.None);
 
-        Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<ArgumentException>(
             async () => await service.SwitchBranchAsync("-", CancellationToken.None));
-        Assert.ThrowsAsync<ArgumentException>(async () =>
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
             await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 async transaction =>
                 {
@@ -5284,7 +5284,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string originalSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         using var service = CreateService();
 
-        Assert.ThrowsAsync<ArgumentException>(async () =>
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
         {
             if (useExclusiveTransaction)
             {
@@ -5382,21 +5382,21 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Repository,
             isWorktreeMutationAllowed: static () => false);
 
-        Assert.Multiple(() =>
+        await Assert.MultipleAsync(async () =>
         {
-            Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
                 await service.CommitProjectTreeAsync(
                     new CheckedOutBranchTip("refs/heads/main", head),
                     head,
                     "blocked restore",
                     SnapshotKind.Restore,
                     CancellationToken.None));
-            Assert.ThrowsAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await service.CreateBranchAsync(
                     "blocked-branch",
                     previous,
                     CancellationToken.None));
-            Assert.ThrowsAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await service.SwitchBranchAsync(
                     "main",
                     CancellationToken.None));
@@ -5465,7 +5465,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "current\n", "current");
         using var service = CreateService();
 
-        ArgumentException? exception = Assert.ThrowsAsync<ArgumentException>(
+        ArgumentException? exception = await Assert.ThrowsAsync<ArgumentException>(
             async () => await service.CreateBranchAsync(
                 "missing-start",
                 "0123456789abcdef0123456789abcdef01234567",
@@ -5517,7 +5517,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Repository,
             isWorktreeMutationAllowed: static () => true);
 
-        Assert.CatchAsync<GitOperationException>(
+        await Assert.CatchAsync<GitOperationException>(
             async () => await service.CreateBranchAsync(
                 "closed-branch",
                 head,
@@ -5546,7 +5546,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(headLock, string.Empty);
         try
         {
-            Assert.CatchAsync<GitOperationException>(
+            await Assert.CatchAsync<GitOperationException>(
                 async () => await service.CreateBranchAsync(
                     "open-branch",
                     head,
@@ -5589,7 +5589,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         GitOperationException? failure;
         try
         {
-            failure = Assert.ThrowsAsync<GitOperationException>(
+            failure = await Assert.ThrowsAsync<GitOperationException>(
                 async () => await service.CreateBranchAsync(
                     "open-branch",
                     head,
@@ -5625,7 +5625,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             _ => runner,
             isWorktreeMutationAllowed: static () => false);
 
-        Assert.CatchAsync<GitOperationException>(
+        await Assert.CatchAsync<GitOperationException>(
             async () => await service.CreateBranchAsync("open-branch", head, CancellationToken.None));
 
         GitCommandResult branches = await RunGitAsync("branch", "--list", "open-branch");
@@ -5770,7 +5770,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await RunGitAsync("switch", "main");
         await CommitFileAsync("project.bep", "main\n", "main");
 
-        Assert.ThrowsAsync<GitOperationException>(
+        await Assert.ThrowsAsync<GitOperationException>(
             async () => await RunGitAsync("merge", "alternate"));
         using var service = CreateService();
 
@@ -5792,11 +5792,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "alternate\n", "alternate");
         await RunGitAsync("switch", "main");
         await CommitFileAsync("project.bep", "main\n", "main");
-        Assert.ThrowsAsync<GitOperationException>(async () => await RunGitAsync("merge", "alternate"));
+        await Assert.ThrowsAsync<GitOperationException>(async () => await RunGitAsync("merge", "alternate"));
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(), Repository, static () => true,
             projectFile: Path.Combine(Root, "project.bep"));
-        Assert.ThrowsAsync<VersionControlConflictedException>(async () =>
+        await Assert.ThrowsAsync<VersionControlConflictedException>(async () =>
             await service.CommitAllAsync("blocked", SnapshotKind.Manual, CancellationToken.None));
     }
 
@@ -5829,11 +5829,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             projectFile: Path.Combine(Root, "project.bep"));
 
         VersionControlConflictedException exception =
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.CommitAllAsync(
                     "blocked snapshot",
                     SnapshotKind.Manual,
-                    CancellationToken.None))!;
+                    CancellationToken.None)))!;
 
         Assert.Multiple(() =>
         {
@@ -5850,7 +5850,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "alternate\n", "alternate");
         await RunGitAsync("switch", "main");
         await CommitFileAsync("project.bep", "main\n", "main");
-        Assert.ThrowsAsync<GitOperationException>(
+        await Assert.ThrowsAsync<GitOperationException>(
             async () => await RunGitAsync("merge", "alternate"));
         string ignorePath = Path.Combine(Root, ".gitignore");
         await File.WriteAllTextAsync(ignorePath, "conflicted custom ignore\n");
@@ -5885,44 +5885,44 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         VersionControlConflictedException[] exceptions =
         [
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.CommitAllAsync(
                     "blocked",
                     SnapshotKind.Manual,
-                    CancellationToken.None))!,
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+                    CancellationToken.None)))!,
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.CommitProjectTreeAsync(
                     expectedTip,
                     history[0].Sha,
                     "blocked restore",
                     SnapshotKind.Restore,
-                    CancellationToken.None))!,
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+                    CancellationToken.None)))!,
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.CreateBranchAsync(
                     "blocked-branch",
                     history[0].Sha,
-                    CancellationToken.None))!,
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+                    CancellationToken.None)))!,
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.SwitchBranchAsync(
                     "alternate",
-                    CancellationToken.None))!,
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+                    CancellationToken.None)))!,
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.InitializeAsync(
                     new InitOptions(Repository, UseLfsWhenAvailable: false),
-                    CancellationToken.None))!,
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+                    CancellationToken.None)))!,
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.EnsureRepositoryHygieneAsync(
-                    CancellationToken.None))!,
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+                    CancellationToken.None)))!,
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.SetLocalIdentityAsync(
                     new GitIdentity("Blocked", "blocked@example.invalid"),
-                    CancellationToken.None))!,
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+                    CancellationToken.None)))!,
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.PullFastForwardAsync(
                     expectedTip,
                     checkpoint: null,
                     Path.Combine(Root, "project.bep"),
-                    CancellationToken.None))!,
+                    CancellationToken.None)))!,
         ];
         // Configuring the remote and pushing touch neither the worktree nor the index, so like plain Git
         // they keep working while the conflict waits for an external merge tool.
@@ -5984,19 +5984,19 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string headBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
 
         VersionControlConflictedException snapshotException =
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.CommitAllAsync(
                     "blocked snapshot",
                     SnapshotKind.Save,
-                    CancellationToken.None))!;
+                    CancellationToken.None)))!;
         VersionControlConflictedException treeCommitException =
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.CommitProjectTreeAsync(
                     expectedTip,
                     expectedTip.Commit,
                     "blocked project tree commit",
                     SnapshotKind.Restore,
-                    CancellationToken.None))!;
+                    CancellationToken.None)))!;
 
         string mergeHeadPath = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
             .Stdout.TrimEnd('\r', '\n');
@@ -6042,17 +6042,17 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
         VersionControlConflictedException preflightException =
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.PreflightPullAsync(
                     expectedTip,
-                    CancellationToken.None))!;
+                    CancellationToken.None)))!;
         VersionControlConflictedException transitionException =
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.PullFastForwardAsync(
                     expectedTip,
                     checkpoint: null,
                     Path.Combine(Root, "project.bep"),
-                    CancellationToken.None))!;
+                    CancellationToken.None)))!;
 
         Assert.Multiple(() =>
         {
@@ -6093,13 +6093,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         CheckedOutBranchTip expectedTip = await service.GetCheckedOutBranchTipAsync(
             CancellationToken.None);
 
-        InvalidOperationException exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException exception = (await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitProjectTreeAsync(
                 expectedTip,
                 sourceCommit,
                 "blocked transition",
                 SnapshotKind.Restore,
-                CancellationToken.None))!;
+                CancellationToken.None)))!;
 
         string actualHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         Assert.Multiple(() =>
@@ -6151,10 +6151,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        InvalidOperationException exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException exception = (await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.RestoreProjectCheckpointAsync(
                 checkpoint,
-                CancellationToken.None))!;
+                CancellationToken.None)))!;
 
         string actualHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         string actualIndexTree = (await RunGitAsync("write-tree")).Stdout.Trim();
@@ -6337,11 +6337,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string headBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
 
         VersionControlConflictedException exception =
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.CommitAllAsync(
                     "blocked snapshot",
                     SnapshotKind.Save,
-                    CancellationToken.None))!;
+                    CancellationToken.None)))!;
 
         string headAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
@@ -6389,8 +6389,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         service.Dispose();
         runner.Complete();
 
-        Assert.DoesNotThrowAsync(async () => await operation);
-        Assert.ThrowsAsync<ObjectDisposedException>(
+        await Assert.DoesNotThrowAsync(async () => await operation);
+        await Assert.ThrowsAsync<ObjectDisposedException>(
             async () => await service.GetStatusAsync(CancellationToken.None));
     }
 
@@ -6410,17 +6410,17 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Task retirement = ((IProjectVersionControlBackend)service).RetireAsync(
             finalSnapshot: null);
 
-        Assert.Multiple(() =>
+        await Assert.MultipleAsync(async () =>
         {
             Assert.That(started.IsCompleted, Is.False);
             Assert.That(retirement.IsCompleted, Is.False);
-            Assert.ThrowsAsync<ObjectDisposedException>(
+            await Assert.ThrowsAsync<ObjectDisposedException>(
                 async () => await service.GetStatusAsync(CancellationToken.None));
         });
 
         runner.Complete();
-        Assert.DoesNotThrowAsync(async () => await started);
-        Assert.ThrowsAsync<ObjectDisposedException>(async () => await queued);
+        await Assert.DoesNotThrowAsync(async () => await started);
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await queued);
         await retirement.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
@@ -6450,11 +6450,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             "-1",
             "--pretty=%s%n%(trailers:key=Beutl-Snapshot,valueonly)");
 
-        Assert.Multiple(() =>
+        await Assert.MultipleAsync(async () =>
         {
             Assert.That(log.Stdout, Does.Contain("beutl: snapshot on close"));
             Assert.That(log.Stdout, Does.Contain("close"));
-            Assert.ThrowsAsync<ObjectDisposedException>(
+            await Assert.ThrowsAsync<ObjectDisposedException>(
                 async () => await service.GetStatusAsync(CancellationToken.None));
         });
     }
@@ -6535,12 +6535,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public void Dispose_is_safe_when_called_concurrently()
+    public async Task Dispose_is_safe_when_called_concurrently()
     {
         GitCliVersionControlService service = CreateService();
 
         Assert.DoesNotThrow(() => Parallel.For(0, 64, _ => service.Dispose()));
-        Assert.ThrowsAsync<ObjectDisposedException>(
+        await Assert.ThrowsAsync<ObjectDisposedException>(
             async () => await service.GetStatusAsync(CancellationToken.None));
     }
 
@@ -7019,7 +7019,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<IOException>(async () =>
+        await Assert.ThrowsAsync<IOException>(async () =>
             await service.SetRemoteAsync(newUrl, CancellationToken.None));
 
         string fetchUrl = (await RunGitAsync("remote", "get-url", "origin")).Stdout.Trim();
@@ -7060,7 +7060,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         using var service = CreateService();
 
-        ArgumentException? exception = Assert.ThrowsAsync<ArgumentException>(
+        ArgumentException? exception = await Assert.ThrowsAsync<ArgumentException>(
             async () => await service.SetRemoteAsync(remoteUrl, CancellationToken.None));
         IReadOnlyList<RemoteInfo> remotes = await service.GetRemotesAsync(CancellationToken.None);
 
@@ -7079,7 +7079,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         using var service = CreateService();
 
-        ArgumentException? exception = Assert.ThrowsAsync<ArgumentException>(
+        ArgumentException? exception = await Assert.ThrowsAsync<ArgumentException>(
             async () => await service.SetRemoteAsync(remoteUrl, CancellationToken.None));
         IReadOnlyList<RemoteInfo> remotes = await service.GetRemotesAsync(CancellationToken.None);
 
@@ -7245,7 +7245,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await RunGitAsync("switch", "main");
         await File.WriteAllTextAsync(Path.Combine(Root, "collides.txt"), "local ignored content\n");
 
-        Assert.ThrowsAsync<GitOperationException>(
+        await Assert.ThrowsAsync<GitOperationException>(
             async () => await service.SwitchBranchAsync("alternate", CancellationToken.None));
 
         Assert.That(
@@ -7279,7 +7279,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => recording);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(() =>
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 async transaction =>
                 {
@@ -7325,7 +7325,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => CreateRunner());
 
-        Assert.DoesNotThrowAsync(() =>
+        await Assert.DoesNotThrowAsync(() =>
             ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 async transaction =>
                 {
@@ -7336,7 +7336,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     return true;
                 },
                 CancellationToken.None));
-        Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
             ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 async transaction =>
                 {
@@ -7356,7 +7356,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await RunGitAsync("commit", "-m", "project lfs pointer");
         string projectPointer = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
 
-        Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
             ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 async transaction =>
                 {
@@ -7388,7 +7388,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => CreateRunner());
 
-        Assert.DoesNotThrowAsync(() =>
+        await Assert.DoesNotThrowAsync(() =>
             ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 async transaction =>
                 {
@@ -7628,13 +7628,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             // Everything the target needs is already local, so an unreachable endpoint must not
             // block the transition.
-            Assert.DoesNotThrowAsync(() => prefetch);
+            await Assert.DoesNotThrowAsync(() => prefetch);
         }
         else
         {
             // The checkout would otherwise download it after the project has closed, on a path that
             // cannot be cancelled.
-            Assert.ThrowsAsync<GitOperationException>(() => prefetch);
+            await Assert.ThrowsAsync<GitOperationException>(() => prefetch);
         }
     }
 
@@ -7657,7 +7657,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<GitOperationException>(() =>
+        await Assert.ThrowsAsync<GitOperationException>(() =>
             ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 async transaction =>
                 {
@@ -7713,11 +7713,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         if (cacheTheObject)
         {
-            Assert.DoesNotThrowAsync(() => prefetch);
+            await Assert.DoesNotThrowAsync(() => prefetch);
         }
         else
         {
-            InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
                 () => prefetch);
             Assert.That(exception!.Message, Does.Contain("no remote is configured"));
         }
@@ -7764,7 +7764,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => recording);
 
-        Assert.ThrowsAsync<GitOperationException>(() =>
+        await Assert.ThrowsAsync<GitOperationException>(() =>
             ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 async transaction =>
                 {
@@ -7797,7 +7797,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.ThrowsAsync<GitOperationException>(() =>
+        await Assert.ThrowsAsync<GitOperationException>(() =>
             ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 async transaction =>
                 {
@@ -7831,7 +7831,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => recording);
 
-        Assert.ThrowsAsync<GitOperationException>(() =>
+        await Assert.ThrowsAsync<GitOperationException>(() =>
             ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 async transaction =>
                 {
@@ -7883,7 +7883,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+        await Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
             async transaction =>
             {
                 await transaction.PrefetchBranchLfsObjectsAsync("HEAD", CancellationToken.None);
@@ -7912,7 +7912,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => recording);
 
-        Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+        await Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
             async transaction =>
             {
                 await transaction.PrefetchCommitLfsObjectsAsync(
@@ -7952,7 +7952,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => CreateRunner());
 
-        Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+        await Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
             async transaction =>
             {
                 await transaction.PrefetchCommitLfsObjectsAsync(
@@ -7985,7 +7985,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => recording);
 
-        Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+        await Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
             async transaction =>
             {
                 await transaction.PrefetchCommitLfsObjectsAsync(
@@ -8045,7 +8045,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+        await Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
             async transaction =>
             {
                 await transaction.PrefetchBranchLfsObjectsAsync("HEAD", CancellationToken.None);
@@ -8473,7 +8473,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => interferingRunner);
 
-        Exception? exception = Assert.CatchAsync<Exception>(
+        Exception? exception = await Assert.CatchAsync<Exception>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -8636,7 +8636,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => failingRunner);
 
-        Exception? exception = Assert.CatchAsync<Exception>(
+        Exception? exception = await Assert.CatchAsync<Exception>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -8753,7 +8753,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => failingRunner);
 
-        Exception? exception = Assert.CatchAsync<Exception>(
+        Exception? exception = await Assert.CatchAsync<Exception>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,

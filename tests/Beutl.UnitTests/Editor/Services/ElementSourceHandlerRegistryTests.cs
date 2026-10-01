@@ -167,7 +167,7 @@ public sealed class ElementSourceHandlerRegistryTests
             typeof(FirstSource),
             out IElementSourceHandlerLease? lease), Is.True);
         lease!.Dispose();
-        Assert.DoesNotThrowAsync(async () => await registration!.DisposeAsync());
+        await Assert.DoesNotThrowAsync(async () => await registration!.DisposeAsync());
         Assert.That(registry.Handlers, Is.Empty);
     }
 

@@ -233,7 +233,7 @@ public class SelectedDrawableRenderTests
                 Assert.That(rasterization.Bitmap, Is.Null);
             });
 
-            // Assert.ThrowsAsync blocks the UI thread; await inline with a timeout.
+            // Keep the rasterization wait bounded so a stalled UI operation fails the test.
             InvalidOperationException? exception = null;
             try
             {

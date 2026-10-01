@@ -44,13 +44,13 @@ public class VideoExporterFileSafetyTests
         finally
         {
             cancellation.Cancel();
-            Assert.CatchAsync<OperationCanceledException>(async () => await export);
+            await Assert.CatchAsync<OperationCanceledException>(async () => await export);
         }
         AssertPreviousOutputAndNoStaging();
     }
 
     [Test]
-    public void Encoder_failure_preserves_the_previous_output()
+    public async Task Encoder_failure_preserves_the_previous_output()
     {
         var exporter = CreateExporter((controller, _) =>
         {
@@ -58,12 +58,12 @@ public class VideoExporterFileSafetyTests
             throw new IOException("encode failed");
         });
 
-        Assert.ThrowsAsync<IOException>(async () => await ExportAsync(exporter));
+        await Assert.ThrowsAsync<IOException>(async () => await ExportAsync(exporter));
         AssertPreviousOutputAndNoStaging();
     }
 
     [Test]
-    public void Cancellation_before_publication_preserves_the_previous_output()
+    public async Task Cancellation_before_publication_preserves_the_previous_output()
     {
         using var cancellation = new CancellationTokenSource();
         var exporter = CreateExporter((controller, _) =>
@@ -73,7 +73,7 @@ public class VideoExporterFileSafetyTests
             return Task.CompletedTask;
         });
 
-        Assert.CatchAsync<OperationCanceledException>(async () => await ExportAsync(exporter, cancellation.Token));
+        await Assert.CatchAsync<OperationCanceledException>(async () => await ExportAsync(exporter, cancellation.Token));
         AssertPreviousOutputAndNoStaging();
     }
 
@@ -136,7 +136,7 @@ public class VideoExporterFileSafetyTests
     }
 
     [Test]
-    public void Publication_failure_does_not_report_completion_or_delete_existing_data()
+    public async Task Publication_failure_does_not_report_completion_or_delete_existing_data()
     {
         File.Delete(_destination);
         Directory.CreateDirectory(_destination);
@@ -148,7 +148,7 @@ public class VideoExporterFileSafetyTests
             return Task.CompletedTask;
         });
 
-        Exception? failure = Assert.CatchAsync<Exception>(async () => await exporter.ExportAsync(
+        Exception? failure = await Assert.CatchAsync<Exception>(async () => await exporter.ExportAsync(
             CreateScene(), _destination, new Rational(30, 1), 44100, 1, CancellationToken.None,
             onFrameProgress: (done, total) => completed |= done == total));
 
@@ -159,7 +159,7 @@ public class VideoExporterFileSafetyTests
     }
 
     [Test]
-    public void Native_avfoundation_cancellation_preserves_the_previous_output()
+    public async Task Native_avfoundation_cancellation_preserves_the_previous_output()
     {
         if (!OperatingSystem.IsMacOS())
         {
@@ -170,7 +170,7 @@ public class VideoExporterFileSafetyTests
         using var cancellation = new CancellationTokenSource();
         var exporter = new VideoExporter(new EncoderRegistration(new AVFEncodingExtension()));
 
-        Assert.CatchAsync<OperationCanceledException>(async () => await exporter.ExportAsync(
+        await Assert.CatchAsync<OperationCanceledException>(async () => await exporter.ExportAsync(
             CreateScene(), _destination, new Rational(30, 1), 44100, 1, cancellation.Token,
             onFrameProgress: (_, _) => cancellation.Cancel()));
 

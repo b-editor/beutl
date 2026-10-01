@@ -35,7 +35,7 @@ public sealed partial class AiCapabilityServiceTests
         ]);
         if (failLastOpen)
         {
-            var error = Assert.ThrowsAsync<IOException>(async () =>
+            var error = await Assert.ThrowsAsync<IOException>(async () =>
                 await app.GetResource<IAiVideoService>().CreateAsync(request, CancellationToken.None));
             Assert.That(error!.Message, Is.EqualTo("Injected open failure."));
         }
@@ -82,7 +82,7 @@ public sealed partial class AiCapabilityServiceTests
                 await app.GetResource<IAiVideoService>().CreateAsync(
                     new AiVideoGenerationRequest("scene", 5, new("720p"), new("16:9"), inputReferences: references), cancellation.Token);
         }
-        var error = Assert.CatchAsync<Exception>(Send);
+        var error = await Assert.CatchAsync<Exception>(Send);
         if (cancel) Assert.That(error, Is.InstanceOf<OperationCanceledException>());
         else Assert.That(error, Is.TypeOf<AiModelUnavailableException>());
         Assert.That(first.AsyncDisposals, Is.EqualTo(1));
@@ -148,7 +148,7 @@ public sealed partial class AiCapabilityServiceTests
             new("source.mp4", "video/mp4", _ => ValueTask.FromResult<Stream>(video), 3), durationSeconds: 5,
             characterImage: new("character.png", "image/png", _ => ValueTask.FromResult<Stream>(character), 3));
 
-        var error = Assert.CatchAsync<Exception>(async () =>
+        var error = await Assert.CatchAsync<Exception>(async () =>
             await app.GetResource<IAiVideoService>().CreateFromSourceAsync(request, cancellation.Token));
 
         if (cancel) Assert.That(error, Is.InstanceOf<OperationCanceledException>());
@@ -170,7 +170,7 @@ public sealed partial class AiCapabilityServiceTests
             new("source.mp4", "video/mp4", _ => ValueTask.FromResult<Stream>(video), 3), durationSeconds: 5,
             characterImage: new("character.png", "image/png", _ => ValueTask.FromException<Stream>(openFailure), 3));
 
-        var error = Assert.ThrowsAsync<IOException>(async () =>
+        var error = await Assert.ThrowsAsync<IOException>(async () =>
             await app.GetResource<IAiVideoService>().CreateFromSourceAsync(request, CancellationToken.None));
 
         Assert.That(error, Is.SameAs(openFailure));

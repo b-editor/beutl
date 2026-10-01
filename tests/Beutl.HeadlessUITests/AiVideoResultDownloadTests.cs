@@ -14,7 +14,7 @@ public sealed class AiVideoResultDownloadTests
             maximumBytes: 4);
 
         await bounded.WriteAsync(new byte[] { 1, 2, 3, 4 });
-        Assert.ThrowsAsync<InvalidDataException>(async () =>
+        await Assert.ThrowsAsync<InvalidDataException>(async () =>
             await bounded.WriteAsync(new byte[] { 5 }));
         bounded.Dispose();
 

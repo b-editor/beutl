@@ -36,7 +36,7 @@ public class PackageReleaseRefreshCoordinatorTests
 
     [TestCase(true)]
     [TestCase(false)]
-    public void RefreshAsync_DoesNotPublishPartialPagesAndRestoresOnlyPreviousReadinessOnFailure(bool wasReady)
+    public async Task RefreshAsync_DoesNotPublishPartialPagesAndRestoresOnlyPreviousReadinessOnFailure(bool wasReady)
     {
         using var releasesReady = new BehaviorSubject<bool>(wasReady);
         Release previousRelease = CreateRelease("0.9.0");
@@ -45,7 +45,7 @@ public class PackageReleaseRefreshCoordinatorTests
         var readyStates = new List<bool>();
         using IDisposable subscription = releasesReady.Subscribe(readyStates.Add);
 
-        Assert.ThrowsAsync<InvalidOperationException>(() => PackageReleaseRefreshCoordinator.RefreshAsync(
+        await Assert.ThrowsAsync<InvalidOperationException>(() => PackageReleaseRefreshCoordinator.RefreshAsync(
             releasesReady,
             () => Task.CompletedTask,
             (start, _) =>
@@ -98,13 +98,13 @@ public class PackageReleaseRefreshCoordinatorTests
 
     [TestCase(true)]
     [TestCase(false)]
-    public void RefreshAsync_RestoresOnlyPreviousReadinessWhenPublicationFails(bool wasReady)
+    public async Task RefreshAsync_RestoresOnlyPreviousReadinessWhenPublicationFails(bool wasReady)
     {
         using var releasesReady = new BehaviorSubject<bool>(wasReady);
         var readyStates = new List<bool>();
         using IDisposable subscription = releasesReady.Subscribe(readyStates.Add);
 
-        Assert.ThrowsAsync<InvalidOperationException>(() => PackageReleaseRefreshCoordinator.RefreshAsync(
+        await Assert.ThrowsAsync<InvalidOperationException>(() => PackageReleaseRefreshCoordinator.RefreshAsync(
             releasesReady,
             () => Task.CompletedTask,
             (_, _) => Task.FromResult(Array.Empty<Release>()),

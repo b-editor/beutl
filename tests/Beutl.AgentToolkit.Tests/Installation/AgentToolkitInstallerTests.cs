@@ -276,9 +276,9 @@ public sealed class AgentToolkitInstallerTests
     }
 
     [Test]
-    public void InstallAsync_RejectsAssetPathsOutsideAgentRoot()
+    public async Task InstallAsync_RejectsAssetPathsOutsideAgentRoot()
     {
-        Assert.ThrowsAsync<ArgumentException>(() => AgentToolkitInstaller.InstallAsync(
+        await Assert.ThrowsAsync<ArgumentException>(() => AgentToolkitInstaller.InstallAsync(
             new AgentToolkitInstallOptions
             {
                 AgentRoot = _tempRoot,
@@ -290,9 +290,9 @@ public sealed class AgentToolkitInstallerTests
     }
 
     [Test]
-    public void InstallAsync_RejectsMcpConfigPathsOutsideAgentRoot()
+    public async Task InstallAsync_RejectsMcpConfigPathsOutsideAgentRoot()
     {
-        Assert.ThrowsAsync<ArgumentException>(() => AgentToolkitInstaller.InstallAsync(
+        await Assert.ThrowsAsync<ArgumentException>(() => AgentToolkitInstaller.InstallAsync(
             new AgentToolkitInstallOptions
             {
                 AgentRoot = _tempRoot,

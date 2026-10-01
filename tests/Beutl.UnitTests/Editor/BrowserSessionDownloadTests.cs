@@ -101,14 +101,14 @@ public class BrowserSessionDownloadTests
     [TestCase("http://source.test/final.mp4")]
     [TestCase("https://user:secret@source.test/final.mp4")]
     [TestCase("file:///tmp/movie.mp4")]
-    public void UnsafeRedirectsAreRejectedBeforeSendingAnotherRequest(string destination)
+    public async Task UnsafeRedirectsAreRejectedBeforeSendingAnotherRequest(string destination)
     {
         using var handler = new RecordingHandler(_ => Redirect(destination));
         using var client = new HttpClient(handler);
         string directory = NewDirectory();
         try
         {
-            Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
+            await Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
                 new Uri("https://source.test/start.mp4"), directory, null, null, default,
                 cookies: [new("session", "secret", "/", "source.test")]));
             Assert.That(handler.Requests, Has.Count.EqualTo(1));
@@ -118,11 +118,11 @@ public class BrowserSessionDownloadTests
     }
 
     [Test]
-    public void RedirectLoopsAreBounded()
+    public async Task RedirectLoopsAreBounded()
     {
         using var handler = new RecordingHandler(_ => Redirect("/loop.mp4"));
         using var client = new HttpClient(handler);
-        Assert.ThrowsAsync<HttpRequestException>(() => new BrowserMediaDownload(client).DownloadAsync(
+        await Assert.ThrowsAsync<HttpRequestException>(() => new BrowserMediaDownload(client).DownloadAsync(
             new Uri("https://source.test/loop.mp4"), NewDirectory(), null, null, default));
         Assert.That(handler.Requests, Has.Count.EqualTo(11));
     }

@@ -185,9 +185,9 @@ public sealed class AsyncOperationLifetimeTests
         });
         await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.CatchAsync<Exception>(async () =>
+        await Assert.CatchAsync<Exception>(async () =>
             await lifetime.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
-        Assert.CatchAsync<OperationCanceledException>(async () => await operation);
+        await Assert.CatchAsync<OperationCanceledException>(async () => await operation);
 
         using (Assert.EnterMultipleScope())
         {
@@ -208,7 +208,7 @@ public sealed class AsyncOperationLifetimeTests
                 return ValueTask.CompletedTask;
             });
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await lifetime.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.That(resourcesDisposed, Is.True);
     }

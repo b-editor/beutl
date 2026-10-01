@@ -75,14 +75,14 @@ public class FrameImageSaveTests
     [TestCase("bmp")]
     [TestCase("gif")]
     [TestCase("avif")]
-    public void Unsupported_formats_are_rejected_before_touching_the_destination(string extension)
+    public async Task Unsupported_formats_are_rejected_before_touching_the_destination(string extension)
     {
         string path = Path.Combine(_root, "image." + extension);
         File.WriteAllText(path, "previous image");
         var file = StorageFile(path);
         using var bitmap = new Bitmap(8, 6);
 
-        Assert.ThrowsAsync<NotSupportedException>(async () => await PlayerView.SaveImage(file.Object, bitmap));
+        await Assert.ThrowsAsync<NotSupportedException>(async () => await PlayerView.SaveImage(file.Object, bitmap));
 
         Assert.That(File.ReadAllText(path), Is.EqualTo("previous image"));
         Assert.That(Directory.GetDirectories(_root), Is.Empty);
@@ -90,13 +90,13 @@ public class FrameImageSaveTests
     }
 
     [Test]
-    public void Encoder_failure_preserves_the_existing_image()
+    public async Task Encoder_failure_preserves_the_existing_image()
     {
         string path = Path.Combine(_root, "image.png");
         File.WriteAllText(path, "previous image");
         using var empty = new Bitmap(new SKBitmap());
 
-        Assert.ThrowsAsync<IOException>(async () => await PlayerView.SaveImage(StorageFile(path).Object, empty));
+        await Assert.ThrowsAsync<IOException>(async () => await PlayerView.SaveImage(StorageFile(path).Object, empty));
 
         Assert.That(File.ReadAllText(path), Is.EqualTo("previous image"));
         Assert.That(Directory.GetDirectories(_root), Is.Empty);

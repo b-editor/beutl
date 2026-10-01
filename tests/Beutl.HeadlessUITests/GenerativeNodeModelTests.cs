@@ -98,8 +98,7 @@ public sealed class GenerativeNodeModelTests
         var executor = CreateExecutor(images);
         var node = new AiImageGenerationNode();
 
-        // Awaited rather than Assert.ThrowsAsync: that blocks the UI thread, and a run that
-        // wrongly went on to save a result would deadlock instead of failing.
+        // Await the rejection without blocking the UI thread, so an unexpected save can complete.
         GenerativeExecutionException? refused = null;
         try
         {

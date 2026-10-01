@@ -38,7 +38,7 @@ public sealed class CloudStorageFolderLoadingTests
 
         // Invalidate after NavigateAsync's owner check, before it commits the cached root.
         invalidate = () => SignInOnBackgroundThread(scope.Clients, nextAccount);
-        Assert.DoesNotThrowAsync(() => vm.NavigateToAsync(vm.Breadcrumbs[0]));
+        await Assert.DoesNotThrowAsync(() => vm.NavigateToAsync(vm.Breadcrumbs[0]));
         Assert.That(vm.Items, Is.Empty);
         Assert.That(vm.Error.Value, Is.Null);
         await WaitFor(() => nextAccount == null ? !vm.SignedIn.Value : scope.Handler.Requests.Count == 3);

@@ -862,7 +862,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
                 return Task.CompletedTask;
             });
 
-        Assert.ThrowsAsync<GitIdentityRequiredException>(
+        await Assert.ThrowsAsync<GitIdentityRequiredException>(
             async () => await service.CreateProjectCheckpointAsync(
                 "safety checkpoint",
                 CancellationToken.None));

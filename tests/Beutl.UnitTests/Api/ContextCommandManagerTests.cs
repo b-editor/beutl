@@ -91,17 +91,17 @@ public class ContextCommandManagerTests
     }
 
     [Test]
-    public void Input_event_boundary_consumes_faulted_command_tasks()
+    public async Task Input_event_boundary_consumes_faulted_command_tasks()
     {
-        Assert.DoesNotThrowAsync(() => ContextCommandManager.ExecuteSafelyAsync(
+        await Assert.DoesNotThrowAsync(() => ContextCommandManager.ExecuteSafelyAsync(
             () => Task.FromException(new InvalidOperationException("command failed")),
             Mock.Of<ILogger>()));
     }
 
     [Test]
-    public void Input_event_boundary_consumes_canceled_command_tasks()
+    public async Task Input_event_boundary_consumes_canceled_command_tasks()
     {
-        Assert.DoesNotThrowAsync(() => ContextCommandManager.ExecuteSafelyAsync(
+        await Assert.DoesNotThrowAsync(() => ContextCommandManager.ExecuteSafelyAsync(
             () => Task.FromCanceled(new CancellationToken(canceled: true)),
             Mock.Of<ILogger>()));
     }

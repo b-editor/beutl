@@ -67,7 +67,7 @@ public sealed class AiPlanCoordinatorTests
     }
 
     [Test]
-    public void FailedRefresh_RemainsPendingForTheNextActivation()
+    public async Task FailedRefresh_RemainsPendingForTheNextActivation()
     {
         var entitlements = new StubEntitlementService
         {
@@ -81,11 +81,11 @@ public sealed class AiPlanCoordinatorTests
         coordinator.Refreshed += (_, _) => refreshedEvents++;
         coordinator.OpenAiPlan();
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await coordinator.RefreshIfPendingAsync(CancellationToken.None));
         entitlements.Failure = null;
         bool refreshed = false;
-        Assert.DoesNotThrowAsync(async () =>
+        await Assert.DoesNotThrowAsync(async () =>
         {
             refreshed = await coordinator.RefreshIfPendingAsync(CancellationToken.None);
         });

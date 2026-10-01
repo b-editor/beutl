@@ -48,7 +48,7 @@ public class BrowserAdBlockFilterStoreTests
             await store.UpdateAsync([OriginalUrl], CancellationToken.None);
             string originalCache = await File.ReadAllTextAsync(path);
             handler.FailSelected = true;
-            Assert.ThrowsAsync<HttpRequestException>(() => store.UpdateAsync([SelectedUrl], CancellationToken.None));
+            await Assert.ThrowsAsync<HttpRequestException>(() => store.UpdateAsync([SelectedUrl], CancellationToken.None));
             Assert.That(await File.ReadAllTextAsync(path), Is.EqualTo(originalCache));
             if (restart) store = new BrowserAdBlockFilterStore(path, client);
             handler.FailSelected = false;

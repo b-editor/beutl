@@ -164,7 +164,7 @@ public sealed class RenderStillTests
         }
         else
         {
-            Assert.ThrowsAsync<RenderingUnavailableException>(async () =>
+            await Assert.ThrowsAsync<RenderingUnavailableException>(async () =>
                 await renderer.RenderAsync(scene, TimeSpan.Zero, output, 1, CancellationToken.None));
         }
     }

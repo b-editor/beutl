@@ -77,13 +77,13 @@ public class PackageInstallerDownloadExtractionTests
 
     [TestCase(DownloadResourceResultStatus.NotFound)]
     [TestCase(DownloadResourceResultStatus.Cancelled)]
-    public void ExtractDownloadedPackage_ReportsThePackageAndStatus_WhenNothingWasDownloaded(
+    public async Task ExtractDownloadedPackage_ReportsThePackageAndStatus_WhenNothingWasDownloaded(
         DownloadResourceResultStatus status)
     {
         PackageIdentity identity = CreateIdentity();
         using var result = new DownloadResourceResult(status);
 
-        InvalidOperationException? thrown = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? thrown = await Assert.ThrowsAsync<InvalidOperationException>(
             () => ExtractAsync(result, identity));
 
         Assert.Multiple(() =>
@@ -96,14 +96,14 @@ public class PackageInstallerDownloadExtractionTests
     }
 
     [Test]
-    public void ExtractDownloadedPackage_ThrowsCancellation_WhenTheCallerCancelledTheDownload()
+    public async Task ExtractDownloadedPackage_ThrowsCancellation_WhenTheCallerCancelledTheDownload()
     {
         PackageIdentity identity = CreateIdentity();
         using var result = new DownloadResourceResult(DownloadResourceResultStatus.Cancelled);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        Assert.ThrowsAsync<OperationCanceledException>(
+        await Assert.ThrowsAsync<OperationCanceledException>(
             () => ExtractAsync(result, identity, cancellation.Token));
     }
 

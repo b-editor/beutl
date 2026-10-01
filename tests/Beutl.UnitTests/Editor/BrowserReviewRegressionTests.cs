@@ -48,7 +48,7 @@ public class BrowserReviewRegressionTests
     [TestCase("video/mp4", "utf8")]
     [TestCase("audio/mpeg", "utf8")]
     [TestCase("image/png", "utf16")]
-    public void HtmlResponsesAreRejectedBeforePublishingAFile(string? mediaType, string encoding)
+    public async Task HtmlResponsesAreRejectedBeforePublishingAFile(string? mediaType, string encoding)
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Encoding codec = encoding == "utf16" ? Encoding.Unicode : new UTF8Encoding(true);
@@ -56,7 +56,7 @@ public class BrowserReviewRegressionTests
         using var client = new HttpClient(new BodyHandler(body, mediaType));
         try
         {
-            Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
                 await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://example.com/movie.mp4"), root, null, null, default));
             Assert.That(Directory.Exists(root) ? Directory.GetFiles(root) : [], Is.Empty);
         }

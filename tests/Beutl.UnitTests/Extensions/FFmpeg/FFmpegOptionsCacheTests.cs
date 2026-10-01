@@ -63,7 +63,7 @@ public class FFmpegOptionsCacheTests
         var cache = new FFmpegOptionsCache<int>();
         int calls = 0;
 
-        Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<InvalidOperationException>(
             () => cache.GetOrQueryAsync(
                 "aac",
                 () => { calls++; return Task.FromException<OptionsQueryResult<int>>(new InvalidOperationException()); }));

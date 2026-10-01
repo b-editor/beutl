@@ -27,7 +27,7 @@ public sealed class ProfileLifetimeTests
 
         await app.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await refresh.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
@@ -46,7 +46,7 @@ public sealed class ProfileLifetimeTests
 
         await app.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await getPackages.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
@@ -75,7 +75,7 @@ public sealed class ProfileLifetimeTests
         await app.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         releaseRequest.TrySetResult();
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await refresh.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
@@ -103,7 +103,7 @@ public sealed class ProfileLifetimeTests
         Task<Package[]> getPackages = profile.GetPackagesAsync(CancellationToken.None);
         await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await getPackages.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
@@ -151,7 +151,7 @@ public sealed class ProfileLifetimeTests
             cancellation.Cancel();
             Task refresh = user.RefreshAsync(cancellation.Token).AsTask();
 
-            Assert.CatchAsync<OperationCanceledException>(async () =>
+            await Assert.CatchAsync<OperationCanceledException>(async () =>
                 await refresh.WaitAsync(TimeSpan.FromSeconds(5)));
         }
         finally

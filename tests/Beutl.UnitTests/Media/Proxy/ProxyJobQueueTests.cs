@@ -1193,7 +1193,7 @@ public class ProxyJobQueueTests
 
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             async () => await queue.EnqueueAsync(canceled, ProxyPreset.Quarter, priority: 10, cts.Token));
 
         generator.ReleaseOne();
@@ -1569,7 +1569,7 @@ public class ProxyJobQueueTests
 
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             async () => await queue.EnqueueAsync(canceledSource, ProxyPreset.Quarter, cancellationToken: cts.Token));
 
         ProxyJob? canceledJob;

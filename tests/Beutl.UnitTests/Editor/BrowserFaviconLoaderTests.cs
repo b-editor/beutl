@@ -49,7 +49,7 @@ public class BrowserFaviconLoaderTests
         Task<byte[]?> first = loader.GetAsync("https://example.com/one", cancellation.Token);
         Task<byte[]?> second = loader.GetAsync("https://example.com/two", default);
         cancellation.Cancel();
-        Assert.ThrowsAsync<TaskCanceledException>(async () => await first);
+        await Assert.ThrowsAsync<TaskCanceledException>(async () => await first);
         response.SetResult(Image([1, 2]));
         Assert.That(await second, Is.EqualTo(new byte[] { 1, 2 }));
         Assert.That(handler.Requests, Has.Count.EqualTo(1));

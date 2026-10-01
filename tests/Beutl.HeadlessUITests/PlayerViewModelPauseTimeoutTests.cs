@@ -38,14 +38,14 @@ public class PlayerViewModelPauseTimeoutTests
     }
 
     [Test]
-    public void WaitForPlaybackStopAsync_propagates_the_fault_when_the_task_completes_faulted()
+    public async Task WaitForPlaybackStopAsync_propagates_the_fault_when_the_task_completes_faulted()
     {
         var logger = new CapturingLogger();
         Task faulted = Task.FromException(new InvalidOperationException("boom"));
 
         // A task that completed before the timeout still has its fault re-thrown so Pause()'s
         // existing catch can drop and reset it — the pre-existing behaviour must be preserved.
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await PlayerViewModel.WaitForPlaybackStopAsync(faulted, TimeSpan.FromSeconds(5), logger, "scene-1"));
     }
 

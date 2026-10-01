@@ -163,7 +163,7 @@ public class OpenProjectTests
 
         Assert.DoesNotThrow(attempt.Complete);
         releaseCancellation.TrySetResult();
-        Assert.DoesNotThrowAsync(async () => await cancel.WaitAsync(TimeSpan.FromSeconds(2)));
+        await Assert.DoesNotThrowAsync(async () => await cancel.WaitAsync(TimeSpan.FromSeconds(2)));
     }
 
     [AvaloniaTest]

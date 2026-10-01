@@ -22,12 +22,12 @@ public class BrowserMediaPreambleTests
     [TestCase("details")]
     [TestCase("dialog")]
     [TestCase("template")]
-    public void HtmlFragmentRootsAreRejectedAcrossReadBoundaries(string tag)
+    public async Task HtmlFragmentRootsAreRejectedAcrossReadBoundaries(string tag)
     {
         byte[] body = Encoding.UTF8.GetBytes("<!--" + new string('x', 9000) + "--><" + tag.ToUpperInvariant()
             + " class='error'>Sign in</" + tag + ">");
         foreach (string mediaType in new[] { "video/mp4", "application/octet-stream" })
-            AssertHtmlIsRejected(body, "utf-8", mediaType);
+            await AssertHtmlIsRejected(body, "utf-8", mediaType);
     }
 
     [TestCase("utf8")]
@@ -50,10 +50,10 @@ public class BrowserMediaPreambleTests
     [TestCase("utf32le", "utf-32", "application/octet-stream")]
     [TestCase("utf32be", "utf-32BE", "image/svg+xml")]
     [TestCase("utf16be", "\"UTF-16BE\"", "image/svg+xml")]
-    public void DeclaredBomlessUnicodeHtmlIsRejected(string encoding, string charset, string mediaType)
+    public async Task DeclaredBomlessUnicodeHtmlIsRejected(string encoding, string charset, string mediaType)
     {
         byte[] body = GetEncoding(encoding).GetBytes(" \n<!-- sign in -->\n<html><body>Login</body></html>");
-        AssertHtmlIsRejected(body, charset, mediaType);
+        await AssertHtmlIsRejected(body, charset, mediaType);
     }
 
     [TestCase("utf16le", "utf-16")]
@@ -70,10 +70,10 @@ public class BrowserMediaPreambleTests
     [TestCase("utf-16")]
     [TestCase("utf-32BE")]
     [TestCase("x-unsupported-charset")]
-    public void AFalseCharsetDoesNotDisableUtf8HtmlInspection(string charset)
+    public async Task AFalseCharsetDoesNotDisableUtf8HtmlInspection(string charset)
     {
         byte[] body = Encoding.UTF8.GetBytes("<!--" + new string('x', 9000) + "--><html>Login</html>");
-        AssertHtmlIsRejected(body, charset, "image/svg+xml");
+        await AssertHtmlIsRejected(body, charset, "image/svg+xml");
     }
 
     [Test]
@@ -85,10 +85,10 @@ public class BrowserMediaPreambleTests
     }
 
     [Test]
-    public void UnicodeBomOverridesAnIncorrectUtf8Charset()
+    public async Task UnicodeBomOverridesAnIncorrectUtf8Charset()
     {
         byte[] body = [.. Encoding.BigEndianUnicode.GetPreamble(), .. Encoding.BigEndianUnicode.GetBytes("<html>Login</html>")];
-        AssertHtmlIsRejected(body, "utf-8", "application/octet-stream");
+        await AssertHtmlIsRejected(body, "utf-8", "application/octet-stream");
     }
 
     [TestCase(4088)]
@@ -103,7 +103,7 @@ public class BrowserMediaPreambleTests
     [TestCase("comment")]
     [TestCase("declaration")]
     [TestCase("whitespace")]
-    public void HtmlAfterLongPreamblesIsRejectedWithoutPublishingAFile(string kind)
+    public async Task HtmlAfterLongPreamblesIsRejectedWithoutPublishingAFile(string kind)
     {
         string preamble = kind switch
         {
@@ -115,7 +115,7 @@ public class BrowserMediaPreambleTests
         using var client = new HttpClient(new BodyHandler(Encoding.UTF8.GetBytes(preamble + "<!doctype html><html>Login</html>")));
         try
         {
-            Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
+            await Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
                 new Uri("https://example.com/image.svg"), directory, null, null, default));
             Assert.That(Directory.Exists(directory) ? Directory.GetFiles(directory) : [], Is.Empty);
         }
@@ -123,7 +123,7 @@ public class BrowserMediaPreambleTests
     }
 
     [Test]
-    public void CancellationWhileReadingThePreambleRemovesThePartialFile()
+    public async Task CancellationWhileReadingThePreambleRemovesThePartialFile()
     {
         string directory = NewDirectory();
         using var cancellation = new CancellationTokenSource();
@@ -131,20 +131,20 @@ public class BrowserMediaPreambleTests
             + "--><svg xmlns='http://www.w3.org/2000/svg'/>")));
         try
         {
-            Assert.CatchAsync<OperationCanceledException>(() => new BrowserMediaDownload(client).DownloadAsync(
+            await Assert.CatchAsync<OperationCanceledException>(() => new BrowserMediaDownload(client).DownloadAsync(
                 new Uri("https://example.com/image.svg"), directory, null, new CancelProgress(cancellation), cancellation.Token));
             Assert.That(Directory.Exists(directory) ? Directory.GetFiles(directory) : [], Is.Empty);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
-    private static void AssertHtmlIsRejected(byte[] body, string charset, string mediaType)
+    private static async Task AssertHtmlIsRejected(byte[] body, string charset, string mediaType)
     {
         string directory = NewDirectory();
         using var client = new HttpClient(new BodyHandler(body, charset, mediaType));
         try
         {
-            Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
+            await Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
                 new Uri("https://example.com/image.svg"), directory, null, null, default));
             Assert.That(Directory.Exists(directory) ? Directory.GetFiles(directory) : [], Is.Empty);
         }

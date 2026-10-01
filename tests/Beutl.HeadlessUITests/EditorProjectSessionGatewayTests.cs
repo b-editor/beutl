@@ -89,8 +89,7 @@ public class EditorProjectSessionGatewayTests
         await gateway.OpenProjectAsync(first);
         HeadlessTestHelpers.Settle();
 
-        // Assert.ThrowsAsync blocks the UI thread and deadlocks the headless dispatcher,
-        // so the rejection is awaited inline instead.
+        // Await the rejection without blocking the headless dispatcher.
         ReconcileException? rejection = await ExpectRejectionAsync(() => gateway.OpenProjectAsync(second));
 
         Assert.Multiple(() =>

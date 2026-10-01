@@ -21,7 +21,7 @@ public partial class PackageInstallerDataTests
         {
             await waiting.Task.WaitAsync(TimeSpan.FromSeconds(5));
             cancellation.Cancel();
-            Assert.ThrowsAsync<OperationCanceledException>(async () => await recovery.WaitAsync(TimeSpan.FromSeconds(5)));
+            await Assert.ThrowsAsync<OperationCanceledException>(async () => await recovery.WaitAsync(TimeSpan.FromSeconds(5)));
         }
         finally
         {

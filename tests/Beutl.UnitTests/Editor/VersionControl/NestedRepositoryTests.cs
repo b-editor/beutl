@@ -122,7 +122,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         using GitCliVersionControlService service = CreateUnassociatedService();
 
         EnclosingRepositoryConsentRequiredException? exception
-            = Assert.ThrowsAsync<EnclosingRepositoryConsentRequiredException>(
+            = await Assert.ThrowsAsync<EnclosingRepositoryConsentRequiredException>(
                 async () => await service.InitializeAsync(
                     new InitOptions(
                         new RepositoryInfo(projectRoot, projectRoot),
@@ -173,7 +173,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         var selectedRepository = new RepositoryInfo(Root, projectRoot);
         using GitCliVersionControlService service = CreateUnassociatedService();
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -205,7 +205,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             _ => CreateRunner(),
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -239,7 +239,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             isWorktreeMutationAllowed: static () => true,
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -310,7 +310,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             isWorktreeMutationAllowed: static () => true,
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -353,7 +353,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             _ => CreateRunner(),
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -378,7 +378,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         var selectedRepository = new RepositoryInfo(Root, projectRoot);
         using GitCliVersionControlService service = CreateUnassociatedService();
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -430,7 +430,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             _ => CreateRunner(),
             projectFile: projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -468,7 +468,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             watcher: null,
             _ => CreateRunner());
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -496,7 +496,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         var selectedRepository = new RepositoryInfo(Root, projectRoot);
         using GitCliVersionControlService service = CreateUnassociatedService();
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(
                 new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
@@ -580,7 +580,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         project.Items.Add(item);
         CoreSerializer.StoreToUri(project, new Uri(projectFile));
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -627,7 +627,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         string requiredPath = Path.Combine(projectRoot, ".gitattributes");
         await File.WriteAllTextAsync(requiredPath, "ignored required data\n");
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -677,7 +677,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
 
         string requiredPath = Path.Combine(projectRoot, ".gitattributes");
         await File.WriteAllTextAsync(requiredPath, "ignored required data\n");
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -705,7 +705,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -763,7 +763,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "beutl: snapshot on save",
                 SnapshotKind.Save,
@@ -875,7 +875,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         await File.WriteAllTextAsync(siblingFile, "main sibling\n");
         await RunGitAsync("add", "--", "sibling.scene");
         await RunGitAsync("commit", "-m", "main sibling");
-        Assert.ThrowsAsync<GitOperationException>(
+        await Assert.ThrowsAsync<GitOperationException>(
             async () => await RunGitAsync("merge", "alternate"));
         await File.WriteAllTextAsync(projectFile, "changed project\n");
         string ignorePath = Path.Combine(projectRoot, ".gitignore");
@@ -889,7 +889,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
 
         WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
 
-        Assert.Multiple(() =>
+        await Assert.MultipleAsync(async () =>
         {
             Assert.That(status.HasConflicts, Is.True);
             Assert.That(
@@ -900,12 +900,12 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             Assert.That(
                 status.Changes.Select(static change => change.Path),
                 Does.Not.Contain("sibling.scene"));
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+            await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.CommitAllAsync(
                     "beutl: snapshot on save",
                     SnapshotKind.Save,
                     CancellationToken.None));
-            Assert.ThrowsAsync<VersionControlConflictedException>(
+            await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.EnsureRepositoryHygieneAsync(
                     CancellationToken.None));
         });
@@ -1206,7 +1206,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             () => service.UntrackReservedPathsAsync(reserved, cancellation.Token));
 
         GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
@@ -1357,7 +1357,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             TaskCreationOptions.RunContinuationsAsynchronously);
         service.RecoverableLockAvailable += (_, info) => notification.TrySetResult(info);
 
-        GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
+        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
             () => service.UntrackReservedPathsAsync(reserved, CancellationToken.None));
         RepositoryLockInfo lockInfo = await notification.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Multiple(() =>

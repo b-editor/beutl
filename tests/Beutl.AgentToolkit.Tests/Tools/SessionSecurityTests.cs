@@ -35,7 +35,7 @@ public sealed class SessionSecurityTests
     }
 
     [Test]
-    public void Open_project_outside_the_workspace_is_rejected()
+    public async Task Open_project_outside_the_workspace_is_rejected()
     {
         string root = CreateWorkspace();
         string outsideDir = CreateWorkspace();
@@ -46,7 +46,7 @@ public sealed class SessionSecurityTests
         using var source = new FileSessionSource();
         var gateway = new FileProjectSessionGateway(source, manager, new WorkspaceGuard(root));
 
-        Assert.ThrowsAsync<WorkspaceBoundaryException>(async () =>
+        await Assert.ThrowsAsync<WorkspaceBoundaryException>(async () =>
             await gateway.OpenProjectAsync(outsideProject));
     }
 

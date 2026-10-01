@@ -68,7 +68,7 @@ public sealed class ProfileTests
         await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellationTokenSource.Cancel();
 
-        Assert.CatchAsync<OperationCanceledException>(async () => await refresh);
+        await Assert.CatchAsync<OperationCanceledException>(async () => await refresh);
         Assert.Multiple(() =>
         {
             Assert.That(profile.Name, Is.EqualTo("test"));
@@ -170,7 +170,7 @@ public sealed class ProfileTests
         await detailRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellationTokenSource.Cancel();
 
-        Assert.CatchAsync<OperationCanceledException>(async () => await operation);
+        await Assert.CatchAsync<OperationCanceledException>(async () => await operation);
         await detailCancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
