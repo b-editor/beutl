@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+    <Using Include="NUnit.Framework" />
+    <!-- Exercise real Beutl production + existing tests, including source-link compilation,
+         without building or running the renderer or desktop application. Not in Beutl.slnx. -->
+    <Compile Include="../../../src/Beutl.Core/CultureNameValidation.cs" Link="CultureNameValidation.cs" />
+    <Compile Include="../../../src/Beutl.Core/BuiltinThemeIds.cs" Link="BuiltinThemeIds.cs" />
+    <Compile Include="../../../src/Beutl.Core/FirstPartyThemeIds.cs" Link="FirstPartyThemeIds.cs" />
+    <Compile Include="../../../tests/Beutl.UnitTests/Core/CultureNameValidationTests.cs" Link="CultureNameValidationTests.cs" />
+    <Compile Include="../../../tests/Beutl.UnitTests/Core/BuiltinThemeIdsTests.cs" Link="BuiltinThemeIdsTests.cs" />
+  </ItemGroup>
+</Project>

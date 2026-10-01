@@ -7,6 +7,20 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      collect_test_impact:
+        description: Collect an optional bounded method-coverage baseline on main
+        type: boolean
+        default: false
+      impact_project:
+        description: Test project to profile (other tests remain selected)
+        type: string
+        default: tests/Beutl.UnitTests/Beutl.UnitTests.csproj
+      impact_max_methods:
+        description: Maximum isolated method runs (also bounded to 10 minutes)
+        type: number
+        default: 25
 
 # A newer PR revision supersedes its previous checks. Keep main runs independent.
 concurrency:
@@ -17,6 +31,7 @@ jobs:
   build:
     permissions:
       contents: read
+      actions: read # Read only exact-SHA baseline artifacts from successful manual main runs.
 
     runs-on: ubuntu-latest
 
@@ -41,6 +56,7 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+          fetch-depth: 0 # Compare the tested PR merge tree with the exact base SHA.
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6.0.0
@@ -51,6 +67,9 @@ jobs:
         run: |
           python3 -m unittest discover -s native/SkiaSharp -p 'test_*.py'
           python3 native/SkiaSharp/verify.py
+
+      - name: Test impact selector regressions
+        run: python3 -m unittest discover -s build/test-impact -p 'test_*.py' -v
 
       - name: Resolve .NET SDK version
         id: dotnet-sdk
@@ -138,10 +157,68 @@ jobs:
           --collect:"XPlat Code Coverage" --settings coverlet.runsettings --logger trx
           --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini
           --blame-crash --blame-crash-dump-type mini
+          -- NUnit.TestOutputXml=${{ github.workspace }}/artifacts/test-impact/full
         env:
           # GPU golden tests must fail loudly (not Assert.Ignore) when the bundled
           # SwiftShader Vulkan ICD fails to load; see GpuGoldenSuiteCanaryTests.
           BEUTL_REQUIRE_GPU: "1"
+
+      # Shadow analysis never supplies a filter to either safety gate. Failed/absent/stale
+      # baselines are reported as full selection; all unprofiled methods stay selected too.
+      - name: Download exact-base test impact baseline
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMPACT_BASE: ${{ github.event.pull_request.base.sha }}
+        run: >-
+          python3 build/test-impact/impact.py download-baseline
+          --base "$IMPACT_BASE" --out artifacts/test-impact/download
+
+      - name: Select test methods (shadow only)
+        id: impact-select
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        timeout-minutes: 10
+        env:
+          IMPACT_BASE: ${{ github.event.pull_request.base.sha }}
+          BEUTL_REQUIRE_GPU: "1"
+        run: >-
+          python3 build/test-impact/impact.py select --base "$IMPACT_BASE"
+          --baseline artifacts/test-impact/download/baseline.json
+          --out artifacts/test-impact/shadow
+
+      - name: Compare selection with full test execution
+        if: always() && steps.impact-select.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python3 build/test-impact/impact.py compare \
+            --report artifacts/test-impact/shadow/selection.json --results artifacts/test-impact/full
+          cat artifacts/test-impact/shadow/selection.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Collect optional method baseline
+        if: github.event_name == 'workflow_dispatch' && inputs.collect_test_impact && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          IMPACT_SHA: ${{ github.sha }}
+          IMPACT_PROJECT: ${{ inputs.impact_project }}
+          IMPACT_MAX_METHODS: ${{ inputs.impact_max_methods }}
+          BEUTL_REQUIRE_GPU: "1"
+        run: |
+          python3 build/test-impact/impact.py collect --base "$IMPACT_SHA" --no-build \
+            --project "$IMPACT_PROJECT" --max-methods "$IMPACT_MAX_METHODS" \
+            --budget-seconds 600 --out artifacts/test-impact/collection
+          cat artifacts/test-impact/collection/collection.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save optional method baseline
+        if: github.event_name == 'workflow_dispatch' && inputs.collect_test_impact && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: TestImpactBaseline-${{ github.sha }}
+          path: artifacts/test-impact/collection/baseline.json
+          retention-days: 7
 
       # A validation error names API misuse the driver is not required to diagnose - a render pass instance
       # begun inside another, a handle submitted to a device that never created it - so a suite that runs
@@ -193,6 +270,8 @@ jobs:
             tests/**/TestResults/**/Sequence_*.xml
             tests/**/TestResults/**/*.dmp
             tests/ci-diagnostics/
+            artifacts/test-impact/shadow/selection.*
+            artifacts/test-impact/collection/collection.md
           if-no-files-found: ignore
           retention-days: 7
 
