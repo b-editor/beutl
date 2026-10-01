@@ -21,7 +21,7 @@ public sealed class PixelSortEffectSynchronizationTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void PixelSort_WaitsForTheSourceBeforeSamplingItFromVulkan()
+    public void PixelSort_OrdersTheSourceBeforeSamplingItFromVulkan()
     {
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -37,11 +37,11 @@ public sealed class PixelSortEffectSynchronizationTests
             using (ImmediateCanvas.ObserveFlushes(flushes.Add))
                 ApplyPixelSort(source).Dispose();
 
-            // Where Skia draws through Metal, the shared timeline holds the Vulkan pass behind Skia's submitted
-            // work on the GPU; everywhere else the source is submitted and waited for on the CPU.
-            ImmediateCanvasFlushKind expected = context is CompositeContext { Timeline: not null }
-                ? ImmediateCanvasFlushKind.PrepareForSamplingSubmit
-                : ImmediateCanvasFlushKind.PrepareForSampling;
+            // Queue order, or the shared timeline where Skia draws through Metal, holds the Vulkan pass behind
+            // Skia's submitted work on the GPU. Only a Metal device without a timeline waits on the CPU.
+            ImmediateCanvasFlushKind expected = context is CompositeContext { Timeline: null }
+                ? ImmediateCanvasFlushKind.PrepareForSampling
+                : ImmediateCanvasFlushKind.PrepareForSamplingSubmit;
             Assert.That(
                 flushes.Count(item => item == expected),
                 Is.EqualTo(1),
@@ -75,24 +75,41 @@ public sealed class PixelSortEffectSynchronizationTests
     [Category("GpuPassFusionGpu")]
     public void PixelSort_ReadsHeavySkiaWorkOnlyAfterItFinishes()
     {
-        // The bar fixture finishes drawing long before a Vulkan pass could start, so it cannot tell an ordered
-        // hand-off from a racing one. Here Skia's queue is still busy with another target when the source is
-        // drawn behind it, so a pass reading the source early sorts a partly drawn image that differs from run
-        // to run.
+        // The bar fixture cannot tell an ordered hand-off from a broken one: it passes even when Skia's work is
+        // never submitted ahead of the pass. A pass that reads this source too early sorts a partly drawn or empty
+        // image instead of the finished picture. Where Skia shares the Vulkan queue, only a missing submission
+        // breaks the order and it fails every run. Across APIs the queues race, so Skia's queue is kept busy with
+        // another target and the hand-off is repeated until a late read would have shown.
         var bounds = new Rect(0, 0, 1280, 720);
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
-        if (context is not CompositeContext)
-            Assert.Ignore("Skia shares the Vulkan queue here, so queue order already rules this race out.");
+        bool crossApi = context is CompositeContext;
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
+            // A CPU readback waits for Skia to finish, so sorting that source gives the reference.
+            byte[] expected;
+            using (RenderTarget finished = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)
+                ?? throw new InvalidOperationException("Could not create the GPU pixel-sort reference."))
+            {
+                DrawBlurredCircles(finished, bounds);
+                using (finished.Snapshot())
+                {
+                }
+
+                using RenderTarget reference = ApplyPixelSort(finished, bounds, thresholdMin: 40f, thresholdMax: 60f);
+                using Bitmap sorted = reference.Snapshot();
+                expected = MemoryMarshal.AsBytes(sorted.GetPixelSpan()).ToArray();
+            }
+
             using RenderTarget busy = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)
                 ?? throw new InvalidOperationException("Could not create the GPU busy target.");
-            byte[]? first = null;
-            for (int run = 0; run < 32; run++)
+            for (int run = 0; run < (crossApi ? 32 : 2); run++)
             {
-                DrawBlurredCircles(busy, bounds);
-                busy.Value.Flush(true, false);
+                if (crossApi)
+                {
+                    DrawBlurredCircles(busy, bounds, count: 1500);
+                    busy.Value.Flush(true, false);
+                }
 
                 using RenderTarget source = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)
                     ?? throw new InvalidOperationException("Could not create the GPU pixel-sort source.");
@@ -100,15 +117,8 @@ public sealed class PixelSortEffectSynchronizationTests
 
                 using RenderTarget result = ApplyPixelSort(source, bounds, thresholdMin: 40f, thresholdMax: 60f);
                 using Bitmap sorted = result.Snapshot();
-                byte[] pixels = MemoryMarshal.AsBytes(sorted.GetPixelSpan()).ToArray();
-                if (first is null)
-                {
-                    first = pixels;
-                    continue;
-                }
-
                 Assert.That(
-                    pixels.AsSpan().SequenceEqual(first),
+                    MemoryMarshal.AsBytes(sorted.GetPixelSpan()).SequenceEqual(expected),
                     Is.True,
                     $"Run {run} sorted different pixels: the Vulkan pass read the source before Skia finished it.");
             }
@@ -198,7 +208,7 @@ public sealed class PixelSortEffectSynchronizationTests
     }
 
     // Deterministic content that costs Skia's queue several milliseconds on any GPU.
-    private static void DrawBlurredCircles(RenderTarget target, Rect bounds)
+    private static void DrawBlurredCircles(RenderTarget target, Rect bounds, int count = 300)
     {
         target.BeginDraw();
         SKCanvas canvas = target.Value.Canvas;
@@ -206,7 +216,7 @@ public sealed class PixelSortEffectSynchronizationTests
         using var blur = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 24);
         using var paint = new SKPaint { IsAntialias = true, MaskFilter = blur };
         var random = new Random(1234);
-        for (int i = 0; i < 300; i++)
+        for (int i = 0; i < count; i++)
         {
             paint.Color = new SKColor((byte)random.Next(256), (byte)random.Next(256), (byte)random.Next(256), 200);
             canvas.DrawCircle(
