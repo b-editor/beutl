@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -15,6 +14,8 @@ internal sealed class BrowserAdBlockRules
     private static readonly TimeSpan RequestMatchTimeout = TimeSpan.FromMilliseconds(10);
     private static readonly TimeSpan RuleMatchTimeout = TimeSpan.FromMilliseconds(5);
     private static readonly string[] ResourceTypes = ["document", "image", "style-sheet", "script", "font", "media", "raw", "svg-document", "popup"];
+    private readonly TimeProvider _timeProvider;
+    private readonly TimeSpan _ruleMatchTimeout;
     private readonly Dictionary<string, List<NetworkRule>> _index = new(StringComparer.Ordinal);
     private readonly List<NetworkRule> _unindexed = [];
     private readonly List<NetworkRule> _network = [];
@@ -23,9 +24,15 @@ internal sealed class BrowserAdBlockRules
     internal int SupportedCount => _network.Count + _cosmetic.Count;
     internal int UnsupportedCount { get; private set; }
 
-    internal static BrowserAdBlockRules Parse(string text)
+    private BrowserAdBlockRules(TimeProvider timeProvider, TimeSpan ruleMatchTimeout)
     {
-        var result = new BrowserAdBlockRules();
+        _timeProvider = timeProvider;
+        _ruleMatchTimeout = ruleMatchTimeout;
+    }
+
+    internal static BrowserAdBlockRules Parse(string text, TimeProvider? timeProvider = null, TimeSpan? ruleMatchTimeout = null)
+    {
+        var result = new BrowserAdBlockRules(timeProvider ?? TimeProvider.System, ruleMatchTimeout ?? RuleMatchTimeout);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         using var reader = new StringReader(text);
         while (reader.ReadLine() is { } raw)
@@ -240,7 +247,7 @@ internal sealed class BrowserAdBlockRules
         // as well as matching, and allow the request if a complete decision is too expensive.
         if (request.OriginalString.Length > MaximumRequestUrlLength || !BrowserMediaDownload.IsHttpUri(request)
             || _unindexed.Count > MaximumCandidateRules) return false;
-        long started = Stopwatch.GetTimestamp();
+        long started = _timeProvider.GetTimestamp();
         string url = request.AbsoluteUri;
         if (url.Length > MaximumRequestUrlLength) return false;
         string normalized = url.ToLowerInvariant();
@@ -248,7 +255,7 @@ internal sealed class BrowserAdBlockRules
         var visitedKeys = new HashSet<string>(StringComparer.Ordinal);
         for (int i = 0; i <= normalized.Length - 5; i++)
         {
-            if (Stopwatch.GetElapsedTime(started) >= RequestMatchTimeout) return false;
+            if (_timeProvider.GetElapsedTime(started) >= RequestMatchTimeout) return false;
             string key = normalized.Substring(i, 5);
             if (!visitedKeys.Add(key) || !_index.TryGetValue(key, out var bucket)) continue;
             // A rule belongs to only one bucket. Count before enumerating, including the
@@ -267,7 +274,7 @@ internal sealed class BrowserAdBlockRules
         {
             foreach (NetworkRule rule in candidates)
             {
-                if (Stopwatch.GetElapsedTime(started) >= RequestMatchTimeout) return null;
+                if (_timeProvider.GetElapsedTime(started) >= RequestMatchTimeout) return null;
                 if (rule.Exception != exceptions || !rule.Types.Contains(resourceType) || (rule.ChildFrame && !isChildFrame)
                     || !MatchesDomains(page?.Host ?? "", rule.Include, rule.Exclude)) continue;
                 if (rule.ThirdParty is { } thirdParty)
@@ -276,8 +283,8 @@ internal sealed class BrowserAdBlockRules
                     bool? actual = isThirdParty ?? InferThirdParty(request, page);
                     if (actual == null || thirdParty != actual) continue;
                 }
-                bool? matched = rule.Matches(url);
-                if (matched == null || Stopwatch.GetElapsedTime(started) >= RequestMatchTimeout) return null;
+                bool? matched = rule.Matches(url, _ruleMatchTimeout);
+                if (matched == null || _timeProvider.GetElapsedTime(started) >= RequestMatchTimeout) return null;
                 if (matched.Value) return true;
             }
             return false;
@@ -317,9 +324,9 @@ internal sealed class BrowserAdBlockRules
         bool? ThirdParty, bool MatchCase, bool ChildFrame, bool Exception)
     {
         private Regex? _regex;
-        internal bool? Matches(string url)
+        internal bool? Matches(string url, TimeSpan timeout)
         {
-            _regex ??= new Regex(Pattern, RegexOptions.CultureInvariant | (MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase), RuleMatchTimeout);
+            _regex ??= new Regex(Pattern, RegexOptions.CultureInvariant | (MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase), timeout);
             try { return _regex.IsMatch(url); }
             catch (RegexMatchTimeoutException) { return null; }
         }
