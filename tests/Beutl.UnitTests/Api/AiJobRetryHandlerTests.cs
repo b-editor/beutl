@@ -27,8 +27,8 @@ public class AiJobRetryHandlerTests
         var handler = new AiImageJobRetryHandler(images.Object, EntitlementService(), AvailabilityService(true), ModelCatalogService(), RetryContext());
         AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
 
-        Assert.ThrowsAsync<IOException>(() => RunRetryAsync(handler, job));
-        Assert.ThrowsAsync<IOException>(() => RunRetryAsync(handler, job));
+        await Assert.ThrowsAsync<IOException>(() => RunRetryAsync(handler, job));
+        await Assert.ThrowsAsync<IOException>(() => RunRetryAsync(handler, job));
 
         Assert.That(keys, Has.Count.EqualTo(2));
         Assert.That(keys[1], Is.EqualTo(keys[0]));
@@ -58,7 +58,7 @@ public class AiJobRetryHandlerTests
             RetryContext());
         AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
 
-        Assert.ThrowsAsync<AiJobLimitReachedException>(() => RunRetryAsync(handler, job));
+        await Assert.ThrowsAsync<AiJobLimitReachedException>(() => RunRetryAsync(handler, job));
         await RunRetryAsync(handler, job);
 
         Assert.That(keys, Has.Count.EqualTo(2));
@@ -66,7 +66,7 @@ public class AiJobRetryHandlerTests
     }
 
     [Test]
-    public void AuthenticationSessionChangeRetainsTheIssuedRetryKey()
+    public async Task AuthenticationSessionChangeRetainsTheIssuedRetryKey()
     {
         var images = new Mock<IAiImageGenerationService>();
         var keys = new List<string?>();
@@ -84,8 +84,8 @@ public class AiJobRetryHandlerTests
             RetryContext());
         AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
 
-        Assert.ThrowsAsync<AuthenticationRequiredException>(() => RunRetryAsync(handler, job));
-        Assert.ThrowsAsync<AuthenticationRequiredException>(() => RunRetryAsync(handler, job));
+        await Assert.ThrowsAsync<AuthenticationRequiredException>(() => RunRetryAsync(handler, job));
+        await Assert.ThrowsAsync<AuthenticationRequiredException>(() => RunRetryAsync(handler, job));
 
         Assert.That(keys, Has.Count.EqualTo(2));
         Assert.That(keys[1], Is.EqualTo(keys[0]));
@@ -164,7 +164,7 @@ public class AiJobRetryHandlerTests
         Assert.That(execution.IsCompleted, Is.False);
 
         release.TrySetResult();
-        Assert.CatchAsync<OperationCanceledException>(() => execution);
+        await Assert.CatchAsync<OperationCanceledException>(() => execution);
         await preparation.DisposeAsync();
         await prepared.DisposeAsync();
     }
@@ -188,7 +188,7 @@ public class AiJobRetryHandlerTests
         IAiJobRetryPreparation preparation = result.TakePreparation();
         await preparation.ExecuteAsync(CancellationToken.None);
 
-        Assert.ThrowsAsync<AiJobRetryPreparationRejectedException>(() =>
+        await Assert.ThrowsAsync<AiJobRetryPreparationRejectedException>(() =>
             preparation.ExecuteAsync(CancellationToken.None));
         await preparation.DisposeAsync();
         await result.DisposeAsync();
@@ -218,7 +218,7 @@ public class AiJobRetryHandlerTests
     }
 
     [Test]
-    public void RetryWithoutAnAuthenticatedAccountDoesNotIssueAKey()
+    public async Task RetryWithoutAnAuthenticatedAccountDoesNotIssueAKey()
     {
         var images = new Mock<IAiImageGenerationService>();
         var handler = new AiImageJobRetryHandler(
@@ -229,7 +229,7 @@ public class AiJobRetryHandlerTests
             RetryContext(accountId: null));
 
         AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
-        Assert.ThrowsAsync<AuthenticationRequiredException>(async () =>
+        await Assert.ThrowsAsync<AuthenticationRequiredException>(async () =>
         {
             AiJobRetryPreparationResult prepared = await handler.PrepareAsync(job, CancellationToken.None);
             await using (prepared)
@@ -311,7 +311,7 @@ public class AiJobRetryHandlerTests
         IAiJobRetryPreparation preparation = prepared.TakePreparation();
         store.Retire(job, "test-account");
 
-        Assert.ThrowsAsync<AiJobRetryPreparationRejectedException>(() =>
+        await Assert.ThrowsAsync<AiJobRetryPreparationRejectedException>(() =>
             preparation.ExecuteAsync(CancellationToken.None));
         await preparation.DisposeAsync();
         await prepared.DisposeAsync();
@@ -346,7 +346,7 @@ public class AiJobRetryHandlerTests
         IAiJobRetryPreparation preparation = prepared.TakePreparation();
         account = "account-b";
 
-        Assert.ThrowsAsync<AiJobRetryPreparationRejectedException>(() =>
+        await Assert.ThrowsAsync<AiJobRetryPreparationRejectedException>(() =>
             preparation.ExecuteAsync(CancellationToken.None));
         await preparation.DisposeAsync();
         await prepared.DisposeAsync();
@@ -399,7 +399,7 @@ public class AiJobRetryHandlerTests
     }
 
     [Test]
-    public void ImageRetry_RefusesAGenerationGuidedByAReferenceImage()
+    public async Task ImageRetry_RefusesAGenerationGuidedByAReferenceImage()
     {
         var handler = new AiImageJobRetryHandler(
             Mock.Of<IAiImageGenerationService>(),
@@ -410,7 +410,7 @@ public class AiJobRetryHandlerTests
 
         // The picture itself was never retained, so repeating this would make
         // something else and charge the same price for it.
-        Assert.ThrowsAsync<AiRetryAttemptRejectedException>(() => RunRetryAsync(
+        await Assert.ThrowsAsync<AiRetryAttemptRejectedException>(() => RunRetryAsync(
             handler,
             Job("image", """{"prompt":"a harbor","aspectRatio":"1:1","reference":{"filename":"style.png"}}""")));
     }
@@ -673,7 +673,7 @@ public class AiJobRetryHandlerTests
     }
 
     [Test]
-    public void VideoRetry_RefusesAClipConditionedOnSourceFrames()
+    public async Task VideoRetry_RefusesAClipConditionedOnSourceFrames()
     {
         var handler = new AiVideoJobRetryHandler(
             Mock.Of<IAiVideoService>(),
@@ -682,7 +682,7 @@ public class AiJobRetryHandlerTests
             ModelCatalogService(),
             RetryContext());
 
-        Assert.ThrowsAsync<AiRetryAttemptRejectedException>(() => RunRetryAsync(handler,
+        await Assert.ThrowsAsync<AiRetryAttemptRejectedException>(() => RunRetryAsync(handler,
             Job(
                 "video",
                 """

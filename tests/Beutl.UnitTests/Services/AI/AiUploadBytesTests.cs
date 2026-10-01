@@ -39,7 +39,7 @@ public class AiUploadBytesTests
         // メモリを使い切る。
         string path = await WriteAsync("too-large.bin", 8192);
 
-        Assert.ThrowsAsync<AiFileTooLargeException>(
+        await Assert.ThrowsAsync<AiFileTooLargeException>(
             async () => await AiUploadBytes.ReadWithinAsync(path, 4096, default));
     }
 
@@ -57,7 +57,7 @@ public class AiUploadBytesTests
             await growing.WriteAsync(new byte[256 * 1024]);
             await growing.FlushAsync();
 
-            Assert.ThrowsAsync<AiFileTooLargeException>(
+            await Assert.ThrowsAsync<AiFileTooLargeException>(
                 async () => await AiUploadBytes.ReadWithinAsync(path, 2048, default));
         }
     }

@@ -122,9 +122,9 @@ public sealed class CodexMcpConfigWriterTests
             });
 
         if (cancel)
-            Assert.ThrowsAsync<OperationCanceledException>(Write);
+            await Assert.ThrowsAsync<OperationCanceledException>(Write);
         else
-            Assert.ThrowsAsync<IOException>(Write);
+            await Assert.ThrowsAsync<IOException>(Write);
         Assert.That(File.Exists(ConfigPath), Is.EqualTo(exists));
         if (exists)
             Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(original));

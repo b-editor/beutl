@@ -64,7 +64,7 @@ public sealed class AiJobKindAbstractionsTests
 
         lease!.Dispose();
         await disposal.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.DoesNotThrowAsync(async () => await registration.DisposeAsync());
+        await Assert.DoesNotThrowAsync(async () => await registration.DisposeAsync());
     }
 
     [Test]

@@ -174,7 +174,7 @@ public class WindowsGitProcessTests
         {
             await ReadProcessIdAsync(pidPath);
             cancellation.Cancel();
-            Assert.ThrowsAsync<OperationCanceledException>(async () => await run.WaitAsync(TimeSpan.FromSeconds(10)));
+            await Assert.ThrowsAsync<OperationCanceledException>(async () => await run.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.That(runner.HasActiveProcess, Is.True);
             followUp = runner.RunAsync(
                 repository, ["-NoProfile", "-NonInteractive", "-Command", "exit 0"],
@@ -278,7 +278,7 @@ public class WindowsGitProcessTests
         try
         {
             descendant = Process.GetProcessById(await ReadProcessIdAsync(pidPath));
-            Assert.ThrowsAsync<TimeoutException>(async () => await runTask.WaitAsync(TimeSpan.FromSeconds(60)));
+            await Assert.ThrowsAsync<TimeoutException>(async () => await runTask.WaitAsync(TimeSpan.FromSeconds(60)));
 
             Assert.Multiple(() =>
             {

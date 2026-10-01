@@ -699,7 +699,7 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         await File.WriteAllTextAsync(sourceFile, "snapshot state\n");
         using var service = CreateService(projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "manual snapshot",
                 SnapshotKind.Manual,
@@ -744,7 +744,7 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         await File.WriteAllTextAsync(sourceFile, "snapshot state\n");
         using var service = CreateService(projectFile);
 
-        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
                 "manual snapshot",
                 SnapshotKind.Manual,

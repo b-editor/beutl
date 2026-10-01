@@ -77,31 +77,31 @@ public class ProjectPackageServiceTests
     #region ExportAsync Tests
 
     [Test]
-    public void ExportAsync_WithNullProject_ThrowsArgumentNullException()
+    public async Task ExportAsync_WithNullProject_ThrowsArgumentNullException()
     {
         // Arrange
         var service = ProjectPackageService.Current;
         string outputPath = Path.Combine(_exportDir, "test.zip");
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await service.ExportAsync(null!, outputPath));
     }
 
     [Test]
-    public void ExportAsync_WithNullOutputPath_ThrowsArgumentNullException()
+    public async Task ExportAsync_WithNullOutputPath_ThrowsArgumentNullException()
     {
         // Arrange
         var service = ProjectPackageService.Current;
         var project = new Project();
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await service.ExportAsync(project, null!));
     }
 
     [Test]
-    public void ExportAsync_WithUnsavedProject_ThrowsInvalidOperationException()
+    public async Task ExportAsync_WithUnsavedProject_ThrowsInvalidOperationException()
     {
         // Arrange
         var service = ProjectPackageService.Current;
@@ -109,7 +109,7 @@ public class ProjectPackageServiceTests
         string outputPath = Path.Combine(_exportDir, "test.zip");
 
         // Act & Assert
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await service.ExportAsync(project, outputPath));
     }
 
@@ -164,7 +164,7 @@ public class ProjectPackageServiceTests
         cts.Cancel();
 
         // Act & Assert
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await service.ExportAsync(project, outputPath, cancellationToken: cts.Token));
     }
 
@@ -342,37 +342,37 @@ public class ProjectPackageServiceTests
     #region ImportAsync Tests
 
     [Test]
-    public void ImportAsync_WithNullPackagePath_ThrowsArgumentNullException()
+    public async Task ImportAsync_WithNullPackagePath_ThrowsArgumentNullException()
     {
         // Arrange
         var service = ProjectPackageService.Current;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await service.ImportAsync(null!, _importDir));
     }
 
     [Test]
-    public void ImportAsync_WithNullDestinationDirectory_ThrowsArgumentNullException()
+    public async Task ImportAsync_WithNullDestinationDirectory_ThrowsArgumentNullException()
     {
         // Arrange
         var service = ProjectPackageService.Current;
         string packagePath = Path.Combine(_exportDir, "test.zip");
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await service.ImportAsync(packagePath, null!));
     }
 
     [Test]
-    public void ImportAsync_WithNonExistentPackage_ThrowsFileNotFoundException()
+    public async Task ImportAsync_WithNonExistentPackage_ThrowsFileNotFoundException()
     {
         // Arrange
         var service = ProjectPackageService.Current;
         string packagePath = Path.Combine(_exportDir, "nonexistent.zip");
 
         // Act & Assert
-        Assert.ThrowsAsync<FileNotFoundException>(async () =>
+        await Assert.ThrowsAsync<FileNotFoundException>(async () =>
             await service.ImportAsync(packagePath, _importDir));
     }
 
@@ -424,7 +424,7 @@ public class ProjectPackageServiceTests
         cts.Cancel();
 
         // Act & Assert
-        var ex = Assert.CatchAsync<Exception>(async () =>
+        var ex = await Assert.CatchAsync<Exception>(async () =>
             await service.ImportAsync(packagePath, _importDir, cancellationToken: cts.Token));
         Assert.That(ex, Is.InstanceOf<OperationCanceledException>());
     }
@@ -625,7 +625,7 @@ public class ProjectPackageServiceTests
     #endregion
 
     [Test]
-    public void ExportAsync_CancelledBeforeZipCreation_PreservesTheExistingPackage()
+    public async Task ExportAsync_CancelledBeforeZipCreation_PreservesTheExistingPackage()
     {
         Project project = CreateAndSaveTestProject();
         string output = Path.Combine(_exportDir, "previous.beutlpkg");
@@ -636,7 +636,7 @@ public class ProjectPackageServiceTests
             if (value.Progress == 0.9) cancellation.Cancel();
         });
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await ProjectPackageService.Current.ExportAsync(project, output, progress, cancellation.Token));
 
         Assert.That(File.ReadAllText(output), Is.EqualTo("previous complete package"));
@@ -793,7 +793,7 @@ public class ProjectPackageServiceTests
     }
 
     [Test]
-    public void ImportAsync_CancelledAfterExtractionRemovesOnlyItsStaging()
+    public async Task ImportAsync_CancelledAfterExtractionRemovesOnlyItsStaging()
     {
         CreateAndSaveTestProject();
         string package = Path.Combine(_exportDir, "cancelled.beutlpkg");
@@ -806,7 +806,7 @@ public class ProjectPackageServiceTests
             if (value.Progress == 0.8) cancellation.Cancel();
         });
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await ProjectPackageService.Current.ImportAsync(package, _importDir, progress, cancellation.Token));
         Assert.That(File.ReadAllText(Path.Combine(existing, "keep.txt")), Is.EqualTo("existing data"));
         Assert.That(Directory.GetDirectories(_importDir), Is.EqualTo(new[] { existing }));
@@ -871,7 +871,7 @@ public class ProjectPackageServiceTests
 
         if (cancel)
         {
-            Assert.CatchAsync<OperationCanceledException>(async () =>
+            await Assert.CatchAsync<OperationCanceledException>(async () =>
                 await ProjectPackageService.Current.ExportAsync(project, output, progress, cancellation.Token));
             Assert.That(File.ReadAllText(output), Is.EqualTo("previous package"));
         }

@@ -100,7 +100,7 @@ public class IpcConnectionMultiplexedTests
     }
 
     [Test]
-    public void AlreadyCanceledToken_ThrowsBeforeRegistering()
+    public async Task AlreadyCanceledToken_ThrowsBeforeRegistering()
     {
         var (server, client) = ConnectPair();
         using var _ = server;
@@ -113,7 +113,7 @@ public class IpcConnectionMultiplexedTests
         int id = conn.NextId();
         var req = IpcMessage.CreateSimple(id, RequestType);
         // ct.ThrowIfCancellationRequested が _pendingRequests への登録より先に走る。
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             async () => await conn.SendAndReceiveAsync(req, cts.Token));
 
         Assert.That(PendingCount(conn), Is.EqualTo(0));
@@ -139,7 +139,7 @@ public class IpcConnectionMultiplexedTests
             await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
             cts.Cancel();
 
-            var oce = Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
+            var oce = await Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
             Assert.That(oce!.CancellationToken, Is.EqualTo(cts.Token));
 
             await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
@@ -172,7 +172,7 @@ public class IpcConnectionMultiplexedTests
 
             await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
             cts.Cancel();
-            Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
+            await Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
             await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
 
             // 遅延レスポンスを送り込む → dropped ハンドラに来るはず。
@@ -224,7 +224,7 @@ public class IpcConnectionMultiplexedTests
             Assert.That(drainedFirst!.Id, Is.EqualTo(firstId));
             await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request awaits its response");
             cts.Cancel();
-            Assert.CatchAsync<OperationCanceledException>(async () => await firstTask);
+            await Assert.CatchAsync<OperationCanceledException>(async () => await firstTask);
             await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
 
             var lateResp = IpcMessage.CreateSimple(firstId, ResponseType);
@@ -336,13 +336,13 @@ public class IpcConnectionMultiplexedTests
         var firstTask = conn.SendAndReceiveAsync(first, cts.Token).AsTask();
         await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request enters pending dict");
 
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await conn.SendAndReceiveAsync(second));
         Assert.That(ex!.Message, Does.Contain("already in flight"));
         Assert.That(PendingCount(conn), Is.EqualTo(1));
 
         cts.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(async () => await firstTask);
+        await Assert.CatchAsync<OperationCanceledException>(async () => await firstTask);
         await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
     }
 
@@ -362,7 +362,7 @@ public class IpcConnectionMultiplexedTests
         var task = conn.SendAndReceiveAsync(req).AsTask();
         var completed = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(2)));
         Assert.That(completed, Is.SameAs(task), "post-Dispose call must fail fast, not hang");
-        Assert.CatchAsync<ObjectDisposedException>(async () => await task);
+        await Assert.CatchAsync<ObjectDisposedException>(async () => await task);
         Assert.That(PendingCount(conn), Is.EqualTo(0));
     }
 
@@ -397,7 +397,7 @@ public class IpcConnectionMultiplexedTests
         {
             int id = conn.NextId();
             var req = IpcMessage.CreateSimple(id, RequestType);
-            var ex = Assert.ThrowsAsync<FFmpegWorkerException>(
+            var ex = await Assert.ThrowsAsync<FFmpegWorkerException>(
                 async () => await conn.SendAndReceiveAsync(req));
             Assert.That(ex!.Message, Is.EqualTo("boom"));
 
@@ -447,7 +447,7 @@ public class IpcConnectionMultiplexedTests
 
         var completed = await Task.WhenAny(requestTask, Task.Delay(TimeSpan.FromSeconds(5)));
         Assert.That(completed, Is.SameAs(requestTask), "request must fault after the loop dies, not hang");
-        var ex = Assert.CatchAsync<IOException>(async () => await requestTask);
+        var ex = await Assert.CatchAsync<IOException>(async () => await requestTask);
         Assert.That(ex!.Message, Does.Contain("unexpected protocol or deserialization error"));
         Assert.That(ex.InnerException, Is.InstanceOf<InvalidOperationException>());
 
@@ -482,7 +482,7 @@ public class IpcConnectionMultiplexedTests
 
         var firstCompleted = await Task.WhenAny(firstTask, Task.Delay(TimeSpan.FromSeconds(5)));
         Assert.That(firstCompleted, Is.SameAs(firstTask), "first request must fault after the loop dies, not hang");
-        Assert.CatchAsync<IOException>(async () => await firstTask);
+        await Assert.CatchAsync<IOException>(async () => await firstTask);
 
         // ここでループは死んで _receiveLoopFault が公開されている。次のリクエストは
         // 待たずに即時 IOException を投げるはず (cached fault による fail-fast)。
@@ -491,7 +491,7 @@ public class IpcConnectionMultiplexedTests
         var secondTask = conn.SendAndReceiveAsync(secondReq).AsTask();
         var completed = await Task.WhenAny(secondTask, Task.Delay(TimeSpan.FromSeconds(2)));
         Assert.That(completed, Is.SameAs(secondTask), "second request must fail fast, not hang");
-        Assert.CatchAsync<IOException>(async () => await secondTask);
+        await Assert.CatchAsync<IOException>(async () => await secondTask);
         Assert.That(PendingCount(conn), Is.EqualTo(0));
     }
 
@@ -523,7 +523,7 @@ public class IpcConnectionMultiplexedTests
 
             conn.Dispose();
 
-            var ex = Assert.CatchAsync(async () => await requestTask);
+            var ex = await Assert.CatchAsync(async () => await requestTask);
             Assert.That(ex, Is.InstanceOf<OperationCanceledException>(),
                 $"expected OperationCanceledException (self-dispose), got {ex?.GetType().Name}: {ex?.Message}");
         }
@@ -594,7 +594,7 @@ public class IpcConnectionMultiplexedTests
 
         int id = conn.NextId();
         var req = IpcMessage.CreateSimple(id, RequestType);
-        var ex = Assert.CatchAsync<IOException>(async () => await conn.SendAndReceiveAsync(req));
+        var ex = await Assert.CatchAsync<IOException>(async () => await conn.SendAndReceiveAsync(req));
         // メッセージ文字列ではなく InnerException 型でルートを判定する。
         // 「OCE を clean-cancel として握り潰すかどうか」だけが本テストの本質。
         Assert.That(ex!.InnerException, Is.InstanceOf<OperationCanceledException>());
@@ -619,7 +619,7 @@ public class IpcConnectionMultiplexedTests
             // _receiveLoopCts.Cancel() が先に走り、OOM ではなく cancel 経路で終わる可能性がある。
             int id = conn.NextId();
             var req = IpcMessage.CreateSimple(id, RequestType);
-            Assert.CatchAsync(async () => await conn.SendAndReceiveAsync(req));
+            await Assert.CatchAsync(async () => await conn.SendAndReceiveAsync(req));
 
             var oom = Assert.Throws<OutOfMemoryException>(() => conn.Dispose());
             Assert.That(oom!.Message, Is.EqualTo("synthetic fatal"));

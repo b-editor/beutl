@@ -218,7 +218,7 @@ public class HistoryMutationPlaybackGuardTests
         }, cts.Token).AsTask();
         cts.Cancel();
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () => await canceled);
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await canceled);
         Assert.That(canceledMutated, Is.False);
 
         player.CompleteDrain();
@@ -260,14 +260,14 @@ public class HistoryMutationPlaybackGuardTests
     }
 
     [Test]
-    public void RunAsync_AfterDispose_ThrowsObjectDisposedException()
+    public async Task RunAsync_AfterDispose_ThrowsObjectDisposedException()
     {
         using var guard = new HistoryMutationPlaybackGuard();
         guard.Dispose();
 
         // Callers catch ObjectDisposedException to skip the operation, so disposal must surface
         // as that exception rather than silently proceeding.
-        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
             await guard.RunAsync(null, () => { }, () => true, () => true));
     }
 
@@ -301,7 +301,7 @@ public class HistoryMutationPlaybackGuardTests
             Assert.That(inFlightResult, Is.True, "the in-flight operation must complete normally");
             Assert.That(inFlightMutated, Is.True);
         });
-        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
             await guard.RunAsync(player, () => { }, () => true, () => true));
     }
 
@@ -345,7 +345,7 @@ public class HistoryMutationPlaybackGuardTests
             Assert.That(inFlightMutated, Is.True);
             Assert.That(queuedMutated, Is.False, "a waiter queued before disposal must not mutate after disposal");
         });
-        Assert.ThrowsAsync<ObjectDisposedException>(async () => await queued);
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await queued);
     }
 
     [Test]

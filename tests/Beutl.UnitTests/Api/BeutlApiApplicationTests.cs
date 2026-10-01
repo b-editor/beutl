@@ -179,7 +179,7 @@ public sealed class BeutlApiApplicationTests
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await app.ReadUserAsync(cancellationTokenSource.Token));
     }
 
@@ -190,8 +190,8 @@ public sealed class BeutlApiApplicationTests
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         _ = app.GetResource<IAiJobMonitor>();
 
-        Assert.DoesNotThrowAsync(async () => await app.DisposeAsync());
-        Assert.DoesNotThrowAsync(async () => await app.DisposeAsync());
+        await Assert.DoesNotThrowAsync(async () => await app.DisposeAsync());
+        await Assert.DoesNotThrowAsync(async () => await app.DisposeAsync());
         Assert.Throws<ObjectDisposedException>(() => app.GetResource<IAiImageGenerationService>());
     }
 
@@ -282,7 +282,7 @@ public sealed class BeutlApiApplicationTests
         using CancellationTokenRegistration registration = lifetime.Token.Register(static () =>
             throw new InvalidOperationException("callback failed"));
 
-        Assert.CatchAsync<Exception>(async () =>
+        await Assert.CatchAsync<Exception>(async () =>
             await app.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
 
         Assert.That(resource.DisposeCount, Is.EqualTo(1));
@@ -334,7 +334,7 @@ public sealed class BeutlApiApplicationTests
         SetAuthenticatedUser(app, "second-user", "second-token");
 
         AuthenticationRequiredException? failure =
-            Assert.ThrowsAsync<AuthenticationRequiredException>(async () => await operation);
+            await Assert.ThrowsAsync<AuthenticationRequiredException>(async () => await operation);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(failure!.CurrentAttemptReservationIsKnownAbsent, Is.False);
@@ -352,7 +352,7 @@ public sealed class BeutlApiApplicationTests
         SetAuthenticatedUser(app, "second-user", "second-token");
         bool invoked = false;
 
-        AuthenticationRequiredException? failure = Assert.ThrowsAsync<AuthenticationRequiredException>(() =>
+        AuthenticationRequiredException? failure = await Assert.ThrowsAsync<AuthenticationRequiredException>(() =>
             app.SendAuthenticatedAsync(
                 (_, _) =>
                 {
@@ -375,7 +375,7 @@ public sealed class BeutlApiApplicationTests
         SetAuthenticatedUser(app, "first-user", "first-token");
 
         AuthenticationRequiredException? failure =
-            Assert.ThrowsAsync<AuthenticationRequiredException>(() =>
+            await Assert.ThrowsAsync<AuthenticationRequiredException>(() =>
                 app.SendAuthenticatedAsync(
                     (_, _) =>
                     {
@@ -408,8 +408,8 @@ public sealed class BeutlApiApplicationTests
 
         await app.DisposeAsync();
 
-        Assert.CatchAsync<OperationCanceledException>(async () => await operation);
-        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () => await operation);
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
             await service.RefreshAsync(CancellationToken.None));
     }
 

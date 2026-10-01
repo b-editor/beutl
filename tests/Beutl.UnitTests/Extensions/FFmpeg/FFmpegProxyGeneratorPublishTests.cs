@@ -103,7 +103,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void MoveWithRetryAsync_WhenAlwaysFails_ThrowsIOExceptionAfterMaxAttempts()
+    public async Task MoveWithRetryAsync_WhenAlwaysFails_ThrowsIOExceptionAfterMaxAttempts()
     {
         string root = CreateRoot();
         string source = Path.Combine(root, "src.mp4");
@@ -111,7 +111,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         int attempts = 0;
 
-        Assert.ThrowsAsync<IOException>(async () =>
+        await Assert.ThrowsAsync<IOException>(async () =>
             await FFmpegProxyGenerator.MoveWithRetryAsync(
                 source,
                 dest,
@@ -133,7 +133,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void MoveWithRetryAsync_WhenDelegateThrowsIOException_RetriesAndRethrowsLastError()
+    public async Task MoveWithRetryAsync_WhenDelegateThrowsIOException_RetriesAndRethrowsLastError()
     {
         string root = CreateRoot();
         string source = Path.Combine(root, "src.mp4");
@@ -143,7 +143,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
         IOException thrown0 = new("share violation 0");
         IOException thrown1 = new("share violation 1");
 
-        IOException ex = (IOException)Assert.ThrowsAsync<IOException>(async () =>
+        IOException ex = (await Assert.ThrowsAsync<IOException>(async () =>
             await FFmpegProxyGenerator.MoveWithRetryAsync(
                 source,
                 dest,
@@ -154,7 +154,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
                     throw attempts == 1 ? thrown0 : thrown1;
                 },
                 maxAttempts: 2,
-                retryDelay: TimeSpan.FromMilliseconds(1)))!;
+                retryDelay: TimeSpan.FromMilliseconds(1))))!;
 
         Assert.Multiple(() =>
         {
@@ -165,7 +165,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void MoveWithRetryAsync_PropagatesOperationCanceledExceptionFromDelegate()
+    public async Task MoveWithRetryAsync_PropagatesOperationCanceledExceptionFromDelegate()
     {
         string root = CreateRoot();
         string source = Path.Combine(root, "src.mp4");
@@ -173,7 +173,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         using var cts = new CancellationTokenSource();
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await FFmpegProxyGenerator.MoveWithRetryAsync(
                 source,
                 dest,
@@ -182,7 +182,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void MoveWithRetryAsync_RespectsCancellationDuringRetryDelay()
+    public async Task MoveWithRetryAsync_RespectsCancellationDuringRetryDelay()
     {
         string root = CreateRoot();
         string source = Path.Combine(root, "src.mp4");
@@ -193,7 +193,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
 
         // Task.Delay(delay, ct) throws TaskCanceledException (a derived OperationCanceledException),
         // so accept the base type or any derived type.
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await FFmpegProxyGenerator.MoveWithRetryAsync(
                 source,
                 dest,
@@ -211,7 +211,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void MoveWithRetryAsync_PreCanceledToken_ThrowsBeforeFirstAttempt()
+    public async Task MoveWithRetryAsync_PreCanceledToken_ThrowsBeforeFirstAttempt()
     {
         string root = CreateRoot();
         string source = Path.Combine(root, "src.mp4");
@@ -221,7 +221,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
         cts.Cancel();
         int attempts = 0;
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await FFmpegProxyGenerator.MoveWithRetryAsync(
                 source,
                 dest,
@@ -236,7 +236,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void PublishAsync_CancelDuringMove_DeletesMovedArtifactAndDoesNotRegister()
+    public async Task PublishAsync_CancelDuringMove_DeletesMovedArtifactAndDoesNotRegister()
     {
         string root = CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
@@ -251,7 +251,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
         var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
         using var cts = new CancellationTokenSource();
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await generator.PublishAsync(
                 tempPath,
                 finalPath,
@@ -276,7 +276,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void PublishAsync_RetriesTransientMoveFailureThenRegisters()
+    public async Task PublishAsync_RetriesTransientMoveFailureThenRegisters()
     {
         string root = CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
@@ -291,7 +291,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
         var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
         int attempts = 0;
 
-        Assert.DoesNotThrowAsync(async () =>
+        await Assert.DoesNotThrowAsync(async () =>
             await generator.PublishAsync(
                 tempPath,
                 finalPath,
@@ -343,7 +343,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void PublishAsync_RetriesTransientBackupMoveFailureThenRegisters()
+    public async Task PublishAsync_RetriesTransientBackupMoveFailureThenRegisters()
     {
         string root = CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
@@ -361,7 +361,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
         var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
         int backupAttempts = 0;
 
-        Assert.DoesNotThrowAsync(async () =>
+        await Assert.DoesNotThrowAsync(async () =>
             await generator.PublishAsync(
                 tempPath,
                 finalPath,
@@ -388,7 +388,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void PublishAsync_WhenRollbackMetadataRestoreFails_PreservesPrimaryExceptionAndRestoresFinal()
+    public async Task PublishAsync_WhenRollbackMetadataRestoreFails_PreservesPrimaryExceptionAndRestoresFinal()
     {
         string root = CreateRoot();
         // Register always throws, so FinalizeAsync fails after the move and rollback runs.
@@ -405,7 +405,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
         File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
         var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
 
-        Exception? thrown = Assert.CatchAsync(async () =>
+        Exception? thrown = await Assert.CatchAsync(async () =>
             await generator.PublishAsync(
                 tempPath,
                 finalPath,
@@ -432,11 +432,11 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void EncodeAndPublishGuarded_GenericFailure_DeletesTempAndRethrows()
+    public async Task EncodeAndPublishGuarded_GenericFailure_DeletesTempAndRethrows()
     {
         string temp = CreateTempArtifact();
 
-        InvalidOperationException? thrown = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? thrown = await Assert.ThrowsAsync<InvalidOperationException>(
             () => FFmpegProxyGenerator.EncodeAndPublishGuardedAsync(
                 temp,
                 () => throw new InvalidOperationException("encode failed")));
@@ -449,11 +449,11 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void EncodeAndPublishGuarded_Cancellation_DeletesTempAndRethrows()
+    public async Task EncodeAndPublishGuarded_Cancellation_DeletesTempAndRethrows()
     {
         string temp = CreateTempArtifact();
 
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             () => FFmpegProxyGenerator.EncodeAndPublishGuardedAsync(
                 temp,
                 () => throw new OperationCanceledException()));
@@ -462,11 +462,11 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public void EncodeAndPublishGuarded_LibrariesMissing_DeletesTempAndMapsToUnavailable()
+    public async Task EncodeAndPublishGuarded_LibrariesMissing_DeletesTempAndMapsToUnavailable()
     {
         string temp = CreateTempArtifact();
 
-        Assert.ThrowsAsync<ProxyGeneratorUnavailableException>(
+        await Assert.ThrowsAsync<ProxyGeneratorUnavailableException>(
             () => FFmpegProxyGenerator.EncodeAndPublishGuardedAsync(
                 temp,
                 () => throw new FFmpegLibrariesNotFoundException("libs missing")));
@@ -488,7 +488,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     // fingerprint must be marked Stale first so offline resolution (which cannot restat the replaced,
     // possibly-missing file) does not later rank that Ready proxy for it.
     [Test]
-    public void GenerateAsync_SourceChangedSinceQueued_MarksOldEntryStaleThenSkips()
+    public async Task GenerateAsync_SourceChangedSinceQueued_MarksOldEntryStaleThenSkips()
     {
         string root = CreateRoot();
         string source = Path.Combine(root, "src.mov");
@@ -504,7 +504,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
         var generator = new FFmpegProxyGenerator(store);
         var job = new ProxyJob(queued, ProxyPreset.Quarter);
 
-        Assert.ThrowsAsync<ProxyGenerationSkippedException>(async () => await generator.GenerateAsync(job));
+        await Assert.ThrowsAsync<ProxyGenerationSkippedException>(async () => await generator.GenerateAsync(job));
 
         Assert.That(store.Transitions, Is.EquivalentTo(new[]
         {

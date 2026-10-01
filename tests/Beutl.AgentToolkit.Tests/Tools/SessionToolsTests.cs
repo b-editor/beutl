@@ -989,7 +989,7 @@ public sealed class SessionToolsTests
             Path.Combine(root, "c.bep"), 640, 360, 30, TimeSpan.FromSeconds(4)));
         sessionC.Save(skipConflictCheck: true);
 
-        Assert.ThrowsAsync<SessionUnavailableException>(async () => await gateway.AddSceneAsync(
+        await Assert.ThrowsAsync<SessionUnavailableException>(async () => await gateway.AddSceneAsync(
             sessionB, new SceneCreateOptions(320, 240, TimeSpan.Zero, TimeSpan.FromSeconds(2), "stale")));
     }
 

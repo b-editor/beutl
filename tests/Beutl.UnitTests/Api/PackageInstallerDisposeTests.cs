@@ -168,7 +168,7 @@ public sealed class PackageInstallerDisposeTests
             throw new InvalidOperationException("install failed");
         });
 
-        Assert.CatchAsync<InvalidOperationException>(async () =>
+        await Assert.CatchAsync<InvalidOperationException>(async () =>
             await operation.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
@@ -625,7 +625,7 @@ public sealed class PackageInstallerDisposeTests
             () => Task.FromException(new InvalidOperationException("install failed")),
             () => Interlocked.Increment(ref fallbackCount));
 
-        Assert.ThrowsAsync<InvalidOperationException>(() => operation);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => operation);
         Assert.That(fallbackCount, Is.EqualTo(1));
         await installer.DisposeAsync();
     }
@@ -648,7 +648,7 @@ public sealed class PackageInstallerDisposeTests
             () => Task.FromCanceled(new CancellationToken(canceled: true)),
             () => Interlocked.Increment(ref fallbackCount));
 
-        Assert.CatchAsync<OperationCanceledException>(() => operation);
+        await Assert.CatchAsync<OperationCanceledException>(() => operation);
         Assert.That(fallbackCount, Is.Zero);
         await installer.DisposeAsync();
     }
@@ -673,7 +673,7 @@ public sealed class PackageInstallerDisposeTests
         installer.BeginShutdown();
 
         cancellation.TrySetCanceled();
-        Assert.CatchAsync<OperationCanceledException>(() => operation);
+        await Assert.CatchAsync<OperationCanceledException>(() => operation);
         await installer.WaitUntilIdleAsync(TimeSpan.FromSeconds(1));
 
         Assert.That(fallbackCount, Is.EqualTo(1));

@@ -74,7 +74,7 @@ public sealed class AiUploadSourceContractTests
     }
 
     [Test]
-    public void Validation_RejectsASeekableStreamThatExceedsItsDeclaredLength()
+    public async Task Validation_RejectsASeekableStreamThatExceedsItsDeclaredLength()
     {
         var source = new AiUploadSource(
             "input.bin",
@@ -82,7 +82,7 @@ public sealed class AiUploadSourceContractTests
             _ => ValueTask.FromResult<Stream>(new MemoryStream(new byte[4], writable: false)),
             length: 3);
 
-        Assert.ThrowsAsync<AiFileTooLargeException>(async () =>
+        await Assert.ThrowsAsync<AiFileTooLargeException>(async () =>
         {
             await using Stream _ = await AiUploadValidation.OpenAsync(
                 source,
@@ -117,7 +117,7 @@ public sealed class AiUploadSourceContractTests
 
     [TestCase(2, 3)]
     [TestCase(3, 2)]
-    public void Validation_RejectsANonSeekableStreamBeyondTheDeclaredOrRouteLimit(
+    public async Task Validation_RejectsANonSeekableStreamBeyondTheDeclaredOrRouteLimit(
         long declaredLength,
         long maximumBytes)
     {
@@ -128,7 +128,7 @@ public sealed class AiUploadSourceContractTests
             _ => ValueTask.FromResult<Stream>(original),
             declaredLength);
 
-        Assert.ThrowsAsync<AiFileTooLargeException>(async () =>
+        await Assert.ThrowsAsync<AiFileTooLargeException>(async () =>
         {
             await using Stream _ = await AiUploadValidation.OpenAsync(
                 source,

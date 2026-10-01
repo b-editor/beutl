@@ -109,7 +109,7 @@ public sealed class AiResultImporterTests
             "resources",
             "ai");
 
-        Assert.ThrowsAsync<IOException>(() => importer.ImportImageAsync(
+        await Assert.ThrowsAsync<IOException>(() => importer.ImportImageAsync(
             bitmap,
             new AiResultImportOptions(
                 TimeSpan.Zero,
@@ -134,7 +134,7 @@ public sealed class AiResultImporterTests
             editor.GetRequiredService<IElementAdder>());
         byte[] oversized = PngWithDimensions(8_193, 1);
 
-        Assert.ThrowsAsync<InvalidDataException>(() => importer.ImportImageAsync(
+        await Assert.ThrowsAsync<InvalidDataException>(() => importer.ImportImageAsync(
             oversized,
             new AiResultImportOptions(
                 TimeSpan.Zero,
@@ -618,7 +618,7 @@ public sealed class AiResultImporterTests
             Uri originalResource = source.Uri;
             scene.Uri = new Uri(Path.GetFullPath(directoryAtScenePath));
 
-            Assert.CatchAsync<Exception>(async () => await editor.SaveAsync());
+            await Assert.CatchAsync<Exception>(async () => await editor.SaveAsync());
 
             using (Assert.EnterMultipleScope())
             {
@@ -703,7 +703,7 @@ public sealed class AiResultImporterTests
                        }
                    }))
             {
-                Assert.CatchAsync<Exception>(async () => await editor.SaveAsync());
+                await Assert.CatchAsync<Exception>(async () => await editor.SaveAsync());
             }
 
             using (Assert.EnterMultipleScope())

@@ -73,7 +73,7 @@ public sealed class ProxyGenerationE2ETests
     }
 
     [Test]
-    public void GenerateAsync_AudioOnlySource_IsSkipped()
+    public async Task GenerateAsync_AudioOnlySource_IsSkipped()
     {
         string root = CreateRoot();
         var store = new ProxyStore(root);
@@ -82,13 +82,13 @@ public sealed class ProxyGenerationE2ETests
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 
-        Assert.ThrowsAsync<ProxyGenerationSkippedException>(
+        await Assert.ThrowsAsync<ProxyGenerationSkippedException>(
             async () => await generator.GenerateAsync(job));
         Assert.That(store.Enumerate(), Is.Empty);
     }
 
     [Test]
-    public void GenerateAsync_AlwaysStillImageSource_IsSkippedBeforeOpeningReader()
+    public async Task GenerateAsync_AlwaysStillImageSource_IsSkippedBeforeOpeningReader()
     {
         string root = CreateRoot();
         var store = new ProxyStore(root);
@@ -99,7 +99,7 @@ public sealed class ProxyGenerationE2ETests
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 
-        Assert.ThrowsAsync<ProxyGenerationSkippedException>(
+        await Assert.ThrowsAsync<ProxyGenerationSkippedException>(
             async () => await generator.GenerateAsync(job));
         Assert.That(store.Enumerate(), Is.Empty);
     }
@@ -108,7 +108,7 @@ public sealed class ProxyGenerationE2ETests
     // fingerprint no longer matches job.Source; the generator must skip rather than encode the new
     // bytes and publish them under the stale fingerprint/path. Throws before any decode.
     [Test]
-    public void GenerateAsync_SourceChangedSinceQueued_IsSkipped()
+    public async Task GenerateAsync_SourceChangedSinceQueued_IsSkipped()
     {
         string root = CreateRoot();
         var store = new ProxyStore(root);
@@ -121,7 +121,7 @@ public sealed class ProxyGenerationE2ETests
         File.WriteAllBytes(source, [1, 2, 3, 4, 5, 6, 7, 8]);
         File.SetLastWriteTimeUtc(source, DateTime.UtcNow.AddMinutes(1));
 
-        Assert.ThrowsAsync<ProxyGenerationSkippedException>(
+        await Assert.ThrowsAsync<ProxyGenerationSkippedException>(
             async () => await generator.GenerateAsync(job));
         Assert.That(store.Enumerate(), Is.Empty);
     }
@@ -215,14 +215,14 @@ public sealed class ProxyGenerationE2ETests
     }
 
     [Test]
-    public void FinalizeAsync_WhenRegisterKeepsThrowing_KeepsProxyFileAndSurfacesError()
+    public async Task FinalizeAsync_WhenRegisterKeepsThrowing_KeepsProxyFileAndSurfacesError()
     {
         string root = CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
         var generator = new FFmpegProxyGenerator(store);
         (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await generator.FinalizeAsync(finalPath, entry));
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await generator.FinalizeAsync(finalPath, entry));
 
         Assert.Multiple(() =>
         {
@@ -272,7 +272,7 @@ public sealed class ProxyGenerationE2ETests
     }
 
     [Test]
-    public void PublishAsync_CanceledToken_DoesNotMoveOrRegister()
+    public async Task PublishAsync_CanceledToken_DoesNotMoveOrRegister()
     {
         string root = CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
@@ -288,7 +288,7 @@ public sealed class ProxyGenerationE2ETests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await generator.PublishAsync(tempPath, finalPath, job, "hash/quarter.mp4", new PixelSize(64, 48), new PixelSize(32, 24), cts.Token));
 
         Assert.Multiple(() =>
@@ -341,7 +341,7 @@ public sealed class ProxyGenerationE2ETests
     }
 
     [Test]
-    public void PublishAsync_CanceledDuringRegisterRetry_RemovesMovedArtifactAndSidecar()
+    public async Task PublishAsync_CanceledDuringRegisterRetry_RemovesMovedArtifactAndSidecar()
     {
         string root = CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
@@ -357,7 +357,7 @@ public sealed class ProxyGenerationE2ETests
         using var cts = new CancellationTokenSource();
         store.RegisterAttempted = _ => cts.Cancel();
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await generator.PublishAsync(
                 tempPath,
                 finalPath,
@@ -382,7 +382,7 @@ public sealed class ProxyGenerationE2ETests
     }
 
     [Test]
-    public void PublishAsync_CanceledDuringRegisterRetry_RestoresExistingProxyAndSidecar()
+    public async Task PublishAsync_CanceledDuringRegisterRetry_RestoresExistingProxyAndSidecar()
     {
         string root = CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
@@ -402,7 +402,7 @@ public sealed class ProxyGenerationE2ETests
         using var cts = new CancellationTokenSource();
         store.RegisterAttempted = _ => cts.Cancel();
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await generator.PublishAsync(
                 tempPath,
                 finalPath,

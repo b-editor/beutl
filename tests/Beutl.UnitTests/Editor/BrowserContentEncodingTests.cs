@@ -31,11 +31,10 @@ public class BrowserContentEncodingTests
     public async Task CompressedHtmlIsRejectedAfterDecoding(string encoding)
     {
         byte[] html = Encoding.UTF8.GetBytes("<!doctype html><html><body>Please sign in</body></html>");
-        await WithResponseAsync(encoding, Compress(html, encoding), (uri, directory, token) =>
+        await WithResponseAsync(encoding, Compress(html, encoding), async (uri, directory, token) =>
         {
-            Assert.ThrowsAsync<InvalidOperationException>(() => BrowserMediaDownload.Default.DownloadAsync(uri, directory, null, null, token));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => BrowserMediaDownload.Default.DownloadAsync(uri, directory, null, null, token));
             Assert.That(Directory.Exists(directory), Is.False);
-            return Task.CompletedTask;
         });
     }
 
@@ -44,11 +43,10 @@ public class BrowserContentEncodingTests
     public async Task RemainingUnsupportedEncodingsAreNotPublishedAsMedia(string encoding)
     {
         byte[] body = encoding == "gzip, br" ? Compress(Compress([1, 2, 3], "gzip"), "br") : [1, 2, 3];
-        await WithResponseAsync(encoding, body, (uri, directory, token) =>
+        await WithResponseAsync(encoding, body, async (uri, directory, token) =>
         {
-            Assert.ThrowsAsync<InvalidOperationException>(() => BrowserMediaDownload.Default.DownloadAsync(uri, directory, null, null, token));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => BrowserMediaDownload.Default.DownloadAsync(uri, directory, null, null, token));
             Assert.That(Directory.Exists(directory), Is.False);
-            return Task.CompletedTask;
         });
     }
 

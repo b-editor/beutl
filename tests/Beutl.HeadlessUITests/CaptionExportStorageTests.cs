@@ -79,7 +79,7 @@ public sealed class CaptionExportStorageTests
     }
 
     [Test]
-    public void NonLocalExport_StagingWriteFailure_DoesNotMoveExistingDestination()
+    public async Task NonLocalExport_StagingWriteFailure_DoesNotMoveExistingDestination()
     {
         StorageTransactionMocks storage = CreateStorageTransaction();
         storage.StagedFile
@@ -88,7 +88,7 @@ public sealed class CaptionExportStorageTests
                 _ => { },
                 new IOException("Injected staged write failure.")));
 
-        Assert.ThrowsAsync<IOException>(async () =>
+        await Assert.ThrowsAsync<IOException>(async () =>
             await CaptionExportStorage.WriteAsync(
                 storage.Destination.Object,
                 "new captions"u8.ToArray(),
@@ -100,7 +100,7 @@ public sealed class CaptionExportStorageTests
     }
 
     [Test]
-    public void NonLocalExport_PublishFailure_RestoresExistingDestination()
+    public async Task NonLocalExport_PublishFailure_RestoresExistingDestination()
     {
         StorageTransactionMocks storage = CreateStorageTransaction();
         storage.StagedFile
@@ -110,7 +110,7 @@ public sealed class CaptionExportStorageTests
             .Setup(file => file.MoveAsync(storage.Parent.Object))
             .ThrowsAsync(new IOException("Injected staged publish failure."));
 
-        Assert.ThrowsAsync<IOException>(async () =>
+        await Assert.ThrowsAsync<IOException>(async () =>
             await CaptionExportStorage.WriteAsync(
                 storage.Destination.Object,
                 "new captions"u8.ToArray(),

@@ -1384,7 +1384,7 @@ public class AiModelCatalogTests
     }
 
     [Test]
-    public void Retry_RepeatsTheModelTheJobRanOn()
+    public async Task Retry_RepeatsTheModelTheJobRanOn()
     {
         var images = new Mock<IAiImageGenerationService>();
         AiImageGenerationRequest? sent = null;
@@ -1407,7 +1407,7 @@ public class AiModelCatalogTests
             ModelCatalogService(catalog),
             RetryContext());
 
-        Assert.DoesNotThrowAsync(() => RunRetryAsync(handler, ImageJob("dear/model")));
+        await Assert.DoesNotThrowAsync(() => RunRetryAsync(handler, ImageJob("dear/model")));
         // Not the default, which is cheaper and would produce a different picture.
         Assert.That(sent!.Model!.Value.Value, Is.EqualTo("dear/model"));
     }
@@ -1476,7 +1476,7 @@ public class AiModelCatalogTests
     }
 
     [Test]
-    public void Retry_ProceedsWhenTheCatalogCouldNotBeRead()
+    public async Task Retry_ProceedsWhenTheCatalogCouldNotBeRead()
     {
         var images = new Mock<IAiImageGenerationService>();
         images
@@ -1495,7 +1495,7 @@ public class AiModelCatalogTests
         // An empty catalog says nothing about any model, and the server has the
         // last word; refusing here would break reruns whenever the capabilities
         // endpoint is unreachable.
-        Assert.DoesNotThrowAsync(() => RunRetryAsync(handler, ImageJob("dear/model")));
+        await Assert.DoesNotThrowAsync(() => RunRetryAsync(handler, ImageJob("dear/model")));
     }
 
     private static async Task RunRetryAsync(IAiJobRetryHandler handler, AiJob job)

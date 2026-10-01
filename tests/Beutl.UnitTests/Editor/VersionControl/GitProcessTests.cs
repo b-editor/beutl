@@ -176,7 +176,7 @@ public class GitProcessTests
             Assert.That(process.TryGetExitCode(out _), Is.False);
             // The id may already belong to another process, so this must not signal it.
             Assert.DoesNotThrow(process.Kill);
-            Assert.DoesNotThrowAsync(async () =>
+            await Assert.DoesNotThrowAsync(async () =>
                 await process.WaitForGroupExitAsync().WaitAsync(TimeSpan.FromSeconds(5)));
 
             using GitProcess next = GitProcess.Start(CreateShell("printf next"));

@@ -33,7 +33,7 @@ public class GitInstallationLocatorTests
         if (canceledCaller >= 0)
         {
             (canceledCaller == 0 ? firstCancellation : secondCancellation).Cancel();
-            Assert.ThrowsAsync<OperationCanceledException>(async () => await calls[canceledCaller]);
+            await Assert.ThrowsAsync<OperationCanceledException>(async () => await calls[canceledCaller]);
             Assert.That(probeToken.IsCancellationRequested, Is.False);
         }
         release.SetResult();
@@ -78,14 +78,14 @@ public class GitInstallationLocatorTests
         Task<GitAvailability> replacement = locator.LocateAsync();
         try
         {
-            Assert.ThrowsAsync<TimeoutException>(async () =>
+            await Assert.ThrowsAsync<TimeoutException>(async () =>
                 await abandoned.WaitAsync(TimeSpan.FromMilliseconds(100)));
         }
         finally
         {
             oldRelease.TrySetResult();
         }
-        Assert.ThrowsAsync<OperationCanceledException>(async () => await abandoned);
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await abandoned);
         Task<GitAvailability> shared = locator.LocateAsync();
         Assert.That(shared.IsCompleted, Is.False);
         newRelease.SetResult();
@@ -129,8 +129,8 @@ public class GitInstallationLocatorTests
         Task<GitAvailability> first = locator.LocateAsync();
         Task<GitAvailability> second = locator.LocateAsync();
         release.SetException(new IOException("probe failed"));
-        Assert.ThrowsAsync<IOException>(async () => await first);
-        Assert.ThrowsAsync<IOException>(async () => await second);
+        await Assert.ThrowsAsync<IOException>(async () => await first);
+        await Assert.ThrowsAsync<IOException>(async () => await second);
         probe.BeforeRun = null;
         Assert.That((await locator.LocateAsync()).LfsInstalled, Is.True);
         Assert.That(probe.RunCalls, Has.Count.EqualTo(3));
@@ -198,7 +198,7 @@ public class GitInstallationLocatorTests
         await locator.LocateAsync();
         await locator.LocateAsync();
         Assert.That(probe.RunCalls, Has.Count.EqualTo(2));
-        Assert.ThrowsAsync<OperationCanceledException>(async () => await locator.LocateAsync(new CancellationToken(true)));
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await locator.LocateAsync(new CancellationToken(true)));
         clock.Advance(GitInstallationLocator.DiscoveryCacheLifetime);
         await locator.LocateAsync();
         Assert.That(probe.RunCalls, Has.Count.EqualTo(4));
@@ -466,7 +466,7 @@ public class GitInstallationLocatorTests
     }
 
     [Test]
-    public void Discovery_budget_preserves_external_cancellation()
+    public async Task Discovery_budget_preserves_external_cancellation()
     {
         var config = new VersionControlConfig();
         var probe = new FakeProbe
@@ -481,7 +481,7 @@ public class GitInstallationLocatorTests
             TimeSpan.FromSeconds(5));
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
 
-        OperationCanceledException? exception = Assert.ThrowsAsync<OperationCanceledException>(
+        OperationCanceledException? exception = await Assert.ThrowsAsync<OperationCanceledException>(
             async () => await locator.LocateAsync(cancellation.Token));
 
         Assert.That(exception!.CancellationToken, Is.EqualTo(cancellation.Token));
@@ -674,7 +674,7 @@ public class GitInstallationLocatorTests
     }
 
     [Test]
-    public void Process_probe_preserves_external_cancellation()
+    public async Task Process_probe_preserves_external_cancellation()
     {
         var probe = new ProcessGitInstallationProbe(TimeSpan.FromSeconds(5));
         (string executable, IReadOnlyList<string> arguments) = CreateShellCommand(
@@ -682,7 +682,7 @@ public class GitInstallationLocatorTests
             "ping 127.0.0.1 -n 60 >nul");
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
 
-        OperationCanceledException? exception = Assert.ThrowsAsync<OperationCanceledException>(
+        OperationCanceledException? exception = await Assert.ThrowsAsync<OperationCanceledException>(
             async () => await probe.RunAsync(executable, arguments, cancellation.Token));
 
         Assert.That(exception!.CancellationToken, Is.EqualTo(cancellation.Token));

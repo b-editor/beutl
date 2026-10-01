@@ -42,7 +42,7 @@ public sealed partial class AiCapabilityServiceTests
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
         SetAuthenticatedUser(app);
-        Assert.ThrowsAsync<AiException>(async () => await app.GetResource<IAiTranscriptionService>()
+        await Assert.ThrowsAsync<AiException>(async () => await app.GetResource<IAiTranscriptionService>()
             .TranscribeAsync(new AiTranscriptionRequest(
                 AiUploadSource.FromBytes("audio.wav", "audio/wav", new byte[] { 1 })), CancellationToken.None));
     }
@@ -149,7 +149,7 @@ public sealed partial class AiCapabilityServiceTests
         SetAuthenticatedUser(app, previous);
         AuthenticatedUser replacement = CreateAuthenticatedUser(app, "replacement-token");
 
-        Assert.ThrowsAsync<IOException>(() => app.RunInteractiveAuthenticationAsync(
+        await Assert.ThrowsAsync<IOException>(() => app.RunInteractiveAuthenticationAsync(
             _ => Task.FromResult(replacement),
             CancellationToken.None));
 
@@ -647,7 +647,7 @@ public sealed partial class AiCapabilityServiceTests
         SetAuthenticatedUser(app);
         var reported = new RecordingProgress<AiCaptionTranslationSegment>();
 
-        Assert.ThrowsAsync<JsonException>(async () =>
+        await Assert.ThrowsAsync<JsonException>(async () =>
             await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
                 new AiCaptionTranslationRequest(
                     [new AiCaptionTranslationSegment { Id = "line-1", Text = "Hello" }],
@@ -658,12 +658,12 @@ public sealed partial class AiCapabilityServiceTests
     }
 
     [Test]
-    public void EventStream_RejectsAnOversizedLineBeforeBuildingAnEvent()
+    public async Task EventStream_RejectsAnOversizedLineBeforeBuildingAnEvent()
     {
         string body = "data: " + new string('x', 32 * 1024 * 1024 + 1);
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(body));
 
-        Assert.ThrowsAsync<AiException>(async () =>
+        await Assert.ThrowsAsync<AiException>(async () =>
         {
             await foreach (AiServerSentEvent _ in AiEventStream.ReadAsync(
                                stream,
@@ -738,7 +738,7 @@ public sealed partial class AiCapabilityServiceTests
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
 
-        Assert.ThrowsAsync<AiException>(async () =>
+        await Assert.ThrowsAsync<AiException>(async () =>
             await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
                 new AiCaptionTranslationRequest(
                     [new AiCaptionTranslationSegment { Id = "line-1", Text = "Hello" }],
@@ -757,7 +757,7 @@ public sealed partial class AiCapabilityServiceTests
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
 
-        Assert.ThrowsAsync<AiRequestInterruptedException>(async () =>
+        await Assert.ThrowsAsync<AiRequestInterruptedException>(async () =>
             await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
                 new AiCaptionTranslationRequest(
                     [new AiCaptionTranslationSegment { Id = "line-1", Text = "Hello" }],
@@ -776,7 +776,7 @@ public sealed partial class AiCapabilityServiceTests
         SetAuthenticatedUser(app);
 
         // Told apart exactly as the same failure would be on the ordinary path.
-        Assert.ThrowsAsync<AiProviderErrorException>(async () =>
+        await Assert.ThrowsAsync<AiProviderErrorException>(async () =>
             await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
                 new AiCaptionTranslationRequest(
                     [new AiCaptionTranslationSegment { Id = "line-1", Text = "Hello" }],
@@ -806,8 +806,8 @@ public sealed partial class AiCapabilityServiceTests
         await content.ReadStarted.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
 
-        OperationCanceledException error = Assert.CatchAsync<OperationCanceledException>(async () =>
-            await request.WaitAsync(TimeSpan.FromSeconds(5)))!;
+        OperationCanceledException error = (await Assert.CatchAsync<OperationCanceledException>(async () =>
+            await request.WaitAsync(TimeSpan.FromSeconds(5))))!;
         Assert.That(error.CancellationToken.IsCancellationRequested, Is.True);
     }
 
@@ -959,7 +959,7 @@ public sealed partial class AiCapabilityServiceTests
         SetAuthenticatedUser(app);
         var previews = new RecordingProgress<AiImagePreview>();
 
-        Assert.ThrowsAsync<JsonException>(async () =>
+        await Assert.ThrowsAsync<JsonException>(async () =>
             await app.GetResource<IAiImageGenerationService>().GenerateAsync(
                 new AiImageGenerationRequest(
                     "a lighthouse",
@@ -1646,9 +1646,9 @@ public sealed partial class AiCapabilityServiceTests
         catalog.Dispose();
         response.SetResult(JsonResponse(HttpStatusCode.OK, "{ \"operations\": {} }"));
 
-        Assert.DoesNotThrowAsync(async () =>
+        await Assert.DoesNotThrowAsync(async () =>
             await request.WaitAsync(TimeSpan.FromSeconds(5)));
-        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
             await catalog.GetAsync(CancellationToken.None));
     }
 
@@ -2022,11 +2022,11 @@ public sealed partial class AiCapabilityServiceTests
         // By the time a result is fetched the job has run and been charged for,
         // so this is not the request failing: it is the result being out of
         // reach, and the caller can point the user at the job history.
-        AiContentUnavailableException error = Assert.ThrowsAsync<AiContentUnavailableException>(
+        AiContentUnavailableException error = (await Assert.ThrowsAsync<AiContentUnavailableException>(
             async () => await app.GetResource<IAuthenticatedContentService>().CopyToAsync(
                 new Uri(app.HttpClient.BaseAddress!, "/api/contents/file-1"),
                 destination,
-                CancellationToken.None))!;
+                CancellationToken.None)))!;
 
         using (Assert.EnterMultipleScope())
         {
@@ -2054,7 +2054,7 @@ public sealed partial class AiCapabilityServiceTests
         IAuthenticatedContentService service = app.GetResource<IAuthenticatedContentService>();
 
         using var destination = new MemoryStream();
-        Assert.ThrowsAsync<ArgumentException>(async () =>
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
             await service.CopyToAsync(
                 new Uri("https://example.com/api/contents/file-1"),
                 destination,

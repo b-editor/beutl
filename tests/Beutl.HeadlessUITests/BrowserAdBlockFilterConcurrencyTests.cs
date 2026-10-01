@@ -49,7 +49,7 @@ public class BrowserAdBlockFilterConcurrencyTests
             if (sameSources) Assert.That(first, Is.SameAs(second));
             response.SetResult(Response("original"));
             BrowserAdBlockRules current = await second.WaitAsync(Timeout);
-            if (!sameSources) Assert.CatchAsync<OperationCanceledException>(async () => await first!.WaitAsync(Timeout));
+            if (!sameSources) await Assert.CatchAsync<OperationCanceledException>(async () => await first!.WaitAsync(Timeout));
             Assert.That(store.Current, Is.SameAs(current));
             Assert.That(requests, Is.EqualTo(sameSources ? 1 : 2));
         }

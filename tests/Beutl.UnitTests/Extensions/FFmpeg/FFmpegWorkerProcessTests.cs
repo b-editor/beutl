@@ -28,8 +28,8 @@ public class FFmpegWorkerProcessTests
         {
             var method = typeof(FFmpegWorkerProcess).GetMethod("StartWorkerWithCooldownAsync", flags)!;
             Task start = (Task)method.Invoke(worker, new object[] { cancellation.Token })!;
-            if (canceled) Assert.CatchAsync<OperationCanceledException>(async () => await start);
-            else Assert.ThrowsAsync<FFmpegLibrariesNotFoundException>(async () => await start);
+            if (canceled) await Assert.CatchAsync<OperationCanceledException>(async () => await start);
+            else await Assert.ThrowsAsync<FFmpegLibrariesNotFoundException>(async () => await start);
             Assert.That(worker.WorkerPid, Is.Zero);
             Assert.That(typeof(FFmpegWorkerProcess).GetField("_logPump", flags)!.GetValue(worker), Is.Null);
             Assert.That(typeof(FFmpegWorkerProcess).GetField("_lastStartupFailure", flags)!.GetValue(worker), Is.Null);

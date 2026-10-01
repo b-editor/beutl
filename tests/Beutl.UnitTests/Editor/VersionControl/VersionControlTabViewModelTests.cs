@@ -195,7 +195,7 @@ public class VersionControlTabViewModelTests
         service.SetupSequence(x => x.GetDiffAsync(commit.Sha, file.Path, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new IOException("preview failed")).ReturnsAsync("+recovered");
         RaisePreviewMetadata(service, commit, 1);
-        Assert.ThrowsAsync<IOException>(async () => await viewModel.Initialization);
+        await Assert.ThrowsAsync<IOException>(async () => await viewModel.Initialization);
         Assert.That(viewModel.DiffLines, Is.Empty);
         RaisePreviewMetadata(service, commit, 2);
         await viewModel.Initialization;
@@ -375,7 +375,7 @@ public class VersionControlTabViewModelTests
             service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new IOException("remotes failed"));
         }
         service.Raise(x => x.StatusChanged += null, service.Object, status with { NotificationSequence = 1 });
-        Assert.ThrowsAsync<IOException>(async () => await viewModel.Initialization);
+        await Assert.ThrowsAsync<IOException>(async () => await viewModel.Initialization);
         service.Setup(x => x.GetHistoryAsync(0, 1, It.IsAny<CancellationToken>())).ReturnsAsync([]);
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
         coordinator.Raise(x => x.PendingPullRecoveriesChanged += null, coordinator.Object, EventArgs.Empty);
@@ -661,7 +661,7 @@ public class VersionControlTabViewModelTests
             Task.FromException(new InvalidOperationException("simulated failure"));
         await viewModel.Initialization;
 
-        Assert.ThrowsAsync<InvalidOperationException>(() => viewModel.EnableVersionControlAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => viewModel.EnableVersionControlAsync());
 
         Assert.Multiple(() =>
         {
@@ -1854,7 +1854,7 @@ public class VersionControlTabViewModelTests
         await firstRequestStarted.Task;
         Task secondSelection = viewModel.SelectCommitAsync(viewModel.Commits[1]);
 
-        Assert.DoesNotThrowAsync(async () =>
+        await Assert.DoesNotThrowAsync(async () =>
             await Task.WhenAll(firstSelection, secondSelection));
         Assert.Multiple(() =>
         {
@@ -2319,7 +2319,7 @@ public class VersionControlTabViewModelTests
         await viewModel.Initialization;
         viewModel.CommitMessage.Value = "rough cut";
 
-        Assert.DoesNotThrowAsync(async () => await viewModel.CommitManualAsync());
+        await Assert.DoesNotThrowAsync(async () => await viewModel.CommitManualAsync());
         Assert.That(viewModel.CommitMessage.Value, Is.EqualTo("rough cut"));
     }
 

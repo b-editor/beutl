@@ -84,7 +84,7 @@ public sealed class ChangesModelTests
 
         cancellation.Cancel();
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await load.WaitAsync(TimeSpan.FromSeconds(5)));
         using (Assert.EnterMultipleScope())
         {
@@ -127,7 +127,7 @@ public sealed class ChangesModelTests
 
         cancellation.Cancel();
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await load.WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.That(model.InstallItems, Is.Empty, "partially parsed items must not be published");
     }
@@ -157,7 +157,7 @@ public sealed class ChangesModelTests
             cancellation.Token);
         await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await load.WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.That(model.InstallItems, Is.Empty, "items must not be published after cancellation");
     }

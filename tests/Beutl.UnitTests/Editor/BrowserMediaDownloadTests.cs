@@ -19,12 +19,12 @@ namespace Beutl.UnitTests.Editor;
 public class BrowserMediaDownloadTests
 {
     [Test]
-    public void PartialContentCannotBePublishedAsACompleteDownload()
+    public async Task PartialContentCannotBePublishedAsACompleteDownload()
     {
         string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         using var client = new HttpClient(new PartialContentHandler());
         var downloader = new BrowserMediaDownload(client);
-        Assert.ThrowsAsync<IOException>(async () =>
+        await Assert.ThrowsAsync<IOException>(async () =>
             await downloader.DownloadAsync(new Uri("https://files.example/Morning.mp3"), directory, null, null, default));
         Assert.That(Directory.Exists(directory), Is.False);
     }
@@ -54,7 +54,7 @@ public class BrowserMediaDownloadTests
 
     [TestCase("<html><body>Not media</body></html>")]
     [TestCase("")]
-    public void InvalidStagedPayloadsAreNotPublished(string payload)
+    public async Task InvalidStagedPayloadsAreNotPublished(string payload)
     {
         string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         string stagingDirectory = Path.Combine(directory, ".staging");
@@ -64,10 +64,10 @@ public class BrowserMediaDownloadTests
         {
             File.WriteAllText(staged, payload);
             if (payload.Length == 0)
-                Assert.ThrowsAsync<IOException>(async () =>
+                await Assert.ThrowsAsync<IOException>(async () =>
                     await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "Morning.mp3", null, default));
             else
-                Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await Assert.ThrowsAsync<InvalidOperationException>(async () =>
                     await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "Morning.mp3", "utf-8", default));
             Assert.That(File.Exists(staged), Is.True);
             Assert.That(File.Exists(Path.Combine(directory, "Morning.mp3")), Is.False);
@@ -135,14 +135,14 @@ public class BrowserMediaDownloadTests
     }
 
     [Test]
-    public void Cancellation_RemovesPartialFile()
+    public async Task Cancellation_RemovesPartialFile()
     {
         string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         using var client = new HttpClient(new MediaHandler());
         using var cancellation = new CancellationTokenSource();
         try
         {
-            Assert.CatchAsync<OperationCanceledException>(async () =>
+            await Assert.CatchAsync<OperationCanceledException>(async () =>
                 await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://example.com/clip.mp4"), directory,
                     null, new CancelProgress(cancellation), cancellation.Token));
             Assert.That(Directory.GetFiles(directory), Is.Empty);
@@ -340,7 +340,7 @@ public class BrowserMediaDownloadTests
     }
 
     [Test]
-    public void Import_AwaitsThePipelineAndReportsReturnedFailures()
+    public async Task Import_AwaitsThePipelineAndReportsReturnedFailures()
     {
         var completion = new TaskCompletionSource<ElementAddResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var adder = new Mock<IElementAdder>();
@@ -354,7 +354,7 @@ public class BrowserMediaDownloadTests
         Task pending = vm.AddDownloadedMediaAsync("clip.mp4", CancellationToken.None);
         Assert.That(pending.IsCompleted, Is.False);
         completion.SetResult(ElementAddResult.Failed(new ElementSourcePreflightFailure("Decoder unavailable")));
-        var error = Assert.ThrowsAsync<InvalidOperationException>(async () => await pending);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(async () => await pending);
         Assert.That(error!.Message, Is.EqualTo("Decoder unavailable"));
     }
 

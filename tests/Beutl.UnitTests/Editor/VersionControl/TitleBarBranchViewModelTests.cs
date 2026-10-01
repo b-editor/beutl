@@ -654,8 +654,8 @@ public class TitleBarBranchViewModelTests
         viewModel.Dispose();
         pendingUiAction!();
 
-        Assert.DoesNotThrowAsync(async () => await viewModel.RefreshAsync());
-        Assert.DoesNotThrowAsync(async () => await viewModel.PrepareFlyoutAsync());
+        await Assert.DoesNotThrowAsync(async () => await viewModel.RefreshAsync());
+        await Assert.DoesNotThrowAsync(async () => await viewModel.PrepareFlyoutAsync());
         Assert.That(viewModel.IsVisible.Value, Is.False);
     }
 

@@ -95,7 +95,7 @@ public class BrowserAdBlockTests
             var original = await store.UpdateAsync([BrowserAdBlockFilterStore.EasyListUrl], CancellationToken.None);
             string saved = await File.ReadAllTextAsync(path);
             handler.Response = "<html>proxy error</html>";
-            Assert.ThrowsAsync<InvalidDataException>(() => store.UpdateAsync([BrowserAdBlockFilterStore.EasyListUrl], CancellationToken.None));
+            await Assert.ThrowsAsync<InvalidDataException>(() => store.UpdateAsync([BrowserAdBlockFilterStore.EasyListUrl], CancellationToken.None));
             Assert.That(store.Current, Is.SameAs(original));
             Assert.That(await File.ReadAllTextAsync(path), Is.EqualTo(saved));
             int requests = handler.Requests;

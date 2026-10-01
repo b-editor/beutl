@@ -600,7 +600,7 @@ public sealed class AiSubtitleAdvancedTests
         ]);
         int writeCount = 0;
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await AiSubtitleDialogViewModel.TryWriteCaptionExportAsync(
                 document,
                 CaptionFormats.Srt,

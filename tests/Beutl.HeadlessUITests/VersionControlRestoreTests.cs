@@ -748,7 +748,7 @@ public class VersionControlRestoreTests
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             using IDisposable outputOperation = editorService.BeginObservedOutputOperation();
-            Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
                 await coordinator.CommitManualAsync("blocked commit"));
             Assert.That(backend.CommitAllCalls, Is.Zero);
         }
@@ -2343,7 +2343,7 @@ public class VersionControlRestoreTests
                 serviceFactory: _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await coordinator.InitializeCurrentProjectAsync(
                     staleProject,
                     _ => Task.FromResult<GitIdentity?>(null)));
@@ -3078,7 +3078,7 @@ public class VersionControlRestoreTests
                 Assert.That(coordinator.CurrentService, Is.Null);
                 Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
             });
-            Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
                 await coordinator.CommitManualAsync("blocked alias"));
             Assert.That(shared.CommitAllCalls, Is.Zero);
 
@@ -3093,7 +3093,7 @@ public class VersionControlRestoreTests
                 Assert.That(coordinator.CurrentService, Is.Null);
                 Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
             });
-            Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
                 await coordinator.CommitManualAsync("blocked during hygiene"));
             Assert.That(shared.CommitAllCalls, Is.Zero);
 
@@ -7047,11 +7047,11 @@ public class VersionControlRestoreTests
             await close.WaitAsync(TimeSpan.FromSeconds(10));
             HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
+            await Assert.MultipleAsync(async () =>
             {
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
                 Assert.That(TestShell.VersionControl.CurrentService, Is.Null);
-                Assert.ThrowsAsync<ObjectDisposedException>(
+                await Assert.ThrowsAsync<ObjectDisposedException>(
                     async () => await staleService.GetStatusAsync(CancellationToken.None));
             });
         }
@@ -11140,7 +11140,7 @@ public class VersionControlRestoreTests
                 return Task.FromResult(true);
             };
 
-            Assert.ThrowsAsync<ArgumentException>(async () =>
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
                 await TestShell.VersionControl.RestoreToNewBranchAsync(
                     "--discard-changes",
                     "injected-option"));

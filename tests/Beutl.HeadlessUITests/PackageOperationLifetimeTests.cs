@@ -42,7 +42,7 @@ public sealed class PackageOperationLifetimeTests
             // The dispatcher is not pumped here: cancellation must complete the queued
             // operation without depending on the callback ever being executed.
             Assert.That(SpinWait.SpinUntil(() => task.IsCompleted, TimeSpan.FromSeconds(5)), Is.True);
-            Assert.CatchAsync<OperationCanceledException>(async () => await task);
+            await Assert.CatchAsync<OperationCanceledException>(async () => await task);
             Assert.That(Directory.Exists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name)), Is.False);
             Assert.That(app.GetResource<InstalledPackageRepository>().ExistsPackage(name, "1.0.0"), Is.False);
         }
@@ -156,7 +156,7 @@ public sealed class PackageOperationLifetimeTests
             FileUrl = null,
         }, app);
         var identity = new PackageIdentity(package.Name, NuGetVersion.Parse("1.0.0"));
-        InvalidDataException? error = Assert.ThrowsAsync<InvalidDataException>(() => remote
+        InvalidDataException? error = await Assert.ThrowsAsync<InvalidDataException>(() => remote
             ? operation.DownloadAndLoadPackage(release, identity, CancellationToken.None)
             : operation.DownloadAndLoadPackage(identity, CancellationToken.None));
         Assert.That(error!.Message, Is.EqualTo("The package hash could not be verified."));

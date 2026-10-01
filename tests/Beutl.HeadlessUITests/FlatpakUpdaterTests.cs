@@ -62,10 +62,10 @@ public sealed class FlatpakUpdaterTests
     [TestCase("app/net.beditor.Beutl/x86_64/stable")]
     [TestCase("runtime/net.beditor.Beutl/x86_64/master")]
     [TestCase(null)]
-    public void WrongBundleNeverReachesTheHostInstaller(string? reference)
+    public async Task WrongBundleNeverReachesTheHostInstaller(string? reference)
     {
         if (OperatingSystem.IsWindows()) Assert.Ignore("Flatpak uses Unix paths.");
-        Assert.ThrowsAsync<InvalidDataException>(() => Updater(run:
+        await Assert.ThrowsAsync<InvalidDataException>(() => Updater(run:
             (_, _) => throw new AssertionException("The host must not be invoked."), read: _ => reference).InstallAsync(default));
     }
 
@@ -196,13 +196,13 @@ public sealed class FlatpakUpdaterTests
         try
         {
             if (mode == "ok") Assert.That(await operation, Is.EqualTo(pidFile));
-            else if (mode == "fail") Assert.That(Assert.ThrowsAsync<IOException>(async () => await operation)!.Message, Is.EqualTo("denied"));
+            else if (mode == "fail") Assert.That((await Assert.ThrowsAsync<IOException>(async () => await operation))!.Message, Is.EqualTo("denied"));
             else
             {
                 await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
                 using var process = System.Diagnostics.Process.GetProcessById(int.Parse(await File.ReadAllTextAsync(pidFile)));
                 cancellation.Cancel();
-                Assert.CatchAsync<OperationCanceledException>(async () => await operation.WaitAsync(TimeSpan.FromSeconds(5)));
+                await Assert.CatchAsync<OperationCanceledException>(async () => await operation.WaitAsync(TimeSpan.FromSeconds(5)));
                 Assert.That(process.HasExited, Is.True);
             }
         }

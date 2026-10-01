@@ -52,7 +52,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             transaction => transaction.CanCreateBranchAsync("feature", CancellationToken.None),
             CancellationToken.None);
 
-        Assert.Multiple(() =>
+        await Assert.MultipleAsync(async () =>
         {
             // origin/HEAD only names the default branch, and origin/main already has a local branch.
             Assert.That(
@@ -63,9 +63,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                     new BranchInfo("feature", false, null, IsRemote: true),
                 }));
             Assert.That(canCreateSameName, Is.True);
-            Assert.ThrowsAsync<ArgumentException>(
+            await Assert.ThrowsAsync<ArgumentException>(
                 async () => await service.SwitchBranchAsync("origin/feature", CancellationToken.None));
-            Assert.ThrowsAsync<ArgumentException>(
+            await Assert.ThrowsAsync<ArgumentException>(
                 async () => await service.SwitchBranchAsync("Feature", CancellationToken.None));
         });
     }
@@ -2313,7 +2313,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         await RunGitAsync("reflog", "expire", "--expire=now", "--all");
         await RunGitAsync("gc", "--prune=now");
-        Assert.ThrowsAsync<GitOperationException>(async () =>
+        await Assert.ThrowsAsync<GitOperationException>(async () =>
             await RunGitAsync("cat-file", "-e", $"{targetCommit}^{{commit}}"));
 
         using GitCliVersionControlService restarted = CreateService();
@@ -2432,7 +2432,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         PendingPullRecoveryOutcome? outcome = null;
         PendingPullRecoveryOutcome? repeatedOutcome = null;
-        Assert.DoesNotThrowAsync(async () =>
+        await Assert.DoesNotThrowAsync(async () =>
         {
             outcome = await service.RecoverPendingPullRecoveryAsync(
                 recovery,
@@ -2527,7 +2527,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             "--untracked-files=all")).Stdout;
 
         PendingPullRecoveryPreservedException? exception =
-            Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
+            await Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
                 await service.RecoverPendingPullRecoveryAsync(
                     recovery,
                     CancellationToken.None));
@@ -2580,7 +2580,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("update-ref", recoveryBranchRef, externalCommit, string.Empty);
 
         PendingPullRecoveryPreservedException? exception =
-            Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
+            await Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
                 await service.RecoverPendingPullRecoveryAsync(
                     recovery,
                     CancellationToken.None));
@@ -2645,7 +2645,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Path.Combine(Root, "project.bep"),
             "unverified state\n");
 
-        Exception? exception = Assert.ThrowsAsync<AggregateException>(async () =>
+        Exception? exception = await Assert.ThrowsAsync<AggregateException>(async () =>
             await service.RecoverPendingPullRecoveryAsync(
                 recovery,
                 CancellationToken.None));
@@ -2711,7 +2711,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             externalCommit,
             string.Empty);
 
-        Exception? exception = Assert.ThrowsAsync<AggregateException>(async () =>
+        Exception? exception = await Assert.ThrowsAsync<AggregateException>(async () =>
             await service.RecoverPendingPullRecoveryAsync(
                 recovery,
                 CancellationToken.None));
@@ -2765,7 +2765,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         byte[] untrackedBefore = await File.ReadAllBytesAsync(Path.Combine(Root, "untracked.bin"));
 
         PendingPullRecoveryPreservedException? exception =
-            Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
+            await Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
                 await service.RecoverPendingPullRecoveryAsync(
                     recovery,
                     CancellationToken.None));
@@ -2883,7 +2883,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         // Created after the checkpoint, so only the persistence guard sees the link.
         CreateFileSymbolicLinkOrIgnore(linkedProject, externalProject);
 
-        Assert.ThrowsAsync<ArgumentException>(async () =>
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
             await service.PersistPendingPullRecoveryAsync(
                 checkpoint,
                 checkpoint.BaseTip,
@@ -3036,7 +3036,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             _ => CreateRunner(),
             projectFile: repositoryProjectAlias);
 
-        InvalidOperationException? refusal = Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException? refusal = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CreateProjectCheckpointAsync(
                 "beutl: checkpoint",
                 CancellationToken.None));
@@ -3118,7 +3118,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         descriptor["CreatedAt"] = DateTimeOffset.UtcNow.AddMinutes(1);
         tamperedObject = await WriteGitBlobAsync(descriptor.ToJsonString());
 
-        Assert.ThrowsAsync<PendingPullRecoveryChangedException>(async () =>
+        await Assert.ThrowsAsync<PendingPullRecoveryChangedException>(async () =>
             await service.CompletePendingPullRecoveryAsync(
                 pending,
                 CancellationToken.None));
@@ -3150,7 +3150,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         using var service = CreateService(runner: interceptingRunner);
         PendingPullRecovery pending = await CreatePendingPullRecoveryAsync(service);
 
-        Assert.DoesNotThrowAsync(async () =>
+        await Assert.DoesNotThrowAsync(async () =>
             await service.CompletePendingPullRecoveryAsync(
                 pending,
                 CancellationToken.None));

@@ -32,7 +32,7 @@ public sealed class PackageInstallerVerificationTests
         };
         try
         {
-            Assert.ThrowsAsync<InvalidDataException>(() => installer.VerifyPackageFile(context));
+            await Assert.ThrowsAsync<InvalidDataException>(() => installer.VerifyPackageFile(context));
             Assert.That(context.HashVerified, Is.False);
             Assert.That(installer.PrepareForInstall(name, "1.0.0", force: true), Is.Not.SameAs(context),
                 "A later attempt must not retain the rejected context and skip its download phase.");
