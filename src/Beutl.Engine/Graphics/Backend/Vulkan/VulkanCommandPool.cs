@@ -879,7 +879,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         }
     }
 
-    private sealed record TimelineSignal(Semaphore Semaphore, ulong Value);
+    private readonly record struct TimelineSignal(Semaphore Semaphore, ulong Value);
 
     private sealed class InFlightSubmission(CommandBuffer commandBuffer, Fence fence)
     {

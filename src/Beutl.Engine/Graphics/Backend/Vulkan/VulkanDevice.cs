@@ -219,7 +219,10 @@ internal sealed unsafe class VulkanDevice : IDisposable
             SType = StructureType.PhysicalDeviceTimelineSemaphoreFeatures,
         };
         timelineSemaphores = false;
-        if (OperatingSystem.IsMacOS())
+        PhysicalDeviceProperties deviceProperties;
+        _vk.GetPhysicalDeviceProperties(_physicalDevice, &deviceProperties);
+        // The feature structure is core only from Vulkan 1.2; an older device would need the KHR extension.
+        if (OperatingSystem.IsMacOS() && deviceProperties.ApiVersion >= Vk.Version12)
         {
             var availableFeatures2 = new PhysicalDeviceFeatures2
             {

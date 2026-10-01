@@ -8,6 +8,8 @@ internal sealed class MetalContext : IDisposable
     private readonly IntPtr _metalDevice;
     private readonly IntPtr _commandQueue;
     private readonly GRContext _grContext;
+    // Retained hand-off command buffers that may still be running; see WaitForHandOffs.
+    private readonly List<IntPtr> _handOffCommandBuffers = [];
     private bool _disposed;
 
     private static readonly IntPtr s_newCommandQueueSelector = GetValidSelector("newCommandQueue");
@@ -22,6 +24,12 @@ internal sealed class MetalContext : IDisposable
     private static readonly IntPtr s_endEncodingSelector = GetValidSelector("endEncoding");
     private static readonly IntPtr s_encodeSignalEventSelector = GetValidSelector("encodeSignalEvent:value:");
     private static readonly IntPtr s_encodeWaitForEventSelector = GetValidSelector("encodeWaitForEvent:value:");
+    private static readonly IntPtr s_retainSelector = GetValidSelector("retain");
+    private static readonly IntPtr s_statusSelector = GetValidSelector("status");
+
+    // MTLCommandBufferStatusCompleted and MTLCommandBufferStatusError.
+    private const nuint CompletedStatus = 4;
+    private const nuint ErrorStatus = 5;
 
     // MTLResourceStorageModePrivate: the probe buffer is only ever written by the GPU.
     private const nuint PrivateStorageMode = 2 << 4;
@@ -129,7 +137,7 @@ internal sealed class MetalContext : IDisposable
                 ProbeTexelBytes);
             objc_msgSend_void(blit, s_endEncodingSelector);
             objc_msgSend_void(commandBuffer, s_encodeSignalEventSelector, sharedEvent, value);
-            objc_msgSend_void(commandBuffer, s_commitSelector);
+            CommitHandOff(commandBuffer);
         }
         finally
         {
@@ -146,12 +154,48 @@ internal sealed class MetalContext : IDisposable
         {
             IntPtr commandBuffer = CreateCommandBuffer();
             objc_msgSend_void(commandBuffer, s_encodeWaitForEventSelector, sharedEvent, value);
-            objc_msgSend_void(commandBuffer, s_commitSelector);
+            CommitHandOff(commandBuffer);
         }
         finally
         {
             objc_autoreleasePoolPop(pool);
         }
+    }
+
+    /// <summary>Waits until every hand-off command buffer committed so far has finished.</summary>
+    /// <remarks>
+    /// A queue finishes its command buffers out of order, so an empty command buffer committed now can complete
+    /// before an earlier probe blit or event wait; only the hand-off buffers themselves say when the probe buffer
+    /// and the shared event are no longer in use. Signals the waits depend on have to be submitted already.
+    /// </remarks>
+    public void WaitForHandOffs()
+    {
+        foreach (IntPtr commandBuffer in _handOffCommandBuffers)
+        {
+            objc_msgSend_void(commandBuffer, s_waitUntilCompletedSelector);
+            ReleaseObject(commandBuffer);
+        }
+
+        _handOffCommandBuffers.Clear();
+    }
+
+    private void CommitHandOff(IntPtr commandBuffer)
+    {
+        // Retire the hand-offs that already finished, so the list stays as short as the work in flight.
+        _handOffCommandBuffers.RemoveAll(static buffer =>
+        {
+            nuint status = (nuint)objc_msgSend_IntPtr(buffer, s_statusSelector);
+            if (status != CompletedStatus && status != ErrorStatus)
+                return false;
+
+            ReleaseObject(buffer);
+            return true;
+        });
+
+        objc_msgSend_void(commandBuffer, s_commitSelector);
+        // The command buffer is autoreleased; keep it beyond the caller's pool until it is known to be finished.
+        objc_msgSend_IntPtr(commandBuffer, s_retainSelector);
+        _handOffCommandBuffers.Add(commandBuffer);
     }
 
     private IntPtr CreateCommandBuffer()
@@ -180,6 +224,7 @@ internal sealed class MetalContext : IDisposable
 
         _disposed = true;
 
+        WaitForHandOffs();
         _grContext?.Dispose();
 
         // Release Metal objects

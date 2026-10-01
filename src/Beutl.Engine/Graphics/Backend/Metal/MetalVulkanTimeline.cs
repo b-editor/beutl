@@ -1,4 +1,6 @@
 ﻿using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
 
@@ -16,6 +18,7 @@ using Semaphore = Silk.NET.Vulkan.Semaphore;
 /// </remarks>
 internal sealed unsafe class MetalVulkanTimeline : IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<MetalVulkanTimeline>();
     private readonly MetalContext _metal;
     private readonly VulkanContext _vulkan;
     private readonly Semaphore _semaphore;
@@ -34,7 +37,8 @@ internal sealed unsafe class MetalVulkanTimeline : IDisposable
         _probeBuffer = metal.CreateProbeBuffer();
     }
 
-    /// <summary>Creates the timeline, or returns <see langword="null"/> when the device cannot export one.</summary>
+    /// <summary>Creates the timeline, or returns <see langword="null"/> when the device cannot provide one.</summary>
+    /// <remarks>The timeline is an optimization: without it every hand-off keeps its CPU completion wait.</remarks>
     public static MetalVulkanTimeline? TryCreate(MetalContext metal, VulkanContext vulkan)
     {
         if (!vulkan.SupportsTimelineSemaphores
@@ -86,10 +90,11 @@ internal sealed unsafe class MetalVulkanTimeline : IDisposable
 
             return new MetalVulkanTimeline(metal, vulkan, semaphore, sharedEventInfo.MtlSharedEvent);
         }
-        catch
+        catch (Exception ex)
         {
             vulkan.Vk.DestroySemaphore(vulkan.Device, semaphore, null);
-            throw;
+            s_logger.LogWarning(ex, "Metal/Vulkan GPU ordering is unavailable; hand-offs wait on the CPU.");
+            return null;
         }
     }
 

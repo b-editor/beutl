@@ -174,9 +174,9 @@ internal sealed class CompositeContext : IGraphicsContext
 
         if (Timeline != null)
         {
-            // Either queue may still wait on or signal the timeline until both are idle.
+            // Vulkan first: the Metal waits only finish once the Vulkan signals they wait for have run.
             Vulkan.WaitIdle();
-            Metal?.WaitIdle();
+            Metal?.WaitForHandOffs();
             Timeline.Dispose();
         }
 
