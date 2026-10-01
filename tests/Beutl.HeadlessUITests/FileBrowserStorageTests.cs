@@ -339,20 +339,27 @@ public sealed class FileBrowserStorageTests
             window.MouseDown(itemPoint, MouseButton.Left);
             var toolbarGap = storageView.TranslatePoint(new Point(storageView.Bounds.Width - 2, -1), window)!.Value;
             window.MouseMove(toolbarGap, RawInputModifiers.LeftMouseButton);
-            Assert.That(handler.Requests, Has.Count.EqualTo(2), "Crossing toolbar padding must not start an export.");
+            // A folder may be prefetched on focus before the drag captures the pointer.
+            var prefetches = handler.Requests.Skip(2).ToArray();
+            Assert.That(prefetches.Length, Is.LessThanOrEqualTo(isFolder ? 1 : 0));
+            Assert.That(prefetches.All(request => request.Method == HttpMethod.Get
+                && request.Uri.AbsolutePath == "/api/v3/storage/entries"), Is.True,
+                "Crossing toolbar padding must not start an export.");
+            foreach (var prefetch in prefetches) prefetch.Complete(Response(folder: "file", empty: true));
+            int moveIndex = 2 + prefetches.Length;
             window.MouseMove(rootPoint, RawInputModifiers.LeftMouseButton);
             window.MouseUp(rootPoint, MouseButton.Left);
-            await WaitFor(() => handler.Requests.Count == 3);
-            Assert.That(handler.Requests[2].Method, Is.EqualTo(HttpMethod.Post));
-            Assert.That(handler.Requests[2].Uri.AbsolutePath, Is.EqualTo("/api/v3/storage/entries/move"));
-            var move = JsonNode.Parse(await handler.Requests[2].ReadBodyAsync())!;
+            await WaitFor(() => handler.Requests.Count == moveIndex + 1);
+            Assert.That(handler.Requests[moveIndex].Method, Is.EqualTo(HttpMethod.Post));
+            Assert.That(handler.Requests[moveIndex].Uri.AbsolutePath, Is.EqualTo("/api/v3/storage/entries/move"));
+            var move = JsonNode.Parse(await handler.Requests[moveIndex].ReadBodyAsync())!;
             Assert.That(move["parentId"], Is.Null);
             Assert.That(move["entries"]![0]!["id"]!.GetValue<string>(), Is.EqualTo("file"));
-            handler.Requests[2].Complete("{\"affected\":1}");
-            await WaitFor(() => handler.Requests.Count == 4);
-            handler.Requests[3].Complete(Response(folder: "folder & 日本", empty: true));
+            handler.Requests[moveIndex].Complete("{\"affected\":1}");
+            await WaitFor(() => handler.Requests.Count == moveIndex + 2);
+            handler.Requests[moveIndex + 1].Complete(Response(folder: "folder & 日本", empty: true));
             await WaitFor(() => !browser.IsLoading.Value);
-            Assert.That(handler.Requests, Has.Count.EqualTo(4));
+            Assert.That(handler.Requests, Has.Count.EqualTo(moveIndex + 2));
             Assert.That(browser.ActionError.Value, Is.Null);
             Assert.That(browser.IsTransferring.Value, Is.False);
         }
