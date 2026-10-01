@@ -191,6 +191,38 @@ public class ModelSourceEditorTests
         finally { Directory.Delete(directory, recursive: true); }
     }
 
+    [AvaloniaTest]
+    public async Task Replacing_the_source_at_the_same_path_cancels_a_pending_load()
+    {
+        string directory = Directory.CreateTempSubdirectory("model-editor-same-path-").FullName;
+        try
+        {
+            string valid = Path.Combine(directory, "triangle.obj");
+            File.WriteAllText(valid, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+            var (model, vm, view, editor) = CreateEditor();
+            using var _ = vm;
+            var progress = view.FindControl<ProgressBar>("progress")!;
+            using var release = new ManualResetEventSlim();
+            Func<Uri, ModelSource> read = view.ReadModel;
+            view.ReadModel = uri =>
+            {
+                release.Wait();
+                return read(uri);
+            };
+
+            Confirm(editor, valid);
+            var replacement = new ModelSource();
+            replacement.ReadFrom(new Uri(valid));
+            model.Source.CurrentValue = replacement;
+            Assert.That(progress.IsVisible, Is.False);
+
+            release.Set();
+            await view.LoadingTask;
+            Assert.That(model.Source.CurrentValue, Is.SameAs(replacement));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
     private static (Model3D Model, ModelSourceEditorViewModel Vm, ModelSourceEditor View, StorageFileEditor Editor) CreateEditor()
     {
         var model = new Model3D();

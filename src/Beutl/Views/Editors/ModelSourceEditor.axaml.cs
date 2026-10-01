@@ -173,6 +173,12 @@ public partial class ModelSourceEditor : UserControl
 
         bool IsStale() => version != _loadVersion || vm.IsDisposed;
 
+        // 同じパスのまま別のModelSourceに置き換わった場合(Undoなど)も、その読み込みは無効にする
+        IDisposable sourceChanged = vm.Value.Skip(1).Subscribe(_ =>
+        {
+            if (version == _loadVersion) CancelLoad();
+        });
+
         try
         {
             ModelSource newValue;
@@ -193,6 +199,7 @@ public partial class ModelSourceEditor : UserControl
             if (IsStale()) return;
 
             _loadingPath = null;
+            sourceChanged.Dispose();
             vm.SetValue(newValue);
         }
         catch (Exception ex)
@@ -206,6 +213,7 @@ public partial class ModelSourceEditor : UserControl
         }
         finally
         {
+            sourceChanged.Dispose();
             if (version == _loadVersion)
                 progress.IsVisible = false;
         }
