@@ -97,6 +97,8 @@ public class PathEditorInteractionTests
         {
             ClickAnchor(0);
             Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[0] }));
+            Thumb anchor = FindAnchor(1);
+            Point positionBeforeHover = default;
             bool moved = false;
             if (moveOnHover)
             {
@@ -105,12 +107,18 @@ public class PathEditorInteractionTests
                 {
                     if (moved) return;
                     moved = true;
+                    positionBeforeHover = anchor.TranslatePoint(default, editor.Window)!.Value;
                     if (overlay != null) overlay.Matrix *= Matrix.CreateTranslation(40, 30);
                     else editor.View.Matrix *= Matrix.CreateTranslation(40, 30);
                 };
             }
-            ClickAnchor(1, modifier);
-            Assert.That(moved, Is.EqualTo(moveOnHover));
+            editor.ClickControl(anchor, modifier, beforePress: () =>
+            {
+                Assert.That(moved, Is.EqualTo(moveOnHover));
+                if (moveOnHover)
+                    Assert.That(anchor.TranslatePoint(default, editor.Window)!.Value,
+                        Is.Not.EqualTo(positionBeforeHover), "The anchor must move in window coordinates before the mouse press.");
+            });
             Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[0], editor.Figure.Segments[1] }));
             ClickAnchor(0, modifier);
             Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[1] }));
@@ -129,13 +137,15 @@ public class PathEditorInteractionTests
 
         PathSegment[] Selected() => view.GetSelectedAnchors().Select(t => (PathSegment)t.DataContext!).ToArray();
 
-        void ClickAnchor(int index, RawInputModifiers modifiers = RawInputModifiers.None)
+        Thumb FindAnchor(int index)
         {
             var anchor = editor.Figure.Segments[index];
-            var thumb = ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Thumb>()
+            return ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Thumb>()
                 .Single(t => ReferenceEquals(t.DataContext, anchor) && !t.Classes.Contains("control"));
-            editor.ClickControl(thumb, modifiers);
         }
+
+        void ClickAnchor(int index, RawInputModifiers modifiers = RawInputModifiers.None)
+            => editor.ClickControl(FindAnchor(index), modifiers);
     }
 
     [AvaloniaTest]
@@ -2056,7 +2066,7 @@ public class PathEditorInteractionTests
         public void MouseWheel(Point point, Vector delta, RawInputModifiers modifiers = RawInputModifiers.None)
             => Window.MouseWheel(WindowPoint(point), delta, modifiers);
 
-        public void ClickControl(Control control, RawInputModifiers modifiers = RawInputModifiers.None)
+        public void ClickControl(Control control, RawInputModifiers modifiers = RawInputModifiers.None, Action? beforePress = null)
         {
             control.BringIntoView();
             HeadlessTestHelpers.Render(2);
@@ -2064,6 +2074,7 @@ public class PathEditorInteractionTests
             var hitTarget = control.IsHitTestVisible ? control
                 : control.GetVisualAncestors().OfType<Control>().First(ancestor => ancestor.IsHitTestVisible);
             Point point = ReadyPoint();
+            beforePress?.Invoke();
             top.MouseDown(point, MouseButton.Left, modifiers);
             top.MouseUp(point, MouseButton.Left, modifiers);
             HeadlessTestHelpers.Render(3);
