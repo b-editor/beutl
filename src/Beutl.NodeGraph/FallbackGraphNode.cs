@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.Serialization;
 
@@ -18,11 +17,7 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
         if (json[nameof(IsExpanded)] is JsonValue expanded && expanded.TryGetValue<bool>(out var state)) IsExpanded = state;
         if (json[nameof(Position)] is JsonValue position && position.TryGetValue<string>(out var coordinates))
         {
-            string[] parts = coordinates.Split(',');
-            if (parts.Length == 2
-                && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double x)
-                && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double y)
-                && double.IsFinite(x) && double.IsFinite(y)) Position = (x, y);
+            if (TryParsePosition(coordinates, out var parsed)) Position = parsed;
         }
     }
 
