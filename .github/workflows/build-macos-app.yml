@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: Build macOS App Bundle
 
 on:
@@ -49,13 +51,13 @@ jobs:
         id: run-id
         run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@v6.0.0
         with:
           global-json-file: global.json
 
@@ -66,7 +68,7 @@ jobs:
         run: swift --version
 
       - name: Cache SwiftPM build
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: src/Beutl.Extensions.AVFoundation/native/BeutlAVF/.build
           key: swiftpm-beutlavf-${{ matrix.rid }}-${{ hashFiles('src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Package.swift', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.swift', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.h', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.c', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.modulemap') }}
@@ -158,7 +160,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "output/AppBundle/Beutl.app" "artifacts/Beutl.${{ matrix.rid }}.app.zip"
 
       - name: Save
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: Beutl_${{ matrix.rid }}
           path: artifacts/Beutl.${{ matrix.rid }}.app.zip

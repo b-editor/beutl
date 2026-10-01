@@ -1,0 +1,48 @@
+# This workflow is managed by gh actions-lock.
+
+name: Actions lock
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install gh actions-lock
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh extension install github/gh-actions-lock --pin v0.1.6
+
+      - name: Verify workflow dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # After changing an action version, run gh actions-lock and commit actions.lock too.
+        run: gh actions-lock --no-fix --no-interactive
+
+      - name: Verify transitive dependency coverage
+        # gh actions-lock v0.1.6 does not reject missing transitive lockfile entries.
+        run: |
+          ruby -ryaml <<'RUBY'
+          lock = YAML.safe_load(File.read('.github/workflows/actions.lock'))
+          dependencies = lock.fetch('dependencies')
+          dependencies.each do |action, dependency|
+            dependency.fetch('uses', []).each do |child|
+              abort "Missing transitive pin: #{child} (used by #{action})" unless dependencies.key?(child)
+            end
+          end
+          puts 'All transitive dependencies have lockfile entries.'
+          RUBY

@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: Build Debian Package
 
 on:
@@ -29,14 +31,14 @@ jobs:
         run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@v6.0.0
         with:
           global-json-file: global.json
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8.0.1
         with:
           name: beutl-linux_x64-standalone-${{ inputs.semVer }}
           path: artifacts
@@ -88,7 +90,7 @@ jobs:
           fakeroot dpkg-deb --build ubuntu22.04_amd64 .
 
       - name: Save package
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ubuntu22.04_amd64
           path: ./packages/beutl_${{ inputs.simpleVer }}-${{ inputs.revision }}ubuntu22.04_amd64.deb
