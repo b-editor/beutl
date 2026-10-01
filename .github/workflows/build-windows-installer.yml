@@ -33,6 +33,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6.0.0
