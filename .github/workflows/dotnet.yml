@@ -227,6 +227,24 @@ jobs:
           BEUTL_REQUIRE_GPU: "1"
           BEUTL_VULKAN_VALIDATION: "1"
 
+      # Explicit opt-in for this bounded experiment; never substitutes either gate above.
+      # The same-SHA experimental baseline stays in diagnostics, not the trusted main artifact.
+      - name: Measure method selection on an existing project
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          contains(github.event.pull_request.body, '<!-- test-impact-measure -->')
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          BEUTL_REQUIRE_GPU: "1"
+        run: |
+          python3 build/test-impact/measure.py --out artifacts/test-impact/measurement
+
+      - name: Summarize bounded measurement
+        if: always() && hashFiles('artifacts/test-impact/measurement/measurement.md') != ''
+        run: cat artifacts/test-impact/measurement/measurement.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Collect optional method baseline
         if: github.event_name == 'workflow_dispatch' && inputs.collect_test_impact && github.ref == 'refs/heads/main'
         continue-on-error: true
@@ -272,6 +290,7 @@ jobs:
             tests/ci-diagnostics/
             artifacts/test-impact/shadow/selection.*
             artifacts/test-impact/collection/collection.md
+            artifacts/test-impact/measurement/
           if-no-files-found: ignore
           retention-days: 7
 

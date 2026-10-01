@@ -10,6 +10,7 @@ from pathlib import Path
 import platform
 import re
 import signal
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -84,20 +85,26 @@ def fingerprint(root, tfm, configuration):
     }
 
 
-def source_index(root, out, scope):
+def source_index(root, out, scope, timings=None):
     paths = git(root, "ls-files", "-z", "--", "*.cs").split("\0")
     # Include newly added files for local selection, even before git add.
     paths += git(root, "ls-files", "--others", "--exclude-standard", "-z", "--", "*.cs").split("\0")
     sources = {p: (root / p).read_text(encoding="utf-8-sig") for p in sorted(set(paths))
                if p and p in scope and (root / p).is_file() and not p.startswith("build/test-impact/")}
     project = HERE / "Indexer/Indexer.csproj"
+    began = time.monotonic()
     run(["dotnet", "build", project, "--nologo", "-v:q", "-m:1", "-p:NuGetAudit=false",
          "--disable-build-servers"], root,
         log=out / "index-build.log")
+    if timings is not None:
+        timings["indexerBuildSeconds"] = time.monotonic() - began
+    began = time.monotonic()
     write_json(out / "sources.json", sources)
     run(["dotnet", HERE / "Indexer/bin/Debug/net10.0/Indexer.dll", out / "sources.json",
          out / "index.json"], root)
     (out / "sources.json").unlink()
+    if timings is not None:
+        timings["sourceIndexSeconds"] = time.monotonic() - began
     return read_json(out / "index.json")
 
 
@@ -312,6 +319,7 @@ def validate_isolated(test, executed):
 
 def collect(args, root, out):
     start = time.monotonic()
+    timings = {}
     if git(root, "status", "--porcelain", "--untracked-files=all"):
         raise ValueError("Baseline collection requires a clean checkout at --base (put output under artifacts/)")
     if (out / "baseline.json").exists():
@@ -320,18 +328,26 @@ def collect(args, root, out):
     if sha != git(root, "rev-parse", args.base):
         raise ValueError("Baseline --base must equal the checked-out HEAD")
     projects = project_paths(root, args.project)
+    began = time.monotonic()
     if not args.no_build:
         for i, project in enumerate(projects):
             run(["dotnet", "build", project, "-f", args.tfm, "-c", args.configuration,
                  "-m:1", "-v:q", "-p:NuGetAudit=false", "--disable-build-servers"],
                 root, timeout=600, log=out / f"build-{i}.log")
-    index = source_index(root, out, compilation_scope(root, projects, args.tfm, args.configuration))
+    timings["testProjectBuildSeconds"] = time.monotonic() - began if not args.no_build else 0
+    began = time.monotonic()
+    scope = compilation_scope(root, projects, args.tfm, args.configuration)
+    timings["compileScopeSeconds"] = time.monotonic() - began
+    index = source_index(root, out, scope, timings)
+    began = time.monotonic()
     tests = discover(root, projects, args.tfm, args.configuration, out)
+    timings["discoverySeconds"] = time.monotonic() - began
     lookup = test_source_lookup(index)
     baseline = {"schema": SCHEMA, "sha": sha, "fingerprint": fingerprint(root, args.tfm, args.configuration),
                 "projects": projects, "index": index, "tests": tests, "profiles": {}, "errors": {},
-                "collectionSeconds": 0, "complete": False, "finalized": False}
-    candidates = [t for t in tests.values() if fnmatch.fnmatchcase(t["key"], args.method_pattern)]
+                "collectionSeconds": 0, "complete": False, "finalized": False, "timings": timings}
+    candidates = [t for t in tests.values() if any(fnmatch.fnmatchcase(t["key"], pattern)
+                  for pattern in args.method_pattern.split(";"))]
     profile_start = time.monotonic()
     baseline["setupSeconds"] = profile_start - start
     for i, test in enumerate(candidates[:args.max_methods]):
@@ -367,6 +383,10 @@ def collect(args, root, out):
         baseline["collectionSeconds"] = time.monotonic() - start
         write_json(out / "baseline.json", baseline)
     baseline["collectionSeconds"] = time.monotonic() - start
+    timings["profilingSeconds"] = time.monotonic() - profile_start
+    walls = [p["wallSeconds"] for p in baseline["profiles"].values()]
+    baseline["fullProfileEstimateSeconds"] = (baseline["setupSeconds"] + statistics.median(walls) * len(tests)
+                                              if walls else None)
     baseline["finalized"] = git(root, "rev-parse", "HEAD") == sha and not git(
         root, "status", "--porcelain", "--untracked-files=all")
     baseline["complete"] = baseline["finalized"] and len(baseline["profiles"]) == len(tests) and not baseline["errors"]
@@ -536,18 +556,30 @@ def render(report, path):
 
 
 def select(args, root, out):
+    start = time.monotonic()
+    timings = {}
     tests, baseline = {}, None
     try:
         projects = project_paths(root, args.project)
+        began = time.monotonic()
         tests = discover(root, projects, args.tfm, args.configuration, out)
-        current = source_index(root, out, compilation_scope(root, projects, args.tfm, args.configuration))
+        timings["discoverySeconds"] = time.monotonic() - began
         sha = git(root, "rev-parse", args.base)
         changed = set(filter(None, git(root, "diff", "--name-only", "--no-renames", "-z", sha, "--").split("\0")))
         changed.update(filter(None, git(root, "ls-files", "--others", "--exclude-standard", "-z").split("\0")))
         if args.baseline and Path(args.baseline).is_file():
             baseline = read_json(args.baseline)
-        report = choose(baseline, current, tests, changed, sha, fingerprint(root, args.tfm, args.configuration),
-                        source_resources(root))
+        environment = fingerprint(root, args.tfm, args.configuration)
+        # Metadata rejection needs no static graph. Still discover the actual test inventory.
+        current, resources = {}, set()
+        if baseline and baseline.get("schema") == SCHEMA and baseline.get("sha") == sha \
+                and baseline.get("fingerprint") == environment and baseline.get("finalized"):
+            began = time.monotonic()
+            scope = compilation_scope(root, projects, args.tfm, args.configuration)
+            timings["compileScopeSeconds"] = time.monotonic() - began
+            current = source_index(root, out, scope, timings)
+            resources = source_resources(root)
+        report = choose(baseline, current, tests, changed, sha, environment, resources)
         report["projects"] = projects
         report["changedFiles"] = sorted(changed)
     except Exception as error:
@@ -557,6 +589,8 @@ def select(args, root, out):
     else:
         report["inventoryComplete"] = True
     report["headSha"] = git(root, "rev-parse", "HEAD")
+    report["analysisSeconds"] = time.monotonic() - start
+    report["timings"] = timings
     write_json(out / "selection.json", report)
     render(report, out / "selection.md")
     print(f"Shadow selection: {report['selectedMethods']}/{report['totalMethods']} methods; "

@@ -53,7 +53,8 @@ Cost is one build/discovery plus **N testhost/collector starts**, not N ordinary
 test case durations. Defaults are at most 25 methods, a 600-second profiling
 budget and 60 seconds per isolated run. Build/discovery are additional bounded
 setup work. `collectionSeconds`, `setupSeconds`, per-method wall/test durations,
-the error map and `collection.md` make this overhead visible. Collection is serial;
+the phase `timings`, error map and `collection.md` make this overhead visible. `--method-pattern`
+accepts semicolon-separated alternatives. Collection is serial;
 timeouts kill the process tree. No long-lived collector is installed.
 
 ## Select and compare
@@ -125,6 +126,40 @@ a baseline. Missing artifacts or unavailable permissions cause full fallback.
 The summary and `TestDiagnostics` artifact contain the advisory comparison.
 Action versions/references are unchanged; the existing `actions.lock` dependency
 set and transitive coverage check still apply.
+
+### Bounded measurement before the tool reaches main
+
+For a same-repository PR, explicitly include `<!-- test-impact-measure -->` in its
+description **before** triggering a PR run. After both existing gates pass, the
+optional 20-minute measurement step reuses the built `Beutl.FFmpegIpc.Tests`
+project. It profiles at most eight existing methods (five-minute profiling budget),
+then temporarily applies two nonzero ordinary-method edits: an equivalent
+`FFmpegErrorMessageMapper.TryClassify` string search and one extra assertion in
+its existing test. Each scenario runs full/selected/selected/full with identical
+coverage settings and NUnit worker count, verifies the complete case inventories,
+then restores and rebuilds the original source. Run only in a disposable checkout:
+
+```sh
+# First build the real test project; CI already did this as part of the solution.
+python3 build/test-impact/measure.py --out artifacts/test-impact/measurement
+```
+
+The baseline is collected and selected at the **same actual PR merge SHA** and
+environment. It is never relabeled as a main baseline or uploaded with the trusted
+main artifact name. Ordinary PR analysis still fails open until main has an exact
+baseline. `measurement.json`, `.md`, patches, profiles, logs and NUnit/OpenCover
+XML are included in `TestDiagnostics`.
+
+Reports separate collection (build/scope/index/discovery/profiling), analysis,
+edited-build and restore-build costs from paired execution wall time. NUnit engine
+duration and the remaining wall time expose fixed process/collector overhead, but
+that residual is not a startup-only measurement. The full-profile estimate uses
+the sampled median times the discovered method count; sampling cheap methods
+cannot predict slow/native methods. Unprofiled and opaque methods remain selected,
+and negative net savings are reported without changing the policy. Two samples per
+variant, one existing project and the small linked-source smoke project are not
+evidence of whole-solution CI speedup. Keeping both safety gates and doing this
+experiment necessarily adds CI time.
 
 ## Regression and real-source smoke tests
 
