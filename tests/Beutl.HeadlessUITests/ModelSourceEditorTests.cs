@@ -19,7 +19,7 @@ namespace Beutl.HeadlessUITests;
 public class ModelSourceEditorTests
 {
     [AvaloniaTest]
-    public void Initial_source_selection_can_be_undone_and_redone()
+    public async Task Initial_source_selection_can_be_undone_and_redone()
     {
         string directory = Directory.CreateTempSubdirectory("model-editor-history-").FullName;
         try
@@ -38,6 +38,7 @@ public class ModelSourceEditorTests
             editor.Value = new FileInfo(path);
 
             editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, null, PropertyEditor.ValueConfirmedEvent));
+            await view.LoadingTask;
             var child = model.Children.Single();
             Assert.That(history.UndoCount, Is.EqualTo(1));
             Assert.That(history.Undo(), Is.True);
@@ -53,7 +54,7 @@ public class ModelSourceEditorTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
-    public void Invalid_model_keeps_the_previous_source_and_shows_a_recoverable_error(bool dark)
+    public async Task Invalid_model_keeps_the_previous_source_and_shows_a_recoverable_error(bool dark)
     {
         string directory = Directory.CreateTempSubdirectory("model-editor-").FullName;
         var window = new Window { Width = 340, Height = 300, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
@@ -73,9 +74,23 @@ public class ModelSourceEditorTests
             window.Content = view; window.Show(); HeadlessTestHelpers.Render();
             var editor = view.FindControl<StorageFileEditor>("FileEditor")!;
             var message = view.FindControl<TextBlock>("message")!;
+            var progress = view.FindControl<ProgressBar>("progress")!;
+            using var release = new ManualResetEventSlim();
+            Func<Uri, ModelSource> read = view.ReadModel;
+            view.ReadModel = uri =>
+            {
+                release.Wait();
+                return read(uri);
+            };
 
             editor.Value = new FileInfo(invalid);
-            Assert.DoesNotThrow(() => editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, new FileInfo(valid), PropertyEditor.ValueConfirmedEvent)));
+            try
+            {
+                Assert.DoesNotThrow(() => editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, new FileInfo(valid), PropertyEditor.ValueConfirmedEvent)));
+                Assert.That(progress.IsVisible, Is.True);
+            }
+            finally { release.Set(); }
+            await view.LoadingTask;
             HeadlessTestHelpers.Render();
             Assert.Multiple(() =>
             {
@@ -83,6 +98,7 @@ public class ModelSourceEditorTests
                 Assert.That(model.Children.Single(), Is.SameAs(originalChild));
                 Assert.That(editor.Value!.FullName, Is.EqualTo(valid));
                 Assert.That(message.IsEffectivelyVisible, Is.True);
+                Assert.That(progress.IsVisible, Is.False);
                 Assert.That(message.Text, Is.Not.Empty);
                 Assert.That(message.Bounds.Right, Is.LessThanOrEqualTo(view.Bounds.Width + 1));
             });
@@ -95,10 +111,152 @@ public class ModelSourceEditorTests
 
             editor.Value = new FileInfo(valid);
             editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, editor.Value, PropertyEditor.ValueConfirmedEvent));
+            await view.LoadingTask;
             Assert.That(model.Source.CurrentValue!.MeshCount, Is.EqualTo(1));
             Assert.That(message.IsVisible, Is.False, message.Text);
         }
         finally { window.Close(); Directory.Delete(directory, recursive: true); }
+    }
+
+    [AvaloniaTest]
+    public async Task Superseded_selection_is_discarded_even_if_it_finishes_later()
+    {
+        string directory = Directory.CreateTempSubdirectory("model-editor-race-").FullName;
+        try
+        {
+            string valid = Path.Combine(directory, "triangle.obj");
+            string invalid = Path.Combine(directory, "truncated.glb");
+            File.WriteAllText(valid, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+            File.WriteAllText(invalid, "glTF");
+            var (model, vm, view, editor) = CreateEditor();
+            using var _ = vm;
+            var message = view.FindControl<TextBlock>("message")!;
+            using var started = new SemaphoreSlim(0);
+            using var releaseInvalid = new ManualResetEventSlim();
+            Func<Uri, ModelSource> read = view.ReadModel;
+            view.ReadModel = uri =>
+            {
+                started.Release();
+                if (uri.LocalPath == invalid) releaseInvalid.Wait();
+                return read(uri);
+            };
+
+            Task first, second;
+            try
+            {
+                Confirm(editor, invalid);
+                first = view.LoadingTask;
+                await started.WaitAsync();
+                Confirm(editor, valid);
+                second = view.LoadingTask;
+            }
+            finally { releaseInvalid.Set(); }
+            await Task.WhenAll(first, second);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(valid));
+                Assert.That(editor.Value!.FullName, Is.EqualTo(valid));
+                Assert.That(message.IsVisible, Is.False, message.Text);
+            });
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Clearing_the_file_or_switching_the_target_cancels_a_pending_load(bool switchTarget)
+    {
+        string directory = Directory.CreateTempSubdirectory("model-editor-cancel-").FullName;
+        try
+        {
+            string valid = Path.Combine(directory, "triangle.obj");
+            File.WriteAllText(valid, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+            var (model, vm, view, editor) = CreateEditor();
+            using var _ = vm;
+            var progress = view.FindControl<ProgressBar>("progress")!;
+            using var release = new ManualResetEventSlim();
+            Func<Uri, ModelSource> read = view.ReadModel;
+            view.ReadModel = uri =>
+            {
+                release.Wait();
+                return read(uri);
+            };
+
+            var (other, otherVm, _, _) = CreateEditor();
+            using var __ = otherVm;
+            try
+            {
+                Confirm(editor, valid);
+                Assert.That(progress.IsVisible, Is.True);
+                if (switchTarget)
+                    view.DataContext = otherVm;
+                else
+                    editor.Value = null;
+                Assert.That(progress.IsVisible, Is.False);
+            }
+            finally { release.Set(); }
+
+            await view.LoadingTask;
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.Source.CurrentValue, Is.Null);
+                Assert.That(other.Source.CurrentValue, Is.Null);
+                Assert.That(progress.IsVisible, Is.False);
+            });
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [AvaloniaTest]
+    public async Task Replacing_the_source_at_the_same_path_cancels_a_pending_load()
+    {
+        string directory = Directory.CreateTempSubdirectory("model-editor-same-path-").FullName;
+        try
+        {
+            string valid = Path.Combine(directory, "triangle.obj");
+            File.WriteAllText(valid, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+            var (model, vm, view, editor) = CreateEditor();
+            using var _ = vm;
+            var progress = view.FindControl<ProgressBar>("progress")!;
+            using var release = new ManualResetEventSlim();
+            Func<Uri, ModelSource> read = view.ReadModel;
+            view.ReadModel = uri =>
+            {
+                release.Wait();
+                return read(uri);
+            };
+
+            var replacement = new ModelSource();
+            replacement.ReadFrom(new Uri(valid));
+            try
+            {
+                Confirm(editor, valid);
+                model.Source.CurrentValue = replacement;
+                Assert.That(progress.IsVisible, Is.False);
+            }
+            finally { release.Set(); }
+
+            await view.LoadingTask;
+            Assert.That(model.Source.CurrentValue, Is.SameAs(replacement));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    private static (Model3D Model, ModelSourceEditorViewModel Vm, ModelSourceEditor View, StorageFileEditor Editor) CreateEditor()
+    {
+        var model = new Model3D();
+        var vm = new ModelSourceEditorViewModel(new EnginePropertyAdapter<ModelSource?>(model.Source, model));
+        vm.Accept(new Services(new HistoryManager(model, new OperationSequenceGenerator())));
+        var view = new ModelSourceEditor { DataContext = vm };
+        return (model, vm, view, view.FindControl<StorageFileEditor>("FileEditor")!);
+    }
+
+    private static void Confirm(StorageFileEditor editor, string path)
+    {
+        editor.Value = new FileInfo(path);
+        editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, null, PropertyEditor.ValueConfirmedEvent));
     }
 
     private sealed record Services(HistoryManager History) : IServiceProvider, IPropertyEditorContextVisitor

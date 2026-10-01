@@ -1801,4 +1801,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="EnableAnimation" xml:space="preserve">
     <value>启用动画</value>
   </data>
+  <data name="ModelFile" xml:space="preserve">
+    <value>3D 模型文件</value>
+  </data>
 </root>

@@ -3303,4 +3303,7 @@ when history recording is enabled.</value>
   <data name="EnableAnimation" xml:space="preserve">
     <value>Enable animation</value>
   </data>
+  <data name="ModelFile" xml:space="preserve">
+    <value>3D Model File</value>
+  </data>
 </root>

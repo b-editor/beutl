@@ -23,6 +23,7 @@
                 <local:PropertyEditorMenu />
             </editor:StorageFileEditor.MenuContent>
         </editor:StorageFileEditor>
+        <ProgressBar x:Name="progress" IsIndeterminate="True" IsVisible="False" />
         <TextBlock x:Name="message" Theme="{StaticResource ErrorTextBlockStyle}" IsVisible="False" TextWrapping="Wrap" />
     </StackPanel>
 </UserControl>
