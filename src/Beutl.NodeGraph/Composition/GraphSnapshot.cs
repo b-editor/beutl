@@ -348,6 +348,9 @@ public sealed class GraphSnapshot : IDisposable
     internal GraphNode.Resource? GetResource(int slotIndex)
         => slotIndex >= 0 && slotIndex < _resources.Length ? _resources[slotIndex] : null;
 
+    internal GraphCompositionContext? GetContext(int slotIndex)
+        => slotIndex >= 0 && slotIndex < _contexts.Length ? _contexts[slotIndex] : null;
+
     internal IItemValue? GetItemValue(int slotIndex, int itemIndex)
     {
         if (slotIndex < 0 || slotIndex >= _resources.Length) return null;

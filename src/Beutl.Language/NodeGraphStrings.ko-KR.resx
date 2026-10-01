@@ -261,4 +261,208 @@
   <data name="Port_Y" xml:space="preserve">
     <value>Y</value>
   </data>
+  <data name="AiGeneration" xml:space="preserve">
+    <value>AI 생성</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>이미지 생성</value>
+  </data>
+  <data name="Generative_Stale" xml:space="preserve">
+    <value>입력이 변경됨 — 대기열에 넣으면 다시 생성합니다</value>
+  </data>
+  <data name="Generative_Queued" xml:space="preserve">
+    <value>대기 중</value>
+  </data>
+  <data name="Generative_Running" xml:space="preserve">
+    <value>생성 중…</value>
+  </data>
+  <data name="Generative_Failed" xml:space="preserve">
+    <value>생성 실패</value>
+  </data>
+  <data name="Generative_Blocked" xml:space="preserve">
+    <value>상위 생성이 실패하여 건너뛰었습니다</value>
+  </data>
+  <data name="Generative_Canceled" xml:space="preserve">
+    <value>취소됨</value>
+  </data>
+  <data name="Generative_InputRenderFailed" xml:space="preserve">
+    <value>입력 이미지를 렌더링할 수 없습니다</value>
+  </data>
+  <data name="Generative_PromptRequired" xml:space="preserve">
+    <value>프롬프트를 입력하세요</value>
+  </data>
+  <data name="Generative_CachedResult" xml:space="preserve">
+    <value>최신 상태 — 이전 결과를 재사용했습니다</value>
+  </data>
+  <data name="Port_Prompt" xml:space="preserve">
+    <value>프롬프트</value>
+  </data>
+  <data name="Port_Style" xml:space="preserve">
+    <value>스타일</value>
+  </data>
+  <data name="Port_Composition" xml:space="preserve">
+    <value>구도</value>
+  </data>
+  <data name="Port_Exclusions" xml:space="preserve">
+    <value>제외</value>
+  </data>
+  <data name="Port_AspectRatio" xml:space="preserve">
+    <value>화면비</value>
+  </data>
+  <data name="Port_Background" xml:space="preserve">
+    <value>배경</value>
+  </data>
+  <data name="Port_Seed" xml:space="preserve">
+    <value>시드</value>
+  </data>
+  <data name="Port_SeedControl" xml:space="preserve">
+    <value>생성 후 시드</value>
+  </data>
+  <data name="Port_Model" xml:space="preserve">
+    <value>모델</value>
+  </data>
+  <data name="Port_References" xml:space="preserve">
+    <value>참조 이미지</value>
+  </data>
+  <data name="Port_Image" xml:space="preserve">
+    <value>이미지</value>
+  </data>
+  <data name="Port_Status" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="Generative_RunQueue" xml:space="preserve">
+    <value>AI 노드 실행</value>
+  </data>
+  <data name="Generative_StopQueue" xml:space="preserve">
+    <value>중지</value>
+  </data>
+  <data name="Generative_RegenerateNode" xml:space="preserve">
+    <value>이 노드 다시 생성</value>
+  </data>
+  <data name="Generative_ExecutorUnavailable" xml:space="preserve">
+    <value>이 창에서는 AI 생성을 사용할 수 없습니다</value>
+  </data>
+  <data name="AiPrompt" xml:space="preserve">
+    <value>프롬프트</value>
+  </data>
+  <data name="Generative_History" xml:space="preserve">
+    <value>생성 기록</value>
+  </data>
+  <data name="Generative_NoHistory" xml:space="preserve">
+    <value>아직 생성한 항목이 없습니다</value>
+  </data>
+  <data name="Generative_Pin" xml:space="preserve">
+    <value>현재 생성 결과 고정</value>
+  </data>
+  <data name="Generative_Unpin" xml:space="preserve">
+    <value>현재 생성 결과 고정 해제</value>
+  </data>
+  <data name="Generative_Pinned" xml:space="preserve">
+    <value>고정됨</value>
+  </data>
+  <data name="Generative_PruneHistory" xml:space="preserve">
+    <value>고정되지 않은 이전 기록 삭제</value>
+  </data>
+  <data name="Generative_PromptLibrary" xml:space="preserve">
+    <value>프롬프트 라이브러리</value>
+  </data>
+  <data name="Generative_SaveTemplate" xml:space="preserve">
+    <value>템플릿으로 저장…</value>
+  </data>
+  <data name="Generative_Loading" xml:space="preserve">
+    <value>불러오는 중...</value>
+  </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>이미지 편집</value>
+  </data>
+  <data name="Port_Task" xml:space="preserve">
+    <value>작업</value>
+  </data>
+  <data name="Port_OutpaintExpansion" xml:space="preserve">
+    <value>확장량</value>
+  </data>
+  <data name="Port_Motion" xml:space="preserve">
+    <value>모션</value>
+  </data>
+  <data name="SeedControl_Fixed" xml:space="preserve">
+    <value>고정</value>
+  </data>
+  <data name="SeedControl_Increment" xml:space="preserve">
+    <value>증가</value>
+  </data>
+  <data name="SeedControl_Randomize" xml:space="preserve">
+    <value>무작위</value>
+  </data>
+  <data name="SeedControl_ModelDefault" xml:space="preserve">
+    <value>모델에 맡기기</value>
+  </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>동영상 생성</value>
+  </data>
+  <data name="Port_Video" xml:space="preserve">
+    <value>동영상</value>
+  </data>
+  <data name="Port_Resolution" xml:space="preserve">
+    <value>해상도</value>
+  </data>
+  <data name="Port_GenerateAudio" xml:space="preserve">
+    <value>오디오 생성</value>
+  </data>
+  <data name="Port_FirstFrame" xml:space="preserve">
+    <value>첫 프레임</value>
+  </data>
+  <data name="Port_LastFrame" xml:space="preserve">
+    <value>마지막 프레임</value>
+  </data>
+  <data name="Port_ImageReferences" xml:space="preserve">
+    <value>참조 이미지</value>
+  </data>
+  <data name="Port_VideoReferences" xml:space="preserve">
+    <value>참조 동영상</value>
+  </data>
+  <data name="AiVideoEdit" xml:space="preserve">
+    <value>동영상 편집</value>
+  </data>
+  <data name="Port_CharacterImage" xml:space="preserve">
+    <value>캐릭터 이미지</value>
+  </data>
+  <data name="Port_Orientation" xml:space="preserve">
+    <value>방향</value>
+  </data>
+  <data name="Port_Quality" xml:space="preserve">
+    <value>품질</value>
+  </data>
+  <data name="Scene_CircularReference" xml:space="preserve">
+    <value>장면이 자기 자신을 참조하므로 여기에 그릴 수 없습니다.</value>
+  </data>
+  <data name="Generative_ConfirmCancel" xml:space="preserve">
+    <value>취소</value>
+  </data>
+  <data name="Generative_Variations" xml:space="preserve">
+    <value>여러 안 생성</value>
+  </data>
+  <data name="Generative_VariationCount" xml:space="preserve">
+    <value>{0}개 안</value>
+  </data>
+  <data name="Generative_Compare" xml:space="preserve">
+    <value>생성 결과 비교…</value>
+  </data>
+  <data name="Generative_Adopt" xml:space="preserve">
+    <value>채택</value>
+  </data>
+  <data name="Template_SaveAs" xml:space="preserve">
+    <value>템플릿으로 저장…</value>
+  </data>
+  <data name="Template_Templates" xml:space="preserve">
+    <value>템플릿</value>
+  </data>
+  <data name="Template_None" xml:space="preserve">
+    <value>템플릿이 없습니다</value>
+  </data>
+  <data name="Template_SaveFailed" xml:space="preserve">
+    <value>템플릿을 저장할 수 없습니다</value>
+  </data>
+  <data name="Template_LoadFailed" xml:space="preserve">
+    <value>템플릿을 불러올 수 없습니다</value>
+  </data>
 </root>

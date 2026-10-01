@@ -309,6 +309,13 @@ public abstract partial class GraphNode : EngineObject
         return AddMonitor<Ref<Bitmap>?>(name, NodeMonitorContentKind.Image, display);
     }
 
+    /// <summary>Edits a text input in a multi-line field, as long prompts and scripts need.</summary>
+    protected static void UseMultilineEditor(InputPort<string> port)
+    {
+        if (port.Property is NodePropertyAdapter<string> adapter)
+            adapter.Attributes = [.. adapter.Attributes, new DataTypeAttribute(DataType.MultilineText)];
+    }
+
     protected InputPort<T> CreateInput<T>(string name, DisplayAttribute? display = null)
     {
         var adapter = new NodePropertyAdapter<T>(name);

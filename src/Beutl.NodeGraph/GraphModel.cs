@@ -113,7 +113,7 @@ public partial class GraphModel : EngineObject
         foreach (GraphModel graph in graphs) graph.TopologyChanged?.Invoke(graph, EventArgs.Empty);
     }
 
-    private GraphModel GetRootGraph()
+    internal GraphModel GetRootGraph()
     {
         GraphModel root = this;
         var visited = new HashSet<GraphModel>(ReferenceEqualityComparer.Instance);

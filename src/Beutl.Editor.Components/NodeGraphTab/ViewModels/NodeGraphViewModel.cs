@@ -1,15 +1,21 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Beutl.Editor.Services;
+using Beutl.Language;
+using Beutl.Logging;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Generative;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 
 public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<NodeGraphViewModel>();
     private readonly CompositeDisposable _disposables = [];
+    private CancellationTokenSource? _generativeCts;
 
     public NodeGraphViewModel(GraphModel graph, IEditorContext editorContext)
     {
@@ -37,6 +43,14 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
                     Nodes.Clear();
                 })
             .DisposeWith(_disposables);
+
+        CanRunGenerative = HasGenerativeNodes
+            .CombineLatest(IsGenerating, (has, running) => has && !running)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        HasGenerativeNodes.Value = ContainsGenerativeNode();
+        // Raised for nodes added or removed inside groups too, which the graph also runs.
+        graph.TopologyChanged += OnTopologyChanged;
 
         graph.AllConnections.ForEachItem(
                 item =>
@@ -70,6 +84,64 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
     public IEditorContext EditorContext { get; }
 
+    /// <summary>True while a queue of generative nodes is running.</summary>
+    public ReactivePropertySlim<bool> IsGenerating { get; } = new();
+
+    /// <summary>True when the graph holds at least one AI node.</summary>
+    public ReactivePropertySlim<bool> HasGenerativeNodes { get; } = new();
+
+    /// <summary>Whether "Run AI nodes" can start now.</summary>
+    public ReadOnlyReactivePropertySlim<bool> CanRunGenerative { get; }
+
+    /// <summary>A reason the last queue could not start, for the toolbar.</summary>
+    public ReactivePropertySlim<string?> GenerativeError { get; } = new();
+
+    /// <summary>
+    /// Runs <paramref name="targets"/> (every generative node when null) and the generative
+    /// nodes they depend on. Nodes whose request is unchanged reuse their result unless forced.
+    /// </summary>
+    public async Task RunGenerativeAsync(IReadOnlyCollection<GenerativeNode>? targets, bool force, int variations = 1)
+    {
+        if (IsGenerating.Value)
+            return;
+        if (EditorContext.GetService<IGenerativeNodeExecutor>() is not { } executor)
+        {
+            GenerativeError.Value = NodeGraphStrings.Generative_ExecutorUnavailable;
+            return;
+        }
+
+        GenerativeError.Value = null;
+        IsGenerating.Value = true;
+        using var cts = new CancellationTokenSource();
+        _generativeCts = cts;
+        try
+        {
+            var runner = new GenerativeGraphRunner(executor, new EditorGenerativeRunHost(EditorContext));
+            await runner.RunAsync(NodeGraph, targets, force, cts.Token, variations);
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogError(ex, "Failed to run generative nodes.");
+            GenerativeError.Value = NodeGraphStrings.Generative_Failed;
+        }
+        finally
+        {
+            _generativeCts = null;
+            IsGenerating.Value = false;
+        }
+    }
+
+    public void CancelGenerative() => _generativeCts?.Cancel();
+
+    private void OnTopologyChanged(object? sender, EventArgs e)
+        => HasGenerativeNodes.Value = ContainsGenerativeNode();
+
+    private bool ContainsGenerativeNode()
+        => NodeGraph.EnumerateGraphs().SelectMany(graph => graph.Nodes).Any(node => node is GenerativeNode);
+
     public CoreList<GraphNodeViewModel> Nodes { get; } = [];
 
     public CoreList<ConnectionViewModel> AllConnections { get; } = [];
@@ -92,6 +164,23 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         }
 
         return null;
+    }
+
+    /// <summary>Where group templates are kept; replaced in tests.</summary>
+    internal Beutl.NodeGraph.Nodes.Group.GroupNodeTemplates Templates { get; set; } =
+        Beutl.NodeGraph.Nodes.Group.GroupNodeTemplates.Default;
+
+    /// <summary>Adds a copy of a saved group at <paramref name="point"/>.</summary>
+    public bool AddTemplate(Beutl.NodeGraph.Nodes.Group.GroupNodeTemplate template, Point point)
+    {
+        if (Templates.Instantiate(template) is not { } group)
+        {
+            GenerativeError.Value = NodeGraphStrings.Template_LoadFailed;
+            return false;
+        }
+
+        return EditorContext.GetRequiredService<INodeGraphMutationService>()
+            .AddNode(NodeGraph, group, point.X, point.Y);
     }
 
     public void AddNodePort(Type type, Point point)
@@ -130,6 +219,8 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
     public void Dispose()
     {
+        _generativeCts?.Cancel();
+        NodeGraph.TopologyChanged -= OnTopologyChanged;
         foreach (ConnectionViewModel conn in AllConnections)
         {
             conn.Dispose();

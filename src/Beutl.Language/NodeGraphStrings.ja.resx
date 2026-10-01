@@ -261,4 +261,208 @@
   <data name="Port_Y" xml:space="preserve">
     <value>Y</value>
   </data>
+  <data name="AiGeneration" xml:space="preserve">
+    <value>AI生成</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>画像を生成</value>
+  </data>
+  <data name="Generative_Stale" xml:space="preserve">
+    <value>入力が変更されました。キューに入れると再生成します</value>
+  </data>
+  <data name="Generative_Queued" xml:space="preserve">
+    <value>待機中</value>
+  </data>
+  <data name="Generative_Running" xml:space="preserve">
+    <value>生成中…</value>
+  </data>
+  <data name="Generative_Failed" xml:space="preserve">
+    <value>生成に失敗しました</value>
+  </data>
+  <data name="Generative_Blocked" xml:space="preserve">
+    <value>上流の生成が失敗したためスキップしました</value>
+  </data>
+  <data name="Generative_Canceled" xml:space="preserve">
+    <value>キャンセルしました</value>
+  </data>
+  <data name="Generative_InputRenderFailed" xml:space="preserve">
+    <value>入力画像をレンダリングできませんでした</value>
+  </data>
+  <data name="Generative_PromptRequired" xml:space="preserve">
+    <value>プロンプトを入力してください</value>
+  </data>
+  <data name="Generative_CachedResult" xml:space="preserve">
+    <value>最新です。前回の結果を再利用しました</value>
+  </data>
+  <data name="Port_Prompt" xml:space="preserve">
+    <value>プロンプト</value>
+  </data>
+  <data name="Port_Style" xml:space="preserve">
+    <value>スタイル</value>
+  </data>
+  <data name="Port_Composition" xml:space="preserve">
+    <value>構図</value>
+  </data>
+  <data name="Port_Exclusions" xml:space="preserve">
+    <value>除外</value>
+  </data>
+  <data name="Port_AspectRatio" xml:space="preserve">
+    <value>アスペクト比</value>
+  </data>
+  <data name="Port_Background" xml:space="preserve">
+    <value>背景</value>
+  </data>
+  <data name="Port_Seed" xml:space="preserve">
+    <value>シード</value>
+  </data>
+  <data name="Port_SeedControl" xml:space="preserve">
+    <value>生成後のシード</value>
+  </data>
+  <data name="Port_Model" xml:space="preserve">
+    <value>モデル</value>
+  </data>
+  <data name="Port_References" xml:space="preserve">
+    <value>参照画像</value>
+  </data>
+  <data name="Port_Image" xml:space="preserve">
+    <value>画像</value>
+  </data>
+  <data name="Port_Status" xml:space="preserve">
+    <value>状態</value>
+  </data>
+  <data name="Generative_RunQueue" xml:space="preserve">
+    <value>AIノードを実行</value>
+  </data>
+  <data name="Generative_StopQueue" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Generative_RegenerateNode" xml:space="preserve">
+    <value>このノードを再生成</value>
+  </data>
+  <data name="Generative_ExecutorUnavailable" xml:space="preserve">
+    <value>このウィンドウではAI生成を使用できません</value>
+  </data>
+  <data name="AiPrompt" xml:space="preserve">
+    <value>プロンプト</value>
+  </data>
+  <data name="Generative_History" xml:space="preserve">
+    <value>生成履歴</value>
+  </data>
+  <data name="Generative_NoHistory" xml:space="preserve">
+    <value>まだ生成していません</value>
+  </data>
+  <data name="Generative_Pin" xml:space="preserve">
+    <value>現在の生成結果をピン留め</value>
+  </data>
+  <data name="Generative_Unpin" xml:space="preserve">
+    <value>現在の生成結果のピン留めを解除</value>
+  </data>
+  <data name="Generative_Pinned" xml:space="preserve">
+    <value>ピン留め</value>
+  </data>
+  <data name="Generative_PruneHistory" xml:space="preserve">
+    <value>ピン留めしていない古い履歴を削除</value>
+  </data>
+  <data name="Generative_PromptLibrary" xml:space="preserve">
+    <value>プロンプトライブラリ</value>
+  </data>
+  <data name="Generative_SaveTemplate" xml:space="preserve">
+    <value>テンプレートとして保存…</value>
+  </data>
+  <data name="Generative_Loading" xml:space="preserve">
+    <value>読み込み中...</value>
+  </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>画像を編集</value>
+  </data>
+  <data name="Port_Task" xml:space="preserve">
+    <value>タスク</value>
+  </data>
+  <data name="Port_OutpaintExpansion" xml:space="preserve">
+    <value>拡張量</value>
+  </data>
+  <data name="Port_Motion" xml:space="preserve">
+    <value>モーション</value>
+  </data>
+  <data name="SeedControl_Fixed" xml:space="preserve">
+    <value>固定</value>
+  </data>
+  <data name="SeedControl_Increment" xml:space="preserve">
+    <value>インクリメント</value>
+  </data>
+  <data name="SeedControl_Randomize" xml:space="preserve">
+    <value>ランダム</value>
+  </data>
+  <data name="SeedControl_ModelDefault" xml:space="preserve">
+    <value>モデルに任せる</value>
+  </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>動画を生成</value>
+  </data>
+  <data name="Port_Video" xml:space="preserve">
+    <value>動画</value>
+  </data>
+  <data name="Port_Resolution" xml:space="preserve">
+    <value>解像度</value>
+  </data>
+  <data name="Port_GenerateAudio" xml:space="preserve">
+    <value>音声を生成</value>
+  </data>
+  <data name="Port_FirstFrame" xml:space="preserve">
+    <value>最初のフレーム</value>
+  </data>
+  <data name="Port_LastFrame" xml:space="preserve">
+    <value>最後のフレーム</value>
+  </data>
+  <data name="Port_ImageReferences" xml:space="preserve">
+    <value>参照画像</value>
+  </data>
+  <data name="Port_VideoReferences" xml:space="preserve">
+    <value>参照動画</value>
+  </data>
+  <data name="AiVideoEdit" xml:space="preserve">
+    <value>動画を編集</value>
+  </data>
+  <data name="Port_CharacterImage" xml:space="preserve">
+    <value>キャラクター画像</value>
+  </data>
+  <data name="Port_Orientation" xml:space="preserve">
+    <value>向き</value>
+  </data>
+  <data name="Port_Quality" xml:space="preserve">
+    <value>品質</value>
+  </data>
+  <data name="Scene_CircularReference" xml:space="preserve">
+    <value>シーンが自分自身を参照しているため、ここでは描画できません。</value>
+  </data>
+  <data name="Generative_ConfirmCancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="Generative_Variations" xml:space="preserve">
+    <value>複数案を生成</value>
+  </data>
+  <data name="Generative_VariationCount" xml:space="preserve">
+    <value>{0} 案</value>
+  </data>
+  <data name="Generative_Compare" xml:space="preserve">
+    <value>生成結果を比較…</value>
+  </data>
+  <data name="Generative_Adopt" xml:space="preserve">
+    <value>採用</value>
+  </data>
+  <data name="Template_SaveAs" xml:space="preserve">
+    <value>テンプレートとして保存…</value>
+  </data>
+  <data name="Template_Templates" xml:space="preserve">
+    <value>テンプレート</value>
+  </data>
+  <data name="Template_None" xml:space="preserve">
+    <value>テンプレートがありません</value>
+  </data>
+  <data name="Template_SaveFailed" xml:space="preserve">
+    <value>テンプレートを保存できませんでした</value>
+  </data>
+  <data name="Template_LoadFailed" xml:space="preserve">
+    <value>テンプレートを読み込めませんでした</value>
+  </data>
 </root>

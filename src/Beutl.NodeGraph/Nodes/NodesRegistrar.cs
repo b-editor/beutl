@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.NodeGraph.Nodes.Generative;
 using Beutl.NodeGraph.Nodes.Group;
 
 namespace Beutl.NodeGraph.Nodes;
@@ -16,7 +17,16 @@ public static class NodesRegistrar
         GraphNodeRegistry.RegisterNode<TextNode>(GraphicsStrings.TextBlock, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<ImageSourceNode>(GraphicsStrings.SourceImage, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<VideoSourceNode>(GraphicsStrings.SourceVideo, Colors.ForestGreen);
+        GraphNodeRegistry.RegisterNode<SceneNode>(GraphicsStrings.SceneDrawable, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<TransformNode>(GraphicsStrings.Transform, Colors.MediumPurple);
+
+        GraphNodeRegistry.RegisterNodes(NodeGraphStrings.AiGeneration, Colors.DeepPink)
+            .Add<AiPromptNode>(NodeGraphStrings.AiPrompt)
+            .Add<AiImageGenerationNode>(NodeGraphStrings.AiImageGeneration)
+            .Add<AiImageEditNode>(NodeGraphStrings.AiImageEdit)
+            .Add<AiVideoGenerationNode>(NodeGraphStrings.AiVideoGeneration)
+            .Add<AiVideoEditNode>(NodeGraphStrings.AiVideoEdit)
+            .Register();
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.Shapes, Colors.ForestGreen)
             .Add<RectGeometryNode>(GraphicsStrings.RectShape)

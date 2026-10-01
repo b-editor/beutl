@@ -261,4 +261,208 @@
   <data name="Port_Y" xml:space="preserve">
     <value>Y</value>
   </data>
+  <data name="AiGeneration" xml:space="preserve">
+    <value>Generación con IA</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>Generar imagen</value>
+  </data>
+  <data name="Generative_Stale" xml:space="preserve">
+    <value>Las entradas cambiaron: ponlo en cola para regenerar</value>
+  </data>
+  <data name="Generative_Queued" xml:space="preserve">
+    <value>En cola</value>
+  </data>
+  <data name="Generative_Running" xml:space="preserve">
+    <value>Generando…</value>
+  </data>
+  <data name="Generative_Failed" xml:space="preserve">
+    <value>La generación falló</value>
+  </data>
+  <data name="Generative_Blocked" xml:space="preserve">
+    <value>Omitido porque falló una generación anterior</value>
+  </data>
+  <data name="Generative_Canceled" xml:space="preserve">
+    <value>Cancelado</value>
+  </data>
+  <data name="Generative_InputRenderFailed" xml:space="preserve">
+    <value>No se pudo renderizar una imagen de entrada</value>
+  </data>
+  <data name="Generative_PromptRequired" xml:space="preserve">
+    <value>Introduce un prompt</value>
+  </data>
+  <data name="Generative_CachedResult" xml:space="preserve">
+    <value>Actualizado: se reutilizó el resultado anterior</value>
+  </data>
+  <data name="Port_Prompt" xml:space="preserve">
+    <value>Prompt</value>
+  </data>
+  <data name="Port_Style" xml:space="preserve">
+    <value>Estilo</value>
+  </data>
+  <data name="Port_Composition" xml:space="preserve">
+    <value>Composición</value>
+  </data>
+  <data name="Port_Exclusions" xml:space="preserve">
+    <value>Exclusiones</value>
+  </data>
+  <data name="Port_AspectRatio" xml:space="preserve">
+    <value>Relación de aspecto</value>
+  </data>
+  <data name="Port_Background" xml:space="preserve">
+    <value>Fondo</value>
+  </data>
+  <data name="Port_Seed" xml:space="preserve">
+    <value>Semilla</value>
+  </data>
+  <data name="Port_SeedControl" xml:space="preserve">
+    <value>Semilla tras generar</value>
+  </data>
+  <data name="Port_Model" xml:space="preserve">
+    <value>Modelo</value>
+  </data>
+  <data name="Port_References" xml:space="preserve">
+    <value>Referencias</value>
+  </data>
+  <data name="Port_Image" xml:space="preserve">
+    <value>Imagen</value>
+  </data>
+  <data name="Port_Status" xml:space="preserve">
+    <value>Estado</value>
+  </data>
+  <data name="Generative_RunQueue" xml:space="preserve">
+    <value>Ejecutar nodos de IA</value>
+  </data>
+  <data name="Generative_StopQueue" xml:space="preserve">
+    <value>Detener</value>
+  </data>
+  <data name="Generative_RegenerateNode" xml:space="preserve">
+    <value>Volver a generar este nodo</value>
+  </data>
+  <data name="Generative_ExecutorUnavailable" xml:space="preserve">
+    <value>La generación con IA no está disponible en esta ventana</value>
+  </data>
+  <data name="AiPrompt" xml:space="preserve">
+    <value>Prompt</value>
+  </data>
+  <data name="Generative_History" xml:space="preserve">
+    <value>Historial de generación</value>
+  </data>
+  <data name="Generative_NoHistory" xml:space="preserve">
+    <value>Aún no hay generaciones</value>
+  </data>
+  <data name="Generative_Pin" xml:space="preserve">
+    <value>Fijar la generación actual</value>
+  </data>
+  <data name="Generative_Unpin" xml:space="preserve">
+    <value>Desfijar la generación actual</value>
+  </data>
+  <data name="Generative_Pinned" xml:space="preserve">
+    <value>Fijado</value>
+  </data>
+  <data name="Generative_PruneHistory" xml:space="preserve">
+    <value>Eliminar generaciones anteriores no fijadas</value>
+  </data>
+  <data name="Generative_PromptLibrary" xml:space="preserve">
+    <value>Biblioteca de prompts</value>
+  </data>
+  <data name="Generative_SaveTemplate" xml:space="preserve">
+    <value>Guardar como plantilla…</value>
+  </data>
+  <data name="Generative_Loading" xml:space="preserve">
+    <value>Cargando...</value>
+  </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>Editar imagen</value>
+  </data>
+  <data name="Port_Task" xml:space="preserve">
+    <value>Tarea</value>
+  </data>
+  <data name="Port_OutpaintExpansion" xml:space="preserve">
+    <value>Expansión</value>
+  </data>
+  <data name="Port_Motion" xml:space="preserve">
+    <value>Movimiento</value>
+  </data>
+  <data name="SeedControl_Fixed" xml:space="preserve">
+    <value>Fija</value>
+  </data>
+  <data name="SeedControl_Increment" xml:space="preserve">
+    <value>Incrementar</value>
+  </data>
+  <data name="SeedControl_Randomize" xml:space="preserve">
+    <value>Aleatoria</value>
+  </data>
+  <data name="SeedControl_ModelDefault" xml:space="preserve">
+    <value>Dejar que elija el modelo</value>
+  </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>Generar vídeo</value>
+  </data>
+  <data name="Port_Video" xml:space="preserve">
+    <value>Vídeo</value>
+  </data>
+  <data name="Port_Resolution" xml:space="preserve">
+    <value>Resolución</value>
+  </data>
+  <data name="Port_GenerateAudio" xml:space="preserve">
+    <value>Generar audio</value>
+  </data>
+  <data name="Port_FirstFrame" xml:space="preserve">
+    <value>Primer fotograma</value>
+  </data>
+  <data name="Port_LastFrame" xml:space="preserve">
+    <value>Último fotograma</value>
+  </data>
+  <data name="Port_ImageReferences" xml:space="preserve">
+    <value>Imágenes de referencia</value>
+  </data>
+  <data name="Port_VideoReferences" xml:space="preserve">
+    <value>Vídeos de referencia</value>
+  </data>
+  <data name="AiVideoEdit" xml:space="preserve">
+    <value>Editar vídeo</value>
+  </data>
+  <data name="Port_CharacterImage" xml:space="preserve">
+    <value>Imagen del personaje</value>
+  </data>
+  <data name="Port_Orientation" xml:space="preserve">
+    <value>Orientación</value>
+  </data>
+  <data name="Port_Quality" xml:space="preserve">
+    <value>Calidad</value>
+  </data>
+  <data name="Scene_CircularReference" xml:space="preserve">
+    <value>La escena se hace referencia a sí misma, por lo que no se puede dibujar aquí.</value>
+  </data>
+  <data name="Generative_ConfirmCancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Generative_Variations" xml:space="preserve">
+    <value>Generar variaciones</value>
+  </data>
+  <data name="Generative_VariationCount" xml:space="preserve">
+    <value>{0} variaciones</value>
+  </data>
+  <data name="Generative_Compare" xml:space="preserve">
+    <value>Comparar resultados…</value>
+  </data>
+  <data name="Generative_Adopt" xml:space="preserve">
+    <value>Usar este</value>
+  </data>
+  <data name="Template_SaveAs" xml:space="preserve">
+    <value>Guardar como plantilla…</value>
+  </data>
+  <data name="Template_Templates" xml:space="preserve">
+    <value>Plantillas</value>
+  </data>
+  <data name="Template_None" xml:space="preserve">
+    <value>Aún no hay plantillas</value>
+  </data>
+  <data name="Template_SaveFailed" xml:space="preserve">
+    <value>No se pudo guardar la plantilla</value>
+  </data>
+  <data name="Template_LoadFailed" xml:space="preserve">
+    <value>No se pudo cargar la plantilla</value>
+  </data>
 </root>

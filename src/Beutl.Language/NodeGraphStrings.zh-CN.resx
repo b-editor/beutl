@@ -261,4 +261,208 @@
   <data name="Port_Y" xml:space="preserve">
     <value>Y</value>
   </data>
+  <data name="AiGeneration" xml:space="preserve">
+    <value>AI 生成</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>生成图像</value>
+  </data>
+  <data name="Generative_Stale" xml:space="preserve">
+    <value>输入已更改 — 加入队列以重新生成</value>
+  </data>
+  <data name="Generative_Queued" xml:space="preserve">
+    <value>排队中</value>
+  </data>
+  <data name="Generative_Running" xml:space="preserve">
+    <value>正在生成…</value>
+  </data>
+  <data name="Generative_Failed" xml:space="preserve">
+    <value>生成失败</value>
+  </data>
+  <data name="Generative_Blocked" xml:space="preserve">
+    <value>因上游生成失败而跳过</value>
+  </data>
+  <data name="Generative_Canceled" xml:space="preserve">
+    <value>已取消</value>
+  </data>
+  <data name="Generative_InputRenderFailed" xml:space="preserve">
+    <value>无法渲染输入图像</value>
+  </data>
+  <data name="Generative_PromptRequired" xml:space="preserve">
+    <value>请输入提示词</value>
+  </data>
+  <data name="Generative_CachedResult" xml:space="preserve">
+    <value>已是最新 — 复用了上次的结果</value>
+  </data>
+  <data name="Port_Prompt" xml:space="preserve">
+    <value>提示词</value>
+  </data>
+  <data name="Port_Style" xml:space="preserve">
+    <value>风格</value>
+  </data>
+  <data name="Port_Composition" xml:space="preserve">
+    <value>构图</value>
+  </data>
+  <data name="Port_Exclusions" xml:space="preserve">
+    <value>排除</value>
+  </data>
+  <data name="Port_AspectRatio" xml:space="preserve">
+    <value>宽高比</value>
+  </data>
+  <data name="Port_Background" xml:space="preserve">
+    <value>背景</value>
+  </data>
+  <data name="Port_Seed" xml:space="preserve">
+    <value>种子</value>
+  </data>
+  <data name="Port_SeedControl" xml:space="preserve">
+    <value>生成后的种子</value>
+  </data>
+  <data name="Port_Model" xml:space="preserve">
+    <value>模型</value>
+  </data>
+  <data name="Port_References" xml:space="preserve">
+    <value>参考图像</value>
+  </data>
+  <data name="Port_Image" xml:space="preserve">
+    <value>图像</value>
+  </data>
+  <data name="Port_Status" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="Generative_RunQueue" xml:space="preserve">
+    <value>运行 AI 节点</value>
+  </data>
+  <data name="Generative_StopQueue" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Generative_RegenerateNode" xml:space="preserve">
+    <value>重新生成此节点</value>
+  </data>
+  <data name="Generative_ExecutorUnavailable" xml:space="preserve">
+    <value>此窗口中无法使用 AI 生成</value>
+  </data>
+  <data name="AiPrompt" xml:space="preserve">
+    <value>提示词</value>
+  </data>
+  <data name="Generative_History" xml:space="preserve">
+    <value>生成历史</value>
+  </data>
+  <data name="Generative_NoHistory" xml:space="preserve">
+    <value>尚未生成</value>
+  </data>
+  <data name="Generative_Pin" xml:space="preserve">
+    <value>固定当前生成结果</value>
+  </data>
+  <data name="Generative_Unpin" xml:space="preserve">
+    <value>取消固定当前生成结果</value>
+  </data>
+  <data name="Generative_Pinned" xml:space="preserve">
+    <value>已固定</value>
+  </data>
+  <data name="Generative_PruneHistory" xml:space="preserve">
+    <value>删除未固定的旧记录</value>
+  </data>
+  <data name="Generative_PromptLibrary" xml:space="preserve">
+    <value>提示词库</value>
+  </data>
+  <data name="Generative_SaveTemplate" xml:space="preserve">
+    <value>另存为模板…</value>
+  </data>
+  <data name="Generative_Loading" xml:space="preserve">
+    <value>正在加载...</value>
+  </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>编辑图像</value>
+  </data>
+  <data name="Port_Task" xml:space="preserve">
+    <value>任务</value>
+  </data>
+  <data name="Port_OutpaintExpansion" xml:space="preserve">
+    <value>扩展量</value>
+  </data>
+  <data name="Port_Motion" xml:space="preserve">
+    <value>运动</value>
+  </data>
+  <data name="SeedControl_Fixed" xml:space="preserve">
+    <value>固定</value>
+  </data>
+  <data name="SeedControl_Increment" xml:space="preserve">
+    <value>递增</value>
+  </data>
+  <data name="SeedControl_Randomize" xml:space="preserve">
+    <value>随机</value>
+  </data>
+  <data name="SeedControl_ModelDefault" xml:space="preserve">
+    <value>由模型决定</value>
+  </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>生成视频</value>
+  </data>
+  <data name="Port_Video" xml:space="preserve">
+    <value>视频</value>
+  </data>
+  <data name="Port_Resolution" xml:space="preserve">
+    <value>分辨率</value>
+  </data>
+  <data name="Port_GenerateAudio" xml:space="preserve">
+    <value>生成音频</value>
+  </data>
+  <data name="Port_FirstFrame" xml:space="preserve">
+    <value>首帧</value>
+  </data>
+  <data name="Port_LastFrame" xml:space="preserve">
+    <value>尾帧</value>
+  </data>
+  <data name="Port_ImageReferences" xml:space="preserve">
+    <value>参考图像</value>
+  </data>
+  <data name="Port_VideoReferences" xml:space="preserve">
+    <value>参考视频</value>
+  </data>
+  <data name="AiVideoEdit" xml:space="preserve">
+    <value>编辑视频</value>
+  </data>
+  <data name="Port_CharacterImage" xml:space="preserve">
+    <value>角色图像</value>
+  </data>
+  <data name="Port_Orientation" xml:space="preserve">
+    <value>方向</value>
+  </data>
+  <data name="Port_Quality" xml:space="preserve">
+    <value>质量</value>
+  </data>
+  <data name="Scene_CircularReference" xml:space="preserve">
+    <value>场景引用了自身，因此无法在此处绘制。</value>
+  </data>
+  <data name="Generative_ConfirmCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Generative_Variations" xml:space="preserve">
+    <value>生成多个方案</value>
+  </data>
+  <data name="Generative_VariationCount" xml:space="preserve">
+    <value>{0} 个方案</value>
+  </data>
+  <data name="Generative_Compare" xml:space="preserve">
+    <value>比较生成结果…</value>
+  </data>
+  <data name="Generative_Adopt" xml:space="preserve">
+    <value>采用</value>
+  </data>
+  <data name="Template_SaveAs" xml:space="preserve">
+    <value>另存为模板…</value>
+  </data>
+  <data name="Template_Templates" xml:space="preserve">
+    <value>模板</value>
+  </data>
+  <data name="Template_None" xml:space="preserve">
+    <value>暂无模板</value>
+  </data>
+  <data name="Template_SaveFailed" xml:space="preserve">
+    <value>无法保存模板</value>
+  </data>
+  <data name="Template_LoadFailed" xml:space="preserve">
+    <value>无法加载模板</value>
+  </data>
 </root>

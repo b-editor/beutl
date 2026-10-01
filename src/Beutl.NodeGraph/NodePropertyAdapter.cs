@@ -113,6 +113,11 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
 
     public string? Description { get; set; }
 
+    /// <summary>Editor hints, such as a multi-line text field, for a node input with no engine property.</summary>
+    public Attribute[] Attributes { get; set; } = [];
+
+    public Attribute[] GetAttributes() => Attributes;
+
     public bool IsReadOnly => false;
 
     public event EventHandler? Edited;

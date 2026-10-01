@@ -41,12 +41,18 @@ public class NodeMonitorViewModel : NodeMemberViewModel
 
     public ReactivePropertySlim<string?> DisplayText { get; } = new();
 
+    public ReactivePropertySlim<bool> IsBusy { get; } = new();
+
+    public ReactivePropertySlim<string?> BusyText { get; } = new();
+
     public Ref<Media.Bitmap>? DisplayBitmap { get; private set; }
 
     public event EventHandler? ImageInvalidated;
 
     private void UpdateDisplay()
     {
+        IsBusy.Value = Model?.IsBusy ?? false;
+        BusyText.Value = Model?.BusyText;
         switch (Model?.ContentKind)
         {
             case NodeMonitorContentKind.Text when Model is NodeMonitor<string?> textMonitor:
@@ -86,6 +92,8 @@ public class NodeMonitorViewModel : NodeMemberViewModel
     {
         _disposables.Dispose();
         DisplayText.Dispose();
+        IsBusy.Dispose();
+        BusyText.Dispose();
         DisplayBitmap?.Dispose();
         DisplayBitmap = null;
         base.OnDispose();

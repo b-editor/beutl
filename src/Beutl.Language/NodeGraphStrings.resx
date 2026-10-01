@@ -261,4 +261,208 @@
   <data name="Port_Y" xml:space="preserve">
     <value>Y</value>
   </data>
+  <data name="AiGeneration" xml:space="preserve">
+    <value>AI Generation</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>Generate Image</value>
+  </data>
+  <data name="Generative_Stale" xml:space="preserve">
+    <value>Inputs changed — queue to regenerate</value>
+  </data>
+  <data name="Generative_Queued" xml:space="preserve">
+    <value>Queued</value>
+  </data>
+  <data name="Generative_Running" xml:space="preserve">
+    <value>Generating…</value>
+  </data>
+  <data name="Generative_Failed" xml:space="preserve">
+    <value>Generation failed</value>
+  </data>
+  <data name="Generative_Blocked" xml:space="preserve">
+    <value>Skipped because an upstream generation failed</value>
+  </data>
+  <data name="Generative_Canceled" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+  <data name="Generative_InputRenderFailed" xml:space="preserve">
+    <value>Could not render an input image</value>
+  </data>
+  <data name="Generative_PromptRequired" xml:space="preserve">
+    <value>Enter a prompt</value>
+  </data>
+  <data name="Generative_CachedResult" xml:space="preserve">
+    <value>Up to date — reused the previous result</value>
+  </data>
+  <data name="Port_Prompt" xml:space="preserve">
+    <value>Prompt</value>
+  </data>
+  <data name="Port_Style" xml:space="preserve">
+    <value>Style</value>
+  </data>
+  <data name="Port_Composition" xml:space="preserve">
+    <value>Composition</value>
+  </data>
+  <data name="Port_Exclusions" xml:space="preserve">
+    <value>Exclusions</value>
+  </data>
+  <data name="Port_AspectRatio" xml:space="preserve">
+    <value>Aspect Ratio</value>
+  </data>
+  <data name="Port_Background" xml:space="preserve">
+    <value>Background</value>
+  </data>
+  <data name="Port_Seed" xml:space="preserve">
+    <value>Seed</value>
+  </data>
+  <data name="Port_SeedControl" xml:space="preserve">
+    <value>Seed After Generate</value>
+  </data>
+  <data name="Port_Model" xml:space="preserve">
+    <value>Model</value>
+  </data>
+  <data name="Port_References" xml:space="preserve">
+    <value>References</value>
+  </data>
+  <data name="Port_Image" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="Port_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Generative_RunQueue" xml:space="preserve">
+    <value>Run AI nodes</value>
+  </data>
+  <data name="Generative_StopQueue" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Generative_RegenerateNode" xml:space="preserve">
+    <value>Generate this node again</value>
+  </data>
+  <data name="Generative_ExecutorUnavailable" xml:space="preserve">
+    <value>AI generation is not available in this window</value>
+  </data>
+  <data name="AiPrompt" xml:space="preserve">
+    <value>Prompt</value>
+  </data>
+  <data name="Generative_History" xml:space="preserve">
+    <value>Generation History</value>
+  </data>
+  <data name="Generative_NoHistory" xml:space="preserve">
+    <value>No generations yet</value>
+  </data>
+  <data name="Generative_Pin" xml:space="preserve">
+    <value>Pin current generation</value>
+  </data>
+  <data name="Generative_Unpin" xml:space="preserve">
+    <value>Unpin current generation</value>
+  </data>
+  <data name="Generative_Pinned" xml:space="preserve">
+    <value>Pinned</value>
+  </data>
+  <data name="Generative_PruneHistory" xml:space="preserve">
+    <value>Remove unpinned older generations</value>
+  </data>
+  <data name="Generative_PromptLibrary" xml:space="preserve">
+    <value>Prompt Library</value>
+  </data>
+  <data name="Generative_SaveTemplate" xml:space="preserve">
+    <value>Save as Template…</value>
+  </data>
+  <data name="Generative_Loading" xml:space="preserve">
+    <value>Loading...</value>
+  </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>Edit Image</value>
+  </data>
+  <data name="Port_Task" xml:space="preserve">
+    <value>Task</value>
+  </data>
+  <data name="Port_OutpaintExpansion" xml:space="preserve">
+    <value>Expansion</value>
+  </data>
+  <data name="Port_Motion" xml:space="preserve">
+    <value>Motion</value>
+  </data>
+  <data name="SeedControl_Fixed" xml:space="preserve">
+    <value>Fixed</value>
+  </data>
+  <data name="SeedControl_Increment" xml:space="preserve">
+    <value>Increment</value>
+  </data>
+  <data name="SeedControl_Randomize" xml:space="preserve">
+    <value>Randomize</value>
+  </data>
+  <data name="SeedControl_ModelDefault" xml:space="preserve">
+    <value>Let the model choose</value>
+  </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>Generate Video</value>
+  </data>
+  <data name="Port_Video" xml:space="preserve">
+    <value>Video</value>
+  </data>
+  <data name="Port_Resolution" xml:space="preserve">
+    <value>Resolution</value>
+  </data>
+  <data name="Port_GenerateAudio" xml:space="preserve">
+    <value>Generate Audio</value>
+  </data>
+  <data name="Port_FirstFrame" xml:space="preserve">
+    <value>First Frame</value>
+  </data>
+  <data name="Port_LastFrame" xml:space="preserve">
+    <value>Last Frame</value>
+  </data>
+  <data name="Port_ImageReferences" xml:space="preserve">
+    <value>Reference Images</value>
+  </data>
+  <data name="Port_VideoReferences" xml:space="preserve">
+    <value>Reference Videos</value>
+  </data>
+  <data name="AiVideoEdit" xml:space="preserve">
+    <value>Edit Video</value>
+  </data>
+  <data name="Port_CharacterImage" xml:space="preserve">
+    <value>Character Image</value>
+  </data>
+  <data name="Port_Orientation" xml:space="preserve">
+    <value>Orientation</value>
+  </data>
+  <data name="Port_Quality" xml:space="preserve">
+    <value>Quality</value>
+  </data>
+  <data name="Scene_CircularReference" xml:space="preserve">
+    <value>The scene refers to itself, so it cannot be drawn here.</value>
+  </data>
+  <data name="Generative_ConfirmCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Generative_Variations" xml:space="preserve">
+    <value>Generate Variations</value>
+  </data>
+  <data name="Generative_VariationCount" xml:space="preserve">
+    <value>{0} variations</value>
+  </data>
+  <data name="Generative_Compare" xml:space="preserve">
+    <value>Compare Results…</value>
+  </data>
+  <data name="Generative_Adopt" xml:space="preserve">
+    <value>Use This</value>
+  </data>
+  <data name="Template_SaveAs" xml:space="preserve">
+    <value>Save as Template…</value>
+  </data>
+  <data name="Template_Templates" xml:space="preserve">
+    <value>Templates</value>
+  </data>
+  <data name="Template_None" xml:space="preserve">
+    <value>No templates yet</value>
+  </data>
+  <data name="Template_SaveFailed" xml:space="preserve">
+    <value>The template could not be saved</value>
+  </data>
+  <data name="Template_LoadFailed" xml:space="preserve">
+    <value>The template could not be loaded</value>
+  </data>
 </root>
