@@ -12,5 +12,15 @@ public abstract partial class TextureSource : EngineObject
         /// density; re-rasterizable sources should rasterize at this density to stay crisp. Default <c>1f</c>.
         /// </summary>
         public abstract ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f);
+
+        /// <summary>
+        /// Resolves the texture for a material slot that interprets its samples as <paramref name="contentKind"/>.
+        /// Sources whose pixels carry an encoding override this to skip the color conversion for
+        /// <see cref="TextureContentKind.Data"/>; the default returns the color texture.
+        /// </summary>
+        public virtual ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity, TextureContentKind contentKind)
+        {
+            return GetTexture(graphicsContext, surfaceDensity);
+        }
     }
 }

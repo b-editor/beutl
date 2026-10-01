@@ -20,40 +20,43 @@ public sealed partial class ImageTextureSource : TextureSource
 
     public partial class Resource
     {
-        private ITexture2D? _gpuTexture;
-        private int _gpuTextureVersion = -1;
+        // One upload per content kind, so a source bound to a color and a data slot does not re-upload every draw.
+        private readonly CachedTexture[] _gpuTextures = new CachedTexture[2];
 
         // A decoded bitmap has a fixed pixel count, so surfaceDensity is ignored here —
         // unlike DrawableTextureSource, whose vector content re-rasterizes at the surface density.
         public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f)
         {
+            return GetTexture(graphicsContext, surfaceDensity, TextureContentKind.Color);
+        }
+
+        public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity, TextureContentKind contentKind)
+        {
             if (Source?.Bitmap == null)
             {
-                DisposeGpuTexture();
+                DisposeGpuTextures();
                 return null;
             }
 
+            ref CachedTexture cached = ref _gpuTextures[(int)contentKind];
+
             // Check if we need to recreate the texture
-            bool needsRecreate = _gpuTexture == null ||
-                                 _gpuTextureVersion != Version ||
-                                 _gpuTexture.Width != Source.FrameSize.Width ||
-                                 _gpuTexture.Height != Source.FrameSize.Height;
+            bool needsRecreate = cached.Texture == null ||
+                                 cached.Version != Version ||
+                                 cached.Texture.Width != Source.FrameSize.Width ||
+                                 cached.Texture.Height != Source.FrameSize.Height;
 
             if (needsRecreate)
             {
-                DisposeGpuTexture();
+                cached.Texture?.Dispose();
+                cached.Texture = null;
 
-                using var linearBitmap = Source.Bitmap.Convert(
-                    Source.Bitmap.ColorType == BitmapColorType.RgbaF16
-                        ? BitmapColorType.RgbaF16
-                        : BitmapColorType.Bgra8888,
-                    BitmapAlphaType.Premul,
-                    BitmapColorSpace.LinearSrgb);
+                using var uploadBitmap = CreateUploadBitmap(Source.Bitmap, contentKind);
 
-                _gpuTexture = graphicsContext.CreateTexture2D(
+                var texture = graphicsContext.CreateTexture2D(
                     Source.FrameSize.Width,
                     Source.FrameSize.Height,
-                    linearBitmap.ColorType == BitmapColorType.RgbaF16
+                    uploadBitmap.ColorType == BitmapColorType.RgbaF16
                         ? TextureFormat.RGBA16Float
                         : TextureFormat.BGRA8Unorm);
 
@@ -61,26 +64,65 @@ public sealed partial class ImageTextureSource : TextureSource
                 unsafe
                 {
                     var data = new ReadOnlySpan<byte>(
-                        (void*)linearBitmap.Data,
-                        linearBitmap.ByteCount);
-                    _gpuTexture.Upload(data);
+                        (void*)uploadBitmap.Data,
+                        uploadBitmap.ByteCount);
+                    texture.Upload(data);
                 }
 
-                _gpuTextureVersion = Version;
+                cached.Texture = texture;
+                cached.Version = Version;
             }
 
-            return _gpuTexture;
+            return cached.Texture;
         }
 
-        private void DisposeGpuTexture()
+        /// <summary>
+        /// Converts a decoded bitmap into the pixels uploaded for <paramref name="contentKind"/>, either
+        /// <see cref="BitmapColorType.RgbaF16"/> or <see cref="BitmapColorType.Bgra8888"/>.
+        /// </summary>
+        /// <remarks>
+        /// Colors decode to linear sRGB in half floats: 8 bits cannot hold the decoded shadows, which would band.
+        /// Data keeps its stored values: the bitmap's own color space is the destination, so no transfer function is
+        /// applied, and it stays unpremultiplied because each channel is an independent value rather than a color.
+        /// </remarks>
+        internal static Bitmap CreateUploadBitmap(Bitmap source, TextureContentKind contentKind)
         {
-            _gpuTexture?.Dispose();
-            _gpuTexture = null;
+            if (contentKind == TextureContentKind.Data)
+            {
+                return source.Convert(
+                    HasAtMost8BitsPerChannel(source.ColorType) ? BitmapColorType.Bgra8888 : BitmapColorType.RgbaF16,
+                    BitmapAlphaType.Unpremul,
+                    source.ColorSpace);
+            }
+
+            return source.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        }
+
+        private static bool HasAtMost8BitsPerChannel(BitmapColorType colorType)
+        {
+            return colorType is BitmapColorType.Alpha8 or BitmapColorType.Rgb565 or BitmapColorType.Argb4444
+                or BitmapColorType.Rgba8888 or BitmapColorType.Rgb888x or BitmapColorType.Bgra8888
+                or BitmapColorType.Gray8 or BitmapColorType.Rg88 or BitmapColorType.R8Unorm;
+        }
+
+        private void DisposeGpuTextures()
+        {
+            for (int i = 0; i < _gpuTextures.Length; i++)
+            {
+                _gpuTextures[i].Texture?.Dispose();
+                _gpuTextures[i] = default;
+            }
         }
 
         partial void PostDispose(bool disposing)
         {
-            DisposeGpuTexture();
+            DisposeGpuTextures();
+        }
+
+        private struct CachedTexture
+        {
+            public ITexture2D? Texture;
+            public int Version;
         }
     }
 }
