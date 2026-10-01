@@ -1,4 +1,6 @@
-﻿using BenchmarkDotNet.Columns;
+﻿using System.Reflection;
+
+using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Diagnosers;
 using BenchmarkDotNet.Engines;
@@ -64,7 +66,8 @@ internal sealed class RenderPipelineBenchmarkConfig : ManualConfig
             .WithWarmupCount(BenchmarkWarmupCount)
             .WithIterationCount(BenchmarkIterationCount)
             .WithInvocationCount(BenchmarkInvocationCount)
-            .WithUnrollFactor(BenchmarkUnrollFactor));
+            .WithUnrollFactor(BenchmarkUnrollFactor)
+            .WithArguments([new MsBuildArgument($"/p:CustomAfterMicrosoftCommonTargets={GetSkiaSharpTargetsPath()}")]));
         AddDiagnoser(MemoryDiagnoser.Default);
         AddColumnProvider(DefaultColumnProviders.Instance);
         AddLogger(ConsoleLogger.Default);
@@ -87,6 +90,14 @@ internal sealed class RenderPipelineBenchmarkConfig : ManualConfig
                 Path.Combine(root, "render-pipeline-counters"));
         }
     }
+
+    // The generated benchmark project does not import Directory.Build.targets, which is where Beutl's
+    // libSkiaSharp replaces SkiaSharp's own; without it the Vulkan backend cannot be created at all.
+    private static string GetSkiaSharpTargetsPath()
+        => typeof(RenderPipelineBenchmarkConfig).Assembly
+               .GetCustomAttributes<AssemblyMetadataAttribute>()
+               .SingleOrDefault(static attribute => attribute.Key == "BeutlSkiaSharpTargets")?.Value
+           ?? throw new InvalidOperationException("Beutl.Benchmarks was built without its libSkiaSharp targets path.");
 
     /// <summary>The fusion mode this process measures, defaulting to the production <c>Enabled</c>.</summary>
     public static FusionMode GetFusionMode()
