@@ -17,6 +17,8 @@ import shutil
 import subprocess
 import sys
 
+from patches import patch_hashes, patches_for
+
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
@@ -50,14 +52,14 @@ def build(args):
     if commit != SOURCE["commit"]:
         raise SystemExit(f"Expected Skia {SOURCE['commit']}, found {commit} in {source}.")
 
-    patch = HERE / "vulkan-image-layout.patch"
-    applied = subprocess.run(
-        ["git", "apply", "--reverse", "--check", str(patch)], cwd=source,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    ).returncode == 0
-    if not applied:
-        run("git", "apply", "--check", patch, cwd=source)
-        run("git", "apply", patch, cwd=source)
+    for patch in patches_for(args.rid).values():
+        applied = subprocess.run(
+            ["git", "apply", "--reverse", "--check", str(patch)], cwd=source,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        ).returncode == 0
+        if not applied:
+            run("git", "apply", "--check", patch, cwd=source)
+            run("git", "apply", patch, cwd=source)
 
     gn = source / "bin" / ("gn.exe" if os.name == "nt" else "gn")
     stamp = source / ".beutl-deps"
@@ -149,8 +151,7 @@ def build(args):
         if copyright_file.exists():
             notices.append("GCC runtime\n\n" + copyright_file.read_text())
     (destination / "Skia.NOTICES").write_text("\n".join(notices), encoding="utf-8")
-    manifest = {**SOURCE, "rid": args.rid,
-                "patchSha256": hashlib.sha256(patch.read_bytes()).hexdigest(),
+    manifest = {**SOURCE, "rid": args.rid, **patch_hashes(args.rid),
                 "binarySha256": hashlib.sha256(library.read_bytes()).hexdigest()}
     (destination / "build.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"Built {destination / filename}")

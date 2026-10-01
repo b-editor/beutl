@@ -32,7 +32,7 @@ jobs:
         uses: actions/cache@v6.1.0
         with:
           path: native/SkiaSharp/artifacts/runtimes/${{ matrix.rid }}
-          key: skia-native-v1-${{ runner.os }}-${{ matrix.rid }}-${{ hashFiles('native/SkiaSharp/source.json', 'native/SkiaSharp/build.py', 'native/SkiaSharp/vulkan-image-layout.patch', 'native/SkiaSharp/libSkiaSharp.map') }}
+          key: skia-native-v1-${{ runner.os }}-${{ matrix.rid }}-${{ hashFiles('native/SkiaSharp/source.json', 'native/SkiaSharp/build.py', 'native/SkiaSharp/patches.py', 'native/SkiaSharp/vulkan-image-layout.patch', 'native/SkiaSharp/libSkiaSharp.map') }}-${{ startsWith(matrix.rid, 'linux-') && hashFiles('native/SkiaSharp/fontconfig-missing-family.patch') || 'no-fontconfig' }}
 
       - name: Install Linux build dependencies
         if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Linux'
@@ -58,6 +58,10 @@ jobs:
 
       - name: Verify native runtime
         run: python3 native/SkiaSharp/verify.py --rid ${{ matrix.rid }} --native-root native/SkiaSharp/artifacts
+
+      - name: Test Fontconfig initialization
+        if: runner.os == 'Linux'
+        run: python3 native/SkiaSharp/test_fontconfig.py --native-root native/SkiaSharp/artifacts -v
 
       - name: Upload native runtime
         uses: actions/upload-artifact@v7.0.1

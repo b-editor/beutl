@@ -1,0 +1,14 @@
+diff --git a/src/ports/SkFontMgr_fontconfig.cpp b/src/ports/SkFontMgr_fontconfig.cpp
+--- a/src/ports/SkFontMgr_fontconfig.cpp
++++ b/src/ports/SkFontMgr_fontconfig.cpp
+@@ -645,7 +645,9 @@
+                 for (int id = 0; ; ++id) {
+                     FcChar8* fcFamilyName;
+                     FcResult result = FcPatternGetString(current, FC_FAMILY, id, &fcFamilyName);
+-                    if (FcResultNoId == result) {
++                    // A missing property returns NoMatch at every index, not NoId.
++                    // Skip nameless fonts instead of searching forever.
++                    if (FcResultNoId == result || FcResultNoMatch == result) {
+                         break;
+                     }
+                     if (FcResultMatch != result) {
