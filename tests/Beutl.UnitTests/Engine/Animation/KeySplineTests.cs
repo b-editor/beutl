@@ -86,7 +86,8 @@ public class KeySplineTests
                 barrier.SignalAndWait();
                 for (int i = 0; i < 100_000; i++)
                 {
-                    if (MathF.Abs(keySpline.GetSplineProgress(progress) - expected) > 0.001f)
+                    float actual = keySpline.GetSplineProgress(progress);
+                    if (!float.IsFinite(actual) || MathF.Abs(actual - expected) > 0.001f)
                     {
                         Interlocked.Increment(ref mismatches);
                     }
@@ -137,8 +138,9 @@ public class KeySplineTests
                 for (int i = 0; i < 50_000; i++)
                 {
                     float actual = keySpline.GetSplineProgress(0.25f);
-                    if (MathF.Abs(actual - 0.15625f) > 0.001f
-                        && MathF.Abs(actual - 0.578125f) > 0.001f)
+                    if (!float.IsFinite(actual)
+                        || (MathF.Abs(actual - 0.15625f) > 0.001f
+                            && MathF.Abs(actual - 0.578125f) > 0.001f))
                     {
                         Interlocked.Increment(ref mismatches);
                     }
@@ -181,6 +183,14 @@ public class KeySplineTests
     {
         var keySpline = new KeySpline(0.42f, 0f, 0.58f, 1f);
         Assert.That(keySpline.GetSplineProgress(1f), Is.EqualTo(1f).Within(1e-3));
+    }
+
+    [TestCase(-0.25f, 0f)]
+    [TestCase(1.25f, 1f)]
+    public void GetSplineProgress_OutsideUnitInterval_UsesEndpoint(float progress, float expected)
+    {
+        var keySpline = new KeySpline(0.42f, 0f, 0.58f, 1f);
+        Assert.That(keySpline.GetSplineProgress(progress), Is.EqualTo(expected).Within(0.001f));
     }
 
     [Test]

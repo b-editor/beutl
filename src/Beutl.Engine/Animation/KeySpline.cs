@@ -172,7 +172,7 @@ public class KeySpline
         // Dynamic search interval to clamp with
         float bottom = 0;
         float top = 1;
-        float parameter = 0;
+        float parameter = Math.Clamp(time, bottom, top);
 
         if (time == 0)
         {
