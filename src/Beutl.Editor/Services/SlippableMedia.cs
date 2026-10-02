@@ -17,15 +17,19 @@ internal static class SlippableMedia
     // Total is the absolute source duration (null when the stream has no bounded source).
     internal sealed class Target
     {
-        public Target(IProperty<TimeSpan> offset, TimeSpan? total)
+        public Target(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan visibleDuration)
         {
             Offset = offset;
             Total = total;
+            VisibleDuration = visibleDuration;
         }
 
         public IProperty<TimeSpan> Offset { get; }
 
         public TimeSpan? Total { get; }
+
+        // Nested media can have an independent TimeRange shorter than its containing element.
+        public TimeSpan VisibleDuration { get; }
 
         public TimeSpan Current
         {
@@ -96,14 +100,14 @@ internal static class SlippableMedia
         // An exhausted source still has a known total even when TryGetOriginalDuration returns false.
         using var resource = video.ToResource(CompositionContext.Default);
         TimeSpan? total = video.CalculateOriginalTime((SourceVideo.Resource)resource);
-        return new Target(video.OffsetPosition, total);
+        return new Target(video.OffsetPosition, total, video.TimeRange.Duration);
     }
 
     private static Target CreateSoundTarget(SourceSound sound)
     {
         // SourceSound.TryGetOriginalDuration returns the full source duration.
         TimeSpan? total = sound.TryGetOriginalDuration(out TimeSpan duration) ? duration : null;
-        return new Target(sound.OffsetPosition, total);
+        return new Target(sound.OffsetPosition, total, sound.TimeRange.Duration);
     }
 
     private static Target CreateSceneSoundTarget(SceneSound sound)
@@ -112,13 +116,13 @@ internal static class SlippableMedia
         // window can advance. Unresolved references stay unbounded, like a SourceVideo
         // without a loaded source.
         TimeSpan? total = sound.ReferencedScene.CurrentValue?.Duration;
-        return new Target(sound.OffsetPosition, total);
+        return new Target(sound.OffsetPosition, total, sound.TimeRange.Duration);
     }
 
     // The largest-magnitude delta (in the requested direction) that every stream can apply
-    // without leaving [0, Total - elementLength]. Applying one shared delta keeps linked
+    // without leaving [0, Total - VisibleDuration]. Applying one shared delta keeps linked
     // streams (e.g. a video + audio pair) in sync even when one hits its source boundary first.
-    public static TimeSpan ClampSharedDelta(IReadOnlyList<Target> targets, TimeSpan delta, TimeSpan elementLength)
+    public static TimeSpan ClampSharedDelta(IReadOnlyList<Target> targets, TimeSpan delta)
     {
         if (delta == TimeSpan.Zero || targets.Count == 0) return TimeSpan.Zero;
 
@@ -126,7 +130,7 @@ internal static class SlippableMedia
         foreach (Target target in targets)
         {
             long allowed = delta > TimeSpan.Zero
-                ? ForwardHeadroom(target, elementLength)
+                ? ForwardHeadroom(target)
                 : Math.Max(0L, target.Current.Ticks);
             magnitude = Math.Min(magnitude, allowed);
         }
@@ -134,11 +138,11 @@ internal static class SlippableMedia
         return TimeSpan.FromTicks(delta > TimeSpan.Zero ? magnitude : -magnitude);
     }
 
-    private static long ForwardHeadroom(Target target, TimeSpan elementLength)
+    private static long ForwardHeadroom(Target target)
     {
         if (target.Total is not { } total) return long.MaxValue;
 
-        TimeSpan maxOffset = total - elementLength;
+        TimeSpan maxOffset = total - target.VisibleDuration;
         if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
         return Math.Max(0L, (maxOffset - target.Current).Ticks);
     }
@@ -163,14 +167,14 @@ internal static class SlippableMedia
 
     // Room to extend the element's out-point (grow its length while the in-point stays put),
     // bounded by the tightest source tail among its streams. TimeSpan.MaxValue when unbounded.
-    public static TimeSpan OutPointRoom(IReadOnlyList<Target> targets, TimeSpan elementLength)
+    public static TimeSpan OutPointRoom(IReadOnlyList<Target> targets)
     {
         TimeSpan room = TimeSpan.MaxValue;
         foreach (Target target in targets)
         {
             if (target.Total is not { } total) continue;
 
-            TimeSpan available = total - target.Current - elementLength;
+            TimeSpan available = total - target.Current - target.VisibleDuration;
             if (available < TimeSpan.Zero) available = TimeSpan.Zero;
             if (available < room) room = available;
         }

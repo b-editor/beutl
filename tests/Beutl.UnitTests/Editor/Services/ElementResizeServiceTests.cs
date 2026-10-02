@@ -1,4 +1,5 @@
-﻿using Beutl.Configuration;
+﻿using Beutl.Audio;
+using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
@@ -641,6 +642,88 @@ public class ElementResizeServiceTests
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(9)));
+        });
+    }
+
+    [Test]
+    public void Roll_NestedVideo_ClampsToOwnVisibleDuration()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        Element back = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(2, 2)
+        };
+        var group = new DrawableGroup();
+        group.Children.Add(video);
+        front.Objects.Add(group);
+        var backVideo = new SourceVideo();
+        back.Objects.Add(backVideo);
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        var pair = new ElementTrimPair(front, back);
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [pair]);
+        bool applied = _service.Roll(_scene, [pair], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(applied, Is.True);
+            Assert.That(front.Range, Is.EqualTo(TimeRange.FromSeconds(13)));
+            Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(13, 7)));
+            Assert.That(video.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2, 2)));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(backVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+
+        _history.Undo();
+        Assert.Multiple(() =>
+        {
+            Assert.That(front.Range, Is.EqualTo(TimeRange.FromSeconds(10)));
+            Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(10, 10)));
+            Assert.That(backVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void Slide_NestedSound_ClampsToOwnVisibleDuration()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        Element middle = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(10));
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = source },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(2, 2)
+        };
+        var group = new SoundGroup();
+        group.Children.Add(sound);
+        front.Objects.Add(group);
+        var backSound = new SourceSound();
+        back.Objects.Add(backSound);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(front.Range, Is.EqualTo(TimeRange.FromSeconds(13)));
+            Assert.That(middle.Range, Is.EqualTo(TimeRange.FromSeconds(13, 2)));
+            Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(15, 7)));
+            Assert.That(sound.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2, 2)));
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(backSound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 
