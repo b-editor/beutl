@@ -8,6 +8,7 @@ namespace Beutl.Audio.Platforms.XAudio2;
 public sealed unsafe class XAudioBuffer : IDisposable
 {
     private void* _stream;
+    private bool _isDisposed;
 
     public XAudioBuffer()
     {
@@ -33,6 +34,8 @@ public sealed unsafe class XAudioBuffer : IDisposable
 
     public unsafe void BufferData(IntPtr buffer, int sizeInBytes, WaveFormat format)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         if (_stream != null)
         {
             NativeMemory.Free(_stream);
@@ -50,10 +53,19 @@ public sealed unsafe class XAudioBuffer : IDisposable
 
     public void Dispose()
     {
+        if (_isDisposed) return;
+        _isDisposed = true;
+
         Buffer.Dispose();
         if (_stream != null)
         {
             NativeMemory.Free(_stream);
+            _stream = null;
         }
+
+        Buffer.AudioDataPointer = IntPtr.Zero;
+        Buffer.AudioBytes = 0;
+        SizeInBytes = 0;
+        Format = null;
     }
 }

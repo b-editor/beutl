@@ -22,6 +22,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
     private readonly Action<ProcessStartInfo> _configureWorkerStart;
     private Process? _process;
     private IpcConnection? _connection;
+    private volatile bool _isReady;
     private FFmpegWorkerLogPump? _logPump;
     private string? _pipeName;
     private Exception? _lastStartupFailure;
@@ -37,13 +38,13 @@ public sealed class FFmpegWorkerProcess : IDisposable
         _configureWorkerStart = configureWorkerStart;
     }
 
-    public bool IsRunning => _process is { HasExited: false } && _connection?.IsConnected == true;
+    public bool IsRunning => _isReady && _process is { HasExited: false } && _connection?.IsConnected == true;
 
     public int WorkerPid => _process?.Id ?? 0;
 
     public IpcConnection EnsureStarted()
     {
-        if (_connection != null && _process is { HasExited: false })
+        if (_isReady && _connection != null && _process is { HasExited: false })
             return _connection;
 
         ThrowIfLibrariesMissing();
@@ -51,7 +52,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
         _startLock.Wait();
         try
         {
-            if (_connection != null && _process is { HasExited: false })
+            if (_isReady && _connection != null && _process is { HasExited: false })
                 return _connection;
 
             ThrowIfLibrariesMissing();
@@ -68,7 +69,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
     public async Task<IpcConnection> EnsureStartedAsync(CancellationToken ct = default)
     {
-        if (_connection != null && _process is { HasExited: false })
+        if (_isReady && _connection != null && _process is { HasExited: false })
             return _connection;
 
         ThrowIfLibrariesMissing();
@@ -76,7 +77,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
         await _startLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (_connection != null && _process is { HasExited: false })
+            if (_isReady && _connection != null && _process is { HasExited: false })
                 return _connection;
 
             ThrowIfLibrariesMissing();
@@ -110,6 +111,12 @@ public sealed class FFmpegWorkerProcess : IDisposable
             }
             throw;
         }
+
+#if !BEUTL_FFMPEG_WORKER
+        // Observer failures still reach this caller, but must not tear down a ready shared worker.
+        // Availability callbacks may re-enter EnsureStarted, so publish readiness before notifying.
+        FFmpegLibraryState.NotifyWorkerStarted();
+#endif
     }
 
     private static void ThrowIfLibrariesMissing()
@@ -250,14 +257,12 @@ public sealed class FFmpegWorkerProcess : IDisposable
             throw new InvalidOperationException(
                 $"Protocol version mismatch: host={ProtocolConstants.CurrentVersion}, worker={handshakePayload.ProtocolVersion}");
 
-#if !BEUTL_FFMPEG_WORKER
-        // Worker handshaked, so FFmpeg loaded: clear any missing latch and wake parked proxy jobs.
-        FFmpegLibraryState.NotifyWorkerStarted();
-#endif
-
         // デコード用接続は多重化モードで起動（複数リーダーからの並行リクエスト対応）
+        // Startup cancellation belongs to this caller; the shared receive loop lives until connection disposal.
         if (_multiplexed)
-            _connection.StartMultiplexedReceive(ct);
+            _connection.StartMultiplexedReceive();
+
+        _isReady = true;
     }
 
     internal static Exception CreateWorkerStartCanceledException(CancellationToken ct)
@@ -320,6 +325,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
     private void Cleanup()
     {
+        _isReady = false;
         _connection?.Dispose();
         _connection = null;
 
