@@ -768,6 +768,29 @@ public static class CoreSerializer
         string? authorizedRootPath)
         where T : ICoreSerializable
     {
+        CoreObject? coreObject = obj as CoreObject;
+        Uri? previousUri = coreObject?.Uri;
+        try
+        {
+            StoreToUriWithTracking(obj, uri, mode, authorizedRootPath);
+        }
+        catch
+        {
+            // References need the destination during serialization, but a failed save must not
+            // redirect subsequent auto-saves away from the object's previous storage identity.
+            if (coreObject is not null)
+                coreObject.Uri = previousUri;
+            throw;
+        }
+    }
+
+    private static void StoreToUriWithTracking<T>(
+        T obj,
+        Uri uri,
+        CoreSerializationMode? mode,
+        string? authorizedRootPath)
+        where T : ICoreSerializable
+    {
         // A project save writes the files it references while the project itself is still being
         // serialized, so its own bytes reach the disk last. Gate the destination first, the way the
         // scene save and the auto-save do, so the compatibility gate is never behind the sidecars it

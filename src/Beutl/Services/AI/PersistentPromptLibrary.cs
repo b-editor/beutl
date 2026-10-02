@@ -411,9 +411,12 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary, IPromptLibraryCh
     {
         try
         {
-            using FileStream stream = File.OpenRead(StoragePath);
-            StorageDocument document = JsonSerializer.Deserialize<StorageDocument>(stream, s_jsonOptions)
-                ?? throw new InvalidDataException("The prompt library document is empty.");
+            StorageDocument document;
+            using (FileStream stream = File.OpenRead(StoragePath))
+            {
+                document = JsonSerializer.Deserialize<StorageDocument>(stream, s_jsonOptions)
+                    ?? throw new InvalidDataException("The prompt library document is empty.");
+            }
 
             if (document.Version > CurrentStorageVersion)
             {
