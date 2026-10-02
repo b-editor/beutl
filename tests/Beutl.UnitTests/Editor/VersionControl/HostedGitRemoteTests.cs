@@ -33,5 +33,17 @@ public class HostedGitRemoteTests
         Assert.That(environment["GIT_CONFIG_KEY_6"], Is.EqualTo("lfs.customtransfer.beutl-multipart.concurrent"));
         Assert.That(environment["GIT_TRACE_CURL"], Is.Null);
         Assert.That(environment["GIT_CURL_VERBOSE"], Is.Null);
+        Assert.That(environment["GIT_ASKPASS"], Is.Empty);
+        Assert.That(environment["SSH_ASKPASS"], Is.Empty);
+    }
+
+    [TestCase("Writing objects: 401, unrelated failure", false)]
+    [TestCase("The requested URL returned error: 401", true)]
+    [TestCase("HTTP/2 401", true)]
+    [TestCase("Authentication failed", true)]
+    public void AuthenticationRetryRequiresAnAuthenticationError(string stderr, bool expected)
+    {
+        Assert.That(GitCliVersionControlService.IsHostedAuthenticationFailure(new GitOperationException(128, stderr)),
+            Is.EqualTo(expected));
     }
 }

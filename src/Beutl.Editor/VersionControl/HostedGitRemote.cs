@@ -30,12 +30,21 @@ internal static class HostedGitRemote
     }
 
     public static GitCommandOptions CreateOptions(string remoteUrl, string token, GitCommandOptions baseline)
+        => CreateOptions([(remoteUrl, token)], baseline);
+
+    public static GitCommandOptions CreateOptions(
+        IReadOnlyList<(string RemoteUrl, string Token)> targets, GitCommandOptions baseline)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(token);
-        if (!TryParse(remoteUrl, out _))
-            throw new ArgumentException("The remote is not a Beutl hosted Git repository.", nameof(remoteUrl));
-        if (token.Contains('\r') || token.Contains('\n'))
-            throw new ArgumentException("Invalid Git token.", nameof(token));
+        var values = new List<(string Key, string Value)>();
+        foreach ((string remoteUrl, string token) in targets)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(token);
+            if (!TryParse(remoteUrl, out _))
+                throw new ArgumentException("The remote is not a Beutl hosted Git repository.", nameof(targets));
+            if (token.Contains('\r') || token.Contains('\n'))
+                throw new ArgumentException("Invalid Git token.", nameof(targets));
+            values.Add(($"http.{remoteUrl}.extraheader", $"Authorization: Bearer {token}"));
+        }
 
         // Git and git-lfs inherit these settings for this process only. Never
         // write the bearer to .git/config or include it in process arguments.
@@ -48,23 +57,24 @@ internal static class HostedGitRemote
                 ?? throw new InvalidOperationException("The Beutl assembly path is unavailable.");
             args = $"\"{assembly}\" {args}";
         }
-        var values = new (string Key, string Value)[]
+        values.AddRange(new (string Key, string Value)[]
         {
-            ($"http.{remoteUrl}.extraheader", $"Authorization: Bearer {token}"),
             ("lfs.customtransfer.beutl-tus.path", executable),
             ("lfs.customtransfer.beutl-tus.args", args),
             ("lfs.customtransfer.beutl-tus.concurrent", "false"),
             ("lfs.customtransfer.beutl-multipart.path", executable),
             ("lfs.customtransfer.beutl-multipart.args", args),
             ("lfs.customtransfer.beutl-multipart.concurrent", "false"),
-        };
+        });
         var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
-            ["GIT_CONFIG_COUNT"] = values.Length.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["GIT_CONFIG_COUNT"] = values.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["GIT_TRACE_CURL"] = null,
             ["GIT_CURL_VERBOSE"] = null,
+            ["GIT_ASKPASS"] = "",
+            ["SSH_ASKPASS"] = "",
         };
-        for (int index = 0; index < values.Length; index++)
+        for (int index = 0; index < values.Count; index++)
         {
             environment[$"GIT_CONFIG_KEY_{index}"] = values[index].Key;
             environment[$"GIT_CONFIG_VALUE_{index}"] = values[index].Value;

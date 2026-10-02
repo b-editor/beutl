@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Media;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
 using Beutl.Services;

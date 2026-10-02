@@ -279,7 +279,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
         SetRemoteCommand = new AsyncReactiveCommand(canConfigureRemote)
             .WithSubscribe(SetRemoteAsync)
             .DisposeWith(_disposables);
-        CreateHostedRepositoryCommand = new AsyncReactiveCommand(canConfigureRemote)
+        CreateHostedRepositoryCommand = new AsyncReactiveCommand(canConfigureRemote
+                .CombineLatest(HasRemote, static (canConfigure, hasRemote) => canConfigure && !hasRemote))
             .WithSubscribe(CreateHostedRepositoryAsync)
             .DisposeWith(_disposables);
         PublishBranchCommand = new AsyncReactiveCommand(
@@ -616,6 +617,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
 
     public async Task CreateHostedRepositoryAsync()
     {
+        if (HasRemote.Value) return;
         RemoteMutationLease? lease = TryAcquireRemoteMutation();
         if (lease is null) return;
         try
@@ -623,8 +625,13 @@ internal sealed class VersionControlTabViewModel : IToolContext
             CancellationToken token = _serviceBindingCancellation?.Token ?? CancellationToken.None;
             string? name = await RequestHostedRepositoryNameAsync(token);
             if (string.IsNullOrWhiteSpace(name) || _versionControlCoordinator is null) return;
+            if (HasRemote.Value) return;
             string url = await _versionControlCoordinator.CreateHostedRepositoryAsync(name.Trim(), token);
-            await ConfigureRemoteAsync(lease, url);
+            if (!await ConfigureRemoteAsync(lease, url) && !token.IsCancellationRequested)
+            {
+                NotificationService.ShowError(Strings.VersionControl_ErrorTitle,
+                    string.Format(Strings.VersionControl_HostedRepositoryNotConnected, url));
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)

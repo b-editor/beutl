@@ -1307,15 +1307,32 @@ internal sealed class GitCliVersionControlService :
     internal Func<Guid, CancellationToken, Task<string>>? HostedGitTokenProvider { get; set; }
 
     private async Task<GitCommandOptions> GetNetworkOptionsAsync(
-        GitCommandOptions baseline, CancellationToken cancellationToken)
+        GitCommandOptions baseline, CancellationToken cancellationToken, bool forPush = false)
     {
-        IReadOnlyList<RemoteInfo> remotes = await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false);
-        string? remoteUrl = remotes.FirstOrDefault()?.Url;
-        if (!HostedGitRemote.TryParse(remoteUrl, out Guid repositoryId)) return baseline;
-        Func<Guid, CancellationToken, Task<string>> provider = HostedGitTokenProvider
-            ?? throw new InvalidOperationException("Sign in to Beutl to use the hosted Git repository.");
-        string token = await provider(repositoryId, cancellationToken).ConfigureAwait(false);
-        return HostedGitRemote.CreateOptions(remoteUrl!, token, baseline);
+        string[] remoteUrls;
+        if (forPush)
+        {
+            IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+            GitCommandResult result = await runner.RunAsync(GetRepository(),
+                ["remote", "get-url", "--push", "--all", "origin"],
+                GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+            remoteUrls = result.Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        }
+        else
+        {
+            IReadOnlyList<RemoteInfo> remotes = await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false);
+            remoteUrls = remotes.Where(remote => remote.Name == "origin").Select(remote => remote.Url).ToArray();
+        }
+        var targets = new List<(string RemoteUrl, string Token)>();
+        foreach (string remoteUrl in remoteUrls.Distinct(StringComparer.Ordinal))
+        {
+            if (!HostedGitRemote.TryParse(remoteUrl, out Guid repositoryId)) continue;
+            Func<Guid, CancellationToken, Task<string>> provider = HostedGitTokenProvider
+                ?? throw new InvalidOperationException("Sign in to Beutl to use the hosted Git repository.");
+            string token = await provider(repositoryId, cancellationToken).ConfigureAwait(false);
+            targets.Add((remoteUrl, token));
+        }
+        return targets.Count == 0 ? baseline : HostedGitRemote.CreateOptions(targets, baseline);
     }
 
     public RepositoryLockInfo? RecoverableLock { get; private set; }
@@ -9028,29 +9045,22 @@ internal sealed class GitCliVersionControlService :
 
             arguments.Add("origin");
             arguments.Add($"{currentTip.RefName}:{remoteRef}");
-            try
+            for (int attempt = 0; ; attempt++)
             {
-                await runner.RunAsync(
-                    repository,
-                    arguments,
-                    await GetNetworkOptionsAsync(GitCommandOptions.Network, cancellationToken).ConfigureAwait(false),
-                    cancellationToken,
-                    progress).ConfigureAwait(false);
-            }
-            catch (GitOperationException ex) when (IsHostedAuthenticationFailure(ex))
-            {
-                if (!HostedGitRemote.TryParse(
-                        (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).FirstOrDefault()?.Url,
-                        out _)) throw;
-                // A multipart LFS upload may outlive the Git token used when
-                // push started. LFS has already verified the media; retry the
-                // Git push with a newly minted token.
-                await runner.RunAsync(
-                    repository,
-                    arguments,
-                    await GetNetworkOptionsAsync(GitCommandOptions.Network, cancellationToken).ConfigureAwait(false),
-                    cancellationToken,
-                    progress).ConfigureAwait(false);
+                GitCommandOptions options = await GetNetworkOptionsAsync(
+                    GitCommandOptions.Network, cancellationToken, forPush: true).ConfigureAwait(false);
+                try
+                {
+                    await runner.RunAsync(repository, arguments, options, cancellationToken, progress).ConfigureAwait(false);
+                    break;
+                }
+                catch (GitOperationException ex) when (attempt < 4 && options.EnvironmentOverrides is not null
+                    && IsHostedAuthenticationFailure(ex))
+                {
+                    // Large resumable transfers can span multiple token lifetimes.
+                    // Mint a new token for each retry, with a five-attempt bound.
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
             }
             await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
             return new RemoteOpResult.Success();
@@ -9062,8 +9072,10 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private static bool IsHostedAuthenticationFailure(GitOperationException exception)
-        => exception.Stderr.Contains("401", StringComparison.Ordinal)
+    internal static bool IsHostedAuthenticationFailure(GitOperationException exception)
+        => System.Text.RegularExpressions.Regex.IsMatch(exception.Stderr,
+               @"(?:HTTP(?:/\d(?:\.\d)?)?\s+(?:error\s+)?401\b|requested URL returned error:\s*401\b)",
+               System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)
            || exception.Stderr.Contains("Authentication failed", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<BranchUpstreamConfiguration?> GetBranchUpstreamConfigurationAsync(

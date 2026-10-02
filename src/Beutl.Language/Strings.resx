@@ -3312,4 +3312,7 @@ when history recording is enabled.</value>
   <data name="VersionControl_RepositoryName" xml:space="preserve">
     <value>Repository name</value>
   </data>
+  <data name="VersionControl_HostedRepositoryNotConnected" xml:space="preserve">
+    <value>The repository was created, but its remote could not be connected. You can connect it manually: {0}</value>
+  </data>
 </root>

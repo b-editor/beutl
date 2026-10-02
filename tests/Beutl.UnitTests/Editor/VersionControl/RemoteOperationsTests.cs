@@ -8,6 +8,69 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [Parallelizable(ParallelScope.Self)]
 public sealed class RemoteOperationsTests : RealGitTestRepository
 {
+    [TestCase(false, 2, 3)]
+    [TestCase(true, 2, 3)]
+    [TestCase(false, 10, 5)]
+    public async Task Hosted_push_authenticates_effective_push_urls_and_bounds_token_refresh(
+        bool hostedFetch, int failures, int expectedAttempts)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        Guid first = Guid.Parse("00000000-0000-4000-8000-000000000011");
+        Guid second = Guid.Parse("00000000-0000-4000-8000-000000000012");
+        string firstUrl = $"https://beutl.beditor.net/api/v3/git/{first:D}.git";
+        string secondUrl = $"https://beutl.beditor.net/api/v3/git/{second:D}.git";
+        string fetchUrl = hostedFetch
+            ? "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000013.git"
+            : await CreateBareRemoteAsync();
+        await RunGitAsync("remote", "add", "origin", fetchUrl);
+        await RunGitAsync("remote", "set-url", "--push", "origin", firstUrl);
+        await RunGitAsync("remote", "set-url", "--add", "--push", "origin", secondUrl);
+        var runner = new HostedPushRunner(CreateRunner(), failures);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        var issued = new List<Guid>();
+        service.HostedGitTokenProvider = (id, _) =>
+        {
+            issued.Add(id);
+            return Task.FromResult($"token-{issued.Count}");
+        };
+
+        RemoteOpResult result = await service.PushAsync(null, CancellationToken.None);
+
+        Assert.That(result is RemoteOpResult.Success, Is.EqualTo(failures < 5));
+        Assert.That(runner.Options.Count, Is.EqualTo(expectedAttempts));
+        Assert.That(issued, Is.EqualTo(Enumerable.Range(0, expectedAttempts).SelectMany(_ => new[] { first, second })));
+        for (int attempt = 0; attempt < expectedAttempts; attempt++)
+        {
+            IReadOnlyDictionary<string, string?> environment = runner.Options[attempt].EnvironmentOverrides!;
+            Assert.That(environment["GIT_CONFIG_KEY_0"], Is.EqualTo($"http.{firstUrl}.extraheader"));
+            Assert.That(environment["GIT_CONFIG_VALUE_0"], Is.EqualTo($"Authorization: Bearer token-{attempt * 2 + 1}"));
+            Assert.That(environment["GIT_CONFIG_KEY_1"], Is.EqualTo($"http.{secondUrl}.extraheader"));
+            Assert.That(environment["GIT_CONFIG_VALUE_1"], Is.EqualTo($"Authorization: Bearer token-{attempt * 2 + 2}"));
+        }
+    }
+
+    private sealed class HostedPushRunner(IGitCliRunner inner, int failures) : IGitCliRunner
+    {
+        public bool HasActiveProcess => inner.HasActiveProcess;
+        public List<GitCommandOptions> Options { get; } = [];
+
+        public Task<GitCommandResult> RunAsync(RepositoryInfo repository, IReadOnlyList<string> arguments,
+            GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? stderrProgress = null)
+        {
+            if (GetGitSubcommand(arguments) != "push")
+                return inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
+            Options.Add(options);
+            if (Options.Count <= failures)
+                throw new GitOperationException(128, "The requested URL returned error: 401");
+            return Task.FromResult(new GitCommandResult(0, "", ""));
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository) =>
+            inner.GetRecoverableRepositoryLock(repository);
+        public bool RemoveRecoverableRepositoryLock(RepositoryInfo repository, RepositoryLockInfo lockInfo) =>
+            inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
     [Test]
     public async Task SetRemote_and_push_publish_head_with_progress_and_upstream()
     {

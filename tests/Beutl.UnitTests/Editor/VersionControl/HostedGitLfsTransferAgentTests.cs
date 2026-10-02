@@ -1,5 +1,8 @@
 ﻿using System.Net;
 using System.Text.Json;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using Beutl.Editor.VersionControl;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -9,6 +12,266 @@ public class HostedGitLfsTransferAgentTests
     private const long ObjectSize = 5L * 1024 * 1024 * 1024 + 1;
     private const int PartSize = 64 * 1024 * 1024;
     private static readonly string s_oid = new('a', 64);
+
+    [Test]
+    public async Task BasicUploadRetriesWithANewFileStreamAndPreservesActionHeaders()
+    {
+        byte[] bytes = "small upload"u8.ToArray();
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-lfs-test-{Guid.NewGuid():N}");
+        await File.WriteAllBytesAsync(path, bytes);
+        try
+        {
+            int attempts = 0;
+            using var handler = new CallbackHandler(async (request, token) =>
+            {
+                Assert.That(request.Method, Is.EqualTo(HttpMethod.Put));
+                Assert.That(request.Headers.Authorization?.ToString(), Is.EqualTo("Bearer temporary"));
+                Assert.That(request.Content!.Headers.ContentLength, Is.EqualTo(bytes.Length));
+                Assert.That(request.Content.Headers.ContentType!.MediaType, Is.EqualTo("application/octet-stream"));
+                Assert.That(await request.Content.ReadAsByteArrayAsync(token), Is.EqualTo(bytes));
+                return new HttpResponseMessage(++attempts == 1
+                    ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK);
+            });
+            using var http = new HttpClient(handler);
+            using var input = TransferInput("upload", bytes.Length, path, "https://storage.example/object",
+                new Dictionary<string, string>
+                {
+                    ["Authorization"] = "Bearer temporary",
+                    ["Content-Type"] = "application/octet-stream",
+                    ["Content-Length"] = "999",
+                    ["x-storage-fixture"] = "value"
+                });
+            using var output = new StringWriter();
+            Assert.That(await HostedGitLfsTransferAgent.RunAsync(input, output, http, CancellationToken.None), Is.Zero);
+            Assert.That(attempts, Is.EqualTo(2));
+            AssertSuccess(output);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [TestCase("http://storage.example/object", 4, "Invalid Git LFS transfer action")]
+    [TestCase("https://storage.example/object", 5, "file size changed")]
+    public async Task RejectsUnsafeOrChangedUploadBeforeMakingARequest(string href, long size, string error)
+    {
+        using var handler = new CallbackHandler((_, _) => throw new AssertionException("Unexpected HTTP request"));
+        using var output = await TransferAsync(handler, "upload", size, href, "data"u8.ToArray());
+        AssertError(output, error);
+    }
+
+    [Test]
+    public async Task ReportsPermanentUploadFailureWithoutRetrying()
+    {
+        int attempts = 0;
+        using var handler = new CallbackHandler((_, _) =>
+        {
+            attempts++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden));
+        });
+        using var output = await TransferAsync(handler, "upload", 4, "https://storage.example/object", "data"u8.ToArray());
+        AssertError(output, "HTTP 403");
+        Assert.That(attempts, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task DownloadResumesAtTheReceivedOffsetAndVerifiesTheWholeObject()
+    {
+        byte[] bytes = "download with an interrupted stream"u8.ToArray();
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        int requests = 0;
+        using var handler = new CallbackHandler((request, _) =>
+        {
+            Assert.That(request.Method, Is.EqualTo(HttpMethod.Get));
+            if (++requests == 1)
+            {
+                Assert.That(request.Headers.Range, Is.Null);
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StreamContent(new InterruptedStream(bytes, 7))
+                });
+            }
+            Assert.That(request.Headers.Range!.Ranges.Single().From, Is.EqualTo(7));
+            var content = new ByteArrayContent(bytes[7..]);
+            content.Headers.ContentRange = new ContentRangeHeaderValue(7, bytes.Length - 1, bytes.Length);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = content });
+        });
+        using var output = await TransferAsync(handler, "download", bytes.Length, "https://storage.example/object", bytes, oid);
+        using JsonDocument completed = LastMessage(output);
+        AssertSuccess(output);
+        string path = completed.RootElement.GetProperty("path").GetString()!;
+        try
+        {
+            Assert.That(await File.ReadAllBytesAsync(path), Is.EqualTo(bytes));
+            Assert.That(requests, Is.EqualTo(2));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [TestCase(2, "exceeds expected size")]
+    [TestCase(4, "SHA-256 or size mismatch")]
+    public async Task DownloadRejectsWrongSizeOrHash(long size, string error)
+    {
+        byte[] bytes = "data"u8.ToArray();
+        using var handler = new CallbackHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent(bytes)
+        }));
+        using var output = await TransferAsync(handler, "download", size, "https://storage.example/object", bytes);
+        AssertError(output, error);
+    }
+
+    [Test]
+    public async Task DownloadRejectsAResumeResponseThatIgnoresTheRange()
+    {
+        byte[] bytes = "download data"u8.ToArray();
+        int requests = 0;
+        using var handler = new CallbackHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = ++requests == 1
+                ? new StreamContent(new InterruptedStream(bytes, 3))
+                : new ByteArrayContent(bytes)
+        }));
+        using var output = await TransferAsync(handler, "download", bytes.Length, "https://storage.example/object", bytes);
+        AssertError(output, "did not honor");
+        Assert.That(requests, Is.EqualTo(2));
+    }
+
+    [TestCase("{}")]
+    [TestCase("{\"event\":\"init\",\"operation\":\"invalid\"}")]
+    public async Task InvalidInitiationFailsBeforeTransfer(string init)
+    {
+        using var handler = new CallbackHandler((_, _) => throw new AssertionException("Unexpected HTTP request"));
+        using var http = new HttpClient(handler);
+        using var input = new StringReader(init);
+        using var output = new StringWriter();
+        Assert.That(await HostedGitLfsTransferAgent.RunAsync(input, output, http, CancellationToken.None), Is.EqualTo(1));
+        Assert.That(output.ToString(), Does.Contain("Invalid Git LFS initiation"));
+    }
+
+    [Test]
+    public async Task CompletedMultipartDoesNotReadTheFileOrSendParts()
+    {
+        using var handler = new CallbackHandler((_, _) => Task.FromResult(JsonResponse(new { complete = true })));
+        using var output = await TransferAsync(handler, "upload", 4, "https://beutl.example/multipart", "data"u8.ToArray());
+        AssertSuccess(output);
+    }
+
+    [TestCase(1, 1)]
+    [TestCase(PartSize, 2)]
+    public async Task RejectsInvalidMultipartLayout(int partSize, int partCount)
+    {
+        using var handler = new CallbackHandler((_, _) => Task.FromResult(JsonResponse(new { partSize, partCount })));
+        using var output = await TransferAsync(handler, "upload", 4, "https://beutl.example/multipart", "data"u8.ToArray());
+        AssertError(output, "part layout");
+    }
+
+    [Test]
+    public async Task MultipartRejectsCompletionForAnotherObject()
+    {
+        using var handler = new CallbackHandler((request, _) => Task.FromResult(request.RequestUri!.AbsolutePath.EndsWith("/complete")
+            ? JsonResponse(new { oid = new string('b', 64), size = 4 })
+            : JsonResponse(new { partSize = PartSize, partCount = 1, parts = new[] { new { partNumber = 1, etag = "accepted", size = 4 } } })));
+        using var output = await TransferAsync(handler, "upload", 4, "https://beutl.example/multipart", "data"u8.ToArray());
+        AssertError(output, "does not match");
+    }
+
+    [Test]
+    public async Task TusRejectsCreationLocationOnAnotherHost()
+    {
+        using var handler = new CallbackHandler((_, _) =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.Created);
+            response.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
+            response.Headers.Location = new Uri("https://elsewhere.example/tus/upload");
+            return Task.FromResult(response);
+        });
+        using var output = await TransferAsync(handler, "upload", 4, "https://beutl.example/tus", "data"u8.ToArray());
+        AssertError(output, "Invalid tus upload URL");
+    }
+
+    private static StringReader TransferInput(string operation, long size, string path, string href,
+        Dictionary<string, string>? header = null, string? oid = null) => new(string.Join('\n',
+        JsonSerializer.Serialize(new { @event = "init", operation }),
+        JsonSerializer.Serialize(new { @event = operation, oid = oid ?? s_oid, size, path, action = new { href, header } }),
+        JsonSerializer.Serialize(new { @event = "terminate" })));
+
+    [TestCase(null)]
+    [TestCase("pending")]
+    public async Task TusDoesNotCompleteWithoutAnExplicitVerificationStatus(string? verification)
+    {
+        using var handler = new CallbackHandler((request, _) =>
+        {
+            var response = new HttpResponseMessage(request.Method == HttpMethod.Post
+                ? HttpStatusCode.Created : HttpStatusCode.OK);
+            response.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
+            if (request.Method == HttpMethod.Post)
+                response.Headers.Location = new Uri("https://beutl.example/tus/upload");
+            else
+            {
+                response.Headers.TryAddWithoutValidation("Upload-Length", "4");
+                response.Headers.TryAddWithoutValidation("Upload-Offset", "4");
+                if (verification is not null)
+                    response.Headers.TryAddWithoutValidation("Upload-Verified", verification);
+            }
+            return Task.FromResult(response);
+        });
+        using var output = await TransferAsync(handler, "upload", 4, "https://beutl.example/tus", "data"u8.ToArray());
+        AssertError(output, "verification status");
+    }
+
+    private static async Task<StringWriter> TransferAsync(HttpMessageHandler handler, string operation,
+        long size, string href, byte[] bytes, string? oid = null)
+    {
+        using var http = new HttpClient(handler, disposeHandler: false);
+        using var input = TransferInput(operation, size, "fixture", href, oid: oid);
+        var output = new StringWriter();
+        int result = await HostedGitLfsTransferAgent.RunAsync(input, output, http, CancellationToken.None,
+            _ => bytes.Length, _ => new MemoryStream(bytes, writable: false));
+        Assert.That(result, Is.Zero, output.ToString());
+        return output;
+    }
+
+    private static JsonDocument LastMessage(StringWriter output) =>
+        JsonDocument.Parse(output.ToString().Trim().Split('\n')[^1]);
+
+    private static void AssertSuccess(StringWriter output)
+    {
+        using JsonDocument message = LastMessage(output);
+        Assert.That(message.RootElement.GetProperty("event").GetString(), Is.EqualTo("complete"));
+        Assert.That(message.RootElement.TryGetProperty("error", out _), Is.False, output.ToString());
+    }
+
+    private static void AssertError(StringWriter output, string expected)
+    {
+        using JsonDocument message = LastMessage(output);
+        Assert.That(message.RootElement.GetProperty("error").GetProperty("message").GetString(), Does.Contain(expected));
+    }
+
+    private static HttpResponseMessage JsonResponse(object value) => new(HttpStatusCode.OK)
+    {
+        Content = new StringContent(JsonSerializer.Serialize(value))
+    };
+
+    private sealed class CallbackHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> callback)
+        : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            callback(request, cancellationToken);
+    }
+
+    private sealed class InterruptedStream(byte[] bytes, int interruptAt) : MemoryStream(bytes, writable: false)
+    {
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (Position >= interruptAt) throw new IOException("Fixture connection interrupted");
+            return base.ReadAsync(buffer[..Math.Min(buffer.Length, interruptAt - (int)Position)], cancellationToken);
+        }
+    }
 
     [Test]
     public async Task ResumesAboveFiveGiBAndRetriesAStreamedPart()
@@ -26,7 +289,12 @@ public class HostedGitLfsTransferAgentTests
                 action = new
                 {
                     href = $"https://beutl.example/api/v3/git/repo.git/info/lfs/objects/{s_oid}/multipart",
-                    header = new Dictionary<string, string> { ["Authorization"] = "Bearer temporary" }
+                    header = new Dictionary<string, string>
+                    {
+                        ["Authorization"] = "Bearer temporary",
+                        ["Content-Type"] = "application/octet-stream",
+                        ["Content-Language"] = "ja"
+                    }
                 }
             }),
             JsonSerializer.Serialize(new { @event = "terminate" })));
@@ -178,6 +446,8 @@ public class HostedGitLfsTransferAgentTests
             }
             if (request.Method == HttpMethod.Put && path.Contains("/parts/", StringComparison.Ordinal))
             {
+                Assert.That(request.Content!.Headers.ContentType!.MediaType, Is.EqualTo("application/octet-stream"));
+                Assert.That(request.Content.Headers.ContentLanguage, Does.Contain("ja"));
                 int number = int.Parse(path[(path.LastIndexOf('/') + 1)..]);
                 if (number == 80 && ++Part80Attempts == 1)
                     return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);

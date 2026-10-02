@@ -14,6 +14,51 @@ public class VersionControlTabViewModelTests
 {
     [TestCase(false)]
     [TestCase(true)]
+    public async Task Hosted_repository_creation_preserves_an_existing_origin(bool addedDuringPrompt)
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        const string existing = "https://example.invalid/existing.git";
+        if (!addedDuringPrompt)
+            service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync([new RemoteInfo("origin", existing)]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.RequestHostedRepositoryNameAsync = _ =>
+        {
+            viewModel.HasRemote.Value = true;
+            viewModel.RemoteUrl.Value = existing;
+            return Task.FromResult<string?>("new repository");
+        };
+        await viewModel.CreateHostedRepositoryAsync();
+        Assert.That(viewModel.CreateHostedRepositoryCommand.CanExecute(), Is.False);
+        Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(existing));
+        coordinator.Verify(x => x.CreateHostedRepositoryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        coordinator.Verify(x => x.SetRemoteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Hosted_repository_creation_connects_the_returned_url_and_recovers_from_config_failure(bool fail)
+    {
+        const string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000001.git";
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.CreateHostedRepositoryAsync("hosted", It.IsAny<CancellationToken>())).ReturnsAsync(hosted);
+        coordinator.Setup(x => x.SetRemoteAsync(hosted, It.IsAny<CancellationToken>()))
+            .Returns(fail ? Task.FromException(new InvalidOperationException("configuration failed")) : Task.CompletedTask);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.RequestHostedRepositoryNameAsync = _ => Task.FromResult<string?>(" hosted ");
+        await viewModel.CreateHostedRepositoryAsync();
+        coordinator.Verify(x => x.SetRemoteAsync(hosted, It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(viewModel.HasRemote.Value, Is.EqualTo(!fail));
+        Assert.That(viewModel.CreateHostedRepositoryCommand.CanExecute(), Is.EqualTo(fail));
+        if (!fail) Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(hosted));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
     public async Task Metadata_change_reloads_a_completed_preview_and_preserves_selection(bool diff)
     {
         var (service, commit, file) = CreatePreviewService();

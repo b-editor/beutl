@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Beutl;
+namespace Beutl.Editor.VersionControl;
 
 /// <summary>
 /// Git LFS custom transfer protocol. The regular Beutl executable enters
@@ -148,11 +148,12 @@ internal static class HostedGitLfsTransferAgent
             Uri partUrl = new(url.AbsoluteUri.TrimEnd('/') + $"/parts/{currentPart}");
             await SendWithRetryAsync(http, () =>
             {
-                var request = NewRequest(HttpMethod.Put, partUrl, message.Action!.Header);
+                var request = new HttpRequestMessage(HttpMethod.Put, partUrl);
                 Stream stream = openRead(message.Path!);
                 stream.Seek((long)(currentPart - 1) * status.PartSize, SeekOrigin.Begin);
                 request.Content = new StreamContent(new SliceStream(stream, length));
                 request.Content.Headers.ContentLength = length;
+                AddActionHeaders(request, message.Action!.Header);
                 return request;
             }, cancellationToken);
             progress += length;
@@ -173,11 +174,12 @@ internal static class HostedGitLfsTransferAgent
     {
         using HttpResponseMessage created = await SendTusRequestWithRetryAsync(http, () =>
         {
-            var request = NewRequest(HttpMethod.Post, creationUrl, message.Action!.Header);
+            var request = new HttpRequestMessage(HttpMethod.Post, creationUrl);
             request.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
             request.Headers.TryAddWithoutValidation("Upload-Length",
                 message.Size.ToString(System.Globalization.CultureInfo.InvariantCulture));
             request.Content = new ByteArrayContent([]);
+            AddActionHeaders(request, message.Action!.Header);
             return request;
         }, cancellationToken);
         if (created.StatusCode != HttpStatusCode.Created || created.Headers.Location is null)
@@ -205,7 +207,7 @@ internal static class HostedGitLfsTransferAgent
                 HttpResponseMessage? response = null;
                 try
                 {
-                    using var request = NewRequest(HttpMethod.Patch, uploadUrl, message.Action!.Header);
+                    using var request = new HttpRequestMessage(HttpMethod.Patch, uploadUrl);
                     request.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
                     request.Headers.TryAddWithoutValidation("Upload-Offset",
                         before.ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -213,6 +215,7 @@ internal static class HostedGitLfsTransferAgent
                     stream.Seek(before, SeekOrigin.Begin);
                     request.Content = new StreamContent(new SliceStream(stream, length));
                     request.Content.Headers.ContentLength = length;
+                    AddActionHeaders(request, message.Action!.Header);
                     request.Content.Headers.ContentType =
                         new MediaTypeHeaderValue("application/offset+octet-stream");
                     response = await http.SendAsync(request,
@@ -282,9 +285,11 @@ internal static class HostedGitLfsTransferAgent
             CheckTusVersion(response);
             if (ReadTusNumber(response, "Upload-Length") != size || ReadTusOffset(response) != size)
                 throw new InvalidOperationException("tus verification offset changed");
-            if (!response.Headers.TryGetValues("Upload-Verified", out IEnumerable<string>? values) ||
-                values.SingleOrDefault() == "true") return;
-            if (values.SingleOrDefault() != "false")
+            if (!response.Headers.TryGetValues("Upload-Verified", out IEnumerable<string>? values))
+                throw new InvalidOperationException("tus verification status is missing");
+            string? verified = values.SingleOrDefault();
+            if (verified == "true") return;
+            if (verified != "false")
                 throw new InvalidOperationException("Invalid tus verification status");
             if (DateTime.UtcNow >= deadline)
                 throw new TimeoutException("tus verification did not finish before the upload expired");
