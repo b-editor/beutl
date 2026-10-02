@@ -18,14 +18,12 @@ internal static class SlippableMedia
     // Total is the absolute source duration (null when the stream has no bounded source).
     internal sealed class Target
     {
-        public Target(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan visibleEnd, TimeSpan outPointHeadroom,
-            bool isVideo = false)
+        public Target(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan visibleEnd, TimeSpan outPointHeadroom)
         {
             Offset = offset;
             Total = total;
             VisibleEnd = visibleEnd;
             OutPointHeadroom = outPointHeadroom;
-            IsVideo = isVideo;
         }
 
         public IProperty<TimeSpan> Offset { get; }
@@ -37,8 +35,6 @@ internal static class SlippableMedia
         public TimeSpan VisibleEnd { get; }
 
         public TimeSpan OutPointHeadroom { get; }
-
-        public bool IsVideo { get; }
 
         public TimeSpan Current
         {
@@ -55,79 +51,81 @@ internal static class SlippableMedia
     // disabled stream outside its source is refused, not applied desynced.
     public static List<Target> Collect(Element element)
     {
-        var targets = new List<Target>();
-        var visited = new HashSet<object>();
+        var targets = new Dictionary<IProperty<TimeSpan>, Target>();
+        var visited = new HashSet<(object, bool)>();
         foreach (EngineObject obj in element.Objects)
         {
             CollectFrom(obj, element, targets, visited);
         }
 
-        // Time controllers can sample beyond their target's declared range. Until trim
-        // operations share their time mapping (#2569), retain the pre-existing video bounds.
-        // They only process drawables, so independent audio keeps its own clipped window.
-        // Check the whole traversal so a shared source reached before its controller is
-        // treated the same way regardless of collection order.
-        if (visited.Any(static obj => obj is DrawableTimeController))
-        {
-            for (int i = 0; i < targets.Count; i++)
-            {
-                Target target = targets[i];
-                if (target.IsVideo)
-                    targets[i] = CreateElementBoundTarget(target.Offset, target.Total, element.Length, isVideo: true);
-            }
-        }
-
-        return targets;
+        return [.. targets.Values];
     }
 
-    // The visited set makes each node contribute once: a media object reachable through
-    // several paths (e.g. one SourceVideo shared by two DrawablePresenter.Targets) must not
-    // receive the shared delta once per path, and a presenter cycle must not recurse forever.
-    private static void CollectFrom(object obj, Element element, List<Target> targets, HashSet<object> visited)
+    // Visit shared objects once per timing context. A source reached through both a plain
+    // presenter and a time controller must satisfy both windows, regardless of visit order.
+    // Targets remain unique by offset property, and presenter cycles stay bounded.
+    private static void CollectFrom(object obj, Element element, Dictionary<IProperty<TimeSpan>, Target> targets,
+        HashSet<(object, bool)> visited, bool timeControlled = false)
     {
-        if (!visited.Add(obj)) return;
+        if (!visited.Add((obj, timeControlled))) return;
 
         switch (obj)
         {
             case SourceVideo video:
-                targets.Add(CreateVideoTarget(video, element));
+                AddTarget(targets, CreateVideoTarget(video, element, timeControlled));
                 break;
             case SourceSound sound:
-                targets.Add(CreateSoundTarget(sound, element));
+                AddTarget(targets, CreateSoundTarget(sound, element));
                 break;
             case SceneSound sceneSound:
-                targets.Add(CreateSceneSoundTarget(sceneSound, element));
+                AddTarget(targets, CreateSceneSoundTarget(sceneSound, element));
                 break;
             case SoundGroup soundGroup:
                 foreach (Sound child in soundGroup.Children)
-                    CollectFrom(child, element, targets, visited);
+                    CollectFrom(child, element, targets, visited, timeControlled);
                 break;
             case DrawableGroup drawableGroup:
                 foreach (Drawable child in drawableGroup.Children)
-                    CollectFrom(child, element, targets, visited);
+                    CollectFrom(child, element, targets, visited, timeControlled);
                 break;
             case DrawableDecorator decorator:
                 foreach (Drawable child in decorator.Children)
-                    CollectFrom(child, element, targets, visited);
+                    CollectFrom(child, element, targets, visited, timeControlled);
                 break;
-            // DrawablePresenter / DrawableTimeController render the drawable in Target
-            // rather than a Children list, so a wrapped SourceVideo is only reachable here.
+            case DrawableTimeController controller:
+                if (controller.Target.CurrentValue is { } controlled)
+                    CollectFrom(controlled, element, targets, visited, timeControlled: true);
+                break;
             case IPresenter<Drawable> presenter:
                 if (presenter.Target.CurrentValue is { } presented)
-                    CollectFrom(presented, element, targets, visited);
+                    CollectFrom(presented, element, targets, visited, timeControlled);
                 break;
         }
     }
 
-    private static Target CreateVideoTarget(SourceVideo video, Element element)
+    private static void AddTarget(Dictionary<IProperty<TimeSpan>, Target> targets, Target target)
+    {
+        if (targets.TryGetValue(target.Offset, out Target? existing))
+        {
+            target = new Target(target.Offset, target.Total,
+                existing.VisibleEnd > target.VisibleEnd ? existing.VisibleEnd : target.VisibleEnd,
+                existing.OutPointHeadroom < target.OutPointHeadroom ? existing.OutPointHeadroom : target.OutPointHeadroom);
+        }
+
+        targets[target.Offset] = target;
+    }
+
+    private static Target CreateVideoTarget(SourceVideo video, Element element, bool timeControlled)
     {
         // An exhausted source still has a known total even when TryGetOriginalDuration returns false.
         using var resource = video.ToResource(CompositionContext.Default);
         TimeSpan? total = video.CalculateOriginalTime((SourceVideo.Resource)resource);
-        if (HasSpeedMapping(video.Speed)
+        // Controller-aware sampling remains tracked in #2569. Apply the legacy window
+        // only on paths beneath that controller, without relaxing an independent path.
+        if (timeControlled || HasSpeedMapping(video.Speed)
             || video.IsLoop.CurrentValue || video.IsLoop.Animation is not null || video.IsLoop.HasExpression)
         {
-            return CreateElementBoundTarget(video.OffsetPosition, total, element.Length, isVideo: true);
+            return CreateElementBoundTarget(video.OffsetPosition, total, element.Length);
         }
 
         // DrawableGroup and presenters do not clip a video at its own TimeRange.End.
@@ -158,7 +156,7 @@ internal static class SlippableMedia
         }
         if (visibleEnd < TimeSpan.Zero) visibleEnd = TimeSpan.Zero;
 
-        return new Target(video.OffsetPosition, total, visibleEnd, room, isVideo: true);
+        return new Target(video.OffsetPosition, total, visibleEnd, room);
     }
 
     private static Target CreateSoundTarget(SourceSound sound, Element element)
@@ -220,12 +218,11 @@ internal static class SlippableMedia
         return true;
     }
 
-    private static Target CreateElementBoundTarget(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan length,
-        bool isVideo = false)
+    private static Target CreateElementBoundTarget(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan length)
     {
         TimeSpan room = total is { } duration ? duration - offset.CurrentValue - length : TimeSpan.MaxValue;
         if (room < TimeSpan.Zero) room = TimeSpan.Zero;
-        return new Target(offset, total, length, room, isVideo);
+        return new Target(offset, total, length, room);
     }
 
     // The largest-magnitude delta (in the requested direction) that every stream can apply

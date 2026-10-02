@@ -683,6 +683,95 @@ public class ElementSlipServiceTests
         });
     }
 
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void Slip_ControllerPreservesPlainVideoBoundsInEitherTraversalOrder(bool controllerFirst, bool sharedTarget)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(2, 2)
+        };
+        var plain = new DrawablePresenter { Target = { CurrentValue = video } };
+        var controlledVideo = sharedTarget ? video : new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(2)
+        };
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = controlledVideo },
+            Speed = { CurrentValue = 50f }
+        };
+        element.Objects.Add(controllerFirst ? controller : plain);
+        element.Objects.Add(controllerFirst ? plain : controller);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+        using var resource = (DrawablePresenter.Resource)plain.ToResource(
+            new CompositionContext(TimeSpan.FromSeconds(1.9)));
+        var sampled = (SourceVideo.Resource)resource.Target!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(controlledVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_ControllerOnlyTarget_RetainsLegacyBoundsThroughNestedPresenter(bool nestedPresenter)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(2, 2)
+        };
+        Drawable target = nestedPresenter ? new DrawablePresenter
+        {
+            Target = { CurrentValue = video },
+            IsTimeAnchor = true,
+            TimeRange = video.TimeRange
+        } : video;
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = target },
+            Speed = { CurrentValue = 50f }
+        };
+        element.Objects.Add(controller);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(
+            new CompositionContext(TimeSpan.FromSeconds(3.9)));
+        var sampled = resource.Target is DrawablePresenter.Resource wrapper
+            ? (SourceVideo.Resource)wrapper.Target!
+            : (SourceVideo.Resource)resource.Target!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
     [Test]
     public void Slip_NestedTimeController_RetainsElementBoundsUntilTimeMappingIsSupported()
     {
