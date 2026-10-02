@@ -152,6 +152,78 @@ public class PlayerViewModelQuiescenceTests
     }
 
     [AvaloniaTest]
+    public async Task Concurrent_pause_callers_share_one_scene_drain()
+    {
+        EditViewModel editor = await OpenEditor();
+        var renderEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseRender = new ManualResetEventSlim();
+        Task render = RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            renderEntered.TrySetResult();
+            if (!releaseRender.Wait(TimeSpan.FromSeconds(15)))
+                throw new TimeoutException("The test did not release rendering.");
+        });
+        using var callersStarted = new CountdownEvent(2);
+        TaskCompletionSource<Task>[] calls =
+        [
+            new(TaskCreationOptions.RunContinuationsAsynchronously),
+            new(TaskCreationOptions.RunContinuationsAsynchronously)
+        ];
+        Thread[] threads = calls.Select(call => new Thread(() =>
+        {
+            callersStarted.Signal();
+            try
+            {
+                call.SetResult(editor.Player.Pause());
+            }
+            catch (Exception ex)
+            {
+                call.SetException(ex);
+            }
+        })
+        { IsBackground = true }).ToArray();
+        try
+        {
+            await renderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            object requestLock = typeof(PlayerViewModel)
+                .GetField("_renderRequestLock", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .GetValue(editor.Player)!;
+            lock (requestLock)
+            {
+                foreach (Thread thread in threads)
+                    thread.Start();
+                Assert.That(callersStarted.Wait(TimeSpan.FromSeconds(5)), Is.True);
+                // Hold startup before its first await. Both callers must reach the contended
+                // lock before releasing it, so the old check-then-start race is deterministic.
+                Assert.That(SpinWait.SpinUntil(() => threads.All(thread =>
+                    (thread.ThreadState & System.Threading.ThreadState.WaitSleepJoin) != 0),
+                    TimeSpan.FromSeconds(5)), Is.True);
+            }
+
+            Task first = await calls[0].Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Task second = await calls[1].Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(first, Is.SameAs(second));
+                Assert.That(editor.Player.Pause(), Is.SameAs(first));
+                Assert.That(first.IsCompleted, Is.False, "all callers must await the blocked scene work");
+            });
+        }
+        finally
+        {
+            releaseRender.Set();
+            await render.WaitAsync(TimeSpan.FromSeconds(5));
+            foreach (var call in calls)
+            {
+                Task pause = await call.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                await pause.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            foreach (Thread thread in threads)
+                Assert.That(thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task A_queued_audio_buffer_checks_stop_state_on_the_compose_thread(bool cancelToken)
@@ -170,6 +242,7 @@ public class PlayerViewModelQuiescenceTests
         });
         Task? pause = null;
         Task<(Pcm<Stereo32BitFloat>? Pcm, TimeSpan SceneEnd)>? buffer = null;
+        bool bufferWasComposed = false;
         try
         {
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -187,16 +260,21 @@ public class PlayerViewModelQuiescenceTests
         finally
         {
             release.Set();
+            // Keep this UI turn until the queued audio reaches its admission check. PauseCore
+            // may still be queued on the UI dispatcher, but the stop request must already apply.
+            if (pause is not null)
+                ComposeThread.Dispatcher.Invoke(static () => { });
             await blocker.WaitAsync(TimeSpan.FromSeconds(5));
             if (buffer is not null)
             {
                 using var pcm = (await buffer.WaitAsync(TimeSpan.FromSeconds(5))).Pcm;
-                Assert.That(pcm, Is.Null);
+                bufferWasComposed = pcm is not null;
             }
             if (pause is not null)
                 await pause.WaitAsync(TimeSpan.FromSeconds(5));
             sound.Release.Dispose();
         }
+        Assert.That(bufferWasComposed, Is.False);
         Assert.That(sound.Entered.Task.IsCompleted, Is.False, "the retired buffer must not compose the live scene");
     }
 

@@ -1213,8 +1213,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         return ComposeThread.Dispatcher.Invoke(() =>
         {
             // This check must be inside the dispatch: a buffer queued before Pause can execute
-            // after its drain barrier. A retired session must not read the scene or the composer.
-            if (playbackToken.IsCancellationRequested || !_sessionGuard.Owns(generation))
+            // after its drain barrier. A stopping or retired session must not read scene state,
+            // including the interval before a queued PauseCore has retired the generation.
+            if (_isPausing || playbackToken.IsCancellationRequested || !_sessionGuard.Owns(generation))
                 return ((Pcm<Stereo32BitFloat>?)null, TimeSpan.Zero);
 
             TimeSpan sceneEnd = scene.Start + scene.Duration;
@@ -1579,10 +1580,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public Task Pause()
     {
-        // Share the complete drain, including its dispatcher barriers, with overlapping callers.
-        if (!_pauseTask.IsCompleted)
-            return _pauseTask;
-        return _pauseTask = PauseCore();
+        lock (_renderRequestLock)
+        {
+            // Publish one complete drain before it can start, even for concurrent or reentrant
+            // callers. UI dispatch also keeps its completion serialized with history mutations.
+            if (!_pauseTask.IsCompleted)
+                return _pauseTask;
+            _isPausing = true;
+            return _pauseTask = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                PauseCore, Avalonia.Threading.DispatcherPriority.Normal);
+        }
     }
 
     private async Task PauseCore()
@@ -1590,7 +1597,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         CancellationTokenSource? renderCts;
         lock (_renderRequestLock)
         {
-            _isPausing = true;
             renderCts = _cts;
             _cts = null;
         }
