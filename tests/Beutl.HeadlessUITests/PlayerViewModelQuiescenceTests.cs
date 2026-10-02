@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Reactive.Linq;
+using System.Reflection;
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.Audio;
@@ -59,6 +60,93 @@ public class PlayerViewModelQuiescenceTests
         }
 
         Assert.That(mutated, Is.True);
+    }
+
+    [AvaloniaTest]
+    public async Task A_faulted_playback_task_still_drains_scene_work_before_history_mutation()
+    {
+        EditViewModel editor = await OpenEditor();
+        var sound = AddBlockingSound(editor.Scene);
+        Task composition = StartComposition(editor);
+        Task<bool>? mutation = null;
+        bool mutated = false;
+        try
+        {
+            await sound.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            SetPlaybackTask(editor.Player, Task.FromException(new InvalidOperationException("Playback failed.")));
+            mutation = editor.ExecuteGuardedHistoryMutationAsync(() => true, () =>
+            {
+                mutated = true;
+                editor.Scene.Children.Clear();
+                return true;
+            }).AsTask();
+
+            // Let Pause handle the backend failure and reach its scene-work barriers.
+            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
+            Assert.Multiple(() =>
+            {
+                Assert.That(mutation.IsCompleted, Is.False);
+                Assert.That(mutated, Is.False, "a failed backend must not release active scene readers");
+            });
+        }
+        finally
+        {
+            sound.Release.Set();
+            await composition.WaitAsync(TimeSpan.FromSeconds(5));
+            if (mutation is not null)
+                await mutation.WaitAsync(TimeSpan.FromSeconds(5));
+            sound.Release.Dispose();
+        }
+
+        Assert.That(mutated, Is.True, "a backend failure must not prevent a safe history operation");
+        await editor.Player.Pause().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [AvaloniaTest]
+    public async Task Shuttle_pause_drains_clock_updates_before_restarting_in_the_other_direction()
+    {
+        EditViewModel editor = await OpenEditor();
+        var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
+        editor.Scene.Duration = TimeSpan.FromSeconds(20);
+        clock.CurrentTime.Value = TimeSpan.FromSeconds(5);
+
+        await MoveAndPause(forward: true);
+        await MoveAndPause(forward: false);
+
+        async Task MoveAndPause(bool forward)
+        {
+            TimeSpan start = clock.CurrentTime.Value;
+            var moved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var subscription = clock.CurrentTime.Subscribe(time =>
+            {
+                if (forward ? time > start : time < start)
+                    moved.TrySetResult();
+            });
+            try
+            {
+                if (forward)
+                    editor.Player.ShuttleForward();
+                else
+                    editor.Player.ShuttleBackward();
+                await moved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.That(editor.Player.IsPlaying.Value, Is.True);
+            }
+            finally
+            {
+                await editor.Player.Pause().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            TimeSpan stoppedTime = clock.CurrentTime.Value;
+            // A retired shuttle may have already posted another clock update to the UI thread.
+            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
+            Assert.Multiple(() =>
+            {
+                Assert.That(clock.CurrentTime.Value, Is.EqualTo(stoppedTime));
+                Assert.That(editor.Player.IsPlaying.Value, Is.False);
+                Assert.That(editor.Player.PlaybackDirection.Value, Is.EqualTo(PlaybackDirection.Stopped));
+                Assert.That(editor.Player.PlaybackSpeed.Value, Is.EqualTo(1.0f));
+            });
+        }
     }
 
     [AvaloniaTest]
@@ -343,9 +431,11 @@ public class PlayerViewModelQuiescenceTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task A_stopped_render_producer_cannot_publish_a_new_wait(bool cancelToken)
+    [TestCase("_waitTimerGate", false)]
+    [TestCase("_waitTimerGate", true)]
+    [TestCase("_waitRenderGate", false)]
+    [TestCase("_waitRenderGate", true)]
+    public async Task A_stopped_render_producer_cannot_publish_a_new_wait(string gateName, bool cancelToken)
     {
         EditViewModel editor = await OpenEditor();
         using var cts = new CancellationTokenSource();
@@ -356,7 +446,7 @@ public class PlayerViewModelQuiescenceTests
         else
             playing.Value = false;
         var gate = (BufferedPlayerWaitGate)typeof(BufferedPlayer)
-            .GetField("_waitTimerGate", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(producer)!;
+            .GetField(gateName, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(producer)!;
         using var wait = new CancellationTokenSource();
         Assert.That(gate.Publish(wait), Is.False, "a pause before wait publication must not leave the render barrier blocked");
     }
