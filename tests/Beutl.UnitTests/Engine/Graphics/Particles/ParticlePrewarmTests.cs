@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.Globalization;
+using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Graphics.Particles;
 using Beutl.Media;
@@ -9,6 +10,50 @@ namespace Beutl.UnitTests.Engine.Graphics.Particles;
 [TestFixture]
 public sealed class ParticlePrewarmTests
 {
+    [TestCase("00:01:00.0000001")]
+    [TestCase("01:00:00")]
+    [TestCase("2")]
+    [TestCase("500.00:00:00")]
+    [TestCase("10675199.02:48:05.4775807")]
+    public void UnsupportedDuration_IsRejectedBeforeSimulation(string text)
+    {
+        var emitter = CreateEmitter();
+        emitter.PrewarmDuration.CurrentValue = TimeSpan.Parse(text, CultureInfo.InvariantCulture);
+
+        // Assert before evaluating the resource so the regression cannot run days of simulation.
+        Assert.That(emitter.PrewarmDuration.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        using var resource = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
+        Assert.That(resource.GetAliveParticles().Length, Is.Zero);
+    }
+
+    [TestCase("00:00:59.9999999")]
+    [TestCase("00:01:00")]
+    public void SupportedDuration_AtTheUpperBoundaryIsPreserved(string text)
+    {
+        var emitter = CreateEmitter();
+        var duration = TimeSpan.Parse(text, CultureInfo.InvariantCulture);
+        emitter.PrewarmDuration.CurrentValue = duration;
+
+        Assert.That(emitter.PrewarmDuration.CurrentValue, Is.EqualTo(duration));
+        using var resource = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
+        Assert.That(resource.GetAliveParticles().Length, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void SerializedUnsupportedDuration_DoesNotOverflowOnTheFirstFrame()
+    {
+        var json = CoreSerializer.SerializeToJsonObject(CreateEmitter());
+        json[nameof(ParticleEmitter.PrewarmDuration)] = "500.00:00:00";
+        var restored = (ParticleEmitter)CoreSerializer.DeserializeFromJsonObject(json, typeof(ParticleEmitter));
+
+        Assert.DoesNotThrow(() =>
+        {
+            using var resource = restored.ToResource(new CompositionContext(TimeSpan.Zero));
+            Assert.That(resource.GetAliveParticles().Length, Is.Zero);
+        });
+        Assert.That(restored.PrewarmDuration.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+    }
+
     [TestCase(0.125, 0)]
     [TestCase(2, 0)]
     [TestCase(2, 7)]

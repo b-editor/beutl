@@ -22,9 +22,9 @@ namespace Beutl.HeadlessUITests;
 public sealed class ParticlePrewarmEditorTests
 {
     [AvaloniaTest]
-    [TestCase(320, false, "ja")]
-    [TestCase(480, true, "en")]
-    public void PrewarmDuration_CanBeEditedUndoneAndRedone(int width, bool light, string language)
+    [TestCase(320, false, "ja", "2")]
+    [TestCase(480, true, "en", "500.00:00:00")]
+    public void PrewarmDuration_CanBeEditedUndoneAndRedone(int width, bool light, string language, string unsupportedInput)
     {
         var originalCulture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
@@ -55,9 +55,11 @@ public sealed class ParticlePrewarmEditorTests
             var editor = view.GetVisualDescendants().OfType<TimeSpanEditor>().Single();
             var input = editor.GetVisualDescendants().OfType<TextBox>().Single();
             Assert.That(editor.Header, Is.EqualTo(GraphicsStrings.ParticleEmitter_PrewarmDuration));
+            Assert.That(editor.HoverInfo, Does.Contain("00:01:00"));
             Assert.That(editor.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(input.Focus(), Is.True);
-            input.Text = "00:00:02.2500000";
+            input.Clear();
+            window.KeyTextInput("00:00:02.2500000");
             Assert.That(done.Focus(), Is.True);
             HeadlessTestHelpers.Render(3);
 
@@ -72,6 +74,19 @@ public sealed class ParticlePrewarmEditorTests
             Assert.That(input.Bounds.Width, Is.GreaterThan(0));
             Assert.That(input.TranslatePoint(default, view)!.Value.X + input.Bounds.Width,
                 Is.LessThanOrEqualTo(view.Bounds.Width + 1));
+
+            Assert.That(input.Focus(), Is.True);
+            input.Clear();
+            window.KeyTextInput(unsupportedInput);
+            Assert.That(done.Focus(), Is.True);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(emitter.PrewarmDuration.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(editor.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(input.Text, Is.EqualTo(editor.Value.ToString()));
+            Assert.That(history.Undo(), Is.True);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(editor.Value, Is.EqualTo(TimeSpan.FromSeconds(2.25)));
+            Assert.That(input.Text, Is.EqualTo(editor.Value.ToString()));
 
             if (Environment.GetEnvironmentVariable("BEUTL_PARTICLE_PREWARM_CAPTURE") is { Length: > 0 } directory)
             {

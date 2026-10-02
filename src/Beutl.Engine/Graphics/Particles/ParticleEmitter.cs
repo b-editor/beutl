@@ -42,11 +42,13 @@ public partial class ParticleEmitter : Drawable
 
     // Emission
     /// <summary>
-    /// Time to simulate before the emitter starts. Zero disables prewarming; negative values
-    /// are treated as zero. Only particle simulation advances, not property animations.
+    /// Time to simulate before the emitter starts, from zero to one minute (3,600 fixed steps).
+    /// Values outside this range fall back to zero, disabling prewarming. Only particle simulation
+    /// advances, not property animations.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_PrewarmDuration), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_EmissionGroup))]
+    [Range(typeof(TimeSpan), "00:00:00", "00:01:00", ParseLimitsInInvariantCulture = true)]
     public IProperty<TimeSpan> PrewarmDuration { get; } = Property.Create<TimeSpan>();
 
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_EmissionRate), ResourceType = typeof(GraphicsStrings),
