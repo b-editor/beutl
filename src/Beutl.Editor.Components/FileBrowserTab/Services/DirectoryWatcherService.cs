@@ -611,6 +611,12 @@ internal sealed class DirectoryWatcherService : IDisposable
     {
         if (IsCurrentWatcher(sender))
         {
+            // Windows also reports a parent directory's last-write change for child writes.
+            // Child name/write events already describe the update; this duplicate would turn
+            // an atomic editor save into a full refresh that replaces the existing tree items.
+            if (e.ChangeType == WatcherChangeTypes.Changed && Directory.Exists(e.FullPath))
+                return;
+
             if (e.Name is not null)
                 NotifyPathChanged(e.FullPath, sender);
             if (e is RenamedEventArgs { OldName: not null } renamed)

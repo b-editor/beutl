@@ -20,11 +20,19 @@ public class SelectLibraryItemDialogViewModel
     private readonly List<Type> _pinnedItems;
     private Task<PinnableLibraryItem[]>? _allItemsTask;
     private PinnableLibraryItem[] _allReferenceItems = [];
+    private int _searchVersion;
 
     public SelectLibraryItemDialogViewModel(string format, Type baseType)
+        : this(format, baseType, null, null)
+    {
+    }
+
+    internal SelectLibraryItemDialogViewModel(string format, Type baseType,
+        Task<PinnableLibraryItem[]>? itemsTask, Task<PinnableLibraryItem[]>? allItemsTask)
     {
         _format = format;
         _baseType = baseType;
+        _allItemsTask = allItemsTask;
         IReadOnlySet<Type> items = LibraryService.Current.GetTypesFromFormat(_format);
         if (items.Count == 0)
         {
@@ -37,7 +45,7 @@ public class SelectLibraryItemDialogViewModel
             .Where(t => t != null)
             .ToList()!;
 
-        _itemsTask = Task.Run(() =>
+        _itemsTask = itemsTask ?? Task.Run(() =>
         {
             try
             {
@@ -83,6 +91,8 @@ public class SelectLibraryItemDialogViewModel
     public ReactiveProperty<bool> ShowReferences { get; } = new();
 
     public bool HasReferencesTab { get; private set; }
+
+    internal Task SearchTask { get; private set; } = Task.CompletedTask;
 
     public Task<PinnableLibraryItem[]> LoadAllItems()
     {
@@ -173,8 +183,16 @@ public class SelectLibraryItemDialogViewModel
 
     private async void ProcessSearchText()
     {
+        await (SearchTask = ProcessSearchTextAsync());
+    }
+
+    private async Task ProcessSearchTextAsync()
+    {
+        int searchVersion = Interlocked.Increment(ref _searchVersion);
         Items.ClearOnScheduler();
         var items = ShowAll.Value ? await LoadAllItems() : await _itemsTask;
+        if (searchVersion != Volatile.Read(ref _searchVersion)) return;
+
         items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description))
             .OrderByDescending(t => t.IsPinned)
             .ToArray();
