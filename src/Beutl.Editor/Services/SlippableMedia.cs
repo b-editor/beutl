@@ -17,15 +17,19 @@ internal static class SlippableMedia
     // Total is the absolute source duration (null when the stream has no bounded source).
     internal sealed class Target
     {
-        public Target(IProperty<TimeSpan> offset, TimeSpan? total)
+        public Target(IProperty<TimeSpan> offset, TimeSpan? total, float speed)
         {
             Offset = offset;
             Total = total;
+            Speed = speed / 100.0;
         }
 
         public IProperty<TimeSpan> Offset { get; }
 
         public TimeSpan? Total { get; }
+
+        // Source-time units consumed per timeline-time unit.
+        public double Speed { get; }
 
         public TimeSpan Current
         {
@@ -49,6 +53,8 @@ internal static class SlippableMedia
             CollectFrom(obj, targets, visited);
         }
 
+        // Frozen media consumes no source time, so it neither moves nor limits a trim.
+        targets.RemoveAll(static target => target.Speed <= 0);
         return targets;
     }
 
@@ -93,17 +99,19 @@ internal static class SlippableMedia
 
     private static Target CreateVideoTarget(SourceVideo video)
     {
+        // Read the raw source duration: CalculateOriginalTime already divides by Speed and
+        // therefore returns timeline time, whereas OffsetPosition is stored in source time.
         // An exhausted source still has a known total even when TryGetOriginalDuration returns false.
         using var resource = video.ToResource(CompositionContext.Default);
-        TimeSpan? total = video.CalculateOriginalTime((SourceVideo.Resource)resource);
-        return new Target(video.OffsetPosition, total);
+        TimeSpan? total = ((SourceVideo.Resource)resource).Source?.Duration;
+        return new Target(video.OffsetPosition, total, video.Speed.CurrentValue);
     }
 
     private static Target CreateSoundTarget(SourceSound sound)
     {
         // SourceSound.TryGetOriginalDuration returns the full source duration.
         TimeSpan? total = sound.TryGetOriginalDuration(out TimeSpan duration) ? duration : null;
-        return new Target(sound.OffsetPosition, total);
+        return new Target(sound.OffsetPosition, total, sound.Speed.CurrentValue);
     }
 
     private static Target CreateSceneSoundTarget(SceneSound sound)
@@ -112,12 +120,12 @@ internal static class SlippableMedia
         // window can advance. Unresolved references stay unbounded, like a SourceVideo
         // without a loaded source.
         TimeSpan? total = sound.ReferencedScene.CurrentValue?.Duration;
-        return new Target(sound.OffsetPosition, total);
+        return new Target(sound.OffsetPosition, total, sound.Speed.CurrentValue);
     }
 
-    // The largest-magnitude delta (in the requested direction) that every stream can apply
-    // without leaving [0, Total - elementLength]. Applying one shared delta keeps linked
-    // streams (e.g. a video + audio pair) in sync even when one hits its source boundary first.
+    // The largest-magnitude timeline delta (in the requested direction) that every stream can
+    // apply without leaving [0, Total - elementLength * Speed] in source time. One shared timeline
+    // delta keeps linked streams in sync even when one hits its source boundary first.
     public static TimeSpan ClampSharedDelta(IReadOnlyList<Target> targets, TimeSpan delta, TimeSpan elementLength)
     {
         if (delta == TimeSpan.Zero || targets.Count == 0) return TimeSpan.Zero;
@@ -127,7 +135,7 @@ internal static class SlippableMedia
         {
             long allowed = delta > TimeSpan.Zero
                 ? ForwardHeadroom(target, elementLength)
-                : Math.Max(0L, target.Current.Ticks);
+                : TimelineHeadroom(target, target.Current.Ticks);
             magnitude = Math.Min(magnitude, allowed);
         }
 
@@ -138,9 +146,16 @@ internal static class SlippableMedia
     {
         if (target.Total is not { } total) return long.MaxValue;
 
-        TimeSpan maxOffset = total - elementLength;
-        if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
-        return Math.Max(0L, (maxOffset - target.Current).Ticks);
+        double maxOffset = Math.Max(0, total.Ticks - elementLength.Ticks * target.Speed);
+        return TimelineHeadroom(target, maxOffset - target.Current.Ticks);
+    }
+
+    private static long TimelineHeadroom(Target target, double sourceTicks)
+    {
+        double ticks = Math.Max(0, sourceTicks) / target.Speed;
+        // Round down so converting the shared delta back never passes a source boundary.
+        // Very slow media can have more timeline headroom than TimeSpan can represent.
+        return ticks >= long.MaxValue ? long.MaxValue : (long)ticks;
     }
 
     // `applied` spans one whole trim operation: the per-element visited set in Collect only
@@ -156,30 +171,28 @@ internal static class SlippableMedia
         {
             if (applied is null || applied.Add(target.Offset))
             {
-                target.Current += delta;
+                target.Current += delta * target.Speed;
             }
         }
     }
 
     // Room to extend the element's out-point (grow its length while the in-point stays put),
-    // bounded by the tightest source tail among its streams. TimeSpan.MaxValue when unbounded.
+    // bounded by the tightest source tail among its streams, expressed in timeline time.
+    // TimeSpan.MaxValue when unbounded.
     public static TimeSpan OutPointRoom(IReadOnlyList<Target> targets, TimeSpan elementLength)
     {
         TimeSpan room = TimeSpan.MaxValue;
         foreach (Target target in targets)
         {
-            if (target.Total is not { } total) continue;
-
-            TimeSpan available = total - target.Current - elementLength;
-            if (available < TimeSpan.Zero) available = TimeSpan.Zero;
+            TimeSpan available = TimeSpan.FromTicks(ForwardHeadroom(target, elementLength));
             if (available < room) room = available;
         }
 
         return room;
     }
 
-    // Room to pull the element's in-point earlier, bounded by the smallest current offset among
-    // its streams (the offset cannot go below zero). Unlike OutPointRoom this bound holds even
+    // Timeline room to pull the element's in-point earlier, bounded by each stream's current
+    // source offset divided by its speed (the offset cannot go below zero). This bound holds even
     // when the source duration is unknown (Total == null), so those streams are not skipped.
     // TimeSpan.MaxValue when the element has no slip-able media.
     public static TimeSpan InPointRoom(IReadOnlyList<Target> targets)
@@ -187,7 +200,8 @@ internal static class SlippableMedia
         TimeSpan room = TimeSpan.MaxValue;
         foreach (Target target in targets)
         {
-            if (target.Current < room) room = target.Current;
+            TimeSpan available = TimeSpan.FromTicks(TimelineHeadroom(target, target.Current.Ticks));
+            if (available < room) room = available;
         }
 
         return room;

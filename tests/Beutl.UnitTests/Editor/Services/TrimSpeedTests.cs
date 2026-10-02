@@ -1,0 +1,298 @@
+﻿using Beutl.Audio;
+using Beutl.Configuration;
+using Beutl.Editor;
+using Beutl.Editor.Services;
+using Beutl.Engine;
+using Beutl.Graphics;
+using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.ProjectSystem;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
+using Beutl.UnitTests.TestInfrastructure;
+
+namespace Beutl.UnitTests.Editor.Services;
+
+[TestFixture("video")]
+[TestFixture("sound")]
+[TestFixture("scene")]
+public class TrimSpeedTests(string mediaKind)
+{
+    private SceneHistoryHarness _harness = null!;
+    private ElementSlipService _slip = null!;
+    private ElementResizeService _resize = null!;
+    private bool _originalClamp;
+
+    private Scene Scene => _harness.Scene;
+    private HistoryManager History => _harness.History;
+
+    [OneTimeSetUp]
+    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
+
+    [SetUp]
+    public void SetUp()
+    {
+        _harness = new SceneHistoryHarness("beutl_trim_speed", duration: TimeSpan.FromSeconds(30));
+        _slip = new ElementSlipService(History);
+        _resize = new ElementResizeService(History);
+        _originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = _originalClamp;
+        _harness.Dispose();
+    }
+
+    [TestCase(50f, 1, 2.5)]
+    [TestCase(100f, 1, 3)]
+    [TestCase(200f, 1, 4)]
+    [TestCase(50f, -1, 1.5)]
+    [TestCase(100f, -1, 1)]
+    [TestCase(200f, -1, 0)]
+    public void Slip_ConvertsTimelineDeltaToSourceTime(float speed, double delta, double expectedOffset)
+    {
+        Element element = AddElement(1, 1);
+        var offset = AddMedia(element, speed, 2);
+        History.Commit();
+        int before = History.UndoCount;
+
+        bool applied = _slip.Slip(Scene, [element], TimeSpan.FromSeconds(delta));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(History.UndoCount, Is.EqualTo(before + 1));
+        });
+        History.Undo();
+        Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        History.Redo();
+        Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+    }
+
+    [TestCase(50f, 5, 8)]
+    [TestCase(100f, 4, 3)]
+    [TestCase(200f, 2, 0.5)]
+    public void Slip_SourceTailClampsLinkedMediaInTimelineTime(
+        float speed, double expectedOffset, double expectedDelta)
+    {
+        Element element = AddElement(1, 2);
+        var offset = AddMedia(element, speed, 1);
+        var linked = new SourceSound(); // Unknown duration, normal speed.
+        element.Objects.Add(linked);
+        History.Commit();
+
+        bool applied = _slip.Slip(Scene, [element], TimeSpan.FromSeconds(20));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)));
+        });
+        int before = History.UndoCount;
+        Assert.That(_slip.Slip(Scene, [element], TimeSpan.FromSeconds(1)), Is.False);
+        Assert.That(History.UndoCount, Is.EqualTo(before));
+    }
+
+    [TestCase(50f, 3)]
+    [TestCase(100f, 4)]
+    [TestCase(200f, 4.5)]
+    public void Slip_SourceHeadClampsAcrossElementsInTimelineTime(float speed, double expectedLinkedOffset)
+    {
+        Element element = AddElement(1, 2);
+        var offset = AddMedia(element, speed, 1);
+        Element other = AddElement(1, 2, 1);
+        var linked = new SourceSound { OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(5) } };
+        other.Objects.Add(linked);
+
+        bool applied = _slip.Slip(Scene, [element, other], TimeSpan.FromSeconds(-20));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(linked.OffsetPosition.CurrentValue,
+                Is.EqualTo(TimeSpan.FromSeconds(expectedLinkedOffset)));
+        });
+    }
+
+    [TestCase(false, 50f, 1, 2.5)]
+    [TestCase(false, 200f, 1, 4)]
+    [TestCase(false, 50f, -1, 1.5)]
+    [TestCase(false, 200f, -1, 0)]
+    [TestCase(true, 50f, 1, 2.5)]
+    [TestCase(true, 200f, 1, 4)]
+    [TestCase(true, 50f, -1, 1.5)]
+    [TestCase(true, 200f, -1, 0)]
+    [TestCase(false, 0f, 1, 2)]
+    [TestCase(true, 0f, -1, 2)]
+    public void RollOrSlide_ConvertsBackInPointAndPreservesHistory(
+        bool slide, float speed, double delta, double expectedOffset)
+    {
+        Element front = AddElement(0, 4);
+        Element? middle = slide ? AddElement(4, 2) : null;
+        var middleOffset = middle != null ? AddMedia(middle, 200, 1) : null;
+        double backStart = slide ? 6 : 4;
+        Element back = AddElement(backStart, 2);
+        var offset = AddMedia(back, speed, 2);
+        History.Commit();
+        int before = History.UndoCount;
+
+        bool applied = Trim(front, middle, back, delta);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(4 + delta)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart + delta)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2 - delta)));
+            Assert.That(History.UndoCount, Is.EqualTo(before + 1));
+            if (middle != null)
+            {
+                Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(4 + delta)));
+                Assert.That(middle.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(middleOffset!.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            }
+        });
+        History.Undo();
+        Assert.Multiple(() =>
+        {
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+        History.Redo();
+        Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+        Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart + delta)));
+    }
+
+    [TestCase(false, 50f, 10)]
+    [TestCase(false, 100f, 5)]
+    [TestCase(false, 200f, 2.5)]
+    [TestCase(true, 50f, 10)]
+    [TestCase(true, 100f, 5)]
+    [TestCase(true, 200f, 2.5)]
+    public void RollOrSlide_SourceTailBoundsUseTimelineTime(bool slide, float speed, double expectedLength)
+    {
+        Element front = AddElement(0, 2);
+        var offset = AddMedia(front, speed, 1);
+        Element? middle = slide ? AddElement(2, 2) : null;
+        double backStart = slide ? 4 : 2;
+        Element back = AddElement(backStart, 20);
+
+        var bounds = _resize.GetTrimDeltaBounds(Scene, [new ElementTrimPair(front, back)]);
+        Assert.That(bounds.Max, Is.EqualTo(TimeSpan.FromSeconds(expectedLength - 2)));
+
+        bool applied = Trim(front, middle, back, 15);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(expectedLength)));
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart + expectedLength - 2)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(22 - expectedLength)));
+        });
+    }
+
+    [TestCase(false, 50f, -2)]
+    [TestCase(false, 100f, -1)]
+    [TestCase(false, 200f, -0.5)]
+    [TestCase(true, 50f, -2)]
+    [TestCase(true, 100f, -1)]
+    [TestCase(true, 200f, -0.5)]
+    public void RollOrSlide_SourceHeadBoundsUseTimelineTime(bool slide, float speed, double expectedDelta)
+    {
+        Element front = AddElement(0, 4);
+        Element? middle = slide ? AddElement(4, 2) : null;
+        double backStart = slide ? 6 : 4;
+        Element back = AddElement(backStart, 2);
+        var offset = AddMedia(back, speed, 1);
+
+        var bounds = _resize.GetTrimDeltaBounds(Scene, [new ElementTrimPair(front, back)]);
+        Assert.That(bounds.Min, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)));
+
+        bool applied = Trim(front, middle, back, -10);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(4 + expectedDelta)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart + expectedDelta)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2 - expectedDelta)));
+        });
+    }
+
+    [Test]
+    public void Slip_ZeroSpeed_DoesNotChangeOffsetOrCommit()
+    {
+        Element element = AddElement(1, 2);
+        var offset = AddMedia(element, 0, 1);
+        History.Commit();
+        int before = History.UndoCount;
+
+        bool applied = _slip.Slip(Scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(History.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    private Element AddElement(double start, double length, int zIndex = 0)
+        => _harness.AddElement(TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length), zIndex);
+
+    private bool Trim(Element front, Element? middle, Element back, double delta)
+        => middle == null
+            ? _resize.Roll(Scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(delta))
+            : _resize.Slide(Scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(delta));
+
+    private IProperty<TimeSpan> AddMedia(Element element, float speed, double offsetSeconds)
+    {
+        EngineObject media;
+        IProperty<TimeSpan> offset;
+        if (mediaKind == "video")
+        {
+            var source = new VideoSource();
+            source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 180)));
+            var video = new SourceVideo { Source = { CurrentValue = source }, Speed = { CurrentValue = speed } };
+            media = video;
+            offset = video.OffsetPosition;
+        }
+        else
+        {
+            Sound sound;
+            if (mediaKind == "sound")
+            {
+                var source = new SoundSource();
+                source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 6)));
+                sound = new SourceSound { Source = { CurrentValue = source } };
+            }
+            else
+            {
+                sound = new SceneSound
+                {
+                    ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(6) } }
+                };
+            }
+
+            sound.Speed.CurrentValue = speed;
+            media = sound;
+            offset = sound.OffsetPosition;
+        }
+
+        offset.CurrentValue = TimeSpan.FromSeconds(offsetSeconds);
+        element.Objects.Add(media);
+        return offset;
+    }
+}

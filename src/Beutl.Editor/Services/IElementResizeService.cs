@@ -34,9 +34,9 @@ public interface IElementResizeService
     /// <c>back.Length -= d</c>; total length is preserved. One shared delta — clamped to
     /// the intersection of every pair's window (see <see cref="GetTrimDeltaBounds"/>) — is
     /// applied to all pairs so grouped cuts (e.g. a video + audio pair on separate layers)
-    /// move together. Each back clip's media offset is advanced by the same delta so its
-    /// content stays anchored across the moving cut. Returns <see langword="false"/> (no
-    /// commit) when <paramref name="pairs"/> is empty, any pair is invalid — front and back
+    /// move together. Each back clip's media offset is advanced by the delta converted to
+    /// source time using its speed, keeping content anchored across the moving cut. Returns
+    /// <see langword="false"/> (no commit) when <paramref name="pairs"/> is empty, any pair is invalid — front and back
     /// not distinct, on different layers, not both in <paramref name="scene"/>,
     /// <c>front.End != back.Start</c>, either side locked, or an element appearing in more
     /// than one pair — or the shared clamped delta is zero. A single invalid pair rejects
@@ -50,9 +50,9 @@ public interface IElementResizeService
     /// and the back clip shrinks by it, preserving the total length. One shared delta —
     /// clamped to the intersection of every lane's front/back window (the middles' lengths
     /// are unaffected) — is applied to all lanes so a grouped block spanning layers moves
-    /// together. Each back clip's media offset is advanced by the same delta so its content
-    /// stays anchored; the middle clips only move in time. Returns <see langword="false"/>
-    /// (no commit) when <paramref name="lanes"/> is empty, any lane is invalid — members on
+    /// together. Each back clip's media offset is advanced by the delta converted to source
+    /// time using its speed, keeping content anchored; the middle clips only move in time.
+    /// Returns <see langword="false"/> (no commit) when <paramref name="lanes"/> is empty, any lane is invalid — members on
     /// different layers, not all in <paramref name="scene"/>, the
     /// front → middles → back chain not contiguously adjacent, any participant locked, or
     /// an element appearing twice across lanes — or the shared clamped delta is zero. A

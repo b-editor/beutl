@@ -17,7 +17,8 @@ public interface IElementSlipService
 {
     /// <summary>
     /// Shift the source-media window inside every element of <paramref name="elements"/> by
-    /// <paramref name="delta"/>. Adjusts <see cref="Beutl.Graphics.SourceVideo.OffsetPosition"/>
+    /// the timeline-time <paramref name="delta"/>, converted to source time using each stream's
+    /// speed. Adjusts <see cref="Beutl.Graphics.SourceVideo.OffsetPosition"/>
     /// and <see cref="Beutl.Audio.Sound.OffsetPosition"/> on every slip-able media object
     /// reachable from <see cref="Element.Objects"/>, including sources nested inside
     /// Drawable and Sound containers. A single effective delta — the largest the tightest
