@@ -379,6 +379,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public Device Device => _vulkanDevice.Device;
 
+    /// <inheritdoc cref="VulkanDevice.SupportsTimelineSemaphores"/>
+    public bool SupportsTimelineSemaphores => _vulkanDevice.SupportsTimelineSemaphores;
+
     /// <inheritdoc cref="VulkanDevice.SupportsShaderInt64"/>
     public bool SupportsShaderInt64 => _vulkanDevice.SupportsShaderInt64;
 
@@ -1019,6 +1022,18 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
     public void FlushCommands(bool waitForCompletion)
     {
         _vulkanCommandPool.Flush(waitForCompletion);
+    }
+
+    /// <inheritdoc cref="VulkanCommandPool.WaitForTimelineOnNextSubmission"/>
+    public void WaitForTimelineOnNextSubmission(Silk.NET.Vulkan.Semaphore timeline, ulong value)
+    {
+        _vulkanCommandPool.WaitForTimelineOnNextSubmission(timeline, value);
+    }
+
+    /// <inheritdoc cref="VulkanCommandPool.SubmitSignalingTimeline"/>
+    public void SubmitSignalingTimeline(Silk.NET.Vulkan.Semaphore timeline, ulong value)
+    {
+        _vulkanCommandPool.SubmitSignalingTimeline(timeline, value);
     }
 
     /// <inheritdoc cref="VulkanCommandPool.ThrowIfRenderPassActive"/>

@@ -282,7 +282,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         TransitionTo(SkiaInteropLayout);
         if (requiresSubmission)
         {
-            _context.FlushCommands(waitForCompletion: false);
+            SubmitForSkia(requireCompletion: false);
         }
         MarkSkiaAccess();
         _hasTransparentContents = false;
@@ -292,9 +292,33 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     {
         if (RequiresVulkanToSkiaHandoff)
         {
-            _context.FlushCommands(requireCompletion);
+            SubmitForSkia(requireCompletion);
         }
         MarkSkiaAccess();
+    }
+
+    /// <summary>Submits the backend work Skia is about to consume.</summary>
+    /// <remarks>
+    /// Skia shares this texture's Vulkan queue, so submission order carries the hand-off; only a CPU reader
+    /// needs the work finished.
+    /// </remarks>
+    protected virtual void SubmitForSkia(bool requireCompletion)
+    {
+        _context.FlushCommands(requireCompletion);
+    }
+
+    /// <summary>Gets whether a backend pass can read what Skia drew here without the CPU waiting for Skia.</summary>
+    internal virtual bool OrdersSkiaWritesOnGpu => true;
+
+    /// <summary>Holds the next backend batch until Skia's submitted writes to this texture finish.</summary>
+    /// <remarks>
+    /// Call only when <see cref="OrdersSkiaWritesOnGpu"/> is <see langword="true"/>, after Skia submitted.
+    /// Skia submits to this texture's own Vulkan queue, so there is nothing to add: the backend's batch is
+    /// submitted after Skia's, and the layout barrier <see cref="PrepareForSampling"/> records reaches back over
+    /// every earlier submission on the queue to Skia's colour-attachment writes.
+    /// </remarks>
+    internal virtual void OrderSkiaWritesBeforeBackend()
+    {
     }
 
     protected void MarkSkiaAccess()

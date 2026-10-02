@@ -42,14 +42,14 @@ public class SkiaVulkanImageInitializationTests
                     events.Count(static item => item == VulkanCommandPoolEvent.Submission),
                     Is.EqualTo(1),
                     "The backend clear must be submitted before Skia records a partial overwrite.");
-                // Queue ordering carries the clear only where Skia submits to the same Vulkan queue.
-                // On the composite backend Skia draws through Metal, which shares no semaphore with
-                // Beutl's Vulkan submissions, so the hand-off has to complete on the CPU instead.
+                // Queue ordering carries the clear where Skia submits to the same Vulkan queue, and the shared
+                // timeline where Skia draws through Metal. Only a composite device without one completes the
+                // hand-off on the CPU.
                 Assert.That(
                     events.Count(static item => item == VulkanCommandPoolEvent.FenceWait),
-                    context.Backend == GraphicsBackend.Vulkan ? Is.Zero : Is.EqualTo(1),
-                    "The backend clear must reach Skia by queue order, or by a completion wait when the "
-                    + "two APIs share no queue.");
+                    context is CompositeContext { Timeline: null } ? Is.EqualTo(1) : Is.Zero,
+                    "The backend clear must reach Skia by queue order or the shared timeline, or by a "
+                    + "completion wait when the two APIs share neither.");
                 Assert.That(untouched, Is.EqualTo(default(RgbaF16)));
             });
         });
