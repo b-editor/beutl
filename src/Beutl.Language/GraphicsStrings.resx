@@ -612,6 +612,9 @@
   <data name="ParticleEmitter_PhysicsGroup" xml:space="preserve">
     <value>Physics</value>
   </data>
+  <data name="ParticleEmitter_PrewarmDuration" xml:space="preserve">
+    <value>Prewarm Duration</value>
+  </data>
   <data name="ParticleEmitter_Seed" xml:space="preserve">
     <value>Seed</value>
   </data>

@@ -108,6 +108,17 @@ public sealed class ParticleRenderNodeAllocationTests
     }
 
     [Test]
+    public void PrewarmedParticles_RenderAtTheFirstFrameLikeAnElapsedFrame()
+    {
+        using Bitmap expected = RenderParticles(initialRotation: 30f, particleSize: 37f);
+        using Bitmap actual = RenderParticles(initialRotation: 30f, particleSize: 37f, time: 0, prewarm: 1);
+        using Bitmap empty = RenderParticles(initialRotation: 30f, particleSize: 37f, time: 0);
+
+        Assert.That(actual.GetPixelSpan().ToArray(), Is.Not.EqualTo(empty.GetPixelSpan().ToArray()));
+        Assert.That(actual.GetPixelSpan().ToArray(), Is.EqualTo(expected.GetPixelSpan().ToArray()));
+    }
+
+    [Test]
     public void TransparentParticles_AreExcludedFromTheAllocatedBounds()
     {
         PixelSize clustered = LargestParticleLayer(initialRotation: 0f);
@@ -191,11 +202,12 @@ public sealed class ParticleRenderNodeAllocationTests
         });
     }
 
-    private static Bitmap RenderParticles(float initialRotation, float particleSize)
+    private static Bitmap RenderParticles(float initialRotation, float particleSize, double time = 1, double prewarm = 0)
     {
         var emitter = new ParticleEmitter
         {
             Seed = { CurrentValue = 11 },
+            PrewarmDuration = { CurrentValue = TimeSpan.FromSeconds(prewarm) },
             EmissionRate = { CurrentValue = 4 },
             Lifetime = { CurrentValue = 1.2f },
             MaxParticles = { CurrentValue = 8 },
@@ -209,7 +221,7 @@ public sealed class ParticleRenderNodeAllocationTests
             InitialRotationRandom = { CurrentValue = 0 },
         };
         using ParticleEmitter.Resource resource = emitter.ToResource(
-            new CompositionContext(TimeSpan.FromSeconds(1)));
+            new CompositionContext(TimeSpan.FromSeconds(time)));
         using var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, s_frame, outputScale: 1))
             emitter.Render(context, resource);
