@@ -42,6 +42,7 @@ public sealed partial class ImageTextureSource : TextureSource
 
             // Check if we need to recreate the texture
             bool needsRecreate = cached.Texture == null ||
+                                 !ReferenceEquals(cached.Context, graphicsContext) ||
                                  cached.Version != Version ||
                                  cached.Texture.Width != Source.FrameSize.Width ||
                                  cached.Texture.Height != Source.FrameSize.Height;
@@ -79,6 +80,7 @@ public sealed partial class ImageTextureSource : TextureSource
                 }
 
                 cached.Texture = texture;
+                cached.Context = graphicsContext;
                 cached.Version = Version;
             }
 
@@ -140,6 +142,7 @@ public sealed partial class ImageTextureSource : TextureSource
         private struct CachedTexture
         {
             public ITexture2D? Texture;
+            public IGraphicsContext? Context;
             public int Version;
         }
     }

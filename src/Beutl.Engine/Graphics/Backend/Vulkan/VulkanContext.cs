@@ -478,7 +478,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
         return new VulkanTextureCube(this, size, format, usage);
     }
 
@@ -488,7 +488,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
         return new VulkanTextureArray(this, width, height, arraySize, format, usage);
     }
 
@@ -498,7 +498,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
         return new VulkanTextureCubeArray(this, size, arraySize, format, usage);
     }
 

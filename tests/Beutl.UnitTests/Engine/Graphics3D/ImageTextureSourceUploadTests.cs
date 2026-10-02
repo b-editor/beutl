@@ -108,6 +108,37 @@ public class ImageTextureSourceUploadTests
         }
     }
 
+    [TestCase(TextureContentKind.Color)]
+    [TestCase(TextureContentKind.Data)]
+    public void GetTexture_ReplacesTheCachedUploadWhenTheContextChanges(TextureContentKind contentKind)
+    {
+        var (definition, firstContext, firstCreated) = CreateSource(
+            $"{nameof(GetTexture_ReplacesTheCachedUploadWhenTheContextChanges)}-{contentKind}");
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+        ITexture2D? first = resource.GetTexture(firstContext.Object, 1f, contentKind);
+        var secondCreated = new List<FakeTexture>();
+        var secondContext = new Mock<IGraphicsContext>();
+        secondContext.Setup(c => c.CreateTexture2D(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<TextureFormat>()))
+            .Returns((int width, int height, TextureFormat format) =>
+            {
+                var texture = new FakeTexture(width, height, format, () => false);
+                secondCreated.Add(texture);
+                return texture;
+            });
+
+        ITexture2D? second = resource.GetTexture(secondContext.Object, 1f, contentKind);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(first, Is.SameAs(firstCreated.Single()), "the first context owns the initial upload");
+            Assert.That(secondCreated, Has.Count.EqualTo(1), "a different device must receive its own upload");
+            Assert.That(second, Is.SameAs(secondCreated.SingleOrDefault()));
+            Assert.That(firstCreated.Single().Disposed, Is.True, "the replaced upload must be released");
+            Assert.That(resource.GetTexture(secondContext.Object, 1f, contentKind), Is.SameAs(second));
+            Assert.That(secondCreated, Has.Count.EqualTo(1), "subsequent draws on that device reuse its upload");
+        }
+    }
+
     [Test]
     public void GetTexture_ReleasesBothKindsWhenTheSourceIsCleared()
     {

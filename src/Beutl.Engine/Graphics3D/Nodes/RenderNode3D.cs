@@ -39,6 +39,7 @@ public abstract class RenderNode3D : IDisposable
     /// </exception>
     public virtual void Initialize(int width, int height)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
 
@@ -60,6 +61,7 @@ public abstract class RenderNode3D : IDisposable
     /// <exception cref="ArgumentOutOfRangeException">A dimension is zero or negative.</exception>
     public virtual void Resize(int width, int height)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
 

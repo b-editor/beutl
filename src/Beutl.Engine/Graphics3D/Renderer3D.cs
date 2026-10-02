@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.ExceptionServices;
 using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Graphics;
@@ -84,6 +85,8 @@ internal sealed class Renderer3D : IRenderer3D
     /// </exception>
     public void Initialize(int width, int height)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         // The output texture below is allocated outside any RenderNode3D, so the device limit has to be
         // asked here rather than left to the passes.
         DeviceExtentLimits.ThrowIfCannotAttach(_context, width, height);
@@ -121,15 +124,16 @@ internal sealed class Renderer3D : IRenderer3D
 
             outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         }
-        catch
+        catch (Exception allocationFailure)
         {
-            outputTexture?.Dispose();
-            flipPass?.Dispose();
-            gizmoPass?.Dispose();
-            transparentPass?.Dispose();
-            lightingPass?.Dispose();
-            geometryPass?.Dispose();
-            shadowManager?.Dispose();
+            try
+            {
+                DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass, shadowManager]);
+            }
+            catch (Exception cleanupFailure)
+            {
+                throw new AggregateException(allocationFailure, cleanupFailure);
+            }
             throw;
         }
 
@@ -153,6 +157,8 @@ internal sealed class Renderer3D : IRenderer3D
     /// </exception>
     public void Resize(int width, int height)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         // Before the no-op check, so a zero or negative extent is refused rather than matched against the
         // "not yet initialized" state.
         DeviceExtentLimits.ThrowIfCannotAttach(_context, width, height);
@@ -169,8 +175,11 @@ internal sealed class Renderer3D : IRenderer3D
         ITexture2D? outputTexture = null;
         try
         {
-            geometryPass = _geometryPass;
-            geometryPass?.Resize(width, height);
+            if (_geometryPass != null)
+            {
+                geometryPass = new GeometryPass(_context, _shaderCompiler);
+                geometryPass.Initialize(width, height);
+            }
 
             if (geometryPass?.DepthTexture != null)
             {
@@ -184,31 +193,66 @@ internal sealed class Renderer3D : IRenderer3D
                 gizmoPass.Initialize(width, height);
             }
 
-            flipPass = _flipPass;
-            flipPass?.Resize(width, height);
+            if (_flipPass != null)
+            {
+                flipPass = new FlipPass(_context, _shaderCompiler);
+                flipPass.Initialize(width, height);
+            }
 
             outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         }
-        catch
+        catch (Exception allocationFailure)
         {
-            outputTexture?.Dispose();
-            if (gizmoPass != _gizmoPass) gizmoPass?.Dispose();
-            if (transparentPass != _transparentPass) transparentPass?.Dispose();
-            if (lightingPass != _lightingPass) lightingPass?.Dispose();
+            try
+            {
+                DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass]);
+            }
+            catch (Exception cleanupFailure)
+            {
+                throw new AggregateException(allocationFailure, cleanupFailure);
+            }
             throw;
         }
 
-        if (_lightingPass != lightingPass) _lightingPass?.Dispose();
-        if (_transparentPass != transparentPass) _transparentPass?.Dispose();
-        if (_gizmoPass != gizmoPass) _gizmoPass?.Dispose();
-        _outputTexture?.Dispose();
+        GeometryPass? oldGeometryPass = _geometryPass;
+        LightingPass? oldLightingPass = _lightingPass;
+        TransparentPass? oldTransparentPass = _transparentPass;
+        GizmoPass? oldGizmoPass = _gizmoPass;
+        FlipPass? oldFlipPass = _flipPass;
+        ITexture2D? oldOutputTexture = _outputTexture;
 
+        // Replacements need an owner even if retiring the old viewport throws.
+        _geometryPass = geometryPass;
         _lightingPass = lightingPass;
         _transparentPass = transparentPass;
         _gizmoPass = gizmoPass;
+        _flipPass = flipPass;
         _outputTexture = outputTexture;
         Width = width;
         Height = height;
+
+        DisposeResources([oldFlipPass, oldGizmoPass, oldTransparentPass, oldLightingPass, oldGeometryPass, oldOutputTexture]);
+    }
+
+    private static void DisposeResources(ReadOnlySpan<IDisposable?> resources)
+    {
+        List<Exception>? failures = null;
+        foreach (IDisposable? resource in resources)
+        {
+            try
+            {
+                resource?.Dispose();
+            }
+            catch (Exception failure)
+            {
+                (failures ??= []).Add(failure);
+            }
+        }
+
+        if (failures?.Count == 1)
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        if (failures is not null)
+            throw new AggregateException(failures);
     }
 
     public void Render(
