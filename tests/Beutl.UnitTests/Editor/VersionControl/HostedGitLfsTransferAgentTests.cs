@@ -44,6 +44,102 @@ public class HostedGitLfsTransferAgentTests
         Assert.That(last.RootElement.TryGetProperty("error", out _), Is.False);
     }
 
+    [Test]
+    public async Task TusResumesAboveFiveGiBAfterAcceptedPatchResponseIsLost()
+    {
+        using var handler = new TusHandler();
+        using var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
+        using var input = new StringReader(string.Join("\n",
+            JsonSerializer.Serialize(new { @event = "init", operation = "upload" }),
+            JsonSerializer.Serialize(new
+            {
+                @event = "upload", oid = s_oid, size = ObjectSize, path = "virtual-large-media",
+                action = new
+                {
+                    href = $"https://beutl.example/api/v3/git/repo.git/info/lfs/objects/{s_oid}/tus",
+                    header = new Dictionary<string, string> { ["Authorization"] = "Bearer temporary" }
+                }
+            }),
+            JsonSerializer.Serialize(new { @event = "terminate" })));
+        using var output = new StringWriter();
+
+        int exitCode = await HostedGitLfsTransferAgent.RunAsync(
+            input, output, http, CancellationToken.None,
+            static _ => ObjectSize, static _ => new VirtualFile(ObjectSize));
+
+        Assert.That(exitCode, Is.Zero, output.ToString());
+        Assert.That(handler.UploadedChunks, Is.EqualTo(new[] { (79L * PartSize, (long)PartSize), (80L * PartSize, 1L) }));
+        Assert.That(handler.MaxReadChunk, Is.LessThanOrEqualTo(128 * 1024));
+        Assert.That(handler.SawAuthorization, Is.True);
+        Assert.That(handler.HeadCalls, Is.GreaterThanOrEqualTo(2));
+        using JsonDocument last = JsonDocument.Parse(output.ToString().Trim().Split('\n')[^1]);
+        Assert.That(last.RootElement.GetProperty("event").GetString(), Is.EqualTo("complete"));
+        Assert.That(last.RootElement.TryGetProperty("error", out _), Is.False);
+    }
+
+    private sealed class TusHandler : HttpMessageHandler
+    {
+        private long _offset = 79L * PartSize;
+        public int HeadCalls { get; private set; }
+        public int MaxReadChunk { get; private set; }
+        public bool SawAuthorization { get; private set; }
+        public List<(long Offset, long Size)> UploadedChunks { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            SawAuthorization |= request.Headers.Authorization?.ToString() == "Bearer temporary";
+            Assert.That(request.Headers.GetValues("Tus-Resumable").Single(), Is.EqualTo("1.0.0"));
+            if (request.Method == HttpMethod.Post)
+            {
+                Assert.That(request.Headers.GetValues("Upload-Length").Single(), Is.EqualTo(ObjectSize.ToString()));
+                var created = Tus(HttpStatusCode.Created);
+                created.Headers.Location = new Uri(request.RequestUri!.AbsoluteUri.TrimEnd('/') + "/11111111-1111-4111-8111-111111111111");
+                return created;
+            }
+            if (request.Method == HttpMethod.Head)
+            {
+                HeadCalls++;
+                var head = Tus(HttpStatusCode.OK);
+                head.Headers.TryAddWithoutValidation("Upload-Length", ObjectSize.ToString());
+                head.Headers.TryAddWithoutValidation("Upload-Offset", _offset.ToString());
+                return head;
+            }
+            if (request.Method == HttpMethod.Patch)
+            {
+                long offset = long.Parse(request.Headers.GetValues("Upload-Offset").Single());
+                Assert.That(offset, Is.EqualTo(_offset));
+                Assert.That(request.Content!.Headers.ContentType!.MediaType,
+                    Is.EqualTo("application/offset+octet-stream"));
+                long size = 0;
+                byte[] buffer = new byte[128 * 1024];
+                await using Stream stream = await request.Content.ReadAsStreamAsync(cancellationToken);
+                int read;
+                while ((read = await stream.ReadAsync(buffer, cancellationToken)) != 0)
+                {
+                    MaxReadChunk = Math.Max(MaxReadChunk, read);
+                    size += read;
+                }
+                Assert.That(request.Content.Headers.ContentLength, Is.EqualTo(size));
+                UploadedChunks.Add((offset, size));
+                _offset += size;
+                if (UploadedChunks.Count == 1)
+                    return Tus(HttpStatusCode.ServiceUnavailable);
+                var patched = Tus(HttpStatusCode.NoContent);
+                patched.Headers.TryAddWithoutValidation("Upload-Offset", _offset.ToString());
+                return patched;
+            }
+            throw new InvalidOperationException($"Unexpected tus request: {request.Method} {request.RequestUri}");
+        }
+
+        private static HttpResponseMessage Tus(HttpStatusCode status)
+        {
+            var response = new HttpResponseMessage(status);
+            response.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
+            return response;
+        }
+    }
+
     private sealed class MultipartHandler : HttpMessageHandler
     {
         public int Part80Attempts { get; private set; }

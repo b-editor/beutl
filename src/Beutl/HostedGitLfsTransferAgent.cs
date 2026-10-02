@@ -97,7 +97,9 @@ internal static class HostedGitLfsTransferAgent
         string path = message.Path ?? throw new InvalidOperationException("Upload file path is missing");
         if (fileLength(path) != message.Size)
             throw new InvalidOperationException("The LFS upload file size changed");
-        if (url.AbsolutePath.EndsWith("/multipart", StringComparison.Ordinal))
+        if (url.AbsolutePath.EndsWith("/tus", StringComparison.Ordinal))
+            await UploadTusAsync(message, url, http, output, openRead, cancellationToken);
+        else if (url.AbsolutePath.EndsWith("/multipart", StringComparison.Ordinal))
             await UploadMultipartAsync(message, url, http, output, openRead, cancellationToken);
         else
             await UploadBasicAsync(message, url, http, output, openRead, cancellationToken);
@@ -123,8 +125,6 @@ internal static class HostedGitLfsTransferAgent
         Message message, Uri url, HttpClient http, TextWriter output,
         Func<string, Stream> openRead, CancellationToken cancellationToken)
     {
-        if (message.Size <= 5L * 1024 * 1024 * 1024)
-            throw new InvalidOperationException("Multipart is reserved for objects above 5 GiB");
         using JsonDocument started = await SendJsonWithRetryAsync(http,
             () => NewRequest(HttpMethod.Post, url, message.Action!.Header), cancellationToken);
         StartResult status = started.Deserialize<StartResult>(s_json)
@@ -165,6 +165,163 @@ internal static class HostedGitLfsTransferAgent
             completedUpload.RootElement.GetProperty("size").GetInt64() != message.Size)
             throw new InvalidOperationException("Multipart verification response does not match the LFS object");
         if (progress < message.Size) await ProgressAsync(output, message.Oid!, message.Size, message.Size - progress);
+    }
+
+    private static async Task UploadTusAsync(
+        Message message, Uri creationUrl, HttpClient http, TextWriter output,
+        Func<string, Stream> openRead, CancellationToken cancellationToken)
+    {
+        using HttpResponseMessage created = await SendTusRequestWithRetryAsync(http, () =>
+        {
+            var request = NewRequest(HttpMethod.Post, creationUrl, message.Action!.Header);
+            request.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
+            request.Headers.TryAddWithoutValidation("Upload-Length",
+                message.Size.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            request.Content = new ByteArrayContent([]);
+            return request;
+        }, cancellationToken);
+        if (created.StatusCode != HttpStatusCode.Created || created.Headers.Location is null)
+            throw new InvalidOperationException("Invalid tus creation response");
+        CheckTusVersion(created);
+        Uri uploadUrl = new(creationUrl, created.Headers.Location);
+        if (uploadUrl.Scheme != Uri.UriSchemeHttps ||
+            uploadUrl.Host != creationUrl.Host || uploadUrl.Port != creationUrl.Port ||
+            !string.IsNullOrEmpty(uploadUrl.UserInfo) ||
+            !string.IsNullOrEmpty(uploadUrl.Query) || !string.IsNullOrEmpty(uploadUrl.Fragment) ||
+            !uploadUrl.AbsolutePath.StartsWith(creationUrl.AbsolutePath.TrimEnd('/') + "/",
+                StringComparison.Ordinal))
+            throw new InvalidOperationException("Invalid tus upload URL");
+
+        long offset = await GetTusOffsetAsync(http, uploadUrl, message.Action!.Header,
+            message.Size, cancellationToken);
+        if (offset > 0) await ProgressAsync(output, message.Oid!, offset, offset);
+        while (offset < message.Size)
+        {
+            long length = Math.Min(64L * 1024 * 1024, message.Size - offset);
+            long before = offset;
+            bool advanced = false;
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                HttpResponseMessage? response = null;
+                try
+                {
+                    using var request = NewRequest(HttpMethod.Patch, uploadUrl, message.Action!.Header);
+                    request.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
+                    request.Headers.TryAddWithoutValidation("Upload-Offset",
+                        before.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    Stream stream = openRead(message.Path!);
+                    stream.Seek(before, SeekOrigin.Begin);
+                    request.Content = new StreamContent(new SliceStream(stream, length));
+                    request.Content.Headers.ContentLength = length;
+                    request.Content.Headers.ContentType =
+                        new MediaTypeHeaderValue("application/offset+octet-stream");
+                    response = await http.SendAsync(request,
+                        HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                    if (response.StatusCode == HttpStatusCode.NoContent)
+                    {
+                        CheckTusVersion(response);
+                        long acknowledged = ReadTusOffset(response);
+                        if (acknowledged == before + length)
+                        {
+                            offset = acknowledged;
+                            advanced = true;
+                            break;
+                        }
+                    }
+                    else if (response.StatusCode != HttpStatusCode.Conflict &&
+                             !Retryable(response.StatusCode))
+                    {
+                        throw new InvalidOperationException(
+                            $"tus PATCH failed: HTTP {(int)response.StatusCode}");
+                    }
+                }
+                catch (HttpRequestException)
+                {
+                    // The server may have accepted the part before the response
+                    // was lost. HEAD is authoritative before sending it again.
+                }
+                finally
+                {
+                    response?.Dispose();
+                }
+                long reported = await GetTusOffsetAsync(http, uploadUrl, message.Action!.Header,
+                    message.Size, cancellationToken);
+                if (reported < before)
+                    throw new InvalidOperationException("tus offset moved backwards");
+                if (reported > before)
+                {
+                    offset = reported;
+                    advanced = true;
+                    break;
+                }
+                if (attempt == 4)
+                    throw new InvalidOperationException("tus PATCH did not advance");
+                await Task.Delay(TimeSpan.FromSeconds(1 << attempt), cancellationToken);
+            }
+            if (!advanced || offset <= before)
+                throw new InvalidOperationException("tus upload did not advance");
+            await ProgressAsync(output, message.Oid!, offset, offset - before);
+        }
+    }
+
+    private static async Task<long> GetTusOffsetAsync(
+        HttpClient http, Uri uploadUrl, Dictionary<string, string>? headers,
+        long size, CancellationToken cancellationToken)
+    {
+        using HttpResponseMessage response = await SendTusRequestWithRetryAsync(http, () =>
+        {
+            var request = NewRequest(HttpMethod.Head, uploadUrl, headers);
+            request.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
+            return request;
+        }, cancellationToken);
+        if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.NoContent))
+            throw new InvalidOperationException("Invalid tus HEAD response");
+        CheckTusVersion(response);
+        long length = ReadTusNumber(response, "Upload-Length");
+        long offset = ReadTusOffset(response);
+        if (length != size || offset > size)
+            throw new InvalidOperationException("tus upload length or offset changed");
+        return offset;
+    }
+
+    private static long ReadTusOffset(HttpResponseMessage response) =>
+        ReadTusNumber(response, "Upload-Offset");
+
+    private static long ReadTusNumber(HttpResponseMessage response, string name)
+    {
+        if (!response.Headers.TryGetValues(name, out IEnumerable<string>? values) ||
+            !long.TryParse(values.SingleOrDefault(), System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out long value) || value < 0)
+            throw new InvalidOperationException($"Invalid tus {name} response");
+        return value;
+    }
+
+    private static void CheckTusVersion(HttpResponseMessage response)
+    {
+        if (!response.Headers.TryGetValues("Tus-Resumable", out IEnumerable<string>? values) ||
+            values.SingleOrDefault() != "1.0.0")
+            throw new InvalidOperationException("Unsupported tus version");
+    }
+
+    private static async Task<HttpResponseMessage> SendTusRequestWithRetryAsync(
+        HttpClient http, Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            using HttpRequestMessage request = requestFactory();
+            try
+            {
+                HttpResponseMessage response = await http.SendAsync(request,
+                    HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                if (response.IsSuccessStatusCode) return response;
+                HttpStatusCode status = response.StatusCode;
+                response.Dispose();
+                if (attempt >= 4 || !Retryable(status))
+                    throw new InvalidOperationException($"tus request failed: HTTP {(int)status}");
+            }
+            catch (HttpRequestException) when (attempt < 4) { }
+            await Task.Delay(TimeSpan.FromSeconds(1 << attempt), cancellationToken);
+        }
     }
 
     private static async Task<string> DownloadAsync(

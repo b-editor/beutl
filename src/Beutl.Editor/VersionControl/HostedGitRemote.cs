@@ -51,6 +51,9 @@ internal static class HostedGitRemote
         var values = new (string Key, string Value)[]
         {
             ($"http.{remoteUrl}.extraheader", $"Authorization: Bearer {token}"),
+            ("lfs.customtransfer.beutl-tus.path", executable),
+            ("lfs.customtransfer.beutl-tus.args", args),
+            ("lfs.customtransfer.beutl-tus.concurrent", "false"),
             ("lfs.customtransfer.beutl-multipart.path", executable),
             ("lfs.customtransfer.beutl-multipart.args", args),
             ("lfs.customtransfer.beutl-multipart.concurrent", "false"),
