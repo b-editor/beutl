@@ -247,7 +247,7 @@
                     </Panel>
                     <Button x:Name="StorageRefreshButton"
                             Grid.Column="1"
-                            usage:UsageTracking.Feature="FileBrowser.StorageBrowser.Value.Refresh"
+                            usage:UsageTracking.Feature="FileBrowser.Storage.Refresh"
                             AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
                             Command="{Binding StorageBrowser.Value.Refresh}"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
