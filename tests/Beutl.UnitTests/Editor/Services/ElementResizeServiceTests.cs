@@ -1,6 +1,7 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -1000,6 +1001,34 @@ public class ElementResizeServiceTests
     }
 
     // --- GetTrimDeltaBounds ---
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RollOrSlide_SpeedExpression_RejectsBeforeMutation(bool slide)
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
+        TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
+        Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { Expression = Expression.Create<float>("200") } };
+        back.Objects.Add(video);
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = middle == null
+            ? _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1))
+            : _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(backStart));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
 
     [TestCase(false)]
     [TestCase(true)]

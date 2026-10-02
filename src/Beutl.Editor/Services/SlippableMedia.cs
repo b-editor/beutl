@@ -18,17 +18,20 @@ internal static class SlippableMedia
     // Total is the absolute source duration (null when the stream has no bounded source).
     internal sealed class Target
     {
-        public Target(IProperty<TimeSpan> offset, TimeSpan? total, IProperty<float> speed)
+        public Target(IProperty<TimeSpan> offset, TimeSpan? total, IProperty<float> speed, bool isVideo = false)
         {
             Offset = offset;
             Total = total;
-            SupportsTrimming = TryGetConstantSpeed(speed, out double factor);
+            IsVideo = isVideo;
+            SupportsTrimming = TryGetConstantSpeed(speed, out double factor, evaluatesExpressions: isVideo);
             Speed = factor;
         }
 
         public IProperty<TimeSpan> Offset { get; }
 
         public TimeSpan? Total { get; }
+
+        public bool IsVideo { get; }
 
         // Source-time units consumed per timeline-time unit.
         public double Speed { get; }
@@ -58,12 +61,16 @@ internal static class SlippableMedia
             CollectFrom(obj, targets, visited, ref supportsTimeMapping);
         }
 
-        // Time controllers may consume preceding objects through Flow without an explicit
-        // Target. Reject the whole element, including sources visited before the controller.
+        // Time controllers may consume preceding drawables through Flow without an explicit
+        // Target. Conservatively guard video sources, including those visited earlier, but
+        // never audio: drawable controllers cannot change its source-time mapping.
         if (!supportsTimeMapping)
         {
             foreach (Target target in targets)
-                target.SupportsTrimming = false;
+            {
+                if (target.IsVideo)
+                    target.SupportsTrimming = false;
+            }
         }
 
         // Frozen media consumes no source time, so it neither moves nor limits a trim.
@@ -116,16 +123,29 @@ internal static class SlippableMedia
         }
     }
 
-    private static bool TryGetConstantSpeed(IProperty<float> speed, out double factor)
+    private static bool TryGetConstantSpeed(
+        IProperty<float> speed, out double factor, bool evaluatesExpressions = false)
     {
         factor = speed.CurrentValue / 100.0;
+        // Video/controller resources evaluate expressions; audio SpeedNode reads the
+        // base value or animation directly. Do not mistake an expression for a constant.
+        if (evaluatesExpressions && speed.HasExpression) return false;
         if (speed.Animation == null) return true;
 
         // Flat keyframes have a constant source-time mapping, but their value can differ
         // from CurrentValue. Varying curves need interval integration (tracked in #2090).
-        if (speed.Animation is not KeyFrameAnimation<float> animation
-            || animation.KeyFrames.Count == 0
-            || animation.KeyFrames[0] is not KeyFrame<float> first)
+        if (speed.Animation is not KeyFrameAnimation<float> animation)
+            return false;
+
+        // With no keyframes, playback uses the animator's default value (zero for float),
+        // not the property's stored speed. A frozen empty curve must not block linked media.
+        if (animation.KeyFrames.Count == 0)
+        {
+            factor = animation.Interpolate(TimeSpan.Zero) / 100.0;
+            return true;
+        }
+
+        if (animation.KeyFrames[0] is not KeyFrame<float> first)
             return false;
 
         factor = first.Value / 100.0;
@@ -133,26 +153,31 @@ internal static class SlippableMedia
     }
 
     private static bool HasIdentityTimeMapping(DrawableTimeController controller)
-        => TryGetConstantSpeed(controller.Speed, out double factor) && factor == 1
-           && controller.OffsetPosition.CurrentValue == TimeSpan.Zero
-           && !controller.AdjustTimeRange.CurrentValue
-           && !controller.Reverse.CurrentValue
-           && !controller.Loop.CurrentValue
-           && !controller.HoldFirstFrame.CurrentValue
-           && !controller.HoldLastFrame.CurrentValue
-           && controller.FrameRate.CurrentValue == 0;
+        => TryGetConstantSpeed(controller.Speed, out double factor, evaluatesExpressions: true) && factor == 1
+           && !controller.OffsetPosition.HasExpression && controller.OffsetPosition.CurrentValue == TimeSpan.Zero
+           && !controller.AdjustTimeRange.HasExpression && !controller.AdjustTimeRange.CurrentValue
+           && !controller.Reverse.HasExpression && !controller.Reverse.CurrentValue
+           && !controller.Loop.HasExpression && !controller.Loop.CurrentValue
+           && !controller.HoldFirstFrame.HasExpression && !controller.HoldFirstFrame.CurrentValue
+           && !controller.HoldLastFrame.HasExpression && !controller.HoldLastFrame.CurrentValue
+           && !controller.FrameRate.HasExpression && controller.FrameRate.CurrentValue == 0;
 
     public static bool CanTrim(IReadOnlyList<Target> targets)
         => targets.All(static target => target.SupportsTrimming);
 
     private static Target CreateVideoTarget(SourceVideo video)
     {
+        // Reject before resource creation: evaluating a time-dependent expression at the
+        // default time cannot establish a constant mapping and may need playback-only context.
+        if (video.Speed.HasExpression)
+            return new Target(video.OffsetPosition, null, video.Speed, isVideo: true);
+
         // Read the raw source duration: CalculateOriginalTime already divides by Speed and
         // therefore returns timeline time, whereas OffsetPosition is stored in source time.
         // An exhausted source still has a known total even when TryGetOriginalDuration returns false.
         using var resource = video.ToResource(CompositionContext.Default);
         TimeSpan? total = ((SourceVideo.Resource)resource).Source?.Duration;
-        return new Target(video.OffsetPosition, total, video.Speed);
+        return new Target(video.OffsetPosition, total, video.Speed, isVideo: true);
     }
 
     private static Target CreateSoundTarget(SourceSound sound)

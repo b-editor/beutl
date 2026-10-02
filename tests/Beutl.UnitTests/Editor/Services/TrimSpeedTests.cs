@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
@@ -355,6 +356,83 @@ public class TrimSpeedTests(string mediaKind)
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = first });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = last });
         return animation;
+    }
+
+    [Test]
+    public void Slip_EmptySpeedAnimation_DoesNotBlockLinkedMedia()
+    {
+        Element element = AddElement(0, 2);
+        var offset = AddMedia(element, 200, 1, new KeyFrameAnimation<float>());
+        if (element.Objects[0] is SourceVideo video)
+        {
+            using var playback = (SourceVideo.Resource)video.ToResource(new CompositionContext(TimeSpan.FromSeconds(1)));
+            Assert.That(playback.Speed, Is.Zero);
+            Assert.That(playback.RequestedPosition, Is.EqualTo(TimeSpan.Zero));
+        }
+        var linked = new SourceSound();
+        element.Objects.Add(linked);
+
+        bool applied = _slip.Slip(Scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RollOrSlide_EmptySpeedAnimation_DoesNotBlockTrim(bool slide)
+    {
+        Element front = AddElement(0, 2);
+        Element? middle = slide ? AddElement(2, 2) : null;
+        double backStart = slide ? 4 : 2;
+        Element back = AddElement(backStart, 2);
+        var offset = AddMedia(back, 200, 1, new KeyFrameAnimation<float>());
+
+        bool applied = Trim(front, middle, back, 1);
+
+        Assert.That(applied, Is.True);
+        Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart + 1)));
+    }
+
+    [TestCase("Slip", false)]
+    [TestCase("Slip", true)]
+    [TestCase("Roll", false)]
+    [TestCase("Roll", true)]
+    [TestCase("Slide", false)]
+    [TestCase("Slide", true)]
+    public void Trim_DrawableController_DoesNotInvalidateAudio(string operation, bool explicitTarget)
+    {
+        Element front = AddElement(0, 2);
+        Element? middle = operation == "Slide" ? AddElement(2, 2) : null;
+        double backStart = middle != null ? 4 : 2;
+        Element back = AddElement(backStart, 2);
+        var offset = AddMedia(back, 100, 1);
+        back.Objects.Add(new DrawableTimeController
+        {
+            Speed = { CurrentValue = 50 },
+            Target = { CurrentValue = explicitTarget ? new DrawableGroup() : null }
+        });
+
+        bool applied = operation == "Slip"
+            ? _slip.Slip(Scene, [back], TimeSpan.FromSeconds(1))
+            : Trim(front, middle, back, 1);
+
+        // The video is consumed by drawable Flow; audio never enters that flow.
+        bool expectedApplied = mediaKind != "video";
+        double geometryDelta = expectedApplied && operation != "Slip" ? 1 : 0;
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.EqualTo(expectedApplied));
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedApplied ? 2 : 1)));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2 + geometryDelta)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart + geometryDelta)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2 - geometryDelta)));
+        });
     }
 
     private Element AddElement(double start, double length, int zIndex = 0)

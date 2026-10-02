@@ -70,9 +70,11 @@ public interface IElementResizeService
     /// Timeline View queries it once at drag start so the per-pointer-frame preview cannot
     /// overshoot what the release will apply. <c>(Zero, Zero)</c> when
     /// <paramref name="pairs"/> is empty or no trim is possible. Adjacency is not validated
-    /// here; callers check it before starting a drag. Trimmed streams with varying speed
-    /// animations or enclosing time remapping also return a zero window, irrespective of
-    /// the source-length clamp preference. Flat speed keyframes use their animated value.
+    /// here; callers check it before starting a drag. Varying speed animations, evaluated
+    /// speed expressions, or drawable time remapping on trimmed video also return a zero
+    /// window, irrespective of the source-length clamp preference. Drawable controllers
+    /// do not restrict audio-only edits. Flat speed keyframes and empty curves use their
+    /// animated playback value.
     /// </summary>
     (TimeSpan Min, TimeSpan Max) GetTrimDeltaBounds(Scene scene, IReadOnlyList<ElementTrimPair> pairs);
 }
