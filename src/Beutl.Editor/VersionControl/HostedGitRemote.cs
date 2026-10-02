@@ -51,9 +51,9 @@ internal static class HostedGitRemote
         var values = new (string Key, string Value)[]
         {
             ($"http.{remoteUrl}.extraheader", $"Authorization: Bearer {token}"),
-            ("lfs.customtransfer.beutl-r2-multipart.path", executable),
-            ("lfs.customtransfer.beutl-r2-multipart.args", args),
-            ("lfs.customtransfer.beutl-r2-multipart.concurrent", "false"),
+            ("lfs.customtransfer.beutl-multipart.path", executable),
+            ("lfs.customtransfer.beutl-multipart.args", args),
+            ("lfs.customtransfer.beutl-multipart.concurrent", "false"),
         };
         var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
         {

@@ -27,8 +27,8 @@ public class HostedGitRemoteTests
         Assert.That(environment["GIT_CONFIG_COUNT"], Is.EqualTo("4"));
         Assert.That(environment["GIT_CONFIG_KEY_0"], Is.EqualTo($"http.{RepositoryUrl}.extraheader"));
         Assert.That(environment["GIT_CONFIG_VALUE_0"], Is.EqualTo("Authorization: Bearer temporary-token"));
-        Assert.That(environment["GIT_CONFIG_KEY_1"], Is.EqualTo("lfs.customtransfer.beutl-r2-multipart.path"));
-        Assert.That(environment["GIT_CONFIG_KEY_3"], Is.EqualTo("lfs.customtransfer.beutl-r2-multipart.concurrent"));
+        Assert.That(environment["GIT_CONFIG_KEY_1"], Is.EqualTo("lfs.customtransfer.beutl-multipart.path"));
+        Assert.That(environment["GIT_CONFIG_KEY_3"], Is.EqualTo("lfs.customtransfer.beutl-multipart.concurrent"));
         Assert.That(environment["GIT_TRACE_CURL"], Is.Null);
         Assert.That(environment["GIT_CURL_VERBOSE"], Is.Null);
     }

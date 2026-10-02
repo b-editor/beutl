@@ -26,17 +26,31 @@ internal static class HostedGitLfsTransferAgent
     {
         using var cancellation = new CancellationTokenSource();
         Console.CancelKeyPress += (_, args) => { args.Cancel = true; cancellation.Cancel(); };
+        return await RunAsync(Console.In, Console.Out, s_http, cancellation.Token);
+    }
+
+    internal static Task<int> RunAsync(
+        TextReader input, TextWriter output, HttpClient http, CancellationToken cancellationToken) =>
+        RunAsync(input, output, http, cancellationToken,
+            static path => new FileInfo(path).Length,
+            static path => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
+                bufferSize: 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan));
+
+    internal static async Task<int> RunAsync(
+        TextReader input, TextWriter output, HttpClient http, CancellationToken cancellationToken,
+        Func<string, long> fileLength, Func<string, Stream> openRead)
+    {
         try
         {
-            string? line = await Console.In.ReadLineAsync(cancellation.Token);
+            string? line = await input.ReadLineAsync(cancellationToken);
             Message? init = JsonSerializer.Deserialize<Message>(line ?? "", s_json);
             if (init?.Event != "init" || init.Operation is not ("upload" or "download"))
             {
-                await WriteAsync(new { error = new { code = 2, message = "Invalid Git LFS initiation" } });
+                await WriteAsync(output, new { error = new { code = 2, message = "Invalid Git LFS initiation" } });
                 return 1;
             }
-            await WriteAsync(new { });
-            while ((line = await Console.In.ReadLineAsync(cancellation.Token)) is not null)
+            await WriteAsync(output, new { });
+            while ((line = await input.ReadLineAsync(cancellationToken)) is not null)
             {
                 Message? message = JsonSerializer.Deserialize<Message>(line, s_json);
                 if (message?.Event == "terminate") return 0;
@@ -53,18 +67,18 @@ internal static class HostedGitLfsTransferAgent
                     }
                     if (message.Event == "upload")
                     {
-                        await UploadAsync(message, url, cancellation.Token);
-                        await WriteAsync(new { @event = "complete", oid });
+                        await UploadAsync(message, url, http, output, fileLength, openRead, cancellationToken);
+                        await WriteAsync(output, new { @event = "complete", oid });
                     }
                     else
                     {
-                        string path = await DownloadAsync(message, url, cancellation.Token);
-                        await WriteAsync(new { @event = "complete", oid, path });
+                        string path = await DownloadAsync(message, url, http, output, cancellationToken);
+                        await WriteAsync(output, new { @event = "complete", oid, path });
                     }
                 }
                 catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
-                    await WriteAsync(new { @event = "complete", oid, error = new { code = 2, message = ex.Message } });
+                    await WriteAsync(output, new { @event = "complete", oid, error = new { code = 2, message = ex.Message } });
                 }
             }
             return 0;
@@ -76,37 +90,42 @@ internal static class HostedGitLfsTransferAgent
         }
     }
 
-    private static async Task UploadAsync(Message message, Uri url, CancellationToken cancellationToken)
+    private static async Task UploadAsync(
+        Message message, Uri url, HttpClient http, TextWriter output,
+        Func<string, long> fileLength, Func<string, Stream> openRead, CancellationToken cancellationToken)
     {
         string path = message.Path ?? throw new InvalidOperationException("Upload file path is missing");
-        if (new FileInfo(path).Length != message.Size)
+        if (fileLength(path) != message.Size)
             throw new InvalidOperationException("The LFS upload file size changed");
         if (url.AbsolutePath.EndsWith("/multipart", StringComparison.Ordinal))
-            await UploadMultipartAsync(message, url, cancellationToken);
+            await UploadMultipartAsync(message, url, http, output, openRead, cancellationToken);
         else
-            await UploadBasicAsync(message, url, cancellationToken);
+            await UploadBasicAsync(message, url, http, output, openRead, cancellationToken);
     }
 
-    private static async Task UploadBasicAsync(Message message, Uri url, CancellationToken cancellationToken)
+    private static async Task UploadBasicAsync(
+        Message message, Uri url, HttpClient http, TextWriter output,
+        Func<string, Stream> openRead, CancellationToken cancellationToken)
     {
-        await SendWithRetryAsync(() =>
+        await SendWithRetryAsync(http, () =>
         {
             var request = new HttpRequestMessage(HttpMethod.Put, url);
-            var stream = new FileStream(message.Path!, FileMode.Open, FileAccess.Read, FileShare.Read,
-                bufferSize: 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            Stream stream = openRead(message.Path!);
             request.Content = new StreamContent(stream);
             request.Content.Headers.ContentLength = message.Size;
             AddActionHeaders(request, message.Action!.Header);
             return request;
         }, cancellationToken);
-        await ProgressAsync(message.Oid!, message.Size, message.Size);
+        await ProgressAsync(output, message.Oid!, message.Size, message.Size);
     }
 
-    private static async Task UploadMultipartAsync(Message message, Uri url, CancellationToken cancellationToken)
+    private static async Task UploadMultipartAsync(
+        Message message, Uri url, HttpClient http, TextWriter output,
+        Func<string, Stream> openRead, CancellationToken cancellationToken)
     {
         if (message.Size <= 5L * 1024 * 1024 * 1024)
             throw new InvalidOperationException("Multipart is reserved for objects above 5 GiB");
-        using JsonDocument started = await SendJsonWithRetryAsync(
+        using JsonDocument started = await SendJsonWithRetryAsync(http,
             () => NewRequest(HttpMethod.Post, url, message.Action!.Header), cancellationToken);
         StartResult status = started.Deserialize<StartResult>(s_json)
             ?? throw new InvalidOperationException("Invalid multipart start response");
@@ -116,7 +135,7 @@ internal static class HostedGitLfsTransferAgent
             throw new InvalidOperationException("Invalid multipart part layout");
         var completed = (status.Parts ?? []).ToDictionary(part => part.PartNumber);
         long progress = completed.Values.Sum(part => part.Size);
-        if (progress > 0) await ProgressAsync(message.Oid!, progress, progress);
+        if (progress > 0) await ProgressAsync(output, message.Oid!, progress, progress);
         for (int partNumber = 1; partNumber <= status.PartCount; partNumber++)
         {
             long length = Math.Min(status.PartSize, message.Size - (long)(partNumber - 1) * status.PartSize);
@@ -127,29 +146,29 @@ internal static class HostedGitLfsTransferAgent
             }
             int currentPart = partNumber;
             Uri partUrl = new(url.AbsoluteUri.TrimEnd('/') + $"/parts/{currentPart}");
-            await SendWithRetryAsync(() =>
+            await SendWithRetryAsync(http, () =>
             {
                 var request = NewRequest(HttpMethod.Put, partUrl, message.Action!.Header);
-                var stream = new FileStream(message.Path!, FileMode.Open, FileAccess.Read, FileShare.Read,
-                    bufferSize: 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+                Stream stream = openRead(message.Path!);
                 stream.Seek((long)(currentPart - 1) * status.PartSize, SeekOrigin.Begin);
                 request.Content = new StreamContent(new SliceStream(stream, length));
                 request.Content.Headers.ContentLength = length;
                 return request;
             }, cancellationToken);
             progress += length;
-            await ProgressAsync(message.Oid!, progress, length);
+            await ProgressAsync(output, message.Oid!, progress, length);
         }
         Uri completeUrl = new(url.AbsoluteUri.TrimEnd('/') + "/complete");
-        using JsonDocument completedUpload = await SendJsonWithRetryAsync(
+        using JsonDocument completedUpload = await SendJsonWithRetryAsync(http,
             () => NewRequest(HttpMethod.Post, completeUrl, message.Action!.Header), cancellationToken);
         if (completedUpload.RootElement.GetProperty("oid").GetString() != message.Oid ||
             completedUpload.RootElement.GetProperty("size").GetInt64() != message.Size)
             throw new InvalidOperationException("Multipart verification response does not match the LFS object");
-        if (progress < message.Size) await ProgressAsync(message.Oid!, message.Size, message.Size - progress);
+        if (progress < message.Size) await ProgressAsync(output, message.Oid!, message.Size, message.Size - progress);
     }
 
-    private static async Task<string> DownloadAsync(Message message, Uri url, CancellationToken cancellationToken)
+    private static async Task<string> DownloadAsync(
+        Message message, Uri url, HttpClient http, TextWriter output, CancellationToken cancellationToken)
     {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-lfs-{Guid.NewGuid():N}");
         try
@@ -165,13 +184,13 @@ internal static class HostedGitLfsTransferAgent
                 {
                     using HttpRequestMessage request = NewRequest(HttpMethod.Get, url, message.Action!.Header);
                     if (received > 0) request.Headers.Range = new RangeHeaderValue(received, null);
-                    using HttpResponseMessage response = await s_http.SendAsync(
+                    using HttpResponseMessage response = await http.SendAsync(
                         request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                     response.EnsureSuccessStatusCode();
                     if (received > 0 && (response.StatusCode != HttpStatusCode.PartialContent
                         || response.Content.Headers.ContentRange?.From != received))
                     {
-                        throw new InvalidOperationException("R2 did not honor the LFS download resume range");
+                        throw new InvalidOperationException("Storage did not honor the LFS download resume range");
                     }
                     await using Stream source = await response.Content.ReadAsStreamAsync(cancellationToken);
                     while (received < message.Size)
@@ -183,7 +202,7 @@ internal static class HostedGitLfsTransferAgent
                             throw new InvalidOperationException("LFS download exceeds expected size");
                         hash.AppendData(buffer.AsSpan(0, count));
                         await destination.WriteAsync(buffer.AsMemory(0, count), cancellationToken);
-                        await ProgressAsync(message.Oid!, received, count);
+                        await ProgressAsync(output, message.Oid!, received, count);
                     }
                     if (received == message.Size)
                     {
@@ -239,14 +258,14 @@ internal static class HostedGitLfsTransferAgent
     }
 
     private static async Task SendWithRetryAsync(
-        Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken)
+        HttpClient http, Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken)
     {
         for (int attempt = 0; ; attempt++)
         {
             using HttpRequestMessage request = requestFactory();
             try
             {
-                using HttpResponseMessage response = await s_http.SendAsync(request, cancellationToken);
+                using HttpResponseMessage response = await http.SendAsync(request, cancellationToken);
                 if (response.IsSuccessStatusCode) return;
                 if (attempt >= 4 || !Retryable(response.StatusCode))
                     throw new InvalidOperationException($"LFS transfer failed: HTTP {(int)response.StatusCode}");
@@ -257,14 +276,14 @@ internal static class HostedGitLfsTransferAgent
     }
 
     private static async Task<JsonDocument> SendJsonWithRetryAsync(
-        Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken)
+        HttpClient http, Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken)
     {
         for (int attempt = 0; ; attempt++)
         {
             using HttpRequestMessage request = requestFactory();
             try
             {
-                using HttpResponseMessage response = await s_http.SendAsync(request, cancellationToken);
+                using HttpResponseMessage response = await http.SendAsync(request, cancellationToken);
                 if (response.IsSuccessStatusCode)
                     return await JsonDocument.ParseAsync(
                         await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
@@ -278,23 +297,24 @@ internal static class HostedGitLfsTransferAgent
 
     private static bool Retryable(HttpStatusCode status) => status == HttpStatusCode.TooManyRequests || (int)status >= 500;
 
-    private static Task ProgressAsync(string oid, long total, long delta) =>
-        WriteAsync(new { @event = "progress", oid, bytesSoFar = total, bytesSinceLast = delta });
+    private static Task ProgressAsync(TextWriter output, string oid, long total, long delta) =>
+        WriteAsync(output, new { @event = "progress", oid, bytesSoFar = total, bytesSinceLast = delta });
 
-    private static async Task WriteAsync(object value)
+    private static async Task WriteAsync(TextWriter output, object value)
     {
-        await Console.Out.WriteLineAsync(JsonSerializer.Serialize(value, s_json));
-        await Console.Out.FlushAsync();
+        await output.WriteLineAsync(JsonSerializer.Serialize(value, s_json));
+        await output.FlushAsync();
     }
 
     private sealed class SliceStream(Stream source, long length) : Stream
     {
+        private readonly long _length = length;
         private long _remaining = length;
         public override bool CanRead => true;
         public override bool CanSeek => false;
         public override bool CanWrite => false;
-        public override long Length => length;
-        public override long Position { get => length - _remaining; set => throw new NotSupportedException(); }
+        public override long Length => _length;
+        public override long Position { get => _length - _remaining; set => throw new NotSupportedException(); }
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
             if (_remaining == 0) return 0;

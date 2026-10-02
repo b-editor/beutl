@@ -62,6 +62,7 @@
     <Compile Include="..\..\src\Beutl\Services\AI\FileAiRequestRecoveryStore.cs" Link="Services\AI\Linked\FileAiRequestRecoveryStore.cs" />
     <Compile Include="..\..\src\Beutl\Services\AI\AiUploadBytes.cs" Link="Services\AI\Linked\AiUploadBytes.cs" />
     <Compile Include="..\..\src\Beutl\Services\AI\AiOutstandingRequests.cs" Link="Services\AI\Linked\AiOutstandingRequests.cs" />
+    <Compile Include="..\..\src\Beutl\HostedGitLfsTransferAgent.cs" Link="Editor\Linked\HostedGitLfsTransferAgent.cs" />
   </ItemGroup>
 
   <ItemGroup>
