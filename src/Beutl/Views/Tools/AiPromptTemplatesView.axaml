@@ -1,11 +1,12 @@
 <UserControl x:Class="Beutl.Views.Tools.AiPromptTemplatesView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:live="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
+             xmlns:live="using:Beutl.Controls"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignWidth="340"
              x:CompileBindings="True"
@@ -27,6 +28,7 @@
                      PlaceholderText="{x:Static lang:Strings.AiPromptTemplateName}" />
             <Button Grid.Column="1"
                     Margin="8,0,0,0"
+                    usage:UsageTracking.Feature="AiWorkspace.PromptTemplates.SaveTemplate"
                     AutomationProperties.Name="{x:Static lang:Strings.AiPromptSaveTemplate}"
                     Command="{CompiledBinding SaveTemplate}"
                     Content="{x:Static lang:Strings.AiPromptSaveTemplate}" />

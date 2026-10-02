@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="Beutl.Editor.Components.NodeGraphTab.Views.NodeGraphView"
+<UserControl x:Class="Beutl.Editor.Components.NodeGraphTab.Views.NodeGraphView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -6,6 +6,7 @@
              xmlns:local="using:Beutl.Editor.Components.NodeGraphTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:paz="using:Avalonia.Controls.PanAndZoom"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModel="using:Beutl.Editor.Components.NodeGraphTab.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -36,12 +37,16 @@
                     <ContextMenu Opened="CanvasMenuOpened">
                         <MenuItem x:Name="addNode" Header="{x:Static lang:Strings.AddNode}" />
                         <MenuItem x:Name="templatesMenu" Header="{x:Static lang:NodeGraphStrings.Template_Templates}" />
-                        <MenuItem Click="ResetZoomClick" Header="{x:Static lang:Strings.ResetZoom}" />
+                        <MenuItem usage:UsageTracking.Feature="NodeGraph.ResetZoom"
+                                  Click="ResetZoomClick"
+                                  Header="{x:Static lang:Strings.ResetZoom}" />
                         <Separator />
-                        <MenuItem Click="RunGenerativeClick"
+                        <MenuItem usage:UsageTracking.Feature="NodeGraph.RunGenerative"
+                                  Click="RunGenerativeClick"
                                   Header="{x:Static lang:NodeGraphStrings.Generative_RunQueue}"
                                   IsEnabled="{Binding CanRunGenerative.Value}" />
-                        <MenuItem Click="StopGenerativeClick"
+                        <MenuItem usage:UsageTracking.Feature="NodeGraph.StopGenerative"
+                                  Click="StopGenerativeClick"
                                   Header="{x:Static lang:NodeGraphStrings.Generative_StopQueue}"
                                   IsVisible="{Binding IsGenerating.Value}" />
                     </ContextMenu>

@@ -514,6 +514,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         if (_isDisposing || _isPausing || IsPlaying.Value) return;
         if (!_isEnabled.Value || Scene == null) return;
 
+        UsageTelemetry.Current?.Record("playback.started", feature: "normal");
         PlaybackSpeed.Value = 1.0f;
         PlaybackDirection.Value = ViewModels.PlaybackDirection.Forward;
         // Mark playing before publishing _playbackTask so a Pause() in the startup window
@@ -1034,6 +1035,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         Scene? scene = Scene;
         if (_isDisposing || _isPausing || _isShuttling || scene == null) return;
         int rate = GetFrameRate();
+        UsageTelemetry.Current?.Record("playback.started", feature: "shuttle");
         // Clear a stop request left by a prior Pause() so the flag's "true until the next
         // playback start" invariant holds across shuttle too, not just Play().
         int generation = _sessionGuard.Claim(() =>

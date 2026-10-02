@@ -118,6 +118,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
                     cancellationToken.ThrowIfCancellationRequested();
                 }
             }, cancellationToken);
+            Beutl.Editor.Services.UsageTelemetry.Current?.Record("tool.command", "Library", "Search");
         }
         catch (OperationCanceledException)
         {

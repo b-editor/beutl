@@ -1,15 +1,16 @@
 <UserControl x:Class="Beutl.Editor.Components.WebBrowserTab.Views.WebBrowserTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:browser="using:Beutl.Editor.Components.WebBrowserTab"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModel="using:Beutl.Editor.Components.WebBrowserTab.ViewModels"
              xmlns:views="using:Beutl.Editor.Components.WebBrowserTab.Views"
-             xmlns:browser="using:Beutl.Editor.Components.WebBrowserTab"
              d:DesignHeight="500"
              d:DesignWidth="700"
              x:ClassModifier="internal"
@@ -78,6 +79,7 @@
                         </StackPanel>
                         <Button Grid.Column="2"
                                 VerticalAlignment="Center"
+                                usage:UsageTracking.Feature="WebBrowser.RemoveHistory"
                                 AutomationProperties.Name="{x:Static lang:Strings.BrowserRemoveHistoryItem}"
                                 Classes="browserIcon removeHistory"
                                 Click="OnRemoveHistoryClick"
@@ -105,6 +107,7 @@
                                TextWrapping="Wrap" />
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="4">
                         <Button Padding="14,6"
+                                usage:UsageTracking.Feature="WebBrowser.OpenHistoryFile"
                                 Click="OnOpenHistoryFileClick"
                                 Content="{x:Static lang:Strings.Open}"
                                 CornerRadius="8"
@@ -112,6 +115,7 @@
                                 IsEnabled="{Binding FileExists}"
                                 Tag="{Binding Record}" />
                         <Button Grid.Column="2"
+                                usage:UsageTracking.Feature="WebBrowser.OpenHistoryFolder"
                                 AutomationProperties.Name="{x:Static lang:Strings.OpenFolder}"
                                 Classes="browserIcon"
                                 Click="OnOpenHistoryFolderClick"
@@ -120,6 +124,7 @@
                             <icons:FluentIcon FontSize="16" Icon="Folder" />
                         </Button>
                         <Button Grid.Column="3"
+                                usage:UsageTracking.Feature="WebBrowser.ImportHistory"
                                 AutomationProperties.Name="{x:Static lang:Strings.BrowserAddToTimeline}"
                                 Classes="browserIcon"
                                 Click="OnImportHistoryClick"
@@ -129,6 +134,7 @@
                             <icons:FluentIcon FontSize="16" Icon="Add" />
                         </Button>
                         <Button Grid.Column="4"
+                                usage:UsageTracking.Feature="WebBrowser.RetryHistory"
                                 AutomationProperties.Name="{x:Static lang:Strings.BrowserRetry}"
                                 Classes="browserIcon"
                                 Click="OnRetryHistoryClick"
@@ -175,6 +181,7 @@
                              Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}">
             <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="2">
                 <Button Grid.Column="0"
+                        usage:UsageTracking.Feature="WebBrowser.Back"
                         Click="OnBackClick"
                         IsEnabled="{Binding CanGoBack.Value}"
                         Theme="{StaticResource ToolTabBarIconButtonTheme}"
@@ -182,6 +189,7 @@
                     <icons:FluentIcon FontSize="16" Icon="ArrowLeft" />
                 </Button>
                 <Button Grid.Column="1"
+                        usage:UsageTracking.Feature="WebBrowser.Forward"
                         Click="OnForwardClick"
                         IsEnabled="{Binding CanGoForward.Value}"
                         Theme="{StaticResource ToolTabBarIconButtonTheme}"
@@ -189,13 +197,15 @@
                     <icons:FluentIcon FontSize="16" Icon="ArrowRight" />
                 </Button>
                 <Panel Grid.Column="2">
-                    <Button Click="OnRefreshClick"
+                    <Button usage:UsageTracking.Feature="WebBrowser.Refresh"
+                            Click="OnRefreshClick"
                             IsVisible="{Binding !IsLoading.Value}"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Refresh}">
                         <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
                     </Button>
-                    <Button Click="OnStopClick"
+                    <Button usage:UsageTracking.Feature="WebBrowser.Stop"
+                            Click="OnStopClick"
                             IsVisible="{Binding IsLoading.Value}"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Stop}">
@@ -220,25 +230,43 @@
                         ToolTip.Tip="{x:Static lang:Strings.Menu}">
                     <Button.Flyout>
                         <ui:FAMenuFlyout>
-                            <ui:FAMenuFlyoutItem Click="OnNewTabClick" Text="{x:Static lang:Strings.NewTab}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.NewTab"
+                                                 Click="OnNewTabClick"
+                                                 Text="{x:Static lang:Strings.NewTab}" />
                             <ui:FAMenuFlyoutSeparator />
-                            <ui:FAMenuFlyoutItem Click="OnDownloadHistoryClick" Text="{x:Static lang:Strings.BrowserDownloads}" />
-                            <ui:FAMenuFlyoutItem Click="OnFindPageClick" Text="{x:Static lang:Strings.BrowserFind}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.DownloadHistory"
+                                                 Click="OnDownloadHistoryClick"
+                                                 Text="{x:Static lang:Strings.BrowserDownloads}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.FindPage"
+                                                 Click="OnFindPageClick"
+                                                 Text="{x:Static lang:Strings.BrowserFind}" />
                             <ui:FAMenuFlyoutSeparator />
-                            <ui:FAMenuFlyoutItem Click="OnZoomInClick" Text="{x:Static lang:Strings.BrowserZoomIn}" />
-                            <ui:FAMenuFlyoutItem Click="OnZoomOutClick" Text="{x:Static lang:Strings.BrowserZoomOut}" />
-                            <ui:FAMenuFlyoutItem x:Name="ZoomResetMenuItem" Click="OnZoomResetClick" Text="{x:Static lang:Strings.BrowserZoomReset}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.ZoomIn"
+                                                 Click="OnZoomInClick"
+                                                 Text="{x:Static lang:Strings.BrowserZoomIn}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.ZoomOut"
+                                                 Click="OnZoomOutClick"
+                                                 Text="{x:Static lang:Strings.BrowserZoomOut}" />
+                            <ui:FAMenuFlyoutItem x:Name="ZoomResetMenuItem"
+                                                 usage:UsageTracking.Feature="WebBrowser.ZoomReset"
+                                                 Click="OnZoomResetClick"
+                                                 Text="{x:Static lang:Strings.BrowserZoomReset}" />
                             <ui:FAMenuFlyoutSeparator />
-                            <ui:FAMenuFlyoutItem Click="OnBrowserSettingsClick" Text="{x:Static lang:Strings.BrowserSettings}" />
-                            <ui:FAMenuFlyoutItem Click="OnDownloadMediaClick"
-                                              IsEnabled="{Binding HasWebAddress.Value}"
-                                              Text="{x:Static lang:Strings.WebDownloadMedia}" />
-                            <ui:FAMenuFlyoutItem Click="OnOpenInDefaultBrowserClick"
-                                                   IsEnabled="{Binding HasWebAddress.Value}"
-                                                   Text="{x:Static lang:Strings.OpenInDefaultBrowser}" />
-                            <ui:FAMenuFlyoutItem Click="OnPrintClick"
-                                                   IsEnabled="{Binding HasWebAddress.Value}"
-                                                   Text="{x:Static lang:Strings.Print}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.BrowserSettings"
+                                                 Click="OnBrowserSettingsClick"
+                                                 Text="{x:Static lang:Strings.BrowserSettings}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.DownloadMedia"
+                                                 Click="OnDownloadMediaClick"
+                                                 IsEnabled="{Binding HasWebAddress.Value}"
+                                                 Text="{x:Static lang:Strings.WebDownloadMedia}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.OpenInDefaultBrowser"
+                                                 Click="OnOpenInDefaultBrowserClick"
+                                                 IsEnabled="{Binding HasWebAddress.Value}"
+                                                 Text="{x:Static lang:Strings.OpenInDefaultBrowser}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.Print"
+                                                 Click="OnPrintClick"
+                                                 IsEnabled="{Binding HasWebAddress.Value}"
+                                                 Text="{x:Static lang:Strings.Print}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
                     <icons:FluentIcon FontSize="16" Icon="MoreHorizontal" />
@@ -253,11 +281,12 @@
             <StackPanel Spacing="6">
                 <TextBlock Text="{Binding ErrorMessage.Value}" TextWrapping="Wrap" />
                 <Button x:Name="LinuxRuntimeHelpButton"
+                        Padding="8,4"
+                        HorizontalAlignment="Left"
+                        usage:UsageTracking.Feature="WebBrowser.OpenLinuxRuntimeHelp"
                         Click="OnOpenLinuxRuntimeHelpClick"
                         Content="{x:Static lang:Strings.OpenLinuxWebViewSetupGuide}"
-                        HorizontalAlignment="Left"
                         IsVisible="{Binding IsLinuxRuntimeHelpVisible.Value}"
-                        Padding="8,4"
                         Theme="{StaticResource TransparentButton}" />
             </StackPanel>
         </Border>
@@ -349,6 +378,7 @@
                     </StackPanel>
                     <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal" Spacing="4">
                         <Button x:Name="ConfirmPageDownloadButton"
+                                usage:UsageTracking.Feature="WebBrowser.ConfirmPageDownload"
                                 AutomationProperties.Name="{x:Static lang:Strings.WebDownloadMedia}"
                                 Classes="browserIcon"
                                 Click="OnConfirmPageDownloadClick"
@@ -358,6 +388,7 @@
                         </Button>
                         <Panel>
                             <Button x:Name="DownloadCancelButton"
+                                    usage:UsageTracking.Feature="WebBrowser.CancelDownload"
                                     AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
                                     Classes="browserIcon"
                                     Click="OnCancelDownloadClick"
@@ -366,6 +397,7 @@
                                 <icons:FluentIcon FontSize="16" Icon="Dismiss" />
                             </Button>
                             <Button x:Name="DismissDownloadStatusButton"
+                                    usage:UsageTracking.Feature="WebBrowser.DismissDownloadStatus"
                                     AutomationProperties.Name="{x:Static lang:Strings.Close}"
                                     Classes="browserIcon"
                                     Click="OnDismissDownloadStatusClick"
@@ -424,6 +456,7 @@
                 </TextBox>
                 <Button x:Name="FindPreviousButton"
                         Grid.Column="1"
+                        usage:UsageTracking.Feature="WebBrowser.FindPrevious"
                         AutomationProperties.Name="{x:Static lang:Strings.BrowserFindPrevious}"
                         Classes="browserIcon"
                         Click="OnFindPreviousClick"
@@ -433,6 +466,7 @@
                 </Button>
                 <Button x:Name="FindNextButton"
                         Grid.Column="2"
+                        usage:UsageTracking.Feature="WebBrowser.FindNext"
                         AutomationProperties.Name="{x:Static lang:Strings.BrowserFindNext}"
                         Classes="browserIcon"
                         Click="OnFindNextClick"
@@ -442,6 +476,7 @@
                 </Button>
                 <Button x:Name="CloseFindButton"
                         Grid.Column="3"
+                        usage:UsageTracking.Feature="WebBrowser.CloseFind"
                         AutomationProperties.Name="{x:Static lang:Strings.Close}"
                         Classes="browserIcon"
                         Click="OnCloseFindClick"
@@ -506,6 +541,7 @@
                                             Orientation="Horizontal"
                                             Spacing="8">
                                     <Button x:Name="StartBrowsingButton"
+                                            usage:UsageTracking.Feature="WebBrowser.StartSearch"
                                             AutomationProperties.Name="{x:Static lang:Strings.BrowserStartSearch}"
                                             Click="OnStartSearchClick">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -518,6 +554,7 @@
                                     <Button x:Name="AddBookmarkButton"
                                             Padding="6"
                                             VerticalAlignment="Center"
+                                            usage:UsageTracking.Feature="WebBrowser.ShowBookmarkEditor"
                                             AutomationProperties.Name="{x:Static lang:Strings.BrowserAddBookmark}"
                                             Click="OnShowBookmarkEditorClick"
                                             Theme="{StaticResource TransparentButton}"
@@ -543,6 +580,7 @@
                                                 <Button Padding="12"
                                                         HorizontalAlignment="Stretch"
                                                         HorizontalContentAlignment="Stretch"
+                                                        usage:UsageTracking.Feature="WebBrowser.OpenBookmark"
                                                         AutomationProperties.Name="{Binding Title}"
                                                         Classes="openBookmark"
                                                         Click="OnOpenBookmarkClick"
@@ -592,6 +630,7 @@
                                                         Margin="0,0,8,0"
                                                         Padding="8"
                                                         VerticalAlignment="Center"
+                                                        usage:UsageTracking.Feature="WebBrowser.RemoveBookmark"
                                                         AutomationProperties.Name="{x:Static lang:Strings.Delete}"
                                                         Classes="removeBookmark"
                                                         Click="OnRemoveBookmarkClick"
@@ -611,6 +650,7 @@
                                     Height="36"
                                     Padding="9"
                                     HorizontalAlignment="Center"
+                                    usage:UsageTracking.Feature="WebBrowser.ShowBookmarkEditor"
                                     AutomationProperties.Name="{x:Static lang:Strings.BrowserAddBookmark}"
                                     Click="OnShowBookmarkEditorClick"
                                     CornerRadius="10"
@@ -654,9 +694,11 @@
                                             Orientation="Horizontal"
                                             Spacing="8">
                                     <Button x:Name="CancelBookmarkButton"
+                                            usage:UsageTracking.Feature="WebBrowser.CancelBookmarkEditor"
                                             Click="OnCancelBookmarkEditorClick"
                                             Content="{x:Static lang:Strings.Cancel}" />
                                     <Button x:Name="SaveBookmarkButton"
+                                            usage:UsageTracking.Feature="WebBrowser.SaveBookmark"
                                             Classes="accent"
                                             Click="OnSaveBookmarkClick"
                                             Content="{x:Static lang:Strings.Add}" />
@@ -676,6 +718,7 @@
                                    Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
                         <Button x:Name="CloseBrowserPanelButton"
                                 Grid.Column="1"
+                                usage:UsageTracking.Feature="WebBrowser.CloseBrowserPanel"
                                 AutomationProperties.Name="{x:Static lang:Strings.Close}"
                                 Click="OnCloseBrowserPanelClick"
                                 Theme="{StaticResource ToolTabBarIconButtonTheme}"

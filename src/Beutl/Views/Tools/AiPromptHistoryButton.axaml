@@ -6,6 +6,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignWidth="32"
              x:CompileBindings="True"
@@ -47,6 +48,7 @@
                                                   Choices="{CompiledBinding History}"
                                                   IsVisible="{CompiledBinding HasHistory.Value}" />
                     <Button HorizontalAlignment="Right"
+                            usage:UsageTracking.Feature="AiWorkspace.PromptHistory.ClearHistory"
                             Command="{CompiledBinding ClearHistory}"
                             Content="{x:Static lang:Strings.AiPromptClearRecent}"
                             IsVisible="{CompiledBinding HasHistory.Value}" />

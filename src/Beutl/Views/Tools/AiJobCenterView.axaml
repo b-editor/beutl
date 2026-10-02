@@ -1,14 +1,15 @@
-﻿<UserControl x:Class="Beutl.Views.Tools.AiJobCenterView"
+<UserControl x:Class="Beutl.Views.Tools.AiJobCenterView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:live="using:Beutl.Controls"
              xmlns:btl="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:live="using:Beutl.Controls"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
              d:DesignHeight="640"
              d:DesignWidth="340"
@@ -29,6 +30,7 @@
             <Button x:Name="RefreshButton"
                     Grid.Column="1"
                     Padding="7"
+                    usage:UsageTracking.Feature="AiWorkspace.JobCenter.Refresh"
                     AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
                     Command="{CompiledBinding Refresh}"
                     Theme="{StaticResource TransparentButton}"
@@ -73,11 +75,13 @@
                                      IsVisible="{CompiledBinding IsConfirmationLoading.Value}" />
                     <Button x:Name="ConfirmationCancelButton"
                             Margin="0,0,8,8"
+                            usage:UsageTracking.Feature="AiWorkspace.JobCenter.CancelConfirmation"
                             AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
                             Click="OnCancelConfirmationClick"
                             Content="{x:Static lang:Strings.Cancel}" />
                     <Button x:Name="ConfirmationConfirmButton"
                             Margin="0,0,0,8"
+                            usage:UsageTracking.Feature="AiWorkspace.JobCenter.Confirm"
                             AutomationProperties.Name="{CompiledBinding ConfirmationActionText.Value}"
                             Click="OnConfirmClick"
                             Content="{CompiledBinding ConfirmationActionText.Value}"
@@ -168,6 +172,7 @@
                                                    TextWrapping="Wrap" />
                                         <WrapPanel Orientation="Horizontal">
                                             <Button Margin="0,0,6,6"
+                                                    usage:UsageTracking.Feature="AiWorkspace.JobCenter.AddToScene"
                                                     AutomationProperties.Name="{x:Static lang:Strings.AiAddToScene}"
                                                     Click="OnAddToSceneClick"
                                                     Content="{x:Static lang:Strings.AiAddToScene}"
@@ -176,6 +181,7 @@
                                                     Tag="{Binding}"
                                                     ToolTip.Tip="{x:Static lang:Strings.AiAddToScene}" />
                                             <Button Margin="0,0,6,6"
+                                                    usage:UsageTracking.Feature="AiWorkspace.JobCenter.Retry"
                                                     AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_Retry}"
                                                     Click="OnRetryClick"
                                                     Content="{x:Static lang:Strings.AiJobCenter_Retry}"
@@ -185,6 +191,7 @@
                                                     ToolTip.Tip="{x:Static lang:Strings.AiJobCenter_Retry}" />
                                             <Button Margin="0,0,6,6"
                                                     Padding="6"
+                                                    usage:UsageTracking.Feature="AiWorkspace.JobCenter.Delete"
                                                     AutomationProperties.Name="{x:Static lang:Strings.Delete}"
                                                     Click="OnDeleteClick"
                                                     IsEnabled="{CompiledBinding !IsBusy.Value}"
@@ -221,6 +228,7 @@
                            Orientation="Horizontal">
                     <Button x:Name="LoadMoreButton"
                             Margin="0,0,8,8"
+                            usage:UsageTracking.Feature="AiWorkspace.JobCenter.LoadMore"
                             AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_LoadMore}"
                             Command="{CompiledBinding LoadMore}"
                             Content="{x:Static lang:Strings.AiJobCenter_LoadMore}"

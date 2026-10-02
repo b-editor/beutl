@@ -6,6 +6,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModel="using:Beutl.ViewModels.Tools"
              Name="Root"
              d:DesignHeight="800"
@@ -33,6 +34,7 @@
             </StackPanel>
             <Button Grid.Column="1"
                     VerticalAlignment="Bottom"
+                    usage:UsageTracking.Feature="Output.StartOutput"
                     Classes="accent"
                     Click="StartOutputClick"
                     Content="{x:Static lang:Strings.Encode}"
@@ -40,6 +42,7 @@
                     IsVisible="{Binding !IsRunning.Value, ElementName=Root}" />
             <Button Grid.Column="1"
                     VerticalAlignment="Bottom"
+                    usage:UsageTracking.Feature="Output.CancelOutput"
                     Click="CancelOutputClick"
                     Content="{x:Static lang:Strings.Cancel}"
                     IsVisible="{Binding IsRunning.Value, ElementName=Root}" />
@@ -67,7 +70,9 @@
                      Text="{Binding DestinationFile.Value, Mode=TwoWay}"
                      ToolTip.Tip="{Binding DestinationFile.Value}">
                 <TextBox.InnerRightContent>
-                    <Button Click="SelectDestinationFileClick" Theme="{StaticResource TextBoxOpenButtonStyle}" />
+                    <Button usage:UsageTracking.Feature="Output.SelectDestinationFile"
+                            Click="SelectDestinationFileClick"
+                            Theme="{StaticResource TextBoxOpenButtonStyle}" />
                 </TextBox.InnerRightContent>
             </TextBox>
         </Grid>

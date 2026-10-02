@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.Editor.Components.VersionControlTab.ViewModels"
              d:DesignHeight="480"
              d:DesignWidth="360"
@@ -21,10 +22,12 @@
                    Orientation="Horizontal">
             <Button x:Name="RestoreButton"
                     Margin="0,0,6,6"
+                    usage:UsageTracking.Feature="VersionControl.Restore"
                     Click="OnRestoreClick"
                     Content="{x:Static lang:Strings.VersionControl_Restore}" />
             <Button x:Name="RestoreToNewBranchButton"
                     Margin="0,0,0,6"
+                    usage:UsageTracking.Feature="VersionControl.RestoreToNewBranch"
                     Click="OnRestoreToNewBranchClick"
                     Content="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
         </WrapPanel>

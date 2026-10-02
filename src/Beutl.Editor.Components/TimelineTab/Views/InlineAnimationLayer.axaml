@@ -6,6 +6,7 @@
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:views="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
              Height="{DynamicResource LayerHeight}"
@@ -19,17 +20,23 @@
              mc:Ignorable="d">
     <UserControl.ContextMenu>
         <ContextMenu>
-            <MenuItem Command="{Binding CopyAllKeyFramesCommand}" Header="{x:Static lang:Strings.CopyAll}">
+            <MenuItem usage:UsageTracking.Feature="Timeline.CopyAllKeyFramesCommand"
+                      Command="{Binding CopyAllKeyFramesCommand}"
+                      Header="{x:Static lang:Strings.CopyAll}">
                 <MenuItem.Icon>
                     <icons:FluentIcon Icon="Copy" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Command="{Binding PasteKeyFrameAtCurrentPositionCommand}" Header="{x:Static lang:Strings.Paste}">
+            <MenuItem usage:UsageTracking.Feature="Timeline.PasteKeyFrameAtCurrentPositionCommand"
+                      Command="{Binding PasteKeyFrameAtCurrentPositionCommand}"
+                      Header="{x:Static lang:Strings.Paste}">
                 <MenuItem.Icon>
                     <icons:FluentIcon Icon="ClipboardPaste" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Command="{Binding DeleteCurrentAnimationCommand}" Header="{x:Static lang:Strings.Delete}">
+            <MenuItem usage:UsageTracking.Feature="Timeline.DeleteCurrentAnimationCommand"
+                      Command="{Binding DeleteCurrentAnimationCommand}"
+                      Header="{x:Static lang:Strings.Delete}">
                 <MenuItem.Icon>
                     <icons:FluentIcon Icon="Delete" />
                 </MenuItem.Icon>
@@ -75,17 +82,23 @@
                           Fill="{DynamicResource SystemFillColorCaution}">
                         <Path.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Command="{Binding CopyCommand}" Header="{x:Static lang:Strings.Copy}">
+                                <MenuItem usage:UsageTracking.Feature="Timeline.CopyCommand"
+                                          Command="{Binding CopyCommand}"
+                                          Header="{x:Static lang:Strings.Copy}">
                                     <MenuItem.Icon>
                                         <icons:FluentIcon Icon="Copy" />
                                     </MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Command="{Binding PasteCommand}" Header="{x:Static lang:Strings.Paste}">
+                                <MenuItem usage:UsageTracking.Feature="Timeline.PasteCommand"
+                                          Command="{Binding PasteCommand}"
+                                          Header="{x:Static lang:Strings.Paste}">
                                     <MenuItem.Icon>
                                         <icons:FluentIcon Icon="ClipboardPaste" />
                                     </MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Command="{Binding RemoveCommand}" Header="{x:Static lang:Strings.Delete}">
+                                <MenuItem usage:UsageTracking.Feature="Timeline.RemoveCommand"
+                                          Command="{Binding RemoveCommand}"
+                                          Header="{x:Static lang:Strings.Delete}">
                                     <MenuItem.Icon>
                                         <icons:FluentIcon Icon="Delete" />
                                     </MenuItem.Icon>

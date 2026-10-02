@@ -171,6 +171,7 @@ public sealed partial class EditViewModel
         HistoryManager = new HistoryManager(Scene, sequenceGenerator);
         HistoryManager.Subscribe(observer)
             .DisposeWith(_disposables);
+        Usage = new EditorUsageTracker(Scene, HistoryManager).DisposeWith(_disposables);
 
         observer.Operations
             .Buffer(HistoryManager.StateChanged)
@@ -610,6 +611,8 @@ public sealed partial class EditViewModel
     public BufferStatusViewModel BufferStatus { get; private set; }
 
     public HistoryManager HistoryManager { get; private set; }
+
+    internal EditorUsageTracker? Usage { get; }
 
     public ReadOnlyReactivePropertySlim<FrameCacheManager> FrameCacheManager { get; private set; }
 
@@ -1225,6 +1228,9 @@ public sealed partial class EditViewModel
             }
 
             bool changed = await ExecuteGuardedHistoryMutationAsync(shouldPause, mutate);
+            if (changed)
+                UsageTelemetry.Current?.Record("editor.history", Usage?.ActiveTool ?? "Editor",
+                    operationName is "Undo" or "Redo" ? operationName : "JumpTo");
             if (changed && completedMessage is not null)
             {
                 _logger.LogInformation("{Message}", completedMessage);
@@ -1247,6 +1253,7 @@ public sealed partial class EditViewModel
 
     public ValueTask<bool> SaveAsync()
     {
+        using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("scene.save");
         Scene scene = Scene;
         _logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
         Uri sceneUri = scene.Uri
@@ -1280,6 +1287,7 @@ public sealed partial class EditViewModel
 
         SaveState(isExplicitUserSave: true);
         _logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
+        usage?.Complete();
 
         return ValueTask.FromResult(true);
     }

@@ -1,5 +1,8 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
+using Beutl.ViewModels.Dock;
 
 namespace Beutl.Views.Dock;
 
@@ -10,6 +13,25 @@ namespace Beutl.Views.Dock;
 /// </summary>
 public sealed class ToolTabHeaderPanel : Panel
 {
+    public ToolTabHeaderPanel()
+    {
+        AddHandler(PointerPressedEvent, OnInteraction, RoutingStrategies.Tunnel);
+        AddHandler(GotFocusEvent, OnInteraction, RoutingStrategies.Bubble);
+    }
+
+    private void OnInteraction(object? sender, RoutedEventArgs args)
+    {
+        if (args.Source is not Visual source) return;
+        foreach (Visual visual in source.GetVisualAncestors().Prepend(source).TakeWhile(v => !ReferenceEquals(v, this)))
+        {
+            if (visual is Control { DataContext: BeutlToolDockable dockable })
+            {
+                dockable.RecordInteraction();
+                return;
+            }
+        }
+    }
+
     protected override Size MeasureOverride(Size availableSize)
     {
         (Control? strip, Control? addButton, Control? freeSpace) = GetSlots();

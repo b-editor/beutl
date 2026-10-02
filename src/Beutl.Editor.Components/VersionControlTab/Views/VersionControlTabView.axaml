@@ -1,5 +1,4 @@
-<UserControl x:Name="Root"
-             x:Class="Beutl.Editor.Components.VersionControlTab.Views.VersionControlTabView"
+<UserControl x:Class="Beutl.Editor.Components.VersionControlTab.Views.VersionControlTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
@@ -8,8 +7,10 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:views="using:Beutl.Editor.Components.VersionControlTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.VersionControlTab.ViewModels"
+             x:Name="Root"
              d:DesignHeight="640"
              d:DesignWidth="420"
              x:CompileBindings="True"
@@ -73,6 +74,7 @@
                            TextWrapping="Wrap" />
                 <Button x:Name="RecoverPendingPullButton"
                         Grid.Column="1"
+                        usage:UsageTracking.Feature="VersionControl.RecoverPendingPullCommand"
                         Command="{Binding RecoverPendingPullCommand}"
                         Content="{x:Static lang:Strings.VersionControl_RecoverPendingPull}" />
             </Grid>
@@ -105,9 +107,11 @@
                                ItemSpacing="8"
                                LineSpacing="8">
                         <Button x:Name="CancelRepositoryAdoptionButton"
+                                usage:UsageTracking.Feature="VersionControl.CancelRepositoryAdoptionCommand"
                                 Command="{Binding CancelRepositoryAdoptionCommand}"
                                 Content="{x:Static lang:Strings.Cancel}" />
                         <Button x:Name="AcceptRepositoryAdoptionButton"
+                                usage:UsageTracking.Feature="VersionControl.AcceptRepositoryAdoptionCommand"
                                 Classes="accent"
                                 Command="{Binding AcceptRepositoryAdoptionCommand}"
                                 Content="{x:Static lang:Strings.VersionControl_AdoptRepositoryAction}" />
@@ -169,6 +173,7 @@
                                        Text="{Binding StaleLockGuidance.Value}"
                                        TextWrapping="Wrap" />
                             <Button Grid.Column="1"
+                                    usage:UsageTracking.Feature="VersionControl.RemoveStaleLockCommand"
                                     Command="{Binding RemoveStaleLockCommand}"
                                     Content="{x:Static lang:Strings.VersionControl_RemoveStaleLock}" />
                         </Grid>
@@ -214,6 +219,7 @@
                                 </StackPanel>
                                 <Button x:Name="EnableVersionControlButton"
                                         HorizontalAlignment="Center"
+                                        usage:UsageTracking.Feature="VersionControl.EnableVersionControlCommand"
                                         Command="{Binding EnableVersionControlCommand}"
                                         IsVisible="{Binding CanEnableVersionControl.Value}">
                                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
@@ -273,18 +279,23 @@
                                 <SplitButton.Flyout>
                                     <MenuFlyout Placement="Pointer">
                                         <MenuItem x:Name="CommitMenuItem"
+                                                  usage:UsageTracking.Feature="VersionControl.CommitCommand"
                                                   Command="{Binding CommitCommand}"
                                                   Header="{x:Static lang:Strings.VersionControl_CommitNow}" />
                                         <MenuItem x:Name="PushMenuItem"
+                                                  usage:UsageTracking.Feature="VersionControl.PushCommand"
                                                   Command="{Binding PushCommand}"
                                                   Header="{x:Static lang:Strings.VersionControl_Push}" />
                                         <MenuItem x:Name="PullMenuItem"
+                                                  usage:UsageTracking.Feature="VersionControl.PullCommand"
                                                   Command="{Binding PullCommand}"
                                                   Header="{x:Static lang:Strings.VersionControl_Pull}" />
                                         <MenuItem x:Name="SetRemoteMenuItem"
+                                                  usage:UsageTracking.Feature="VersionControl.SetRemoteCommand"
                                                   Command="{Binding SetRemoteCommand}"
                                                   Header="{x:Static lang:Strings.VersionControl_SetRemote}" />
                                         <MenuItem x:Name="CancelRemoteOperationMenuItem"
+                                                  usage:UsageTracking.Feature="VersionControl.CancelRemoteOperationCommand"
                                                   Command="{Binding CancelRemoteOperationCommand}"
                                                   Header="{x:Static lang:Strings.Cancel}"
                                                   IsVisible="{Binding IsRemoteOperationRunning.Value}" />
