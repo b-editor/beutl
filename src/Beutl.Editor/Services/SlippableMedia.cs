@@ -18,12 +18,14 @@ internal static class SlippableMedia
     // Total is the absolute source duration (null when the stream has no bounded source).
     internal sealed class Target
     {
-        public Target(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan visibleEnd, TimeSpan outPointHeadroom)
+        public Target(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan visibleEnd, TimeSpan outPointHeadroom,
+            bool isVideo = false)
         {
             Offset = offset;
             Total = total;
             VisibleEnd = visibleEnd;
             OutPointHeadroom = outPointHeadroom;
+            IsVideo = isVideo;
         }
 
         public IProperty<TimeSpan> Offset { get; }
@@ -35,6 +37,8 @@ internal static class SlippableMedia
         public TimeSpan VisibleEnd { get; }
 
         public TimeSpan OutPointHeadroom { get; }
+
+        public bool IsVideo { get; }
 
         public TimeSpan Current
         {
@@ -59,7 +63,8 @@ internal static class SlippableMedia
         }
 
         // Time controllers can sample beyond their target's declared range. Until trim
-        // operations share their time mapping (#2569), retain the pre-existing element bounds.
+        // operations share their time mapping (#2569), retain the pre-existing video bounds.
+        // They only process drawables, so independent audio keeps its own clipped window.
         // Check the whole traversal so a shared source reached before its controller is
         // treated the same way regardless of collection order.
         if (visited.Any(static obj => obj is DrawableTimeController))
@@ -67,7 +72,8 @@ internal static class SlippableMedia
             for (int i = 0; i < targets.Count; i++)
             {
                 Target target = targets[i];
-                targets[i] = CreateElementBoundTarget(target.Offset, target.Total, element.Length);
+                if (target.IsVideo)
+                    targets[i] = CreateElementBoundTarget(target.Offset, target.Total, element.Length, isVideo: true);
             }
         }
 
@@ -118,14 +124,40 @@ internal static class SlippableMedia
         // An exhausted source still has a known total even when TryGetOriginalDuration returns false.
         using var resource = video.ToResource(CompositionContext.Default);
         TimeSpan? total = video.CalculateOriginalTime((SourceVideo.Resource)resource);
-        return CreateTarget(video, video.OffsetPosition, total, video.Speed, element);
+        if (HasSpeedMapping(video.Speed)
+            || video.IsLoop.CurrentValue || video.IsLoop.Animation is not null || video.IsLoop.HasExpression)
+        {
+            return CreateElementBoundTarget(video.OffsetPosition, total, element.Length, isVideo: true);
+        }
+
+        // DrawableGroup and presenters do not clip a video at its own TimeRange.End.
+        // SourceVideo is sampled throughout the containing element's active window.
+        TimeSpan visibleEnd = element.Range.End - video.TimeRange.Start;
+        TimeSpan room = TimeSpan.MaxValue;
+        if (total is { } duration)
+        {
+            room = video.TimeRange.Start + duration - video.OffsetPosition.CurrentValue - element.Range.End;
+            if (room < TimeSpan.Zero) room = TimeSpan.Zero;
+
+            // SourceVideo wraps negative local times from the source's end, even with
+            // IsLoop disabled. A window crossing local zero samples up to that source end.
+            if (element.Start < video.TimeRange.Start)
+            {
+                visibleEnd = visibleEnd < TimeSpan.Zero
+                    ? duration + visibleEnd
+                    : (visibleEnd > duration ? visibleEnd : duration);
+            }
+        }
+        if (visibleEnd < TimeSpan.Zero) visibleEnd = TimeSpan.Zero;
+
+        return new Target(video.OffsetPosition, total, visibleEnd, room, isVideo: true);
     }
 
     private static Target CreateSoundTarget(SourceSound sound, Element element)
     {
         // SourceSound.TryGetOriginalDuration returns the full source duration.
         TimeSpan? total = sound.TryGetOriginalDuration(out TimeSpan duration) ? duration : null;
-        return CreateTarget(sound, sound.OffsetPosition, total, sound.Speed, element);
+        return CreateClippedSoundTarget(sound, total, element);
     }
 
     private static Target CreateSceneSoundTarget(SceneSound sound, Element element)
@@ -134,15 +166,18 @@ internal static class SlippableMedia
         // window can advance. Unresolved references stay unbounded, like a SourceVideo
         // without a loaded source.
         TimeSpan? total = sound.ReferencedScene.CurrentValue?.Duration;
-        return CreateTarget(sound, sound.OffsetPosition, total, sound.Speed, element);
+        return CreateClippedSoundTarget(sound, total, element);
     }
 
-    private static Target CreateTarget(
-        EngineObject media, IProperty<TimeSpan> offset, TimeSpan? total, IProperty<float> speed, Element element)
+    private static bool HasSpeedMapping(IProperty<float> speed)
+        => speed.CurrentValue != 100f || speed.Animation is not null || speed.HasExpression;
+
+    private static Target CreateClippedSoundTarget(Sound media, TimeSpan? total, Element element)
     {
+        IProperty<TimeSpan> offset = media.OffsetPosition;
         // Speed-aware clamp and offset conversion are tracked separately in #2069/#2090.
         // Do not relax their existing bounds using an unmapped nested timeline duration.
-        if (speed.CurrentValue != 100f || speed.Animation is not null || speed.HasExpression)
+        if (HasSpeedMapping(media.Speed))
             return CreateElementBoundTarget(offset, total, element.Length);
 
         TimeRange visible = media.TimeRange.Intersect(element.Range);
@@ -177,11 +212,12 @@ internal static class SlippableMedia
         return true;
     }
 
-    private static Target CreateElementBoundTarget(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan length)
+    private static Target CreateElementBoundTarget(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan length,
+        bool isVideo = false)
     {
         TimeSpan room = total is { } duration ? duration - offset.CurrentValue - length : TimeSpan.MaxValue;
         if (room < TimeSpan.Zero) room = TimeSpan.Zero;
-        return new Target(offset, total, length, room);
+        return new Target(offset, total, length, room, isVideo);
     }
 
     // The largest-magnitude delta (in the requested direction) that every stream can apply
