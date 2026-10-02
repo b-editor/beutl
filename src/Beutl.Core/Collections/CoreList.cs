@@ -291,7 +291,7 @@ public class CoreList<T> : ICoreList<T>
     {
         _ = items ?? throw new ArgumentNullException(nameof(items));
 
-        bool willRaiseCollectionChanged = CollectionChanged != null;
+        bool willNotify = CollectionChanged != null || Attached != null || PropertyChanged != null;
         if (items.TryGetNonEnumeratedCount(out int count))
         {
             EnsureCapacity(Inner.Count + count);
@@ -328,22 +328,27 @@ public class CoreList<T> : ICoreList<T>
             {
                 if (en.MoveNext())
                 {
-                    // Avoid allocating list for collection notification if there is no event subscriptions.
-                    List<T>? notificationItems = willRaiseCollectionChanged ? [] : null;
+                    // Only keep the inserted items when a listener needs notifications.
+                    List<T>? notificationItems = willNotify ? [] : null;
 
                     int insertIndex = index;
 
-                    do
+                    try
                     {
-                        T item = en.Current;
-                        Inner.Insert(insertIndex++, item);
-
-                        notificationItems?.Add(item);
-
-                    } while (en.MoveNext());
-
-                    if (notificationItems is not null)
-                        NotifyAdd(notificationItems, index);
+                        do
+                        {
+                            T item = en.Current;
+                            Inner.Insert(insertIndex++, item);
+                            notificationItems?.Add(item);
+                        } while (en.MoveNext());
+                    }
+                    finally
+                    {
+                        // An iterator can fail after inserting a prefix. Those items still need
+                        // attachment and change notifications to match the list's contents.
+                        if (notificationItems is { Count: > 0 })
+                            NotifyAdd(notificationItems, index);
+                    }
                 }
             }
         }
