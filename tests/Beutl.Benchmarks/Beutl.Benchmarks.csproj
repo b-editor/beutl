@@ -16,10 +16,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- BenchmarkDotNet builds a generated project that skips Directory.Build.targets; the job passes this
-         back to it, or the generated output ships SkiaSharp's own libSkiaSharp instead of Beutl's. -->
+    <!-- BenchmarkDotNet builds a generated project that skips Directory.Build.targets, and one whose artifacts
+         live outside the repository also misses Directory.Build.props. The job passes both values back to it, or
+         the generated output ships SkiaSharp's own libSkiaSharp instead of Beutl's. -->
     <AssemblyMetadata Include="BeutlSkiaSharpTargets"
                       Value="$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)../../native/SkiaSharp/Beutl.Engine.targets'))" />
+    <AssemblyMetadata Include="BeutlSkiaSharpNativeRoot"
+                      Value="$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)../../src/Beutl.Engine'))" />
   </ItemGroup>
 
   <ItemGroup>
