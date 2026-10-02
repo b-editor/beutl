@@ -159,8 +159,8 @@ internal static class HostedGitLfsTransferAgent
             await ProgressAsync(output, message.Oid!, progress, length);
         }
         Uri completeUrl = new(url.AbsoluteUri.TrimEnd('/') + "/complete");
-        using JsonDocument completedUpload = await SendJsonWithRetryAsync(http,
-            () => NewRequest(HttpMethod.Post, completeUrl, message.Action!.Header), cancellationToken);
+        using JsonDocument completedUpload = await WaitMultipartCompletionAsync(
+            http, completeUrl, message.Action!.Header, cancellationToken);
         if (completedUpload.RootElement.GetProperty("oid").GetString() != message.Oid ||
             completedUpload.RootElement.GetProperty("size").GetInt64() != message.Size)
             throw new InvalidOperationException("Multipart verification response does not match the LFS object");
@@ -261,6 +261,52 @@ internal static class HostedGitLfsTransferAgent
             if (!advanced || offset <= before)
                 throw new InvalidOperationException("tus upload did not advance");
             await ProgressAsync(output, message.Oid!, offset, offset - before);
+        }
+        await WaitTusVerificationAsync(http, uploadUrl, message.Action!.Header,
+            message.Size, cancellationToken);
+    }
+
+    private static async Task WaitTusVerificationAsync(
+        HttpClient http, Uri uploadUrl, Dictionary<string, string>? headers,
+        long size, CancellationToken cancellationToken)
+    {
+        DateTime deadline = DateTime.UtcNow.AddHours(24);
+        while (true)
+        {
+            using HttpResponseMessage response = await SendTusRequestWithRetryAsync(http, () =>
+            {
+                var request = NewRequest(HttpMethod.Head, uploadUrl, headers);
+                request.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
+                return request;
+            }, cancellationToken);
+            CheckTusVersion(response);
+            if (ReadTusNumber(response, "Upload-Length") != size || ReadTusOffset(response) != size)
+                throw new InvalidOperationException("tus verification offset changed");
+            if (!response.Headers.TryGetValues("Upload-Verified", out IEnumerable<string>? values) ||
+                values.SingleOrDefault() == "true") return;
+            if (values.SingleOrDefault() != "false")
+                throw new InvalidOperationException("Invalid tus verification status");
+            if (DateTime.UtcNow >= deadline)
+                throw new TimeoutException("tus verification did not finish before the upload expired");
+            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+        }
+    }
+
+    private static async Task<JsonDocument> WaitMultipartCompletionAsync(
+        HttpClient http, Uri completeUrl, Dictionary<string, string>? headers,
+        CancellationToken cancellationToken)
+    {
+        DateTime deadline = DateTime.UtcNow.AddHours(24);
+        while (true)
+        {
+            JsonDocument result = await SendJsonWithRetryAsync(http,
+                () => NewRequest(HttpMethod.Post, completeUrl, headers), cancellationToken);
+            if (!result.RootElement.TryGetProperty("verifying", out JsonElement verifying) ||
+                verifying.ValueKind != JsonValueKind.True) return result;
+            result.Dispose();
+            if (DateTime.UtcNow >= deadline)
+                throw new TimeoutException("Multipart verification did not finish before the upload expired");
+            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
         }
     }
 

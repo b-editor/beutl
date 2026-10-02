@@ -38,6 +38,7 @@ public class HostedGitLfsTransferAgentTests
 
         Assert.That(exitCode, Is.Zero, output.ToString());
         Assert.That(handler.Part80Attempts, Is.EqualTo(2));
+        Assert.That(handler.CompletionAttempts, Is.EqualTo(3));
         Assert.That(handler.UploadedParts, Is.EqualTo(new[] { (80, (long)PartSize), (81, 1L) }));
         Assert.That(handler.MaxReadChunk, Is.LessThanOrEqualTo(128 * 1024));
         Assert.That(handler.SawAuthorization, Is.True);
@@ -78,6 +79,7 @@ public class HostedGitLfsTransferAgentTests
         Assert.That(handler.MaxReadChunk, Is.LessThanOrEqualTo(128 * 1024));
         Assert.That(handler.SawAuthorization, Is.True);
         Assert.That(handler.HeadCalls, Is.GreaterThanOrEqualTo(2));
+        Assert.That(handler.VerificationPolls, Is.EqualTo(3));
         using JsonDocument last = JsonDocument.Parse(output.ToString().Trim().Split('\n')[^1]);
         Assert.That(last.RootElement.GetProperty("event").GetString(), Is.EqualTo("complete"));
         Assert.That(last.RootElement.TryGetProperty("error", out _), Is.False);
@@ -87,6 +89,7 @@ public class HostedGitLfsTransferAgentTests
     {
         private long _offset = 79L * PartSize;
         public int HeadCalls { get; private set; }
+        public int VerificationPolls { get; private set; }
         public int MaxReadChunk { get; private set; }
         public bool SawAuthorization { get; private set; }
         public List<(long Offset, long Size)> UploadedChunks { get; } = [];
@@ -109,6 +112,9 @@ public class HostedGitLfsTransferAgentTests
                 var head = Tus(HttpStatusCode.OK);
                 head.Headers.TryAddWithoutValidation("Upload-Length", ObjectSize.ToString());
                 head.Headers.TryAddWithoutValidation("Upload-Offset", _offset.ToString());
+                if (_offset == ObjectSize)
+                    head.Headers.TryAddWithoutValidation("Upload-Verified",
+                        ++VerificationPolls >= 3 ? "true" : "false");
                 return head;
             }
             if (request.Method == HttpMethod.Patch)
@@ -149,6 +155,7 @@ public class HostedGitLfsTransferAgentTests
     private sealed class MultipartHandler : HttpMessageHandler
     {
         public int Part80Attempts { get; private set; }
+        public int CompletionAttempts { get; private set; }
         public int MaxReadChunk { get; private set; }
         public bool SawAuthorization { get; private set; }
         public List<(int Number, long Size)> UploadedParts { get; } = [];
@@ -189,7 +196,10 @@ public class HostedGitLfsTransferAgentTests
                 return Json(new { partNumber = number, etag = $"etag-{number}", size });
             }
             if (request.Method == HttpMethod.Post && path.EndsWith("/complete", StringComparison.Ordinal))
+            {
+                if (++CompletionAttempts < 3) return Json(new { verifying = true });
                 return Json(new { oid = s_oid, size = ObjectSize });
+            }
             throw new InvalidOperationException($"Unexpected LFS request: {request.Method} {path}");
         }
 
