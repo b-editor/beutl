@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Beutl.Api;
 
 namespace Beutl.Editor.VersionControl;

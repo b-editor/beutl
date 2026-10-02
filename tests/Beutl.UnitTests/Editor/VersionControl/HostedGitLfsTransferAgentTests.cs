@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -19,7 +19,10 @@ public class HostedGitLfsTransferAgentTests
             JsonSerializer.Serialize(new { @event = "init", operation = "upload" }),
             JsonSerializer.Serialize(new
             {
-                @event = "upload", oid = s_oid, size = ObjectSize, path = "virtual-large-media",
+                @event = "upload",
+                oid = s_oid,
+                size = ObjectSize,
+                path = "virtual-large-media",
                 action = new
                 {
                     href = $"https://beutl.example/api/v3/git/repo.git/info/lfs/objects/{s_oid}/multipart",
@@ -53,7 +56,10 @@ public class HostedGitLfsTransferAgentTests
             JsonSerializer.Serialize(new { @event = "init", operation = "upload" }),
             JsonSerializer.Serialize(new
             {
-                @event = "upload", oid = s_oid, size = ObjectSize, path = "virtual-large-media",
+                @event = "upload",
+                oid = s_oid,
+                size = ObjectSize,
+                path = "virtual-large-media",
                 action = new
                 {
                     href = $"https://beutl.example/api/v3/git/repo.git/info/lfs/objects/{s_oid}/tus",
@@ -156,7 +162,9 @@ public class HostedGitLfsTransferAgentTests
             {
                 return Json(new
                 {
-                    complete = false, partSize = PartSize, partCount = 81,
+                    complete = false,
+                    partSize = PartSize,
+                    partCount = 81,
                     parts = Enumerable.Range(1, 79)
                         .Select(number => new { partNumber = number, etag = $"etag-{number}", size = PartSize })
                 });
