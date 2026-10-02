@@ -19,7 +19,7 @@ internal sealed class EditorUsageTracker : IDisposable
     private readonly Scene _scene;
     private readonly IDisposable _subscription;
     private readonly UsageTelemetry? _usageTelemetry;
-    private readonly HashSet<string> _seenEffects = [];
+    private readonly Dictionary<string, UsageTelemetry.Observation?> _seenEffects = [];
     private WeakReference<object>? _activeTool;
     private long _activeToolEpoch = -1;
     private bool _observedEffects;
@@ -94,7 +94,7 @@ internal sealed class EditorUsageTracker : IDisposable
 
     private void ObserveEffects()
     {
-        if (_disposed || _usageTelemetry is not { IsEnabled: true } usage) return;
+        if (_disposed || _usageTelemetry is not { } usage || !usage.TryGetCollectionEpoch(out long epoch)) return;
         _observedEffects = true;
         foreach (EngineObject effect in _scene.EnumerateAllChildren<EngineObject>())
         {
@@ -108,8 +108,11 @@ internal sealed class EditorUsageTracker : IDisposable
             string id = type.Assembly == typeof(FilterEffect).Assembly ? type.Name : "Extension";
             // Once per effect type and editor lifetime, including an existing
             // project's effects. This measures presence, not rendered frames.
-            if (_seenEffects.Add(category + "." + id))
-                usage.Record("effect.used", category, id);
+            // An unflushed observation discarded by revocation can be retried;
+            // types already handed to the exporter remain deduplicated.
+            string key = category + "." + id;
+            _seenEffects.TryGetValue(key, out UsageTelemetry.Observation? previous);
+            _seenEffects[key] = usage.RecordOnce(new("effect.used", category, id), previous, epoch);
         }
     }
 

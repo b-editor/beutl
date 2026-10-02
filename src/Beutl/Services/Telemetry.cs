@@ -387,22 +387,35 @@ internal class Telemetry : IDisposable
         }
     }
 
-    internal class RemoveSensitiveDataProcessor : BaseProcessor<Activity>
+    internal class RemoveSensitiveDataProcessor(Func<string?, string?>? sanitize = null) : BaseProcessor<Activity>
     {
+        private readonly Func<string?, string?> _sanitize = sanitize ?? SensitiveData.Sanitize;
+
         public override void OnEnd(Activity data)
         {
             base.OnEnd(data);
 
+            bool usageSummary = false;
+#if !Beutl_PackageTools
+            // Only this internal source emits the controlled usage identifiers.
+            // A diagnostic span with the same name must still be redacted.
+            usageSummary = ReferenceEquals(data.Source, UsageTelemetry.Source)
+                && data.OperationName == "Usage.Summary"
+                && Equals(data.GetTagItem("beutl.usage.schema_version"), 1);
+#endif
             foreach (KeyValuePair<string, string?> pair in data.Tags)
             {
-                string? sanitized = SensitiveData.Sanitize(pair.Value);
+                if (usageSummary && pair.Key is "beutl.usage.event" or "beutl.usage.tool"
+                    or "beutl.usage.feature" or "beutl.usage.outcome") continue;
+                string? sanitized = _sanitize(pair.Value);
                 if (!ReferenceEquals(sanitized, pair.Value))
                 {
                     data.SetTag(pair.Key, sanitized);
                 }
             }
 
-            string? sanitizedName = SensitiveData.Sanitize(data.DisplayName);
+            string? sanitizedName = usageSummary && data.DisplayName == "Usage.Summary"
+                ? data.DisplayName : _sanitize(data.DisplayName);
             if (sanitizedName is not null && !ReferenceEquals(sanitizedName, data.DisplayName))
             {
                 data.DisplayName = sanitizedName;
@@ -410,7 +423,7 @@ internal class Telemetry : IDisposable
 
             if (!string.IsNullOrEmpty(data.StatusDescription))
             {
-                string? sanitizedDesc = SensitiveData.Sanitize(data.StatusDescription);
+                string? sanitizedDesc = _sanitize(data.StatusDescription);
                 if (!ReferenceEquals(sanitizedDesc, data.StatusDescription))
                 {
                     data.SetStatus(data.Status, sanitizedDesc);

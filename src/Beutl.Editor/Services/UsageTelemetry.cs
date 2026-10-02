@@ -17,7 +17,7 @@ internal sealed class UsageTelemetry : IDisposable
     private readonly TimeProvider _time;
     private readonly Action<UsageSummary> _emit;
     private readonly ITimer _timer;
-    private readonly Dictionary<UsageKey, UsageSummary> _pending = [];
+    private readonly Dictionary<UsageKey, PendingSummary> _pending = [];
     private bool _enabled;
     private bool _started;
     private bool _disposed;
@@ -100,14 +100,35 @@ internal sealed class UsageTelemetry : IDisposable
             return _enabled && !_disposed ? new Operation(this, feature, _epoch, _time.GetTimestamp()) : null;
     }
 
-    private void Add(UsageKey key, double durationMs = 0)
+    internal Observation? RecordOnce(UsageKey key, Observation? previous, long epoch)
+    {
+        lock (_gate)
+        {
+            if (!_enabled || _disposed || epoch != _epoch
+                || previous is { WasEmitted: true }
+                || previous is { IsPending: true } && previous.Epoch == _epoch)
+                return previous;
+            return Add(key);
+        }
+    }
+
+    private Observation? Add(UsageKey key, double durationMs = 0)
     {
         // Bound memory and network traffic even if a future caller accidentally
         // introduces an unbounded dimension. Counts are batched, not sampled.
-        if (_pending.TryGetValue(key, out UsageSummary? previous))
-            _pending[key] = previous with { Count = previous.Count + 1, DurationMs = previous.DurationMs + durationMs };
-        else if (_pending.Count < 1024)
-            _pending.Add(key, new UsageSummary(key, 1, durationMs));
+        if (_pending.TryGetValue(key, out PendingSummary? pending))
+            pending.Summary = pending.Summary with
+            {
+                Count = pending.Summary.Count + 1,
+                DurationMs = pending.Summary.DurationMs + durationMs
+            };
+        else
+        {
+            if (_pending.Count >= 1024) return null;
+            pending = new(new UsageSummary(key, 1, durationMs), _epoch);
+            _pending.Add(key, pending);
+        }
+        return pending.Observation;
     }
 
     internal void Flush()
@@ -118,20 +139,25 @@ internal sealed class UsageTelemetry : IDisposable
             long now = _time.GetTimestamp();
             Add(new("session.heartbeat"), _time.GetElapsedTime(_lastPulse, now).TotalMilliseconds);
             _lastPulse = now;
-            UsageSummary[] summaries = [.. _pending.Values];
+            PendingSummary[] summaries = [.. _pending.Values];
             _pending.Clear();
             long epoch = _epoch;
-            foreach (UsageSummary summary in summaries)
+            foreach (PendingSummary pending in summaries)
             {
                 // Activity listeners can re-enter and change consent during emit.
                 if (!_enabled || _epoch != epoch) break;
                 // Telemetry must never break an editing action or a timer thread.
                 try
                 {
+                    // Mark before invoking listeners, which can re-enter an
+                    // inventory scan. Roll back if emission itself fails.
+                    pending.Observation.IsPending = false;
+                    pending.Observation.WasEmitted = true;
+                    UsageSummary summary = pending.Summary;
                     _emit(summary);
                     if (summary.Key.Event == "session.started") _started = true;
                 }
-                catch { }
+                catch { pending.Observation.WasEmitted = false; }
             }
         }
     }
@@ -194,6 +220,21 @@ internal sealed class UsageTelemetry : IDisposable
                         owner._time.GetElapsedTime(started).TotalMilliseconds);
             }
         }
+    }
+
+    // Shared by all observations of the same batched key. Only access these
+    // fields while holding the collector gate, including during consent changes.
+    internal sealed class Observation(long epoch)
+    {
+        internal readonly long Epoch = epoch;
+        internal bool IsPending = true;
+        internal bool WasEmitted;
+    }
+
+    private sealed class PendingSummary(UsageSummary summary, long epoch)
+    {
+        internal UsageSummary Summary = summary;
+        internal readonly Observation Observation = new(epoch);
     }
 }
 

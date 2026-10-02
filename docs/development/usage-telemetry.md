@@ -6,7 +6,10 @@ configured. Revoking Application consent clears pending summaries and invalidate
 in-flight measurements; enabling it takes effect without restarting.
 Existing editors rescan their enabled effects when collection becomes enabled.
 The scan runs on the UI thread and is skipped if the editor closes before it runs;
-an already observed effect type is not counted again after another consent change.
+an already emitted effect type is not counted again after another consent change.
+An observation discarded before emission can be collected again if the effect is
+still enabled. Searches and history actions retain their starting consent period
+across asynchronous waits and cannot be recorded in a later period.
 Tab-interaction deduplication is scoped to an enabled collection period: opting in
 does not create an interaction, but the first subsequent interaction is counted
 even if the same tab was selected while collection was disabled.

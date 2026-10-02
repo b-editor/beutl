@@ -40,7 +40,13 @@ internal sealed class ToolUsageTracker : IDisposable
                 TrackSetting(audio.SpectrumShape, nameof(audio.SpectrumShape));
                 break;
             case ColorGradingTabViewModel grading:
-                TrackSetting(grading.WheelMode, nameof(grading.WheelMode));
+                grading.WheelMode.Skip(1).DistinctUntilChanged().Subscribe(mode =>
+                {
+                    if (mode == ColorGradingWheelMode.ShadowsMidtonesHighlights)
+                        RecordSetting(nameof(grading.WheelMode), nameof(ColorGradingWheelMode.ShadowsMidtonesHighlights));
+                    else if (mode == ColorGradingWheelMode.LiftGammaGainOffset)
+                        RecordSetting(nameof(grading.WheelMode), nameof(ColorGradingWheelMode.LiftGammaGainOffset));
+                }).DisposeWith(_subscriptions);
                 TrackSetting(grading.IsNumberEditorsVisible, nameof(grading.IsNumberEditorsVisible));
                 break;
             case CurvesTabViewModel curves:

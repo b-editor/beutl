@@ -1,14 +1,17 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Linq;
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.ColorGradingTab.ViewModels;
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Views;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -18,6 +21,7 @@ using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Helpers;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -189,6 +193,60 @@ public sealed class UsageTelemetryTests
     }
 
     [Test]
+    public void Production_redaction_preserves_only_controlled_usage_identifiers()
+    {
+        // Simulate accounts named Usage and Opacity while also running the real
+        // environment redactor. The actual production processor owns exemptions.
+        using var processor = new Telemetry.RemoveSensitiveDataProcessor(value =>
+            Telemetry.SensitiveData.Sanitize(value)?
+                .Replace("Usage", "<User>", StringComparison.OrdinalIgnoreCase)
+                .Replace("Opacity", "<Machine>", StringComparison.OrdinalIgnoreCase));
+        var activities = new List<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == UsageTelemetry.SourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStarted = activity =>
+            {
+                activity.SetTag("diagnostic.message", "Usage Opacity");
+                activity.SetStatus(ActivityStatusCode.Error, "Usage Opacity");
+            },
+            ActivityStopped = activity =>
+            {
+                processor.OnEnd(activity);
+                activities.Add(activity);
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
+        using var usage = new UsageTelemetry(_config, _time);
+        usage.Record("editor.property", "Timeline", "RectShape.Opacity");
+        usage.Flush();
+        Activity summary = activities.Single(a => Equals(a.GetTagItem("beutl.usage.event"), "editor.property"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(summary.DisplayName, Is.EqualTo("Usage.Summary"));
+            Assert.That(summary.GetTagItem("beutl.usage.feature"), Is.EqualTo("RectShape.Opacity"));
+            Assert.That(summary.GetTagItem("diagnostic.message"), Is.EqualTo("<User> <Machine>"));
+            Assert.That(summary.StatusDescription, Is.EqualTo("<User> <Machine>"));
+        });
+
+        // Neither a look-alike diagnostic source nor a custom span display name
+        // on the real source may bypass diagnostic redaction.
+        using var diagnosticSource = new ActivitySource(UsageTelemetry.SourceName);
+        using Activity diagnostic = diagnosticSource.StartActivity("Usage.Summary")!;
+        diagnostic.SetTag("beutl.usage.schema_version", 1);
+        diagnostic.SetTag("beutl.usage.feature", "RectShape.Opacity");
+        diagnostic.Stop();
+        Assert.That(diagnostic.DisplayName, Is.EqualTo("<User>.Summary"));
+        Assert.That(diagnostic.GetTagItem("beutl.usage.feature"), Is.EqualTo("RectShape.<Machine>"));
+        using Activity renamed = UsageTelemetry.Source.StartActivity("Usage.Summary")!;
+        renamed.SetTag("beutl.usage.schema_version", 1);
+        renamed.DisplayName = "Usage Opacity";
+        renamed.Stop();
+        Assert.That(renamed.DisplayName, Is.EqualTo("<User> <Machine>"));
+    }
+
+    [Test]
     public void History_counts_commits_but_not_undo_redo_or_untrusted_names()
     {
         var scene = new Scene(640, 480, "usage-test");
@@ -294,6 +352,64 @@ public sealed class UsageTelemetryTests
         _usage.Flush();
         Assert.That(_summaries.Where(s => s.Key.Event == "effect.used").Select(s => (s.Key.Feature, s.Count)),
             Is.EquivalentTo(new[] { ("Blur", 1L) }));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Revocation_retries_only_effects_not_yet_emitted(bool fromBackground)
+    {
+        var scene = new Scene(640, 480, "usage-test");
+        var shape = new Beutl.Graphics.Shapes.RectShape();
+        var group = new FilterEffectGroup();
+        group.Children.Add(new Blur());
+        shape.FilterEffect.CurrentValue = group;
+        var element = new Element();
+        element.Objects.Add(shape);
+        scene.Children.Add(element);
+        var sequence = new OperationSequenceGenerator();
+        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
+        using var history = new HistoryManager(scene, sequence);
+        using var subscription = history.Subscribe(observer);
+        using var tracker = new EditorUsageTracker(scene, history);
+        _usage.Flush(); // Blur is already emitted and must never be counted twice.
+        group.Children.Add(new DropShadow());
+        history.Commit(); // DropShadow is still pending when collection is revoked.
+        _config.Beutl_Application = false;
+        if (fromBackground) Task.Run(() => _config.Beutl_Application = true).GetAwaiter().GetResult();
+        else _config.Beutl_Application = true;
+        HeadlessTestHelpers.Settle();
+        _usage.Flush();
+        _config.Beutl_Application = false;
+        _config.Beutl_Application = true;
+        _usage.Flush();
+        Assert.That(_summaries.Where(s => s.Key.Event == "effect.used").Select(s => (s.Key.Feature, s.Count)),
+            Is.EquivalentTo(new[] { ("Blur", 1L), ("DropShadow", 1L) }));
+    }
+
+    [AvaloniaTest]
+    public void Batched_effect_observations_remain_once_per_editor_after_reentrant_opt_in()
+    {
+        var scene = new Scene(640, 480, "usage-test");
+        var shape = new Beutl.Graphics.Shapes.RectShape();
+        shape.FilterEffect.CurrentValue = new Blur();
+        var element = new Element();
+        element.Objects.Add(shape);
+        scene.Children.Add(element);
+        using var usage = new UsageTelemetry(_config, _time, summary =>
+        {
+            _summaries.Add(summary);
+            if (summary.Key.Event != "effect.used") return;
+            _config.Beutl_Application = false;
+            _config.Beutl_Application = true;
+        });
+        UsageTelemetry.Current = usage;
+        using var history = new HistoryManager(scene, new OperationSequenceGenerator());
+        using var first = new EditorUsageTracker(scene, history);
+        using var second = new EditorUsageTracker(scene, history);
+        usage.Flush();
+        usage.Flush();
+        Assert.That(_summaries.Single(s => s.Key.Event == "effect.used").Count, Is.EqualTo(2));
     }
 
     [AvaloniaTest]
@@ -544,6 +660,87 @@ public sealed class UsageTelemetryTests
         _usage.Flush();
         Assert.That(_summaries.Single(s => s.Key.Event == "tool.setting").Key,
             Is.EqualTo(new UsageKey("tool.setting", "ColorScopes", "SelectedScopeType.Vectorscope")));
+    }
+
+    [AvaloniaTest]
+    public void Color_wheel_modes_record_fixed_identifiers_only_after_interaction()
+    {
+        using var context = new ColorGradingTabViewModel(new Mock<IEditorContext>().Object);
+        using var tracker = new ToolUsageTracker(context);
+        context.IsSelected.Value = true;
+        context.WheelMode.Value = ColorGradingWheelMode.LiftGammaGainOffset;
+        _usage.Flush();
+        Assert.That(_summaries.Any(s => s.Key.Event == "tool.setting"), Is.False);
+        tracker.Interact();
+        context.WheelMode.Value = ColorGradingWheelMode.ShadowsMidtonesHighlights;
+        context.WheelMode.Value = ColorGradingWheelMode.LiftGammaGainOffset;
+        context.WheelMode.Value = new ColorGradingWheelMode("private mode name", 0);
+        context.IsSelected.Value = false;
+        context.WheelMode.Value = ColorGradingWheelMode.ShadowsMidtonesHighlights;
+        _usage.Flush();
+        Assert.That(_summaries.Where(s => s.Key.Event == "tool.setting").Select(s => (s.Key.Feature, s.Count)),
+            Is.EquivalentTo(new[] { ("WheelMode.ShadowsMidtonesHighlights", 1L), ("WheelMode.LiftGammaGainOffset", 1L) }));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Library_search_does_not_cross_consent_periods_while_waiting(bool initiallyEnabled)
+    {
+        using var library = new LibraryTabViewModel(new Mock<IEditorContext>().Object);
+        var gate = (SemaphoreSlim)typeof(LibraryTabViewModel)
+            .GetField("_asyncLock", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(library)!;
+        await gate.WaitAsync();
+        _config.Beutl_Application = initiallyEnabled;
+        Task search = library.Search("private search", CancellationToken.None);
+        Assert.That(search.IsCompleted, Is.False);
+        _config.Beutl_Application = false;
+        _config.Beutl_Application = true;
+        gate.Release();
+        await search;
+        _usage.Flush();
+        Assert.That(_summaries.Any(s => s.Key.Event == "tool.command"), Is.False);
+        await library.Search("another private search", CancellationToken.None);
+        _usage.Flush();
+        Assert.That(_summaries.Single(s => s.Key.Event == "tool.command").Key,
+            Is.EqualTo(new UsageKey("tool.command", "Library", "Search")));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task History_actions_do_not_cross_consent_periods_while_waiting(bool initiallyEnabled)
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "usage-history");
+            Directory.CreateDirectory(directory);
+            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "history", directory))!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            scene.Name = "changed";
+            editor.HistoryManager.Commit();
+            var guard = (HistoryMutationPlaybackGuard)typeof(EditViewModel)
+                .GetField("_historyMutationPlaybackGuard", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
+            var gate = (SemaphoreSlim)typeof(HistoryMutationPlaybackGuard)
+                .GetField("_gate", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(guard)!;
+            await gate.WaitAsync();
+            _config.Beutl_Application = initiallyEnabled;
+            ValueTask<bool> undo = editor.UndoAsync();
+            Assert.That(undo.IsCompleted, Is.False);
+            _config.Beutl_Application = false;
+            _config.Beutl_Application = true;
+            gate.Release();
+            Assert.That(await undo, Is.True);
+            _usage.Flush();
+            Assert.That(_summaries.Any(s => s.Key.Event == "editor.history"), Is.False);
+            Assert.That(await editor.RedoAsync(), Is.True);
+            _usage.Flush();
+            Assert.That(_summaries.Single(s => s.Key.Event == "editor.history").Key.Feature, Is.EqualTo("Redo"));
+        }
+        finally { await TestReset.ResetShellAsync(); }
     }
 
     [AvaloniaTest]

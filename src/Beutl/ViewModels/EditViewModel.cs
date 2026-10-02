@@ -1220,6 +1220,10 @@ public sealed partial class EditViewModel
         Func<bool> shouldPause,
         Func<bool> mutate)
     {
+        UsageTelemetry? usage = UsageTelemetry.Current;
+        long epoch = 0;
+        bool collect = usage?.TryGetCollectionEpoch(out epoch) == true;
+        string tool = Usage?.ActiveTool ?? "Editor";
         try
         {
             if (startMessage is not null)
@@ -1228,9 +1232,9 @@ public sealed partial class EditViewModel
             }
 
             bool changed = await ExecuteGuardedHistoryMutationAsync(shouldPause, mutate);
-            if (changed)
-                UsageTelemetry.Current?.Record("editor.history", Usage?.ActiveTool ?? "Editor",
-                    operationName is "Undo" or "Redo" ? operationName : "JumpTo");
+            if (changed && collect)
+                usage!.Record("editor.history", tool,
+                    operationName is "Undo" or "Redo" ? operationName : "JumpTo", epoch: epoch);
             if (changed && completedMessage is not null)
             {
                 _logger.LogInformation("{Message}", completedMessage);

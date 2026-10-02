@@ -109,7 +109,7 @@
     <comment />
   </data>
   <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
-    <value>애플리케이션 성능을 개선하기 위해 다음 정보를 수집합니다: 애플리케이션 시작 시간, 작업 경과 시간, API로 검색된 항목 수</value>
+    <value>세션 시작과 실행 시간, 프로젝트 작업과 내보내기 결과, 사용한 도구 탭과 기능, 확정된 편집과 편집한 속성 이름, 활성화된 효과 유형을 수집합니다. 상세 사용 데이터에는 프로젝트 및 파일 이름, 경로, URL, 프롬프트, 검색어, 명령 인수, 속성 값 또는 미디어 콘텐츠가 포함되지 않습니다. 언제든지 이 수집을 중지할 수 있습니다.</value>
     <comment />
   </data>
   <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">
