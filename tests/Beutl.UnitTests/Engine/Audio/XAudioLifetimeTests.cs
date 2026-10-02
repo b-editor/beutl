@@ -160,12 +160,9 @@ public class XAudioLifetimeTests
                 Assert.That(nativeVoice.DestroyCount, Is.EqualTo(1));
                 break;
             case "use-disposed-source":
-                Assert.Multiple(() =>
-                {
-                    Assert.That(source.BuffersQueued, Is.EqualTo(-1));
-                    Assert.That(source.SamplesPlayed, Is.Zero);
-                    Assert.That(source.IsPlaying(), Is.False);
-                });
+                Assert.That(source.BuffersQueued, Is.EqualTo(-1));
+                Assert.That(source.SamplesPlayed, Is.Zero);
+                Assert.That(source.IsPlaying(), Is.False);
                 source.Play();
                 source.Stop();
                 source.Flush();

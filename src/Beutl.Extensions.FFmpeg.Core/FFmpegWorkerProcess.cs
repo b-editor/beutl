@@ -18,6 +18,10 @@ public sealed class FFmpegWorkerProcess : IDisposable
     public static FFmpegWorkerProcess CreateForEncoding() => new(multiplexed: false);
 
     private readonly SemaphoreSlim _startLock = new(1, 1);
+    private readonly object _lifetimeGate = new();
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private volatile bool _disposed;
+    private int _activeCalls;
     private readonly bool _multiplexed;
     private readonly Action<ProcessStartInfo> _configureWorkerStart;
     private Process? _process;
@@ -38,56 +42,132 @@ public sealed class FFmpegWorkerProcess : IDisposable
         _configureWorkerStart = configureWorkerStart;
     }
 
-    public bool IsRunning => _isReady && _process is { HasExited: false } && _connection?.IsConnected == true;
+    public bool IsRunning
+    {
+        get
+        {
+            lock (_lifetimeGate)
+                return _isReady && _process is { HasExited: false } && _connection?.IsConnected == true;
+        }
+    }
 
-    public int WorkerPid => _process?.Id ?? 0;
+    public int WorkerPid
+    {
+        get
+        {
+            lock (_lifetimeGate)
+                return _process?.Id ?? 0;
+        }
+    }
 
     public IpcConnection EnsureStarted()
     {
-        if (_isReady && _connection != null && _process is { HasExited: false })
-            return _connection;
-
-        ThrowIfLibrariesMissing();
-
-        _startLock.Wait();
+        CancellationToken lifetimeToken = Enter();
         try
         {
-            if (_isReady && _connection != null && _process is { HasExited: false })
-                return _connection;
+            if (TryGetReadyConnection() is { } connection)
+                return connection;
 
             ThrowIfLibrariesMissing();
+            _startLock.Wait(lifetimeToken);
+            try
+            {
+                if (TryGetReadyConnection() is { } readyConnection)
+                    return readyConnection;
 
-            // 同期コンテキストから非同期メソッドを呼び出す（タイムアウト付き）
-            StartWorkerWithCooldownAsync(CancellationToken.None).GetAwaiter().GetResult();
-            return _connection!;
+                ThrowIfLibrariesMissing();
+                StartWorkerWithCooldownAsync(lifetimeToken).GetAwaiter().GetResult();
+                return GetStartedConnection();
+            }
+            finally
+            {
+                _startLock.Release();
+            }
+        }
+        catch (OperationCanceledException) when (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(FFmpegWorkerProcess));
         }
         finally
         {
-            _startLock.Release();
+            Exit();
         }
     }
 
     public async Task<IpcConnection> EnsureStartedAsync(CancellationToken ct = default)
     {
-        if (_isReady && _connection != null && _process is { HasExited: false })
-            return _connection;
-
-        ThrowIfLibrariesMissing();
-
-        await _startLock.WaitAsync(ct).ConfigureAwait(false);
+        CancellationToken lifetimeToken = Enter();
         try
         {
-            if (_isReady && _connection != null && _process is { HasExited: false })
-                return _connection;
+            if (TryGetReadyConnection() is { } connection)
+                return connection;
 
             ThrowIfLibrariesMissing();
+            using var startupCancellation = CancellationTokenSource.CreateLinkedTokenSource(ct, lifetimeToken);
+            await _startLock.WaitAsync(startupCancellation.Token).ConfigureAwait(false);
+            try
+            {
+                if (TryGetReadyConnection() is { } readyConnection)
+                    return readyConnection;
 
-            await StartWorkerWithCooldownAsync(ct).ConfigureAwait(false);
-            return _connection!;
+                ThrowIfLibrariesMissing();
+                await StartWorkerWithCooldownAsync(startupCancellation.Token).ConfigureAwait(false);
+                return GetStartedConnection();
+            }
+            finally
+            {
+                _startLock.Release();
+            }
+        }
+        catch (OperationCanceledException) when (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(FFmpegWorkerProcess));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(ct);
         }
         finally
         {
-            _startLock.Release();
+            Exit();
+        }
+    }
+
+    private CancellationToken Enter()
+    {
+        lock (_lifetimeGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _activeCalls++;
+            return _lifetimeCancellation.Token;
+        }
+    }
+
+    private void Exit()
+    {
+        bool cleanup;
+        lock (_lifetimeGate)
+            cleanup = --_activeCalls == 0 && _disposed;
+
+        if (cleanup)
+            CompleteDisposal();
+    }
+
+    private IpcConnection? TryGetReadyConnection()
+    {
+        lock (_lifetimeGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _isReady && _process is { HasExited: false } ? _connection : null;
+        }
+    }
+
+    private IpcConnection GetStartedConnection()
+    {
+        lock (_lifetimeGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _connection!;
         }
     }
 
@@ -104,7 +184,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
         {
             try { Cleanup(); }
             catch (Exception cleanup) { s_logger.LogWarning(cleanup, "Failed to clean up an unsuccessful FFmpeg worker start."); }
-            if (ex is not OperationCanceledException and not FFmpegLibrariesNotFoundException)
+            if (!_disposed && ex is not OperationCanceledException and not FFmpegLibrariesNotFoundException)
             {
                 _lastStartupFailure = ex;
                 _retryStartupAt = Environment.TickCount64 + 30_000;
@@ -151,6 +231,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             // ワーカープロセス起動
             var startInfo = new ProcessStartInfo();
             _configureWorkerStart(startInfo);
+            ct.ThrowIfCancellationRequested();
             startInfo.ArgumentList.Add("--pipe");
             startInfo.ArgumentList.Add(_pipeName);
             startInfo.ArgumentList.Add("--parent");
@@ -262,7 +343,11 @@ public sealed class FFmpegWorkerProcess : IDisposable
         if (_multiplexed)
             _connection.StartMultiplexedReceive();
 
-        _isReady = true;
+        lock (_lifetimeGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _isReady = true;
+        }
     }
 
     internal static Exception CreateWorkerStartCanceledException(CancellationToken ct)
@@ -325,47 +410,106 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
     private void Cleanup()
     {
-        _isReady = false;
-        _connection?.Dispose();
-        _connection = null;
-
-        if (_process != null)
+        IpcConnection? connection;
+        Process? process;
+        FFmpegWorkerLogPump? logPump;
+        lock (_lifetimeGate)
         {
-            if (!_process.HasExited)
-            {
-                try { _process.Kill(); }
-                catch (InvalidOperationException) { /* プロセスが既に終了 */ }
-                catch (Exception ex)
-                {
-                    s_logger.LogWarning(ex, "Failed to kill worker process");
-                }
-            }
-            _process.Dispose();
+            _isReady = false;
+            connection = _connection;
+            _connection = null;
+            process = _process;
             _process = null;
+            logPump = _logPump;
+            _logPump = null;
         }
 
-        // プロセス Dispose 後にポンプを破棄することで、終了直前に届いた行も
-        // バックグラウンド consumer が処理してから停止する。
-        _logPump?.Dispose();
-        _logPump = null;
+        try
+        {
+            connection?.Dispose();
+        }
+        finally
+        {
+            try
+            {
+                if (process != null)
+                {
+                    try
+                    {
+                        if (!process.HasExited)
+                        {
+                            try { process.Kill(); }
+                            catch (InvalidOperationException) { }
+                            catch (Exception ex)
+                            {
+                                s_logger.LogWarning(ex, "Failed to kill worker process");
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        process.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                logPump?.Dispose();
+            }
+        }
     }
 
     public void Dispose()
     {
-        if (_connection != null)
+        lock (_lifetimeGate)
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            _isReady = false;
+            // Cancellation also owns a lease, since callbacks can complete startup inline.
+            _activeCalls++;
+        }
+
+        try
+        {
+            _lifetimeCancellation.Cancel();
+        }
+        finally
+        {
+            Exit();
+        }
+    }
+
+    private void CompleteDisposal()
+    {
+        try
+        {
+            if (_connection != null)
+            {
+                try
+                {
+                    _connection.SendAsync(
+                        IpcMessage.CreateSimple(0, MessageType.Shutdown)).AsTask().Wait(3000);
+                }
+                catch (Exception ex)
+                {
+                    s_logger.LogWarning(ex, "Graceful shutdown of FFmpeg worker failed");
+                }
+            }
+
+        }
+        finally
         {
             try
             {
-                _connection.SendAsync(
-                    IpcMessage.CreateSimple(0, MessageType.Shutdown)).AsTask().Wait(3000);
+                Cleanup();
             }
-            catch (Exception ex)
+            finally
             {
-                s_logger.LogWarning(ex, "Graceful shutdown of FFmpeg worker failed");
+                _startLock.Dispose();
+                _lifetimeCancellation.Dispose();
             }
         }
-
-        Cleanup();
-        _startLock.Dispose();
     }
 }
