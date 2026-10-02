@@ -51,8 +51,8 @@ internal sealed class BufferedPlayer : IPlayer
         _isPlaying = isPlaying;
         _rate = rate;
         _playbackToken = playbackToken;
-        _waitRenderGate = new(() => _isDisposed || _producerStopped);
-        _waitTimerGate = new(() => _isDisposed);
+        _waitRenderGate = new(() => _isDisposed || _producerStopped || _playbackToken.IsCancellationRequested || !_isPlaying.Value);
+        _waitTimerGate = new(() => _isDisposed || _playbackToken.IsCancellationRequested || !_isPlaying.Value);
 
         _disposable = isPlaying.Where(v => !v).Subscribe(_ =>
         {
