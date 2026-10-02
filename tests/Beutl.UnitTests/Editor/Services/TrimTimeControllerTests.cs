@@ -579,6 +579,82 @@ public class TrimTimeControllerTests
         }
     }
 
+    [TestCase(false, 9.5, 8, 1, 0, 4, 8)]
+    [TestCase(true, 9.5, 8, 1, 0, 4, 8)]
+    [TestCase(false, -9.5, -5, 4, 15, 4, 10)]
+    [TestCase(true, -9.5, -5, 4, 15, 4, 10)]
+    public void Slip_LinkedLoops_FindNearestValidLaterCycle(bool reverseOrder, double requested,
+        double expectedDelta, double videoOffset, double audioOffset, double expectedVideo, double expectedAudio)
+    {
+        var video = CreateVideo(5, offsetSeconds: videoOffset);
+        video.IsLoop.CurrentValue = true;
+        Element videoElement = AddElement(0, 1, video);
+        Element audioElement = _harness.AddElement(TimeSpan.Zero, Seconds(1), 1);
+        var audio = new SceneSound
+        {
+            ReferencedScene = { CurrentValue = new Scene { Duration = Seconds(30) } },
+            OffsetPosition = { CurrentValue = Seconds(audioOffset) }
+        };
+        audioElement.Objects.Add(audio);
+        Element[] elements = reverseOrder ? [audioElement, videoElement] : [videoElement, audioElement];
+
+        Assert.That(_slip.Slip(_harness.Scene, elements, Seconds(requested)), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(expectedVideo)));
+            Assert.That(audio.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(expectedAudio)));
+            Assert.That(audio.OffsetPosition.CurrentValue - Seconds(audioOffset), Is.EqualTo(Seconds(expectedDelta)));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Trim_SharedFronts_GrowThePresentedOwnersClockTogether(bool slide)
+    {
+        var video = CreateVideo(5, offsetSeconds: 1);
+        Element frontA = AddElement(0, 2, video);
+        Element frontB = _harness.AddElement(TimeSpan.Zero, Seconds(2), 1);
+        var controller = CreateController(video);
+        controller.Reverse.CurrentValue = true;
+        frontB.Objects.Add(controller);
+        Element? middleA = slide ? _harness.AddElement(Seconds(2), Seconds(1), 0) : null;
+        Element? middleB = slide ? _harness.AddElement(Seconds(2), Seconds(1), 1) : null;
+        Element backA = _harness.AddElement(Seconds(slide ? 3 : 2), Seconds(4), 0);
+        Element backB = _harness.AddElement(Seconds(slide ? 3 : 2), Seconds(4), 1);
+        var resize = new ElementResizeService(_harness.History);
+
+        bool applied = slide
+            ? resize.Slide(_harness.Scene,
+                [new(frontA, [middleA!], backA), new(frontB, [middleB!], backB)], Seconds(1))
+            : resize.Roll(_harness.Scene, [new(frontA, backA), new(frontB, backB)], Seconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(frontA.Length, Is.EqualTo(Seconds(3)));
+            Assert.That(frontB.Length, Is.EqualTo(Seconds(3)));
+            Assert.That(ReadPosition(controller, 0), Is.EqualTo(4));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+        });
+    }
+
+    [TestCase(100f, 5d)]
+    [TestCase(200f, 2.5d)]
+    [TestCase(0f, 5d)]
+    public void OriginalDuration_LoopingVideo_OffersOneCycleOrFrozenSourceLength(float speed, double expected)
+    {
+        var video = CreateVideo(5, speed);
+        video.IsLoop.CurrentValue = true;
+        Element element = AddElement(0, 1, video);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SlippableMedia.GetMaximumDuration(element), Is.Null);
+            Assert.That(SlippableMedia.HasOriginalDuration(element), Is.True);
+            Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(expected)));
+        });
+    }
+
     private Element AddElement(double startSeconds, double lengthSeconds, Drawable drawable)
     {
         Element element = _harness.AddElement(Seconds(startSeconds), Seconds(lengthSeconds));

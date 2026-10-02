@@ -570,6 +570,46 @@ public class TrimSpeedTests
         });
     }
 
+    [Test]
+    public void OriginalDuration_LongGlobalAudioCurve_BoundsInterpolationWork()
+    {
+        Element element = AddElement(600, 2);
+        var sound = new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(900) } } };
+        var easing = new CountingEasing();
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1200), Value = 300, Easing = easing });
+        sound.Speed.Animation = animation;
+        element.Objects.Add(sound);
+        TimeSpan? maximum = null;
+
+        Assert.DoesNotThrow(() => maximum = SlippableMedia.GetMaximumDuration(element));
+        TestContext.WriteLine($"Speed interpolations: {easing.Calls}; maximum timeline seconds: {maximum?.TotalSeconds}");
+        Assert.Multiple(() =>
+        {
+            Assert.That(easing.Calls, Is.LessThan(20000));
+            Assert.That(maximum?.TotalSeconds, Is.EqualTo(Math.Sqrt(2520000) - 1200).Within(0.002));
+        });
+    }
+
+    private sealed class CountingEasing : Easing
+    {
+        public int Calls { get; private set; }
+
+        public override float Ease(float progress)
+        {
+            if (++Calls > 100000) throw new InvalidOperationException("Interactive integration exceeded its evaluation budget.");
+            return progress;
+        }
+
+        public override bool TryGetOutputRange(out float minimum, out float maximum)
+        {
+            minimum = 0;
+            maximum = 1;
+            return true;
+        }
+    }
+
     private Element AddElement(double startSeconds, double lengthSeconds, int zIndex = 0)
         => _harness.AddElement(TimeSpan.FromSeconds(startSeconds), TimeSpan.FromSeconds(lengthSeconds), zIndex);
 

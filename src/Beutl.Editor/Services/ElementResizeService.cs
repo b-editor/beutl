@@ -433,12 +433,13 @@ public sealed class ElementResizeService : IElementResizeService
         var middles = new List<SlippableMedia.Target>();
         var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
         var timingPeers = pairs.Select(p => p.Back).ToHashSet();
+        var frontPeers = pairs.Select(p => p.Front).ToHashSet();
         TimeSpan min = TimeSpan.Zero;
         TimeSpan max = TimeSpan.Zero;
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
-            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
+            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front, frontPeers);
             List<SlippableMedia.Target> backTargets = SlippableMedia.Collect(back, timingPeers);
             fronts.AddRange(frontTargets);
             backs.AddRange(backTargets);

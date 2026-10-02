@@ -28,21 +28,21 @@ internal sealed class MediaTimeMapping
 
     public MediaTimeMapping(Element element, EngineObject source, IProperty<float> speed,
         IReadOnlyList<ControllerLink> controllers, int sampleRate, TimeSpan? videoDuration = null,
-        IReadOnlySet<Element>? timingPeers = null)
+        IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false)
     {
         _elementRange = element.Range;
         _sourceClock = new Clock(element, source, timingPeers);
         _speed = new SpeedMap(speed, sampleRate);
-        _controllers = controllers.Select(c => new Controller(element, c.Controller, c.Target, timingPeers)).ToArray();
+        _controllers = controllers.Select(c => new Controller(element, c.Controller, c.Target, timingPeers, ignoreLoops)).ToArray();
         _videoDuration = videoDuration;
-        _loopVideo = source is SourceVideo video && video.IsLoop.CurrentValue;
+        _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.CurrentValue;
     }
 
     public TimeSpan At(TimeSpan time, TimeSpan startDelta = default, TimeSpan lengthDelta = default, bool extrapolate = false)
-        => Range(time, time, startDelta, lengthDelta, extrapolate).Min;
+        => Range(time, time, startDelta, lengthDelta, extrapolate, conservative: false).Min;
 
     public Interval Range(TimeSpan from, TimeSpan to, TimeSpan startDelta = default, TimeSpan lengthDelta = default,
-        bool extrapolate = false)
+        bool extrapolate = false, bool conservative = true)
     {
         var elementRange = new TimeRange(_elementRange.Start + startDelta, _elementRange.Duration + lengthDelta);
         Interval range = Interval.Between(from, to).Shift(elementRange.Start);
@@ -50,7 +50,7 @@ internal sealed class MediaTimeMapping
             range = controller.Map(range, elementRange);
 
         TimeRange sourceRange = _sourceClock.GetRange(elementRange);
-        range = _speed.Map(range.Shift(-sourceRange.Start), sourceRange.Start, extrapolate);
+        range = _speed.Map(range.Shift(-sourceRange.Start), sourceRange.Start, extrapolate, conservative);
         if (_loopVideo && _videoDuration is { } duration && duration > TimeSpan.Zero)
             range = Loop(range, duration);
         else if (!extrapolate && _videoDuration is { } original && range.Min < TimeSpan.Zero)
@@ -113,7 +113,7 @@ internal sealed class MediaTimeMapping
         private readonly bool _holdLast;
         private readonly float _frameRate;
 
-        public Controller(Element element, DrawableTimeController controller, Drawable target, IReadOnlySet<Element>? timingPeers)
+        public Controller(Element element, DrawableTimeController controller, Drawable target, IReadOnlySet<Element>? timingPeers, bool ignoreLoops)
         {
             _clock = new Clock(element, controller, timingPeers);
             _targetClock = new Clock(element, target, timingPeers);
@@ -121,7 +121,7 @@ internal sealed class MediaTimeMapping
             _offset = controller.OffsetPosition.CurrentValue;
             _adjust = controller.AdjustTimeRange.CurrentValue;
             _reverse = controller.Reverse.CurrentValue;
-            _loop = controller.Loop.CurrentValue;
+            _loop = !ignoreLoops && controller.Loop.CurrentValue;
             _holdFirst = controller.HoldFirstFrame.CurrentValue;
             _holdLast = controller.HoldLastFrame.CurrentValue;
             _frameRate = controller.FrameRate.CurrentValue;
@@ -159,6 +159,8 @@ internal sealed class MediaTimeMapping
         private readonly float _constant;
         private readonly IAnimation<float>? _animation;
         private readonly SpeedIntegrator _integrator;
+        private readonly EditorSpeedIntegral? _editorIntegral;
+        private readonly float? _constantAnimation;
         private readonly List<double> _negativeSeconds = [0];
 
         public SpeedMap(IProperty<float> speed, int sampleRate)
@@ -166,34 +168,74 @@ internal sealed class MediaTimeMapping
             _constant = speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: 0 } ? 0 : speed.CurrentValue;
             _animation = speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: 0 } ? null : speed.Animation;
             _integrator = new SpeedIntegrator(sampleRate);
+            if (sampleRate > 60 && _animation != null)
+            {
+                if (_animation is KeyFrameAnimation<float> keys && keys.KeyFrames.Count > 0
+                    && keys.KeyFrames[0] is KeyFrame<float> first
+                    && keys.KeyFrames.All(k => k is KeyFrame<float> value && value.Value == first.Value))
+                    _constantAnimation = first.Value;
+                else
+                    _editorIntegral = new EditorSpeedIntegral(_animation, sampleRate);
+            }
             // These caches live for one operation and never subscribe to the model.
             _integrator.EnsureCache(null);
         }
 
-        public Interval Map(Interval time, TimeSpan ownerStart, bool extrapolate = false)
-            => Interval.Between(At(time.Min, ownerStart, extrapolate), At(time.Max, ownerStart, extrapolate));
-
-        private TimeSpan At(TimeSpan localTime, TimeSpan ownerStart, bool extrapolate)
+        public Interval Map(Interval time, TimeSpan ownerStart, bool extrapolate = false, bool conservative = false)
         {
-            if (_animation == null) return Scale(localTime, _constant);
-            return _animation.UseGlobalClock
-                ? Integrate(localTime + ownerStart, extrapolate) - Integrate(ownerStart, extrapolate)
-                : Integrate(localTime, extrapolate);
+            TimeSpan a = At(time.Min, ownerStart, extrapolate, out TimeSpan errorA);
+            TimeSpan b = At(time.Max, ownerStart, extrapolate, out TimeSpan errorB);
+            return conservative
+                ? new Interval(Min(Add(a, -errorA), Add(b, -errorB)), Max(Add(a, errorA), Add(b, errorB)))
+                : Interval.Between(a, b);
         }
 
-        private TimeSpan Integrate(TimeSpan time, bool extrapolate)
+        private TimeSpan At(TimeSpan localTime, TimeSpan ownerStart, bool extrapolate, out TimeSpan error)
         {
+            error = TimeSpan.Zero;
+            if (_animation == null) return Scale(localTime, _constant);
+            if (localTime == TimeSpan.Zero) return TimeSpan.Zero;
+            if (!_animation.UseGlobalClock) return Integrate(localTime, extrapolate, out error);
+            if (_editorIntegral != null && _animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } keys)
+            {
+                TimeSpan from = extrapolate ? ownerStart : Max(ownerStart, TimeSpan.Zero);
+                TimeSpan to = extrapolate ? localTime + ownerStart : Max(localTime + ownerStart, TimeSpan.Zero);
+                TimeSpan first = Min(TimeSpan.Zero, keys.KeyFrames[0].KeyTime);
+                TimeSpan last = Max(TimeSpan.Zero, keys.KeyFrames[^1].KeyTime);
+                if (from >= first && from <= last && to >= first && to <= last)
+                {
+                    EditorSpeedIntegral.Estimate estimate = _editorIntegral.Integrate(from, to);
+                    error = TimeSpan.FromTicks((long)Math.Ceiling(estimate.Error * TimeSpan.TicksPerSecond));
+                    return TimeSpan.FromSeconds(estimate.Seconds);
+                }
+            }
+            TimeSpan end = Integrate(localTime + ownerStart, extrapolate, out TimeSpan endError);
+            TimeSpan start = Integrate(ownerStart, extrapolate, out TimeSpan startError);
+            error = Add(endError, startError);
+            return end - start;
+        }
+
+        private TimeSpan Integrate(TimeSpan time, bool extrapolate, out TimeSpan error)
+        {
+            error = TimeSpan.Zero;
             if (!extrapolate && time < TimeSpan.Zero) return TimeSpan.Zero;
+            if (_constantAnimation is { } constant) return Scale(time, constant);
             // Keyframe animations hold their endpoint values. Avoid sampling hours of
             // constant tail when finding an inverse, especially at audio sample rates.
             if (_animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } keys)
             {
                 TimeSpan last = Max(TimeSpan.Zero, keys.KeyFrames[^1].KeyTime);
                 if (time > last)
-                    return Add(_integrator.Integrate(last, _animation), Scale(time - last, keys.Interpolate(last)));
+                    return Add(Integrate(last, extrapolate, out error), Scale(time - last, keys.Interpolate(last)));
                 TimeSpan first = Min(TimeSpan.Zero, keys.KeyFrames[0].KeyTime);
                 if (time < first)
-                    return Add(Integrate(first, extrapolate), Scale(time - first, keys.Interpolate(first)));
+                    return Add(Integrate(first, extrapolate, out error), Scale(time - first, keys.Interpolate(first)));
+            }
+            if (_editorIntegral != null)
+            {
+                EditorSpeedIntegral.Estimate estimate = _editorIntegral.Integrate(time);
+                error = TimeSpan.FromTicks((long)Math.Ceiling(estimate.Error * TimeSpan.TicksPerSecond));
+                return TimeSpan.FromSeconds(estimate.Seconds);
             }
             if (time < TimeSpan.Zero) return IntegrateNegative(time);
             return _integrator.Integrate(time, _animation!);

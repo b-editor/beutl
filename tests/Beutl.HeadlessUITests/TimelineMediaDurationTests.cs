@@ -328,6 +328,40 @@ public class TimelineMediaDurationTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task OriginalDuration_FrozenMedia_RemainsAvailable()
+    {
+        using var configuration = new RippleDisabledScope();
+        ElementViewModel model = await OpenElement(CreateSound(5, 0, 0));
+        Assert.That(model.HasOriginalDuration(), Is.True);
+        model.ChangeToOriginalDuration.Execute();
+        HeadlessTestHelpers.Settle(4);
+        Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
+    }
+
+    [AvaloniaTest]
+    public async Task OriginalDuration_ExtensionProvider_RemainsAvailable()
+    {
+        using var configuration = new RippleDisabledScope();
+        ElementViewModel model = await OpenElement(new DurationProviderObject());
+        Assert.That(model.HasOriginalDuration(), Is.True);
+        model.ChangeToOriginalDuration.Execute();
+        HeadlessTestHelpers.Settle(4);
+        Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+    }
+
+    [SuppressResourceClassGeneration]
+    private sealed class DurationProviderObject : EngineObject, IOriginalDurationProvider
+    {
+        public bool HasOriginalDuration() => true;
+
+        public bool TryGetOriginalDuration(out TimeSpan duration)
+        {
+            duration = TimeSpan.FromSeconds(3);
+            return true;
+        }
+    }
+
     private static TimeSpan ExpectedLength(double seconds)
         => seconds == 0 ? OneFrameAt30 : TimeSpan.FromSeconds(seconds);
 
