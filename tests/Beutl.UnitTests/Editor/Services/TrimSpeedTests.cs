@@ -1,4 +1,5 @@
-﻿using Beutl.Audio;
+﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
@@ -249,6 +250,113 @@ public class TrimSpeedTests(string mediaKind)
         });
     }
 
+    [TestCase(200f, 100f, 2, true)]
+    [TestCase(0f, 100f, 2, true)]
+    [TestCase(100f, 50f, 1.5, true)]
+    [TestCase(100f, 200f, 3, true)]
+    [TestCase(200f, 0f, 1, false)]
+    public void Slip_ConstantSpeedAnimation_UsesAnimatedValue(
+        float baseSpeed, float animatedSpeed, double expectedOffset, bool expectedApplied)
+    {
+        Element element = AddElement(1, 1);
+        var offset = AddMedia(element, baseSpeed, 1, AnimateSpeed(animatedSpeed, animatedSpeed));
+        History.Commit();
+        int before = History.UndoCount;
+
+        bool applied = _slip.Slip(Scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.EqualTo(expectedApplied));
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(History.UndoCount, Is.EqualTo(before + (expectedApplied ? 1 : 0)));
+        });
+    }
+
+    [TestCase(0f)]
+    [TestCase(100f)]
+    public void Slip_VaryingSpeedAnimation_RejectsEntireGroup(float baseSpeed)
+    {
+        Element first = AddElement(1, 1);
+        var firstOffset = AddMedia(first, 100, 1);
+        Element second = AddElement(1, 1, 1);
+        var secondOffset = AddMedia(second, baseSpeed, 1, AnimateSpeed(100, 200));
+        History.Commit();
+        int before = History.UndoCount;
+
+        bool applied = _slip.Slip(Scene, [first, second], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(firstOffset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(secondOffset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(History.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [TestCase(false, false, false)]
+    [TestCase(false, false, true)]
+    [TestCase(false, true, false)]
+    [TestCase(false, true, true)]
+    [TestCase(true, false, false)]
+    [TestCase(true, false, true)]
+    [TestCase(true, true, false)]
+    [TestCase(true, true, true)]
+    public void RollOrSlide_VaryingSpeedAnimation_RejectsBeforeMutation(
+        bool slide, bool animateFront, bool clampToSource)
+    {
+        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = clampToSource;
+        Element front = AddElement(0, 2);
+        Element? middle = slide ? AddElement(2, 2) : null;
+        double backStart = slide ? 4 : 2;
+        Element back = AddElement(backStart, 2);
+        var offset = AddMedia(animateFront ? front : back, 100, 1, AnimateSpeed(100, 200));
+        History.Commit();
+        int before = History.UndoCount;
+
+        var bounds = _resize.GetTrimDeltaBounds(Scene, [new ElementTrimPair(front, back)]);
+        bool applied = Trim(front, middle, back, 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bounds, Is.EqualTo((TimeSpan.Zero, TimeSpan.Zero)));
+            Assert.That(applied, Is.False);
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(History.UndoCount, Is.EqualTo(before));
+            if (middle != null)
+                Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RollOrSlide_ConstantSpeedAnimation_UsesAnimatedValue(bool slide)
+    {
+        Element front = AddElement(0, 2);
+        Element? middle = slide ? AddElement(2, 2) : null;
+        double backStart = slide ? 4 : 2;
+        Element back = AddElement(backStart, 2);
+        var offset = AddMedia(back, 200, 1, AnimateSpeed(100, 100));
+
+        bool applied = Trim(front, middle, back, 1);
+
+        Assert.That(applied, Is.True);
+        Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart + 1)));
+    }
+
+    private static KeyFrameAnimation<float> AnimateSpeed(float first, float last)
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = first });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = last });
+        return animation;
+    }
+
     private Element AddElement(double start, double length, int zIndex = 0)
         => _harness.AddElement(TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length), zIndex);
 
@@ -257,7 +365,8 @@ public class TrimSpeedTests(string mediaKind)
             ? _resize.Roll(Scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(delta))
             : _resize.Slide(Scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(delta));
 
-    private IProperty<TimeSpan> AddMedia(Element element, float speed, double offsetSeconds)
+    private IProperty<TimeSpan> AddMedia(
+        Element element, float speed, double offsetSeconds, KeyFrameAnimation<float>? animation = null)
     {
         EngineObject media;
         IProperty<TimeSpan> offset;
@@ -266,6 +375,7 @@ public class TrimSpeedTests(string mediaKind)
             var source = new VideoSource();
             source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 180)));
             var video = new SourceVideo { Source = { CurrentValue = source }, Speed = { CurrentValue = speed } };
+            video.Speed.Animation = animation;
             media = video;
             offset = video.OffsetPosition;
         }
@@ -287,6 +397,7 @@ public class TrimSpeedTests(string mediaKind)
             }
 
             sound.Speed.CurrentValue = speed;
+            sound.Speed.Animation = animation;
             media = sound;
             offset = sound.OffsetPosition;
         }

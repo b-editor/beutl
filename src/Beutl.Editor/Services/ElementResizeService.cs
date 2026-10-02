@@ -480,6 +480,11 @@ public sealed class ElementResizeService : IElementResizeService
         IReadOnlyList<SlippableMedia.Target> frontTargets,
         IReadOnlyList<SlippableMedia.Target> backTargets)
     {
+        // A scalar source delta cannot preserve a varying or remapped timeline. Reject
+        // before changing geometry, even when the source-length clamp preference is off.
+        if (!SlippableMedia.CanTrim(frontTargets) || !SlippableMedia.CanTrim(backTargets))
+            return (TimeSpan.Zero, TimeSpan.Zero);
+
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
 

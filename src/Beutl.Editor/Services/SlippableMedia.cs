@@ -1,4 +1,5 @@
-﻿using Beutl.Audio;
+﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -17,11 +18,12 @@ internal static class SlippableMedia
     // Total is the absolute source duration (null when the stream has no bounded source).
     internal sealed class Target
     {
-        public Target(IProperty<TimeSpan> offset, TimeSpan? total, float speed)
+        public Target(IProperty<TimeSpan> offset, TimeSpan? total, IProperty<float> speed)
         {
             Offset = offset;
             Total = total;
-            Speed = speed / 100.0;
+            SupportsTrimming = TryGetConstantSpeed(speed, out double factor);
+            Speed = factor;
         }
 
         public IProperty<TimeSpan> Offset { get; }
@@ -30,6 +32,8 @@ internal static class SlippableMedia
 
         // Source-time units consumed per timeline-time unit.
         public double Speed { get; }
+
+        public bool SupportsTrimming { get; set; }
 
         public TimeSpan Current
         {
@@ -48,20 +52,31 @@ internal static class SlippableMedia
     {
         var targets = new List<Target>();
         var visited = new HashSet<object>();
+        bool supportsTimeMapping = true;
         foreach (EngineObject obj in element.Objects)
         {
-            CollectFrom(obj, targets, visited);
+            CollectFrom(obj, targets, visited, ref supportsTimeMapping);
+        }
+
+        // Time controllers may consume preceding objects through Flow without an explicit
+        // Target. Reject the whole element, including sources visited before the controller.
+        if (!supportsTimeMapping)
+        {
+            foreach (Target target in targets)
+                target.SupportsTrimming = false;
         }
 
         // Frozen media consumes no source time, so it neither moves nor limits a trim.
-        targets.RemoveAll(static target => target.Speed <= 0);
+        // An animated stream whose base value is zero is not necessarily frozen.
+        targets.RemoveAll(static target => target.SupportsTrimming && target.Speed <= 0);
         return targets;
     }
 
     // The visited set makes each node contribute once: a media object reachable through
     // several paths (e.g. one SourceVideo shared by two DrawablePresenter.Targets) must not
     // receive the shared delta once per path, and a presenter cycle must not recurse forever.
-    private static void CollectFrom(object obj, List<Target> targets, HashSet<object> visited)
+    private static void CollectFrom(
+        object obj, List<Target> targets, HashSet<object> visited, ref bool supportsTimeMapping)
     {
         if (!visited.Add(obj)) return;
 
@@ -78,24 +93,57 @@ internal static class SlippableMedia
                 break;
             case SoundGroup soundGroup:
                 foreach (Sound child in soundGroup.Children)
-                    CollectFrom(child, targets, visited);
+                    CollectFrom(child, targets, visited, ref supportsTimeMapping);
                 break;
             case DrawableGroup drawableGroup:
                 foreach (Drawable child in drawableGroup.Children)
-                    CollectFrom(child, targets, visited);
+                    CollectFrom(child, targets, visited, ref supportsTimeMapping);
                 break;
             case DrawableDecorator decorator:
                 foreach (Drawable child in decorator.Children)
-                    CollectFrom(child, targets, visited);
+                    CollectFrom(child, targets, visited, ref supportsTimeMapping);
                 break;
-            // DrawablePresenter / DrawableTimeController render the drawable in Target
-            // rather than a Children list, so a wrapped SourceVideo is only reachable here.
+            case DrawableTimeController controller:
+                supportsTimeMapping &= HasIdentityTimeMapping(controller);
+                if (controller.Target.CurrentValue is { } controlled)
+                    CollectFrom(controlled, targets, visited, ref supportsTimeMapping);
+                break;
+            // Presenters render Target rather than a Children list.
             case IPresenter<Drawable> presenter:
                 if (presenter.Target.CurrentValue is { } presented)
-                    CollectFrom(presented, targets, visited);
+                    CollectFrom(presented, targets, visited, ref supportsTimeMapping);
                 break;
         }
     }
+
+    private static bool TryGetConstantSpeed(IProperty<float> speed, out double factor)
+    {
+        factor = speed.CurrentValue / 100.0;
+        if (speed.Animation == null) return true;
+
+        // Flat keyframes have a constant source-time mapping, but their value can differ
+        // from CurrentValue. Varying curves need interval integration (tracked in #2090).
+        if (speed.Animation is not KeyFrameAnimation<float> animation
+            || animation.KeyFrames.Count == 0
+            || animation.KeyFrames[0] is not KeyFrame<float> first)
+            return false;
+
+        factor = first.Value / 100.0;
+        return animation.KeyFrames.All(frame => frame is KeyFrame<float> typed && typed.Value == first.Value);
+    }
+
+    private static bool HasIdentityTimeMapping(DrawableTimeController controller)
+        => TryGetConstantSpeed(controller.Speed, out double factor) && factor == 1
+           && controller.OffsetPosition.CurrentValue == TimeSpan.Zero
+           && !controller.AdjustTimeRange.CurrentValue
+           && !controller.Reverse.CurrentValue
+           && !controller.Loop.CurrentValue
+           && !controller.HoldFirstFrame.CurrentValue
+           && !controller.HoldLastFrame.CurrentValue
+           && controller.FrameRate.CurrentValue == 0;
+
+    public static bool CanTrim(IReadOnlyList<Target> targets)
+        => targets.All(static target => target.SupportsTrimming);
 
     private static Target CreateVideoTarget(SourceVideo video)
     {
@@ -104,14 +152,14 @@ internal static class SlippableMedia
         // An exhausted source still has a known total even when TryGetOriginalDuration returns false.
         using var resource = video.ToResource(CompositionContext.Default);
         TimeSpan? total = ((SourceVideo.Resource)resource).Source?.Duration;
-        return new Target(video.OffsetPosition, total, video.Speed.CurrentValue);
+        return new Target(video.OffsetPosition, total, video.Speed);
     }
 
     private static Target CreateSoundTarget(SourceSound sound)
     {
         // SourceSound.TryGetOriginalDuration returns the full source duration.
         TimeSpan? total = sound.TryGetOriginalDuration(out TimeSpan duration) ? duration : null;
-        return new Target(sound.OffsetPosition, total, sound.Speed.CurrentValue);
+        return new Target(sound.OffsetPosition, total, sound.Speed);
     }
 
     private static Target CreateSceneSoundTarget(SceneSound sound)
@@ -120,7 +168,7 @@ internal static class SlippableMedia
         // window can advance. Unresolved references stay unbounded, like a SourceVideo
         // without a loaded source.
         TimeSpan? total = sound.ReferencedScene.CurrentValue?.Duration;
-        return new Target(sound.OffsetPosition, total, sound.Speed.CurrentValue);
+        return new Target(sound.OffsetPosition, total, sound.Speed);
     }
 
     // The largest-magnitude timeline delta (in the requested direction) that every stream can
@@ -128,7 +176,7 @@ internal static class SlippableMedia
     // delta keeps linked streams in sync even when one hits its source boundary first.
     public static TimeSpan ClampSharedDelta(IReadOnlyList<Target> targets, TimeSpan delta, TimeSpan elementLength)
     {
-        if (delta == TimeSpan.Zero || targets.Count == 0) return TimeSpan.Zero;
+        if (delta == TimeSpan.Zero || targets.Count == 0 || !CanTrim(targets)) return TimeSpan.Zero;
 
         long magnitude = Math.Abs(delta.Ticks);
         foreach (Target target in targets)
@@ -146,7 +194,9 @@ internal static class SlippableMedia
     {
         if (target.Total is not { } total) return long.MaxValue;
 
-        double maxOffset = Math.Max(0, total.Ticks - elementLength.Ticks * target.Speed);
+        // OffsetPosition stores whole ticks; leave no fractional source tick for the
+        // later TimeSpan multiplication to round up past the source tail.
+        double maxOffset = Math.Max(0, Math.Floor(total.Ticks - elementLength.Ticks * target.Speed));
         return TimelineHeadroom(target, maxOffset - target.Current.Ticks);
     }
 

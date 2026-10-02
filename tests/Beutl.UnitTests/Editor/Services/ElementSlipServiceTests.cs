@@ -274,6 +274,27 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_SubFrameSourceTail_ClampsToWholeSourceTicks()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromTicks(333333));
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 0.05)));
+        var sound = new SourceSound { Source = { CurrentValue = source }, Speed = { CurrentValue = 50 } };
+        var linked = new SourceSound();
+        element.Objects.Add(sound);
+        element.Objects.Add(linked);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromTicks(333333)));
+            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromTicks(666666)));
+        });
+    }
+
+    [Test]
     public void Slip_SceneSound_ClampsToReferencedSceneDuration()
     {
         // A 3s referenced scene with a 2s clip leaves 1s of headroom, like a 3s file source.
@@ -515,6 +536,55 @@ public class ElementSlipServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_TimeRemappedSourceAlsoReachedDirectly_RejectsRegardlessOfTraversalOrder(bool directFirst)
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        var controller = new DrawableTimeController
+        {
+            Speed = { CurrentValue = 50 },
+            Target = { CurrentValue = video }
+        };
+        if (directFirst)
+            element.Objects.Add(video);
+        element.Objects.Add(controller);
+        if (!directFirst)
+            element.Objects.Add(video);
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slip_TimeRemappedFlowWithoutExplicitTarget_RejectsBeforeMutation()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        element.Objects.Add(video);
+        element.AddObject(new DrawableTimeController { Speed = { CurrentValue = 50 } });
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
 

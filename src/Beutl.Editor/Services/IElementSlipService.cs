@@ -29,7 +29,9 @@ public interface IElementSlipService
     /// no slip-able media are dropped at this mutation boundary (matching
     /// <see cref="IElementResizeService.Resize"/>) rather than blocking the group. Returns
     /// <see langword="false"/> (no commit) when <paramref name="delta"/> is zero, no element
-    /// survives that filter, or the shared clamped delta is zero.
+    /// survives that filter, or the shared clamped delta is zero. Streams with varying speed
+    /// animations or enclosing time remapping reject the entire slip before any mutation;
+    /// flat speed keyframes use their animated value.
     /// </summary>
     bool Slip(Scene scene, IReadOnlyList<Element> elements, TimeSpan delta);
 }
