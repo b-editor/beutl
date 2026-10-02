@@ -4,6 +4,8 @@ internal sealed class LifetimeCancellationSource : IDisposable
 {
     private readonly object _gate = new();
     private CancellationTokenSource? _source = new();
+    private int _activeCancellationCalls;
+    private bool _disposeRequested;
 
     public LifetimeCancellationSource()
     {
@@ -16,53 +18,54 @@ internal sealed class LifetimeCancellationSource : IDisposable
 
     public void Cancel()
     {
-        Exception? failure = null;
+        CancellationTokenSource? source;
         lock (_gate)
         {
-            try
-            {
-                _source?.Cancel();
-            }
-            catch (Exception ex)
-            {
-                failure = ex;
-            }
+            source = _source;
+            if (source is not null)
+                _activeCancellationCalls++;
         }
 
-        if (failure != null)
-        {
-            throw failure;
-        }
+        if (source is not null)
+            CancelAndRelease(source);
     }
 
     public void Dispose()
     {
         CancellationTokenSource? source;
-        Exception? failure = null;
         lock (_gate)
         {
             source = _source;
-            _source = null;
-            try
-            {
-                source?.Cancel();
-            }
-            catch (Exception ex)
-            {
-                failure = ex;
-            }
+            _disposeRequested = true;
+            if (source is not null)
+                _activeCancellationCalls++;
         }
 
+        if (source is not null)
+            CancelAndRelease(source);
+    }
+
+    private void CancelAndRelease(CancellationTokenSource source)
+    {
         try
         {
-            source?.Dispose();
+            // User callbacks must run outside the gate so they can reenter from another thread.
+            source.Cancel();
         }
         finally
         {
-            if (failure != null)
+            bool dispose;
+            lock (_gate)
             {
-                throw failure;
+                _activeCancellationCalls--;
+                dispose = _activeCancellationCalls == 0 && _disposeRequested;
+                if (dispose)
+                    _source = null;
             }
+
+            // Dispose the source only after every admitted cancellation call has returned.
+            if (dispose)
+                source.Dispose();
         }
     }
 }

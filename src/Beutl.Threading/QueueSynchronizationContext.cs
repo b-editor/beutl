@@ -2,8 +2,8 @@
 
 internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimeProvider timeProvider) : SynchronizationContext
 {
-    // CancelAfter throws when the delay exceeds int.MaxValue milliseconds; clamp to it.
-    private static readonly TimeSpan s_maxCancelAfter = TimeSpan.FromMilliseconds(int.MaxValue);
+    // Re-arm long waits until the deadline, keeping each timer within int.MaxValue milliseconds.
+    private static readonly TimeSpan s_maxWaitDelay = TimeSpan.FromMilliseconds(int.MaxValue);
 
     private readonly OperationQueue _operationQueue = new();
     private readonly TimerQueue _timerQueue = new(timeProvider);
@@ -106,24 +106,39 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
                 return;
             }
 
-            cts = new CancellationTokenSource();
-            _waitToken = cts;
-
             if (_timerQueue.Next is { } next)
             {
-                TimeSpan delay = next - timeProvider.GetUtcNow();
+                DateTimeOffset now = timeProvider.GetUtcNow();
+                TimeSpan delay = next - now;
                 if (delay <= TimeSpan.Zero)
                 {
                     // The deadline has already passed; wake immediately without arming a timer.
+                    cts = new CancellationTokenSource();
                     cts.Cancel();
                 }
                 else
                 {
-                    // CancelAfter throws for delays longer than int.MaxValue ms, so clamp
-                    // far-future timers; the wait is re-armed each cycle until the real deadline.
-                    cts.CancelAfter(delay < s_maxCancelAfter ? delay : s_maxCancelAfter);
+                    TimeSpan waitDelay = delay < s_maxWaitDelay ? delay : s_maxWaitDelay;
+                    cts = new CancellationTokenSource(waitDelay, timeProvider);
+                    DateTimeOffset wakeAt = now + waitDelay;
+                    DateTimeOffset armedAt = timeProvider.GetUtcNow();
+                    if (wakeAt <= armedAt)
+                        cts.Cancel();
+                    else if (armedAt > now)
+                    {
+                        // Correct a clock advance during creation using the existing provider timer.
+                        cts.CancelAfter(wakeAt - armedAt);
+                        if (wakeAt <= timeProvider.GetUtcNow())
+                            cts.Cancel();
+                    }
                 }
             }
+            else
+            {
+                cts = new CancellationTokenSource();
+            }
+
+            _waitToken = cts;
         }
 
         cts.Token.WaitHandle.WaitOne();
@@ -139,21 +154,40 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
     public override void Send(SendOrPostCallback d, object? state)
     {
+        if (dispatcher.CheckAccess())
+        {
+            d(state);
+            return;
+        }
+
         Send(DispatchPriority.High, () => d(state), default).Wait();
     }
 
     internal Task Send(DispatchPriority priority, Action operation, CancellationToken ct)
     {
         var task = new Task(operation, ct);
-        Post(priority, () => task.RunSynchronously(), ct);
+        Post(priority, () => RunSynchronously(task), ct);
         return task;
     }
 
     internal Task<T> Send<T>(DispatchPriority priority, Func<T> operation, CancellationToken ct)
     {
         var task = new Task<T>(operation, ct);
-        Post(priority, () => task.RunSynchronously(), ct);
+        Post(priority, () => RunSynchronously(task), ct);
         return task;
+    }
+
+    private static void RunSynchronously(Task task)
+    {
+        try
+        {
+            task.RunSynchronously();
+        }
+        catch (InvalidOperationException) when (task.IsCanceled)
+        {
+            // Cancellation can complete the task after DispatcherOperation checks the token.
+            // The returned task already carries the cancellation; the dispatcher has no failure.
+        }
     }
 
     public override void Post(SendOrPostCallback d, object? state)

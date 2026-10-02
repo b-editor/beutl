@@ -39,10 +39,7 @@ internal sealed class IdentityOperationLifetime : IDisposable
 
             Generation generation = _current;
             generation.Active++;
-            CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(
-                operation.CancellationToken,
-                generation.Cancellation.Token);
-            return new Operation(this, operation, generation, cancellation);
+            return new Operation(this, operation, generation);
         }
     }
 
@@ -63,10 +60,7 @@ internal sealed class IdentityOperationLifetime : IDisposable
 
             Generation generation = _current;
             generation.Active++;
-            CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(
-                operation.CancellationToken,
-                generation.Cancellation.Token);
-            return new Operation(this, operation, generation, cancellation);
+            return new Operation(this, operation, generation);
         }
     }
 
@@ -177,7 +171,9 @@ internal sealed class IdentityOperationLifetime : IDisposable
             foreach (Generation generation in generations)
             {
                 generation.Retired = true;
-                generation.Cancelling = true;
+                // Keep the running state established by an earlier cancellation task.
+                if (generation.CancellationTask is null)
+                    generation.Cancelling = true;
             }
         }
 
@@ -257,7 +253,6 @@ internal sealed class IdentityOperationLifetime : IDisposable
 
     private void Exit(Operation operation)
     {
-        operation.Cancellation.Dispose();
         lock (_gate)
         {
             if (operation.Generation.Active > 0)
@@ -289,23 +284,32 @@ internal sealed class IdentityOperationLifetime : IDisposable
     internal sealed class Operation : IDisposable
     {
         private readonly IdentityOperationLifetime _owner;
+        private readonly object _cancellationGate = new();
+        private readonly CancellationTokenRegistration _parentCancellation;
+        private readonly CancellationTokenRegistration _identityCancellation;
+        private CancellationTokenSource? _cancellation;
+        private int _activeCancellationCalls;
+        private bool _cancellationDisposalRequested;
         internal readonly AsyncOperationLifetime.Operation Parent;
         internal readonly Generation Generation;
-        internal readonly CancellationTokenSource Cancellation;
         internal bool Closed;
         private int _disposed;
 
         internal Operation(
             IdentityOperationLifetime owner,
             AsyncOperationLifetime.Operation parent,
-            Generation generation,
-            CancellationTokenSource cancellation)
+            Generation generation)
         {
             _owner = owner;
             Parent = parent;
             Generation = generation;
-            Cancellation = cancellation;
+            var cancellation = new CancellationTokenSource();
+            _cancellation = cancellation;
             CancellationToken = cancellation.Token;
+            _parentCancellation = parent.CancellationToken.UnsafeRegister(
+                static state => ((Operation)state!).CancelLinked(), this);
+            _identityCancellation = generation.Cancellation.Token.UnsafeRegister(
+                static state => ((Operation)state!).CancelLinked(), this);
         }
 
         public CancellationToken CancellationToken { get; }
@@ -322,11 +326,67 @@ internal sealed class IdentityOperationLifetime : IDisposable
         public void Cancel()
             => Parent.Cancel();
 
+        private void CancelLinked()
+        {
+            CancellationTokenSource? source;
+            lock (_cancellationGate)
+            {
+                source = _cancellation;
+                if (source is not null)
+                    _activeCancellationCalls++;
+            }
+
+            if (source is null)
+                return;
+
+            try
+            {
+                source.Cancel();
+            }
+            finally
+            {
+                bool dispose;
+                lock (_cancellationGate)
+                {
+                    _activeCancellationCalls--;
+                    dispose = _activeCancellationCalls == 0 && _cancellationDisposalRequested;
+                    if (dispose)
+                        _cancellation = null;
+                }
+
+                if (dispose)
+                    source.Dispose();
+            }
+        }
+
+        private void DisposeCancellation()
+        {
+            // Dispose on a linked CTS waits for its forwarding registrations. A callback may
+            // be waiting for this operation to exit, so unlink without waiting for it.
+            _parentCancellation.Unregister();
+            _identityCancellation.Unregister();
+
+            CancellationTokenSource? source = null;
+            lock (_cancellationGate)
+            {
+                _cancellationDisposalRequested = true;
+                if (_activeCancellationCalls == 0)
+                {
+                    source = _cancellation;
+                    _cancellation = null;
+                }
+            }
+
+            // Active forwarding calls retain the source until their user callbacks return.
+            source?.Dispose();
+        }
+
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 return;
             _owner.Close(this);
+            DisposeCancellation();
             _owner.Exit(this);
             Parent.Dispose();
         }

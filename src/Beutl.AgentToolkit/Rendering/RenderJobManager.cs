@@ -225,6 +225,11 @@ public sealed class RenderJobManager : IDisposable
         {
             terminalState = RenderJobState.Cancelled;
         }
+        catch (ObjectDisposedException) when (!acquired && record.Cts.IsCancellationRequested)
+        {
+            // Dispose can close the gate before a queued job resumes from Task.Yield.
+            terminalState = RenderJobState.Cancelled;
+        }
         catch (Exception ex)
         {
             failure = ex;
