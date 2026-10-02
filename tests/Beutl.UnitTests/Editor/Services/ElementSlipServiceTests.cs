@@ -1,6 +1,8 @@
 ﻿using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -545,6 +547,140 @@ public class ElementSlipServiceTests
             Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(sound.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2, 2)));
         });
+    }
+
+    [TestCase("video", 0, 0, 10, 3)]
+    [TestCase("sound", 0, 0, 10, 3)]
+    [TestCase("scene", 0, 0, 10, 3)]
+    [TestCase("video", 2, 1, 10, 2)]
+    [TestCase("sound", 2, 1, 10, 2)]
+    [TestCase("scene", 2, 1, 10, 2)]
+    [TestCase("video", 2, 3, 10, 4)]
+    [TestCase("sound", 2, 3, 10, 4)]
+    [TestCase("scene", 2, 3, 10, 4)]
+    public void Slip_PartiallyVisibleNestedMedia_ClampsToVisibleSourceEnd(
+        string kind, int elementStart, int sourceStart, int sourceLength, int expectedOffset)
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(elementStart), TimeSpan.FromSeconds(2));
+        EngineObject media;
+        IProperty<TimeSpan> offset;
+        if (kind == "video")
+        {
+            var source = new VideoSource();
+            source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+            var video = new SourceVideo { Source = { CurrentValue = source } };
+            var group = new DrawableGroup();
+            group.Children.Add(video);
+            element.Objects.Add(group);
+            media = video;
+            offset = video.OffsetPosition;
+        }
+        else
+        {
+            Sound sound;
+            if (kind == "sound")
+            {
+                var source = new SoundSource();
+                source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
+                sound = new SourceSound { Source = { CurrentValue = source } };
+            }
+            else
+            {
+                sound = new SceneSound
+                {
+                    ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(5) } }
+                };
+            }
+
+            var group = new SoundGroup();
+            group.Children.Add(sound);
+            element.Objects.Add(group);
+            media = sound;
+            offset = sound.OffsetPosition;
+        }
+
+        media.IsTimeAnchor = true;
+        media.TimeRange = TimeRange.FromSeconds(sourceStart, sourceLength);
+
+        Assert.That(_service.Slip(_scene, [element], TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+    }
+
+    [Test]
+    public void Slip_NestedTimeController_RetainsElementBoundsUntilTimeMappingIsSupported()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(2)
+        };
+        // Reach the same source through a plain presenter first, so traversal order cannot
+        // hide the enclosing time mapping when collection deduplicates the media object.
+        var presenter = new DrawablePresenter { Target = { CurrentValue = video } };
+        element.Objects.Add(presenter);
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            Speed = { CurrentValue = 50f }
+        };
+        element.Objects.Add(controller);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(3));
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(
+            new CompositionContext(TimeSpan.FromSeconds(9.9)));
+        var sampled = (SourceVideo.Resource)resource.Target!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_RetimedNestedMedia_DoesNotRelaxExistingElementBounds(bool audio)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        if (audio)
+        {
+            var source = new SoundSource();
+            source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
+            var sound = new SourceSound
+            {
+                Source = { CurrentValue = source },
+                Speed = { CurrentValue = 200f },
+                IsTimeAnchor = true,
+                TimeRange = TimeRange.FromSeconds(2)
+            };
+            var group = new SoundGroup();
+            group.Children.Add(sound);
+            element.Objects.Add(group);
+        }
+        else
+        {
+            var source = new VideoSource();
+            source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+            var video = new SourceVideo
+            {
+                Source = { CurrentValue = source },
+                Speed = { CurrentValue = 50f },
+                IsTimeAnchor = true,
+                TimeRange = TimeRange.FromSeconds(2)
+            };
+            var group = new DrawableGroup();
+            group.Children.Add(video);
+            element.Objects.Add(group);
+        }
+
+        Assert.That(_service.Slip(_scene, [element], TimeSpan.FromSeconds(3)), Is.False);
     }
 
     [Test]

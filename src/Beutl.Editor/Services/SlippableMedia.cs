@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -17,19 +18,23 @@ internal static class SlippableMedia
     // Total is the absolute source duration (null when the stream has no bounded source).
     internal sealed class Target
     {
-        public Target(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan visibleDuration)
+        public Target(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan visibleEnd, TimeSpan outPointHeadroom)
         {
             Offset = offset;
             Total = total;
-            VisibleDuration = visibleDuration;
+            VisibleEnd = visibleEnd;
+            OutPointHeadroom = outPointHeadroom;
         }
 
         public IProperty<TimeSpan> Offset { get; }
 
         public TimeSpan? Total { get; }
 
-        // Nested media can have an independent TimeRange shorter than its containing element.
-        public TimeSpan VisibleDuration { get; }
+        // End of the visible window relative to the source object's start. Keep any
+        // elapsed prefix when the containing element clips the beginning of that window.
+        public TimeSpan VisibleEnd { get; }
+
+        public TimeSpan OutPointHeadroom { get; }
 
         public TimeSpan Current
         {
@@ -50,7 +55,20 @@ internal static class SlippableMedia
         var visited = new HashSet<object>();
         foreach (EngineObject obj in element.Objects)
         {
-            CollectFrom(obj, targets, visited);
+            CollectFrom(obj, element, targets, visited);
+        }
+
+        // Time controllers can sample beyond their target's declared range. Until trim
+        // operations share their time mapping (#2569), retain the pre-existing element bounds.
+        // Check the whole traversal so a shared source reached before its controller is
+        // treated the same way regardless of collection order.
+        if (visited.Any(static obj => obj is DrawableTimeController))
+        {
+            for (int i = 0; i < targets.Count; i++)
+            {
+                Target target = targets[i];
+                targets[i] = CreateElementBoundTarget(target.Offset, target.Total, element.Length);
+            }
         }
 
         return targets;
@@ -59,68 +77,115 @@ internal static class SlippableMedia
     // The visited set makes each node contribute once: a media object reachable through
     // several paths (e.g. one SourceVideo shared by two DrawablePresenter.Targets) must not
     // receive the shared delta once per path, and a presenter cycle must not recurse forever.
-    private static void CollectFrom(object obj, List<Target> targets, HashSet<object> visited)
+    private static void CollectFrom(object obj, Element element, List<Target> targets, HashSet<object> visited)
     {
         if (!visited.Add(obj)) return;
 
         switch (obj)
         {
             case SourceVideo video:
-                targets.Add(CreateVideoTarget(video));
+                targets.Add(CreateVideoTarget(video, element));
                 break;
             case SourceSound sound:
-                targets.Add(CreateSoundTarget(sound));
+                targets.Add(CreateSoundTarget(sound, element));
                 break;
             case SceneSound sceneSound:
-                targets.Add(CreateSceneSoundTarget(sceneSound));
+                targets.Add(CreateSceneSoundTarget(sceneSound, element));
                 break;
             case SoundGroup soundGroup:
                 foreach (Sound child in soundGroup.Children)
-                    CollectFrom(child, targets, visited);
+                    CollectFrom(child, element, targets, visited);
                 break;
             case DrawableGroup drawableGroup:
                 foreach (Drawable child in drawableGroup.Children)
-                    CollectFrom(child, targets, visited);
+                    CollectFrom(child, element, targets, visited);
                 break;
             case DrawableDecorator decorator:
                 foreach (Drawable child in decorator.Children)
-                    CollectFrom(child, targets, visited);
+                    CollectFrom(child, element, targets, visited);
                 break;
             // DrawablePresenter / DrawableTimeController render the drawable in Target
             // rather than a Children list, so a wrapped SourceVideo is only reachable here.
             case IPresenter<Drawable> presenter:
                 if (presenter.Target.CurrentValue is { } presented)
-                    CollectFrom(presented, targets, visited);
+                    CollectFrom(presented, element, targets, visited);
                 break;
         }
     }
 
-    private static Target CreateVideoTarget(SourceVideo video)
+    private static Target CreateVideoTarget(SourceVideo video, Element element)
     {
         // An exhausted source still has a known total even when TryGetOriginalDuration returns false.
         using var resource = video.ToResource(CompositionContext.Default);
         TimeSpan? total = video.CalculateOriginalTime((SourceVideo.Resource)resource);
-        return new Target(video.OffsetPosition, total, video.TimeRange.Duration);
+        return CreateTarget(video, video.OffsetPosition, total, video.Speed, element);
     }
 
-    private static Target CreateSoundTarget(SourceSound sound)
+    private static Target CreateSoundTarget(SourceSound sound, Element element)
     {
         // SourceSound.TryGetOriginalDuration returns the full source duration.
         TimeSpan? total = sound.TryGetOriginalDuration(out TimeSpan duration) ? duration : null;
-        return new Target(sound.OffsetPosition, total, sound.TimeRange.Duration);
+        return CreateTarget(sound, sound.OffsetPosition, total, sound.Speed, element);
     }
 
-    private static Target CreateSceneSoundTarget(SceneSound sound)
+    private static Target CreateSceneSoundTarget(SceneSound sound, Element element)
     {
         // The referenced scene is the "source": its duration bounds how far the media
         // window can advance. Unresolved references stay unbounded, like a SourceVideo
         // without a loaded source.
         TimeSpan? total = sound.ReferencedScene.CurrentValue?.Duration;
-        return new Target(sound.OffsetPosition, total, sound.TimeRange.Duration);
+        return CreateTarget(sound, sound.OffsetPosition, total, sound.Speed, element);
+    }
+
+    private static Target CreateTarget(
+        EngineObject media, IProperty<TimeSpan> offset, TimeSpan? total, IProperty<float> speed, Element element)
+    {
+        // Speed-aware clamp and offset conversion are tracked separately in #2069/#2090.
+        // Do not relax their existing bounds using an unmapped nested timeline duration.
+        if (speed.CurrentValue != 100f || speed.Animation is not null || speed.HasExpression)
+            return CreateElementBoundTarget(offset, total, element.Length);
+
+        TimeRange visible = media.TimeRange.Intersect(element.Range);
+        TimeSpan visibleEnd = visible.IsEmpty ? TimeSpan.Zero : visible.End - media.TimeRange.Start;
+        TimeSpan outPointHeadroom = TimeSpan.MaxValue;
+        if (total is { } duration)
+        {
+            TimeSpan sourceEnd = duration - offset.CurrentValue;
+            // A fixed range already fully exposed by the element never grows with it.
+            // A longer fixed range only constrains growth if revealing more of it would
+            // reach the source end before the fixed range itself ends.
+            if (FollowsElementRange(media, element)
+                || (media.TimeRange.End > element.Range.End && media.TimeRange.Duration > sourceEnd))
+            {
+                outPointHeadroom = media.TimeRange.Start + sourceEnd - element.Range.End;
+                if (outPointHeadroom < TimeSpan.Zero) outPointHeadroom = TimeSpan.Zero;
+            }
+        }
+
+        return new Target(offset, total, visibleEnd, outPointHeadroom);
+    }
+
+    private static bool FollowsElementRange(EngineObject media, Element element)
+    {
+        while (media.HierarchicalParent != element)
+        {
+            if (media.IsTimeAnchor || media.HierarchicalParent is not EngineObject parent)
+                return false;
+            media = parent;
+        }
+
+        return true;
+    }
+
+    private static Target CreateElementBoundTarget(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan length)
+    {
+        TimeSpan room = total is { } duration ? duration - offset.CurrentValue - length : TimeSpan.MaxValue;
+        if (room < TimeSpan.Zero) room = TimeSpan.Zero;
+        return new Target(offset, total, length, room);
     }
 
     // The largest-magnitude delta (in the requested direction) that every stream can apply
-    // without leaving [0, Total - VisibleDuration]. Applying one shared delta keeps linked
+    // without leaving [0, Total - VisibleEnd]. Applying one shared delta keeps linked
     // streams (e.g. a video + audio pair) in sync even when one hits its source boundary first.
     public static TimeSpan ClampSharedDelta(IReadOnlyList<Target> targets, TimeSpan delta)
     {
@@ -142,7 +207,7 @@ internal static class SlippableMedia
     {
         if (target.Total is not { } total) return long.MaxValue;
 
-        TimeSpan maxOffset = total - target.VisibleDuration;
+        TimeSpan maxOffset = total - target.VisibleEnd;
         if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
         return Math.Max(0L, (maxOffset - target.Current).Ticks);
     }
@@ -172,11 +237,7 @@ internal static class SlippableMedia
         TimeSpan room = TimeSpan.MaxValue;
         foreach (Target target in targets)
         {
-            if (target.Total is not { } total) continue;
-
-            TimeSpan available = total - target.Current - target.VisibleDuration;
-            if (available < TimeSpan.Zero) available = TimeSpan.Zero;
-            if (available < room) room = available;
+            if (target.OutPointHeadroom < room) room = target.OutPointHeadroom;
         }
 
         return room;

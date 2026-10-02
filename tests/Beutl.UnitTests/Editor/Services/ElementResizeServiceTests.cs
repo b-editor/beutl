@@ -646,7 +646,7 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void Roll_NestedVideo_ClampsToOwnVisibleDuration()
+    public void Roll_FixedNestedVideo_DoesNotConstrainParentOutPoint()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
         Element back = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
@@ -672,13 +672,13 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - TimeSpan.FromSeconds(1d / 30)));
             Assert.That(applied, Is.True);
-            Assert.That(front.Range, Is.EqualTo(TimeRange.FromSeconds(13)));
-            Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(13, 7)));
+            Assert.That(front.Range, Is.EqualTo(TimeRange.FromSeconds(15)));
+            Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(15, 5)));
             Assert.That(video.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2, 2)));
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(backVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(backVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
 
@@ -692,7 +692,7 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void Slide_NestedSound_ClampsToOwnVisibleDuration()
+    public void Slide_FixedNestedSound_DoesNotConstrainParentOutPoint()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
         Element middle = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
@@ -717,14 +717,93 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(front.Range, Is.EqualTo(TimeRange.FromSeconds(13)));
-            Assert.That(middle.Range, Is.EqualTo(TimeRange.FromSeconds(13, 2)));
-            Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(15, 7)));
+            Assert.That(front.Range, Is.EqualTo(TimeRange.FromSeconds(15)));
+            Assert.That(middle.Range, Is.EqualTo(TimeRange.FromSeconds(15, 2)));
+            Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(17, 5)));
             Assert.That(sound.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2, 2)));
             Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(backSound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(backSound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
+    }
+
+    [TestCase(false, 0, 10, 3)]
+    [TestCase(true, 0, 10, 3)]
+    [TestCase(false, 1, 10, 4)]
+    [TestCase(true, 1, 10, 4)]
+    [TestCase(false, 0, 4, 5)]
+    [TestCase(true, 0, 4, 5)]
+    public void Roll_PartiallyVisibleFixedMedia_OnlyBoundsNewlyExposedSource(
+        bool audio, int sourceStart, int sourceLength, int expectedDelta)
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
+        if (audio)
+        {
+            var source = new SoundSource();
+            source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
+            var sound = new SourceSound
+            {
+                Source = { CurrentValue = source },
+                IsTimeAnchor = true,
+                TimeRange = TimeRange.FromSeconds(sourceStart, sourceLength)
+            };
+            var group = new SoundGroup();
+            group.Children.Add(sound);
+            front.Objects.Add(group);
+        }
+        else
+        {
+            var source = new VideoSource();
+            source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+            var video = new SourceVideo
+            {
+                Source = { CurrentValue = source },
+                IsTimeAnchor = true,
+                TimeRange = TimeRange.FromSeconds(sourceStart, sourceLength)
+            };
+            var group = new DrawableGroup();
+            group.Children.Add(video);
+            front.Objects.Add(group);
+        }
+
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2 + expectedDelta)));
+            Assert.That(back.Start, Is.EqualTo(front.Range.End));
+            Assert.That(back.Range.End, Is.EqualTo(TimeSpan.FromSeconds(12)));
+        });
+    }
+
+    [TestCase(false, 3)]
+    [TestCase(true, 5)]
+    public void Roll_NestedVideo_InheritsOutPointBehaviorFromItsTimeAnchor(bool fixedInnerGroup, int expectedDelta)
+    {
+        var app = new BeutlApplication();
+        app.Items.Add(_scene);
+        int frontLength = fixedInnerGroup ? 10 : 2;
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(frontLength));
+        Element back = AddElement(TimeSpan.FromSeconds(frontLength), TimeSpan.FromSeconds(10));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo { Source = { CurrentValue = source } };
+        var inner = new DrawableGroup
+        {
+            IsTimeAnchor = fixedInnerGroup,
+            TimeRange = TimeRange.FromSeconds(2)
+        };
+        inner.Children.Add(video);
+        var outer = new DrawableGroup();
+        outer.Children.Add(inner);
+        front.Objects.Add(outer);
+        Assert.That(video.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2)));
+
+        Assert.That(_service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(frontLength + expectedDelta)));
+        Assert.That(video.Duration, Is.EqualTo(TimeSpan.FromSeconds(fixedInnerGroup ? 2 : 2 + expectedDelta)));
     }
 
     [Test]
