@@ -1307,16 +1307,12 @@ internal sealed class GitCliVersionControlService :
     internal Func<Guid, CancellationToken, Task<string>>? HostedGitTokenProvider { get; set; }
 
     private async Task<GitCommandOptions> GetNetworkOptionsAsync(
-        GitCommandOptions baseline, CancellationToken cancellationToken, bool forPush = false)
+        GitCommandOptions baseline, CancellationToken cancellationToken, IReadOnlyList<string>? selectedUrls = null)
     {
         string[] remoteUrls;
-        if (forPush)
+        if (selectedUrls is not null)
         {
-            IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-            GitCommandResult result = await runner.RunAsync(GetRepository(),
-                ["remote", "get-url", "--push", "--all", "origin"],
-                GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
-            remoteUrls = result.Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+            remoteUrls = selectedUrls.ToArray();
         }
         else
         {
@@ -1333,6 +1329,28 @@ internal sealed class GitCliVersionControlService :
             targets.Add((remoteUrl, token));
         }
         return targets.Count == 0 ? baseline : HostedGitRemote.CreateOptions(targets, baseline);
+    }
+
+    private async Task RunNetworkWithTokenRefreshAsync(
+        RepositoryInfo repository, IGitCliRunner runner, IReadOnlyList<string> arguments,
+        GitCommandOptions baseline, CancellationToken cancellationToken,
+        IProgress<string>? progress = null, IReadOnlyList<string>? selectedUrls = null)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            GitCommandOptions options = await GetNetworkOptionsAsync(
+                baseline, cancellationToken, selectedUrls).ConfigureAwait(false);
+            try
+            {
+                await runner.RunAsync(repository, arguments, options, cancellationToken, progress).ConfigureAwait(false);
+                return;
+            }
+            catch (GitOperationException ex) when (attempt < 4 && options.EnvironmentOverrides is not null
+                && IsHostedAuthenticationFailure(ex))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+        }
     }
 
     public RepositoryLockInfo? RecoverableLock { get; private set; }
@@ -7198,8 +7216,8 @@ internal sealed class GitCliVersionControlService :
         string[] hooksOverride = projectOpen ? ["-c", "core.hooksPath=/dev/null"] : [];
         try
         {
-            await runner.RunAsync(
-                repository,
+            await RunNetworkWithTokenRefreshAsync(
+                repository, runner,
                 [
                     .. s_lfsPathFilterOverrides,
                     .. hooksOverride,
@@ -8047,9 +8065,7 @@ internal sealed class GitCliVersionControlService :
                     remotes[0].Name,
                     target.Reference,
                 ],
-                await GetNetworkOptionsAsync(
-                    GitCommandOptions.Network with { MaxStdoutBytes = MaxLfsFetchOutputBytes },
-                    cancellationToken).ConfigureAwait(false),
+                GitCommandOptions.Network with { MaxStdoutBytes = MaxLfsFetchOutputBytes },
                 cancellationToken).ConfigureAwait(false);
         }
         catch (GitOperationException ex)
@@ -9045,22 +9061,45 @@ internal sealed class GitCliVersionControlService :
 
             arguments.Add("origin");
             arguments.Add($"{currentTip.RefName}:{remoteRef}");
-            for (int attempt = 0; ; attempt++)
+            GitCommandResult pushUrlsResult = await runner.RunAsync(repository,
+                ["remote", "get-url", "--push", "--all", "origin"],
+                GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+            string[] pushUrls = pushUrlsResult.Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                .Distinct(StringComparer.Ordinal).ToArray();
+            bool mixedAuthentication = pushUrls.Any(url => HostedGitRemote.TryParse(url, out _))
+                && pushUrls.Any(url => !HostedGitRemote.TryParse(url, out _));
+            if (mixedAuthentication)
             {
-                GitCommandOptions options = await GetNetworkOptionsAsync(
-                    GitCommandOptions.Network, cancellationToken, forPush: true).ConfigureAwait(false);
-                try
+                // Askpass is a process-wide setting. Isolate hosted and external
+                // destinations so each keeps its own authentication behavior.
+                foreach (string url in pushUrls)
                 {
-                    await runner.RunAsync(repository, arguments, options, cancellationToken, progress).ConfigureAwait(false);
-                    break;
+                    await RunNetworkWithTokenRefreshAsync(repository, runner,
+                        ["push", "--progress", url, $"{currentTip.Commit}:{remoteRef}"],
+                        GitCommandOptions.Network, cancellationToken, progress, [url]).ConfigureAwait(false);
                 }
-                catch (GitOperationException ex) when (attempt < 4 && options.EnvironmentOverrides is not null
-                    && IsHostedAuthenticationFailure(ex))
+
+                // URL pushes do not install the named remote's upstream. Do so
+                // only after every destination accepted the captured commit.
+                if (upstream is null)
                 {
-                    // Large resumable transfers can span multiple token lifetimes.
-                    // Mint a new token for each retry, with a five-attempt bound.
-                    cancellationToken.ThrowIfCancellationRequested();
+                    await runner.RunAsync(repository, ["config", "--local", $"branch.{branchName}.remote", "origin"],
+                        GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+                    await runner.RunAsync(repository, ["config", "--local", $"branch.{branchName}.merge", remoteRef],
+                        GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
                 }
+                GitCommandResult tracking = await runner.RunAsync(repository,
+                    ["for-each-ref", "--format=%(upstream)", currentTip.RefName],
+                    GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+                string trackingRef = tracking.Stdout.Trim();
+                if (trackingRef.StartsWith("refs/remotes/origin/", StringComparison.Ordinal))
+                    await runner.RunAsync(repository, ["update-ref", trackingRef, currentTip.Commit],
+                        GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await RunNetworkWithTokenRefreshAsync(repository, runner, arguments,
+                    GitCommandOptions.Network, cancellationToken, progress, pushUrls).ConfigureAwait(false);
             }
             await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
             return new RemoteOpResult.Success();
@@ -9162,11 +9201,9 @@ internal sealed class GitCliVersionControlService :
 
         try
         {
-            await runner.RunAsync(
-                repository,
-                fetchTarget.Arguments,
-                await GetNetworkOptionsAsync(GitCommandOptions.Network, cancellationToken).ConfigureAwait(false),
-                cancellationToken).ConfigureAwait(false);
+            await RunNetworkWithTokenRefreshAsync(
+                repository, runner, fetchTarget.Arguments,
+                GitCommandOptions.Network, cancellationToken).ConfigureAwait(false);
         }
         catch (GitOperationException ex)
         {
@@ -9342,11 +9379,9 @@ internal sealed class GitCliVersionControlService :
 
         try
         {
-            await runner.RunAsync(
-                repository,
-                fetchTarget.Arguments,
-                await GetNetworkOptionsAsync(GitCommandOptions.Network, cancellationToken).ConfigureAwait(false),
-                cancellationToken).ConfigureAwait(false);
+            await RunNetworkWithTokenRefreshAsync(
+                repository, runner, fetchTarget.Arguments,
+                GitCommandOptions.Network, cancellationToken).ConfigureAwait(false);
         }
         catch (GitOperationException ex)
         {

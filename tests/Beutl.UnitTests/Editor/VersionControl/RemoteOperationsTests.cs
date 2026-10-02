@@ -49,17 +49,82 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         }
     }
 
-    private sealed class HostedPushRunner(IGitCliRunner inner, int failures) : IGitCliRunner
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Mixed_push_urls_isolate_hosted_authentication_and_preserve_upstream(bool hostedFirst)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string external = await CreateBareRemoteAsync();
+        string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
+        await RunGitAsync("remote", "add", "origin", external);
+        await RunGitAsync("remote", "set-url", "--push", "origin", hostedFirst ? hosted : external);
+        await RunGitAsync("remote", "set-url", "--add", "--push", "origin", hostedFirst ? external : hosted);
+        var runner = new HostedPushRunner(CreateRunner(), 0);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        int issued = 0;
+        service.HostedGitTokenProvider = (_, _) => { issued++; return Task.FromResult("temporary"); };
+        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.TypeOf<RemoteOpResult.Success>());
+        Assert.That(issued, Is.EqualTo(1));
+        for (int index = 0; index < 2; index++)
+        {
+            string url = runner.Arguments[index][2];
+            var environment = runner.Options[index].EnvironmentOverrides;
+            if (url == hosted)
+            {
+                Assert.That(environment!["GIT_ASKPASS"], Is.Empty);
+                Assert.That(environment["GIT_CONFIG_KEY_0"], Is.EqualTo($"http.{hosted}.extraheader"));
+            }
+            else
+            {
+                Assert.That(url, Is.EqualTo(external));
+                Assert.That(environment, Is.Null, "external authentication must inherit the user's configuration");
+            }
+        }
+        Assert.That((await RunGitAsync("rev-parse", "main@{upstream}")).Stdout.Trim(),
+            Is.EqualTo((await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim()));
+        Assert.That((await RunGitAsync("config", "--get", "branch.main.remote")).Stdout.Trim(), Is.EqualTo("origin"));
+    }
+
+    [TestCase(false, 2, 3)]
+    [TestCase(true, 2, 3)]
+    [TestCase(false, 10, 5)]
+    [TestCase(true, 10, 5)]
+    public async Task Hosted_pull_refreshes_expired_credentials_in_both_fetch_paths(bool preflight, int failures, int attempts)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string external = await CreateBareRemoteAsync();
+        await RunGitAsync("remote", "add", "origin", external);
+        await RunGitAsync("push", "-u", "origin", "main");
+        string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
+        await RunGitAsync("remote", "set-url", "origin", hosted);
+        var runner = new HostedPushRunner(CreateRunner(), failures, "fetch");
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        int issued = 0;
+        service.HostedGitTokenProvider = (_, _) => Task.FromResult($"token-{++issued}");
+        CheckedOutBranchTip tip = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        RemoteOpResult result = preflight
+            ? (await service.PreflightPullAsync(tip, CancellationToken.None)).Result
+            : (await service.PullFastForwardAsync(tip, null, Path.Combine(Root, "project.bep"), CancellationToken.None)).Result;
+        Assert.That(result is RemoteOpResult.Success, Is.EqualTo(failures < 5));
+        Assert.That(issued, Is.EqualTo(attempts));
+        Assert.That(runner.Options.Count, Is.EqualTo(attempts));
+        Assert.That(runner.Options[^1].EnvironmentOverrides!["GIT_CONFIG_VALUE_0"],
+            Is.EqualTo($"Authorization: Bearer token-{attempts}"));
+    }
+
+    private sealed class HostedPushRunner(IGitCliRunner inner, int failures, string networkCommand = "push") : IGitCliRunner
     {
         public bool HasActiveProcess => inner.HasActiveProcess;
         public List<GitCommandOptions> Options { get; } = [];
+        public List<IReadOnlyList<string>> Arguments { get; } = [];
 
         public Task<GitCommandResult> RunAsync(RepositoryInfo repository, IReadOnlyList<string> arguments,
             GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? stderrProgress = null)
         {
-            if (GetGitSubcommand(arguments) != "push")
+            if (GetGitSubcommand(arguments) != networkCommand)
                 return inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
             Options.Add(options);
+            Arguments.Add(arguments.ToArray());
             if (Options.Count <= failures)
                 throw new GitOperationException(128, "The requested URL returned error: 401");
             return Task.FromResult(new GitCommandResult(0, "", ""));

@@ -1,7 +1,7 @@
 ﻿using System.Net;
-using System.Text.Json;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Text.Json;
 using Beutl.Editor.VersionControl;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -110,6 +110,33 @@ public class HostedGitLfsTransferAgentTests
         {
             File.Delete(path);
         }
+    }
+
+    [Test]
+    public async Task DownloadKeepsProgressAcrossMoreThanFivePartialResponses()
+    {
+        byte[] bytes = "eight successive chunks"u8.ToArray();
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        int requests = 0;
+        using var handler = new CallbackHandler((request, _) =>
+        {
+            int start = (int)(request.Headers.Range?.Ranges.Single().From ?? 0);
+            int end = Math.Min(start + 2, bytes.Length);
+            requests++;
+            var content = new ByteArrayContent(bytes[start..end]);
+            content.Headers.ContentRange = new ContentRangeHeaderValue(start, end - 1, bytes.Length);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = content });
+        });
+        using var output = await TransferAsync(handler, "download", bytes.Length, "https://storage.example/object", bytes, oid);
+        AssertSuccess(output);
+        using JsonDocument completed = LastMessage(output);
+        string path = completed.RootElement.GetProperty("path").GetString()!;
+        try
+        {
+            Assert.That(requests, Is.GreaterThan(5));
+            Assert.That(await File.ReadAllBytesAsync(path), Is.EqualTo(bytes));
+        }
+        finally { File.Delete(path); }
     }
 
     [TestCase(2, "exceeds expected size")]

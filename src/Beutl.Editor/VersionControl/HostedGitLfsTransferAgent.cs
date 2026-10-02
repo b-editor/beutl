@@ -386,15 +386,19 @@ internal static class HostedGitLfsTransferAgent
             byte[] buffer = new byte[128 * 1024];
             long received = 0;
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            for (int attempt = 0; received < message.Size && attempt < 5; attempt++)
+            int failures = 0;
+            while (received < message.Size && failures < 5)
             {
+                long previousReceived = received;
                 try
                 {
                     using HttpRequestMessage request = NewRequest(HttpMethod.Get, url, message.Action!.Header);
                     if (received > 0) request.Headers.Range = new RangeHeaderValue(received, null);
                     using HttpResponseMessage response = await http.SendAsync(
                         request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-                    response.EnsureSuccessStatusCode();
+                    if (!response.IsSuccessStatusCode)
+                        throw new HttpRequestException($"LFS download failed: HTTP {(int)response.StatusCode}",
+                            null, response.StatusCode);
                     if (received > 0 && (response.StatusCode != HttpStatusCode.PartialContent
                         || response.Content.Headers.ContentRange?.From != received))
                     {
@@ -420,13 +424,19 @@ internal static class HostedGitLfsTransferAgent
                     }
                 }
                 catch (Exception ex) when (
-                    attempt < 4 && (ex is IOException ||
+                    ex is IOException ||
                         ex is HttpRequestException { StatusCode: null } ||
                         ex is HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } ||
-                        ex is HttpRequestException { StatusCode: >= HttpStatusCode.InternalServerError }))
+                        ex is HttpRequestException { StatusCode: >= HttpStatusCode.InternalServerError })
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(1 << attempt), cancellationToken);
+                    failures = received > previousReceived ? 0 : failures + 1;
+                    if (failures >= 5) throw;
+                    await Task.Delay(TimeSpan.FromSeconds(1 << Math.Max(0, failures - 1)), cancellationToken);
+                    continue;
                 }
+                failures = received > previousReceived ? 0 : failures + 1;
+                if (received == previousReceived && failures < 5)
+                    await Task.Delay(TimeSpan.FromSeconds(1 << (failures - 1)), cancellationToken);
             }
             if (received != message.Size ||
                 !Convert.ToHexStringLower(hash.GetHashAndReset()).Equals(message.Oid, StringComparison.Ordinal))

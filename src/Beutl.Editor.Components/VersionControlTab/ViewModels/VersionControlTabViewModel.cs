@@ -620,14 +620,23 @@ internal sealed class VersionControlTabViewModel : IToolContext
         if (HasRemote.Value) return;
         RemoteMutationLease? lease = TryAcquireRemoteMutation();
         if (lease is null) return;
+        string? createdUrl = null;
         try
         {
+            IProjectVersionControlService? service = _service;
+            IProjectVersionControlCoordinator? coordinator = _versionControlCoordinator;
+            int revision = _serviceRevision;
+            if (service is null || coordinator is null) return;
             CancellationToken token = _serviceBindingCancellation?.Token ?? CancellationToken.None;
             string? name = await RequestHostedRepositoryNameAsync(token);
-            if (string.IsNullOrWhiteSpace(name) || _versionControlCoordinator is null) return;
+            if (string.IsNullOrWhiteSpace(name) || !IsCurrentService(service, revision, token)) return;
             if (HasRemote.Value) return;
-            string url = await _versionControlCoordinator.CreateHostedRepositoryAsync(name.Trim(), token);
-            if (!await ConfigureRemoteAsync(lease, url) && !token.IsCancellationRequested)
+            string url = createdUrl = await coordinator.CreateHostedRepositoryAsync(name.Trim(), token);
+            if (!IsCurrentService(service, revision, token)) return;
+            await RefreshRemotesAsync(service, token, serviceRevision: revision,
+                freshness: () => IsCurrentService(service, revision, token));
+            if (!IsCurrentService(service, revision, token)) return;
+            if ((HasRemote.Value || !await ConfigureRemoteAsync(lease, url)) && !token.IsCancellationRequested)
             {
                 NotificationService.ShowError(Strings.VersionControl_ErrorTitle,
                     string.Format(Strings.VersionControl_HostedRepositoryNotConnected, url));
@@ -637,7 +646,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create the hosted Git repository.");
-            NotificationService.ShowError(Strings.VersionControl_ErrorTitle, ex.Message);
+            NotificationService.ShowError(Strings.VersionControl_ErrorTitle, createdUrl is null ? ex.Message
+                : string.Format(Strings.VersionControl_HostedRepositoryNotConnected, createdUrl));
         }
         finally
         {
