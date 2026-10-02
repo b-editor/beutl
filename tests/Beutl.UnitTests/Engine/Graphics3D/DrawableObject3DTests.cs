@@ -54,7 +54,9 @@ public class DrawableObject3DTests
                 frame.Objects.Select(o => o.GetOriginal()).Where(o => o is not PortalObject),
                 Is.EqualTo(new EngineObject?[] { scene3D }));
             var sceneResource = frame.Objects.OfType<Scene3D.Resource>().Single();
-            var cardResource = sceneResource.Objects.OfType<DrawableObject3D.Resource>().Single();
+            Object3D.Resource objectResource = sceneResource.Objects.Single();
+            Assert.That(objectResource, Is.InstanceOf<DrawableObject3D.Resource>());
+            var cardResource = (DrawableObject3D.Resource)objectResource;
             Assert.That(cardResource.Children.Select(c => c.GetOriginal()), Is.EqualTo(new[] { rect }));
         }
         finally
