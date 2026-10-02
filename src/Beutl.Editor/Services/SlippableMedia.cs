@@ -146,6 +146,14 @@ internal static class SlippableMedia
                 visibleEnd = visibleEnd < TimeSpan.Zero
                     ? duration + visibleEnd
                     : (visibleEnd > duration ? visibleEnd : duration);
+
+                // A positive offset reaches the wrapped source end before local zero.
+                if (video.OffsetPosition.CurrentValue > TimeSpan.Zero)
+                {
+                    TimeSpan wrappedRoom = video.TimeRange.Start - video.OffsetPosition.CurrentValue - element.Range.End;
+                    if (wrappedRoom < TimeSpan.Zero) wrappedRoom = TimeSpan.Zero;
+                    if (wrappedRoom < room) room = wrappedRoom;
+                }
             }
         }
         if (visibleEnd < TimeSpan.Zero) visibleEnd = TimeSpan.Zero;
