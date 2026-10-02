@@ -55,21 +55,21 @@ internal static class SlippableMedia
     {
         var targets = new List<Target>();
         var visited = new HashSet<object>();
-        bool supportsTimeMapping = true;
         foreach (EngineObject obj in element.Objects)
         {
+            bool supportsTimeMapping = true;
             CollectFrom(obj, targets, visited, ref supportsTimeMapping);
-        }
 
-        // Time controllers may consume preceding drawables through Flow without an explicit
-        // Target. Conservatively guard video sources, including those visited earlier, but
-        // never audio: drawable controllers cannot change its source-time mapping.
-        if (!supportsTimeMapping)
-        {
-            foreach (Target target in targets)
+            // A controller can consume preceding drawables through Flow, or an explicit
+            // nested Target. Guard videos reached so far; later top-level drawables cannot
+            // feed this controller. Audio never enters drawable flow.
+            if (!supportsTimeMapping)
             {
-                if (target.IsVideo)
-                    target.SupportsTrimming = false;
+                foreach (Target target in targets)
+                {
+                    if (target.IsVideo)
+                        target.SupportsTrimming = false;
+                }
             }
         }
 

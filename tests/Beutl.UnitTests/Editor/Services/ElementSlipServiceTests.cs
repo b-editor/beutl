@@ -609,6 +609,40 @@ public class ElementSlipServiceTests
         Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
 
+    [Test]
+    public void Slip_TimeControllerBeforeVideo_DoesNotBlockLaterSource()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 180)));
+        var video = new SourceVideo { Source = { CurrentValue = source }, Speed = { CurrentValue = 200 } };
+        var controller = new DrawableTimeController { Speed = { CurrentValue = 50 } };
+        element.Objects.Add(controller);
+        element.Objects.Add(video);
+
+        // Replay the compositor's order: the controller has no preceding drawable to
+        // consume, so the later video keeps its own 200% source-time mapping.
+        var context = new CompositionContext(TimeSpan.FromSeconds(1)) { Flow = [] };
+        using var controllerResource = (DrawableTimeController.Resource)controller.ToResource(context);
+        context.Flow.Add(controllerResource);
+        using var videoResource = (SourceVideo.Resource)video.ToResource(context);
+        Assert.That(controllerResource.Target, Is.Null);
+        Assert.That(videoResource.RequestedPosition, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
     [TestCase("Speed")]
     [TestCase("OffsetPosition")]
     [TestCase("AdjustTimeRange")]
