@@ -9,6 +9,7 @@ using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -129,17 +130,32 @@ public class GLSLShaderTests
         });
     }
 
-    [Test]
-    public void ScriptCache_RejectsDeviceLimitBeforeCachingAProgram()
+    [TestCase(GLSLFilterPipeline.PortableInputLimit + 1)]
+    [TestCase(int.MaxValue)]
+    public void ScriptCache_RejectsPortableLimitBeforeCachingAProgram(int inputCount)
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        // A device may report int.MaxValue, whose successor cannot be passed to the int API.
+        // An unknown context has a representable portable limit, so rejection always runs.
+        var graphics = new Mock<IGraphicsContext>(MockBehavior.Strict);
+        graphics.SetupGet(x => x.Supports3DRendering).Returns(true);
+        InstalledGraphics previous = GraphicsContextFactory.ExchangeInstalledGraphics(
+            new InstalledGraphics(graphics.Object, null, null, FailedToInitialize: false));
+        try
         {
             using var cache = new ScriptGlslProgramCache();
-            int overLimit = checked(GLSLShader.MaximumInputCount + 1);
-            Assert.Throws<ArgumentOutOfRangeException>(() => cache.Create(ConstantBlueFragment, overLimit));
-            Assert.That(cache.Statistics.Creations, Is.Zero);
-        });
+            Assert.Throws<ArgumentOutOfRangeException>(() => cache.Create(ConstantBlueFragment, inputCount));
+            Assert.Multiple(() =>
+            {
+                Assert.That(cache.Statistics.Misses, Is.Zero);
+                Assert.That(cache.Statistics.Creations, Is.Zero);
+            });
+            graphics.VerifyGet(x => x.Supports3DRendering, Times.Once);
+            graphics.VerifyNoOtherCalls();
+        }
+        finally
+        {
+            GraphicsContextFactory.ExchangeInstalledGraphics(previous);
+        }
     }
 
     [Test]

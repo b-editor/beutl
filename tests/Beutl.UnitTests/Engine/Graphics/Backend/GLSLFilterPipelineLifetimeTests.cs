@@ -58,6 +58,20 @@ public sealed class GLSLFilterPipelineLifetimeTests
         Assert.That(VulkanDevice.GetMaxFragmentShaderInputTextures(limits), Is.EqualTo(8));
     }
 
+    [Test]
+    public void InputCountLimit_WhenDeviceReportsUintMax_UsesIntMax()
+    {
+        var limits = new PhysicalDeviceLimits
+        {
+            MaxPerStageDescriptorSamplers = uint.MaxValue,
+            MaxPerStageDescriptorSampledImages = uint.MaxValue,
+            MaxDescriptorSetSamplers = uint.MaxValue,
+            MaxDescriptorSetSampledImages = uint.MaxValue,
+            MaxPerStageResources = uint.MaxValue,
+        };
+        Assert.That(VulkanDevice.GetMaxFragmentShaderInputTextures(limits), Is.EqualTo(int.MaxValue));
+    }
+
     [TestCase(ShaderStage.Vertex)]
     [TestCase(ShaderStage.Fragment)]
     public void Create_WhenCompilationFails_DisposesCompiler(ShaderStage failingStage)
