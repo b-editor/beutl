@@ -1024,12 +1024,6 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         _vulkanCommandPool.Flush(waitForCompletion);
     }
 
-    /// <inheritdoc cref="VulkanCommandPool.WaitForTimelineOnNextSubmission"/>
-    public void WaitForTimelineOnNextSubmission(Silk.NET.Vulkan.Semaphore timeline, ulong value)
-    {
-        _vulkanCommandPool.WaitForTimelineOnNextSubmission(timeline, value);
-    }
-
     /// <inheritdoc cref="VulkanCommandPool.SubmitSignalingTimeline"/>
     public void SubmitSignalingTimeline(Silk.NET.Vulkan.Semaphore timeline, ulong value)
     {
