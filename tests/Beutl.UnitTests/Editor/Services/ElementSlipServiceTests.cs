@@ -678,6 +678,72 @@ public class ElementSlipServiceTests
         Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Slip_ContainerController_DoesNotRemapSiblingVideo(bool decorator, bool videoFirst)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        var controller = new DrawableTimeController { Speed = { CurrentValue = 50 } };
+        Drawable container = decorator ? new DrawableDecorator() : new DrawableGroup();
+        var children = container is DrawableDecorator d ? d.Children : ((DrawableGroup)container).Children;
+        children.Add(videoFirst ? video : controller);
+        children.Add(videoFirst ? controller : video);
+        element.Objects.Add(container);
+
+        using var resource = container.ToResource(new CompositionContext(TimeSpan.FromSeconds(1)) { Flow = [] });
+        var childResources = resource is DrawableDecorator.Resource dr
+            ? dr.Children : ((DrawableGroup.Resource)resource).Children;
+        Assert.That(childResources.OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
+        Assert.That(childResources.OfType<SourceVideo.Resource>().Single().RequestedPosition,
+            Is.EqualTo(TimeSpan.FromSeconds(2)));
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.That(applied, Is.True);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_DisabledControllerReferencedByPresenter_RejectsActiveMapping(bool controllerFirst)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
+            Speed = { CurrentValue = 200 }
+        };
+        var controller = new DrawableTimeController
+        {
+            TimeRange = video.TimeRange,
+            IsEnabled = false,
+            Speed = { CurrentValue = 50 },
+            Target = { CurrentValue = video }
+        };
+        var presenter = new DrawablePresenter { Target = { CurrentValue = controller } };
+        element.Objects.Add(video);
+        element.Objects.Add(controllerFirst ? controller : presenter);
+        element.Objects.Add(controllerFirst ? presenter : controller);
+
+        var context = new CompositionContext(TimeSpan.FromSeconds(1)) { Flow = [] };
+        using var videoResource = video.ToResource(context);
+        context.Flow.Add(videoResource);
+        using var presenterResource = (DrawablePresenter.Resource)presenter.ToResource(context);
+        var mapped = (DrawableTimeController.Resource)presenterResource.Target!;
+        Assert.That(((SourceVideo.Resource)mapped.Target!).RequestedPosition, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.That(applied, Is.False);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(_history.UndoCount, Is.EqualTo(before));
+    }
+
     [Test]
     public void Slip_SharedSourceAcrossElements_ShiftsOnce()
     {

@@ -58,74 +58,91 @@ internal static class SlippableMedia
     // disabled stream outside its source is refused, not applied desynced.
     public static List<Target> Collect(Element element)
     {
-        var targets = new List<Target>();
-        var visited = new HashSet<object>();
+        var targets = new Dictionary<EngineObject, Target>();
+        var path = new HashSet<EngineObject>();
+        var incoming = new HashSet<Target>();
         foreach (EngineObject obj in element.Objects)
         {
-            bool supportsTimeMapping = true;
-            CollectFrom(obj, targets, visited, ref supportsTimeMapping);
-
-            // A controller can consume preceding drawables through Flow, or an explicit
-            // nested Target. Guard videos reached so far; later top-level drawables cannot
-            // feed this controller. Audio never enters drawable flow. Playback skips
-            // disabled top-level objects, so their controllers cannot remap active media.
-            if (obj.IsEnabled && !supportsTimeMapping)
-            {
-                foreach (Target target in targets)
-                {
-                    if (target.IsVideo)
-                        target.SupportsTrimming = false;
-                }
-            }
+            // Only top-level disabled objects are filtered by Element.CollectObjects.
+            // A presenter can still render a disabled controller through a separate path.
+            incoming.UnionWith(CollectFrom(obj, incoming, targets, path, obj.IsEnabled));
         }
 
-        // Frozen media consumes no source time, so it neither moves nor limits a trim.
-        // An animated stream whose base value is zero is not necessarily frozen.
-        targets.RemoveAll(static target => target.IsFrozen);
-        return targets;
+        // Frozen media consumes no source time, even under an unsupported controller.
+        return targets.Values.Where(static target => !target.IsFrozen).ToList();
     }
 
-    // The visited set makes each node contribute once: a media object reachable through
-    // several paths (e.g. one SourceVideo shared by two DrawablePresenter.Targets) must not
-    // receive the shared delta once per path, and a presenter cycle must not recurse forever.
-    private static void CollectFrom(
-        object obj, List<Target> targets, HashSet<object> visited, ref bool supportsTimeMapping)
+    // Cache media independently from traversal: aliases share one offset write, but every
+    // active reference path must be checked. The path set stops cycles without suppressing
+    // a later active visit after an earlier disabled top-level occurrence.
+    private static HashSet<Target> CollectFrom(
+        EngineObject obj, IReadOnlyCollection<Target> incoming,
+        Dictionary<EngineObject, Target> targets, HashSet<EngineObject> path, bool applyMappings)
     {
-        if (!visited.Add(obj)) return;
+        var result = new HashSet<Target>();
+        if (!path.Add(obj)) return result;
 
-        switch (obj)
+        try
         {
-            case SourceVideo video:
-                targets.Add(CreateVideoTarget(video));
-                break;
-            case SourceSound sound:
-                targets.Add(CreateSoundTarget(sound));
-                break;
-            case SceneSound sceneSound:
-                targets.Add(CreateSceneSoundTarget(sceneSound));
-                break;
-            case SoundGroup soundGroup:
-                foreach (Sound child in soundGroup.Children)
-                    CollectFrom(child, targets, visited, ref supportsTimeMapping);
-                break;
-            case DrawableGroup drawableGroup:
-                foreach (Drawable child in drawableGroup.Children)
-                    CollectFrom(child, targets, visited, ref supportsTimeMapping);
-                break;
-            case DrawableDecorator decorator:
-                foreach (Drawable child in decorator.Children)
-                    CollectFrom(child, targets, visited, ref supportsTimeMapping);
-                break;
-            case DrawableTimeController controller:
-                supportsTimeMapping &= HasIdentityTimeMapping(controller);
-                if (controller.Target.CurrentValue is { } controlled)
-                    CollectFrom(controlled, targets, visited, ref supportsTimeMapping);
-                break;
-            // Presenters render Target rather than a Children list.
-            case IPresenter<Drawable> presenter:
-                if (presenter.Target.CurrentValue is { } presented)
-                    CollectFrom(presented, targets, visited, ref supportsTimeMapping);
-                break;
+            switch (obj)
+            {
+                case SourceVideo or SourceSound or SceneSound:
+                    if (!targets.TryGetValue(obj, out Target? target))
+                    {
+                        target = obj switch
+                        {
+                            SourceVideo video => CreateVideoTarget(video),
+                            SourceSound sound => CreateSoundTarget(sound),
+                            SceneSound sound => CreateSceneSoundTarget(sound),
+                            _ => throw new InvalidOperationException()
+                        };
+                        targets.Add(obj, target);
+                    }
+                    result.Add(target);
+                    break;
+                case SoundGroup soundGroup:
+                    foreach (Sound child in soundGroup.Children)
+                        result.UnionWith(CollectFrom(child, [], targets, path, applyMappings));
+                    break;
+                case DrawableGroup drawableGroup:
+                    // Containers consume incoming drawable flow before reconciling their
+                    // property children. Those children are not added to each other's flow.
+                    foreach (Drawable child in drawableGroup.Children)
+                        result.UnionWith(CollectFrom(child, [], targets, path, applyMappings));
+                    break;
+                case DrawableDecorator decorator:
+                    foreach (Drawable child in decorator.Children)
+                        result.UnionWith(CollectFrom(child, [], targets, path, applyMappings));
+                    break;
+                case DrawableTimeController controller:
+                    if (controller.Target.CurrentValue is { } controlled)
+                        result.UnionWith(CollectFrom(controlled, [], targets, path, applyMappings));
+                    if (applyMappings && !HasIdentityTimeMapping(controller))
+                    {
+                        RejectVideoMappings(incoming);
+                        RejectVideoMappings(result);
+                    }
+                    break;
+                case IPresenter<Drawable> presenter:
+                    if (presenter.Target.CurrentValue is { } presented)
+                        result.UnionWith(CollectFrom(presented, incoming, targets, path, applyMappings));
+                    break;
+            }
+
+            return result;
+        }
+        finally
+        {
+            path.Remove(obj);
+        }
+    }
+
+    private static void RejectVideoMappings(IEnumerable<Target> targets)
+    {
+        foreach (Target target in targets)
+        {
+            if (target.IsVideo)
+                target.SupportsTrimming = false;
         }
     }
 
