@@ -193,6 +193,60 @@ public class ColorGlyphTests
         });
     }
 
+    [TestCase(0.5f, false)]
+    [TestCase(1f, false)]
+    [TestCase(2f, false)]
+    [TestCase(0.5f, true)]
+    [TestCase(1f, true)]
+    [TestCase(2f, true)]
+    public void SplitGlyphBrush_MapsGradientToEachPositionedGlyph(float scale, bool vertical)
+    {
+        using FormattedText text = CreateText("😀 😀");
+        text.Spacing = 13f;
+        FormattedText first = text.GetNonOutlineGlyph(0)!;
+        FormattedText last = text.GetNonOutlineGlyph(2)!;
+        var gradient = new LinearGradientBrush
+        {
+            StartPoint = { CurrentValue = RelativePoint.TopLeft },
+            EndPoint = { CurrentValue = new RelativePoint(vertical ? 0f : 1f, vertical ? 1f : 0f, RelativeUnit.Relative) },
+        };
+        gradient.GradientStops.Add(new GradientStop(Colors.Red, 0));
+        gradient.GradientStops.Add(new GradientStop(Colors.Blue, 1));
+        using Brush.Resource fill = gradient.ToResource(CompositionContext.Default);
+
+        SKColor firstStart = SampleGlyphBrush(first, fill, scale, 0.25f, vertical);
+        SKColor lastStart = SampleGlyphBrush(last, fill, scale, 0.25f, vertical);
+        SKColor firstEnd = SampleGlyphBrush(first, fill, scale, 0.75f, vertical);
+        SKColor lastEnd = SampleGlyphBrush(last, fill, scale, 0.75f, vertical);
+        Assert.Multiple(() =>
+        {
+            Assert.That(lastStart, Is.EqualTo(firstStart), "Moving a glyph must also move its relative fill.");
+            Assert.That(lastEnd, Is.EqualTo(firstEnd));
+            Assert.That(lastStart.Red, Is.GreaterThan(lastStart.Blue));
+            Assert.That(lastEnd.Blue, Is.GreaterThan(lastEnd.Red));
+        });
+    }
+
+    private static SKColor SampleGlyphBrush(FormattedText glyph, Brush.Resource fill, float scale, float offset, bool vertical)
+    {
+        // Color emoji keep their palette, so sample the brush field itself. Monochrome bitmap glyphs
+        // use this field as their ink; ImmediateCanvas.DrawText supplies Bounds at the draw density.
+        var constructor = new BrushConstructor(
+            glyph.Bounds * scale, fill, BlendMode.SrcOver, RenderIntent.Preview,
+            drawableBrushMaterializer: null);
+        using var paint = new SKPaint();
+        constructor.ConfigurePaint(paint);
+        Rect ink = glyph.ActualBounds * scale;
+        using var surface = SKSurface.Create(new SKImageInfo(1, 1));
+        surface.Canvas.Translate(
+            0.5f - (ink.X + ink.Width * (vertical ? 0.5f : offset)),
+            0.5f - (ink.Y + ink.Height * (vertical ? offset : 0.5f)));
+        surface.Canvas.DrawRect(ink.ToSKRect(), paint);
+        using SKImage image = surface.Snapshot();
+        using SKBitmap bitmap = SKBitmap.FromImage(image);
+        return bitmap.GetPixel(0, 0);
+    }
+
     private static SKBitmap DrawBlobs(FormattedText text, float scale, bool split)
     {
         using var surface = SKSurface.Create(new SKImageInfo(600, 250));

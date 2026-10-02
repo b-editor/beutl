@@ -340,6 +340,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
     internal bool NonOutlineContains(Point point)
     {
+        // Bitmap glyphs use their ink rectangles, matching image hit testing without pixel readback.
         MeasureAndSetField();
         foreach (Rect bounds in _nonOutlineBounds)
         {
@@ -485,7 +486,10 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         // 空白で開始または、終了した場合
         float width = MathF.Max(0, (Math.Max(0, glyphs.Length - 1) * spacing) + result.Width);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
-        var bounds = new Rect(0, 0, width, actualBounds.Union(nonOutlineBounds).Height);
+        Rect fillBounds = actualBounds.Union(nonOutlineBounds);
+        // A split glyph is already positioned, just like the neighboring geometries. Its brush must
+        // follow that ink rectangle; only a complete text run uses zero-origin layout bounds.
+        var bounds = _shapedGlyph is null ? new Rect(0, 0, width, fillBounds.Height) : fillBounds;
         Rect rasterBounds = MeasureGlyphMaskBounds(font, glyphs, positions);
         SKTextBlob? textBlob = builder.Build();
 
