@@ -387,7 +387,8 @@ public sealed partial class ElementView : UserControl
             TimeSpan RecordedStartTime,
             TimeSpan RecordedEndTime,
             TimeSpan? LeftmostUpstreamStart,
-            TimeSpan? OriginalDuration);
+            TimeSpan? OriginalDuration,
+            SlippableMedia.ResizeConstraints? MediaConstraints);
 
         private enum TrimDragKind { None, Roll, Slide }
 
@@ -404,8 +405,7 @@ public sealed partial class ElementView : UserControl
             ElementTrimPair[] RollPairs,
             ElementSlideLane[] SlideLanes,
             double InitialPointerX,
-            TimeSpan MinDelta,
-            TimeSpan MaxDelta);
+            Func<TimeSpan, TimeSpan> ClampDelta);
 
         private bool _pressed;
         private AlignmentX _resizeType;
@@ -488,10 +488,7 @@ public sealed partial class ElementView : UserControl
                         TimeSpan pressTime = view.RoundStartTime(
                             _trimDrag.InitialPointerX.PixelToTimeSpan(scale), scale, alt);
                         pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
-                        TimeSpan previewDelta = TrimDeltaCalculator.ClampDelta(
-                            (pointerFrame - pressTime).RoundToRate(rate),
-                            _trimDrag.MinDelta,
-                            _trimDrag.MaxDelta);
+                        TimeSpan previewDelta = _trimDrag.ClampDelta((pointerFrame - pressTime).RoundToRate(rate));
                         ApplyTrimDragPreview(previewDelta.TimeToPixel(scale));
                         e.Handled = true;
                         return;
@@ -517,7 +514,10 @@ public sealed partial class ElementView : UserControl
                                     ctx.OriginalDuration?.TimeToPixel(scale),
                                     viewModel.Timeline.IsRippleEnabled.Value);
 
-                                ctx.ViewModel.Width.Value = Math.Max(x - left, minWidth);
+                                double width = Math.Max(x - left, minWidth);
+                                if (ctx.MediaConstraints is { } constraints)
+                                    width = Math.Max(constraints.ClampLength(width.PixelToTimeSpan(scale)).TimeToPixel(scale), minWidth);
+                                ctx.ViewModel.Width.Value = width;
                             }
                             else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
                             {
@@ -530,6 +530,10 @@ public sealed partial class ElementView : UserControl
                                     ctx.Before?.Range.End.TimeToPixel(scale),
                                     rippleFloorX,
                                     viewModel.Timeline.IsRippleEnabled.Value);
+                                if (ctx.MediaConstraints is { } constraints)
+                                {
+                                    x = constraints.ClampStart(x.PixelToTimeSpan(scale)).TimeToPixel(scale);
+                                }
 
                                 double endPos = ctx.RecordedEndTime.TimeToPixel(scale);
 
@@ -658,13 +662,8 @@ public sealed partial class ElementView : UserControl
 
                     _resizeContexts = filteredElements.Select(elem =>
                     {
-                        TimeSpan? originalDuration = null;
-                        if (clampToOriginal
-                            && elem.Model.HasOriginalDuration()
-                            && elem.Model.TryGetOriginalDuration(out TimeSpan ts))
-                        {
-                            originalDuration = ts;
-                        }
+                        var constraints = clampToOriginal ? SlippableMedia.CreateResizeConstraints(elem.Model) : null;
+                        TimeSpan? originalDuration = _resizeType == AlignmentX.Right ? constraints?.GetMaximumDuration() : null;
 
                         return new ElementResizeContext(
                             ViewModel: elem,
@@ -673,7 +672,8 @@ public sealed partial class ElementView : UserControl
                             RecordedStartTime: elem.Model.Start,
                             RecordedEndTime: elem.Model.Range.End,
                             LeftmostUpstreamStart: GetLeftmostUpstreamStart(viewModel.Scene, elem.Model),
-                            OriginalDuration: originalDuration);
+                            OriginalDuration: originalDuration,
+                            MediaConstraints: constraints);
                     }).ToArray();
 
                     _pressed = true;
@@ -707,9 +707,7 @@ public sealed partial class ElementView : UserControl
                 backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value);
             }
 
-            (TimeSpan minDelta, TimeSpan maxDelta) = viewModel.Timeline.EditorContext
-                .GetRequiredService<IElementResizeService>()
-                .GetTrimDeltaBounds(viewModel.Scene, pairs);
+            var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene, pairs);
 
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Roll,
@@ -719,8 +717,7 @@ public sealed partial class ElementView : UserControl
                 RollPairs: pairs.ToArray(),
                 SlideLanes: [],
                 InitialPointerX: position.X,
-                MinDelta: minDelta,
-                MaxDelta: maxDelta);
+                ClampDelta: constraints.Clamp);
             return true;
         }
 
@@ -749,11 +746,9 @@ public sealed partial class ElementView : UserControl
                 }
             }
 
-            (TimeSpan minDelta, TimeSpan maxDelta) = viewModel.Timeline.EditorContext
-                .GetRequiredService<IElementResizeService>()
-                .GetTrimDeltaBounds(
-                    viewModel.Scene,
-                    lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray());
+            var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene,
+                lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray(),
+                lanes.SelectMany(l => l.Middles));
 
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Slide,
@@ -763,8 +758,7 @@ public sealed partial class ElementView : UserControl
                 RollPairs: [],
                 SlideLanes: lanes.ToArray(),
                 InitialPointerX: position.X,
-                MinDelta: minDelta,
-                MaxDelta: maxDelta);
+                ClampDelta: constraints.Clamp);
             return true;
         }
 

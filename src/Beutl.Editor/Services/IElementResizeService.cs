@@ -34,7 +34,7 @@ public interface IElementResizeService
     /// <c>back.Length -= d</c>; total length is preserved. One shared delta — clamped to
     /// the intersection of every pair's window (see <see cref="GetTrimDeltaBounds"/>) — is
     /// applied to all pairs so grouped cuts (e.g. a video + audio pair on separate layers)
-    /// move together. Each back clip's media offset is advanced by the same delta so its
+    /// move together. Each back clip's media offset uses the delta converted to source time so its
     /// content stays anchored across the moving cut. Returns <see langword="false"/> (no
     /// commit) when <paramref name="pairs"/> is empty, any pair is invalid — front and back
     /// not distinct, on different layers, not both in <paramref name="scene"/>,
@@ -50,7 +50,7 @@ public interface IElementResizeService
     /// and the back clip shrinks by it, preserving the total length. One shared delta —
     /// clamped to the intersection of every lane's front/back window (the middles' lengths
     /// are unaffected) — is applied to all lanes so a grouped block spanning layers moves
-    /// together. Each back clip's media offset is advanced by the same delta so its content
+    /// together. Each back clip's media offset uses the delta converted to source time so its content
     /// stays anchored; the middle clips only move in time. Returns <see langword="false"/>
     /// (no commit) when <paramref name="lanes"/> is empty, any lane is invalid — members on
     /// different layers, not all in <paramref name="scene"/>, the
@@ -66,9 +66,9 @@ public interface IElementResizeService
     /// <c>Min ≤ 0 ≤ Max</c>, bounded per pair by both clips keeping at least one frame at
     /// the scene's frame rate, the back in-point staying at or above zero, and — when the
     /// editor's ClampResizeToOriginalLength preference is on — the front out-point staying
-    /// within its source. Both operations clamp with the same window on commit; the
-    /// Timeline View queries it once at drag start so the per-pointer-frame preview cannot
-    /// overshoot what the release will apply. <c>(Zero, Zero)</c> when
+    /// within its source. This is an outer envelope: animated clocks and shared media can impose
+    /// additional constraints inside it. The Timeline View and both commit operations
+    /// validate the actual delta using the same media-clock snapshot calculation. <c>(Zero, Zero)</c> when
     /// <paramref name="pairs"/> is empty or no trim is possible. Adjacency is not validated
     /// here; callers check it before starting a drag.
     /// </summary>

@@ -803,8 +803,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private async void OnChangeToOriginalDuration()
     {
         if (!IsEditable.Value) return;
-        if (Model.HasOriginalDuration()
-            && Model.TryGetOriginalDuration(out TimeSpan timeSpan))
+        if (SlippableMedia.GetMaximumDuration(Model) is { } timeSpan)
         {
             PrepareAnimationContext context = PrepareAnimation();
 
@@ -832,7 +831,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public bool HasOriginalDuration()
     {
-        return Model.HasOriginalDuration();
+        return SlippableMedia.GetMaximumDuration(Model).HasValue;
     }
 
     public Task ExecuteAsync(ContextCommandExecution execution)
