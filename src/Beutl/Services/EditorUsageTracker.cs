@@ -45,12 +45,24 @@ internal sealed class EditorUsageTracker : IDisposable
                              .Select(GetPropertyId).OfType<string>().Distinct())
                     UsageTelemetry.Current?.Record("editor.property", ActiveTool, property);
 
-                if (!_observedEffects || operations.Any(operation => operation is ICollectionChangeOperation
-                    || operation is IUpdatePropertyValueOperation { NewValue: EngineObject or bool }))
+                if (!_observedEffects || operations.Any(ChangesEffectInventory))
                     ObserveEffects();
             }
         }).Subscription;
         ObserveEffects();
+    }
+
+    private static bool ChangesEffectInventory(ChangeOperation operation)
+    {
+        if (operation is ICollectionChangeOperation
+            || operation is IUpdatePropertyValueOperation { NewValue: EngineObject }) return true;
+
+        // Only enablement can expose a previously unobserved effect. Locks,
+        // time anchors and other booleans must not traverse the entire scene.
+        // Observers include the owning collection/property path in this name.
+        return operation is IUpdatePropertyValueOperation { Object: EngineObject or Element, NewValue: true } update
+            && (update.PropertyPath == nameof(EngineObject.IsEnabled)
+                || update.PropertyPath.EndsWith("." + nameof(EngineObject.IsEnabled), StringComparison.Ordinal));
     }
 
     private void OnCollectionEnabled()

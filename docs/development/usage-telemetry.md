@@ -67,6 +67,9 @@ These categories are separate measurements, not a count of unique actions. Edits
 carry the last interacted tool as context, which does not establish their origin.
 Effect inventory includes loaded projects, not just newly added effects, and does
 not measure rendered frames. Disabled effects and ancestors are excluded.
+Boolean edits trigger a rescan only when enabling an effect or one of its
+ancestors. Collection changes and engine-object assignments also refresh the
+inventory.
 
 At most 1,024 dimension combinations are held between flushes. Crashes, failed
 exports, retention and trace sampling can lose observations. Do not equate sessions

@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Beutl.Animation;
+using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
@@ -352,6 +353,84 @@ public sealed class UsageTelemetryTests
         _usage.Flush();
         Assert.That(_summaries.Where(s => s.Key.Event == "effect.used").Select(s => (s.Key.Feature, s.Count)),
             Is.EquivalentTo(new[] { ("Blur", 1L) }));
+    }
+
+    [Test]
+    public void Unrelated_boolean_commits_do_not_traverse_the_effect_inventory()
+    {
+        var scene = new CountingScene();
+        var shape = new Beutl.Graphics.Shapes.RectShape();
+        shape.FilterEffect.CurrentValue = new Blur();
+        var element = new Element();
+        element.Objects.Add(shape);
+        scene.Children.Add(element);
+        var sequence = new OperationSequenceGenerator();
+        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
+        using var history = new HistoryManager(scene, sequence);
+        using var subscription = history.Subscribe(observer);
+        using var tracker = new EditorUsageTracker(scene, history);
+        Assert.That(scene.HierarchyReads, Is.GreaterThan(0), "The initial inventory must still be scanned.");
+        scene.HierarchyReads = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            element.IsLocked = !element.IsLocked;
+            shape.IsTimeAnchor = !shape.IsTimeAnchor;
+            history.Commit();
+        }
+        _usage.Flush();
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.HierarchyReads, Is.Zero, "Unrelated booleans must not trigger a scene-wide scan.");
+            Assert.That(_summaries.Single(s => s.Key.Event == "editor.edit").Count, Is.EqualTo(4));
+            Assert.That(_summaries.Single(s => s.Key.Event == "effect.used").Count, Is.EqualTo(1));
+        });
+    }
+
+    [TestCase("effect")]
+    [TestCase("group")]
+    [TestCase("object")]
+    [TestCase("element")]
+    public void Enabling_effects_and_their_ancestors_rescans_nested_property_paths(string target)
+    {
+        var scene = new CountingScene();
+        var shape = new Beutl.Graphics.Shapes.RectShape();
+        var blur = new Blur();
+        var group = new FilterEffectGroup();
+        group.Children.Add(blur);
+        shape.FilterEffect.CurrentValue = group;
+        var element = new Element();
+        element.Objects.Add(shape);
+        scene.Children.Add(element);
+        Action<bool> setEnabled = target switch
+        {
+            "effect" => enabled => blur.IsEnabled = enabled,
+            "group" => enabled => group.IsEnabled = enabled,
+            "object" => enabled => shape.IsEnabled = enabled,
+            _ => enabled => element.IsEnabled = enabled
+        };
+        setEnabled(false);
+        var sequence = new OperationSequenceGenerator();
+        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
+        using var history = new HistoryManager(scene, sequence);
+        using var subscription = history.Subscribe(observer);
+        using var tracker = new EditorUsageTracker(scene, history);
+        _usage.Flush();
+        Assert.That(_summaries.Any(s => s.Key.Event == "effect.used"), Is.False);
+        scene.HierarchyReads = 0;
+
+        setEnabled(true);
+        history.Commit();
+        Assert.That(scene.HierarchyReads, Is.EqualTo(1));
+        _usage.Flush();
+        scene.HierarchyReads = 0;
+        setEnabled(false);
+        history.Commit();
+        Assert.That(scene.HierarchyReads, Is.Zero, "Disabling cannot introduce an unobserved enabled effect.");
+        setEnabled(true);
+        history.Commit();
+        _usage.Flush();
+        Assert.That(_summaries.Single(s => s.Key.Event == "effect.used").Key.Feature, Is.EqualTo("Blur"));
+        Assert.That(_summaries.Single(s => s.Key.Event == "effect.used").Count, Is.EqualTo(1));
     }
 
     [AvaloniaTest]
@@ -767,6 +846,20 @@ public sealed class UsageTelemetryTests
         finally
         {
             await TestReset.ResetShellAsync();
+        }
+    }
+
+    private sealed class CountingScene() : Scene(640, 480, "usage-test"), IHierarchical
+    {
+        internal int HierarchyReads { get; set; }
+
+        ICoreReadOnlyList<IHierarchical> IHierarchical.HierarchicalChildren
+        {
+            get
+            {
+                HierarchyReads++;
+                return HierarchicalChildren;
+            }
         }
     }
 
