@@ -352,11 +352,19 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     public void WaitForTimelineOnNextSubmission(Semaphore timeline, ulong value)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_hasTimelineWait && _timelineWaitSemaphore.Handle != timeline.Handle)
-            throw new InvalidOperationException("A command pool waits on a single interop timeline.");
+        if (_hasTimelineWait)
+        {
+            if (_timelineWaitSemaphore.Handle != timeline.Handle)
+                throw new InvalidOperationException("A command pool waits on a single interop timeline.");
 
+            // Both waits are still unsubmitted, and the later value covers the earlier one.
+            _timelineWaitValue = Math.Max(_timelineWaitValue, value);
+            return;
+        }
+
+        // A wait already submitted must not raise this one: its value may belong to another timeline.
         _timelineWaitSemaphore = timeline;
-        _timelineWaitValue = Math.Max(_timelineWaitValue, value);
+        _timelineWaitValue = value;
         _hasTimelineWait = true;
     }
 

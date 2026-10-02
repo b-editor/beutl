@@ -107,8 +107,9 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
     /// <summary>Whether the logical device enabled timeline semaphores.</summary>
     /// <remarks>
-    /// Only macOS asks for them: there Skia renders through Metal on another queue, and a timeline semaphore
-    /// exported as an <c>MTLSharedEvent</c> orders the two queues on the GPU instead of the CPU.
+    /// macOS relies on them: there Skia renders through Metal on another queue, and a timeline semaphore exported
+    /// as an <c>MTLSharedEvent</c> orders the two queues on the GPU instead of the CPU. Elsewhere enabling the
+    /// feature changes nothing until something submits with one.
     /// </remarks>
     public bool SupportsTimelineSemaphores => _timelineSemaphores;
 
@@ -222,7 +223,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
         PhysicalDeviceProperties deviceProperties;
         _vk.GetPhysicalDeviceProperties(_physicalDevice, &deviceProperties);
         // The feature structure is core only from Vulkan 1.2; an older device would need the KHR extension.
-        if (OperatingSystem.IsMacOS() && deviceProperties.ApiVersion >= Vk.Version12)
+        if (deviceProperties.ApiVersion >= Vk.Version12)
         {
             var availableFeatures2 = new PhysicalDeviceFeatures2
             {
