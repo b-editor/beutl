@@ -7,17 +7,34 @@ using Beutl.Editor.Operations;
 using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.NodeGraph;
+using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
 
 public class AutoSaveServiceTests
 {
+    private string _directory = null!;
+
     [SetUp]
     public void Setup()
     {
+        _directory = Path.GetFullPath(Path.Combine(TestContext.CurrentContext.WorkDirectory,
+            "beutl-autosave-" + Guid.NewGuid().ToString("N")));
+        Directory.CreateDirectory(_directory);
         Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
     }
+
+    [TearDown]
+    public void TearDown()
+    {
+        string testRoot = Path.GetFullPath(TestContext.CurrentContext.WorkDirectory)
+            .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        Assert.That(_directory.StartsWith(testRoot, StringComparison.OrdinalIgnoreCase), Is.True);
+        Directory.Delete(_directory, recursive: true);
+    }
+
+    private Uri CreateUri(string relativePath) => new(Path.Combine(_directory, relativePath));
 
     [Test]
     public void AutoSave_StandaloneSceneKeepsSceneAndAttachedElements()
@@ -167,7 +184,7 @@ public class AutoSaveServiceTests
     {
         // Arrange
         var obj = new TestCoreObjectWithUri();
-        obj.SetUri(new Uri("file:///test.json"));
+        obj.SetUri(CreateUri("test.json"));
 
         var operation = new UpdatePropertyValueOperation<int>(obj, "Value", 10, 0)
         {
@@ -209,7 +226,7 @@ public class AutoSaveServiceTests
     {
         // Arrange
         var parent = new TestHierarchicalCoreObject();
-        parent.SetUri(new Uri("file:///parent.json"));
+        parent.SetUri(CreateUri("parent.json"));
 
         var child = new TestHierarchicalCoreObject();
         parent.AddChild(child);
@@ -237,7 +254,7 @@ public class AutoSaveServiceTests
     {
         // Arrange
         var owner = new TestCoreObjectWithListAndUri();
-        owner.SetUri(new Uri("file:///owner.json"));
+        owner.SetUri(CreateUri("owner.json"));
 
         var operation = new InsertCollectionItemOperation<string>
         {
@@ -262,10 +279,10 @@ public class AutoSaveServiceTests
     {
         // Arrange
         var owner = new TestCoreObjectWithListAndUri();
-        owner.SetUri(new Uri("file:///owner.json"));
+        owner.SetUri(CreateUri("owner.json"));
 
         var item = new TestCoreObjectWithUri();
-        item.SetUri(new Uri("file:///item.json"));
+        item.SetUri(CreateUri("item.json"));
 
         var operation = new TestCollectionOperationWithCoreObjectItems(owner, [item])
         {
@@ -289,7 +306,7 @@ public class AutoSaveServiceTests
         var owner = new TestCoreObjectWithListAndUri();
 
         var itemParent = new TestHierarchicalCoreObject();
-        itemParent.SetUri(new Uri("file:///item-parent.json"));
+        itemParent.SetUri(CreateUri("item-parent.json"));
 
         var item = new TestHierarchicalCoreObject();
         itemParent.AddChild(item);
@@ -313,7 +330,7 @@ public class AutoSaveServiceTests
     {
         // Arrange
         var owner = new TestCoreObjectWithListAndUri();
-        owner.SetUri(new Uri("file:///owner.json"));
+        owner.SetUri(CreateUri("owner.json"));
 
         var operation = new InsertCollectionItemOperation<string>
         {
@@ -340,7 +357,7 @@ public class AutoSaveServiceTests
     {
         // Arrange
         var parent = new TestCoreObjectWithUri();
-        parent.SetUri(new Uri("file:///parent.json"));
+        parent.SetUri(CreateUri("parent.json"));
 
         var easing = new SplineEasing();
         var operation = new UpdateSplineEasingOperation(easing, "X1", 0.5f, 0f)
@@ -385,7 +402,7 @@ public class AutoSaveServiceTests
     {
         // Arrange
         var nodeMember = new TestNodeMember();
-        nodeMember.SetUri(new Uri("file:///nodeMember.json"));
+        nodeMember.SetUri(CreateUri("nodeMember.json"));
 
         var operation = new UpdateNodeMemberOperation(nodeMember, "Property", "new", "old")
         {
@@ -450,7 +467,7 @@ public class AutoSaveServiceTests
     {
         // Arrange
         var obj = new TestCoreObjectWithUri();
-        obj.SetUri(new Uri("file:///test.json"));
+        obj.SetUri(CreateUri("test.json"));
 
         var objectsToSave = new HashSet<CoreObject>();
 
@@ -482,10 +499,10 @@ public class AutoSaveServiceTests
     {
         // Arrange
         var root = new TestHierarchicalCoreObject();
-        root.SetUri(new Uri("file:///root.json"));
+        root.SetUri(CreateUri("root.json"));
 
         var parent = new TestHierarchicalCoreObject();
-        parent.SetUri(new Uri("file:///parent.json"));
+        parent.SetUri(CreateUri("parent.json"));
         root.AddChild(parent);
 
         var child = new TestHierarchicalCoreObject();
@@ -508,7 +525,7 @@ public class AutoSaveServiceTests
     {
         // Arrange
         var obj = new TestCoreObjectWithUri();
-        obj.SetUri(new Uri("file:///test.json"));
+        obj.SetUri(CreateUri("test.json"));
 
         var objectsToSave = new HashSet<CoreObject>();
 
@@ -525,7 +542,7 @@ public class AutoSaveServiceTests
     {
         // Arrange - TestCoreObject doesn't implement IHierarchical
         var obj = new TestCoreObjectWithUri();
-        obj.SetUri(new Uri("file:///test.json"));
+        obj.SetUri(CreateUri("test.json"));
 
         var objectsToSave = new HashSet<CoreObject>();
 
@@ -559,10 +576,10 @@ public class AutoSaveServiceTests
         using var service = new AutoSaveService();
 
         var obj1 = new TestCoreObjectWithUri();
-        obj1.SetUri(new Uri("file:///nonexistent/test1.json"));
+        obj1.SetUri(CreateUri("nonexistent/test1.json"));
 
         var obj2 = new TestCoreObjectWithUri();
-        obj2.SetUri(new Uri("file:///nonexistent/test2.json"));
+        obj2.SetUri(CreateUri("nonexistent/test2.json"));
 
         var op1 = new UpdatePropertyValueOperation<int>(obj1, "Value", 10, 0)
         {
@@ -600,12 +617,12 @@ public class AutoSaveServiceTests
     }
 
     [Test]
-    public void SaveObjects_WithNonExistentPath_ShouldEmitSaveError()
+    public void SaveObjects_WithNonExistentDirectory_ShouldCreateDirectoryAndSaveObject()
     {
         // Arrange
         using var service = new AutoSaveService();
         var obj = new TestCoreObjectWithUri();
-        obj.SetUri(new Uri("file:///nonexistent/path/that/does/not/exist/test.json"));
+        obj.SetUri(CreateUri("nonexistent/path/that/does/not/exist/test.json"));
 
         Exception? receivedError = null;
         using var subscription = service.SaveError.Subscribe(ex => receivedError = ex);
@@ -614,7 +631,11 @@ public class AutoSaveServiceTests
         service.SaveObjects([obj]);
 
         // Assert
-        Assert.That(receivedError, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(receivedError, Is.Null);
+            Assert.That(File.Exists(obj.Uri!.LocalPath), Is.True);
+        });
     }
 
     [Test]
@@ -624,19 +645,25 @@ public class AutoSaveServiceTests
         using var service = new AutoSaveService();
 
         var obj1 = new TestCoreObjectWithUri();
-        obj1.SetUri(new Uri("file:///nonexistent1/test.json"));
+        obj1.SetUri(CreateUri("nonexistent1/test.json"));
+        var failure = new InvalidOperationException("Injected save failure.");
+        obj1.SaveFailure = failure;
 
         var obj2 = new TestCoreObjectWithUri();
-        obj2.SetUri(new Uri("file:///nonexistent2/test.json"));
+        obj2.SetUri(CreateUri("nonexistent2/test.json"));
 
-        var errorCount = 0;
-        using var subscription = service.SaveError.Subscribe(_ => errorCount++);
+        var errors = new List<Exception>();
+        using var subscription = service.SaveError.Subscribe(errors.Add);
 
         // Act - Should not throw, even if saving fails
         Assert.DoesNotThrow(() => service.SaveObjects([obj1, obj2]));
 
-        // Assert - Both objects should have been attempted
-        Assert.That(errorCount, Is.GreaterThanOrEqualTo(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(errors, Is.EqualTo(new[] { failure }));
+            Assert.That(File.Exists(obj2.Uri!.LocalPath), Is.True,
+                "The next object must still be saved after a preceding serialization failure.");
+        });
     }
 
     #endregion
@@ -660,7 +687,9 @@ public class AutoSaveServiceTests
         // Arrange
         using var service = new AutoSaveService();
         var obj = new TestCoreObjectWithUri();
-        obj.SetUri(new Uri("file:///this/path/does/not/exist/test.json"));
+        obj.SetUri(CreateUri("this/path/does/not/exist/test.json"));
+        var failure = new InvalidOperationException("Injected save failure.");
+        obj.SaveFailure = failure;
 
         var errors = new List<Exception>();
         using var subscription = service.SaveError.Subscribe(ex => errors.Add(ex));
@@ -669,7 +698,7 @@ public class AutoSaveServiceTests
         service.SaveObjects([obj]);
 
         // Assert
-        Assert.That(errors, Is.Not.Empty);
+        Assert.That(errors, Is.EqualTo(new[] { failure }));
     }
 
     [Test]
@@ -678,7 +707,9 @@ public class AutoSaveServiceTests
         // Arrange
         using var service = new AutoSaveService();
         var obj = new TestCoreObjectWithUri();
-        obj.SetUri(new Uri("file:///nonexistent/test.json"));
+        obj.SetUri(CreateUri("nonexistent/test.json"));
+        var failure = new InvalidOperationException("Injected save failure.");
+        obj.SaveFailure = failure;
 
         var errors1 = new List<Exception>();
         var errors2 = new List<Exception>();
@@ -689,7 +720,11 @@ public class AutoSaveServiceTests
         service.SaveObjects([obj]);
 
         // Assert
-        Assert.That(errors1.Count, Is.EqualTo(errors2.Count));
+        Assert.Multiple(() =>
+        {
+            Assert.That(errors1, Is.EqualTo(new[] { failure }));
+            Assert.That(errors2, Is.EqualTo(new[] { failure }));
+        });
     }
 
     #endregion
@@ -701,13 +736,13 @@ public class AutoSaveServiceTests
     {
         // Arrange
         var coreObj = new TestCoreObjectWithUri();
-        coreObj.SetUri(new Uri("file:///core.json"));
+        coreObj.SetUri(CreateUri("core.json"));
 
         var collectionOwner = new TestCoreObjectWithListAndUri();
-        collectionOwner.SetUri(new Uri("file:///collection.json"));
+        collectionOwner.SetUri(CreateUri("collection.json"));
 
         var splineParent = new TestCoreObjectWithUri();
-        splineParent.SetUri(new Uri("file:///spline.json"));
+        splineParent.SetUri(CreateUri("spline.json"));
 
         var operations = new ChangeOperation[]
         {
@@ -746,7 +781,7 @@ public class AutoSaveServiceTests
     {
         // Arrange - Same object in multiple operations
         var obj = new TestCoreObjectWithUri();
-        obj.SetUri(new Uri("file:///test.json"));
+        obj.SetUri(CreateUri("test.json"));
 
         var op1 = new UpdatePropertyValueOperation<int>(obj, "Value", 10, 0) { SequenceNumber = 1 };
         var op2 = new UpdatePropertyValueOperation<int>(obj, "Value", 20, 10) { SequenceNumber = 2 };
@@ -787,6 +822,8 @@ public class AutoSaveServiceTests
 
     private class TestCoreObjectWithUri : CoreObject
     {
+        public Exception? SaveFailure { get; set; }
+
         public static readonly CoreProperty<int> ValueProperty;
 
         private int _value;
@@ -807,6 +844,12 @@ public class AutoSaveServiceTests
         public void SetUri(Uri uri)
         {
             Uri = uri;
+        }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            if (SaveFailure is not null) throw SaveFailure;
         }
     }
 

@@ -32,8 +32,20 @@ public class ProxyResolverTests
     public async Task Resolve_ReturnsReadyEntry_AndTouchesOnce()
     {
         string source = CreateSourceFile();
-        ProxyEntry entry = RegisterProxy(source, ProxyPreset.Quarter, new PixelSize(100, 80), new PixelSize(25, 20));
+        // Seed an older timestamp so Touch does not depend on consecutive clock reads differing.
+        ProxyEntry entry = RegisterProxyEntry(
+            ProxyFingerprint.FromFile(source),
+            ProxyPreset.Quarter,
+            new PixelSize(100, 80),
+            new PixelSize(25, 20),
+            new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         DateTime beforeResolve = entry.LastUsedUtc;
+        int touchCount = 0;
+        _store.Changed += (_, e) =>
+        {
+            if (e.Kind == ProxyStoreChangeKind.Touched)
+                touchCount++;
+        };
 
         ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
 
@@ -44,11 +56,12 @@ public class ProxyResolverTests
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.Not.Null);
-            Assert.That(result!.AbsoluteProxyFilePath, Is.EqualTo(Path.Combine(_root, entry.ProxyFileRelative)));
+            Assert.That(result!.AbsoluteProxyFilePath, Is.EqualTo(Path.GetFullPath(Path.Combine(_root, entry.ProxyFileRelative))));
             Assert.That(result.OriginalLogicalFrameSize, Is.EqualTo(new PixelSize(100, 80)));
             Assert.That(result.ProxyDecodedFrameSize, Is.EqualTo(new PixelSize(25, 20)));
             Assert.That(result.SupplyDensity, Is.EqualTo(0.25f).Within(1e-6));
             Assert.That(touched!.LastUsedUtc, Is.GreaterThan(beforeResolve));
+            Assert.That(touchCount, Is.EqualTo(1));
             Assert.That(persisted!.LastUsedUtc, Is.EqualTo(touched.LastUsedUtc));
         });
     }

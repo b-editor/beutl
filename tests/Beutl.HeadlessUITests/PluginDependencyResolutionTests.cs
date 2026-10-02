@@ -59,8 +59,8 @@ public class PluginDependencyResolutionTests
         using var reader = new PackageFolderReader(root);
         var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
 
-        Assert.That(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common")),
-            Is.EqualTo(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll")));
+        Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
+            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll"))));
     }
 
     [Test]
@@ -73,8 +73,8 @@ public class PluginDependencyResolutionTests
         using var reader = new PackageFolderReader(root);
         var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
 
-        Assert.That(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common")),
-            Is.EqualTo(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll")));
+        Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
+            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll"))));
     }
 
     [Test]
@@ -92,8 +92,8 @@ public class PluginDependencyResolutionTests
         using var reader = new PackageFolderReader(root);
         Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Does.Contain(Identity("Common", "2.0.0")));
         var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
-        Assert.That(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common")),
-            Is.EqualTo(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll")));
+        Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
+            Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll"))));
     }
 
     [TestCase("invalid-json")]
@@ -119,8 +119,8 @@ public class PluginDependencyResolutionTests
         using var reader = new PackageFolderReader(root);
         var resolver = new PluginDependencyResolver(Path.Combine(root, "lib", "net10.0"), reader);
 
-        Assert.That(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common")),
-            Is.EqualTo(Path.Combine(failure == "missing-dependency" ? current : dependency, "lib", "net10.0", _prefix + "Common.dll")));
+        Assert.That(Path.GetFullPath(resolver.ResolveAssemblyToPath(new AssemblyName(_prefix + "Common"))!),
+            Is.EqualTo(Path.GetFullPath(Path.Combine(failure == "missing-dependency" ? current : dependency, "lib", "net10.0", _prefix + "Common.dll"))));
     }
 
     [Test]

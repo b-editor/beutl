@@ -41,10 +41,12 @@ public sealed class FileBrowserFileManagerTests
     {
         const string unixPath = "/tmp/a file.txt";
         const string windowsPath = @"C:\some folder\a file.txt";
+        string linuxDirectory = Path.Combine(Path.GetTempPath(), "some folder");
+        string linuxPath = Path.Combine(linuxDirectory, "a file.txt");
 
         var mac = FileManagerLauncher.CreateStartInfo(unixPath, false, OSPlatform.OSX);
         var windows = FileManagerLauncher.CreateStartInfo(windowsPath, false, OSPlatform.Windows);
-        var linux = FileManagerLauncher.CreateStartInfo(unixPath, false, OSPlatform.Linux);
+        var linux = FileManagerLauncher.CreateStartInfo(linuxPath, false, OSPlatform.Linux);
 
         Assert.Multiple(() =>
         {
@@ -55,7 +57,7 @@ public sealed class FileBrowserFileManagerTests
             Assert.That(windows.Arguments, Is.EqualTo($"/select,\"{windowsPath}\""));
             Assert.That(windows.UseShellExecute, Is.False);
             Assert.That(linux.FileName, Is.EqualTo("xdg-open"));
-            Assert.That(linux.ArgumentList, Is.EqualTo(new[] { "/tmp" }));
+            Assert.That(linux.ArgumentList, Is.EqualTo(new[] { linuxDirectory }));
             Assert.That(linux.UseShellExecute, Is.False);
         });
     }
