@@ -570,15 +570,21 @@ public class TrimSpeedTests
         });
     }
 
-    [Test]
-    public void OriginalDuration_LongGlobalAudioCurve_BoundsInterpolationWork()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void OriginalDuration_LongGlobalAudioCurve_BoundsInterpolationWork(bool customEasing)
     {
         Element element = AddElement(600, 2);
         var sound = new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(900) } } };
         var easing = new CountingEasing();
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1200), Value = 300, Easing = easing });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1200),
+            Value = 300,
+            Easing = customEasing ? easing : new LinearEasing()
+        });
         sound.Speed.Animation = animation;
         element.Objects.Add(sound);
         TimeSpan? maximum = null;
@@ -588,8 +594,47 @@ public class TrimSpeedTests
         Assert.Multiple(() =>
         {
             Assert.That(easing.Calls, Is.LessThan(20000));
-            Assert.That(maximum?.TotalSeconds, Is.EqualTo(Math.Sqrt(2520000) - 1200).Within(0.002));
+            Assert.That(maximum?.TotalSeconds, Is.EqualTo(customEasing ? 300 : Math.Sqrt(2520000) - 1200).Within(0.002));
         });
+    }
+
+    [Test]
+    public void Resize_CustomNarrowSpeedPeak_UsesDeclaredBounds()
+    {
+        Element element = AddElement(0, 2);
+        var sound = new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(300) } } };
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1000), Value = 200, Easing = new NarrowPeakEasing() });
+        sound.Speed.Animation = animation;
+        element.Objects.Add(sound);
+        _resize.Resize(_scene, [new(element, element.Start, TimeSpan.FromSeconds(250), 0)]);
+        using var playback = new SpeedIntegrator(44100);
+        playback.EnsureCache(animation);
+        Assert.That(playback.Integrate(element.Length, animation), Is.LessThanOrEqualTo(TimeSpan.FromSeconds(300)));
+    }
+
+    [Test]
+    public void Roll_GlobalAudioAtSourceEnd_AllowsNominallyPreservedWindow()
+    {
+        Element front = AddElement(0, 2);
+        Element back = AddElement(2, 2);
+        var animation = CreateSpeedRamp(useGlobalClock: true);
+        using var playback = new SpeedIntegrator(44100);
+        playback.EnsureCache(animation);
+        TimeSpan duration = playback.Integrate(back.Range.End, animation) - playback.Integrate(back.Start, animation);
+        var sound = new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = duration } } };
+        sound.Speed.Animation = animation;
+        back.Objects.Add(sound);
+        Assert.That(_resize.Roll(_scene, [new(front, back)], TimeSpan.FromSeconds(0.5)), Is.True);
+        Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+        Assert.That(back.Range.End, Is.EqualTo(TimeSpan.FromSeconds(4)));
+    }
+
+    private sealed class NarrowPeakEasing : Easing
+    {
+        public override float Ease(float progress) => progress is >= 0.1995f and < 0.2005f ? 100 : 0;
+        public override bool TryGetOutputRange(out float minimum, out float maximum) { minimum = 0; maximum = 100; return true; }
     }
 
     private sealed class CountingEasing : Easing

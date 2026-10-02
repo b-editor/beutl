@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Diagnostics.CodeAnalysis;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -15,11 +16,16 @@ using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Decoding;
+using Beutl.Media.Music;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using Point = Avalonia.Point;
 
 namespace Beutl.HeadlessUITests;
 
@@ -360,6 +366,113 @@ public class TimelineMediaDurationTests
             duration = TimeSpan.FromSeconds(3);
             return true;
         }
+    }
+
+    [AvaloniaTest]
+    public async Task OriginalDuration_NeighbourCap_RemainsSafeWhenEdgeClampingIsDisabled()
+    {
+        using var configuration = new RippleDisabledScope();
+        ElementViewModel model = await OpenElement(CreateDurationVideo(), startSeconds: 5);
+        model.Model.Objects.Add(new DrawableTimeController
+        {
+            Speed = { CurrentValue = 50 },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(4) },
+            Loop = { CurrentValue = true }
+        });
+        var adder = (IElementAdder)model.Timeline.EditorContext.GetService(typeof(IElementAdder))!;
+        Assert.That((await adder.AddAsync([new ElementDescription(
+            Start: TimeSpan.FromSeconds(6.5), Length: TimeSpan.FromSeconds(1), Layer: 0,
+            Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None)).IsSuccess, Is.True);
+        HeadlessTestHelpers.Settle();
+        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+        try
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = false;
+            model.ChangeToOriginalDuration.Execute();
+            HeadlessTestHelpers.Settle(4);
+            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(1)),
+                "The neighbour's 1.5s limit is an unsafe loop period and must be revalidated.");
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task RightEdgeDrag_LaterSafeLoopPhase_IsNotLimitedByAnEarlierFailedProbe()
+    {
+        using var configuration = new RippleDisabledScope();
+        ElementViewModel model = await OpenElement(CreateDurationVideo(), startSeconds: 5);
+        model.Model.Objects.Add(new DrawableTimeController
+        {
+            Speed = { CurrentValue = 50 },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(10) },
+            Loop = { CurrentValue = true }
+        });
+        var timeline = model.Timeline;
+        timeline.ClearSelected();
+        timeline.SelectElement(model);
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 1600, Height = 420 };
+        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+        try
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            ElementView element = view.GetVisualDescendants().OfType<ElementView>().Single(v => ReferenceEquals(v.DataContext, model));
+            Border border = element.FindControl<Border>("border")!;
+            float scale = timeline.Options.Value.Scale;
+            double y = border.Bounds.Height / 2;
+            Point press = border.TranslatePoint(new Point(border.Bounds.Width - 2, y), window)!.Value;
+            Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(1.6).TimeToPixel(scale), y), window)!.Value;
+            window.MouseMove(press, RawInputModifiers.Alt);
+            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
+            window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Render(5);
+            CapturePreview(window, "later-safe-loop-phase");
+            Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(1.6).TimeToPixel(scale)).Within(0.0001));
+            window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
+            HeadlessTestHelpers.Settle(4);
+            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(1.6)));
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
+            view.DataContext = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private static SourceVideo CreateDurationVideo()
+    {
+        DecoderRegistry.Register(new DurationVideoDecoder());
+        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"duration-{Guid.NewGuid():N}.trim-duration-video");
+        File.WriteAllBytes(path, []);
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(path));
+        return new SourceVideo { Source = { CurrentValue = source } };
+    }
+
+    private sealed class DurationVideoDecoder : IDecoderInfo
+    {
+        public string Name => "Trim duration test decoder";
+        public IEnumerable<string> VideoExtensions() => [".trim-duration-video"];
+        public IEnumerable<string> AudioExtensions() => [];
+        public MediaReader? Open(string file, MediaOptions options)
+            => Path.GetExtension(file) == ".trim-duration-video" ? new DurationVideoReader() : null;
+    }
+
+    private sealed class DurationVideoReader : MediaReader
+    {
+        public override VideoStreamInfo VideoInfo { get; } = new("test", 30, new Beutl.Media.PixelSize(80, 80), new Rational(30, 1));
+        public override AudioStreamInfo AudioInfo => throw new NotSupportedException();
+        public override bool HasVideo => true;
+        public override bool HasAudio => false;
+        public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Beutl.Media.Bitmap>? image) { image = null; return false; }
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound) { sound = null; return false; }
     }
 
     private static TimeSpan ExpectedLength(double seconds)

@@ -655,6 +655,107 @@ public class TrimTimeControllerTests
         });
     }
 
+    [Test]
+    public void Resize_RippleBarrier_RevalidatesTheFinalLoopPeriod()
+    {
+        var video = CreateVideo(1);
+        Element element = AddElement(5, 1, video);
+        element.Objects.Add(new DrawableTimeController
+        {
+            Speed = { CurrentValue = 50 },
+            OffsetPosition = { CurrentValue = Seconds(4) },
+            Loop = { CurrentValue = true }
+        });
+        Element locked = _harness.AddElement(Seconds(6.5), Seconds(1));
+        locked.IsLocked = true;
+        var service = new ElementResizeService(_harness.History);
+        service.Resize(_harness.Scene, [new(element, element.Start, Seconds(2), 0)], ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Length, Is.EqualTo(Seconds(1)));
+            Assert.That(locked.Start, Is.EqualTo(Seconds(6.5)));
+            Assert.That(element.Range.End, Is.LessThanOrEqualTo(locked.Start));
+        });
+    }
+
+    [Test]
+    public void Resize_AnimatedLoopFalse_DoesNotUseTheStoredTrueValue()
+    {
+        var video = CreateVideo(5);
+        video.IsLoop.CurrentValue = true;
+        var animation = new KeyFrameAnimation<bool>();
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = false });
+        video.IsLoop.Animation = animation;
+        Element element = AddElement(0, 2, video);
+
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(10), 0)]);
+
+        Assert.That(element.Length, Is.EqualTo(Seconds(5)));
+    }
+
+    [Test]
+    public void Slip_OvershootingSpeed_RejectsUnprovenMonotonicBounds()
+    {
+        var video = CreateVideo(1);
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 20 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = Seconds(1), Value = 120, Easing = new BackEaseIn() });
+        video.Speed.Animation = animation;
+        Element element = AddElement(0, 1, video);
+        int before = _harness.History.UndoCount;
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.False);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(_harness.History.UndoCount, Is.EqualTo(before));
+    }
+
+    [Test]
+    public void MaximumDuration_LaterLoopPhase_IsNotCappedByTheFirstFailure()
+    {
+        var video = CreateVideo(1);
+        Element element = AddElement(0, 1, video);
+        element.Objects.Add(new DrawableTimeController
+        {
+            Speed = { CurrentValue = 50 },
+            OffsetPosition = { CurrentValue = Seconds(10) },
+            Loop = { CurrentValue = true }
+        });
+        TimeSpan? maximum = SlippableMedia.GetMaximumDuration(element);
+        Assert.That(maximum?.TotalSeconds, Is.GreaterThanOrEqualTo(1.6));
+        Assert.That(SlippableMedia.CreateResizeConstraints(element).ClampLength(Seconds(1.6)), Is.EqualTo(Seconds(1.6)));
+    }
+
+    [TestCase("resize")]
+    [TestCase("roll")]
+    [TestCase("slide")]
+    public void Trim_NearestLaterLoopLength_IsPreserved(string mode)
+    {
+        var video = CreateVideo(1);
+        Element front = AddElement(0, 1, video);
+        front.Objects.Add(new DrawableTimeController
+        {
+            Speed = { CurrentValue = 50 },
+            OffsetPosition = { CurrentValue = Seconds(4) },
+            Loop = { CurrentValue = true }
+        });
+        var service = new ElementResizeService(_harness.History);
+        if (mode == "resize")
+            service.Resize(_harness.Scene, [new(front, front.Start, Seconds(2.8), 0)]);
+        else if (mode == "roll")
+        {
+            Element back = _harness.AddElement(Seconds(1), Seconds(4));
+            Assert.That(service.Roll(_harness.Scene, [new(front, back)], Seconds(1.8)), Is.True);
+        }
+        else
+        {
+            Element middle = _harness.AddElement(Seconds(1), Seconds(1));
+            Element back = _harness.AddElement(Seconds(2), Seconds(4));
+            Assert.That(service.Slide(_harness.Scene, [new(front, [middle], back)], Seconds(1.8)), Is.True);
+        }
+        Assert.That(front.Length, Is.EqualTo(Seconds(2)));
+    }
+
     private Element AddElement(double startSeconds, double lengthSeconds, Drawable drawable)
     {
         Element element = _harness.AddElement(Seconds(startSeconds), Seconds(lengthSeconds));

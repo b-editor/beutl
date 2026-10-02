@@ -31,20 +31,17 @@ public sealed class ElementResizeService : IElementResizeService
         if (rate <= 0) rate = 30;
         TimeSpan minLength = TimeSpan.FromTicks((TimeSpan.TicksPerSecond + (long)rate - 1) / rate);
         requests = NormalizeRequests(requests, ripple, minLength);
-        if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
+        var mediaConstraints = new Dictionary<Element, SlippableMedia.ResizeConstraints>();
+        requests = requests.Select(req =>
         {
-            requests = requests.Select(req =>
+            if (req.ClampToSource || GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
             {
                 var constraints = SlippableMedia.CreateResizeConstraints(req.Element);
-                if (req.NewStart != req.Element.Start && req.NewStart + req.NewLength == req.Element.Range.End)
-                {
-                    TimeSpan start = constraints.ClampStart(req.NewStart);
-                    return req with { NewStart = start, NewLength = req.Element.Range.End - start };
-                }
-                TimeSpan length = constraints.ClampLength(req.NewLength, req.NewStart);
-                return req with { NewLength = length < minLength ? minLength : length };
-            }).ToArray();
-        }
+                mediaConstraints[req.Element] = constraints;
+                return ClampMedia(req, constraints, minLength);
+            }
+            return req;
+        }).ToArray();
 
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
@@ -57,6 +54,15 @@ public sealed class ElementResizeService : IElementResizeService
                 // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
                 (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet, minLength);
                 length = ClampRippleEnd(scene, req, start, length, resizedSet);
+                if (mediaConstraints.TryGetValue(req.Element, out var constraints))
+                {
+                    // Barrier clamping can select an unsafe intermediate loop period.
+                    // Recheck the final geometry, moving towards the original edge so
+                    // source clamping cannot cross the locked barrier again.
+                    ElementResizeRequest final = ClampMedia(req with { NewStart = start, NewLength = length }, constraints, minLength);
+                    start = final.NewStart;
+                    length = final.NewLength;
+                }
                 clamped![req.Element] = (start, length);
                 oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
             }
@@ -122,6 +128,18 @@ public sealed class ElementResizeService : IElementResizeService
         scene.Duration = sceneEnd - scene.Start;
     }
 
+    private static ElementResizeRequest ClampMedia(ElementResizeRequest req,
+        SlippableMedia.ResizeConstraints constraints, TimeSpan minLength)
+    {
+        if (req.NewStart != req.Element.Start && req.NewStart + req.NewLength == req.Element.Range.End)
+        {
+            TimeSpan start = constraints.ClampStart(req.NewStart);
+            return req with { NewStart = start, NewLength = req.Element.Range.End - start };
+        }
+        TimeSpan length = constraints.ClampLength(req.NewLength, req.NewStart);
+        return req with { NewLength = length < minLength ? minLength : length };
+    }
+
     private static ElementResizeRequest[] NormalizeRequests(IReadOnlyList<ElementResizeRequest> requests, bool ripple, TimeSpan minLength)
     {
         var normalized = new ElementResizeRequest[requests.Count];
@@ -149,7 +167,7 @@ public sealed class ElementResizeService : IElementResizeService
 
                 length = minLength;
             }
-            normalized[i] = new ElementResizeRequest(req.Element, start, length, req.ZIndex);
+            normalized[i] = req with { NewStart = start, NewLength = length };
         }
 
         return normalized;
@@ -412,11 +430,25 @@ public sealed class ElementResizeService : IElementResizeService
             // Animated local clocks restart at the new in-point. Their allowed
             // deltas need not form an interval, so validate the actual requested
             // post-trim window, not just the two endpoints of the geometry bounds.
-            return SlippableMedia.ClampDelta(delta, d =>
+            bool Fits(TimeSpan d) =>
                 (!clampEnd || fronts.All(t => t.Fits(t.Length + d, allowRecovery: true)))
                 && (!clampEnd || middles.All(t => t.Fits(t.Length, d, allowRecovery: true)))
                 && backs.All(t => t.CanTrim(d, clampEnd))
-                && TryGetOffsetChanges(d, out _));
+                && TryGetOffsetChanges(d, out _);
+            TimeSpan result = SlippableMedia.ClampDelta(delta, Fits);
+            foreach (SlippableMedia.Target target in fronts.Where(t => t.Mapping.HasVariableDuration))
+            {
+                var limits = new SlippableMedia.ResizeConstraints(TimeSpan.Zero, target.Length, [target]);
+                result = limits.SearchDurationPhases(target.Length + result, target.Length + delta,
+                    TimeSpan.Zero, length => Fits(length - target.Length)) - target.Length;
+            }
+            foreach (SlippableMedia.Target target in backs.Where(t => t.Mapping.HasVariableDuration))
+            {
+                var limits = new SlippableMedia.ResizeConstraints(TimeSpan.Zero, target.Length, [target]);
+                result = target.Length - limits.SearchDurationPhases(target.Length - result, target.Length - delta,
+                    TimeSpan.Zero, length => Fits(target.Length - length));
+            }
+            return result;
         }
 
         public bool TryGetOffsetChanges(TimeSpan delta, out Dictionary<IProperty<TimeSpan>, TimeSpan> changes)
@@ -488,15 +520,19 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan min = minDuration - front.Length;
         TimeSpan max = back.Length - minDuration;
 
-        if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
+        if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength
+            && frontTargets.All(t => !t.Mapping.HasVariableDuration))
         {
             TimeSpan outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length, max);
             if (outRoom < max) max = outRoom;
         }
 
         bool clampEnd = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        min = SlippableMedia.ClampInPointDelta(backTargets, min, clampEnd);
-        max = SlippableMedia.ClampInPointDelta(backTargets, max, clampEnd);
+        if (backTargets.All(t => !t.Mapping.HasVariableDuration))
+        {
+            min = SlippableMedia.ClampInPointDelta(backTargets, min, clampEnd);
+            max = SlippableMedia.ClampInPointDelta(backTargets, max, clampEnd);
+        }
 
         // Enforce the documented Min ≤ 0 ≤ Max contract structurally instead of relying on
         // every media OffsetPosition being non-negative (an invariant owned by other services);

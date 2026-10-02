@@ -23,6 +23,7 @@ internal sealed class MediaTimeMapping
     private readonly Controller[] _controllers;
     private readonly TimeSpan? _videoDuration;
     private readonly bool _loopVideo;
+    private readonly IAnimation<bool>? _loopAnimation;
 
     internal readonly record struct ControllerLink(DrawableTimeController Controller, Drawable Target);
 
@@ -36,6 +37,24 @@ internal sealed class MediaTimeMapping
         _controllers = controllers.Select(c => new Controller(element, c.Controller, c.Target, timingPeers, ignoreLoops)).ToArray();
         _videoDuration = videoDuration;
         _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.CurrentValue;
+        _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.Animation : null;
+    }
+
+    public bool IsSupported => _speed.IsSupported && _controllers.All(c => c.IsSupported);
+
+    public bool HasVariableDuration => _controllers.Any(c => c.HasVariableDuration);
+
+    public (long Phase, long DurationOffset)? DurationLoopPhase(TimeSpan startDelta = default)
+    {
+        var geometry = new TimeRange(_elementRange.Start + startDelta, _elementRange.Duration);
+        Interval time = new(geometry.Start, geometry.Start);
+        foreach (Controller controller in _controllers)
+        {
+            if (controller.DurationLoopPhase(time, geometry, _elementRange.Duration) is { } phase) return phase;
+            if (controller.HasVariableDuration) break;
+            time = controller.Map(time, geometry);
+        }
+        return null;
     }
 
     public TimeSpan At(TimeSpan time, TimeSpan startDelta = default, TimeSpan lengthDelta = default, bool extrapolate = false)
@@ -50,14 +69,45 @@ internal sealed class MediaTimeMapping
             range = controller.Map(range, elementRange);
 
         TimeRange sourceRange = _sourceClock.GetRange(elementRange);
+        Interval sourceTime = range;
         range = _speed.Map(range.Shift(-sourceRange.Start), sourceRange.Start, extrapolate, conservative);
-        if (_loopVideo && _videoDuration is { } duration && duration > TimeSpan.Zero)
-            range = Loop(range, duration);
-        else if (!extrapolate && _videoDuration is { } original && range.Min < TimeSpan.Zero)
+        (bool loop, bool plain) = LoopModes(sourceTime, sourceRange.Start);
+        Interval? wrapped = loop && _videoDuration is { } duration && duration > TimeSpan.Zero ? Loop(range, duration) : null;
+        if (wrapped.HasValue && !plain) return wrapped.Value;
+        if (!extrapolate && _videoDuration is { } original && range.Min < TimeSpan.Zero)
             range = range.Max < TimeSpan.Zero
                 ? range.Shift(original)
                 : Interval.Between(Min(range.Min + original, TimeSpan.Zero), Max(original, range.Max));
-        return range;
+        return wrapped is { } looped
+            ? new Interval(Min(range.Min, looped.Min), Max(range.Max, looped.Max))
+            : range;
+    }
+
+    private (bool Loop, bool Plain) LoopModes(Interval time, TimeSpan ownerStart)
+    {
+        if (_loopAnimation == null) return (_loopVideo, !_loopVideo);
+        if (!_loopAnimation.UseGlobalClock) time = time.Shift(-ownerStart);
+        if (time.Min == time.Max)
+        {
+            bool value = _loopAnimation.Interpolate(time.Min);
+            return (value, !value);
+        }
+        if (_loopAnimation is not KeyFrameAnimation<bool> keys) return (true, true);
+        if (keys.KeyFrames.Count == 0) return (false, true);
+        int modes = 0;
+        KeyFrame<bool>? previous = null;
+        foreach (IKeyFrame frame in keys.KeyFrames)
+        {
+            if (frame is not KeyFrame<bool> key) return (true, true);
+            if (key.KeyTime < time.Min) previous = key;
+            else
+            {
+                modes |= key.Value ? 1 : 2;
+                if (key.KeyTime > time.Max) break;
+            }
+        }
+        if (previous != null) modes |= previous.Value ? 1 : 2;
+        return ((modes & 1) != 0, (modes & 2) != 0);
     }
 
     private sealed class Clock
@@ -65,6 +115,8 @@ internal sealed class MediaTimeMapping
         private readonly TimeRange _range;
         private readonly TimeRange _elementRange;
         private readonly bool _followsElement;
+
+        public bool ChangesWithElement => _followsElement;
 
         public Clock(Element element, EngineObject obj, IReadOnlySet<Element>? timingPeers = null)
         {
@@ -112,6 +164,20 @@ internal sealed class MediaTimeMapping
         private readonly bool _holdFirst;
         private readonly bool _holdLast;
         private readonly float _frameRate;
+
+        public bool IsSupported => _speed.IsSupported;
+
+        public bool HasVariableDuration => _targetClock?.ChangesWithElement == true && (_loop || _reverse || _holdLast);
+
+        public (long Phase, long DurationOffset)? DurationLoopPhase(Interval time, TimeRange elementRange, TimeSpan originalLength)
+        {
+            if (!_loop || _targetClock?.ChangesWithElement != true || !IsSupported) return null;
+            TimeRange target = _targetClock.GetRange(elementRange);
+            TimeRange owner = _clock.GetRange(elementRange);
+            Interval raw = _speed.Map(time.Shift(_offset - (_adjust ? target.Start : owner.Start)), owner.Start);
+            long phase = raw.Min.Ticks == long.MinValue ? long.MaxValue : Math.Abs(raw.Min.Ticks);
+            return (phase, (target.Duration - originalLength).Ticks);
+        }
 
         public Controller(Element element, DrawableTimeController controller, Drawable target, IReadOnlySet<Element>? timingPeers, bool ignoreLoops)
         {
@@ -162,11 +228,19 @@ internal sealed class MediaTimeMapping
         private readonly EditorSpeedIntegral? _editorIntegral;
         private readonly float? _constantAnimation;
         private readonly List<double> _negativeSeconds = [0];
+        private readonly float _minimum;
+        private readonly float _maximum;
+
+        public bool IsSupported { get; }
 
         public SpeedMap(IProperty<float> speed, int sampleRate)
         {
             _constant = speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: 0 } ? 0 : speed.CurrentValue;
             _animation = speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: 0 } ? null : speed.Animation;
+            _minimum = _constant;
+            _maximum = _constant;
+            bool known = _animation == null || _animation.TryGetOutputRange(out _minimum, out _maximum);
+            IsSupported = known && float.IsFinite(_minimum) && float.IsFinite(_maximum) && _minimum >= 0 && _maximum >= _minimum;
             _integrator = new SpeedIntegrator(sampleRate);
             if (sampleRate > 60 && _animation != null)
             {
@@ -185,9 +259,32 @@ internal sealed class MediaTimeMapping
         {
             TimeSpan a = At(time.Min, ownerStart, extrapolate, out TimeSpan errorA);
             TimeSpan b = At(time.Max, ownerStart, extrapolate, out TimeSpan errorB);
-            return conservative
-                ? new Interval(Min(Add(a, -errorA), Add(b, -errorB)), Max(Add(a, errorA), Add(b, errorB)))
-                : Interval.Between(a, b);
+            if (!conservative) return Interval.Between(a, b);
+            TimeSpan lower = Add(a, -errorA);
+            TimeSpan upper = Add(b, errorB);
+            if (_editorIntegral != null && IsSupported)
+            {
+                Interval startBounds = DeclaredBounds(time.Min, ownerStart, extrapolate);
+                Interval endBounds = DeclaredBounds(time.Max, ownerStart, extrapolate);
+                lower = Max(lower, startBounds.Min);
+                upper = Min(upper, endBounds.Max);
+            }
+            return new Interval(lower, upper);
+        }
+
+        private Interval DeclaredBounds(TimeSpan localTime, TimeSpan ownerStart, bool extrapolate)
+        {
+            TimeSpan from = _animation!.UseGlobalClock ? ownerStart : TimeSpan.Zero;
+            TimeSpan to = from + localTime;
+            if (!extrapolate) { from = Max(from, TimeSpan.Zero); to = Max(to, TimeSpan.Zero); }
+            TimeSpan duration = to - from;
+            if (duration == TimeSpan.Zero) return new Interval(TimeSpan.Zero, TimeSpan.Zero);
+            Interval bounds = Interval.Between(Scale(duration, _minimum), Scale(duration, _maximum));
+            TimeSpan lower = Add(bounds.Min, -TimeSpan.FromTicks(1));
+            TimeSpan upper = Add(bounds.Max, TimeSpan.FromTicks(1));
+            if (duration > TimeSpan.Zero) lower = Max(lower, TimeSpan.Zero);
+            else upper = Min(upper, TimeSpan.Zero);
+            return new Interval(lower, upper);
         }
 
         private TimeSpan At(TimeSpan localTime, TimeSpan ownerStart, bool extrapolate, out TimeSpan error)

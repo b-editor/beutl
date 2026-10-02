@@ -79,7 +79,12 @@ public readonly record struct ElementResizeRequest(
     Element Element,
     TimeSpan NewStart,
     TimeSpan NewLength,
-    int ZIndex);
+    int ZIndex)
+{
+    // Commands requesting an original source length must retain media limits
+    // even when ordinary edge resizing is allowed to extend beyond the source.
+    public bool ClampToSource { get; init; }
+}
 
 /// <summary>
 /// One rolled cut: <see cref="Front"/> ends exactly where <see cref="Back"/> starts, on

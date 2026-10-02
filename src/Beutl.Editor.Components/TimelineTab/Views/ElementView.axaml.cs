@@ -663,7 +663,9 @@ public sealed partial class ElementView : UserControl
                     _resizeContexts = filteredElements.Select(elem =>
                     {
                         var constraints = clampToOriginal ? SlippableMedia.CreateResizeConstraints(elem.Model) : null;
-                        TimeSpan? originalDuration = _resizeType == AlignmentX.Right ? constraints?.GetMaximumDuration() : null;
+                        TimeSpan? originalDuration = _resizeType == AlignmentX.Right && constraints?.HasMonotonicDuration == true
+                            ? constraints.GetMaximumDuration()
+                            : null;
 
                         return new ElementResizeContext(
                             ViewModel: elem,

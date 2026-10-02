@@ -821,7 +821,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 }
             }
 
-            var request = new ElementResizeRequest(Model, Model.Start, duration, Model.ZIndex);
+            var request = new ElementResizeRequest(Model, Model.Start, duration, Model.ZIndex) { ClampToSource = true };
             Timeline.EditorContext.GetRequiredService<IElementResizeService>()
                 .Resize(Scene, [request], ripple);
 

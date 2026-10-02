@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
 
 namespace Beutl.Editor.Services;
 
@@ -21,6 +22,9 @@ internal sealed class EditorSpeedIntegral(IAnimation<float> animation, int sampl
     private double _error;
     private long _first;
     private long _end;
+    private readonly bool _customInterpolation = animation.GetType() != typeof(KeyFrameAnimation<float>)
+        || animation is KeyFrameAnimation<float> keys
+            && keys.KeyFrames.Any(k => k.Easing.GetType().Assembly != typeof(Easing).Assembly);
 
     public Estimate Integrate(TimeSpan time)
         => Integrate(TimeSpan.Zero, time);
@@ -115,7 +119,17 @@ internal sealed class EditorSpeedIntegral(IAnimation<float> animation, int sampl
             Build(middle, end, depth + 1);
             return;
         }
-        Add(first, count, a, step, deviation * 4 + floatRounding);
+        double allowance = deviation * 4 + floatRounding;
+        if (_customInterpolation)
+        {
+            // Black-box easings can hide arbitrarily narrow peaks between probes.
+            // Only their declared range, never sampled smoothness, bounds the error.
+            allowance = animation.TryGetOutputRange(out float minimum, out float maximum)
+                ? Math.Max(Math.Max(Math.Abs(a - minimum), Math.Abs(b - minimum)),
+                    Math.Max(Math.Abs(a - maximum), Math.Abs(b - maximum))) + floatRounding
+                : double.PositiveInfinity;
+        }
+        Add(first, count, a, step, allowance);
     }
 
     private void Add(long first, long count, double value, double step, double error)
