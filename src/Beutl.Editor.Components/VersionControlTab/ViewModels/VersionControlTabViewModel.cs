@@ -279,6 +279,9 @@ internal sealed class VersionControlTabViewModel : IToolContext
         SetRemoteCommand = new AsyncReactiveCommand(canConfigureRemote)
             .WithSubscribe(SetRemoteAsync)
             .DisposeWith(_disposables);
+        CreateHostedRepositoryCommand = new AsyncReactiveCommand(canConfigureRemote)
+            .WithSubscribe(CreateHostedRepositoryAsync)
+            .DisposeWith(_disposables);
         PublishBranchCommand = new AsyncReactiveCommand(
                 canUpdateRemote.CombineLatest(
                     HasRemote,
@@ -323,6 +326,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         RequestBranchNameAsync = static _ => Task.FromResult<string?>(null);
         RequestRemoteUrlAsync = static (_, _) => Task.FromResult<string?>(null);
+        RequestHostedRepositoryNameAsync = static _ => Task.FromResult<string?>(null);
         ShowRemoteResultAsync = ShowRemoteResultNotificationAsync;
         RequestEnableVersionControlAsync = static () => Task.CompletedTask;
         LaunchUriAsync = static _ => Task.FromResult(false);
@@ -446,6 +450,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
 
     public AsyncReactiveCommand SetRemoteCommand { get; }
 
+    public AsyncReactiveCommand CreateHostedRepositoryCommand { get; }
+
     public AsyncReactiveCommand PublishBranchCommand { get; }
 
     public AsyncReactiveCommand PushCommand { get; }
@@ -465,6 +471,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
     public Func<CommitInfo, Task<string?>> RequestBranchNameAsync { get; set; }
 
     public Func<string?, CancellationToken, Task<string?>> RequestRemoteUrlAsync { get; set; }
+
+    public Func<CancellationToken, Task<string?>> RequestHostedRepositoryNameAsync { get; set; }
 
     public Func<RemoteOpResult, Task> ShowRemoteResultAsync { get; set; }
 
@@ -606,6 +614,30 @@ internal sealed class VersionControlTabViewModel : IToolContext
         }
     }
 
+    public async Task CreateHostedRepositoryAsync()
+    {
+        RemoteMutationLease? lease = TryAcquireRemoteMutation();
+        if (lease is null) return;
+        try
+        {
+            CancellationToken token = _serviceBindingCancellation?.Token ?? CancellationToken.None;
+            string? name = await RequestHostedRepositoryNameAsync(token);
+            if (string.IsNullOrWhiteSpace(name) || _versionControlCoordinator is null) return;
+            string url = await _versionControlCoordinator.CreateHostedRepositoryAsync(name.Trim(), token);
+            await ConfigureRemoteAsync(lease, url);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create the hosted Git repository.");
+            NotificationService.ShowError(Strings.VersionControl_ErrorTitle, ex.Message);
+        }
+        finally
+        {
+            lease.Release();
+        }
+    }
+
     public async Task PublishBranchAsync()
     {
         RemoteMutationLease? lease = TryAcquireRemoteMutation();
@@ -645,7 +677,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
             : null;
     }
 
-    private async Task<bool> ConfigureRemoteAsync(RemoteMutationLease lease)
+    private async Task<bool> ConfigureRemoteAsync(RemoteMutationLease lease, string? selectedUrl = null)
     {
         IProjectVersionControlCoordinator? coordinator = _versionControlCoordinator;
         IProjectVersionControlService? service = _service;
@@ -679,7 +711,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
         _isConfiguringRemote.Value = true;
         try
         {
-            string? remoteUrl = await RequestRemoteUrlAsync(
+            string? remoteUrl = selectedUrl ?? await RequestRemoteUrlAsync(
                 HasRemote.Value ? RemoteUrl.Value : null,
                 cancellationToken);
             if (!IsCurrentService(service, revision, cancellationToken)

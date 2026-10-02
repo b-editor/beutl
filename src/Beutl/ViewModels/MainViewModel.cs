@@ -94,6 +94,10 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 failure.ExtensionType));
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
+        _versionControlCoordinator.HostedGitTokenProvider =
+            _beutlClients.IssueHostedGitTokenAsync;
+        _versionControlCoordinator.HostedGitRepositoryCreator = async (name, token) =>
+            (await _beutlClients.CreateHostedGitRepositoryAsync(name, token)).Url;
         _waitForPackageInstallerIdle = waitForPackageInstallerIdle;
         _aiRequestRecoveryContext = new AiRequestRecoveryContext(
             new FileAiRequestRecoveryStore(Path.Combine(

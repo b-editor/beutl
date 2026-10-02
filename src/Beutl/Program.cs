@@ -18,6 +18,11 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        if (args is ["--git-lfs-transfer"])
+        {
+            Environment.ExitCode = HostedGitLfsTransferAgent.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
         PackageLinkLaunchResult launch = OperatingSystem.IsMacOS()
             ? new(PackageLinkLaunchAction.StartApplication, null, args)
             : PackageLinkLauncher.PrepareAsync(args).GetAwaiter().GetResult();

@@ -3301,4 +3301,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ModelFile" xml:space="preserve">
     <value>3Dモデルファイル</value>
   </data>
+  <data name="VersionControl_CreateHostedRepository" xml:space="preserve">
+    <value>Beutl リポジトリを作成</value>
+  </data>
+  <data name="VersionControl_RepositoryName" xml:space="preserve">
+    <value>リポジトリ名</value>
+  </data>
 </root>

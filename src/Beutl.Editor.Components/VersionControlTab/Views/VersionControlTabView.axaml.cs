@@ -55,6 +55,7 @@ internal sealed partial class VersionControlTabView : UserControl
             viewModel.RequestEnableVersionControlAsync = ExecuteEnableVersionControlAsync;
             viewModel.RequestBranchNameAsync = RequestBranchNameAsync;
             viewModel.RequestRemoteUrlAsync = RequestRemoteUrlAsync;
+            viewModel.RequestHostedRepositoryNameAsync = RequestHostedRepositoryNameAsync;
             viewModel.LaunchUriAsync = LaunchUriAsync;
         }
 
@@ -138,6 +139,17 @@ internal sealed partial class VersionControlTabView : UserControl
             Strings.VersionControl_SetRemoteTitle,
             Strings.VersionControl_RemoteUrl,
             currentRemoteUrl,
+            cancellationToken);
+    }
+
+    private Task<string?> RequestHostedRepositoryNameAsync(CancellationToken cancellationToken)
+    {
+        PrimaryActionSplitButton.Flyout?.Hide();
+        return PromptFlyout.ShowTextInputAsync(
+            PrimaryActionSplitButton,
+            Strings.VersionControl_CreateHostedRepository,
+            Strings.VersionControl_RepositoryName,
+            string.Empty,
             cancellationToken);
     }
 }

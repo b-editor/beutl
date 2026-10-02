@@ -284,6 +284,8 @@
                                         <MenuItem x:Name="SetRemoteMenuItem"
                                                   Command="{Binding SetRemoteCommand}"
                                                   Header="{x:Static lang:Strings.VersionControl_SetRemote}" />
+                                        <MenuItem Command="{Binding CreateHostedRepositoryCommand}"
+                                                  Header="{x:Static lang:Strings.VersionControl_CreateHostedRepository}" />
                                         <MenuItem x:Name="CancelRemoteOperationMenuItem"
                                                   Command="{Binding CancelRemoteOperationCommand}"
                                                   Header="{x:Static lang:Strings.Cancel}"

@@ -34,6 +34,15 @@ internal sealed class VersionControlCoordinator :
         "beutl: recover original project state after failed restore";
 
     private readonly ProjectService _projectService;
+    internal Func<Guid, CancellationToken, Task<string>>? HostedGitTokenProvider { get; set; }
+    internal Func<string, CancellationToken, Task<string>>? HostedGitRepositoryCreator { get; set; }
+
+    public Task<string> CreateHostedRepositoryAsync(string name, CancellationToken cancellationToken)
+    {
+        Func<string, CancellationToken, Task<string>> creator = HostedGitRepositoryCreator
+            ?? throw new InvalidOperationException("Sign in to Beutl to create a hosted repository.");
+        return creator(name, cancellationToken);
+    }
     private readonly EditorService _editorService;
     private readonly VersionControlConfig _config;
     private readonly GitInstallationLocator _installationLocator;
@@ -579,7 +588,8 @@ internal sealed class VersionControlCoordinator :
                    () => _projectService.CurrentProject.Value is null,
                    PresentPolicyNoticeAsync,
                    projectFile,
-                   RequestIdentityForSnapshotAsync);
+                   RequestIdentityForSnapshotAsync)
+               { HostedGitTokenProvider = HostedGitTokenProvider };
     }
 
     private bool TryPrepareNewProject(
@@ -5028,7 +5038,8 @@ internal sealed class VersionControlCoordinator :
                          || !PathsEqual(GetProjectFile(project), projectFile),
                    PresentPolicyNoticeAsync,
                    projectFile,
-                   RequestIdentityForSnapshotAsync);
+                   RequestIdentityForSnapshotAsync)
+               { HostedGitTokenProvider = HostedGitTokenProvider };
     }
 
     // The backend asks from its own Git continuation, but the identity prompt is a flyout that has to be
@@ -5506,7 +5517,8 @@ internal sealed class VersionControlCoordinator :
                     repository: null,
                     () => _projectService.CurrentProject.Value is null,
                     PresentPolicyNoticeAsync,
-                    projectFile);
+                    projectFile)
+                { HostedGitTokenProvider = HostedGitTokenProvider };
             // From here the activation owns the prepared backend, and a rejected activation retires it.
             preparedService = null;
             var activation = new ActivationContext(
@@ -5732,7 +5744,8 @@ internal sealed class VersionControlCoordinator :
                     () => _projectService.CurrentProject.Value is null,
                     PresentPolicyNoticeAsync,
                     activation.ProjectFile,
-                    RequestIdentityForSnapshotAsync);
+                    RequestIdentityForSnapshotAsync)
+                { HostedGitTokenProvider = HostedGitTokenProvider };
             candidateService = trackedService;
             if (!TryRegisterCandidateService(activation, trackedService))
             {

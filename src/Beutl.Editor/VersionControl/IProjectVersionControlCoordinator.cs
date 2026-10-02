@@ -2,6 +2,9 @@
 
 internal interface IProjectVersionControlCoordinator
 {
+    Task<string> CreateHostedRepositoryAsync(string name, CancellationToken cancellationToken)
+        => throw new NotSupportedException("Hosted Git is unavailable.");
+
     event EventHandler? PendingPullRecoveriesChanged;
 
     Task<CommitResult> CommitManualAsync(

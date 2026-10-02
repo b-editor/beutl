@@ -1304,6 +1304,20 @@ internal sealed class GitCliVersionControlService :
 
     public RepositoryInfo? Repository { get; private set; }
 
+    internal Func<Guid, CancellationToken, Task<string>>? HostedGitTokenProvider { get; set; }
+
+    private async Task<GitCommandOptions> GetNetworkOptionsAsync(
+        GitCommandOptions baseline, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<RemoteInfo> remotes = await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false);
+        string? remoteUrl = remotes.FirstOrDefault()?.Url;
+        if (!HostedGitRemote.TryParse(remoteUrl, out Guid repositoryId)) return baseline;
+        Func<Guid, CancellationToken, Task<string>> provider = HostedGitTokenProvider
+            ?? throw new InvalidOperationException("Sign in to Beutl to use the hosted Git repository.");
+        string token = await provider(repositoryId, cancellationToken).ConfigureAwait(false);
+        return HostedGitRemote.CreateOptions(remoteUrl!, token, baseline);
+    }
+
     public RepositoryLockInfo? RecoverableLock { get; private set; }
 
     public event EventHandler<WorkspaceStatus>? StatusChanged;
@@ -8016,10 +8030,9 @@ internal sealed class GitCliVersionControlService :
                     remotes[0].Name,
                     target.Reference,
                 ],
-                GitCommandOptions.Network with
-                {
-                    MaxStdoutBytes = MaxLfsFetchOutputBytes,
-                },
+                await GetNetworkOptionsAsync(
+                    GitCommandOptions.Network with { MaxStdoutBytes = MaxLfsFetchOutputBytes },
+                    cancellationToken).ConfigureAwait(false),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (GitOperationException ex)
@@ -9015,12 +9028,30 @@ internal sealed class GitCliVersionControlService :
 
             arguments.Add("origin");
             arguments.Add($"{currentTip.RefName}:{remoteRef}");
-            await runner.RunAsync(
-                repository,
-                arguments,
-                GitCommandOptions.Network,
-                cancellationToken,
-                progress).ConfigureAwait(false);
+            try
+            {
+                await runner.RunAsync(
+                    repository,
+                    arguments,
+                    await GetNetworkOptionsAsync(GitCommandOptions.Network, cancellationToken).ConfigureAwait(false),
+                    cancellationToken,
+                    progress).ConfigureAwait(false);
+            }
+            catch (GitOperationException ex) when (IsHostedAuthenticationFailure(ex))
+            {
+                if (!HostedGitRemote.TryParse(
+                        (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).FirstOrDefault()?.Url,
+                        out _)) throw;
+                // A multipart LFS upload may outlive the Git token used when
+                // push started. LFS has already verified the media; retry the
+                // Git push with a newly minted token.
+                await runner.RunAsync(
+                    repository,
+                    arguments,
+                    await GetNetworkOptionsAsync(GitCommandOptions.Network, cancellationToken).ConfigureAwait(false),
+                    cancellationToken,
+                    progress).ConfigureAwait(false);
+            }
             await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
             return new RemoteOpResult.Success();
         }
@@ -9030,6 +9061,10 @@ internal sealed class GitCliVersionControlService :
             return MapRemoteFailure(ex);
         }
     }
+
+    private static bool IsHostedAuthenticationFailure(GitOperationException exception)
+        => exception.Stderr.Contains("401", StringComparison.Ordinal)
+           || exception.Stderr.Contains("Authentication failed", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<BranchUpstreamConfiguration?> GetBranchUpstreamConfigurationAsync(
         RepositoryInfo repository,
@@ -9118,7 +9153,7 @@ internal sealed class GitCliVersionControlService :
             await runner.RunAsync(
                 repository,
                 fetchTarget.Arguments,
-                GitCommandOptions.Network,
+                await GetNetworkOptionsAsync(GitCommandOptions.Network, cancellationToken).ConfigureAwait(false),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (GitOperationException ex)
@@ -9298,7 +9333,7 @@ internal sealed class GitCliVersionControlService :
             await runner.RunAsync(
                 repository,
                 fetchTarget.Arguments,
-                GitCommandOptions.Network,
+                await GetNetworkOptionsAsync(GitCommandOptions.Network, cancellationToken).ConfigureAwait(false),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (GitOperationException ex)

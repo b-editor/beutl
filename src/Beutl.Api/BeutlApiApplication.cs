@@ -97,6 +97,7 @@ public class BeutlApiApplication : IAsyncDisposable
         Discover = RestService.For<IDiscoverClient>(_httpClient);
         Library = RestService.For<ILibraryClient>(_httpClient);
         Ai = RestService.For<IAiClient>(_httpClient);
+        GitRepositories = RestService.For<IGitRepositoriesClient>(_httpClient);
 
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         string culture = viewConfig.UICulture.Name;
@@ -128,6 +129,28 @@ public class BeutlApiApplication : IAsyncDisposable
     public ILibraryClient Library { get; }
 
     internal IAiClient Ai { get; }
+
+    internal IGitRepositoriesClient GitRepositories { get; }
+
+    public async Task<HostedGitRepositoryResponse> CreateHostedGitRepositoryAsync(
+        string name, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        AuthenticatedApiResult<HostedGitRepositoryResponse> result = await SendAuthenticatedAsync(
+            (authorization, token) => GitRepositories.CreateRepository(
+                authorization, new CreateHostedGitRepositoryRequest(name), token),
+            cancellationToken).ConfigureAwait(false);
+        return result.Value;
+    }
+
+    public async Task<string> IssueHostedGitTokenAsync(Guid repositoryId, CancellationToken cancellationToken)
+    {
+        AuthenticatedApiResult<HostedGitTokenResponse> result = await SendAuthenticatedAsync(
+            (authorization, token) => GitRepositories.IssueToken(
+                repositoryId, authorization, new HostedGitTokenRequest("write"), token),
+            cancellationToken).ConfigureAwait(false);
+        return result.Value.Token;
+    }
 
     public IAppClient App { get; }
 

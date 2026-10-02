@@ -3306,4 +3306,10 @@ when history recording is enabled.</value>
   <data name="ModelFile" xml:space="preserve">
     <value>3D Model File</value>
   </data>
+  <data name="VersionControl_CreateHostedRepository" xml:space="preserve">
+    <value>Create Beutl repository</value>
+  </data>
+  <data name="VersionControl_RepositoryName" xml:space="preserve">
+    <value>Repository name</value>
+  </data>
 </root>
