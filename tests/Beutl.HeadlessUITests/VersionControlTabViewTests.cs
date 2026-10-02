@@ -460,7 +460,10 @@ public class VersionControlTabViewTests
                 Assert.That(primaryActionFlyout.Placement.ToString(), Is.EqualTo("Pointer"));
                 Assert.That(
                     primaryActionFlyout.Items,
-                    Has.Count.EqualTo(5));
+                    Has.Count.EqualTo(6));
+                Assert.That(
+                    primaryActionFlyout.Items.OfType<MenuItem>().Select(item => item.Header),
+                    Does.Contain(Strings.VersionControl_CreateHostedRepository));
             });
 
             Task<string?> remoteUrlTask =
