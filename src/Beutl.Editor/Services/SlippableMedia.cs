@@ -25,6 +25,7 @@ internal static class SlippableMedia
             IsVideo = isVideo;
             SupportsTrimming = TryGetConstantSpeed(speed, out double factor, evaluatesExpressions: isVideo);
             Speed = factor;
+            IsFrozen = SupportsTrimming && factor <= 0;
         }
 
         public IProperty<TimeSpan> Offset { get; }
@@ -35,6 +36,10 @@ internal static class SlippableMedia
 
         // Source-time units consumed per timeline-time unit.
         public double Speed { get; }
+
+        // Input-time remapping cannot advance a proven constant-zero source. Keep this
+        // fact even if a controller later marks its general mapping unsupported.
+        public bool IsFrozen { get; }
 
         public bool SupportsTrimming { get; set; }
 
@@ -62,8 +67,9 @@ internal static class SlippableMedia
 
             // A controller can consume preceding drawables through Flow, or an explicit
             // nested Target. Guard videos reached so far; later top-level drawables cannot
-            // feed this controller. Audio never enters drawable flow.
-            if (!supportsTimeMapping)
+            // feed this controller. Audio never enters drawable flow. Playback skips
+            // disabled top-level objects, so their controllers cannot remap active media.
+            if (obj.IsEnabled && !supportsTimeMapping)
             {
                 foreach (Target target in targets)
                 {
@@ -75,7 +81,7 @@ internal static class SlippableMedia
 
         // Frozen media consumes no source time, so it neither moves nor limits a trim.
         // An animated stream whose base value is zero is not necessarily frozen.
-        targets.RemoveAll(static target => target.SupportsTrimming && target.Speed <= 0);
+        targets.RemoveAll(static target => target.IsFrozen);
         return targets;
     }
 

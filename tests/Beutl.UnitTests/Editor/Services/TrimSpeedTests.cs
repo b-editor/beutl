@@ -435,6 +435,53 @@ public class TrimSpeedTests(string mediaKind)
         });
     }
 
+    [TestCase("Slip", false)]
+    [TestCase("Slip", true)]
+    [TestCase("Roll", false)]
+    [TestCase("Roll", true)]
+    [TestCase("Slide", false)]
+    [TestCase("Slide", true)]
+    public void Trim_DisabledOrFrozenTimeController_DoesNotBlockLinkedMedia(string operation, bool frozen)
+    {
+        Element front = AddElement(0, 2);
+        Element? middle = operation == "Slide" ? AddElement(2, 2) : null;
+        double backStart = middle != null ? 4 : 2;
+        Element back = AddElement(backStart, 2);
+        var offset = AddMedia(back, frozen ? 0 : 200, 0);
+        var controller = new DrawableTimeController
+        {
+            Speed = { CurrentValue = 50 },
+            IsEnabled = frozen
+        };
+        back.Objects.Add(controller);
+        var linked = new SourceSound();
+        back.Objects.Add(linked);
+        if (!frozen)
+        {
+            var playbackObjects = new List<EngineObject>();
+            back.CollectObjects(controller.GetCompositionTarget(), playbackObjects);
+            Assert.That(playbackObjects, Does.Not.Contain(controller));
+        }
+        History.Commit();
+        int before = History.UndoCount;
+
+        bool applied = operation == "Slip"
+            ? _slip.Slip(Scene, [back], TimeSpan.FromSeconds(1))
+            : Trim(front, middle, back, 1);
+
+        double geometryDelta = operation == "Slip" ? 0 : 1;
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(frozen ? 0 : 2)));
+            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2 + geometryDelta)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart + geometryDelta)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2 - geometryDelta)));
+            Assert.That(History.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
     private Element AddElement(double start, double length, int zIndex = 0)
         => _harness.AddElement(TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length), zIndex);
 
