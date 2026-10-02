@@ -541,7 +541,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 // Stop restarting on a boundary-window pause (_stopRequested set without flipping
                 // IsPlaying), or when a Pause() timeout disowned this task and a newer session took
                 // over — a stale task must not re-arm and stomp the session that replaced it.
-                if (restart && (_stopRequested || !_sessionGuard.Owns(generation)))
+                if (restart && (_isPausing || _stopRequested || !_sessionGuard.Owns(generation)))
                 {
                     restart = false;
                 }
@@ -567,7 +567,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         // still owns it; no native calls or composition run inside this short ownership lock.
         if (!_sessionGuard.TryApply(generation, () =>
         {
-            if (playbackToken.IsCancellationRequested || _stopRequested || _isDisposing
+            if (playbackToken.IsCancellationRequested || _isPausing || _stopRequested || _isDisposing
                 || !_isEnabled.Value || Scene is not { } currentScene)
             {
                 IsPlaying.Value = false;

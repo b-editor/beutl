@@ -63,6 +63,55 @@ public class PlayerViewModelQuiescenceTests
     }
 
     [AvaloniaTest]
+    public async Task A_pending_pause_prevents_queued_playback_startup()
+    {
+        EditViewModel editor = await OpenEditor();
+        var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
+        editor.Scene.Duration = TimeSpan.FromSeconds(30);
+        clock.CurrentTime.Value = TimeSpan.FromSeconds(5);
+        int startedBuffers = 0;
+        using var subscription = editor.BufferStatus.StartTime.Subscribe(time =>
+        {
+            if (time != TimeSpan.Zero)
+                Interlocked.Increment(ref startedBuffers);
+        });
+        object sessionLock = typeof(PlaybackSessionGuard)
+            .GetField("_sync", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .GetValue(GetSessionGuard(editor.Player))!;
+        Task? pause = null;
+        try
+        {
+            Task playback;
+            lock (sessionLock)
+            {
+                // Let Play claim its session, but keep its worker out of PlayInternal until
+                // Pause has closed admission and queued its UI-side drain.
+                editor.Player.Play();
+                playback = (Task)typeof(PlayerViewModel)
+                    .GetField("_playbackTask", BindingFlags.NonPublic | BindingFlags.Instance)!
+                    .GetValue(editor.Player)!;
+                pause = editor.Player.Pause();
+            }
+
+            // Keep this UI turn occupied so PauseCore cannot retire the generation yet. The
+            // queued worker must stop without initializing scene buffers or an audio backend.
+            bool stopped = playback.Wait(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(stopped, Is.True);
+                Assert.That(Volatile.Read(ref startedBuffers), Is.Zero);
+                Assert.That(editor.Player.IsPlaying.Value, Is.False);
+                Assert.That(pause.IsCompleted, Is.False);
+            });
+        }
+        finally
+        {
+            if (pause is not null)
+                await pause.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+    }
+
+    [AvaloniaTest]
     public async Task A_faulted_playback_task_still_drains_scene_work_before_history_mutation()
     {
         EditViewModel editor = await OpenEditor();
@@ -81,8 +130,9 @@ public class PlayerViewModelQuiescenceTests
                 return true;
             }).AsTask();
 
-            // Let Pause handle the backend failure and reach its scene-work barriers.
-            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
+            // Keep composition blocked while the other stop work finishes, so a regressed
+            // Pause that omits its compose barrier cannot pass only because it has not resumed.
+            await Task.WhenAny(mutation, Task.Delay(TimeSpan.FromSeconds(1)));
             Assert.Multiple(() =>
             {
                 Assert.That(mutation.IsCompleted, Is.False);
