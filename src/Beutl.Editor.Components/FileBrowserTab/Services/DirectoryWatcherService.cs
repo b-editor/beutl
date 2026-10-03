@@ -607,7 +607,7 @@ internal sealed class DirectoryWatcherService : IDisposable
         }
     }
 
-    private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
+    internal void OnFileSystemEvent(object sender, FileSystemEventArgs e)
     {
         if (IsCurrentWatcher(sender))
         {
