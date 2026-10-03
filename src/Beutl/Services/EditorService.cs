@@ -58,14 +58,44 @@ public sealed class EditorTabItem : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await Context.Value.DisposeAsync();
-        Context.Value = null!;
+        Exception? firstFailure = null;
+        void Cleanup(Action action)
+        {
+            try { action(); }
+            catch (Exception error)
+            {
+                if (firstFailure is null)
+                    firstFailure = error;
+                else
+                {
+                    try { Log.CreateLogger<EditorTabItem>().LogWarning(error, "An additional editor tab cleanup step failed."); }
+                    catch { } // Preserve the original context disposal error.
+                }
+            }
+        }
 
-        Context.Dispose();
-        FilePath.Dispose();
-        FileName.Dispose();
-        Extension.Dispose();
-        IsSelected.Dispose();
+        try
+        {
+            await Context.Value.DisposeAsync();
+        }
+        catch (Exception error)
+        {
+            firstFailure = error;
+        }
+        finally
+        {
+            // A removed tab must release its context and subscriptions even when the context
+            // finishes teardown by reporting a persistence failure.
+            Cleanup(() => Context.Value = null!);
+            Cleanup(Context.Dispose);
+            Cleanup(FilePath.Dispose);
+            Cleanup(FileName.Dispose);
+            Cleanup(Extension.Dispose);
+            Cleanup(IsSelected.Dispose);
+        }
+
+        if (firstFailure is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstFailure).Throw();
     }
 }
 
