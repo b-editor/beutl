@@ -139,6 +139,52 @@ public sealed class GraphSnapshotFailureTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void BuildReenteredDuringCleanup_IsRejectedWithoutInstallingOrLeakingNestedResources(bool disposing)
+    {
+        var original = new ProbeNode();
+        var replacement = new ProbeNode();
+        var nestedFirst = new ProbeNode();
+        var nestedSecond = new ProbeNode();
+        GraphModel originalModel = CreateModel(original);
+        GraphModel replacementModel = CreateModel(replacement);
+        GraphModel nestedModel = CreateModel(nestedFirst, nestedSecond);
+        var snapshot = new GraphSnapshot();
+        snapshot.Build(originalModel, CompositionContext.Default);
+        original.UninitializeCallback = () =>
+        {
+            original.UninitializeCallback = null;
+            snapshot.Build(nestedModel, CompositionContext.Default);
+        };
+
+        Exception? failure = disposing
+            ? Assert.Catch(snapshot.Dispose)
+            : Assert.Catch(() =>
+            {
+                snapshot.MarkDirty();
+                snapshot.Build(replacementModel, CompositionContext.Default);
+            });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.TypeOf<InvalidOperationException>());
+            Assert.That(failure!.Message, Does.Contain("already in progress"));
+            Assert.That(nestedFirst.CreatedResources, Is.Empty);
+            Assert.That(nestedSecond.CreatedResources, Is.Empty);
+            Assert.That(original.CreatedResources.Single().UninitializeCount, Is.EqualTo(1));
+            Assert.That(original.CreatedResources.Single().DisposeCount, Is.EqualTo(1));
+            Assert.That(original.Members.All(m => m.CreatedCount == m.DisposedCount), Is.True);
+            Assert.DoesNotThrow(snapshot.Dispose);
+        });
+        Assert.DoesNotThrow(() => snapshot.Build(replacementModel, CompositionContext.Default));
+        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Dispose();
+        Assert.That(replacement.EvaluationCount, Is.EqualTo(1));
+        Assert.That(replacement.CreatedResources.All(r => r.IsDisposed), Is.True);
+        Assert.That(replacement.Members.All(m => m.CreatedCount == m.DisposedCount), Is.True);
+    }
+
     private static GraphModel CreateModel(params ProbeNode[] nodes)
     {
         var model = new GraphModel();
@@ -165,6 +211,7 @@ public sealed class GraphSnapshotFailureTests
         public string? CleanupFault { get; set; }
         public bool FailDuringBind { get; set; }
         public bool FailDuringInitialize { get; set; }
+        public Action? UninitializeCallback { get; set; }
         public int ActiveSubscriptions { get; private set; }
         public int EvaluationCount { get; private set; }
 
@@ -205,6 +252,7 @@ public sealed class GraphSnapshotFailureTests
                     _subscribed = false;
                 }
 
+                owner.UninitializeCallback?.Invoke();
                 if (owner.CleanupFault == "uninitialize") throw owner.CleanupFailure;
             }
 

@@ -20,10 +20,26 @@ public sealed class GraphSnapshot : IDisposable
     private bool _isDirty = true;
     private int _resourceCount;
     private int _initializedResourceCount;
+    private bool _lifecycleInProgress;
 
     public void MarkDirty() => _isDirty = true;
 
     public void Build(GraphModel model, CompositionContext context)
+    {
+        if (_lifecycleInProgress)
+            throw new InvalidOperationException("A graph snapshot lifecycle operation is already in progress.");
+        _lifecycleInProgress = true;
+        try
+        {
+            BuildCore(model, context);
+        }
+        finally
+        {
+            _lifecycleInProgress = false;
+        }
+    }
+
+    private void BuildCore(GraphModel model, CompositionContext context)
     {
         foreach (GraphNode node in model.Nodes)
             _ = node.NestedInputPorts;
@@ -541,8 +557,18 @@ public sealed class GraphSnapshot : IDisposable
 
     public void Dispose()
     {
-        Uninitialize();
-        _outputConnectionMap.Clear();
-        _connectedInputs.Clear();
+        if (_lifecycleInProgress)
+            throw new InvalidOperationException("A graph snapshot lifecycle operation is already in progress.");
+        _lifecycleInProgress = true;
+        try
+        {
+            Uninitialize();
+            _outputConnectionMap.Clear();
+            _connectedInputs.Clear();
+        }
+        finally
+        {
+            _lifecycleInProgress = false;
+        }
     }
 }
