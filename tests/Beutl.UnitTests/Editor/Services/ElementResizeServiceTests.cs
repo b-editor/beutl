@@ -3,6 +3,7 @@ using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -696,14 +697,18 @@ public class ElementResizeServiceTests
         });
     }
 
-    [TestCase(false, 0, 7, 4)]
-    [TestCase(false, 1, 1, 1)]
-    [TestCase(false, 2, 0, 0)]
-    [TestCase(true, 0, 7, 4)]
-    [TestCase(true, 1, 1, 1)]
-    [TestCase(true, 2, 0, 0)]
+    [TestCase(false, 100f, 0, 7, 4)]
+    [TestCase(false, 100f, 1, 1, 1)]
+    [TestCase(false, 100f, 2, 0, 0)]
+    [TestCase(true, 100f, 0, 7, 4)]
+    [TestCase(true, 100f, 1, 1, 1)]
+    [TestCase(true, 100f, 2, 0, 0)]
+    [TestCase(false, 50f, 0.25, 1.5, 1.5)]
+    [TestCase(true, 50f, 0.25, 1.5, 1.5)]
+    [TestCase(false, 200f, 1, 1.5, 1.5)]
+    [TestCase(true, 200f, 1, 1.5, 1.5)]
     public void Trim_VideoBeforeItsStart_StopsAtWrappedSourceBoundary(
-        bool slide, int offset, int expectedRoom, int expectedDelta)
+        bool slide, float speed, double offset, double expectedRoom, double expectedDelta)
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
         Element? middle = slide ? AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)) : null;
@@ -714,6 +719,7 @@ public class ElementResizeServiceTests
         var video = new SourceVideo
         {
             Source = { CurrentValue = source },
+            Speed = { CurrentValue = speed },
             OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(offset) },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(3, 2)
@@ -1225,6 +1231,68 @@ public class ElementResizeServiceTests
 
     // --- GetTrimDeltaBounds ---
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RollOrSlide_SpeedExpression_RejectsBeforeMutation(bool slide)
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
+        TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
+        Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { Expression = Expression.Create<float>("200") } };
+        back.Objects.Add(video);
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = middle == null
+            ? _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1))
+            : _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(backStart));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RollOrSlide_TimeRemappedBack_RejectsBeforeMutation(bool slide)
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
+        TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
+        Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        back.Objects.Add(new DrawableTimeController
+        {
+            Speed = { CurrentValue = 50 },
+            Target = { CurrentValue = video }
+        });
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = middle == null
+            ? _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1))
+            : _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(backStart));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            if (middle != null)
+                Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
     [Test]
     public void GetTrimDeltaBounds_NullArguments_Throw()
     {
@@ -1236,6 +1304,37 @@ public class ElementResizeServiceTests
             Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(null!, [new ElementTrimPair(front, back)]));
             Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(null!, back)]));
             Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, null!)]));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RollOrSlide_TimeControllerBeforeVideo_DoesNotBlockLaterSource(bool slide)
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
+        TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
+        Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        back.Objects.Add(new DrawableTimeController { Speed = { CurrentValue = 50 } });
+        back.Objects.Add(video);
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = middle == null
+            ? _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1))
+            : _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(1)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+            if (middle != null)
+                Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
         });
     }
 
@@ -1252,6 +1351,69 @@ public class ElementResizeServiceTests
         {
             Assert.That(min, Is.EqualTo(minDuration - TimeSpan.FromSeconds(2)));
             Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(3) - minDuration));
+        });
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void RollOrSlide_ContainerController_DoesNotRemapSiblingVideo(bool slide, bool decorator)
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
+        TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
+        Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        Drawable container = decorator ? new DrawableDecorator() : new DrawableGroup();
+        var children = container is DrawableDecorator d ? d.Children : ((DrawableGroup)container).Children;
+        children.Add(new DrawableTimeController { Speed = { CurrentValue = 50 } });
+        children.Add(video);
+        back.Objects.Add(container);
+
+        bool applied = middle == null
+            ? _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1))
+            : _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
+
+        Assert.That(applied, Is.True);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(1)));
+        Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RollOrSlide_DisabledControllerReferencedByPresenter_RejectsActiveMapping(bool slide)
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
+        TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
+        Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        var controller = new DrawableTimeController
+        {
+            IsEnabled = false,
+            Speed = { CurrentValue = 50 },
+            Target = { CurrentValue = video }
+        };
+        back.Objects.Add(video);
+        back.Objects.Add(controller);
+        back.Objects.Add(new DrawablePresenter { Target = { CurrentValue = controller } });
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = middle == null
+            ? _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1))
+            : _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(backStart));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
 

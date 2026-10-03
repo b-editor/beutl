@@ -349,7 +349,7 @@ public sealed class ElementResizeService : IElementResizeService
             back.Start += clamped;
             back.Length -= clamped;
             // Preserve the back clip's content across the moving cut: its in-point advances
-            // by the same delta so the same source frames stay under the same timeline times.
+            // by the delta converted to source time, keeping source frames at the same timeline times.
             SlippableMedia.ApplyOffsetDelta(backTargets[i], clamped, applied);
         }
 
@@ -451,8 +451,8 @@ public sealed class ElementResizeService : IElementResizeService
             back.Start += clamped;
             back.Length -= clamped;
             // The middle clips only shift in time (their in-points are unchanged), but the back
-            // clip is trimmed at its head, so advance its media offset by the same delta to keep
-            // its content.
+            // clip is trimmed at its head, so convert the delta to source time when advancing
+            // its media offset to preserve its content.
             SlippableMedia.ApplyOffsetDelta(backTargets[i], clamped, applied);
         }
 
@@ -480,6 +480,11 @@ public sealed class ElementResizeService : IElementResizeService
         IReadOnlyList<SlippableMedia.Target> frontTargets,
         IReadOnlyList<SlippableMedia.Target> backTargets)
     {
+        // A scalar source delta cannot preserve a varying or remapped timeline. Reject
+        // before changing geometry, even when the source-length clamp preference is off.
+        if (!SlippableMedia.CanTrim(frontTargets) || !SlippableMedia.CanTrim(backTargets))
+            return (TimeSpan.Zero, TimeSpan.Zero);
+
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
 

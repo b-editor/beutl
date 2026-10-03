@@ -96,15 +96,8 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         _timeline.OrderVulkanWorkBeforeSkia();
     }
 
-    internal override bool OrdersSkiaWritesOnGpu => _timeline is not null;
-
-    internal override void OrderSkiaWritesBeforeBackend()
-    {
-        if (_timeline is null)
-            throw new NotSupportedException("This texture has no shared Metal/Vulkan timeline.");
-
-        _timeline.OrderSkiaWritesBeforeVulkan(_metalTexture);
-    }
+    // A Vulkan pass that reads what Skia drew waits for Skia on the CPU; see MetalVulkanTimeline for why.
+    internal override bool OrdersSkiaWritesOnGpu => false;
 
     private IntPtr ExportMetalTexture()
     {

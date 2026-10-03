@@ -37,9 +37,10 @@ public sealed class PixelSortEffectSynchronizationTests
             using (ImmediateCanvas.ObserveFlushes(flushes.Add))
                 ApplyPixelSort(source).Dispose();
 
-            // Queue order, or the shared timeline where Skia draws through Metal, holds the Vulkan pass behind
-            // Skia's submitted work on the GPU. Only a Metal device without a timeline waits on the CPU.
-            ImmediateCanvasFlushKind expected = context is CompositeContext { Timeline: null }
+            // Where Skia shares the Vulkan queue, queue order holds the pass behind Skia's submitted work. Where
+            // Skia draws through Metal the source is waited for on the CPU, which keeps later Skia work from
+            // competing with the pass on the GPU.
+            ImmediateCanvasFlushKind expected = context is CompositeContext
                 ? ImmediateCanvasFlushKind.PrepareForSampling
                 : ImmediateCanvasFlushKind.PrepareForSamplingSubmit;
             Assert.That(
@@ -78,8 +79,9 @@ public sealed class PixelSortEffectSynchronizationTests
         // The bar fixture cannot tell an ordered hand-off from a broken one: it passes even when Skia's work is
         // never submitted ahead of the pass. A pass that reads this source too early sorts a partly drawn or empty
         // image instead of the finished picture. Where Skia shares the Vulkan queue, only a missing submission
-        // breaks the order and it fails every run. Across APIs the queues race, so Skia's queue is kept busy with
-        // another target and the hand-off is repeated until a late read would have shown.
+        // breaks the order and it fails every run. Across APIs only the completion wait keeps the queues from
+        // racing, so Skia's queue is kept busy with another target and the hand-off is repeated until a late read
+        // would have shown.
         var bounds = new Rect(0, 0, 1280, 720);
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
         bool crossApi = context is CompositeContext;
