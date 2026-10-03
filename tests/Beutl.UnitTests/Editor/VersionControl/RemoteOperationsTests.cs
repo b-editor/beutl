@@ -110,7 +110,10 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             {
                 Assert.That(url, Is.EqualTo(external));
                 Assert.That(environment.ContainsKey("GIT_ASKPASS"), Is.False, "external authentication must inherit the user's configuration");
-                Assert.That(count, Is.EqualTo(2));
+                Assert.That(count, Is.EqualTo(3));
+                Assert.That(environment["GIT_CONFIG_KEY_0"], Is.EqualTo("core.hooksPath"));
+                Assert.That(environment.Where(entry => entry.Key.StartsWith("GIT_CONFIG_KEY_", StringComparison.Ordinal))
+                    .Any(entry => entry.Value!.StartsWith("http.", StringComparison.Ordinal)), Is.False);
             }
         }
         string localTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -127,7 +130,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Mixed_push_stops_if_the_source_branch_changes_during_credential_acquisition()
+    public async Task Mixed_push_keeps_the_captured_commit_if_the_branch_changes_during_credential_acquisition()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string capturedTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -135,6 +138,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string hostedFixture = await CreateBareRemoteAsync();
         string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
         await RunGitAsync("remote", "add", "origin", external);
+        await RunGitAsync("push", "-u", "origin", "main");
         await RunGitAsync("remote", "set-url", "--push", "origin", external);
         await RunGitAsync("remote", "set-url", "--add", "--push", "origin", hosted);
         byte[] originalConfig = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config"));
@@ -145,11 +149,57 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             await RunGitAsync("commit", "--allow-empty", "-m", "branch advanced during token acquisition");
             return "temporary";
         };
-        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.Not.TypeOf<RemoteOpResult.Success>());
-        Assert.That(runner.Options, Has.Count.EqualTo(1), "the changed branch must not be sent to the second destination");
+        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.TypeOf<RemoteOpResult.Success>());
+        Assert.That(runner.Options, Has.Count.EqualTo(2));
         Assert.That(await ReadRemoteHeadAsync(external), Is.EqualTo(capturedTip));
+        Assert.That(await ReadRemoteHeadAsync(hostedFixture), Is.EqualTo(capturedTip));
         Assert.That((await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim(), Is.Not.EqualTo(capturedTip));
         Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(originalConfig));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Mixed_push_keeps_a_stable_source_and_original_hook_if_the_branch_moves_before_git_starts(bool customHooksPath)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string capturedTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string external = await CreateBareRemoteAsync();
+        string hostedFixture = await CreateBareRemoteAsync();
+        string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
+        await RunGitAsync("remote", "add", "origin", external);
+        await RunGitAsync("push", "-u", "origin", "main");
+        await RunGitAsync("remote", "set-url", "--push", "origin", external);
+        await RunGitAsync("remote", "set-url", "--add", "--push", "origin", hosted);
+        string hooks = customHooksPath ? Path.Combine(Root, "custom-hooks") : Path.Combine(Root, ".git", "hooks");
+        Directory.CreateDirectory(hooks);
+        if (customHooksPath) await RunGitAsync("config", "core.hooksPath", "custom-hooks");
+        string hookPath = Path.Combine(hooks, "pre-push");
+        string hook = "#!/bin/sh\n[ \"$1\" = origin ] || exit 73\n" +
+            "while read local_ref local_oid remote_ref remote_oid; do\n" +
+            $"[ \"$local_ref\" = refs/heads/main ] && [ \"$local_oid\" = {capturedTip} ] || exit 74\ndone\n";
+        await File.WriteAllTextAsync(hookPath, hook);
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(hookPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        byte[] originalConfig = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config"));
+        var runner = new MixedPushRunner(CreateRunner(), hosted, hostedFixture, beforePush: async attempt =>
+        {
+            if (attempt == 2) await RunGitAsync("commit", "--allow-empty", "-m", "branch advanced immediately before push");
+        });
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        service.HostedGitTokenProvider = (_, _) => Task.FromResult("temporary");
+        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.TypeOf<RemoteOpResult.Success>());
+        Assert.That(await ReadRemoteHeadAsync(external), Is.EqualTo(capturedTip));
+        Assert.That(await ReadRemoteHeadAsync(hostedFixture), Is.EqualTo(capturedTip));
+        Assert.That((await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim(), Is.Not.EqualTo(capturedTip));
+        Assert.That(await File.ReadAllTextAsync(hookPath), Is.EqualTo(hook));
+        Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(originalConfig));
+        foreach (GitCommandOptions options in runner.Options)
+        {
+            var environment = options.EnvironmentOverrides!;
+            string key = environment.First(entry => entry.Key.StartsWith("GIT_CONFIG_KEY_", StringComparison.Ordinal)
+                && entry.Value == "core.hooksPath").Key;
+            Assert.That(Directory.Exists(environment[key.Replace("_KEY_", "_VALUE_", StringComparison.Ordinal)]), Is.False);
+        }
     }
 
     [TestCase(false)]
@@ -261,13 +311,13 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     private sealed class MixedPushRunner(IGitCliRunner inner, string hostedUrl, string hostedFixture,
-        bool rejectExternal = false, Exception? upstreamFailure = null) : IGitCliRunner
+        bool rejectExternal = false, Exception? upstreamFailure = null, Func<int, Task>? beforePush = null) : IGitCliRunner
     {
         public bool HasActiveProcess => inner.HasActiveProcess;
         public List<GitCommandOptions> Options { get; } = [];
         public List<IReadOnlyList<string>> Arguments { get; } = [];
 
-        public Task<GitCommandResult> RunAsync(RepositoryInfo repository, IReadOnlyList<string> arguments,
+        public async Task<GitCommandResult> RunAsync(RepositoryInfo repository, IReadOnlyList<string> arguments,
             GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? stderrProgress = null)
         {
             if (upstreamFailure is not null && GetGitSubcommand(arguments) == "config" &&
@@ -277,6 +327,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             {
                 Options.Add(options);
                 Arguments.Add(arguments.ToArray());
+                if (beforePush is not null) await beforePush(Options.Count);
                 var environment = new Dictionary<string, string?>(options.EnvironmentOverrides!);
                 int count = int.Parse(environment["GIT_CONFIG_COUNT"]!);
                 if (environment[$"GIT_CONFIG_VALUE_{count - 1}"] == hostedUrl)
@@ -285,7 +336,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                     throw new GitOperationException(128, "The requested URL returned error: 401");
                 options = options with { EnvironmentOverrides = environment };
             }
-            return inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
+            return await inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository) => inner.GetRecoverableRepositoryLock(repository);

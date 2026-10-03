@@ -271,7 +271,8 @@ public class HostedGitLfsTransferAgentTests
         Assert.That(await transfer, Is.EqualTo(1));
         Assert.That(requests, Is.EqualTo(5));
         Assert.That(destinationPath, Is.Not.Null);
-        Assert.That(File.Exists(destinationPath), Is.False);
+        Assert.That(File.Exists(destinationPath), Is.True);
+        Assert.That(await File.ReadAllBytesAsync(destinationPath!), Is.EqualTo(new byte[] { 42, 42, 42, 42 }));
         using JsonDocument completed = LastMessage(output);
         Assert.That(completed.RootElement.TryGetProperty("error", out _), Is.True);
     }
@@ -486,7 +487,7 @@ public class HostedGitLfsTransferAgentTests
         try { Assert.That(await File.ReadAllBytesAsync(path), Is.EqualTo(bytes)); }
         finally { File.Delete(path); }
         Assert.That(File.Exists(partial), Is.False);
-        Assert.That(Directory.EnumerateFiles(cache).Select(Path.GetFileName), Is.EqualTo(new[] { oid + ".lock" }));
+        Assert.That(Directory.EnumerateFiles(cache), Is.Empty);
     }
 
     [Test]
@@ -521,6 +522,9 @@ public class HostedGitLfsTransferAgentTests
         string partial = Path.Combine(cache, oid + ".partial");
         await File.WriteAllBytesAsync(partial, bytes[..5]);
         File.SetLastWriteTimeUtc(partial, DateTime.UtcNow.AddHours(-25));
+        string orphanLock = Path.Combine(cache, new string('1', 64) + ".lock");
+        await File.WriteAllBytesAsync(orphanLock, []);
+        File.SetLastWriteTimeUtc(orphanLock, DateTime.UtcNow.AddHours(-25));
         using var handler = new CallbackHandler((request, _) =>
         {
             Assert.That(request.Headers.Range, Is.Null);
@@ -531,6 +535,7 @@ public class HostedGitLfsTransferAgentTests
         AssertSuccess(output);
         using JsonDocument completed = LastMessage(output);
         File.Delete(completed.RootElement.GetProperty("path").GetString()!);
+        Assert.That(Directory.EnumerateFiles(cache), Is.Empty);
     }
 
     [Test]
@@ -550,6 +555,80 @@ public class HostedGitLfsTransferAgentTests
         using JsonDocument completed = LastMessage(output);
         Assert.That(completed.RootElement.TryGetProperty("error", out _), Is.True);
         Assert.That(await File.ReadAllBytesAsync(partial), Is.EqualTo(bytes[..5]));
+    }
+
+    [Test]
+    public async Task DownloadResumesAfterTransientRetriesAreExhausted()
+    {
+        byte[] bytes = "resume after repeated server errors"u8.ToArray();
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        string cache = NewDownloadCacheDirectory();
+        var clock = new FakeTimeProvider();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        int requests = 0;
+        using var interrupted = new CallbackHandler((request, _) =>
+        {
+            if (++requests == 1)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes[..3]) });
+            Assert.That(request.Headers.Range!.Ranges.Single().From, Is.EqualTo(3));
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+        });
+        Task<StringWriter> transfer = TransferAsync(interrupted, "download", bytes.Length, "https://storage.example/object",
+            bytes, oid, clock, cancellation.Token, cache);
+        while (!transfer.IsCompleted && !cancellation.IsCancellationRequested)
+        {
+            clock.Advance(TimeSpan.FromMinutes(1));
+            await Task.Delay(1);
+        }
+        using var failed = await transfer;
+        AssertError(failed, "no progress");
+        Assert.That(requests, Is.EqualTo(6));
+        Assert.That(await File.ReadAllBytesAsync(Path.Combine(cache, oid + ".partial")), Is.EqualTo(bytes[..3]));
+        await CompleteSavedDownloadAsync(bytes, oid, cache, 3);
+    }
+
+    [Test]
+    public async Task DownloadResumesAfterCallerCancellation()
+    {
+        byte[] bytes = "resume after cancellation"u8.ToArray();
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        string cache = NewDownloadCacheDirectory();
+        using var cancellation = new CancellationTokenSource();
+        int requests = 0;
+        using var interrupted = new CallbackHandler((request, token) =>
+        {
+            if (++requests == 1)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes[..5]) });
+            Assert.That(request.Headers.Range!.Ranges.Single().From, Is.EqualTo(5));
+            cancellation.Cancel();
+            return Task.FromCanceled<HttpResponseMessage>(token);
+        });
+        using var http = new HttpClient(interrupted);
+        using var input = TransferInput("download", bytes.Length, "fixture", "https://storage.example/object", oid: oid);
+        using var output = new StringWriter();
+        Assert.That(await HostedGitLfsTransferAgent.RunAsync(input, output, http, cancellation.Token,
+            _ => bytes.Length, _ => new MemoryStream(bytes), downloadCacheDirectory: cache), Is.EqualTo(1));
+        Assert.That(await File.ReadAllBytesAsync(Path.Combine(cache, oid + ".partial")), Is.EqualTo(bytes[..5]));
+        await CompleteSavedDownloadAsync(bytes, oid, cache, 5);
+    }
+
+    private async Task CompleteSavedDownloadAsync(byte[] bytes, string oid, string cache, int offset)
+    {
+        using var refreshed = new CallbackHandler((request, _) =>
+        {
+            Assert.That(request.Headers.Range!.Ranges.Single().From, Is.EqualTo(offset));
+            var content = new ByteArrayContent(bytes[offset..]);
+            content.Headers.ContentRange = new ContentRangeHeaderValue(offset, bytes.Length - 1, bytes.Length);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = content });
+        });
+        using var output = await TransferAsync(refreshed, "download", bytes.Length, "https://storage.example/object", bytes,
+            oid, downloadCacheDirectory: cache);
+        AssertSuccess(output);
+        using JsonDocument completed = LastMessage(output);
+        string path = completed.RootElement.GetProperty("path").GetString()!;
+        try { Assert.That(await File.ReadAllBytesAsync(path), Is.EqualTo(bytes)); }
+        finally { File.Delete(path); }
+        Assert.That(Directory.EnumerateFiles(cache), Is.Empty);
     }
 
     private async Task<StringWriter> TransferAsync(HttpMessageHandler handler, string operation,

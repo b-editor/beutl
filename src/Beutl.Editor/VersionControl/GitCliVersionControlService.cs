@@ -1370,7 +1370,7 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo repository, IGitCliRunner runner, IReadOnlyList<string> arguments,
         GitCommandOptions baseline, CancellationToken cancellationToken,
         IProgress<string>? progress = null, IReadOnlyList<string>? selectedUrls = null,
-        string? isolatedPushUrl = null, CheckedOutBranchTip? expectedPushTip = null)
+        string? isolatedPushUrl = null, string? prePushHookDirectory = null)
     {
         for (int attempt = 0; ; attempt++)
         {
@@ -1379,16 +1379,22 @@ internal sealed class GitCliVersionControlService :
             bool hostedAuthentication = selectedUrls is null
                 ? options.EnvironmentOverrides is not null
                 : selectedUrls.Any(url => HostedGitRemote.TryParse(url, out _));
+            if (prePushHookDirectory is not null)
+            {
+                var environment = options.EnvironmentOverrides is null
+                    ? new Dictionary<string, string?>(StringComparer.Ordinal)
+                    : new Dictionary<string, string?>(options.EnvironmentOverrides, StringComparer.Ordinal);
+                int count = environment.TryGetValue("GIT_CONFIG_COUNT", out string? rawCount)
+                    ? int.Parse(rawCount!, System.Globalization.CultureInfo.InvariantCulture) : 0;
+                environment[$"GIT_CONFIG_KEY_{count}"] = "core.hooksPath";
+                environment[$"GIT_CONFIG_VALUE_{count++}"] = prePushHookDirectory;
+                environment["GIT_CONFIG_COUNT"] = count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                options = options with { EnvironmentOverrides = environment };
+            }
             if (isolatedPushUrl is not null)
                 options = IsolatePushUrl(options, isolatedPushUrl);
             try
             {
-                if (expectedPushTip is not null &&
-                    await ReadRefCommitAsync(repository, runner, expectedPushTip.RefName, cancellationToken).ConfigureAwait(false)
-                        != expectedPushTip.Commit)
-                {
-                    throw new GitOperationException(1, "The local branch changed while preparing the push. Retry the push.");
-                }
                 await runner.RunAsync(repository, arguments, options, cancellationToken, progress).ConfigureAwait(false);
                 return;
             }
@@ -1415,6 +1421,58 @@ internal sealed class GitCliVersionControlService :
         environment[$"GIT_CONFIG_VALUE_{count++}"] = url;
         environment["GIT_CONFIG_COUNT"] = count.ToString(System.Globalization.CultureInfo.InvariantCulture);
         return options with { EnvironmentOverrides = environment };
+    }
+
+    private sealed class PinnedPrePushHook(string? directory) : IDisposable
+    {
+        public string? DirectoryPath { get; } = directory;
+
+        public void Dispose()
+        {
+            if (DirectoryPath is null) return;
+            try
+            {
+                File.Delete(Path.Combine(DirectoryPath, "pre-push"));
+                Directory.Delete(DirectoryPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    private static async Task<PinnedPrePushHook> CreatePinnedPrePushHookAsync(
+        RepositoryInfo repository, IGitCliRunner runner, CheckedOutBranchTip tip, CancellationToken cancellationToken)
+    {
+        GitCommandResult hookResult = await runner.RunAsync(repository,
+            ["rev-parse", "--git-path", "hooks/pre-push"], GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+        string originalHook = Path.GetFullPath(hookResult.Stdout.Trim(), repository.RepoRoot);
+        if (OperatingSystem.IsWindows() && !File.Exists(originalHook) && File.Exists(originalHook + ".exe"))
+            originalHook += ".exe";
+        if (!File.Exists(originalHook) || (!OperatingSystem.IsWindows() &&
+            (File.GetUnixFileMode(originalHook) & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) == 0))
+            return new PinnedPrePushHook(null);
+        string directory = Path.Combine(Path.GetTempPath(), $"beutl-pre-push-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var scope = new PinnedPrePushHook(directory);
+        try
+        {
+            static string Quote(string value) => "'" + value.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
+            string hookPath = OperatingSystem.IsWindows() ? originalHook.Replace('\\', '/') : originalHook;
+            string script = "#!/bin/sh\n" +
+                "while read -r local_ref local_oid remote_ref remote_oid; do\n" +
+                $"  if [ \"$local_ref\" = {Quote(tip.Commit)} ]; then local_ref={Quote(tip.RefName)}; fi\n" +
+                "  printf '%s %s %s %s\\n' \"$local_ref\" \"$local_oid\" \"$remote_ref\" \"$remote_oid\"\n" +
+                $"done | {Quote(hookPath)} \"$@\"\n";
+            string wrapper = Path.Combine(directory, "pre-push");
+            await File.WriteAllTextAsync(wrapper, script, cancellationToken).ConfigureAwait(false);
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(wrapper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            return scope;
+        }
+        catch
+        {
+            scope.Dispose();
+            throw;
+        }
     }
 
     public RepositoryLockInfo? RecoverableLock { get; private set; }
@@ -9146,6 +9204,10 @@ internal sealed class GitCliVersionControlService :
                         "for-each-ref", "--format=%(upstream)", currentTip.RefName],
                     GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
                 string trackingRef = trackingResult.Stdout.Trim();
+                // Pin the source OID for every destination. The temporary hook
+                // adapter preserves the original branch identity for user/LFS hooks.
+                using PinnedPrePushHook hook = await CreatePinnedPrePushHookAsync(repository, runner, currentTip,
+                    cancellationToken).ConfigureAwait(false);
                 foreach (string url in pushUrls)
                 {
                     bool preserveTracking = trackingRef.Length > 0 && !string.Equals(fetchUrl, url, StringComparison.Ordinal);
@@ -9154,8 +9216,8 @@ internal sealed class GitCliVersionControlService :
                     try
                     {
                         await RunNetworkWithTokenRefreshAsync(repository, runner,
-                            ["push", "--progress", "origin", $"{currentTip.RefName}:{remoteRef}"],
-                            GitCommandOptions.Network, cancellationToken, progress, [url], url, currentTip).ConfigureAwait(false);
+                            ["push", "--progress", "origin", $"{currentTip.Commit}:{remoteRef}"],
+                            GitCommandOptions.Network, cancellationToken, progress, [url], url, hook.DirectoryPath).ConfigureAwait(false);
                     }
                     finally
                     {

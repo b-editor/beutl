@@ -391,7 +391,7 @@ internal static class HostedGitLfsTransferAgent
         // Keep ownership until cleanup or the verified file has been moved.
         // A second agent for this OID must not delete or change our partial file.
         await using var cacheLock = new FileStream(Path.Combine(downloadCacheDirectory, message.Oid + ".lock"),
-            FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, bufferSize: 1, FileOptions.DeleteOnClose);
         bool ownsPartial = false;
         try
         {
@@ -480,7 +480,7 @@ internal static class HostedGitLfsTransferAgent
                     // imposing a minimum transfer speed on advancing downloads.
                     failures = received > previousReceived ? 0 : failures + 1;
                     if (failures >= 5)
-                        throw new IOException("LFS download made no progress after five attempts");
+                        throw new DownloadInterruptedException();
                     if (transportFailed || failures > 0 || smallResponses > 0)
                         await Task.Delay(TimeSpan.FromSeconds(1 << Math.Clamp(Math.Max(failures, smallResponses) - 1, 0, 3)),
                             timeProvider, cancellationToken);
@@ -494,9 +494,10 @@ internal static class HostedGitLfsTransferAgent
             File.Move(path, completedPath);
             return completedPath;
         }
-        catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        catch (Exception ex) when (ex is OperationCanceledException or DownloadInterruptedException ||
+            ex is HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden })
         {
-            // A newly authenticated Git LFS invocation resumes this OID and
+            // A subsequent Git LFS invocation resumes this OID and
             // rehashes its prefix. Never persist the URL or action headers.
             if (ownsPartial && new FileInfo(path).Length == 0) File.Delete(path);
             throw;
@@ -517,7 +518,7 @@ internal static class HostedGitLfsTransferAgent
             try
             {
                 using var cacheLock = new FileStream(Path.ChangeExtension(path, ".lock"),
-                    FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                    FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, bufferSize: 1, FileOptions.DeleteOnClose);
                 if (File.GetLastWriteTimeUtc(path) < cutoff) File.Delete(path);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -525,7 +526,19 @@ internal static class HostedGitLfsTransferAgent
                 // An active transfer owns the file, or cleanup is unavailable.
             }
         }
+        foreach (string path in Directory.EnumerateFiles(directory, "*.lock"))
+        {
+            if (File.GetLastWriteTimeUtc(path) >= cutoff) continue;
+            try
+            {
+                using var cacheLock = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite,
+                    FileShare.None, bufferSize: 1, FileOptions.DeleteOnClose);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
     }
+
+    private sealed class DownloadInterruptedException() : IOException("LFS download made no progress after five attempts") { }
 
     private static HttpRequestMessage NewRequest(HttpMethod method, Uri url, Dictionary<string, string>? headers)
     {
