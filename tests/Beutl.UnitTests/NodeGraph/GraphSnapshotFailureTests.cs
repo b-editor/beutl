@@ -185,6 +185,75 @@ public sealed class GraphSnapshotFailureTests
         Assert.That(replacement.Members.All(m => m.CreatedCount == m.DisposedCount), Is.True);
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task ConcurrentLifecycleDuringCleanup_IsRejectedWithoutLosingResources(
+        bool disposing, bool competingDispose)
+    {
+        var original = new ProbeNode();
+        var replacement = new ProbeNode();
+        var competing = new ProbeNode();
+        GraphModel originalModel = CreateModel(original);
+        GraphModel replacementModel = CreateModel(replacement);
+        GraphModel competingModel = CreateModel(competing);
+        var snapshot = new GraphSnapshot();
+        snapshot.Build(originalModel, CompositionContext.Default);
+        using var releaseCleanup = new ManualResetEventSlim();
+        var cleanupEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        original.UninitializeCallback = () =>
+        {
+            cleanupEntered.SetResult();
+            if (!releaseCleanup.Wait(TimeSpan.FromSeconds(10)))
+                throw new TimeoutException("The test did not release graph cleanup.");
+        };
+        Task owner = Task.Run(() =>
+        {
+            if (disposing)
+                snapshot.Dispose();
+            else
+            {
+                snapshot.MarkDirty();
+                snapshot.Build(replacementModel, CompositionContext.Default);
+            }
+        });
+        try
+        {
+            await cleanupEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Exception? failure = competingDispose
+                ? Assert.Catch(snapshot.Dispose)
+                : Assert.Catch(() => snapshot.Build(competingModel, CompositionContext.Default));
+            Assert.Multiple(() =>
+            {
+                Assert.That(failure, Is.TypeOf<InvalidOperationException>());
+                Assert.That(failure!.Message, Does.Contain("already in progress"));
+                Assert.That(competing.CreatedResources, Is.Empty);
+            });
+        }
+        finally
+        {
+            releaseCleanup.Set();
+            await owner.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        Assert.That(original.CreatedResources.Single().UninitializeCount, Is.EqualTo(1));
+        Assert.That(original.CreatedResources.Single().DisposeCount, Is.EqualTo(1));
+        snapshot.Dispose();
+        Assert.DoesNotThrow(() => snapshot.Build(competingModel, CompositionContext.Default));
+        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Dispose();
+        Assert.Multiple(() =>
+        {
+            Assert.That(competing.EvaluationCount, Is.EqualTo(1));
+            foreach (ProbeNode node in new[] { original, replacement, competing })
+            {
+                Assert.That(node.CreatedResources.All(r => r.IsDisposed), Is.True);
+                Assert.That(node.Members.All(m => m.CreatedCount == m.DisposedCount), Is.True);
+            }
+        });
+    }
+
     private static GraphModel CreateModel(params ProbeNode[] nodes)
     {
         var model = new GraphModel();

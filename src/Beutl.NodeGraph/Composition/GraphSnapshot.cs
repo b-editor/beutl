@@ -20,22 +20,21 @@ public sealed class GraphSnapshot : IDisposable
     private bool _isDirty = true;
     private int _resourceCount;
     private int _initializedResourceCount;
-    private bool _lifecycleInProgress;
+    private int _lifecycleInProgress;
 
     public void MarkDirty() => _isDirty = true;
 
     public void Build(GraphModel model, CompositionContext context)
     {
-        if (_lifecycleInProgress)
+        if (Interlocked.CompareExchange(ref _lifecycleInProgress, 1, 0) != 0)
             throw new InvalidOperationException("A graph snapshot lifecycle operation is already in progress.");
-        _lifecycleInProgress = true;
         try
         {
             BuildCore(model, context);
         }
         finally
         {
-            _lifecycleInProgress = false;
+            Interlocked.Exchange(ref _lifecycleInProgress, 0);
         }
     }
 
@@ -557,9 +556,8 @@ public sealed class GraphSnapshot : IDisposable
 
     public void Dispose()
     {
-        if (_lifecycleInProgress)
+        if (Interlocked.CompareExchange(ref _lifecycleInProgress, 1, 0) != 0)
             throw new InvalidOperationException("A graph snapshot lifecycle operation is already in progress.");
-        _lifecycleInProgress = true;
         try
         {
             Uninitialize();
@@ -568,7 +566,7 @@ public sealed class GraphSnapshot : IDisposable
         }
         finally
         {
-            _lifecycleInProgress = false;
+            Interlocked.Exchange(ref _lifecycleInProgress, 0);
         }
     }
 }
