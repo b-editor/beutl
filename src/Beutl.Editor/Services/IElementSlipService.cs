@@ -17,7 +17,8 @@ public interface IElementSlipService
 {
     /// <summary>
     /// Shift the source-media window inside every element of <paramref name="elements"/> by
-    /// <paramref name="delta"/>. Adjusts <see cref="Beutl.Graphics.SourceVideo.OffsetPosition"/>
+    /// the timeline-time <paramref name="delta"/>, converted to source time using each stream's
+    /// speed. Adjusts <see cref="Beutl.Graphics.SourceVideo.OffsetPosition"/>
     /// and <see cref="Beutl.Audio.Sound.OffsetPosition"/> on every slip-able media object
     /// reachable from <see cref="Element.Objects"/>, including sources nested inside
     /// Drawable and Sound containers. A single effective delta — the largest the tightest
@@ -28,7 +29,10 @@ public interface IElementSlipService
     /// no slip-able media are dropped at this mutation boundary (matching
     /// <see cref="IElementResizeService.Resize"/>) rather than blocking the group. Returns
     /// <see langword="false"/> (no commit) when <paramref name="delta"/> is zero, no element
-    /// survives that filter, or the shared clamped delta is zero.
+    /// survives that filter, or the shared clamped delta is zero. Varying speed animations,
+    /// evaluated speed expressions, and drawable time remapping on video reject the entire
+    /// slip before any mutation; drawable controllers do not restrict audio-only edits.
+    /// Flat speed keyframes and empty curves use their animated playback value.
     /// </summary>
     bool Slip(Scene scene, IReadOnlyList<Element> elements, TimeSpan delta);
 }

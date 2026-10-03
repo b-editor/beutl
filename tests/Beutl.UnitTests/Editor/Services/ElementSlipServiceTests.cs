@@ -1,6 +1,8 @@
 ﻿using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -274,6 +276,27 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_SubFrameSourceTail_ClampsToWholeSourceTicks()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromTicks(333333));
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 0.05)));
+        var sound = new SourceSound { Source = { CurrentValue = source }, Speed = { CurrentValue = 50 } };
+        var linked = new SourceSound();
+        element.Objects.Add(sound);
+        element.Objects.Add(linked);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromTicks(333333)));
+            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromTicks(666666)));
+        });
+    }
+
+    [Test]
     public void Slip_SceneSound_ClampsToReferencedSceneDuration()
     {
         // A 3s referenced scene with a 2s clip leaves 1s of headroom, like a 3s file source.
@@ -516,6 +539,209 @@ public class ElementSlipServiceTests
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_TimeRemappedSourceAlsoReachedDirectly_RejectsRegardlessOfTraversalOrder(bool directFirst)
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        var controller = new DrawableTimeController
+        {
+            Speed = { CurrentValue = 50 },
+            Target = { CurrentValue = video }
+        };
+        if (directFirst)
+            element.Objects.Add(video);
+        element.Objects.Add(controller);
+        if (!directFirst)
+            element.Objects.Add(video);
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slip_TimeRemappedFlowWithoutExplicitTarget_RejectsBeforeMutation()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        element.Objects.Add(video);
+        element.AddObject(new DrawableTimeController { Speed = { CurrentValue = 50 } });
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slip_SpeedExpression_RejectsBeforeMutation()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { Expression = Expression.Create<float>("200") } };
+        element.Objects.Add(video);
+        using var playback = (SourceVideo.Resource)video.ToResource(new CompositionContext(TimeSpan.FromSeconds(1)));
+        Assert.That(playback.Speed, Is.EqualTo(200));
+        Assert.That(playback.RequestedPosition, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.That(applied, Is.False);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(_history.UndoCount, Is.EqualTo(before));
+    }
+
+    [Test]
+    public void Slip_TimeControllerBeforeVideo_DoesNotBlockLaterSource()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 180)));
+        var video = new SourceVideo { Source = { CurrentValue = source }, Speed = { CurrentValue = 200 } };
+        var controller = new DrawableTimeController { Speed = { CurrentValue = 50 } };
+        element.Objects.Add(controller);
+        element.Objects.Add(video);
+
+        // Replay the compositor's order: the controller has no preceding drawable to
+        // consume, so the later video keeps its own 200% source-time mapping.
+        var context = new CompositionContext(TimeSpan.FromSeconds(1)) { Flow = [] };
+        using var controllerResource = (DrawableTimeController.Resource)controller.ToResource(context);
+        context.Flow.Add(controllerResource);
+        using var videoResource = (SourceVideo.Resource)video.ToResource(context);
+        Assert.That(controllerResource.Target, Is.Null);
+        Assert.That(videoResource.RequestedPosition, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [TestCase("Speed")]
+    [TestCase("OffsetPosition")]
+    [TestCase("AdjustTimeRange")]
+    [TestCase("Reverse")]
+    [TestCase("Loop")]
+    [TestCase("HoldFirstFrame")]
+    [TestCase("HoldLastFrame")]
+    [TestCase("FrameRate")]
+    public void Slip_ControllerExpression_RejectsBeforeMutation(string property)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        var controller = new DrawableTimeController { Target = { CurrentValue = video } };
+        switch (property)
+        {
+            case "Speed": controller.Speed.Expression = Expression.Create<float>("200"); break;
+            case "OffsetPosition": controller.OffsetPosition.Expression = Expression.Create<TimeSpan>("TimeSpan.FromSeconds(1)"); break;
+            case "AdjustTimeRange": controller.AdjustTimeRange.Expression = Expression.Create<bool>("true"); break;
+            case "Reverse": controller.Reverse.Expression = Expression.Create<bool>("true"); break;
+            case "Loop": controller.Loop.Expression = Expression.Create<bool>("true"); break;
+            case "HoldFirstFrame": controller.HoldFirstFrame.Expression = Expression.Create<bool>("true"); break;
+            case "HoldLastFrame": controller.HoldLastFrame.Expression = Expression.Create<bool>("true"); break;
+            case "FrameRate": controller.FrameRate.Expression = Expression.Create<float>("30"); break;
+        }
+        element.Objects.Add(controller);
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.That(applied, Is.False);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(_history.UndoCount, Is.EqualTo(before));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Slip_ContainerController_DoesNotRemapSiblingVideo(bool decorator, bool videoFirst)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        var controller = new DrawableTimeController { Speed = { CurrentValue = 50 } };
+        Drawable container = decorator ? new DrawableDecorator() : new DrawableGroup();
+        var children = container is DrawableDecorator d ? d.Children : ((DrawableGroup)container).Children;
+        children.Add(videoFirst ? video : controller);
+        children.Add(videoFirst ? controller : video);
+        element.Objects.Add(container);
+
+        using var resource = container.ToResource(new CompositionContext(TimeSpan.FromSeconds(1)) { Flow = [] });
+        var childResources = resource is DrawableDecorator.Resource dr
+            ? dr.Children : ((DrawableGroup.Resource)resource).Children;
+        Assert.That(childResources.OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
+        Assert.That(childResources.OfType<SourceVideo.Resource>().Single().RequestedPosition,
+            Is.EqualTo(TimeSpan.FromSeconds(2)));
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.That(applied, Is.True);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_DisabledControllerReferencedByPresenter_RejectsActiveMapping(bool controllerFirst)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
+            Speed = { CurrentValue = 200 }
+        };
+        var controller = new DrawableTimeController
+        {
+            TimeRange = video.TimeRange,
+            IsEnabled = false,
+            Speed = { CurrentValue = 50 },
+            Target = { CurrentValue = video }
+        };
+        var presenter = new DrawablePresenter { Target = { CurrentValue = controller } };
+        element.Objects.Add(video);
+        element.Objects.Add(controllerFirst ? controller : presenter);
+        element.Objects.Add(controllerFirst ? presenter : controller);
+
+        var context = new CompositionContext(TimeSpan.FromSeconds(1)) { Flow = [] };
+        using var videoResource = video.ToResource(context);
+        context.Flow.Add(videoResource);
+        using var presenterResource = (DrawablePresenter.Resource)presenter.ToResource(context);
+        var mapped = (DrawableTimeController.Resource)presenterResource.Target!;
+        Assert.That(((SourceVideo.Resource)mapped.Target!).RequestedPosition, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.That(applied, Is.False);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
 
     [Test]
