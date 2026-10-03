@@ -1225,6 +1225,13 @@ internal sealed class VersionControlCoordinator :
         await GetTrackedBackend().SetRemoteAsync(url.Trim(), operation.CancellationToken);
     }
 
+    public async Task AddRemoteIfAbsentAsync(string url, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+        using NonTransactionalOperationLease operation = await BeginNonTransactionalOperationAsync(cancellationToken);
+        await GetTrackedBackend().AddRemoteIfAbsentAsync(url.Trim(), operation.CancellationToken);
+    }
+
     public async Task SetLocalIdentityAsync(
         GitIdentity identity,
         CancellationToken cancellationToken = default)

@@ -1873,6 +1873,31 @@ internal sealed class GitCliVersionControlService :
             cancellationToken);
     }
 
+    public Task AddRemoteIfAbsentAsync(string url, CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+        ValidateRemoteUrl(url);
+        return RunSerializedAsync(async () =>
+        {
+            RepositoryInfo repository = GetRepository();
+            IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+            await UpdateLocalConfigAtomicallyAsync(repository, runner, async (stagingPath, token) =>
+            {
+                // The config lock is held before checking origin; another Git
+                // client cannot insert or replace it between this check and commit.
+                if ((await GetRemotesCoreAsync(token).ConfigureAwait(false)).Count > 0)
+                    throw new InvalidOperationException("The origin remote already exists; it was preserved.");
+                await runner.RunAsync(repository, ["config", "--file", stagingPath, "--add", "remote.origin.url", url],
+                    GitCommandOptions.Local, token).ConfigureAwait(false);
+                await runner.RunAsync(repository, ["config", "--file", stagingPath, "--add", "remote.origin.fetch",
+                    "+refs/heads/*:refs/remotes/origin/*"], GitCommandOptions.Local, token).ConfigureAwait(false);
+            }, "remote creation", cancellationToken).ConfigureAwait(false);
+            await TryRaiseLfsQuotaNoticeIfNeededAsync(repository, runner).ConfigureAwait(false);
+            await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        }, cancellationToken);
+    }
+
     public Task<RemoteOpResult> PushAsync(
         IProgress<string>? progress,
         CancellationToken cancellationToken)

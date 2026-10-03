@@ -636,7 +636,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
             await RefreshRemotesAsync(service, token, serviceRevision: revision,
                 freshness: () => IsCurrentService(service, revision, token));
             if (!IsCurrentService(service, revision, token)) return;
-            if ((HasRemote.Value || !await ConfigureRemoteAsync(lease, url)) && !token.IsCancellationRequested)
+            if ((HasRemote.Value || !await ConfigureRemoteAsync(lease, url, onlyIfAbsent: true)) && !token.IsCancellationRequested)
             {
                 NotificationService.ShowError(Strings.VersionControl_ErrorTitle,
                     string.Format(Strings.VersionControl_HostedRepositoryNotConnected, url));
@@ -694,7 +694,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
             : null;
     }
 
-    private async Task<bool> ConfigureRemoteAsync(RemoteMutationLease lease, string? selectedUrl = null)
+    private async Task<bool> ConfigureRemoteAsync(RemoteMutationLease lease, string? selectedUrl = null, bool onlyIfAbsent = false)
     {
         IProjectVersionControlCoordinator? coordinator = _versionControlCoordinator;
         IProjectVersionControlService? service = _service;
@@ -738,7 +738,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
             }
 
             string normalizedUrl = remoteUrl.Trim();
-            await coordinator.SetRemoteAsync(normalizedUrl, cancellationToken);
+            if (onlyIfAbsent) await coordinator.AddRemoteIfAbsentAsync(normalizedUrl, cancellationToken);
+            else await coordinator.SetRemoteAsync(normalizedUrl, cancellationToken);
             if (!IsCurrentService(service, revision, cancellationToken))
             {
                 return false;

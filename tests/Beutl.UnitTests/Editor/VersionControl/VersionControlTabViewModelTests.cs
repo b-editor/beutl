@@ -47,7 +47,7 @@ public class VersionControlTabViewModelTests
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.CreateHostedRepositoryAsync("hosted", It.IsAny<CancellationToken>())).ReturnsAsync(hosted);
-        coordinator.Setup(x => x.SetRemoteAsync(hosted, It.IsAny<CancellationToken>()))
+        coordinator.Setup(x => x.AddRemoteIfAbsentAsync(hosted, It.IsAny<CancellationToken>()))
             .Returns(fail ? Task.FromException(new InvalidOperationException("configuration failed")) : Task.CompletedTask);
         using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
@@ -65,7 +65,8 @@ public class VersionControlTabViewModelTests
             typeof(NotificationService).GetField("s_handler", System.Reflection.BindingFlags.Static
                 | System.Reflection.BindingFlags.NonPublic)!.SetValue(null, previous);
         }
-        coordinator.Verify(x => x.SetRemoteAsync(hosted, It.IsAny<CancellationToken>()), Times.Once);
+        coordinator.Verify(x => x.AddRemoteIfAbsentAsync(hosted, It.IsAny<CancellationToken>()), Times.Once);
+        coordinator.Verify(x => x.SetRemoteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         Assert.That(viewModel.HasRemote.Value, Is.EqualTo(!fail));
         Assert.That(viewModel.CreateHostedRepositoryCommand.CanExecute(), Is.EqualTo(fail));
         if (!fail) Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(hosted));

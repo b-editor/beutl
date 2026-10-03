@@ -379,6 +379,148 @@ public class HostedGitLfsTransferAgentTests
         }
     }
 
+    [TestCase("basic")]
+    [TestCase("multipart")]
+    [TestCase("tus")]
+    public async Task UploadResumesAfterResponseHeadersStall(string kind)
+    {
+        byte[] bytes = "data"u8.ToArray();
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        var clock = new FakeTimeProvider();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        int uploads = 0;
+        long offset = 0;
+        using var handler = new CallbackHandler(async (request, token) =>
+        {
+            if (kind == "multipart" && request.Method == HttpMethod.Post)
+                return request.RequestUri!.AbsolutePath.EndsWith("/complete", StringComparison.Ordinal)
+                    ? JsonResponse(new { oid, size = bytes.Length })
+                    : JsonResponse(new { partSize = PartSize, partCount = 1, parts = Array.Empty<object>() });
+            if (kind == "tus" && request.Method != HttpMethod.Patch)
+            {
+                var result = new HttpResponseMessage(request.Method == HttpMethod.Post ? HttpStatusCode.Created : HttpStatusCode.OK);
+                result.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
+                if (request.Method == HttpMethod.Post) result.Headers.Location = new Uri(request.RequestUri!.ToString() + "/upload");
+                else
+                {
+                    result.Headers.TryAddWithoutValidation("Upload-Length", bytes.Length.ToString());
+                    result.Headers.TryAddWithoutValidation("Upload-Offset", offset.ToString());
+                    result.Headers.TryAddWithoutValidation("Upload-Verified", offset == bytes.Length ? "true" : "false");
+                }
+                return result;
+            }
+            Assert.That(await request.Content!.ReadAsByteArrayAsync(token), Is.EqualTo(bytes));
+            uploads++;
+            offset = bytes.Length;
+            if (uploads == 1) await Task.Delay(Timeout.Infinite, token);
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        Task<StringWriter> transfer = TransferAsync(handler, "upload", bytes.Length,
+            "https://storage.example/object" + (kind == "basic" ? "" : "/" + kind), bytes, oid, clock, cancellation.Token);
+        while (!transfer.IsCompleted && !cancellation.IsCancellationRequested)
+        {
+            clock.Advance(TimeSpan.FromMinutes(1));
+            await Task.Delay(1);
+        }
+        using var output = await transfer;
+        AssertSuccess(output);
+        Assert.That(uploads, Is.EqualTo(kind == "tus" ? 1 : 2));
+    }
+
+    [Test]
+    public async Task UploadRetriesWhenTheTransportStopsConsumingTheBody()
+    {
+        byte[] bytes = "body data"u8.ToArray();
+        var clock = new FakeTimeProvider();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        int attempts = 0;
+        using var handler = new CallbackHandler(async (request, token) =>
+        {
+            if (++attempts == 1) await request.Content!.CopyToAsync(new BlockedWriteStream(), token);
+            Assert.That(await request.Content!.ReadAsByteArrayAsync(token), Is.EqualTo(bytes));
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        Task<StringWriter> transfer = TransferAsync(handler, "upload", bytes.Length, "https://storage.example/object",
+            bytes, timeProvider: clock, cancellationToken: cancellation.Token);
+        while (!transfer.IsCompleted && !cancellation.IsCancellationRequested)
+        {
+            clock.Advance(TimeSpan.FromMinutes(1));
+            await Task.Delay(1);
+        }
+        using var output = await transfer;
+        AssertSuccess(output);
+        Assert.That(attempts, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task UploadKeepsAdvancingWhenOneRequestExceedsTheIdleWindow()
+    {
+        byte[] bytes = Enumerable.Range(0, 16).Select(index => (byte)index).ToArray();
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        var clock = new FakeTimeProvider();
+        DateTimeOffset startedAt = clock.GetUtcNow();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        int attempts = 0;
+        using var handler = new CallbackHandler(async (request, token) =>
+        {
+            attempts++;
+            Assert.That(await request.Content!.ReadAsByteArrayAsync(token), Is.EqualTo(bytes));
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        using var http = new HttpClient(handler);
+        using var input = TransferInput("upload", bytes.Length, "fixture", "https://storage.example/object", oid: oid);
+        using var output = new StringWriter();
+        Task<int> transfer = HostedGitLfsTransferAgent.RunAsync(input, output, http, cancellation.Token,
+            _ => bytes.Length, _ => new SlowUploadStream(bytes, clock), timeProvider: clock);
+        while (!transfer.IsCompleted && !cancellation.IsCancellationRequested)
+        {
+            clock.Advance(TimeSpan.FromMinutes(1));
+            await Task.Delay(1);
+        }
+        Assert.That(await transfer, Is.EqualTo(0));
+        AssertSuccess(output);
+        Assert.That(attempts, Is.EqualTo(1));
+        Assert.That(clock.GetUtcNow() - startedAt, Is.GreaterThan(TimeSpan.FromMinutes(2)));
+    }
+
+    private sealed class SlowUploadStream(byte[] bytes, TimeProvider clock) : Stream
+    {
+        private int _position;
+        public override bool CanRead => true;
+        public override bool CanWrite => false;
+        public override bool CanSeek => false;
+        public override long Length => bytes.Length;
+        public override long Position { get => _position; set => throw new NotSupportedException(); }
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (_position == bytes.Length) return 0;
+            await Task.Delay(TimeSpan.FromMinutes(1), clock, cancellationToken);
+            buffer.Span[0] = bytes[_position++];
+            return 1;
+        }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Flush() => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class BlockedWriteStream : Stream
+    {
+        public override bool CanRead => false;
+        public override bool CanWrite => true;
+        public override bool CanSeek => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) =>
+            new(Task.Delay(Timeout.Infinite, cancellationToken));
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Flush() { }
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    }
+
     private sealed class FailingWriteStream(string path, int partiallyWritten) : FileStream(path,
         FileMode.CreateNew, FileAccess.Write, FileShare.None, 128 * 1024, FileOptions.Asynchronous)
     {

@@ -69,7 +69,8 @@ internal static class HostedGitLfsTransferAgent
                     }
                     if (message.Event == "upload")
                     {
-                        await UploadAsync(message, url, http, output, fileLength, openRead, cancellationToken);
+                        await UploadAsync(message, url, http, output, fileLength, openRead, cancellationToken,
+                            timeProvider ?? TimeProvider.System);
                         await WriteAsync(output, new { @event = "complete", oid });
                     }
                     else
@@ -95,22 +96,22 @@ internal static class HostedGitLfsTransferAgent
 
     private static async Task UploadAsync(
         Message message, Uri url, HttpClient http, TextWriter output,
-        Func<string, long> fileLength, Func<string, Stream> openRead, CancellationToken cancellationToken)
+        Func<string, long> fileLength, Func<string, Stream> openRead, CancellationToken cancellationToken, TimeProvider timeProvider)
     {
         string path = message.Path ?? throw new InvalidOperationException("Upload file path is missing");
         if (fileLength(path) != message.Size)
             throw new InvalidOperationException("The LFS upload file size changed");
         if (url.AbsolutePath.EndsWith("/tus", StringComparison.Ordinal))
-            await UploadTusAsync(message, url, http, output, openRead, cancellationToken);
+            await UploadTusAsync(message, url, http, output, openRead, cancellationToken, timeProvider);
         else if (url.AbsolutePath.EndsWith("/multipart", StringComparison.Ordinal))
-            await UploadMultipartAsync(message, url, http, output, openRead, cancellationToken);
+            await UploadMultipartAsync(message, url, http, output, openRead, cancellationToken, timeProvider);
         else
-            await UploadBasicAsync(message, url, http, output, openRead, cancellationToken);
+            await UploadBasicAsync(message, url, http, output, openRead, cancellationToken, timeProvider);
     }
 
     private static async Task UploadBasicAsync(
         Message message, Uri url, HttpClient http, TextWriter output,
-        Func<string, Stream> openRead, CancellationToken cancellationToken)
+        Func<string, Stream> openRead, CancellationToken cancellationToken, TimeProvider timeProvider)
     {
         await SendWithRetryAsync(http, () =>
         {
@@ -120,16 +121,16 @@ internal static class HostedGitLfsTransferAgent
             request.Content.Headers.ContentLength = message.Size;
             AddActionHeaders(request, message.Action!.Header);
             return request;
-        }, cancellationToken);
+        }, cancellationToken, timeProvider);
         await ProgressAsync(output, message.Oid!, message.Size, message.Size);
     }
 
     private static async Task UploadMultipartAsync(
         Message message, Uri url, HttpClient http, TextWriter output,
-        Func<string, Stream> openRead, CancellationToken cancellationToken)
+        Func<string, Stream> openRead, CancellationToken cancellationToken, TimeProvider timeProvider)
     {
         using JsonDocument started = await SendJsonWithRetryAsync(http,
-            () => NewRequest(HttpMethod.Post, url, message.Action!.Header), cancellationToken);
+            () => NewRequest(HttpMethod.Post, url, message.Action!.Header), cancellationToken, timeProvider);
         StartResult status = started.Deserialize<StartResult>(s_json)
             ?? throw new InvalidOperationException("Invalid multipart start response");
         if (status.Complete) return;
@@ -158,13 +159,13 @@ internal static class HostedGitLfsTransferAgent
                 request.Content.Headers.ContentLength = length;
                 AddActionHeaders(request, message.Action!.Header);
                 return request;
-            }, cancellationToken);
+            }, cancellationToken, timeProvider);
             progress += length;
             await ProgressAsync(output, message.Oid!, progress, length);
         }
         Uri completeUrl = new UriBuilder(url) { Path = url.AbsolutePath.TrimEnd('/') + "/complete" }.Uri;
         using JsonDocument completedUpload = await WaitMultipartCompletionAsync(
-            http, completeUrl, message.Action!.Header, cancellationToken);
+            http, completeUrl, message.Action!.Header, cancellationToken, timeProvider);
         if (completedUpload.RootElement.GetProperty("oid").GetString() != message.Oid ||
             completedUpload.RootElement.GetProperty("size").GetInt64() != message.Size)
             throw new InvalidOperationException("Multipart verification response does not match the LFS object");
@@ -173,7 +174,7 @@ internal static class HostedGitLfsTransferAgent
 
     private static async Task UploadTusAsync(
         Message message, Uri creationUrl, HttpClient http, TextWriter output,
-        Func<string, Stream> openRead, CancellationToken cancellationToken)
+        Func<string, Stream> openRead, CancellationToken cancellationToken, TimeProvider timeProvider)
     {
         using HttpResponseMessage created = await SendTusRequestWithRetryAsync(http, () =>
         {
@@ -184,7 +185,7 @@ internal static class HostedGitLfsTransferAgent
             request.Content = new ByteArrayContent([]);
             AddActionHeaders(request, message.Action!.Header);
             return request;
-        }, cancellationToken);
+        }, cancellationToken, timeProvider);
         if (created.StatusCode != HttpStatusCode.Created || created.Headers.Location is null)
             throw new InvalidOperationException("Invalid tus creation response");
         CheckTusVersion(created);
@@ -198,7 +199,7 @@ internal static class HostedGitLfsTransferAgent
             throw new InvalidOperationException("Invalid tus upload URL");
 
         long offset = await GetTusOffsetAsync(http, uploadUrl, message.Action!.Header,
-            message.Size, cancellationToken);
+            message.Size, cancellationToken, timeProvider);
         if (offset > 0) await ProgressAsync(output, message.Oid!, offset, offset);
         while (offset < message.Size)
         {
@@ -221,8 +222,8 @@ internal static class HostedGitLfsTransferAgent
                     AddActionHeaders(request, message.Action!.Header);
                     request.Content.Headers.ContentType =
                         new MediaTypeHeaderValue("application/offset+octet-stream");
-                    response = await http.SendAsync(request,
-                        HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                    response = await SendUploadRequestAsync(http, request,
+                        HttpCompletionOption.ResponseHeadersRead, cancellationToken, timeProvider);
                     if (response.StatusCode == HttpStatusCode.NoContent)
                     {
                         CheckTusVersion(response);
@@ -251,7 +252,7 @@ internal static class HostedGitLfsTransferAgent
                     response?.Dispose();
                 }
                 long reported = await GetTusOffsetAsync(http, uploadUrl, message.Action!.Header,
-                    message.Size, cancellationToken);
+                    message.Size, cancellationToken, timeProvider);
                 if (reported < before)
                     throw new InvalidOperationException("tus offset moved backwards");
                 if (reported > before)
@@ -262,21 +263,21 @@ internal static class HostedGitLfsTransferAgent
                 }
                 if (attempt == 4)
                     throw new InvalidOperationException("tus PATCH did not advance");
-                await Task.Delay(TimeSpan.FromSeconds(1 << attempt), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(1 << attempt), timeProvider, cancellationToken);
             }
             if (!advanced || offset <= before)
                 throw new InvalidOperationException("tus upload did not advance");
             await ProgressAsync(output, message.Oid!, offset, offset - before);
         }
         await WaitTusVerificationAsync(http, uploadUrl, message.Action!.Header,
-            message.Size, cancellationToken);
+            message.Size, cancellationToken, timeProvider);
     }
 
     private static async Task WaitTusVerificationAsync(
         HttpClient http, Uri uploadUrl, Dictionary<string, string>? headers,
-        long size, CancellationToken cancellationToken)
+        long size, CancellationToken cancellationToken, TimeProvider timeProvider)
     {
-        DateTime deadline = DateTime.UtcNow.AddHours(24);
+        DateTimeOffset deadline = timeProvider.GetUtcNow().AddHours(24);
         while (true)
         {
             using HttpResponseMessage response = await SendTusRequestWithRetryAsync(http, () =>
@@ -284,7 +285,7 @@ internal static class HostedGitLfsTransferAgent
                 var request = NewRequest(HttpMethod.Head, uploadUrl, headers);
                 request.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
                 return request;
-            }, cancellationToken);
+            }, cancellationToken, timeProvider);
             CheckTusVersion(response);
             if (ReadTusNumber(response, "Upload-Length") != size || ReadTusOffset(response) != size)
                 throw new InvalidOperationException("tus verification offset changed");
@@ -294,40 +295,40 @@ internal static class HostedGitLfsTransferAgent
             if (verified == "true") return;
             if (verified != "false")
                 throw new InvalidOperationException("Invalid tus verification status");
-            if (DateTime.UtcNow >= deadline)
+            if (timeProvider.GetUtcNow() >= deadline)
                 throw new TimeoutException("tus verification did not finish before the upload expired");
-            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(250), timeProvider, cancellationToken);
         }
     }
 
     private static async Task<JsonDocument> WaitMultipartCompletionAsync(
         HttpClient http, Uri completeUrl, Dictionary<string, string>? headers,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, TimeProvider timeProvider)
     {
-        DateTime deadline = DateTime.UtcNow.AddHours(24);
+        DateTimeOffset deadline = timeProvider.GetUtcNow().AddHours(24);
         while (true)
         {
             JsonDocument result = await SendJsonWithRetryAsync(http,
-                () => NewRequest(HttpMethod.Post, completeUrl, headers), cancellationToken);
+                () => NewRequest(HttpMethod.Post, completeUrl, headers), cancellationToken, timeProvider);
             if (!result.RootElement.TryGetProperty("verifying", out JsonElement verifying) ||
                 verifying.ValueKind != JsonValueKind.True) return result;
             result.Dispose();
-            if (DateTime.UtcNow >= deadline)
+            if (timeProvider.GetUtcNow() >= deadline)
                 throw new TimeoutException("Multipart verification did not finish before the upload expired");
-            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(250), timeProvider, cancellationToken);
         }
     }
 
     private static async Task<long> GetTusOffsetAsync(
         HttpClient http, Uri uploadUrl, Dictionary<string, string>? headers,
-        long size, CancellationToken cancellationToken)
+        long size, CancellationToken cancellationToken, TimeProvider timeProvider)
     {
         using HttpResponseMessage response = await SendTusRequestWithRetryAsync(http, () =>
         {
             var request = NewRequest(HttpMethod.Head, uploadUrl, headers);
             request.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
             return request;
-        }, cancellationToken);
+        }, cancellationToken, timeProvider);
         if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.NoContent))
             throw new InvalidOperationException("Invalid tus HEAD response");
         CheckTusVersion(response);
@@ -358,15 +359,15 @@ internal static class HostedGitLfsTransferAgent
     }
 
     private static async Task<HttpResponseMessage> SendTusRequestWithRetryAsync(
-        HttpClient http, Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken)
+        HttpClient http, Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken, TimeProvider timeProvider)
     {
         for (int attempt = 0; ; attempt++)
         {
             using HttpRequestMessage request = requestFactory();
             try
             {
-                HttpResponseMessage response = await http.SendAsync(request,
-                    HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                HttpResponseMessage response = await SendUploadRequestAsync(http, request,
+                    HttpCompletionOption.ResponseHeadersRead, cancellationToken, timeProvider);
                 if (response.IsSuccessStatusCode) return response;
                 HttpStatusCode status = response.StatusCode;
                 response.Dispose();
@@ -374,7 +375,7 @@ internal static class HostedGitLfsTransferAgent
                     throw new InvalidOperationException($"tus request failed: HTTP {(int)status}");
             }
             catch (HttpRequestException) when (attempt < 4) { }
-            await Task.Delay(TimeSpan.FromSeconds(1 << attempt), cancellationToken);
+            await Task.Delay(TimeSpan.FromSeconds(1 << attempt), timeProvider, cancellationToken);
         }
     }
 
@@ -576,32 +577,34 @@ internal static class HostedGitLfsTransferAgent
     }
 
     private static async Task SendWithRetryAsync(
-        HttpClient http, Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken)
+        HttpClient http, Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken, TimeProvider timeProvider)
     {
         for (int attempt = 0; ; attempt++)
         {
             using HttpRequestMessage request = requestFactory();
             try
             {
-                using HttpResponseMessage response = await http.SendAsync(request, cancellationToken);
+                using HttpResponseMessage response = await SendUploadRequestAsync(http, request,
+                    HttpCompletionOption.ResponseContentRead, cancellationToken, timeProvider);
                 if (response.IsSuccessStatusCode) return;
                 if (attempt >= 4 || !Retryable(response.StatusCode))
                     throw new InvalidOperationException($"LFS transfer failed: HTTP {(int)response.StatusCode}");
             }
             catch (HttpRequestException) when (attempt < 4) { }
-            await Task.Delay(TimeSpan.FromSeconds(1 << attempt), cancellationToken);
+            await Task.Delay(TimeSpan.FromSeconds(1 << attempt), timeProvider, cancellationToken);
         }
     }
 
     private static async Task<JsonDocument> SendJsonWithRetryAsync(
-        HttpClient http, Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken)
+        HttpClient http, Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken, TimeProvider timeProvider)
     {
         for (int attempt = 0; ; attempt++)
         {
             using HttpRequestMessage request = requestFactory();
             try
             {
-                using HttpResponseMessage response = await http.SendAsync(request, cancellationToken);
+                using HttpResponseMessage response = await SendUploadRequestAsync(http, request,
+                    HttpCompletionOption.ResponseContentRead, cancellationToken, timeProvider);
                 if (response.IsSuccessStatusCode)
                     return await JsonDocument.ParseAsync(
                         await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
@@ -609,11 +612,74 @@ internal static class HostedGitLfsTransferAgent
                     throw new InvalidOperationException($"LFS transfer failed: HTTP {(int)response.StatusCode}");
             }
             catch (HttpRequestException) when (attempt < 4) { }
-            await Task.Delay(TimeSpan.FromSeconds(1 << attempt), cancellationToken);
+            await Task.Delay(TimeSpan.FromSeconds(1 << attempt), timeProvider, cancellationToken);
         }
     }
 
     private static bool Retryable(HttpStatusCode status) => status == HttpStatusCode.TooManyRequests || (int)status >= 500;
+
+    private static async Task<HttpResponseMessage> SendUploadRequestAsync(
+        HttpClient http, HttpRequestMessage request, HttpCompletionOption completion,
+        CancellationToken cancellationToken, TimeProvider timeProvider)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2), timeProvider);
+        using var idle = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
+        if (request.Content is { } content)
+            request.Content = new IdleUploadContent(content, () => timeout.CancelAfter(TimeSpan.FromMinutes(2)));
+        try { return await http.SendAsync(request, completion, idle.Token); }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new HttpRequestException("LFS upload stalled", ex);
+        }
+    }
+
+    private sealed class IdleUploadContent : HttpContent
+    {
+        private readonly HttpContent _content;
+        private readonly Action _progress;
+        public IdleUploadContent(HttpContent content, Action progress)
+        {
+            _content = content;
+            _progress = progress;
+            foreach (var header in content.Headers) Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+        protected override bool TryComputeLength(out long length)
+        {
+            length = _content.Headers.ContentLength ?? 0;
+            return _content.Headers.ContentLength is not null;
+        }
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+            SerializeToStreamAsync(stream, context, CancellationToken.None);
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken) =>
+            _content.CopyToAsync(new ProgressWriteStream(stream, _progress), cancellationToken);
+        protected override void Dispose(bool disposing) { if (disposing) _content.Dispose(); base.Dispose(disposing); }
+    }
+
+    private sealed class ProgressWriteStream(Stream destination, Action progress) : Stream
+    {
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await destination.WriteAsync(buffer, cancellationToken);
+            if (!buffer.IsEmpty) progress();
+        }
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            WriteAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            destination.Write(buffer, offset, count);
+            if (count > 0) progress();
+        }
+        public override void Flush() => destination.Flush();
+        public override Task FlushAsync(CancellationToken cancellationToken) => destination.FlushAsync(cancellationToken);
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+    }
 
     private static Task ProgressAsync(TextWriter output, string oid, long total, long delta) =>
         WriteAsync(output, new { @event = "progress", oid, bytesSoFar = total, bytesSinceLast = delta });

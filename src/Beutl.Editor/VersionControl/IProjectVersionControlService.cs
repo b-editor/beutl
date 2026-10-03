@@ -87,6 +87,9 @@ internal interface IProjectVersionControlBackend :
 
     Task SetRemoteAsync(string url, CancellationToken cancellationToken);
 
+    Task AddRemoteIfAbsentAsync(string url, CancellationToken cancellationToken)
+        => throw new NotSupportedException("Conditional remote creation is unavailable.");
+
     Task<RemoteOpResult> PushAsync(
         IProgress<string>? progress,
         CancellationToken cancellationToken);

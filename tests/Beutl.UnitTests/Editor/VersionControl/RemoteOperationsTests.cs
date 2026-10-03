@@ -91,7 +91,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
         int issued = 0;
         service.HostedGitTokenProvider = (_, _) => { issued++; return Task.FromResult("temporary"); };
-        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.TypeOf<RemoteOpResult.Success>());
+        RemoteOpResult result = await service.PushAsync(null, CancellationToken.None);
+        Assert.That(result, Is.TypeOf<RemoteOpResult.Success>(), result.ToString());
         Assert.That(issued, Is.EqualTo(1));
         for (int index = 0; index < 2; index++)
         {
@@ -281,6 +282,51 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string tip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await service.CreateBranchAsync("offline", tip, CancellationToken.None);
         Assert.That((await RunGitAsync("branch", "--show-current")).Stdout.Trim(), Is.EqualTo("offline"));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Hosted_remote_add_preserves_an_origin_created_at_mutation_time(bool concurrentOrigin)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        const string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
+        const string existing = "https://example.invalid/existing.git";
+        byte[]? savedConfig = null;
+        var runner = new BeforeRemoteConfigRunner(CreateRunner(), async () =>
+        {
+            if (concurrentOrigin) await RunGitAsync("remote", "add", "origin", existing);
+            savedConfig = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config"));
+        });
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        if (concurrentOrigin)
+        {
+            Assert.That(async () => await service.AddRemoteIfAbsentAsync(hosted, CancellationToken.None),
+                Throws.TypeOf<InvalidOperationException>().With.Message.Contains("preserved"));
+            Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(savedConfig));
+        }
+        else await service.AddRemoteIfAbsentAsync(hosted, CancellationToken.None);
+        Assert.That((await RunGitAsync("remote", "get-url", "origin")).Stdout.Trim(), Is.EqualTo(concurrentOrigin ? existing : hosted));
+        Assert.That((await RunGitAsync("config", "--get", "remote.origin.fetch")).Stdout.Trim(),
+            Is.EqualTo("+refs/heads/*:refs/remotes/origin/*"));
+        Assert.That(File.Exists(Path.Combine(Root, ".git", "config.lock")), Is.False);
+    }
+
+    private sealed class BeforeRemoteConfigRunner(IGitCliRunner inner, Func<Task> beforeConfig) : IGitCliRunner
+    {
+        private bool _injected;
+        public bool HasActiveProcess => inner.HasActiveProcess;
+        public async Task<GitCommandResult> RunAsync(RepositoryInfo repository, IReadOnlyList<string> arguments,
+            GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? stderrProgress = null)
+        {
+            if (!_injected && arguments.Contains("--git-path") && arguments.Contains("config"))
+            {
+                _injected = true;
+                await beforeConfig();
+            }
+            return await inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
+        }
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository) => inner.GetRecoverableRepositoryLock(repository);
+        public bool RemoveRecoverableRepositoryLock(RepositoryInfo repository, RepositoryLockInfo lockInfo) => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
     [TestCase(2, 3)]

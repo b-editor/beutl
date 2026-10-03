@@ -32,6 +32,9 @@ internal interface IProjectVersionControlCoordinator
         string url,
         CancellationToken cancellationToken);
 
+    Task AddRemoteIfAbsentAsync(string url, CancellationToken cancellationToken)
+        => throw new NotSupportedException("Conditional remote creation is unavailable.");
+
     Task SetLocalIdentityAsync(
         GitIdentity identity,
         CancellationToken cancellationToken);
