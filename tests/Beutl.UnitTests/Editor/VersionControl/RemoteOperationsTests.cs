@@ -370,7 +370,32 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.EqualTo($"Authorization: Bearer token-{attempts}"));
     }
 
-    private sealed class HostedPushRunner(IGitCliRunner inner, int failures, string networkCommand = "push") : IGitCliRunner
+    [TestCase("LFS download failed: HTTP 403", 2, 3)]
+    [TestCase("LFS transfer failed: HTTP 403", 2, 3)]
+    [TestCase("tus request failed: HTTP 403", 2, 3)]
+    [TestCase("tus PATCH failed: HTTP 403", 2, 3)]
+    [TestCase("LFS download failed: HTTP 403", 10, 5)]
+    [TestCase("LFS transfer failed: HTTP 403", 10, 5)]
+    [TestCase("tus request failed: HTTP 403", 10, 5)]
+    [TestCase("tus PATCH failed: HTTP 403", 10, 5)]
+    public async Task Hosted_lfs_403_refreshes_actions_with_a_bounded_retry(string failure, int failures, int attempts)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await RunGitAsync("remote", "add", "origin", "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git");
+        var runner = new HostedPushRunner(CreateRunner(), failures, authenticationFailure: failure);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(lfsInstalled: true), Repository, null, _ => runner);
+        int issued = 0;
+        service.HostedGitTokenProvider = (_, _) => Task.FromResult($"token-{++issued}");
+        RemoteOpResult result = await service.PushAsync(null, CancellationToken.None);
+        Assert.That(result is RemoteOpResult.Success, Is.EqualTo(failures < 5));
+        Assert.That(issued, Is.EqualTo(attempts));
+        Assert.That(runner.Options, Has.Count.EqualTo(attempts));
+        Assert.That(runner.Options[^1].EnvironmentOverrides!["GIT_CONFIG_VALUE_0"],
+            Is.EqualTo($"Authorization: Bearer token-{attempts}"));
+    }
+
+    private sealed class HostedPushRunner(IGitCliRunner inner, int failures, string networkCommand = "push",
+        string authenticationFailure = "The requested URL returned error: 401") : IGitCliRunner
     {
         public bool HasActiveProcess => inner.HasActiveProcess;
         public List<GitCommandOptions> Options { get; } = [];
@@ -388,7 +413,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Options.Add(options);
             Arguments.Add(arguments.ToArray());
             if (Options.Count <= failures)
-                throw new GitOperationException(128, "The requested URL returned error: 401");
+                throw new GitOperationException(128, authenticationFailure);
             return Task.FromResult(new GitCommandResult(0, "", ""));
         }
 

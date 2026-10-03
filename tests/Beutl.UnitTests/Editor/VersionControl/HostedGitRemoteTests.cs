@@ -42,6 +42,10 @@ public class HostedGitRemoteTests
     [TestCase("HTTP/2 401", true)]
     [TestCase("Authentication failed", true)]
     [TestCase("LFS download failed: HTTP 403", true)]
+    [TestCase("LFS transfer failed: HTTP 403", true)]
+    [TestCase("tus request failed: HTTP 403", true)]
+    [TestCase("tus PATCH failed: HTTP 403", true)]
+    [TestCase("LFS transfer failed: HTTP 4030", false)]
     [TestCase("The requested URL returned error: 403", false)]
     public void AuthenticationRetryRequiresAnAuthenticationError(string stderr, bool expected)
     {

@@ -9264,10 +9264,10 @@ internal sealed class GitCliVersionControlService :
 
     internal static bool IsHostedAuthenticationFailure(GitOperationException exception)
         => System.Text.RegularExpressions.Regex.IsMatch(exception.Stderr,
-               @"(?:HTTP(?:/\d(?:\.\d)?)?\s+(?:error\s+)?401\b|requested URL returned error:\s*401\b)",
+               @"(?:HTTP(?:/\d(?:\.\d)?)?\s+(?:error\s+)?401\b|requested URL returned error:\s*401\b|" +
+               @"(?:LFS (?:download|transfer)|tus (?:request|PATCH)) failed:\s*HTTP\s+403\b)",
                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)
-           || exception.Stderr.Contains("Authentication failed", StringComparison.OrdinalIgnoreCase)
-           || exception.Stderr.Contains("LFS download failed: HTTP 403", StringComparison.OrdinalIgnoreCase);
+           || exception.Stderr.Contains("Authentication failed", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<string?> ReadRefCommitAsync(
         RepositoryInfo repository, IGitCliRunner runner, string reference, CancellationToken cancellationToken)

@@ -416,6 +416,16 @@ internal static class HostedGitLfsTransferAgent
                 int smallResponses = 0;
                 long progressCheckpoint = 0;
                 long minimumProgress = Math.Min(buffer.Length, Math.Max(1, message.Size / 16));
+                async Task<T> WithIdleTimeoutAsync<T>(Func<CancellationToken, Task<T>> operation)
+                {
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2), timeProvider);
+                    using var idle = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
+                    try { return await operation(idle.Token); }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        throw new IOException("LFS download stalled");
+                    }
+                }
                 while (received < message.Size && failures < 5)
                 {
                     long previousReceived = received;
@@ -425,8 +435,8 @@ internal static class HostedGitLfsTransferAgent
                     {
                         using HttpRequestMessage request = NewRequest(HttpMethod.Get, url, message.Action!.Header);
                         if (received > 0) request.Headers.Range = new RangeHeaderValue(received, null);
-                        using HttpResponseMessage response = await http.SendAsync(
-                            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                        using HttpResponseMessage response = await WithIdleTimeoutAsync(
+                            token => http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token));
                         if (!response.IsSuccessStatusCode)
                             throw new HttpRequestException($"LFS download failed: HTTP {(int)response.StatusCode}",
                                 null, response.StatusCode);
@@ -435,12 +445,12 @@ internal static class HostedGitLfsTransferAgent
                         {
                             throw new InvalidOperationException("Storage did not honor the LFS download resume range");
                         }
-                        await using Stream source = await response.Content.ReadAsStreamAsync(cancellationToken);
+                        await using Stream source = await WithIdleTimeoutAsync(token => response.Content.ReadAsStreamAsync(token));
                         readingFromNetwork = false;
                         while (received < message.Size)
                         {
                             readingFromNetwork = true;
-                            int count = await source.ReadAsync(buffer, cancellationToken);
+                            int count = await WithIdleTimeoutAsync(async token => await source.ReadAsync(buffer, token));
                             readingFromNetwork = false;
                             if (count == 0) break;
                             if (count > message.Size - received)
@@ -453,13 +463,13 @@ internal static class HostedGitLfsTransferAgent
                         if (received == message.Size)
                         {
                             readingFromNetwork = true;
-                            if (await source.ReadAsync(buffer.AsMemory(0, 1), cancellationToken) != 0)
+                            if (await WithIdleTimeoutAsync(async token => await source.ReadAsync(buffer.AsMemory(0, 1), token)) != 0)
                                 throw new InvalidOperationException("LFS download exceeds expected size");
                             break;
                         }
                     }
                     catch (Exception ex) when (
-                        readingFromNetwork && (ex is IOException ||
+                        readingFromNetwork && received < message.Size && (ex is IOException ||
                             ex is HttpRequestException { StatusCode: null } ||
                             ex is HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } ||
                             ex is HttpRequestException { StatusCode: >= HttpStatusCode.InternalServerError }))

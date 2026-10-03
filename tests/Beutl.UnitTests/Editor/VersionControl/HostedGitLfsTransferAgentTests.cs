@@ -318,6 +318,67 @@ public class HostedGitLfsTransferAgentTests
         Assert.That(requests, Is.EqualTo(5));
     }
 
+    [TestCase("headers")]
+    [TestCase("body")]
+    [TestCase("eof")]
+    public async Task DownloadBoundsAnIdleNetworkWait(string stage)
+    {
+        byte[] bytes = "resume after an idle network wait"u8.ToArray();
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        string cache = NewDownloadCacheDirectory();
+        var clock = new FakeTimeProvider();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        int requests = 0;
+        using var handler = new CallbackHandler(async (request, token) =>
+        {
+            int attempt = ++requests;
+            if (stage == "headers" && attempt == 1) await Task.Delay(Timeout.Infinite, token);
+            if (stage != "headers" && attempt == 1)
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StreamContent(new IdleReadStream(stage == "body" ? bytes[..5] : bytes))
+                };
+            int offset = stage == "body" ? 5 : 0;
+            Assert.That(request.Headers.Range?.Ranges.Single().From, Is.EqualTo(offset == 0 ? null : (long?)offset));
+            var content = new ByteArrayContent(bytes[offset..]);
+            if (offset > 0) content.Headers.ContentRange = new ContentRangeHeaderValue(offset, bytes.Length - 1, bytes.Length);
+            return new HttpResponseMessage(offset > 0 ? HttpStatusCode.PartialContent : HttpStatusCode.OK) { Content = content };
+        });
+        Task<StringWriter> transfer = TransferAsync(handler, "download", bytes.Length, "https://storage.example/object",
+            bytes, oid, clock, cancellation.Token, cache);
+        while (!transfer.IsCompleted && !cancellation.IsCancellationRequested)
+        {
+            clock.Advance(TimeSpan.FromMinutes(1));
+            await Task.Delay(1);
+        }
+        using var output = await transfer;
+        if (stage == "eof")
+        {
+            AssertError(output, "stalled");
+            Assert.That(requests, Is.EqualTo(1));
+        }
+        else
+        {
+            AssertSuccess(output);
+            Assert.That(requests, Is.EqualTo(2));
+            using JsonDocument completed = LastMessage(output);
+            string path = completed.RootElement.GetProperty("path").GetString()!;
+            try { Assert.That(await File.ReadAllBytesAsync(path), Is.EqualTo(bytes)); }
+            finally { File.Delete(path); }
+        }
+        Assert.That(Directory.EnumerateFiles(cache), Is.Empty);
+    }
+
+    private sealed class IdleReadStream(byte[] bytes) : MemoryStream(bytes)
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (Position < Length) return await base.ReadAsync(buffer, cancellationToken);
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+    }
+
     private sealed class FailingWriteStream(string path, int partiallyWritten) : FileStream(path,
         FileMode.CreateNew, FileAccess.Write, FileShare.None, 128 * 1024, FileOptions.Asynchronous)
     {
