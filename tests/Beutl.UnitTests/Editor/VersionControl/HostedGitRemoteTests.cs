@@ -41,6 +41,8 @@ public class HostedGitRemoteTests
     [TestCase("The requested URL returned error: 401", true)]
     [TestCase("HTTP/2 401", true)]
     [TestCase("Authentication failed", true)]
+    [TestCase("LFS download failed: HTTP 403", true)]
+    [TestCase("The requested URL returned error: 403", false)]
     public void AuthenticationRetryRequiresAnAuthenticationError(string stderr, bool expected)
     {
         Assert.That(GitCliVersionControlService.IsHostedAuthenticationFailure(new GitOperationException(128, stderr)),

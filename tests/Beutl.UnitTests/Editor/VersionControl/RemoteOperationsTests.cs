@@ -82,7 +82,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             await RunGitAsync("update-ref", "-d", "refs/remotes/origin/main");
         }
         string hookPath = Path.Combine(Root, ".git", "hooks", "pre-push");
-        await File.WriteAllTextAsync(hookPath, "#!/bin/sh\n[ \"$1\" = origin ] || exit 73\n");
+        await File.WriteAllTextAsync(hookPath, "#!/bin/sh\n[ \"$1\" = origin ] || exit 73\n" +
+            "while read local_ref local_oid remote_ref remote_oid; do\n[ \"$local_ref\" = refs/heads/main ] || exit 74\ndone\n");
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(hookPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         byte[] originalConfig = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config"));
@@ -123,6 +124,32 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.That((await RunGitAsync("remote", "get-url", "--push", "--all", "origin")).Stdout.Trim()
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries),
             Is.EqualTo(hostedFirst ? new[] { hosted, external } : new[] { external, hosted }));
+    }
+
+    [Test]
+    public async Task Mixed_push_stops_if_the_source_branch_changes_during_credential_acquisition()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string capturedTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string external = await CreateBareRemoteAsync();
+        string hostedFixture = await CreateBareRemoteAsync();
+        string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
+        await RunGitAsync("remote", "add", "origin", external);
+        await RunGitAsync("remote", "set-url", "--push", "origin", external);
+        await RunGitAsync("remote", "set-url", "--add", "--push", "origin", hosted);
+        byte[] originalConfig = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config"));
+        var runner = new MixedPushRunner(CreateRunner(), hosted, hostedFixture);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        service.HostedGitTokenProvider = async (_, _) =>
+        {
+            await RunGitAsync("commit", "--allow-empty", "-m", "branch advanced during token acquisition");
+            return "temporary";
+        };
+        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.Not.TypeOf<RemoteOpResult.Success>());
+        Assert.That(runner.Options, Has.Count.EqualTo(1), "the changed branch must not be sent to the second destination");
+        Assert.That(await ReadRemoteHeadAsync(external), Is.EqualTo(capturedTip));
+        Assert.That((await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim(), Is.Not.EqualTo(capturedTip));
+        Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(originalConfig));
     }
 
     [TestCase(false)]

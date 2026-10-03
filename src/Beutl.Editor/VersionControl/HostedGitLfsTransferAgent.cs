@@ -39,7 +39,8 @@ internal static class HostedGitLfsTransferAgent
     internal static async Task<int> RunAsync(
         TextReader input, TextWriter output, HttpClient http, CancellationToken cancellationToken,
         Func<string, long> fileLength, Func<string, Stream> openRead,
-        Func<string, Stream>? openWrite = null, TimeProvider? timeProvider = null)
+        Func<string, Stream>? openWrite = null, TimeProvider? timeProvider = null,
+        string? downloadCacheDirectory = null)
     {
         try
         {
@@ -74,7 +75,7 @@ internal static class HostedGitLfsTransferAgent
                     else
                     {
                         string path = await DownloadAsync(message, url, http, output, cancellationToken,
-                            openWrite, timeProvider ?? TimeProvider.System);
+                            openWrite, timeProvider ?? TimeProvider.System, downloadCacheDirectory);
                         await WriteAsync(output, new { @event = "complete", oid, path });
                     }
                 }
@@ -379,100 +380,150 @@ internal static class HostedGitLfsTransferAgent
 
     private static async Task<string> DownloadAsync(
         Message message, Uri url, HttpClient http, TextWriter output, CancellationToken cancellationToken,
-        Func<string, Stream>? openWrite, TimeProvider timeProvider)
+        Func<string, Stream>? openWrite, TimeProvider timeProvider, string? downloadCacheDirectory)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"beutl-lfs-{Guid.NewGuid():N}");
+        downloadCacheDirectory ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Beutl", "git-lfs-downloads", Convert.ToHexStringLower(SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(Environment.CurrentDirectory)))));
+        Directory.CreateDirectory(downloadCacheDirectory);
+        PruneExpiredDownloads(downloadCacheDirectory);
+        string path = Path.Combine(downloadCacheDirectory, message.Oid + ".partial");
+        // Keep ownership until cleanup or the verified file has been moved.
+        // A second agent for this OID must not delete or change our partial file.
+        await using var cacheLock = new FileStream(Path.Combine(downloadCacheDirectory, message.Oid + ".lock"),
+            FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        bool ownsPartial = false;
         try
         {
-            await using Stream destination = openWrite?.Invoke(path) ?? new FileStream(path, FileMode.CreateNew, FileAccess.Write,
-                FileShare.None, bufferSize: 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-            byte[] buffer = new byte[128 * 1024];
-            long received = 0;
-            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            int failures = 0;
-            int smallResponses = 0;
-            long progressCheckpoint = 0;
-            long minimumProgress = Math.Min(buffer.Length, Math.Max(1, message.Size / 16));
-            long progressStarted = timeProvider.GetTimestamp();
-            while (received < message.Size && failures < 5)
+            await using (Stream destination = openWrite?.Invoke(path) ?? new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite,
+                FileShare.None, bufferSize: 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
             {
-                long previousReceived = received;
-                bool readingFromNetwork = true;
-                bool transportFailed = false;
-                try
+                ownsPartial = true;
+                byte[] buffer = new byte[128 * 1024];
+                if (destination.Length > message.Size) destination.SetLength(0);
+                long received = destination.Length;
+                using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                destination.Position = 0;
+                for (long hashed = 0; hashed < received;)
                 {
-                    using HttpRequestMessage request = NewRequest(HttpMethod.Get, url, message.Action!.Header);
-                    if (received > 0) request.Headers.Range = new RangeHeaderValue(received, null);
-                    using HttpResponseMessage response = await http.SendAsync(
-                        request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-                    if (!response.IsSuccessStatusCode)
-                        throw new HttpRequestException($"LFS download failed: HTTP {(int)response.StatusCode}",
-                            null, response.StatusCode);
-                    if (received > 0 && (response.StatusCode != HttpStatusCode.PartialContent
-                        || response.Content.Headers.ContentRange?.From != received))
+                    int count = await destination.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, received - hashed)), cancellationToken);
+                    if (count == 0) throw new IOException("The cached LFS download changed while being read");
+                    hash.AppendData(buffer.AsSpan(0, count));
+                    hashed += count;
+                }
+                destination.Position = received;
+                int failures = 0;
+                int smallResponses = 0;
+                long progressCheckpoint = 0;
+                long minimumProgress = Math.Min(buffer.Length, Math.Max(1, message.Size / 16));
+                while (received < message.Size && failures < 5)
+                {
+                    long previousReceived = received;
+                    bool readingFromNetwork = true;
+                    bool transportFailed = false;
+                    try
                     {
-                        throw new InvalidOperationException("Storage did not honor the LFS download resume range");
-                    }
-                    await using Stream source = await response.Content.ReadAsStreamAsync(cancellationToken);
-                    readingFromNetwork = false;
-                    while (received < message.Size)
-                    {
-                        readingFromNetwork = true;
-                        int count = await source.ReadAsync(buffer, cancellationToken);
+                        using HttpRequestMessage request = NewRequest(HttpMethod.Get, url, message.Action!.Header);
+                        if (received > 0) request.Headers.Range = new RangeHeaderValue(received, null);
+                        using HttpResponseMessage response = await http.SendAsync(
+                            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                        if (!response.IsSuccessStatusCode)
+                            throw new HttpRequestException($"LFS download failed: HTTP {(int)response.StatusCode}",
+                                null, response.StatusCode);
+                        if (received > 0 && (response.StatusCode != HttpStatusCode.PartialContent
+                            || response.Content.Headers.ContentRange?.From != received))
+                        {
+                            throw new InvalidOperationException("Storage did not honor the LFS download resume range");
+                        }
+                        await using Stream source = await response.Content.ReadAsStreamAsync(cancellationToken);
                         readingFromNetwork = false;
-                        if (count == 0) break;
-                        if (count > message.Size - received)
-                            throw new InvalidOperationException("LFS download exceeds expected size");
-                        await destination.WriteAsync(buffer.AsMemory(0, count), cancellationToken);
-                        received += count;
-                        hash.AppendData(buffer.AsSpan(0, count));
-                        await ProgressAsync(output, message.Oid!, received, count);
+                        while (received < message.Size)
+                        {
+                            readingFromNetwork = true;
+                            int count = await source.ReadAsync(buffer, cancellationToken);
+                            readingFromNetwork = false;
+                            if (count == 0) break;
+                            if (count > message.Size - received)
+                                throw new InvalidOperationException("LFS download exceeds expected size");
+                            await destination.WriteAsync(buffer.AsMemory(0, count), cancellationToken);
+                            received += count;
+                            hash.AppendData(buffer.AsSpan(0, count));
+                            await ProgressAsync(output, message.Oid!, received, count);
+                        }
+                        if (received == message.Size)
+                        {
+                            readingFromNetwork = true;
+                            if (await source.ReadAsync(buffer.AsMemory(0, 1), cancellationToken) != 0)
+                                throw new InvalidOperationException("LFS download exceeds expected size");
+                            break;
+                        }
                     }
-                    if (received == message.Size)
+                    catch (Exception ex) when (
+                        readingFromNetwork && (ex is IOException ||
+                            ex is HttpRequestException { StatusCode: null } ||
+                            ex is HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } ||
+                            ex is HttpRequestException { StatusCode: >= HttpStatusCode.InternalServerError }))
                     {
-                        readingFromNetwork = true;
-                        if (await source.ReadAsync(buffer.AsMemory(0, 1), cancellationToken) != 0)
-                            throw new InvalidOperationException("LFS download exceeds expected size");
-                        break;
+                        transportFailed = true;
                     }
+                    if (received - progressCheckpoint >= minimumProgress)
+                    {
+                        progressCheckpoint = received;
+                        smallResponses = 0;
+                    }
+                    else
+                    {
+                        smallResponses++;
+                    }
+                    // A valid short range is progress, regardless of request count.
+                    // Bound stalled retries and back off tiny responses without
+                    // imposing a minimum transfer speed on advancing downloads.
+                    failures = received > previousReceived ? 0 : failures + 1;
+                    if (failures >= 5)
+                        throw new IOException("LFS download made no progress after five attempts");
+                    if (transportFailed || failures > 0 || smallResponses > 0)
+                        await Task.Delay(TimeSpan.FromSeconds(1 << Math.Clamp(Math.Max(failures, smallResponses) - 1, 0, 3)),
+                            timeProvider, cancellationToken);
                 }
-                catch (Exception ex) when (
-                    readingFromNetwork && (ex is IOException ||
-                        ex is HttpRequestException { StatusCode: null } ||
-                        ex is HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } ||
-                        ex is HttpRequestException { StatusCode: >= HttpStatusCode.InternalServerError }))
-                {
-                    transportFailed = true;
-                }
-                if (received - progressCheckpoint >= minimumProgress)
-                {
-                    progressCheckpoint = received;
-                    progressStarted = timeProvider.GetTimestamp();
-                    smallResponses = 0;
-                }
-                else
-                {
-                    smallResponses++;
-                    if (timeProvider.GetElapsedTime(progressStarted) >= TimeSpan.FromMinutes(1))
-                        throw new IOException("LFS download made insufficient progress for one minute");
-                }
-                // A valid short range is progress, regardless of request count.
-                // Bound stalled retries separately from the slow-progress window.
-                failures = received > previousReceived ? 0 : failures + 1;
-                if (failures >= 5)
-                    throw new IOException("LFS download made no progress after five attempts");
-                if (transportFailed || failures > 0 || smallResponses > 0)
-                    await Task.Delay(TimeSpan.FromSeconds(1 << Math.Clamp(Math.Max(failures, smallResponses) - 1, 0, 3)), cancellationToken);
+                if (received != message.Size ||
+                    !Convert.ToHexStringLower(hash.GetHashAndReset()).Equals(message.Oid, StringComparison.Ordinal))
+                    throw new InvalidOperationException("LFS download SHA-256 or size mismatch");
+                await destination.FlushAsync(cancellationToken);
             }
-            if (received != message.Size ||
-                !Convert.ToHexStringLower(hash.GetHashAndReset()).Equals(message.Oid, StringComparison.Ordinal))
-                throw new InvalidOperationException("LFS download SHA-256 or size mismatch");
-            return path;
+            string completedPath = Path.Combine(Path.GetTempPath(), $"beutl-lfs-{Guid.NewGuid():N}");
+            File.Move(path, completedPath);
+            return completedPath;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            // A newly authenticated Git LFS invocation resumes this OID and
+            // rehashes its prefix. Never persist the URL or action headers.
+            if (ownsPartial && new FileInfo(path).Length == 0) File.Delete(path);
+            throw;
         }
         catch
         {
-            File.Delete(path);
+            if (ownsPartial) File.Delete(path);
             throw;
+        }
+    }
+
+    private static void PruneExpiredDownloads(string directory)
+    {
+        DateTime cutoff = DateTime.UtcNow.AddHours(-24);
+        foreach (string path in Directory.EnumerateFiles(directory, "*.partial"))
+        {
+            if (File.GetLastWriteTimeUtc(path) >= cutoff) continue;
+            try
+            {
+                using var cacheLock = new FileStream(Path.ChangeExtension(path, ".lock"),
+                    FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                if (File.GetLastWriteTimeUtc(path) < cutoff) File.Delete(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // An active transfer owns the file, or cleanup is unavailable.
+            }
         }
     }
 

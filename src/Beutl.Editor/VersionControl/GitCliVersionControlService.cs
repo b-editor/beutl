@@ -1370,7 +1370,7 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo repository, IGitCliRunner runner, IReadOnlyList<string> arguments,
         GitCommandOptions baseline, CancellationToken cancellationToken,
         IProgress<string>? progress = null, IReadOnlyList<string>? selectedUrls = null,
-        string? isolatedPushUrl = null)
+        string? isolatedPushUrl = null, CheckedOutBranchTip? expectedPushTip = null)
     {
         for (int attempt = 0; ; attempt++)
         {
@@ -1383,6 +1383,12 @@ internal sealed class GitCliVersionControlService :
                 options = IsolatePushUrl(options, isolatedPushUrl);
             try
             {
+                if (expectedPushTip is not null &&
+                    await ReadRefCommitAsync(repository, runner, expectedPushTip.RefName, cancellationToken).ConfigureAwait(false)
+                        != expectedPushTip.Commit)
+                {
+                    throw new GitOperationException(1, "The local branch changed while preparing the push. Retry the push.");
+                }
                 await runner.RunAsync(repository, arguments, options, cancellationToken, progress).ConfigureAwait(false);
                 return;
             }
@@ -9148,8 +9154,8 @@ internal sealed class GitCliVersionControlService :
                     try
                     {
                         await RunNetworkWithTokenRefreshAsync(repository, runner,
-                            ["push", "--progress", "origin", $"{currentTip.Commit}:{remoteRef}"],
-                            GitCommandOptions.Network, cancellationToken, progress, [url], url).ConfigureAwait(false);
+                            ["push", "--progress", "origin", $"{currentTip.RefName}:{remoteRef}"],
+                            GitCommandOptions.Network, cancellationToken, progress, [url], url, currentTip).ConfigureAwait(false);
                     }
                     finally
                     {
@@ -9198,7 +9204,8 @@ internal sealed class GitCliVersionControlService :
         => System.Text.RegularExpressions.Regex.IsMatch(exception.Stderr,
                @"(?:HTTP(?:/\d(?:\.\d)?)?\s+(?:error\s+)?401\b|requested URL returned error:\s*401\b)",
                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)
-           || exception.Stderr.Contains("Authentication failed", StringComparison.OrdinalIgnoreCase);
+           || exception.Stderr.Contains("Authentication failed", StringComparison.OrdinalIgnoreCase)
+           || exception.Stderr.Contains("LFS download failed: HTTP 403", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<string?> ReadRefCommitAsync(
         RepositoryInfo repository, IGitCliRunner runner, string reference, CancellationToken cancellationToken)
