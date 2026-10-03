@@ -3,6 +3,7 @@ using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Services;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
 using Reactive.Bindings;
@@ -12,6 +13,103 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [TestFixture]
 public class VersionControlTabViewModelTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Hosted_repository_creation_preserves_an_existing_origin(bool addedDuringPrompt)
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        const string existing = "https://example.invalid/existing.git";
+        if (!addedDuringPrompt)
+            service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync([new RemoteInfo("origin", existing)]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.RequestHostedRepositoryNameAsync = _ =>
+        {
+            viewModel.HasRemote.Value = true;
+            viewModel.RemoteUrl.Value = existing;
+            return Task.FromResult<string?>("new repository");
+        };
+        await viewModel.CreateHostedRepositoryAsync();
+        Assert.That(viewModel.CreateHostedRepositoryCommand.CanExecute(), Is.False);
+        Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(existing));
+        coordinator.Verify(x => x.CreateHostedRepositoryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        coordinator.Verify(x => x.SetRemoteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    [NonParallelizable]
+    public async Task Hosted_repository_creation_connects_the_returned_url_and_recovers_from_config_failure(bool fail)
+    {
+        const string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000001.git";
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.CreateHostedRepositoryAsync("hosted", It.IsAny<CancellationToken>())).ReturnsAsync(hosted);
+        coordinator.Setup(x => x.AddRemoteIfAbsentAsync(hosted, It.IsAny<CancellationToken>()))
+            .Returns(fail ? Task.FromException(new InvalidOperationException("configuration failed")) : Task.CompletedTask);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.RequestHostedRepositoryNameAsync = _ => Task.FromResult<string?>(" hosted ");
+        var handler = new Mock<INotificationServiceHandler>();
+        INotificationServiceHandler? previous = NotificationService.Handler;
+        NotificationService.Handler = handler.Object;
+        try
+        {
+            await viewModel.CreateHostedRepositoryAsync();
+            if (fail) handler.Verify(x => x.Show(It.Is<Notification>(n => n.Message.Contains(hosted))), Times.Once);
+        }
+        finally
+        {
+            typeof(NotificationService).GetField("s_handler", System.Reflection.BindingFlags.Static
+                | System.Reflection.BindingFlags.NonPublic)!.SetValue(null, previous);
+        }
+        coordinator.Verify(x => x.AddRemoteIfAbsentAsync(hosted, It.IsAny<CancellationToken>()), Times.Once);
+        coordinator.Verify(x => x.SetRemoteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.That(viewModel.HasRemote.Value, Is.EqualTo(!fail));
+        Assert.That(viewModel.CreateHostedRepositoryCommand.CanExecute(), Is.EqualTo(fail));
+        if (!fail) Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(hosted));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    [NonParallelizable]
+    public async Task Hosted_creation_preserves_a_remote_added_during_creation_and_the_created_url_on_refresh_failure(bool refreshFails)
+    {
+        const string existing = "https://example.invalid/existing.git";
+        const string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000001.git";
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var created = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.CreateHostedRepositoryAsync("hosted", It.IsAny<CancellationToken>())).Returns(created.Task);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.RequestHostedRepositoryNameAsync = _ => Task.FromResult<string?>("hosted");
+        var handler = new Mock<INotificationServiceHandler>();
+        INotificationServiceHandler? previous = NotificationService.Handler;
+        NotificationService.Handler = handler.Object;
+        try
+        {
+            Task operation = viewModel.CreateHostedRepositoryAsync();
+            if (refreshFails) service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new IOException("configuration locked"));
+            else service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync([new RemoteInfo("origin", existing)]);
+            created.SetResult(hosted);
+            await operation;
+            coordinator.Verify(x => x.SetRemoteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            handler.Verify(x => x.Show(It.Is<Notification>(n => n.Message.Contains(hosted))), Times.Once);
+            if (!refreshFails) Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(existing));
+        }
+        finally
+        {
+            created.TrySetResult(hosted);
+            typeof(NotificationService).GetField("s_handler", System.Reflection.BindingFlags.Static
+                | System.Reflection.BindingFlags.NonPublic)!.SetValue(null, previous);
+        }
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task Metadata_change_reloads_a_completed_preview_and_preserves_selection(bool diff)

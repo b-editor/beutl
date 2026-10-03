@@ -3306,4 +3306,13 @@ when history recording is enabled.</value>
   <data name="ModelFile" xml:space="preserve">
     <value>3D Model File</value>
   </data>
+  <data name="VersionControl_CreateHostedRepository" xml:space="preserve">
+    <value>Create Beutl repository</value>
+  </data>
+  <data name="VersionControl_RepositoryName" xml:space="preserve">
+    <value>Repository name</value>
+  </data>
+  <data name="VersionControl_HostedRepositoryNotConnected" xml:space="preserve">
+    <value>The repository was created, but its remote could not be connected. You can connect it manually: {0}</value>
+  </data>
 </root>

@@ -3538,6 +3538,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task Mapped_remote_failure_still_exposes_recoverable_lock()
     {
         await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await RunGitAsync("remote", "add", "origin", "https://example.invalid/fixture.git");
         var expectedLock = new RepositoryLockInfo(
             Path.Combine(Root, ".git", "index.lock"),
             DateTimeOffset.UtcNow - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1));
@@ -7108,6 +7109,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task RecoverableLockAvailable_subscriber_failure_is_isolated_and_logged()
     {
         await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await RunGitAsync("remote", "add", "origin", "https://example.invalid/fixture.git");
         var expectedLock = new RepositoryLockInfo(
             Path.Combine(Root, ".git", "index.lock"),
             DateTimeOffset.UtcNow - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1));
@@ -7146,6 +7148,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task Superseded_equal_recoverable_lock_notification_is_not_published()
     {
         await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await RunGitAsync("remote", "add", "origin", "https://example.invalid/fixture.git");
         string lockPath = Path.Combine(Root, ".git", "index.lock");
         DateTimeOffset timestamp =
             DateTimeOffset.UtcNow - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1);

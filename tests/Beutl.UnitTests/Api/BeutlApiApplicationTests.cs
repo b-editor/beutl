@@ -368,6 +368,31 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
+    public async Task Hosted_token_renewal_rejects_an_account_switch_before_HTTP_dispatch()
+    {
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        AuthenticatedUser first = SetAuthenticatedUser(app, "first-user", "first-token");
+        SetAuthenticatedUser(app, "second-user", "second-token");
+        AuthenticationRequiredException? failure = await Assert.ThrowsAsync<AuthenticationRequiredException>(() =>
+            app.IssueHostedGitTokenAsync(Guid.NewGuid(), CancellationToken.None, first));
+        Assert.That(failure!.CurrentAttemptReservationIsKnownAbsent, Is.True);
+    }
+
+    [Test]
+    public async Task Hosted_creation_rejects_an_account_switch_before_HTTP_dispatch()
+    {
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        AuthenticatedUser first = SetAuthenticatedUser(app, "first-user", "first-token");
+        SetAuthenticatedUser(app, "second-user", "second-token");
+        AuthenticationRequiredException? failure = await Assert.ThrowsAsync<AuthenticationRequiredException>(() =>
+            app.CreateHostedGitRepositoryAsync("project", Guid.NewGuid(), first, CancellationToken.None));
+        // A network dispatch would fail on this handler-free client instead of the expected session guard.
+        Assert.That(failure!.CurrentAttemptReservationIsKnownAbsent, Is.True);
+    }
+
+    [Test]
     public async Task AuthenticatedRequest_AccountSwitchAfterSendKeepsReservationOutcomeUnknown()
     {
         using var httpClient = new HttpClient();

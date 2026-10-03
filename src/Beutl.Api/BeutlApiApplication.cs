@@ -97,6 +97,7 @@ public class BeutlApiApplication : IAsyncDisposable
         Discover = RestService.For<IDiscoverClient>(_httpClient);
         Library = RestService.For<ILibraryClient>(_httpClient);
         Ai = RestService.For<IAiClient>(_httpClient);
+        GitRepositories = RestService.For<IGitRepositoriesClient>(_httpClient);
 
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         string culture = viewConfig.UICulture.Name;
@@ -128,6 +129,30 @@ public class BeutlApiApplication : IAsyncDisposable
     public ILibraryClient Library { get; }
 
     internal IAiClient Ai { get; }
+
+    internal IGitRepositoriesClient GitRepositories { get; }
+
+    public async Task<HostedGitRepositoryResponse> CreateHostedGitRepositoryAsync(
+        string name, Guid creationId, AuthenticatedUser user, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(user);
+        if (creationId == Guid.Empty) throw new ArgumentException("A creation identifier is required.", nameof(creationId));
+        AuthenticatedApiResult<HostedGitRepositoryResponse> result = await SendAuthenticatedAsync(
+            (authorization, token) => GitRepositories.CreateRepository(
+                authorization, new CreateHostedGitRepositoryRequest(name, creationId, user.Profile.Id), token),
+            cancellationToken, user).ConfigureAwait(false);
+        return result.Value;
+    }
+
+    public async Task<string> IssueHostedGitTokenAsync(Guid repositoryId, CancellationToken cancellationToken, AuthenticatedUser? expectedUser = null)
+    {
+        AuthenticatedApiResult<HostedGitTokenResponse> result = await SendAuthenticatedAsync(
+            (authorization, token) => GitRepositories.IssueToken(
+                repositoryId, authorization, new HostedGitTokenRequest("write"), token),
+            cancellationToken, expectedUser ?? AuthenticatedUser.Value).ConfigureAwait(false);
+        return result.Value.Token;
+    }
 
     public IAppClient App { get; }
 

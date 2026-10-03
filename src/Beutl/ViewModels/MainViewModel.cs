@@ -94,6 +94,21 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 failure.ExtensionType));
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
+        _versionControlCoordinator.HostedGitTokenProviderFactory = () =>
+        {
+            AuthenticatedUser user = _beutlClients.AuthenticatedUser.Value
+                ?? throw new InvalidOperationException("Sign in to Beutl to use hosted Git.");
+            return (repositoryId, token) => _beutlClients.IssueHostedGitTokenAsync(repositoryId, token, user);
+        };
+        _versionControlCoordinator.HostedGitRepositoryCreator = async (name, token) =>
+        {
+            AuthenticatedUser user = _beutlClients.AuthenticatedUser.Value
+                ?? throw new InvalidOperationException("Sign in to Beutl to create a hosted repository.");
+            var service = _versionControlCoordinator.CurrentService as GitCliVersionControlService
+                ?? throw new InvalidOperationException("The project repository is unavailable.");
+            Guid creationId = await service.GetHostedRepositoryCreationIdAsync(user.Profile.Id, name, token);
+            return (await _beutlClients.CreateHostedGitRepositoryAsync(name, creationId, user, token)).Url;
+        };
         _waitForPackageInstallerIdle = waitForPackageInstallerIdle;
         _aiRequestRecoveryContext = new AiRequestRecoveryContext(
             new FileAiRequestRecoveryStore(Path.Combine(
