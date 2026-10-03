@@ -58,12 +58,23 @@ internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
         MemoryRequirements memReqs;
         vk.GetBufferMemoryRequirements(device, _buffer, &memReqs);
 
+        uint memoryTypeIndex;
+        try
+        {
+            memoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, vulkanMemoryProperties);
+        }
+        catch
+        {
+            vk.DestroyBuffer(device, _buffer, null);
+            throw;
+        }
+
         // Allocate memory
         var allocInfo = new MemoryAllocateInfo
         {
             SType = StructureType.MemoryAllocateInfo,
             AllocationSize = memReqs.Size,
-            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, vulkanMemoryProperties)
+            MemoryTypeIndex = memoryTypeIndex
         };
 
         DeviceMemory memory;

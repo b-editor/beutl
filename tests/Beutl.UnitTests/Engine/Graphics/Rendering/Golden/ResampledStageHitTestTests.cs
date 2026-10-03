@@ -161,6 +161,28 @@ public sealed class ResampledStageHitTestTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
+    public void MosaicEffect_AtAFractionalOrigin_LeavesAnUncoveredTileClearAndUnselectable()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var point = new Point(92, 82);
+            var origin = new RelativePoint(1.1f, 10, RelativeUnit.Absolute);
+            using Bitmap rendered = Render(s_tileContent, Mosaic(20, origin));
+            ushort[] pixel = rendered.GetRow<ushort>((int)point.Y).Slice((int)point.X * 4, 4).ToArray();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(pixel, Is.All.Zero,
+                    "the tile's selected sample is clear even though a neighboring texel has ellipse coverage");
+                Assert.That(HitTest(s_tileContent, Mosaic(20, origin), point), Is.False,
+                    "a tile with an uncovered center must remain unselectable");
+            });
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
     public void MosaicEffect_ATileCentreOutsideTheInput_ReadsTheEdgeAndHits()
     {
         VulkanTestEnvironment.EnsureAvailable();

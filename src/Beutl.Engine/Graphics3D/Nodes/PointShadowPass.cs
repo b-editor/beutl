@@ -209,15 +209,11 @@ void main() {
 
     private void DisposeFaceResources()
     {
-        for (int i = 0; i < 6; i++)
-        {
-            _faceFramebuffers[i]?.Dispose();
-            _faceFramebuffers[i] = null;
-            _faceDummyTextures[i]?.Dispose();
-            _faceDummyTextures[i] = null;
-            _faceDepthTextures[i]?.Dispose();
-            _faceDepthTextures[i] = null;
-        }
+        IDisposable?[] resources = [.. _faceFramebuffers, .. _faceDummyTextures, .. _faceDepthTextures];
+        Array.Clear(_faceFramebuffers);
+        Array.Clear(_faceDummyTextures);
+        Array.Clear(_faceDepthTextures);
+        DisposeResources(resources);
     }
 
     private void CompileShaders()
@@ -437,13 +433,8 @@ void main() {
 
     protected override void OnDispose()
     {
-        _shadowPipeline?.Dispose();
-        _doubleSidedShadowPipeline?.Dispose();
-        _descriptorSet?.Dispose();
-        _doubleSidedDescriptorSet?.Dispose();
-        _lightDataBuffer?.Dispose();
-        DisposeFaceResources();
-        RenderPass?.Dispose();
-        ShadowCubeTexture?.Dispose();
+        DisposeResources([_shadowPipeline, _doubleSidedShadowPipeline, _descriptorSet,
+            _doubleSidedDescriptorSet, _lightDataBuffer, .. _faceFramebuffers,
+            .. _faceDummyTextures, .. _faceDepthTextures, RenderPass, ShadowCubeTexture]);
     }
 }

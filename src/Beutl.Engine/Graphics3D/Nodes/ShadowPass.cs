@@ -311,16 +311,12 @@ void main() {
 
     private void DisposeShadowMap()
     {
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        ShadowDepthTexture?.Dispose();
-        DummyColorTexture?.Dispose();
+        DisposeResources([Framebuffer, RenderPass, ShadowDepthTexture, DummyColorTexture]);
     }
 
     protected override void OnDispose()
     {
-        _shadowPipeline?.Dispose();
-        _doubleSidedShadowPipeline?.Dispose();
-        DisposeShadowMap();
+        DisposeResources([_shadowPipeline, _doubleSidedShadowPipeline, Framebuffer,
+            RenderPass, ShadowDepthTexture, DummyColorTexture]);
     }
 }
