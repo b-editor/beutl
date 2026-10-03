@@ -478,7 +478,6 @@ public sealed class ElementResizeService : IElementResizeService
 
         public TimeSpan Clamp(TimeSpan requested)
         {
-            if (backs.Any(t => fixedOffsets.Contains(t.Offset))) return TimeSpan.Zero;
             if (fronts.Concat(middles).Any(t => !t.Mapping.IsSupported)
                 || backs.Any(t => !t.Mapping.CanWriteOffsets)) return TimeSpan.Zero;
             TimeSpan delta = ElementResizeService.Clamp(requested, Min, Max);
@@ -510,7 +509,8 @@ public sealed class ElementResizeService : IElementResizeService
         }
 
         public bool TryGetOffsetChanges(TimeSpan delta, out Dictionary<IProperty<TimeSpan>, TimeSpan> changes)
-            => SlippableMedia.TryGetOffsetChanges(backs, delta, trim: true, out changes);
+            => SlippableMedia.TryGetOffsetChanges(backs, delta, trim: true, out changes)
+                && changes.All(change => change.Value == TimeSpan.Zero || !fixedOffsets.Contains(change.Key));
     }
 
     // The view keeps this snapshot for the gesture, including its integral caches.

@@ -2,13 +2,14 @@
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
 
 internal static class SlippableMedia
 {
-    private sealed record Node(EngineObject Object, IReadOnlyList<Node> Inputs, bool Opaque = false, bool FlowResolved = false);
+    private sealed record Node(EngineObject Object, IReadOnlyList<Node> Inputs, bool Opaque = false, bool FlowResolved = false, bool PortalInput = false);
 
     internal sealed class Target(IProperty<TimeSpan> offset, TimeSpan? total, MediaTimeMapping mapping, TimeSpan length)
     {
@@ -19,8 +20,9 @@ internal static class SlippableMedia
         public TimeSpan Length { get; } = length;
 
         public TimeSpan SourceDelta(TimeSpan delta, bool trim)
-            => Mapping.At(delta, extrapolate: delta < TimeSpan.Zero)
-                - (trim ? Mapping.At(TimeSpan.Zero, delta, -delta) : Mapping.At(TimeSpan.Zero));
+            => Mapping.Range(delta, delta, extrapolate: delta < TimeSpan.Zero, conservative: false, sourceOffset: true).Min
+                - Mapping.Range(TimeSpan.Zero, TimeSpan.Zero, trim ? delta : TimeSpan.Zero,
+                    trim ? -delta : TimeSpan.Zero, conservative: false, sourceOffset: true).Min;
 
         public bool CanSlip(TimeSpan delta)
         {
@@ -36,13 +38,14 @@ internal static class SlippableMedia
         {
             if (!Mapping.IsSupported) return TimeSpan.Zero;
             if (requested == TimeSpan.Zero || CanSlip(requested)) return requested;
-            MediaTimeMapping.Interval window = Mapping.Range(TimeSpan.Zero, Length).Shift(InitialOffset);
+            MediaTimeMapping.Interval window = InitialWindow();
             (TimeSpan lower, TimeSpan? upper) = SourceLimits(clampEnd: true, allowRecovery: true);
             TimeSpan minimum = lower - window.Min;
             if (minimum < -InitialOffset) minimum = -InitialOffset;
             TimeSpan maximum = upper is { } end ? end - window.Max : TimeSpan.MaxValue;
             if (minimum > maximum) return TimeSpan.Zero;
-            var valid = new MediaTimeMapping.Interval(minimum, maximum).Shift(Mapping.At(TimeSpan.Zero));
+            var valid = new MediaTimeMapping.Interval(minimum, maximum).Shift(
+                Mapping.Range(TimeSpan.Zero, TimeSpan.Zero, conservative: false, sourceOffset: true).Min);
             long sign = requested < TimeSpan.Zero ? -1 : 1;
             long magnitude = requested.Ticks == long.MinValue ? long.MaxValue : Math.Abs(requested.Ticks);
             return Find(0, magnitude) ?? TimeSpan.Zero;
@@ -52,7 +55,7 @@ internal static class SlippableMedia
                 TimeSpan atHigh = TimeSpan.FromTicks(sign * high);
                 if (CanSlip(atHigh)) return atHigh;
                 TimeSpan atLow = TimeSpan.FromTicks(sign * low);
-                MediaTimeMapping.Interval range = Mapping.Range(atLow, atHigh, extrapolate: sign < 0);
+                MediaTimeMapping.Interval range = Mapping.Range(atLow, atHigh, extrapolate: sign < 0, sourceOffset: true);
                 if (range.Max < valid.Min || range.Min > valid.Max || high - low <= 1) return null;
                 long middle = low + (high - low) / 2;
                 // Prune whole invalid source-time ranges, searching nearest the
@@ -67,12 +70,13 @@ internal static class SlippableMedia
             if (!Mapping.IsSupported) return false;
             TimeSpan offset = InitialOffset + offsetDelta;
             if (offset < TimeSpan.Zero) return false;
-            MediaTimeMapping.Interval range = Mapping.Range(TimeSpan.Zero, length, startDelta, length - Length).Shift(offset);
+            if (Mapping.SampledRange(TimeSpan.Zero, length, startDelta, length - Length) is not { } sampled) return true;
+            MediaTimeMapping.Interval range = sampled.Shift(offset);
             if (allowRecovery)
             {
-                MediaTimeMapping.Interval nominal = Mapping.Range(TimeSpan.Zero, length, startDelta,
-                    length - Length, conservative: false).Shift(offset);
-                MediaTimeMapping.Interval before = Mapping.Range(TimeSpan.Zero, Length, conservative: false).Shift(InitialOffset);
+                MediaTimeMapping.Interval nominal = Mapping.SampledRange(TimeSpan.Zero, length, startDelta,
+                    length - Length, conservative: false)!.Value.Shift(offset);
+                MediaTimeMapping.Interval before = InitialWindow(conservative: false);
                 TimeSpan minimum = before.Min < TimeSpan.Zero ? before.Min : TimeSpan.Zero;
                 TimeSpan? maximum = clampEnd ? Total : null;
                 if (maximum is { } limit && before.Max > limit) maximum = before.Max;
@@ -90,7 +94,7 @@ internal static class SlippableMedia
             {
                 // Existing projects may already be out of range. Permit a trim/slip
                 // towards valid media without granting any additional overrun.
-                MediaTimeMapping.Interval before = Mapping.Range(TimeSpan.Zero, Length).Shift(InitialOffset);
+                MediaTimeMapping.Interval before = InitialWindow();
                 // Admit the current numerical allowance while the separate nominal
                 // check prevents any additional nominal overrun.
                 if (before.Min < lower) lower = before.Min;
@@ -98,10 +102,14 @@ internal static class SlippableMedia
             }
             return (lower, upper);
         }
+
+        private MediaTimeMapping.Interval InitialWindow(bool conservative = true)
+            => Mapping.SampledRange(TimeSpan.Zero, Length, conservative: conservative)?.Shift(InitialOffset)
+                ?? new MediaTimeMapping.Interval(TimeSpan.Zero, TimeSpan.Zero);
     }
 
     public static List<Target> Collect(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false,
-        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null)
+        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, IReadOnlySet<Element>? portalCandidates = null)
     {
         var targets = new List<Target>();
         var path = new HashSet<object>();
@@ -164,6 +172,7 @@ internal static class SlippableMedia
             int firstLayer = portal.ZIndex + 1;
             int lastLayer = portal.ZIndex + portal.Count.CurrentValue;
             Element[] candidates = scene.Children.Where(candidate => candidate.IsEnabled && candidate.ZIndex >= firstLayer && candidate.ZIndex <= lastLayer
+                && IsPortalCandidate(candidate)
                 && !consumedPortalElements.Contains(candidate)
                 && candidate.Objects.Any(obj => obj.IsEnabled && LayerVisible(candidate, obj.GetCompositionTarget()))).ToArray();
             if (candidates.Length == 0) return [];
@@ -172,20 +181,22 @@ internal static class SlippableMedia
             // model; never substitute the controller's stored target for them.
             if (candidates.Length != 1) return null;
             Element owner = candidates[0];
-            if (owner.Start >= element.Range.End || element.Start >= owner.Range.End) return [];
             if (element.Objects.Count(obj => obj.IsEnabled && obj is DrawableTimeController) > 1
                 || element.Objects.Any(obj => obj.IsEnabled && (obj is IPresenter<Drawable> && obj is not DrawableTimeController
                     || obj is IFlowOperator && obj is not DrawableTimeController))) return null;
             EngineObject[] objects = owner.Objects.Where(obj => obj.IsEnabled && LayerVisible(owner, obj.GetCompositionTarget())).ToArray();
             if (objects.Any(obj => obj is IFlowOperator or IPresenter<Drawable> || obj is not Drawable and not Sound)) return null;
-            if (scene.Children.Any(other => other.IsEnabled && other != element && other.ZIndex <= element.ZIndex
+            if (scene.Children.Any(other => other.IsEnabled && other != element && other.ZIndex <= element.ZIndex && IsPortalCandidate(other)
                 && objects.Any(obj => LayerVisible(other, obj.GetCompositionTarget()))
                 && other.Objects.OfType<PortalObject>().Any(prior => prior.IsEnabled
                     && (prior.Count.HasExpression || prior.ZIndex < owner.ZIndex && prior.ZIndex + prior.Count.CurrentValue >= owner.ZIndex))))
                 return null;
             consumedPortalElements.Add(owner);
-            return objects.Select(obj => new Node(obj, [])).ToList();
+            return objects.Select(obj => new Node(obj, [], PortalInput: true)).ToList();
         }
+
+        bool IsPortalCandidate(Element candidate) => portalCandidates?.Contains(candidate)
+            ?? (candidate.Start < element.Range.End && element.Start < candidate.Range.End);
 
         bool LayerVisible(Element candidate, CompositionTarget target)
         {
@@ -210,12 +221,12 @@ internal static class SlippableMedia
                     new MediaTimeMapping(element, node.Object, Property.Create(100f), [], 60), element.Length));
                 return;
             }
-            CollectFrom(node.Object, node.Inputs, node.FlowResolved);
+            CollectFrom(node.Object, node.Inputs, node.FlowResolved, portalInput: node.PortalInput);
         }
 
         // Keep disabled streams in sync too. Detect cycles per path, rather than
         // discarding a second path whose time controller can impose tighter bounds.
-        void CollectFrom(EngineObject obj, IReadOnlyList<Node>? inputs = null, bool flowResolved = false, bool referenced = false)
+        void CollectFrom(EngineObject obj, IReadOnlyList<Node>? inputs = null, bool flowResolved = false, bool referenced = false, bool portalInput = false)
         {
             if (!path.Add(obj)) return;
             if (inputs != null && obj is SoundGroup or DrawableGroup or DrawableDecorator)
@@ -228,19 +239,19 @@ internal static class SlippableMedia
                     using (var resource = video.Source.CurrentValue?.ToResource(CompositionContext.Default))
                     {
                         targets.Add(new Target(video.OffsetPosition, resource?.Duration,
-                            new MediaTimeMapping(element, video, video.Speed, controllers, 60, resource?.Duration, timingPeers, ignoreLoops, timingRoles), element.Length));
+                            new MediaTimeMapping(element, video, video.Speed, controllers, 60, resource?.Duration, timingPeers, ignoreLoops, timingRoles, portalInput), element.Length));
                     }
                     break;
                 case SourceSound sound:
                     using (var resource = sound.Source.CurrentValue?.ToResource(CompositionContext.Default))
                     {
                         targets.Add(new Target(sound.OffsetPosition, resource?.Duration > TimeSpan.Zero ? resource.Duration : null,
-                            new MediaTimeMapping(element, sound, sound.Speed, controllers, sampleRate, timingPeers: timingPeers, timingRoles: timingRoles), element.Length));
+                            new MediaTimeMapping(element, sound, sound.Speed, controllers, sampleRate, timingPeers: timingPeers, timingRoles: timingRoles, portalInput: portalInput), element.Length));
                     }
                     break;
                 case SceneSound sound:
                     targets.Add(new Target(sound.OffsetPosition, sound.ReferencedScene.CurrentValue?.Duration,
-                        new MediaTimeMapping(element, sound, sound.Speed, controllers, sampleRate, timingPeers: timingPeers, timingRoles: timingRoles), element.Length));
+                        new MediaTimeMapping(element, sound, sound.Speed, controllers, sampleRate, timingPeers: timingPeers, timingRoles: timingRoles, portalInput: portalInput), element.Length));
                     break;
                 case SoundGroup group:
                     foreach (Sound child in group.Children) CollectFrom(child);
@@ -271,9 +282,9 @@ internal static class SlippableMedia
                     }
                     if ((input?.Object ?? controller.Target.CurrentValue) is Drawable target)
                     {
-                        bool applyMapping = controller.IsEnabled || referenced;
+                        bool applyMapping = controller.IsEnabled || referenced || input == null;
                         if (applyMapping) controllers.Add(new MediaTimeMapping.ControllerLink(controller, target));
-                        CollectFrom(target, input?.Inputs, input?.FlowResolved == true, referenced: true);
+                        CollectFrom(target, input?.Inputs, input?.FlowResolved == true, referenced: true, portalInput: input?.PortalInput == true);
                         if (applyMapping) controllers.RemoveAt(controllers.Count - 1);
                     }
                     break;
@@ -343,11 +354,14 @@ internal static class SlippableMedia
     }
 
     internal sealed class ResizeConstraints(TimeSpan elementStart, TimeSpan elementLength, List<Target> targets,
-        TimeSpan? providerDuration = null)
+        TimeSpan? providerDuration = null, Func<TimeSpan, TimeSpan, List<Target>>? targetsAt = null)
     {
         public bool HasMonotonicDuration => targets.All(t => !t.Mapping.HasVariableDuration);
 
-        public bool HasSharedClock => targets.Any(t => t.Mapping.HasSharedClock);
+        public bool HasSharedClock => targetsAt != null || targets.Any(t => t.Mapping.HasSharedClock);
+
+        private List<Target> Targets(TimeSpan length, TimeSpan startDelta = default)
+            => targetsAt?.Invoke(length, startDelta) ?? targets;
 
         public TimeSpan ClampEdgeDelta(TimeSpan delta, bool leftEdge)
             => leftEdge ? ClampStart(elementStart + delta) - elementStart
@@ -359,7 +373,7 @@ internal static class SlippableMedia
             if (requestedStart > end) requestedStart = end;
             TimeSpan delta = requestedStart - elementStart;
             bool Fits(TimeSpan length) => FitsProvider(length, allowRecovery: true)
-                && targets.All(t => t.Fits(length, elementLength - length, allowRecovery: true));
+                && Targets(length, elementLength - length).All(t => t.Fits(length, elementLength - length, allowRecovery: true));
             TimeSpan result = elementLength - ClampDelta(delta, d => Fits(elementLength - d));
             if (!HasMonotonicDuration)
                 result = SearchDurationPhases(result, end - requestedStart, delta, Fits, movingStart: true);
@@ -373,7 +387,7 @@ internal static class SlippableMedia
             // A loop period can depend on the new element length. Validate each
             // requested duration even if it is below a previously valid maximum.
             bool Fits(TimeSpan length) => FitsProvider(length, allowRecovery: true)
-                && targets.All(t => t.Fits(length, startDelta, allowRecovery: true));
+                && Targets(length, startDelta).All(t => t.Fits(length, startDelta, allowRecovery: true));
             TimeSpan result = initialLength + ClampDelta(requestedLength - initialLength, d => Fits(initialLength + d));
             return HasMonotonicDuration ? result : SearchDurationPhases(result, requestedLength, startDelta, Fits);
         }
@@ -381,11 +395,11 @@ internal static class SlippableMedia
         // Null means unbounded; zero means a known source is exhausted.
         public TimeSpan? GetMaximumDuration(TimeSpan? start = null)
         {
-            if (targets.Any(t => !t.Mapping.IsSupported)) return TimeSpan.Zero;
-            if (providerDuration == null && targets.All(t => t.Total == null)) return null;
+            if (Targets(elementLength).Any(t => !t.Mapping.IsSupported)) return TimeSpan.Zero;
+            if (targetsAt == null && providerDuration == null && targets.All(t => t.Total == null)) return null;
             TimeSpan startDelta = (start ?? elementStart) - elementStart;
             bool Fits(TimeSpan length) => FitsProvider(length, allowRecovery: false)
-                && targets.All(t => t.Fits(length, startDelta));
+                && Targets(length, startDelta).All(t => t.Fits(length, startDelta));
             if (!Fits(TimeSpan.Zero)) return TimeSpan.Zero;
 
             long maximum = long.MaxValue - Math.Max(0, (start ?? elementStart).Ticks);
@@ -524,7 +538,41 @@ internal static class SlippableMedia
     }
 
     public static ResizeConstraints CreateResizeConstraints(Element element, IReadOnlySet<Element>? timingPeers = null)
-        => new(element.Start, element.Length, Collect(element, timingPeers), GetProviderDuration(element));
+    {
+        List<Target> targets = Collect(element, timingPeers);
+        TimeSpan? duration = GetProviderDuration(element);
+        if (element.HierarchicalParent is not Scene scene || !element.Objects.OfType<PortalObject>().Any(p => p.IsEnabled))
+            return new(element.Start, element.Length, targets, duration);
+
+        TimeRange original = element.Range;
+        var ranges = scene.Children.Select(child => (Element: child, child.Range)).ToArray();
+        HashSet<Element> Active(TimeSpan length, TimeSpan startDelta)
+        {
+            var window = new TimeRange(original.Start + startDelta, length);
+            return ranges.Where(entry =>
+            {
+                TimeRange range = entry.Range;
+                if (entry.Element == element || timingPeers?.Contains(entry.Element) == true)
+                    range = new TimeRange(range.Start + startDelta, range.Duration + length - original.Duration);
+                return range.Start < window.End && window.Start < range.End;
+            }).Select(entry => entry.Element).ToHashSet();
+        }
+
+        // Only a change in active providers needs a new flow/clock snapshot, not
+        // every bisection tick. Keep all discovered clocks for loop-phase searches.
+        var cache = new List<(HashSet<Element> Active, List<Target> Targets)> { (Active(original.Duration, TimeSpan.Zero), [.. targets]) };
+        List<Target> Resolve(TimeSpan length, TimeSpan startDelta)
+        {
+            HashSet<Element> active = Active(length, startDelta);
+            foreach (var entry in cache)
+                if (entry.Active.SetEquals(active)) return entry.Targets;
+            List<Target> collected = Collect(element, timingPeers, portalCandidates: active);
+            cache.Add((active, collected));
+            targets.AddRange(collected);
+            return collected;
+        }
+        return new(original.Start, original.Duration, targets, duration, Resolve);
+    }
 
     public static TimeSpan ClampSharedResizeDelta(IReadOnlyList<ResizeConstraints> constraints, TimeSpan delta, bool leftEdge)
     {

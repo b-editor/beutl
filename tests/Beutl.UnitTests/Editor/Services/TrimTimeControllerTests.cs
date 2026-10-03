@@ -485,9 +485,8 @@ public class TrimTimeControllerTests
         Element[] elements = reverseOrder ? [audioElement, videoElement] : [videoElement, audioElement];
         int before = _harness.History.UndoCount;
 
-        // +6s wraps the video to a valid offset 2. Audio first limits it to +4s,
-        // which would put video at offset 5 and request 5..6s. Rechecking must reduce
-        // the shared delta to +3s, yielding video offset 4 and audio offset 3 in either order.
+        // The source wraps playback before adding the offset. Audio allows +4s,
+        // but video permits only +3s, yielding offsets 4 and 3 in either order.
         var targets = elements.SelectMany(element => SlippableMedia.Collect(element)).ToArray();
         TimeSpan clamped = SlippableMedia.ClampSharedDelta(targets, Seconds(6));
 
@@ -588,11 +587,11 @@ public class TrimTimeControllerTests
         }
     }
 
-    [TestCase(false, 9.5, 8, 1, 0, 4, 8)]
-    [TestCase(true, 9.5, 8, 1, 0, 4, 8)]
-    [TestCase(false, -9.5, -5, 4, 15, 4, 10)]
-    [TestCase(true, -9.5, -5, 4, 15, 4, 10)]
-    public void Slip_LinkedLoops_FindNearestValidLaterCycle(bool reverseOrder, double requested,
+    [TestCase(false, 9.5, 3, 1, 0, 4, 3)]
+    [TestCase(true, 9.5, 3, 1, 0, 4, 3)]
+    [TestCase(false, -9.5, -4, 4, 15, 0, 11)]
+    [TestCase(true, -9.5, -4, 4, 15, 0, 11)]
+    public void Slip_LinkedLoopingSource_DoesNotWrapTheOffsetWrite(bool reverseOrder, double requested,
         double expectedDelta, double videoOffset, double audioOffset, double expectedVideo, double expectedAudio)
     {
         var video = CreateVideo(5, offsetSeconds: videoOffset);
@@ -1521,6 +1520,101 @@ public class TrimTimeControllerTests
         {
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(videoMuted ? 0 : 1)));
             Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(videoMuted ? 1 : 0)));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Portal_InactiveSiblings_DoNotMakeCurrentFlowAmbiguous(bool hasActiveProvider)
+    {
+        var before = CreateVideo(1);
+        var after = CreateVideo(1);
+        AddElement(0, 1, before).ZIndex = 1;
+        AddElement(12, 1, after).ZIndex = 1;
+        var active = CreateVideo(6);
+        if (hasActiveProvider) AddElement(2, 8, active).ZIndex = 1;
+        Element element = AddElement(2, 2, new DrawableTimeController());
+        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var resource = compositor.EvaluateGraphics(Seconds(3)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(resource.Target?.GetOriginal(), Is.SameAs(hasActiveProvider ? active : null));
+
+        bool slipped = _slip.Slip(_harness.Scene, [element], Seconds(0.5));
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(3), 0)]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(slipped, Is.EqualTo(hasActiveProvider));
+            Assert.That(element.Length, Is.EqualTo(Seconds(3)));
+            Assert.That(active.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(hasActiveProvider ? 0.5 : 0)));
+            Assert.That(before.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(after.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Trim_SharedFrozenOffset_AllowsGeometryWithoutAnOffsetWrite(bool slide, bool sharedMiddle)
+    {
+        var video = CreateVideo(20, speed: 0, offsetSeconds: 1);
+        Element front = _harness.AddElement(TimeSpan.Zero, Seconds(2));
+        Element? middle = slide ? _harness.AddElement(Seconds(2), Seconds(2)) : null;
+        Element back = AddElement(slide ? 4 : 2, 4, video);
+        (sharedMiddle ? middle! : front).Objects.Add(new DrawablePresenter { Target = { CurrentValue = video } });
+        var resize = new ElementResizeService(_harness.History);
+        TimeSpan oldBackStart = back.Start;
+        _harness.History.Commit();
+        TimeSpan preview = ElementResizeService.CreateTrimConstraints(_harness.Scene, [new(front, back)],
+            middle == null ? [] : [middle]).Clamp(Seconds(0.5));
+
+        bool applied = slide
+            ? resize.Slide(_harness.Scene, [new(front, [middle!], back)], Seconds(0.5))
+            : resize.Roll(_harness.Scene, [new(front, back)], Seconds(0.5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(preview, Is.EqualTo(Seconds(0.5)));
+            Assert.That(front.Length, Is.EqualTo(Seconds(2.5)));
+            Assert.That(back.Start, Is.EqualTo(oldBackStart + Seconds(0.5)));
+            Assert.That(back.Length, Is.EqualTo(Seconds(3.5)));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            if (middle != null) Assert.That(middle.Start, Is.EqualTo(Seconds(2.5)));
+        });
+        _harness.History.Undo();
+        Assert.That(back.Start, Is.EqualTo(oldBackStart));
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+        _harness.History.Redo();
+        Assert.That(back.Start, Is.EqualTo(oldBackStart + Seconds(0.5)));
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Resize_PortalNewOverlap_ClampsTheProposedSampledWindow(bool leftEdge, bool ripple)
+    {
+        var video = CreateVideo(leftEdge ? 2 : 6);
+        AddElement(leftEdge ? 0 : 2, leftEdge ? 3 : 8, video).ZIndex = 1;
+        Element element = AddElement(leftEdge ? 4 : 0, 1, new DrawableTimeController { Speed = { CurrentValue = 200 } });
+        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        Assert.That(compositor.EvaluateGraphics(element.Start + Seconds(0.5)).Objects
+            .OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        TimeSpan preview = leftEdge ? constraints.ClampStart(Seconds(1)) : constraints.ClampLength(Seconds(5));
+        new ElementResizeService(_harness.History).Resize(_harness.Scene,
+            [new(element, Seconds(leftEdge ? 1 : 0), Seconds(leftEdge ? 4 : 5), 0)], ripple);
+
+        var resource = compositor.EvaluateGraphics(Seconds(2.9)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(preview, Is.EqualTo(Seconds(leftEdge ? 2 : 3)));
+            Assert.That(element.Start, Is.EqualTo(Seconds(leftEdge ? 2 : 0)));
+            Assert.That(element.Length, Is.EqualTo(Seconds(3)));
+            Assert.That(resource.Target!.GetOriginal(), Is.SameAs(video));
+            Assert.That(ReadPosition(resource), Is.LessThanOrEqualTo(leftEdge ? 2 : 6));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
         });
     }
 

@@ -450,6 +450,71 @@ public class TimelineMediaDurationTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task EdgeDrag_PortalBecomesActive_PreviewsAndCommitsSourceBounds(bool leftEdge)
+    {
+        using var configuration = new RippleDisabledScope();
+        ElementViewModel model = await OpenElement(new DrawableTimeController { Speed = { CurrentValue = 50 } },
+            startSeconds: leftEdge ? 4 : 1, lengthSeconds: leftEdge ? 1 : 0.5);
+        model.Model.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        var timeline = model.Timeline;
+        var adder = (IElementAdder)timeline.EditorContext.GetService(typeof(IElementAdder))!;
+        Assert.That((await adder.AddAsync([new ElementDescription(
+            Start: TimeSpan.FromSeconds(leftEdge ? 0 : 2), Length: TimeSpan.FromSeconds(leftEdge ? 3 : 4), Layer: 1,
+            Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None)).IsSuccess, Is.True);
+        Element owner = model.Scene.Children.Single(e => e != model.Model);
+        owner.Objects.Clear();
+        owner.Objects.Add(CreateDurationVideo());
+        owner.Name = "Portal video provider";
+        model.Model.Name = "Portal consumer";
+        timeline.ClearSelected();
+        timeline.SelectElement(model);
+        HeadlessTestHelpers.Settle();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 1600, Height = 420 };
+        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
+        try
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            ElementView element = view.GetVisualDescendants().OfType<ElementView>().Single(v => ReferenceEquals(v.DataContext, model));
+            Border border = element.FindControl<Border>("border")!;
+            float scale = timeline.Options.Value.Scale;
+            double y = border.Bounds.Height / 2;
+            Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), window)!.Value;
+            Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -4 : 3).TimeToPixel(scale), y), window)!.Value;
+            window.MouseMove(press, RawInputModifiers.Alt);
+            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
+            try
+            {
+                window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
+                HeadlessTestHelpers.Render(5);
+                CapturePreview(window, $"portal-new-overlap-left-{leftEdge}");
+                Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 2).TimeToPixel(scale)).Within(0.0001));
+            }
+            finally
+            {
+                window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
+                HeadlessTestHelpers.Settle(4);
+            }
+            Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 2)));
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
+            view.DataContext = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     private static SourceVideo CreateDurationVideo()
     {
         DecoderRegistry.Register(new DurationVideoDecoder());
