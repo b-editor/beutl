@@ -1237,6 +1237,75 @@ public class TrimTimeControllerTests
         Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Resize_LeftEdge_FindsTheNearestLaterLoopLength(bool ripple)
+    {
+        var video = CreateVideo(1);
+        Element element = AddElement(4, 1, video);
+        element.Objects.Add(new DrawableTimeController
+        {
+            Speed = { CurrentValue = 50 },
+            OffsetPosition = { CurrentValue = Seconds(4) },
+            Loop = { CurrentValue = true }
+        });
+        TimeSpan requestedStart = Seconds(2.2);
+        TimeSpan end = element.Range.End;
+        TimeSpan preview = SlippableMedia.CreateResizeConstraints(element).ClampStart(requestedStart);
+
+        new ElementResizeService(_harness.History).Resize(_harness.Scene,
+            [new(element, requestedStart, end - requestedStart, 0)], ripple);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(preview, Is.EqualTo(Seconds(3)));
+            Assert.That(element.Start, Is.EqualTo(Seconds(3)));
+            Assert.That(element.Length, Is.EqualTo(Seconds(2)));
+            Assert.That(element.Range.End, Is.EqualTo(end));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void Portal_DisabledProvider_DoesNotBecomeATrimTarget()
+    {
+        var video = CreateVideo(1);
+        Element owner = AddElement(0, 1, video);
+        owner.ZIndex = 1;
+        owner.IsEnabled = false;
+        var controller = CreateController(video);
+        Element element = AddElement(0, 0.5, controller);
+        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var resource = compositor.EvaluateGraphics(Seconds(0.25)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(resource.Target, Is.Null);
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(0.25)), Is.False);
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(2), 0)]);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(element.Length, Is.EqualTo(Seconds(2)));
+    }
+
+    [Test]
+    public void Portal_DisabledCompetitor_DoesNotBlockAValidInput()
+    {
+        var video = CreateVideo(6);
+        Element owner = AddElement(0, 1, video);
+        owner.ZIndex = 2;
+        Element element = _harness.AddElement(TimeSpan.Zero, Seconds(1), 1);
+        element.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        element.Objects.Add(new DrawableTimeController());
+        Element disabled = _harness.AddElement(TimeSpan.Zero, Seconds(1), 0);
+        disabled.IsEnabled = false;
+        disabled.Objects.Add(new PortalObject { Count = { CurrentValue = 2 } });
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var resource = compositor.EvaluateGraphics(Seconds(0.25)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(resource.Target!.GetOriginal(), Is.SameAs(video));
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.True);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+    }
+
     private Element AddElement(double startSeconds, double lengthSeconds, Drawable drawable)
     {
         Element element = _harness.AddElement(Seconds(startSeconds), Seconds(lengthSeconds));

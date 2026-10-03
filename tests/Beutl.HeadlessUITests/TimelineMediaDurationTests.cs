@@ -400,14 +400,16 @@ public class TimelineMediaDurationTests
     }
 
     [AvaloniaTest]
-    public async Task RightEdgeDrag_LaterSafeLoopPhase_IsNotLimitedByAnEarlierFailedProbe()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task EdgeDrag_LaterSafeLoopPhase_IsNotLimitedByAnEarlierFailedProbe(bool leftEdge)
     {
         using var configuration = new RippleDisabledScope();
         ElementViewModel model = await OpenElement(CreateDurationVideo(), startSeconds: 5);
         model.Model.Objects.Add(new DrawableTimeController
         {
             Speed = { CurrentValue = 50 },
-            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(10) },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(leftEdge ? 4 : 10) },
             Loop = { CurrentValue = true }
         });
         var timeline = model.Timeline;
@@ -425,17 +427,18 @@ public class TimelineMediaDurationTests
             Border border = element.FindControl<Border>("border")!;
             float scale = timeline.Options.Value.Scale;
             double y = border.Bounds.Height / 2;
-            Point press = border.TranslatePoint(new Point(border.Bounds.Width - 2, y), window)!.Value;
-            Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(1.6).TimeToPixel(scale), y), window)!.Value;
+            Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), window)!.Value;
+            Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -1.8 : 1.6).TimeToPixel(scale), y), window)!.Value;
             window.MouseMove(press, RawInputModifiers.Alt);
             window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
             window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Render(5);
-            CapturePreview(window, "later-safe-loop-phase");
-            Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(1.6).TimeToPixel(scale)).Within(0.0001));
+            CapturePreview(window, leftEdge ? "later-safe-left-loop-phase" : "later-safe-loop-phase");
+            Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 2 : 1.6).TimeToPixel(scale)).Within(0.0001));
             window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
             HeadlessTestHelpers.Settle(4);
-            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(1.6)));
+            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 2 : 1.6)));
+            Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 5)));
         }
         finally
         {

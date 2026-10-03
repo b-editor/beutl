@@ -159,7 +159,7 @@ internal static class SlippableMedia
             if (opaqueConsumption || element.HierarchicalParent is not Scene scene) return null;
             int firstLayer = portal.ZIndex + 1;
             int lastLayer = portal.ZIndex + portal.Count.CurrentValue;
-            Element[] candidates = scene.Children.Where(candidate => candidate.ZIndex >= firstLayer && candidate.ZIndex <= lastLayer
+            Element[] candidates = scene.Children.Where(candidate => candidate.IsEnabled && candidate.ZIndex >= firstLayer && candidate.ZIndex <= lastLayer
                 && !consumedPortalElements.Contains(candidate) && candidate.Objects.Any(obj => obj.IsEnabled)).ToArray();
             if (candidates.Length == 0) return [];
             // A single plain provider has one stable input order whenever it is
@@ -173,7 +173,7 @@ internal static class SlippableMedia
                     || obj is IFlowOperator && obj is not DrawableTimeController))) return null;
             EngineObject[] objects = owner.Objects.Where(obj => obj.IsEnabled).ToArray();
             if (objects.Any(obj => obj is IFlowOperator or IPresenter<Drawable> || obj is not Drawable and not Sound)) return null;
-            if (scene.Children.Any(other => other != element && other.ZIndex <= element.ZIndex
+            if (scene.Children.Any(other => other.IsEnabled && other != element && other.ZIndex <= element.ZIndex
                 && other.Objects.OfType<PortalObject>().Any(prior => prior.IsEnabled
                     && (prior.Count.HasExpression || prior.ZIndex < owner.ZIndex && prior.ZIndex + prior.Count.CurrentValue >= owner.ZIndex))))
                 return null;
@@ -330,11 +330,15 @@ internal static class SlippableMedia
 
         public TimeSpan ClampStart(TimeSpan requestedStart)
         {
-            if (requestedStart > elementStart + elementLength) requestedStart = elementStart + elementLength;
+            TimeSpan end = elementStart + elementLength;
+            if (requestedStart > end) requestedStart = end;
             TimeSpan delta = requestedStart - elementStart;
-            return elementStart + ClampDelta(delta,
-                d => FitsProvider(elementLength - d, allowRecovery: true)
-                    && targets.All(t => t.Fits(elementLength - d, d, allowRecovery: true)));
+            bool Fits(TimeSpan length) => FitsProvider(length, allowRecovery: true)
+                && targets.All(t => t.Fits(length, elementLength - length, allowRecovery: true));
+            TimeSpan result = elementLength - ClampDelta(delta, d => Fits(elementLength - d));
+            if (!HasMonotonicDuration)
+                result = SearchDurationPhases(result, end - requestedStart, delta, Fits);
+            return end - result;
         }
 
         public TimeSpan ClampLength(TimeSpan requestedLength, TimeSpan? start = null)
