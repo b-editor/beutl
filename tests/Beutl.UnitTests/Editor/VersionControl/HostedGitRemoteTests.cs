@@ -40,9 +40,13 @@ public class HostedGitRemoteTests
     }
 
     [TestCase("Writing objects: 401, unrelated failure", false)]
-    [TestCase("The requested URL returned error: 401", true)]
-    [TestCase("HTTP/2 401", true)]
-    [TestCase("Authentication failed", true)]
+    [TestCase("The requested URL returned error: 401", false)]
+    [TestCase("HTTP/2 401", false)]
+    [TestCase("Authentication failed", false)]
+    [TestCase("fatal: Authentication failed for 'https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git/'\r\n", true)]
+    [TestCase("fatal: unable to access 'https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git/': The requested URL returned error: 401", true)]
+    [TestCase("fatal: Authentication failed for 'https://external.example/repository.git/'", false)]
+    [TestCase("fatal: unable to access 'https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git/': The requested URL returned error: 403", false)]
     [TestCase("LFS download failed: HTTP 403", true)]
     [TestCase("LFS transfer failed: HTTP 403", true)]
     [TestCase("tus request failed: HTTP 403", true)]

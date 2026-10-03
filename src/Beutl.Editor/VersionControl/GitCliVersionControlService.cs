@@ -1370,12 +1370,16 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo repository, IGitCliRunner runner, IReadOnlyList<string> arguments,
         GitCommandOptions baseline, CancellationToken cancellationToken,
         IProgress<string>? progress = null, IReadOnlyList<string>? selectedUrls = null,
-        string? isolatedPushUrl = null, string? prePushHookDirectory = null)
+        string? isolatedPushUrl = null, string? prePushHookDirectory = null,
+        CheckedOutBranchTip? pinnedSource = null)
     {
         for (int attempt = 0; ; attempt++)
         {
             GitCommandOptions options = await GetNetworkOptionsAsync(
                 baseline, cancellationToken, selectedUrls).ConfigureAwait(false);
+            if (pinnedSource is { } source && await ReadRefCommitAsync(repository, runner,
+                    source.RefName, cancellationToken).ConfigureAwait(false) != source.Commit)
+                throw new GitOperationException(1, "Beutl push stopped: source branch changed after the push started.");
             bool hostedAuthentication = selectedUrls is null
                 ? options.EnvironmentOverrides is not null
                 : selectedUrls.Any(url => HostedGitRemote.TryParse(url, out _));
@@ -1458,6 +1462,10 @@ internal sealed class GitCliVersionControlService :
             static string Quote(string value) => "'" + value.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
             string hookPath = OperatingSystem.IsWindows() ? originalHook.Replace('\\', '/') : originalHook;
             string script = "#!/bin/sh\n" +
+                $"current_oid=$(git rev-parse --verify {Quote(tip.RefName + "^{commit}")}) || exit 1\n" +
+                $"if [ \"$current_oid\" != {Quote(tip.Commit)} ]; then\n" +
+                "  printf '%s\\n' 'Beutl push stopped: source branch changed after the push started.' >&2\n" +
+                "  exit 1\nfi\n" +
                 "while read -r local_ref local_oid remote_ref remote_oid; do\n" +
                 $"  if [ \"$local_ref\" = {Quote(tip.Commit)} ]; then local_ref={Quote(tip.RefName)}; fi\n" +
                 "  printf '%s %s %s %s\\n' \"$local_ref\" \"$local_oid\" \"$remote_ref\" \"$remote_oid\"\n" +
@@ -1884,9 +1892,15 @@ internal sealed class GitCliVersionControlService :
             IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
             await UpdateLocalConfigAtomicallyAsync(repository, runner, async (stagingPath, token) =>
             {
-                // The config lock is held before checking origin; another Git
-                // client cannot insert or replace it between this check and commit.
-                if ((await GetRemotesCoreAsync(token).ConfigureAwait(false)).Count > 0)
+                // Check the locked snapshot, including origins with only push/fetch settings.
+                bool originExists = true;
+                try
+                {
+                    await runner.RunAsync(repository, ["config", "--file", stagingPath, "--get-regexp", @"^remote\.origin\."],
+                        GitCommandOptions.Local, token).ConfigureAwait(false);
+                }
+                catch (GitOperationException ex) when (ex.ExitCode == 1) { originExists = false; }
+                if (originExists)
                     throw new InvalidOperationException("The origin remote already exists; it was preserved.");
                 await runner.RunAsync(repository, ["config", "--file", stagingPath, "--add", "remote.origin.url", url],
                     GitCommandOptions.Local, token).ConfigureAwait(false);
@@ -9242,7 +9256,8 @@ internal sealed class GitCliVersionControlService :
                     {
                         await RunNetworkWithTokenRefreshAsync(repository, runner,
                             ["push", "--progress", "origin", $"{currentTip.Commit}:{remoteRef}"],
-                            GitCommandOptions.Network, cancellationToken, progress, [url], url, hook.DirectoryPath).ConfigureAwait(false);
+                            GitCommandOptions.Network, cancellationToken, progress, [url], url,
+                            hook.DirectoryPath, currentTip).ConfigureAwait(false);
                     }
                     finally
                     {
@@ -9288,11 +9303,26 @@ internal sealed class GitCliVersionControlService :
     }
 
     internal static bool IsHostedAuthenticationFailure(GitOperationException exception)
-        => System.Text.RegularExpressions.Regex.IsMatch(exception.Stderr,
-               @"(?:HTTP(?:/\d(?:\.\d)?)?\s+(?:error\s+)?401\b|requested URL returned error:\s*401\b|" +
-               @"(?:LFS (?:download|transfer)|tus (?:request|PATCH)) failed:\s*HTTP\s+403\b)",
-               System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)
-           || exception.Stderr.Contains("Authentication failed", StringComparison.OrdinalIgnoreCase);
+    {
+        const System.Text.RegularExpressions.RegexOptions options =
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant;
+        if (System.Text.RegularExpressions.Regex.IsMatch(exception.Stderr,
+                @"(?:LFS (?:download|transfer)|tus (?:request|PATCH)) failed:\s*HTTP\s+(?:401|403)\b", options))
+            return true;
+        // Hook stderr is arbitrary. Only Git's fatal diagnostic naming a hosted URL
+        // establishes transport authentication failure; a hook's bare 401 does not.
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(exception.Stderr,
+                     @"^fatal:\s+(?<kind>Authentication failed for|unable to access)\s+'(?<url>https?://[^']+)'(?<reason>[^\r\n]*)\r?$",
+                     options | System.Text.RegularExpressions.RegexOptions.Multiline))
+        {
+            if (HostedGitRemote.TryParse(match.Groups["url"].Value.TrimEnd('/'), out _) &&
+                (match.Groups["kind"].Value.Equals("Authentication failed for", StringComparison.OrdinalIgnoreCase) ||
+                 System.Text.RegularExpressions.Regex.IsMatch(match.Groups["reason"].Value,
+                     @"requested URL returned error:\s*401\b", options)))
+                return true;
+        }
+        return false;
+    }
 
     private static async Task<string?> ReadRefCommitAsync(
         RepositoryInfo repository, IGitCliRunner runner, string reference, CancellationToken cancellationToken)

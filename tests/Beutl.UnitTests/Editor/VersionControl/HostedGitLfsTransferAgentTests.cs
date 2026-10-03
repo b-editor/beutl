@@ -35,8 +35,9 @@ public class HostedGitLfsTransferAgentTests
     private const int PartSize = 64 * 1024 * 1024;
     private static readonly string s_oid = new('a', 64);
 
-    [Test]
-    public async Task BasicUploadRetriesWithANewFileStreamAndPreservesActionHeaders()
+    [TestCase(HttpStatusCode.ServiceUnavailable)]
+    [TestCase(HttpStatusCode.RequestTimeout)]
+    public async Task BasicUploadRetriesWithANewFileStreamAndPreservesActionHeaders(HttpStatusCode failureStatus)
     {
         byte[] bytes = "small upload"u8.ToArray();
         string path = Path.Combine(Path.GetTempPath(), $"beutl-lfs-test-{Guid.NewGuid():N}");
@@ -51,8 +52,7 @@ public class HostedGitLfsTransferAgentTests
                 Assert.That(request.Content!.Headers.ContentLength, Is.EqualTo(bytes.Length));
                 Assert.That(request.Content.Headers.ContentType!.MediaType, Is.EqualTo("application/octet-stream"));
                 Assert.That(await request.Content.ReadAsByteArrayAsync(token), Is.EqualTo(bytes));
-                return new HttpResponseMessage(++attempts == 1
-                    ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK);
+                return new HttpResponseMessage(++attempts == 1 ? failureStatus : HttpStatusCode.OK);
             });
             using var http = new HttpClient(handler);
             using var input = TransferInput("upload", bytes.Length, path, "https://storage.example/object",
@@ -880,8 +880,9 @@ public class HostedGitLfsTransferAgentTests
         Assert.That(await File.ReadAllBytesAsync(partial), Is.EqualTo(bytes[..5]));
     }
 
-    [Test]
-    public async Task DownloadResumesAfterTransientRetriesAreExhausted()
+    [TestCase(HttpStatusCode.ServiceUnavailable)]
+    [TestCase(HttpStatusCode.RequestTimeout)]
+    public async Task DownloadResumesAfterTransientRetriesAreExhausted(HttpStatusCode failureStatus)
     {
         byte[] bytes = "resume after repeated server errors"u8.ToArray();
         string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
@@ -894,7 +895,7 @@ public class HostedGitLfsTransferAgentTests
             if (++requests == 1)
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes[..3]) });
             Assert.That(request.Headers.Range!.Ranges.Single().From, Is.EqualTo(3));
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+            return Task.FromResult(new HttpResponseMessage(failureStatus));
         });
         Task<StringWriter> transfer = TransferAsync(interrupted, "download", bytes.Length, "https://storage.example/object",
             bytes, oid, clock, cancellation.Token, cache);
@@ -908,6 +909,55 @@ public class HostedGitLfsTransferAgentTests
         Assert.That(requests, Is.EqualTo(6));
         Assert.That(await File.ReadAllBytesAsync(Path.Combine(cache, oid + ".partial")), Is.EqualTo(bytes[..3]));
         await CompleteSavedDownloadAsync(bytes, oid, cache, 3);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DownloadRetainsItsPrefixWhenTheProgressPipeFails(bool failOnFlush)
+    {
+        byte[] bytes = "resume after the Git LFS progress pipe closes"u8.ToArray();
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        string cache = NewDownloadCacheDirectory();
+        int requests = 0;
+        using var handler = new CallbackHandler((_, _) =>
+        {
+            requests++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes[..5]) });
+        });
+        using var http = new HttpClient(handler);
+        using var input = TransferInput("download", bytes.Length, "fixture", "https://storage.example/object", oid: oid);
+        using var output = new FailedProgressWriter(failOnFlush);
+        Assert.That(await HostedGitLfsTransferAgent.RunAsync(input, output, http, CancellationToken.None,
+            _ => 0, _ => Stream.Null, downloadCacheDirectory: cache), Is.EqualTo(1));
+        Assert.That(output.ProgressFailed, Is.True);
+        Assert.That(requests, Is.EqualTo(1));
+        Assert.That(await File.ReadAllBytesAsync(Path.Combine(cache, oid + ".partial")), Is.EqualTo(bytes[..5]));
+        await CompleteSavedDownloadAsync(bytes, oid, cache, 5);
+    }
+
+    private sealed class FailedProgressWriter(bool failOnFlush) : StringWriter
+    {
+        public bool ProgressFailed { get; private set; }
+        private bool _progressPending;
+        public override Task WriteLineAsync(string? value)
+        {
+            _progressPending = value?.Contains("\"event\":\"progress\"", StringComparison.Ordinal) == true;
+            if (ProgressFailed || (_progressPending && !failOnFlush))
+            {
+                ProgressFailed = true;
+                throw new IOException("Git LFS closed its progress pipe");
+            }
+            return base.WriteLineAsync(value);
+        }
+        public override Task FlushAsync()
+        {
+            if (_progressPending && failOnFlush)
+            {
+                ProgressFailed = true;
+                throw new IOException("Git LFS closed its progress pipe");
+            }
+            return base.FlushAsync();
+        }
     }
 
     [Test]

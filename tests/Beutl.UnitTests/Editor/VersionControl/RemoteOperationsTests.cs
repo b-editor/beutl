@@ -133,7 +133,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Mixed_push_keeps_the_captured_commit_if_the_branch_changes_during_credential_acquisition()
+    public async Task Mixed_push_rejects_a_branch_change_during_credential_acquisition()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string capturedTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -152,17 +152,19 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             await RunGitAsync("commit", "--allow-empty", "-m", "branch advanced during token acquisition");
             return "temporary";
         };
-        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.TypeOf<RemoteOpResult.Success>());
-        Assert.That(runner.Options, Has.Count.EqualTo(2));
+        RemoteOpResult result = await service.PushAsync(null, CancellationToken.None);
+        Assert.That(result, Is.Not.TypeOf<RemoteOpResult.Success>());
+        Assert.That(result.ToString(), Does.Contain("source branch changed"));
+        Assert.That(runner.Options, Has.Count.EqualTo(1));
         Assert.That(await ReadRemoteHeadAsync(external), Is.EqualTo(capturedTip));
-        Assert.That(await ReadRemoteHeadAsync(hostedFixture), Is.EqualTo(capturedTip));
+        await AssertRemoteHasNoBranchesAsync(hostedFixture);
         Assert.That((await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim(), Is.Not.EqualTo(capturedTip));
         Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(originalConfig));
     }
 
     [TestCase(false)]
     [TestCase(true)]
-    public async Task Mixed_push_keeps_a_stable_source_and_original_hook_if_the_branch_moves_before_git_starts(bool customHooksPath)
+    public async Task Mixed_push_rejects_a_moved_branch_before_invoking_the_original_hook(bool customHooksPath)
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string capturedTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -190,9 +192,11 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         });
         using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
         service.HostedGitTokenProvider = (_, _) => Task.FromResult("temporary");
-        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.TypeOf<RemoteOpResult.Success>());
+        RemoteOpResult result = await service.PushAsync(null, CancellationToken.None);
+        Assert.That(result, Is.Not.TypeOf<RemoteOpResult.Success>());
+        Assert.That(result.ToString(), Does.Contain("source branch changed"));
         Assert.That(await ReadRemoteHeadAsync(external), Is.EqualTo(capturedTip));
-        Assert.That(await ReadRemoteHeadAsync(hostedFixture), Is.EqualTo(capturedTip));
+        await AssertRemoteHasNoBranchesAsync(hostedFixture);
         Assert.That((await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim(), Is.Not.EqualTo(capturedTip));
         Assert.That(await File.ReadAllTextAsync(hookPath), Is.EqualTo(hook));
         Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(originalConfig));
@@ -203,6 +207,35 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 && entry.Value == "core.hooksPath").Key;
             Assert.That(Directory.Exists(environment[key.Replace("_KEY_", "_VALUE_", StringComparison.Ordinal)]), Is.False);
         }
+    }
+
+    [TestCase("Authentication failed")]
+    [TestCase("HTTP/2 401")]
+    [TestCase("The requested URL returned error: 401")]
+    public async Task Hosted_push_does_not_repeat_a_rejecting_pre_push_hook(string diagnostic)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
+        string external = await CreateBareRemoteAsync();
+        string hostedFixture = await CreateBareRemoteAsync();
+        await RunGitAsync("remote", "add", "origin", external);
+        await RunGitAsync("remote", "set-url", "--push", "origin", hosted);
+        await RunGitAsync("remote", "set-url", "--add", "--push", "origin", external);
+        string hook = Path.Combine(Root, ".git", "hooks", "pre-push");
+        await File.WriteAllTextAsync(hook, "#!/bin/sh\nprintf '%s\\n' invoked >> hook-invocations\n" +
+            $"printf '%s\\n' '{diagnostic}' >&2\nexit 1\n");
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(hook, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var runner = new MixedPushRunner(CreateRunner(), hosted, hostedFixture);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        int issued = 0;
+        service.HostedGitTokenProvider = (_, _) => { issued++; return Task.FromResult("temporary"); };
+        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.Not.TypeOf<RemoteOpResult.Success>());
+        Assert.That(issued, Is.EqualTo(1));
+        Assert.That(runner.Options, Has.Count.EqualTo(1));
+        Assert.That(await File.ReadAllLinesAsync(Path.Combine(Root, "hook-invocations")), Is.EqualTo(new[] { "invoked" }));
+        await AssertRemoteHasNoBranchesAsync(hostedFixture);
+        await AssertRemoteHasNoBranchesAsync(external);
     }
 
     [TestCase(false)]
@@ -311,6 +344,30 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.That((await RunGitAsync("config", "--get", "remote.origin.fetch")).Stdout.Trim(),
             Is.EqualTo("+refs/heads/*:refs/remotes/origin/*"));
         Assert.That(File.Exists(Path.Combine(Root, ".git", "config.lock")), Is.False);
+    }
+
+    [TestCase("pushurl", "https://example.invalid/existing.git")]
+    [TestCase("fetch", "+refs/heads/*:refs/remotes/origin/*")]
+    [TestCase("tagOpt", "--no-tags")]
+    public async Task Hosted_remote_add_preserves_an_origin_without_a_fetch_url(string key, string value)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await RunGitAsync("config", $"remote.origin.{key}", value);
+        byte[] config = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config"));
+        using var service = CreateService();
+        Assert.That(async () => await service.AddRemoteIfAbsentAsync(
+                "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git", CancellationToken.None),
+            Throws.TypeOf<InvalidOperationException>().With.Message.Contains("preserved"));
+        Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(config));
+        Assert.That(File.Exists(Path.Combine(Root, ".git", "config.lock")), Is.False);
+    }
+
+    private async Task AssertRemoteHasNoBranchesAsync(string remoteRoot)
+    {
+        var remote = new RepositoryInfo(remoteRoot, remoteRoot);
+        GitCommandResult result = await CreateRunner().RunAsync(remote,
+            ["for-each-ref", "--format=%(refname)", "refs/heads/"], GitCommandOptions.Local, CancellationToken.None);
+        Assert.That(result.Stdout, Is.Empty);
     }
 
     private sealed class BeforeRemoteConfigRunner(IGitCliRunner inner, Func<Task> beforeConfig) : IGitCliRunner
@@ -443,7 +500,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     private sealed class HostedPushRunner(IGitCliRunner inner, int failures, string networkCommand = "push",
-        string authenticationFailure = "The requested URL returned error: 401") : IGitCliRunner
+        string authenticationFailure = "fatal: unable to access 'https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git/': The requested URL returned error: 401") : IGitCliRunner
     {
         public bool HasActiveProcess => inner.HasActiveProcess;
         public List<GitCommandOptions> Options { get; } = [];

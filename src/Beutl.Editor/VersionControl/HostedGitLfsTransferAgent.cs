@@ -473,7 +473,12 @@ internal static class HostedGitLfsTransferAgent
                             await destination.WriteAsync(buffer.AsMemory(0, count), cancellationToken);
                             received += count;
                             hash.AppendData(buffer.AsSpan(0, count));
-                            await ProgressAsync(output, message.Oid!, received, count);
+                            try { await ProgressAsync(output, message.Oid!, received, count); }
+                            catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+                            {
+                                // The bytes reached the cache; a closed Git LFS pipe must not discard them.
+                                throw new DownloadInterruptedException("Git LFS progress pipe closed", ex);
+                            }
                         }
                         if (received == message.Size)
                         {
@@ -486,8 +491,7 @@ internal static class HostedGitLfsTransferAgent
                     catch (Exception ex) when (
                         readingFromNetwork && received < message.Size && (ex is IOException ||
                             ex is HttpRequestException { StatusCode: null } ||
-                            ex is HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } ||
-                            ex is HttpRequestException { StatusCode: >= HttpStatusCode.InternalServerError }))
+                            ex is HttpRequestException { StatusCode: { } status } && Retryable(status)))
                     {
                         transportFailed = true;
                     }
@@ -571,7 +575,10 @@ internal static class HostedGitLfsTransferAgent
         }
     }
 
-    private sealed class DownloadInterruptedException() : IOException("LFS download made no progress after five attempts") { }
+    private sealed class DownloadInterruptedException(
+        string message = "LFS download made no progress after five attempts", Exception? innerException = null)
+        : IOException(message, innerException)
+    { }
 
     private static HttpRequestMessage NewRequest(HttpMethod method, Uri url, Dictionary<string, string>? headers)
     {
@@ -638,7 +645,8 @@ internal static class HostedGitLfsTransferAgent
         }
     }
 
-    private static bool Retryable(HttpStatusCode status) => status == HttpStatusCode.TooManyRequests || (int)status >= 500;
+    private static bool Retryable(HttpStatusCode status) =>
+        status is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests || (int)status >= 500;
 
     private static async Task<HttpResponseMessage> SendUploadRequestAsync(
         HttpClient http, HttpRequestMessage request, HttpCompletionOption completion,
