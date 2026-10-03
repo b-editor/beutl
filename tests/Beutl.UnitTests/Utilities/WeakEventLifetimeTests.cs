@@ -64,6 +64,43 @@ public class WeakEventLifetimeTests
     }
 
     [Test]
+    public void ResubscribeDuringEvent_IsDeferredUntilNextDispatch()
+    {
+        var source = new EventSource();
+        var weakEvent = CreateEvent();
+        var first = new Subscriber();
+        var second = new Subscriber();
+        first.Callback = () =>
+        {
+            // Bound the broken implementation's repeat dispatch so the regression fails without hanging.
+            if (first.CallCount <= 3)
+            {
+                weakEvent.Unsubscribe(source, first);
+                weakEvent.Subscribe(source, first);
+            }
+        };
+        weakEvent.Subscribe(source, first);
+        weakEvent.Subscribe(source, second);
+
+        source.Raise();
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.CallCount, Is.EqualTo(1));
+            Assert.That(second.CallCount, Is.EqualTo(1));
+        });
+
+        source.Raise();
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.CallCount, Is.EqualTo(2));
+            Assert.That(second.CallCount, Is.EqualTo(2));
+            Assert.That(source.HandlerCount, Is.EqualTo(1));
+        });
+        GC.KeepAlive(first);
+        GC.KeepAlive(second);
+    }
+
+    [Test]
     public void UnsubscribeDuringNestedEvent_DoesNotSkipFollowingSubscriber()
     {
         var source = new EventSource();

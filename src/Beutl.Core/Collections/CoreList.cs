@@ -297,60 +297,44 @@ public class CoreList<T> : ICoreList<T>
             EnsureCapacity(Inner.Count + count);
         }
 
-        if (items is IList list)
+        if (items is IList list && items is ICollection<T> collection)
         {
             if (list.Count > 0)
             {
-                if (list is ICollection<T> collection)
-                {
-                    Inner.InsertRange(index, collection);
-                    NotifyAdd(list, index);
-                }
-                else
-                {
-                    using (IEnumerator<T> en = items.GetEnumerator())
-                    {
-                        int insertIndex = index;
-
-                        while (en.MoveNext())
-                        {
-                            Inner.Insert(insertIndex++, en.Current);
-                        }
-                    }
-
-                    NotifyAdd(list, index);
-                }
+                Inner.InsertRange(index, collection);
+                NotifyAdd(list, index);
             }
         }
         else
         {
-            using (IEnumerator<T> en = items.GetEnumerator())
+            // An IList that is not an ICollection<T> also inserts by enumeration.
+            // Keep the committed prefix rather than reporting the source's uninserted items.
+            List<T>? notificationItems = willNotify ? [] : null;
+            ExceptionDispatchInfo? failure = null;
+            try
             {
-                if (en.MoveNext())
+                using IEnumerator<T> en = items.GetEnumerator();
+                int insertIndex = index;
+                while (en.MoveNext())
                 {
-                    // Only keep the inserted items when a listener needs notifications.
-                    List<T>? notificationItems = willNotify ? [] : null;
-
-                    int insertIndex = index;
-
-                    try
-                    {
-                        do
-                        {
-                            T item = en.Current;
-                            Inner.Insert(insertIndex++, item);
-                            notificationItems?.Add(item);
-                        } while (en.MoveNext());
-                    }
-                    finally
-                    {
-                        // An iterator can fail after inserting a prefix. Those items still need
-                        // attachment and change notifications to match the list's contents.
-                        if (notificationItems is { Count: > 0 })
-                            NotifyAdd(notificationItems, index);
-                    }
+                    T item = en.Current;
+                    Inner.Insert(insertIndex++, item);
+                    notificationItems?.Add(item);
                 }
             }
+            catch (Exception ex)
+            {
+                failure = ExceptionDispatchInfo.Capture(ex);
+            }
+
+            if (notificationItems is { Count: > 0 })
+            {
+                T[] insertedItems = notificationItems.ToArray();
+                InvokeEach(attached: true, insertedItems, ref failure);
+                RaiseEach(new NotifyCollectionChangedEventArgs(
+                    NotifyCollectionChangedAction.Add, insertedItems, index), ref failure);
+            }
+            failure?.Throw();
         }
     }
 

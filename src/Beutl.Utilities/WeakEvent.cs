@@ -143,10 +143,12 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
 
         private void OnEvent(object? sender, TEventArgs eventArgs)
         {
+            int dispatchCount = _count;
             _dispatchDepth++;
             try
             {
-                for (int c = 0; c < _count; c++)
+                // Subscriptions added by a callback belong to the next dispatch.
+                for (int c = 0; c < dispatchCount; c++)
                 {
                     if (_data[c]?.TryGetTarget(out IWeakEventSubscriber<TEventArgs>? sub) == true)
                     {
