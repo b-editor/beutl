@@ -152,6 +152,62 @@ public class HostedGitLfsTransferAgentTests
         AssertError(output, error);
     }
 
+    [TestCase(0)]
+    [TestCase(2)]
+    public async Task DownloadDoesNotRetryOrReportSuccessAfterADestinationWriteFails(int partiallyWritten)
+    {
+        byte[] bytes = "data"u8.ToArray();
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        int requests = 0;
+        using var handler = new CallbackHandler((_, _) =>
+        {
+            requests++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) });
+        });
+        using var http = new HttpClient(handler);
+        using var input = TransferInput("download", bytes.Length, "fixture", "https://storage.example/object", oid: oid);
+        using var output = new StringWriter();
+        string? destinationPath = null;
+        Assert.That(await HostedGitLfsTransferAgent.RunAsync(input, output, http, CancellationToken.None,
+            _ => bytes.Length, _ => new MemoryStream(bytes), path =>
+            {
+                destinationPath = path;
+                return new FailingWriteStream(path, partiallyWritten);
+            }), Is.Zero);
+        AssertError(output, "fixture disk full");
+        Assert.That(requests, Is.EqualTo(1));
+        Assert.That(File.Exists(destinationPath), Is.False, "failed partial files must be removed");
+        Assert.That(output.ToString(), Does.Not.Contain("progress"));
+    }
+
+    [Test]
+    public async Task DownloadBoundsRepeatedOneByteResponsesForALargeObject()
+    {
+        int requests = 0;
+        using var handler = new CallbackHandler((request, _) =>
+        {
+            long start = request.Headers.Range?.Ranges.Single().From ?? 0;
+            requests++;
+            var content = new ByteArrayContent([42]);
+            content.Headers.ContentRange = new ContentRangeHeaderValue(start, start, ObjectSize);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = content });
+        });
+        using var output = await TransferAsync(handler, "download", ObjectSize, "https://storage.example/object", []);
+        AssertError(output, "insufficient progress");
+        Assert.That(requests, Is.EqualTo(5));
+    }
+
+    private sealed class FailingWriteStream(string path, int partiallyWritten) : FileStream(path,
+        FileMode.CreateNew, FileAccess.Write, FileShare.None, 128 * 1024, FileOptions.Asynchronous)
+    {
+        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (partiallyWritten > 0)
+                await base.WriteAsync(buffer[..partiallyWritten], cancellationToken);
+            throw new IOException("fixture disk full");
+        }
+    }
+
     [Test]
     public async Task DownloadRejectsAResumeResponseThatIgnoresTheRange()
     {

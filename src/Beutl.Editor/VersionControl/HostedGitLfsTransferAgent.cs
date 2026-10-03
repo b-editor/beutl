@@ -38,7 +38,8 @@ internal static class HostedGitLfsTransferAgent
 
     internal static async Task<int> RunAsync(
         TextReader input, TextWriter output, HttpClient http, CancellationToken cancellationToken,
-        Func<string, long> fileLength, Func<string, Stream> openRead)
+        Func<string, long> fileLength, Func<string, Stream> openRead,
+        Func<string, Stream>? openWrite = null)
     {
         try
         {
@@ -72,7 +73,7 @@ internal static class HostedGitLfsTransferAgent
                     }
                     else
                     {
-                        string path = await DownloadAsync(message, url, http, output, cancellationToken);
+                        string path = await DownloadAsync(message, url, http, output, cancellationToken, openWrite);
                         await WriteAsync(output, new { @event = "complete", oid, path });
                     }
                 }
@@ -376,20 +377,24 @@ internal static class HostedGitLfsTransferAgent
     }
 
     private static async Task<string> DownloadAsync(
-        Message message, Uri url, HttpClient http, TextWriter output, CancellationToken cancellationToken)
+        Message message, Uri url, HttpClient http, TextWriter output, CancellationToken cancellationToken,
+        Func<string, Stream>? openWrite)
     {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-lfs-{Guid.NewGuid():N}");
         try
         {
-            await using var destination = new FileStream(path, FileMode.CreateNew, FileAccess.Write,
+            await using Stream destination = openWrite?.Invoke(path) ?? new FileStream(path, FileMode.CreateNew, FileAccess.Write,
                 FileShare.None, bufferSize: 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
             byte[] buffer = new byte[128 * 1024];
             long received = 0;
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             int failures = 0;
+            long progressCheckpoint = 0;
+            long minimumProgress = Math.Min(1024 * 1024, Math.Max(1, message.Size / 16));
             while (received < message.Size && failures < 5)
             {
-                long previousReceived = received;
+                bool readingFromNetwork = true;
+                bool transportFailed = false;
                 try
                 {
                     using HttpRequestMessage request = NewRequest(HttpMethod.Get, url, message.Action!.Header);
@@ -405,38 +410,49 @@ internal static class HostedGitLfsTransferAgent
                         throw new InvalidOperationException("Storage did not honor the LFS download resume range");
                     }
                     await using Stream source = await response.Content.ReadAsStreamAsync(cancellationToken);
+                    readingFromNetwork = false;
                     while (received < message.Size)
                     {
+                        readingFromNetwork = true;
                         int count = await source.ReadAsync(buffer, cancellationToken);
+                        readingFromNetwork = false;
                         if (count == 0) break;
-                        received += count;
-                        if (received > message.Size)
+                        if (count > message.Size - received)
                             throw new InvalidOperationException("LFS download exceeds expected size");
-                        hash.AppendData(buffer.AsSpan(0, count));
                         await destination.WriteAsync(buffer.AsMemory(0, count), cancellationToken);
+                        received += count;
+                        hash.AppendData(buffer.AsSpan(0, count));
                         await ProgressAsync(output, message.Oid!, received, count);
                     }
                     if (received == message.Size)
                     {
+                        readingFromNetwork = true;
                         if (await source.ReadAsync(buffer.AsMemory(0, 1), cancellationToken) != 0)
                             throw new InvalidOperationException("LFS download exceeds expected size");
                         break;
                     }
                 }
                 catch (Exception ex) when (
-                    ex is IOException ||
+                    readingFromNetwork && (ex is IOException ||
                         ex is HttpRequestException { StatusCode: null } ||
                         ex is HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } ||
-                        ex is HttpRequestException { StatusCode: >= HttpStatusCode.InternalServerError })
+                        ex is HttpRequestException { StatusCode: >= HttpStatusCode.InternalServerError }))
                 {
-                    failures = received > previousReceived ? 0 : failures + 1;
-                    if (failures >= 5) throw;
-                    await Task.Delay(TimeSpan.FromSeconds(1 << Math.Max(0, failures - 1)), cancellationToken);
-                    continue;
+                    transportFailed = true;
                 }
-                failures = received > previousReceived ? 0 : failures + 1;
-                if (received == previousReceived && failures < 5)
-                    await Task.Delay(TimeSpan.FromSeconds(1 << (failures - 1)), cancellationToken);
+                if (received - progressCheckpoint >= minimumProgress)
+                {
+                    failures = 0;
+                    progressCheckpoint = received;
+                }
+                else
+                {
+                    failures++;
+                }
+                if (failures >= 5)
+                    throw new IOException("LFS download made insufficient progress after five attempts");
+                if (transportFailed || failures > 0)
+                    await Task.Delay(TimeSpan.FromSeconds(1 << Math.Max(0, failures - 1)), cancellationToken);
             }
             if (received != message.Size ||
                 !Convert.ToHexStringLower(hash.GetHashAndReset()).Equals(message.Oid, StringComparison.Ordinal))

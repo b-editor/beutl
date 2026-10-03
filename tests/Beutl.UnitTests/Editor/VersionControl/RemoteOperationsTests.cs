@@ -49,17 +49,41 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         }
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Mixed_push_urls_isolate_hosted_authentication_and_preserve_upstream(bool hostedFirst)
+    [TestCase(false, false, false)]
+    [TestCase(false, true, false)]
+    [TestCase(true, false, false)]
+    [TestCase(true, true, false)]
+    [TestCase(false, false, true)]
+    [TestCase(false, true, true)]
+    [TestCase(true, false, true)]
+    [TestCase(true, true, true)]
+    public async Task Mixed_push_urls_isolate_hosted_authentication_and_preserve_upstream(
+        bool hostedFirst, bool fetchPushed, bool existingUpstream)
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string external = await CreateBareRemoteAsync();
+        string hostedFixture = await CreateBareRemoteAsync();
         string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
         await RunGitAsync("remote", "add", "origin", external);
+        await RunGitAsync("push", "-u", "origin", "main");
+        string previousTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await CommitFileAsync("next.txt", "next\n", "next");
+        if (!fetchPushed)
+            await RunGitAsync("remote", "set-url", "origin", await CreateBareRemoteAsync());
         await RunGitAsync("remote", "set-url", "--push", "origin", hostedFirst ? hosted : external);
         await RunGitAsync("remote", "set-url", "--add", "--push", "origin", hostedFirst ? external : hosted);
-        var runner = new HostedPushRunner(CreateRunner(), 0);
+        if (!existingUpstream)
+        {
+            await RunGitAsync("config", "--unset", "branch.main.remote");
+            await RunGitAsync("config", "--unset", "branch.main.merge");
+            await RunGitAsync("update-ref", "-d", "refs/remotes/origin/main");
+        }
+        string hookPath = Path.Combine(Root, ".git", "hooks", "pre-push");
+        await File.WriteAllTextAsync(hookPath, "#!/bin/sh\n[ \"$1\" = origin ] || exit 73\n");
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(hookPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        byte[] originalConfig = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config"));
+        var runner = new MixedPushRunner(CreateRunner(), hosted, hostedFixture);
         using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
         int issued = 0;
         service.HostedGitTokenProvider = (_, _) => { issued++; return Task.FromResult("temporary"); };
@@ -67,8 +91,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.That(issued, Is.EqualTo(1));
         for (int index = 0; index < 2; index++)
         {
-            string url = runner.Arguments[index][2];
-            var environment = runner.Options[index].EnvironmentOverrides;
+            Assert.That(runner.Arguments[index][2], Is.EqualTo("origin"), "pre-push hooks must retain the remote name");
+            var environment = runner.Options[index].EnvironmentOverrides!;
+            int count = int.Parse(environment["GIT_CONFIG_COUNT"]!);
+            string url = environment[$"GIT_CONFIG_VALUE_{count - 1}"]!;
+            Assert.That(environment[$"GIT_CONFIG_KEY_{count - 2}"], Is.EqualTo("remote.origin.pushurl"));
+            Assert.That(environment[$"GIT_CONFIG_VALUE_{count - 2}"], Is.Empty);
             if (url == hosted)
             {
                 Assert.That(environment!["GIT_ASKPASS"], Is.Empty);
@@ -77,12 +105,113 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             else
             {
                 Assert.That(url, Is.EqualTo(external));
-                Assert.That(environment, Is.Null, "external authentication must inherit the user's configuration");
+                Assert.That(environment.ContainsKey("GIT_ASKPASS"), Is.False, "external authentication must inherit the user's configuration");
+                Assert.That(count, Is.EqualTo(2));
             }
         }
-        Assert.That((await RunGitAsync("rev-parse", "main@{upstream}")).Stdout.Trim(),
-            Is.EqualTo((await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim()));
+        string localTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        Assert.That((await RunGitAsync("for-each-ref", "--format=%(objectname)", "refs/remotes/origin/main")).Stdout.Trim(),
+            Is.EqualTo(fetchPushed ? localTip : existingUpstream ? previousTip : ""));
         Assert.That((await RunGitAsync("config", "--get", "branch.main.remote")).Stdout.Trim(), Is.EqualTo("origin"));
+        Assert.That(await ReadRemoteHeadAsync(external), Is.EqualTo(localTip));
+        Assert.That(await ReadRemoteHeadAsync(hostedFixture), Is.EqualTo(localTip));
+        if (existingUpstream)
+            Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(originalConfig));
+        Assert.That((await RunGitAsync("remote", "get-url", "--push", "--all", "origin")).Stdout.Trim()
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries),
+            Is.EqualTo(hostedFirst ? new[] { hosted, external } : new[] { external, hosted }));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Mixed_push_stops_on_external_authentication_failure_without_installing_upstream(bool hostedFirst)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string external = await CreateBareRemoteAsync();
+        string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
+        await RunGitAsync("remote", "add", "origin", await CreateBareRemoteAsync());
+        await RunGitAsync("remote", "set-url", "--push", "origin", hostedFirst ? hosted : external);
+        await RunGitAsync("remote", "set-url", "--add", "--push", "origin", hostedFirst ? external : hosted);
+        byte[] originalConfig = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config"));
+        var runner = new MixedPushRunner(CreateRunner(), hosted, await CreateBareRemoteAsync(), rejectExternal: true);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        int issued = 0;
+        service.HostedGitTokenProvider = (_, _) => { issued++; return Task.FromResult("temporary"); };
+        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.Not.TypeOf<RemoteOpResult.Success>());
+        Assert.That(issued, Is.EqualTo(hostedFirst ? 1 : 0));
+        Assert.That(runner.Options.Count, Is.EqualTo(hostedFirst ? 2 : 1));
+        Assert.That((await RunGitAsync("for-each-ref", "--format=%(objectname)", "refs/remotes/origin/main")).Stdout.Trim(), Is.Empty);
+        Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(originalConfig));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Hosted_origin_does_not_require_a_token_for_local_branch_creation(bool signedOut)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await RunGitAsync("remote", "add", "origin", "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git");
+        using var service = CreateService();
+        if (!signedOut)
+            service.HostedGitTokenProvider = (_, _) => throw new AssertionException("Offline local branch creation must not mint tokens");
+        string tip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await service.CreateBranchAsync("offline", tip, CancellationToken.None);
+        Assert.That((await RunGitAsync("branch", "--show-current")).Stdout.Trim(), Is.EqualTo("offline"));
+    }
+
+    [TestCase(2, 3)]
+    [TestCase(10, 5)]
+    public async Task Hosted_lfs_prefetch_authenticates_the_selected_remote_and_bounds_refresh(int failures, int attempts)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
+        await RunGitAsync("remote", "add", "origin", hosted);
+        var runner = new HostedPushRunner(CreateRunner(), failures, "lfs-fetch");
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(lfsInstalled: true), Repository, null, _ => runner);
+        int issued = 0;
+        service.HostedGitTokenProvider = (_, _) => Task.FromResult($"token-{++issued}");
+        await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(async transaction =>
+        {
+            await transaction.PrefetchBranchLfsObjectsAsync("main", CancellationToken.None);
+            return true;
+        }, CancellationToken.None);
+        Assert.That(issued, Is.EqualTo(attempts));
+        Assert.That(runner.Options.Count, Is.EqualTo(attempts));
+        foreach (GitCommandOptions options in runner.Options)
+        {
+            var environment = options.EnvironmentOverrides!;
+            Assert.That(environment["GIT_CONFIG_KEY_0"], Is.EqualTo($"http.{hosted}.extraheader"));
+            Assert.That(environment.Values, Does.Contain("lfs.customtransfer.beutl-tus.path"));
+            Assert.That(environment.Values, Does.Contain("lfs.customtransfer.beutl-multipart.path"));
+        }
+    }
+
+    private sealed class MixedPushRunner(IGitCliRunner inner, string hostedUrl, string hostedFixture,
+        bool rejectExternal = false) : IGitCliRunner
+    {
+        public bool HasActiveProcess => inner.HasActiveProcess;
+        public List<GitCommandOptions> Options { get; } = [];
+        public List<IReadOnlyList<string>> Arguments { get; } = [];
+
+        public Task<GitCommandResult> RunAsync(RepositoryInfo repository, IReadOnlyList<string> arguments,
+            GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? stderrProgress = null)
+        {
+            if (GetGitSubcommand(arguments) == "push")
+            {
+                Options.Add(options);
+                Arguments.Add(arguments.ToArray());
+                var environment = new Dictionary<string, string?>(options.EnvironmentOverrides!);
+                int count = int.Parse(environment["GIT_CONFIG_COUNT"]!);
+                if (environment[$"GIT_CONFIG_VALUE_{count - 1}"] == hostedUrl)
+                    environment[$"GIT_CONFIG_VALUE_{count - 1}"] = hostedFixture;
+                else if (rejectExternal)
+                    throw new GitOperationException(128, "The requested URL returned error: 401");
+                options = options with { EnvironmentOverrides = environment };
+            }
+            return inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository) => inner.GetRecoverableRepositoryLock(repository);
+        public bool RemoveRecoverableRepositoryLock(RepositoryInfo repository, RepositoryLockInfo lockInfo) => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
     [TestCase(false, 2, 3)]
@@ -121,7 +250,11 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         public Task<GitCommandResult> RunAsync(RepositoryInfo repository, IReadOnlyList<string> arguments,
             GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? stderrProgress = null)
         {
-            if (GetGitSubcommand(arguments) != networkCommand)
+            bool matches = networkCommand == "lfs-fetch"
+                ? GetGitSubcommand(arguments) == "lfs" && arguments.ToList().IndexOf("lfs") is int index
+                    && index + 1 < arguments.Count && arguments[index + 1] == "fetch"
+                : GetGitSubcommand(arguments) == networkCommand;
+            if (!matches)
                 return inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
             Options.Add(options);
             Arguments.Add(arguments.ToArray());

@@ -1334,23 +1334,46 @@ internal sealed class GitCliVersionControlService :
     private async Task RunNetworkWithTokenRefreshAsync(
         RepositoryInfo repository, IGitCliRunner runner, IReadOnlyList<string> arguments,
         GitCommandOptions baseline, CancellationToken cancellationToken,
-        IProgress<string>? progress = null, IReadOnlyList<string>? selectedUrls = null)
+        IProgress<string>? progress = null, IReadOnlyList<string>? selectedUrls = null,
+        string? isolatedPushUrl = null)
     {
         for (int attempt = 0; ; attempt++)
         {
             GitCommandOptions options = await GetNetworkOptionsAsync(
                 baseline, cancellationToken, selectedUrls).ConfigureAwait(false);
+            bool hostedAuthentication = selectedUrls is null
+                ? options.EnvironmentOverrides is not null
+                : selectedUrls.Any(url => HostedGitRemote.TryParse(url, out _));
+            if (isolatedPushUrl is not null)
+                options = IsolatePushUrl(options, isolatedPushUrl);
             try
             {
                 await runner.RunAsync(repository, arguments, options, cancellationToken, progress).ConfigureAwait(false);
                 return;
             }
-            catch (GitOperationException ex) when (attempt < 4 && options.EnvironmentOverrides is not null
+            catch (GitOperationException ex) when (attempt < 4 && hostedAuthentication
                 && IsHostedAuthenticationFailure(ex))
             {
                 cancellationToken.ThrowIfCancellationRequested();
             }
         }
+    }
+
+    private static GitCommandOptions IsolatePushUrl(GitCommandOptions options, string url)
+    {
+        var environment = options.EnvironmentOverrides is null
+            ? new Dictionary<string, string?>(StringComparer.Ordinal)
+            : new Dictionary<string, string?>(options.EnvironmentOverrides, StringComparer.Ordinal);
+        int count = environment.TryGetValue("GIT_CONFIG_COUNT", out string? rawCount)
+            ? int.Parse(rawCount!, System.Globalization.CultureInfo.InvariantCulture) : 0;
+        // An empty pushurl resets Git's multi-valued list for this process.
+        // Keep the remote name so hooks and remote.origin transport settings work.
+        environment[$"GIT_CONFIG_KEY_{count}"] = "remote.origin.pushurl";
+        environment[$"GIT_CONFIG_VALUE_{count++}"] = "";
+        environment[$"GIT_CONFIG_KEY_{count}"] = "remote.origin.pushurl";
+        environment[$"GIT_CONFIG_VALUE_{count++}"] = url;
+        environment["GIT_CONFIG_COUNT"] = count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return options with { EnvironmentOverrides = environment };
     }
 
     public RepositoryLockInfo? RecoverableLock { get; private set; }
@@ -7216,8 +7239,8 @@ internal sealed class GitCliVersionControlService :
         string[] hooksOverride = projectOpen ? ["-c", "core.hooksPath=/dev/null"] : [];
         try
         {
-            await RunNetworkWithTokenRefreshAsync(
-                repository, runner,
+            await runner.RunAsync(
+                repository,
                 [
                     .. s_lfsPathFilterOverrides,
                     .. hooksOverride,
@@ -8053,8 +8076,8 @@ internal sealed class GitCliVersionControlService :
 
         try
         {
-            await runner.RunAsync(
-                repository,
+            await RunNetworkWithTokenRefreshAsync(
+                repository, runner,
                 [
                     .. s_lfsPathFilterOverrides,
                     "-c",
@@ -8066,7 +8089,8 @@ internal sealed class GitCliVersionControlService :
                     target.Reference,
                 ],
                 GitCommandOptions.Network with { MaxStdoutBytes = MaxLfsFetchOutputBytes },
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                selectedUrls: [remotes[0].Url]).ConfigureAwait(false);
         }
         catch (GitOperationException ex)
         {
@@ -9072,15 +9096,43 @@ internal sealed class GitCliVersionControlService :
             {
                 // Askpass is a process-wide setting. Isolate hosted and external
                 // destinations so each keeps its own authentication behavior.
+                GitCommandResult fetchUrlsResult = await runner.RunAsync(repository,
+                    ["remote", "get-url", "--all", "origin"],
+                    GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+                string[] fetchUrls = fetchUrlsResult.Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+                GitCommandResult trackingResult = await runner.RunAsync(repository,
+                    ["-c", $"branch.{branchName}.remote=origin", "-c", $"branch.{branchName}.merge={remoteRef}",
+                        "for-each-ref", "--format=%(upstream)", currentTip.RefName],
+                    GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+                string trackingRef = trackingResult.Stdout.Trim();
                 foreach (string url in pushUrls)
                 {
-                    await RunNetworkWithTokenRefreshAsync(repository, runner,
-                        ["push", "--progress", url, $"{currentTip.Commit}:{remoteRef}"],
-                        GitCommandOptions.Network, cancellationToken, progress, [url]).ConfigureAwait(false);
+                    bool preserveTracking = trackingRef.Length > 0 && !fetchUrls.Contains(url, StringComparer.Ordinal);
+                    string? previousTracking = preserveTracking
+                        ? await ReadRefCommitAsync(repository, runner, trackingRef, cancellationToken).ConfigureAwait(false) : null;
+                    try
+                    {
+                        await RunNetworkWithTokenRefreshAsync(repository, runner,
+                            ["push", "--progress", "origin", $"{currentTip.Commit}:{remoteRef}"],
+                            GitCommandOptions.Network, cancellationToken, progress, [url], url).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        // Git itself updates the fetch tracking ref after a named-remote push,
+                        // even when its fetch URL is a different server. Restore only our write.
+                        if (preserveTracking && await ReadRefCommitAsync(repository, runner, trackingRef,
+                                CancellationToken.None).ConfigureAwait(false) == currentTip.Commit)
+                        {
+                            string[] restore = previousTracking is null
+                                ? ["update-ref", "-d", trackingRef, currentTip.Commit]
+                                : ["update-ref", trackingRef, previousTracking, currentTip.Commit];
+                            await runner.RunAsync(repository, restore, GitCommandOptions.Local,
+                                CancellationToken.None).ConfigureAwait(false);
+                        }
+                    }
                 }
 
-                // URL pushes do not install the named remote's upstream. Do so
-                // only after every destination accepted the captured commit.
+                // Install the upstream only after every destination accepted the captured commit.
                 if (upstream is null)
                 {
                     await runner.RunAsync(repository, ["config", "--local", $"branch.{branchName}.remote", "origin"],
@@ -9088,13 +9140,6 @@ internal sealed class GitCliVersionControlService :
                     await runner.RunAsync(repository, ["config", "--local", $"branch.{branchName}.merge", remoteRef],
                         GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
                 }
-                GitCommandResult tracking = await runner.RunAsync(repository,
-                    ["for-each-ref", "--format=%(upstream)", currentTip.RefName],
-                    GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
-                string trackingRef = tracking.Stdout.Trim();
-                if (trackingRef.StartsWith("refs/remotes/origin/", StringComparison.Ordinal))
-                    await runner.RunAsync(repository, ["update-ref", trackingRef, currentTip.Commit],
-                        GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -9116,6 +9161,16 @@ internal sealed class GitCliVersionControlService :
                @"(?:HTTP(?:/\d(?:\.\d)?)?\s+(?:error\s+)?401\b|requested URL returned error:\s*401\b)",
                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)
            || exception.Stderr.Contains("Authentication failed", StringComparison.OrdinalIgnoreCase);
+
+    private static async Task<string?> ReadRefCommitAsync(
+        RepositoryInfo repository, IGitCliRunner runner, string reference, CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(repository,
+            ["for-each-ref", "--format=%(objectname)", reference],
+            GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+        string commit = result.Stdout.Trim();
+        return commit.Length == 0 ? null : commit;
+    }
 
     private static async Task<BranchUpstreamConfiguration?> GetBranchUpstreamConfigurationAsync(
         RepositoryInfo repository,
