@@ -797,6 +797,84 @@ public class ElementSlipServiceTests
         });
     }
 
+    [TestCase(0, 4, 2, "video", 0)]
+    [TestCase(0, 4, 2, "presenter", 0)]
+    [TestCase(0, 4, 2, "group", 0)]
+    [TestCase(0, 4, 2, "controller", 0)]
+    [TestCase(10, 2, 9, "video", 2)]
+    [TestCase(10, 2, 10, "video", 3)]
+    [TestCase(10, 2, 11, "video", 0)]
+    [TestCase(10, 2, 8, "presenter", 3)]
+    [TestCase(10, 2, 8, "group", 3)]
+    [TestCase(10, 2, 9, "controller", 2)]
+    public void Slip_AnchoredIdentityController_UsesItsEvaluationWindow(
+        int start, int length, int controllerStart, string targetKind, int expectedOffset)
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(10, 2)
+        };
+        Drawable target = targetKind switch
+        {
+            "presenter" => new DrawablePresenter { Target = { CurrentValue = video } },
+            "group" => new DrawableGroup { Children = { video } },
+            "controller" => new DrawableTimeController { Target = { CurrentValue = video } },
+            _ => video
+        };
+        if (target != video)
+        {
+            target.IsTimeAnchor = true;
+            target.TimeRange = TimeRange.FromSeconds(8, 2);
+        }
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = target },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(controllerStart, 2)
+        };
+        var group = new DrawableGroup();
+        group.Children.Add(controller);
+        element.Objects.Add(group);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(20));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.EqualTo(expectedOffset > 0));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedOffset > 0 ? 1 : 0)));
+            foreach (TimeSpan time in new[]
+                     {
+                         element.Start,
+                         element.Range.End - TimeSpan.FromMilliseconds(100),
+                         controller.Start - TimeSpan.FromMilliseconds(100)
+                     }.Where(element.Range.Contains))
+            {
+                using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(time));
+                Drawable.Resource current = resource.Children.Single();
+                while (current is not SourceVideo.Resource)
+                {
+                    current = current switch
+                    {
+                        DrawableTimeController.Resource controlled => controlled.Target!,
+                        DrawablePresenter.Resource presented => presented.Target!,
+                        DrawableGroup.Resource container => container.Children.Single(),
+                        _ => throw new InvalidOperationException()
+                    };
+                }
+                var sampled = (SourceVideo.Resource)current;
+                Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.GreaterThanOrEqualTo(TimeSpan.Zero));
+                Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+            }
+        });
+    }
+
     [Test]
     public void Slip_NestedTimeController_RetainsElementBoundsUntilTimeMappingIsSupported()
     {

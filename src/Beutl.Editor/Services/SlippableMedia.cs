@@ -72,7 +72,7 @@ internal static class SlippableMedia
         {
             // Only top-level disabled objects are filtered by Element.CollectObjects.
             // A presenter can still render a disabled controller through a separate path.
-            incoming.UnionWith(CollectFrom(obj, element, incoming, targets, path, obj.IsEnabled));
+            incoming.UnionWith(CollectFrom(obj, element, incoming, targets, path, obj.IsEnabled, element.Range));
         }
 
         // Frozen media consumes no source time, even under an unsupported controller.
@@ -85,7 +85,7 @@ internal static class SlippableMedia
     private static HashSet<Target> CollectFrom(
         EngineObject obj, Element element, IReadOnlyCollection<Target> incoming,
         Dictionary<EngineObject, Target> targets, HashSet<EngineObject> path, bool applyMappings,
-        bool timeControlled = false)
+        TimeRange window)
     {
         var result = new HashSet<Target>();
         if (!path.Add(obj)) return result;
@@ -106,27 +106,34 @@ internal static class SlippableMedia
                         };
                         targets.Add(obj, target);
                     }
-                    IncludeWindow(target, obj, element, timeControlled);
+                    IncludeWindow(target, obj, element, window);
                     result.Add(target);
                     break;
                 case SoundGroup soundGroup:
                     foreach (Sound child in soundGroup.Children)
-                        result.UnionWith(CollectFrom(child, element, [], targets, path, applyMappings, timeControlled));
+                        result.UnionWith(CollectFrom(child, element, [], targets, path, applyMappings, window));
                     break;
                 case DrawableGroup drawableGroup:
                     // Containers consume incoming drawable flow before reconciling their
                     // property children. Those children are not added to each other's flow.
                     foreach (Drawable child in drawableGroup.Children)
-                        result.UnionWith(CollectFrom(child, element, [], targets, path, applyMappings, timeControlled));
+                        result.UnionWith(CollectFrom(child, element, [], targets, path, applyMappings, window));
                     break;
                 case DrawableDecorator decorator:
                     foreach (Drawable child in decorator.Children)
-                        result.UnionWith(CollectFrom(child, element, [], targets, path, applyMappings, timeControlled));
+                        result.UnionWith(CollectFrom(child, element, [], targets, path, applyMappings, window));
                     break;
                 case DrawableTimeController controller:
                     if (controller.Target.CurrentValue is { } controlled)
+                    {
+                        // Identity mappings translate the incoming clock by the target's
+                        // start minus the controller's start, including nested anchors.
+                        // Playback leaves the clock unchanged for an empty target range.
+                        TimeRange targetWindow = controlled.Duration > TimeSpan.Zero
+                            ? window.AddStart(controlled.Start - controller.Start) : window;
                         // Disabled streams retain the window needed when re-enabled.
-                        result.UnionWith(CollectFrom(controlled, element, [], targets, path, applyMappings, timeControlled: true));
+                        result.UnionWith(CollectFrom(controlled, element, [], targets, path, applyMappings, targetWindow));
+                    }
                     if (!HasIdentityTimeMapping(controller))
                     {
                         if (applyMappings) RejectVideoMappings(incoming);
@@ -137,7 +144,7 @@ internal static class SlippableMedia
                     break;
                 case IPresenter<Drawable> presenter:
                     if (presenter.Target.CurrentValue is { } presented)
-                        result.UnionWith(CollectFrom(presented, element, incoming, targets, path, applyMappings, timeControlled));
+                        result.UnionWith(CollectFrom(presented, element, incoming, targets, path, applyMappings, window));
                     break;
             }
 
@@ -249,7 +256,7 @@ internal static class SlippableMedia
         return new Target(sound.OffsetPosition, total, sound.Speed);
     }
 
-    private static void IncludeWindow(Target target, EngineObject media, Element element, bool timeControlled)
+    private static void IncludeWindow(Target target, EngineObject media, Element element, TimeRange window)
     {
         if (!target.SupportsTrimming || target.IsFrozen) return;
 
@@ -257,10 +264,8 @@ internal static class SlippableMedia
         TimeSpan room = TimeSpan.MaxValue;
         if (media is SourceVideo video)
         {
-            // Identity controllers rebase their target to the element's local window.
-            double localStart = timeControlled ? 0 : (element.Start - video.TimeRange.Start).Ticks * target.Speed;
-            double localEnd = timeControlled ? element.Length.Ticks * target.Speed
-                : (element.Range.End - video.TimeRange.Start).Ticks * target.Speed;
+            double localStart = (window.Start - video.TimeRange.Start).Ticks * target.Speed;
+            double localEnd = (window.End - video.TimeRange.Start).Ticks * target.Speed;
             visibleEnd = localEnd;
             room = SourceTailRoom(target, localEnd);
             if (target.Total is { } duration)

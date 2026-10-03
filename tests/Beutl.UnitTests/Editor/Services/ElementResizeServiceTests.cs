@@ -759,6 +759,68 @@ public class ElementResizeServiceTests
         });
     }
 
+    [TestCase(false, 3, 1)]
+    [TestCase(true, 3, 1)]
+    [TestCase(false, 2, 0)]
+    [TestCase(true, 2, 0)]
+    [TestCase(false, 0, 3)]
+    [TestCase(true, 0, 3)]
+    public void RollOrSlide_AnchoredIdentityController_UsesMappedOutPoint(bool slide, int controllerStart, int expectedDelta)
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element? middle = slide ? AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)) : null;
+        TimeSpan backStart = TimeSpan.FromSeconds(slide ? 2 : 1);
+        Element back = AddElement(backStart, TimeSpan.FromSeconds(10));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(1) },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(10, 2)
+        };
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(controllerStart, 2)
+        };
+        var group = new DrawableGroup();
+        group.Children.Add(controller);
+        front.Objects.Add(group);
+        var linked = new SourceSound();
+        back.Objects.Add(linked);
+        _history.Commit();
+        int before = _history.UndoCount;
+        var pair = new ElementTrimPair(front, back);
+        (_, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [pair]);
+
+        bool applied = middle is { } moving
+            ? _service.Slide(_scene, [new ElementSlideLane(front, [moving], back)], TimeSpan.FromSeconds(4))
+            : _service.Roll(_scene, [pair], TimeSpan.FromSeconds(4));
+
+        TimeSpan sampleTime = controller.Start > TimeSpan.Zero && controller.Start < front.Range.End
+            ? controller.Start : front.Range.End;
+        using var resource = (DrawableGroup.Resource)group.ToResource(
+            new CompositionContext(sampleTime - TimeSpan.FromMilliseconds(100)));
+        var controlled = (DrawableTimeController.Resource)resource.Children.Single();
+        var sampled = (SourceVideo.Resource)controlled.Target!;
+        Assert.Multiple(() =>
+        {
+            if (!slide) Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)));
+            Assert.That(applied, Is.EqualTo(expectedDelta > 0));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(1 + expectedDelta)));
+            Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(expectedDelta)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(10 - expectedDelta)));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)));
+            Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedDelta > 0 ? 1 : 0)));
+            if (middle != null) Assert.That(middle.Start, Is.EqualTo(front.Range.End));
+        });
+    }
+
     [TestCase(false, 3, 0, 7)]
     [TestCase(true, 3, 0, 7)]
     [TestCase(false, 3, 1, 1)]
