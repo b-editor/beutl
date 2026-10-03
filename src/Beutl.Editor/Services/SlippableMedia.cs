@@ -3,6 +3,7 @@ using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -43,6 +44,12 @@ internal static class SlippableMedia
 
         public bool SupportsTrimming { get; set; }
 
+        // Source-time ticks sampled through every reference path. Keep fractional ticks
+        // until clamping so slow media cannot round past its source boundary.
+        public double VisibleSourceEndTicks { get; set; }
+
+        public TimeSpan OutPointHeadroom { get; set; } = TimeSpan.MaxValue;
+
         public TimeSpan Current
         {
             get => Offset.CurrentValue;
@@ -65,7 +72,7 @@ internal static class SlippableMedia
         {
             // Only top-level disabled objects are filtered by Element.CollectObjects.
             // A presenter can still render a disabled controller through a separate path.
-            incoming.UnionWith(CollectFrom(obj, incoming, targets, path, obj.IsEnabled));
+            incoming.UnionWith(CollectFrom(obj, element, incoming, targets, path, obj.IsEnabled, element.Range));
         }
 
         // Frozen media consumes no source time, even under an unsupported controller.
@@ -76,8 +83,9 @@ internal static class SlippableMedia
     // active reference path must be checked. The path set stops cycles without suppressing
     // a later active visit after an earlier disabled top-level occurrence.
     private static HashSet<Target> CollectFrom(
-        EngineObject obj, IReadOnlyCollection<Target> incoming,
-        Dictionary<EngineObject, Target> targets, HashSet<EngineObject> path, bool applyMappings)
+        EngineObject obj, Element element, IReadOnlyCollection<Target> incoming,
+        Dictionary<EngineObject, Target> targets, HashSet<EngineObject> path, bool applyMappings,
+        TimeRange window)
     {
         var result = new HashSet<Target>();
         if (!path.Add(obj)) return result;
@@ -98,34 +106,45 @@ internal static class SlippableMedia
                         };
                         targets.Add(obj, target);
                     }
+                    IncludeWindow(target, obj, element, window);
                     result.Add(target);
                     break;
                 case SoundGroup soundGroup:
                     foreach (Sound child in soundGroup.Children)
-                        result.UnionWith(CollectFrom(child, [], targets, path, applyMappings));
+                        result.UnionWith(CollectFrom(child, element, [], targets, path, applyMappings, window));
                     break;
                 case DrawableGroup drawableGroup:
                     // Containers consume incoming drawable flow before reconciling their
                     // property children. Those children are not added to each other's flow.
                     foreach (Drawable child in drawableGroup.Children)
-                        result.UnionWith(CollectFrom(child, [], targets, path, applyMappings));
+                        result.UnionWith(CollectFrom(child, element, [], targets, path, applyMappings, window));
                     break;
                 case DrawableDecorator decorator:
                     foreach (Drawable child in decorator.Children)
-                        result.UnionWith(CollectFrom(child, [], targets, path, applyMappings));
+                        result.UnionWith(CollectFrom(child, element, [], targets, path, applyMappings, window));
                     break;
                 case DrawableTimeController controller:
                     if (controller.Target.CurrentValue is { } controlled)
-                        result.UnionWith(CollectFrom(controlled, [], targets, path, applyMappings));
-                    if (applyMappings && !HasIdentityTimeMapping(controller))
                     {
-                        RejectVideoMappings(incoming);
+                        // Identity mappings translate the incoming clock by the target's
+                        // start minus the controller's start, including nested anchors.
+                        // Playback leaves the clock unchanged for an empty target range.
+                        TimeRange targetWindow = controlled.Duration > TimeSpan.Zero
+                            ? window.AddStart(controlled.Start - controller.Start) : window;
+                        // Disabled streams retain the window needed when re-enabled.
+                        result.UnionWith(CollectFrom(controlled, element, [], targets, path, applyMappings, targetWindow));
+                    }
+                    if (!HasIdentityTimeMapping(controller))
+                    {
+                        if (applyMappings) RejectVideoMappings(incoming);
+                        // Explicit targets are included even while disabled, so their
+                        // unsupported mapping must also be safe when re-enabled.
                         RejectVideoMappings(result);
                     }
                     break;
                 case IPresenter<Drawable> presenter:
                     if (presenter.Target.CurrentValue is { } presented)
-                        result.UnionWith(CollectFrom(presented, incoming, targets, path, applyMappings));
+                        result.UnionWith(CollectFrom(presented, element, incoming, targets, path, applyMappings, window));
                     break;
             }
 
@@ -175,6 +194,24 @@ internal static class SlippableMedia
         return animation.KeyFrames.All(frame => frame is KeyFrame<float> typed && typed.Value == first.Value);
     }
 
+    private static bool TryGetConstantLoop(IProperty<bool> loop, out bool value)
+    {
+        value = loop.CurrentValue;
+        if (loop.HasExpression) return false;
+        if (loop.Animation == null) return true;
+        if (loop.Animation is not KeyFrameAnimation<bool> animation) return false;
+
+        if (animation.KeyFrames.Count == 0)
+        {
+            value = animation.Interpolate(TimeSpan.Zero);
+            return true;
+        }
+
+        if (animation.KeyFrames[0] is not KeyFrame<bool> first) return false;
+        value = first.Value;
+        return animation.KeyFrames.All(frame => frame is KeyFrame<bool> typed && typed.Value == first.Value);
+    }
+
     private static bool HasIdentityTimeMapping(DrawableTimeController controller)
         => TryGetConstantSpeed(controller.Speed, out double factor, evaluatesExpressions: true) && factor == 1
            && !controller.OffsetPosition.HasExpression && controller.OffsetPosition.CurrentValue == TimeSpan.Zero
@@ -219,10 +256,106 @@ internal static class SlippableMedia
         return new Target(sound.OffsetPosition, total, sound.Speed);
     }
 
+    private static void IncludeWindow(Target target, EngineObject media, Element element, TimeRange window)
+    {
+        if (!target.SupportsTrimming || target.IsFrozen) return;
+
+        double visibleEnd;
+        TimeSpan room = TimeSpan.MaxValue;
+        if (media is SourceVideo video)
+        {
+            double localStart = (window.Start - video.TimeRange.Start).Ticks * target.Speed;
+            double localEnd = (window.End - video.TimeRange.Start).Ticks * target.Speed;
+            visibleEnd = localEnd;
+            room = SourceTailRoom(target, localEnd);
+            if (target.Total is { } duration)
+            {
+                if (localStart < 0)
+                {
+                    visibleEnd = localEnd < 0 ? duration.Ticks + localEnd : Math.Max(duration.Ticks, localEnd);
+                    if (target.Current > TimeSpan.Zero)
+                    {
+                        // Positive offsets reach the wrapped source end before local zero.
+                        TimeSpan wrappedRoom = TimeSpan.FromTicks(
+                            TimelineHeadroom(target, Math.Floor(-target.Current.Ticks - localEnd)));
+                        if (wrappedRoom < room) room = wrappedRoom;
+                    }
+                }
+
+                bool loopVaries = !TryGetConstantLoop(video.IsLoop, out bool isLoop);
+                if (duration > TimeSpan.Zero && (isLoop || loopVaries))
+                {
+                    var loop = LoopWindow(target, localStart, localEnd, duration);
+                    // A varying loop flag can expose either mapping within the window.
+                    visibleEnd = loopVaries ? Math.Max(visibleEnd, loop.VisibleEnd) : loop.VisibleEnd;
+                    room = loopVaries && room < loop.Room ? room : loop.Room;
+                }
+            }
+        }
+        else
+        {
+            TimeRange visible = media.TimeRange.Intersect(element.Range);
+            visibleEnd = visible.IsEmpty ? 0 : (visible.End - media.TimeRange.Start).Ticks * target.Speed;
+            if (target.Total is { } duration)
+            {
+                double sourceEnd = duration.Ticks - target.Current.Ticks;
+                // Fixed audio only limits growth when more of its range would be exposed
+                // beyond the source end. Inherited ranges grow with the element.
+                if (FollowsElementRange(media, element)
+                    || (media.TimeRange.End > element.Range.End && media.TimeRange.Duration.Ticks * target.Speed > sourceEnd))
+                {
+                    room = SourceTailRoom(target, (element.Range.End - media.TimeRange.Start).Ticks * target.Speed);
+                }
+            }
+        }
+
+        // A shared media offset must satisfy both its ordinary and controlled paths.
+        target.VisibleSourceEndTicks = Math.Max(target.VisibleSourceEndTicks, visibleEnd);
+        if (room < target.OutPointHeadroom) target.OutPointHeadroom = room;
+    }
+
+    private static (double VisibleEnd, TimeSpan Room) LoopWindow(
+        Target target, double localStart, double localEnd, TimeSpan duration)
+    {
+        double period = duration.Ticks;
+        double endPhase = localEnd % period;
+        if (endPhase < 0) endPhase += period;
+
+        // A cycle boundary exposes the source tail even when both endpoints map earlier.
+        bool reachesTail = Math.Floor(localStart / period) != Math.Floor(localEnd / period);
+        double visibleEnd = reachesTail ? period : endPhase;
+        TimeSpan room = TimeSpan.MaxValue;
+        if (target.Current != TimeSpan.Zero)
+        {
+            // Nonzero offsets cannot grow through the next cycle's invalid source interval.
+            double sourceRoom = Math.Floor(period - Math.Max(0, target.Current.Ticks) - visibleEnd);
+            room = TimeSpan.FromTicks(TimelineHeadroom(target, sourceRoom));
+        }
+
+        return (visibleEnd, room);
+    }
+
+    private static TimeSpan SourceTailRoom(Target target, double sampledEndTicks)
+        => target.Total is { } total
+            ? TimeSpan.FromTicks(TimelineHeadroom(target, Math.Floor(total.Ticks - target.Current.Ticks - sampledEndTicks)))
+            : TimeSpan.MaxValue;
+
+    private static bool FollowsElementRange(EngineObject media, Element element)
+    {
+        while (media.HierarchicalParent != element)
+        {
+            if (media.IsTimeAnchor || media.HierarchicalParent is not EngineObject parent)
+                return false;
+            media = parent;
+        }
+
+        return true;
+    }
+
     // The largest-magnitude timeline delta (in the requested direction) that every stream can
-    // apply without leaving [0, Total - elementLength * Speed] in source time. One shared timeline
+    // apply without leaving its sampled source window. One shared timeline
     // delta keeps linked streams in sync even when one hits its source boundary first.
-    public static TimeSpan ClampSharedDelta(IReadOnlyList<Target> targets, TimeSpan delta, TimeSpan elementLength)
+    public static TimeSpan ClampSharedDelta(IReadOnlyList<Target> targets, TimeSpan delta)
     {
         if (delta == TimeSpan.Zero || targets.Count == 0 || !CanTrim(targets)) return TimeSpan.Zero;
 
@@ -230,7 +363,7 @@ internal static class SlippableMedia
         foreach (Target target in targets)
         {
             long allowed = delta > TimeSpan.Zero
-                ? ForwardHeadroom(target, elementLength)
+                ? ForwardHeadroom(target)
                 : TimelineHeadroom(target, target.Current.Ticks);
             magnitude = Math.Min(magnitude, allowed);
         }
@@ -238,13 +371,13 @@ internal static class SlippableMedia
         return TimeSpan.FromTicks(delta > TimeSpan.Zero ? magnitude : -magnitude);
     }
 
-    private static long ForwardHeadroom(Target target, TimeSpan elementLength)
+    private static long ForwardHeadroom(Target target)
     {
         if (target.Total is not { } total) return long.MaxValue;
 
         // OffsetPosition stores whole ticks; leave no fractional source tick for the
         // later TimeSpan multiplication to round up past the source tail.
-        double maxOffset = Math.Max(0, Math.Floor(total.Ticks - elementLength.Ticks * target.Speed));
+        double maxOffset = Math.Max(0, Math.Floor(total.Ticks - target.VisibleSourceEndTicks));
         return TimelineHeadroom(target, maxOffset - target.Current.Ticks);
     }
 
@@ -277,13 +410,12 @@ internal static class SlippableMedia
     // Room to extend the element's out-point (grow its length while the in-point stays put),
     // bounded by the tightest source tail among its streams, expressed in timeline time.
     // TimeSpan.MaxValue when unbounded.
-    public static TimeSpan OutPointRoom(IReadOnlyList<Target> targets, TimeSpan elementLength)
+    public static TimeSpan OutPointRoom(IReadOnlyList<Target> targets)
     {
         TimeSpan room = TimeSpan.MaxValue;
         foreach (Target target in targets)
         {
-            TimeSpan available = TimeSpan.FromTicks(ForwardHeadroom(target, elementLength));
-            if (available < room) room = available;
+            if (target.OutPointHeadroom < room) room = target.OutPointHeadroom;
         }
 
         return room;

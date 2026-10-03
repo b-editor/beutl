@@ -496,7 +496,7 @@ public sealed class ElementResizeService : IElementResizeService
 
         if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
         {
-            TimeSpan outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length);
+            TimeSpan outRoom = SlippableMedia.OutPointRoom(frontTargets);
             if (outRoom < max) max = outRoom;
         }
 
