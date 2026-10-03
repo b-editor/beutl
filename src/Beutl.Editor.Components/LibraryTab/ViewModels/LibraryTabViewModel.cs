@@ -19,10 +19,15 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly SemaphoreSlim _asyncLock = new(1, 1);
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly CancellationToken _lifetimeToken;
+    private int _disposed;
+    private int _searchVersion;
 
     public LibraryTabViewModel(IEditorContext editorContext)
     {
         _ = editorContext;
+        _lifetimeToken = _lifetimeCancellation.Token;
 
         IReadOnlyList<LibraryItem> libItems = LibraryService.Current.Items;
         LibraryItems = new List<LibraryItemViewModel>(libItems.Count);
@@ -99,33 +104,53 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
     public async Task Search(string str, CancellationToken cancellationToken)
     {
+        if (Volatile.Read(ref _disposed) != 0)
+            return;
+
         UsageTelemetry? usage = UsageTelemetry.Current;
         long epoch = 0;
         bool collect = usage?.TryGetCollectionEpoch(out epoch) == true;
-        await _asyncLock.WaitAsync(cancellationToken);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetimeToken);
+        CancellationToken token = cancellation.Token;
         try
         {
-            SearchResult.ClearOnScheduler();
-            await Task.Run(() =>
+            await _asyncLock.WaitAsync(token);
+        }
+        catch (OperationCanceledException) when (_lifetimeToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        int searchVersion = Interlocked.Increment(ref _searchVersion);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            PublishSearchResult([], searchVersion, cancellationToken);
+            KeyValuePair<int, LibraryItemViewModel>[] items = AllItems.ToArray();
+            KeyValuePair<int, LibraryItemViewModel>[] results = await Task.Run(() =>
             {
+                var matches = new List<KeyValuePair<int, LibraryItemViewModel>>();
                 Regex[] regices = RegexHelper.CreateRegexes(str);
-                for (int i = 0; i < AllItems.Count; i++)
+                foreach (KeyValuePair<int, LibraryItemViewModel> item in items)
                 {
-                    KeyValuePair<int, LibraryItemViewModel> item = AllItems[i];
+                    token.ThrowIfCancellationRequested();
                     int score = item.Value.Match(regices);
+                    token.ThrowIfCancellationRequested();
                     if (score > 0)
                     {
-                        SearchResult.OrderedAddDescendingOnScheduler(new(score, item.Value), x => x.Key);
+                        matches.Add(new(score, item.Value));
                     }
-
-                    cancellationToken.ThrowIfCancellationRequested();
                 }
-            }, cancellationToken);
+
+                return matches.OrderByDescending(x => x.Key).ToArray();
+            }, token);
+            token.ThrowIfCancellationRequested();
+            PublishSearchResult(results, searchVersion, cancellationToken);
             if (collect) usage!.Record("tool.command", "Library", "Search", epoch: epoch);
         }
         catch (OperationCanceledException)
         {
-            SearchResult.ClearOnScheduler();
+            PublishSearchResult([], searchVersion, CancellationToken.None);
         }
         finally
         {
@@ -133,8 +158,39 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         }
     }
 
+    private void PublishSearchResult(IReadOnlyList<KeyValuePair<int, LibraryItemViewModel>> results,
+        int searchVersion, CancellationToken cancellationToken)
+    {
+        void Publish()
+        {
+            if (Volatile.Read(ref _disposed) != 0 || cancellationToken.IsCancellationRequested
+                || searchVersion != Volatile.Read(ref _searchVersion))
+                return;
+
+            SearchResult.Clear();
+            foreach (KeyValuePair<int, LibraryItemViewModel> item in results)
+            {
+                if (Volatile.Read(ref _disposed) != 0 || cancellationToken.IsCancellationRequested
+                    || searchVersion != Volatile.Read(ref _searchVersion))
+                    return;
+
+                SearchResult.Add(item);
+            }
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+            Publish();
+        else
+            Dispatcher.UIThread.Post(Publish);
+    }
+
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
+
+        _lifetimeCancellation.Cancel();
+        _lifetimeCancellation.Dispose();
         _disposables.Dispose();
         Easings.Clear();
         LibraryItems.Clear();
