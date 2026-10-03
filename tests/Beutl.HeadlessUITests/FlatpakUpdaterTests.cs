@@ -183,7 +183,11 @@ public sealed class FlatpakUpdaterTests
     [TestCase("wait")]
     public async Task HostProcessReportsErrorsAndStopsOnCancellation(string mode)
     {
-        if (OperatingSystem.IsWindows()) Assert.Ignore("Uses a POSIX test process.");
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Uses a POSIX test process.");
+            return;
+        }
         string script = Path.Combine(_root, "host");
         string pidFile = Path.Combine(_root, "pid");
         File.WriteAllText(script, "#!/bin/sh\ncase \"$6\" in\nok) printf '%s' \"$7\";;\nfail) echo denied >&2; exit 3;;\nwait) echo $$ > \"$7\"; touch \"$7.ready\"; exec sleep 30;;\nesac\n");
