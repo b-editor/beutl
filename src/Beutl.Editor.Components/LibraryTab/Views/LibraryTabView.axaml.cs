@@ -106,6 +106,12 @@ public sealed partial class LibraryTabView : UserControl
         carousel.ItemsSource = s_tabItems.Select(item => item.Create())
             .ToArray();
 
+        tabStrip.GetObservable(SelectingItemsControl.SelectedIndexProperty).Skip(1).Subscribe(index =>
+        {
+            if (index >= 0 && index < s_tabItems.Length && (tabStrip.IsPointerOver || tabStrip.IsKeyboardFocusWithin))
+                Beutl.Editor.Services.UsageTelemetry.Current?.Record("tool.setting", "Library", "Section." + s_tabItems[index].Id);
+        });
+
         scroll.GetObservable(ScrollViewer.OffsetProperty)
             .Subscribe(_ => OnOffsetChanged());
         scroll.TemplateApplied += OnScrollViewerTemplateApplied;

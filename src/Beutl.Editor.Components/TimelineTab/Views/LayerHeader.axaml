@@ -7,6 +7,7 @@
              xmlns:local="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
              Height="{Binding Height.Value}"
              HorizontalAlignment="Stretch"
@@ -45,6 +46,7 @@
         </Border>
 
         <ToggleButton Grid.Column="1"
+                      usage:UsageTracking.Feature="Timeline.ToggleLockCommand"
                       Command="{Binding ToggleLockCommand}"
                       IsChecked="{Binding IsLocked.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
@@ -61,6 +63,7 @@
         </ToggleButton>
 
         <ToggleButton Grid.Column="2"
+                      usage:UsageTracking.Feature="Timeline.ToggleVideoMuteCommand"
                       Command="{Binding ToggleVideoMuteCommand}"
                       IsChecked="{Binding IsVideoMuted.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
@@ -77,6 +80,7 @@
         </ToggleButton>
 
         <ToggleButton Grid.Column="3"
+                      usage:UsageTracking.Feature="Timeline.ToggleAudioMuteCommand"
                       Command="{Binding ToggleAudioMuteCommand}"
                       IsChecked="{Binding IsAudioMuted.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"
@@ -93,6 +97,7 @@
         </ToggleButton>
 
         <ToggleButton Grid.Column="4"
+                      usage:UsageTracking.Feature="Timeline.ToggleSoloCommand"
                       Command="{Binding ToggleSoloCommand}"
                       IsChecked="{Binding IsSolo.Value, Mode=OneWay}"
                       Theme="{StaticResource LayerHeaderToggleButtonStyle}"

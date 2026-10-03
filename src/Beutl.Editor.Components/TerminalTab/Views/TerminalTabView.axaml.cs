@@ -1,8 +1,8 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
-
 using Beutl.Editor.Components.TerminalTab.ViewModels;
-
+using Beutl.Editor.Services;
 using Iciclecreek.Terminal;
 
 namespace Beutl.Editor.Components.TerminalTab.Views;
@@ -20,6 +20,11 @@ public partial class TerminalTabView : UserControl, IDisposable
         InitializeComponent();
         Loaded += OnLoaded;
         Terminal.AddHandler(TerminalView.TitleChangedEvent, OnTerminalTitleChanged);
+        Terminal.AddHandler(KeyDownEvent, (_, args) =>
+        {
+            if (args.Key == Key.Enter)
+                UsageTelemetry.Current?.Record("tool.command", "Terminal", "SubmitInput");
+        }, RoutingStrategies.Tunnel);
     }
 
     // The view is recycled; update the view-model that owns the PTY.

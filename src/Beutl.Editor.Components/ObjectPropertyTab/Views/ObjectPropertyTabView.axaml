@@ -1,19 +1,23 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl x:Class="Beutl.Editor.Components.ObjectPropertyTab.Views.ObjectPropertyTabView"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModel="using:Beutl.Editor.Components.ObjectPropertyTab.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="Beutl.Editor.Components.ObjectPropertyTab.Views.ObjectPropertyTabView"
-             x:DataType="viewModel:ObjectPropertyTabViewModel">
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="viewModel:ObjectPropertyTabViewModel"
+             mc:Ignorable="d">
     <ScrollViewer>
         <StackPanel>
             <controls:ToolTabBar x:Name="ToolBar">
                 <Button x:Name="BackButton"
                         HorizontalAlignment="Left"
+                        usage:UsageTracking.Feature="ObjectProperty.Back"
                         AutomationProperties.Name="{x:Static lang:Strings.Back}"
                         Command="{Binding Back}"
                         IsEnabled="{Binding CanBack.Value}"

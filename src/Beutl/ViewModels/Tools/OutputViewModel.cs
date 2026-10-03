@@ -216,6 +216,21 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
+        using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("export");
+        try
+        {
+            await RunCoreAsync(cancellationToken);
+            usage?.Complete();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            usage?.Complete("cancelled");
+            throw;
+        }
+    }
+
+    private async Task RunCoreAsync(CancellationToken cancellationToken)
+    {
         try
         {
             cancellationToken.ThrowIfCancellationRequested();

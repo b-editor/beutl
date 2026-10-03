@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using Avalonia.Controls;
+using Beutl.Services;
 using Dock.Model.Inpc.Controls;
 using FluentAvalonia.UI.Controls;
 
@@ -10,6 +11,7 @@ public class BeutlToolDockable : Tool, IDisposable
     private readonly IDisposable _isSelectedSubscription;
     private readonly IDisposable _headerSubscription;
     private bool _isDisposed;
+    private readonly ToolUsageTracker _usage;
 
     public BeutlToolDockable(IToolContext context, EditViewModel editViewModel)
     {
@@ -20,6 +22,7 @@ public class BeutlToolDockable : Tool, IDisposable
         Title = ResolveTitle(context, context.Header.Value);
         Icon = context.Extension.GetIcon();
         Context = context;
+        _usage = new ToolUsageTracker(context);
         CanClose = true;
         CanFloat = true;
         CanPin = true;
@@ -56,6 +59,13 @@ public class BeutlToolDockable : Tool, IDisposable
 
     internal Control? ToolContent { get; set; }
 
+    internal void RecordInteraction()
+    {
+        if (_isDisposed) return;
+        _usage.Interact();
+        EditViewModel?.Usage?.ActivateTool(this, _usage.Tool);
+    }
+
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_isDisposed) return;
@@ -72,6 +82,7 @@ public class BeutlToolDockable : Tool, IDisposable
         PropertyChanged -= OnPropertyChanged;
         _headerSubscription.Dispose();
         _isSelectedSubscription.Dispose();
+        _usage.Dispose();
         Control? content = ToolContent;
         ToolContent = null;
         try

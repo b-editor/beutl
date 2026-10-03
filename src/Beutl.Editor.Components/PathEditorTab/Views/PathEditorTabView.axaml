@@ -1,22 +1,23 @@
 <UserControl x:Class="Beutl.Editor.Components.PathEditorTab.Views.PathEditorTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:editorConverters="using:Beutl.Controls.Converters"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:convert="using:Beutl.Editor.Components.PathEditorTab.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:editorConverters="using:Beutl.Controls.Converters"
+             xmlns:editors="using:Beutl.Controls.PropertyEditors"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:controls="using:Beutl.Controls"
-             xmlns:editors="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:views="using:Beutl.Editor.Components.PathEditorTab.Views"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModels="using:Beutl.Editor.Components.PathEditorTab.ViewModels"
+             xmlns:views="using:Beutl.Editor.Components.PathEditorTab.Views"
              x:Name="root"
              d:DesignHeight="450"
              d:DesignWidth="800"
-             Focusable="True"
              x:DataType="viewModels:PathEditorTabViewModel"
+             Focusable="True"
              RenderOptions.BitmapInterpolationMode="HighQuality"
              mc:Ignorable="d">
     <UserControl.Styles>
@@ -42,28 +43,44 @@
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <StackPanel x:Name="ToolSlot" Orientation="Horizontal" />
                 <StackPanel x:Name="ZoomTools" Grid.Column="2" Orientation="Horizontal" Spacing="0">
-                    <Button x:Name="ZoomOutButton" Classes="toolbar" Click="ZoomOutClicked"
-                            ToolTip.Tip="{x:Static lang:Strings.PathEditor_ZoomOut}"
-                            AutomationProperties.Name="{x:Static lang:Strings.PathEditor_ZoomOut}">
+                    <Button x:Name="ZoomOutButton"
+                            usage:UsageTracking.Feature="PathEditor.ZoomOut"
+                            AutomationProperties.Name="{x:Static lang:Strings.PathEditor_ZoomOut}"
+                            Classes="toolbar"
+                            Click="ZoomOutClicked"
+                            ToolTip.Tip="{x:Static lang:Strings.PathEditor_ZoomOut}">
                         <icons:FluentIcon Icon="Subtract" FontSize="16" />
                     </Button>
-                    <Button x:Name="ZoomValueButton" Classes="toolbar" MinWidth="46"
-                            Click="ResetZoomClicked" Content="100%"
-                            ToolTip.Tip="{x:Static lang:Strings.ResetZoom}"
-                            AutomationProperties.Name="{x:Static lang:Strings.ResetZoom}" />
-                    <Button x:Name="ZoomInButton" Classes="toolbar" Click="ZoomInClicked"
-                            ToolTip.Tip="{x:Static lang:Strings.PathEditor_ZoomIn}"
-                            AutomationProperties.Name="{x:Static lang:Strings.PathEditor_ZoomIn}">
+                    <Button x:Name="ZoomValueButton"
+                            MinWidth="46"
+                            usage:UsageTracking.Feature="PathEditor.ResetZoom"
+                            AutomationProperties.Name="{x:Static lang:Strings.ResetZoom}"
+                            Classes="toolbar"
+                            Click="ResetZoomClicked"
+                            Content="100%"
+                            ToolTip.Tip="{x:Static lang:Strings.ResetZoom}" />
+                    <Button x:Name="ZoomInButton"
+                            usage:UsageTracking.Feature="PathEditor.ZoomIn"
+                            AutomationProperties.Name="{x:Static lang:Strings.PathEditor_ZoomIn}"
+                            Classes="toolbar"
+                            Click="ZoomInClicked"
+                            ToolTip.Tip="{x:Static lang:Strings.PathEditor_ZoomIn}">
                         <icons:FluentIcon Icon="Add" FontSize="16" />
                     </Button>
-                    <Button x:Name="FitButton" Classes="toolbar" Click="FitClicked"
-                            ToolTip.Tip="{x:Static lang:Strings.PathEditor_Fit}"
-                            AutomationProperties.Name="{x:Static lang:Strings.PathEditor_Fit}">
+                    <Button x:Name="FitButton"
+                            usage:UsageTracking.Feature="PathEditor.Fit"
+                            AutomationProperties.Name="{x:Static lang:Strings.PathEditor_Fit}"
+                            Classes="toolbar"
+                            Click="FitClicked"
+                            ToolTip.Tip="{x:Static lang:Strings.PathEditor_Fit}">
                         <icons:FluentIcon Icon="ArrowAutofitWidth" FontSize="16" />
                     </Button>
-                    <Button x:Name="CompactSettingsButton" Classes="toolbar" Click="ShowPointSettingsClicked"
-                            ToolTip.Tip="{x:Static lang:Strings.PathEditor_PointSettings}"
-                            AutomationProperties.Name="{x:Static lang:Strings.PathEditor_PointSettings}">
+                    <Button x:Name="CompactSettingsButton"
+                            usage:UsageTracking.Feature="PathEditor.ShowPointSettings"
+                            AutomationProperties.Name="{x:Static lang:Strings.PathEditor_PointSettings}"
+                            Classes="toolbar"
+                            Click="ShowPointSettingsClicked"
+                            ToolTip.Tip="{x:Static lang:Strings.PathEditor_PointSettings}">
                         <icons:FluentIcon Icon="Options" FontSize="16" />
                     </Button>
                 </StackPanel>
@@ -80,36 +97,46 @@
             <Canvas Name="canvas" Background="Transparent">
                 <Canvas.ContextFlyout>
                     <ui:FAMenuFlyout>
-                        <ui:FAMenuFlyoutItem Click="AddOpClicked"
-                                           Tag="Cubic"
-                                           Text="{x:Static lang:GraphicsStrings.CubicBezierSegment}" />
-                        <ui:FAMenuFlyoutItem Click="AddOpClicked"
-                                           Tag="Quad"
-                                           Text="{x:Static lang:GraphicsStrings.QuadraticBezierSegment}" />
-                        <ui:FAMenuFlyoutItem Click="AddOpClicked"
-                                           Tag="Line"
-                                           Text="{x:Static lang:GraphicsStrings.LineSegment}" />
-                        <ui:FAMenuFlyoutItem Click="AddOpClicked"
-                                           Tag="Arc"
-                                           Text="{x:Static lang:GraphicsStrings.ArcSegment}" />
-                        <ui:FAMenuFlyoutItem Click="AddOpClicked"
-                                           Tag="Conic"
-                                           Text="{x:Static lang:GraphicsStrings.ConicSegment}" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.AddCubicSegment"
+                                             Click="AddOpClicked"
+                                             Tag="Cubic"
+                                             Text="{x:Static lang:GraphicsStrings.CubicBezierSegment}" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.AddQuadSegment"
+                                             Click="AddOpClicked"
+                                             Tag="Quad"
+                                             Text="{x:Static lang:GraphicsStrings.QuadraticBezierSegment}" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.AddLineSegment"
+                                             Click="AddOpClicked"
+                                             Tag="Line"
+                                             Text="{x:Static lang:GraphicsStrings.LineSegment}" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.AddArcSegment"
+                                             Click="AddOpClicked"
+                                             Tag="Arc"
+                                             Text="{x:Static lang:GraphicsStrings.ArcSegment}" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.AddConicSegment"
+                                             Click="AddOpClicked"
+                                             Tag="Conic"
+                                             Text="{x:Static lang:GraphicsStrings.ConicSegment}" />
                         <ui:FAMenuFlyoutSeparator />
-                        <ui:FARadioMenuFlyoutItem Click="ToggleDragModeClick"
-                                                IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
-                                                Tag="Symmetry"
-                                                Text="{x:Static lang:Strings.Symmetry}" />
-                        <ui:FARadioMenuFlyoutItem Click="ToggleDragModeClick"
-                                                IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
-                                                Tag="Asymmetry"
-                                                Text="{x:Static lang:Strings.Asymmetry}" />
-                        <ui:FARadioMenuFlyoutItem Click="ToggleDragModeClick"
-                                                IsChecked="{Binding Separately.Value, Mode=OneWay}"
-                                                Tag="Separately"
-                                                Text="{x:Static lang:Strings.Separately}" />
+                        <ui:FARadioMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.DragMode.Symmetry"
+                                                  Click="ToggleDragModeClick"
+                                                  IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
+                                                  Tag="Symmetry"
+                                                  Text="{x:Static lang:Strings.Symmetry}" />
+                        <ui:FARadioMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.DragMode.Asymmetry"
+                                                  Click="ToggleDragModeClick"
+                                                  IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
+                                                  Tag="Asymmetry"
+                                                  Text="{x:Static lang:Strings.Asymmetry}" />
+                        <ui:FARadioMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.DragMode.Separately"
+                                                  Click="ToggleDragModeClick"
+                                                  IsChecked="{Binding Separately.Value, Mode=OneWay}"
+                                                  Tag="Separately"
+                                                  Text="{x:Static lang:Strings.Separately}" />
                         <ui:FAMenuFlyoutSeparator />
-                        <ui:FAMenuFlyoutItem Click="ResetZoomClicked" Text="{x:Static lang:Strings.ResetZoom}" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.ResetZoom"
+                                             Click="ResetZoomClicked"
+                                             Text="{x:Static lang:Strings.ResetZoom}" />
                     </ui:FAMenuFlyout>
                 </Canvas.ContextFlyout>
             </Canvas>
@@ -155,25 +182,40 @@
                         <StackPanel Margin="8,0" Spacing="4">
                             <TextBlock Classes="sectionHeader" Text="{x:Static lang:Strings.PathEditor_Handles}" />
                             <StackPanel x:Name="DragModeTools" Orientation="Horizontal" Spacing="4">
-                                <RadioButton Classes="mode" Theme="{StaticResource LiteNavRadioButton}" Click="ToggleDragModeClick" GroupName="PathEditor_DragMode"
-                                             IsChecked="{Binding Symmetry.Value, Mode=OneWay}" Tag="Symmetry"
+                                <RadioButton usage:UsageTracking.Feature="PathEditor.DragMode.Symmetry"
                                              AutomationProperties.Name="{x:Static lang:Strings.PathEditor_MirrorBoth}"
+                                             Classes="mode"
+                                             Click="ToggleDragModeClick"
+                                             GroupName="PathEditor_DragMode"
+                                             IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
+                                             Tag="Symmetry"
+                                             Theme="{StaticResource LiteNavRadioButton}"
                                              ToolTip.Tip="{x:Static lang:Strings.PathEditor_MirrorBoth}">
                                     <Path Width="16" Height="16" Stretch="Uniform"
                                           Fill="{DynamicResource TextFillColorPrimaryBrush}"
                                           Data="{StaticResource PathEditor_Symmetry}" />
                                 </RadioButton>
-                                <RadioButton Classes="mode" Theme="{StaticResource LiteNavRadioButton}" Click="ToggleDragModeClick" GroupName="PathEditor_DragMode"
-                                             IsChecked="{Binding Asymmetry.Value, Mode=OneWay}" Tag="Asymmetry"
+                                <RadioButton usage:UsageTracking.Feature="PathEditor.DragMode.Asymmetry"
                                              AutomationProperties.Name="{x:Static lang:Strings.PathEditor_MirrorAngle}"
+                                             Classes="mode"
+                                             Click="ToggleDragModeClick"
+                                             GroupName="PathEditor_DragMode"
+                                             IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
+                                             Tag="Asymmetry"
+                                             Theme="{StaticResource LiteNavRadioButton}"
                                              ToolTip.Tip="{x:Static lang:Strings.PathEditor_MirrorAngle}">
                                     <Path Width="16" Height="16" Stretch="Uniform"
                                           Fill="{DynamicResource TextFillColorPrimaryBrush}"
                                           Data="{StaticResource PathEditor_Asymmetry}" />
                                 </RadioButton>
-                                <RadioButton Classes="mode" Theme="{StaticResource LiteNavRadioButton}" Click="ToggleDragModeClick" GroupName="PathEditor_DragMode"
-                                             IsChecked="{Binding Separately.Value, Mode=OneWay}" Tag="Separately"
+                                <RadioButton usage:UsageTracking.Feature="PathEditor.DragMode.Separately"
                                              AutomationProperties.Name="{x:Static lang:Strings.PathEditor_Independent}"
+                                             Classes="mode"
+                                             Click="ToggleDragModeClick"
+                                             GroupName="PathEditor_DragMode"
+                                             IsChecked="{Binding Separately.Value, Mode=OneWay}"
+                                             Tag="Separately"
+                                             Theme="{StaticResource LiteNavRadioButton}"
                                              ToolTip.Tip="{x:Static lang:Strings.PathEditor_Independent}">
                                     <Path Width="16" Height="16" Stretch="Uniform"
                                           Fill="{DynamicResource TextFillColorPrimaryBrush}"

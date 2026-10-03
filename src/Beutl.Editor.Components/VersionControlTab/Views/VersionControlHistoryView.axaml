@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.Editor.Components.VersionControlTab.ViewModels"
              d:DesignHeight="480"
              d:DesignWidth="320"
@@ -31,9 +32,11 @@
                         <Border Padding="12,10">
                             <Border.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Command="{Binding RestoreCommand}"
+                                    <MenuItem usage:UsageTracking.Feature="VersionControl.RestoreCommand"
+                                              Command="{Binding RestoreCommand}"
                                               Header="{x:Static lang:Strings.VersionControl_Restore}" />
-                                    <MenuItem Command="{Binding RestoreToNewBranchCommand}"
+                                    <MenuItem usage:UsageTracking.Feature="VersionControl.RestoreToNewBranchCommand"
+                                              Command="{Binding RestoreToNewBranchCommand}"
                                               Header="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
                                 </ContextMenu>
                             </Border.ContextMenu>
@@ -85,6 +88,7 @@
         <Button Grid.Row="2"
                 Margin="8,0,8,8"
                 HorizontalAlignment="Stretch"
+                usage:UsageTracking.Feature="VersionControl.LoadMoreCommand"
                 Command="{Binding LoadMoreCommand}"
                 Content="{x:Static lang:Strings.VersionControl_LoadMore}"
                 IsEnabled="{Binding !IsLoading.Value}"

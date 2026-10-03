@@ -5,6 +5,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.SceneSettingsTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModel="using:Beutl.Editor.Components.SceneSettingsTab.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -34,10 +35,15 @@
                              Header="{x:Static lang:Strings.Number_of_Layers}" />
 
             <WrapPanel x:Name="ActionButtons" Margin="8" ItemSpacing="4" LineSpacing="4">
-                <Button x:Name="ApplyButton" Classes="accent" Command="{Binding Apply}">
+                <Button x:Name="ApplyButton"
+                        usage:UsageTracking.Feature="SceneSettings.Apply"
+                        Classes="accent"
+                        Command="{Binding Apply}">
                     <TextBlock Text="{x:Static lang:Strings.Apply}" TextAlignment="Center" TextWrapping="Wrap" />
                 </Button>
-                <Button x:Name="RevertButton" Command="{Binding Revert}">
+                <Button x:Name="RevertButton"
+                        usage:UsageTracking.Feature="SceneSettings.Revert"
+                        Command="{Binding Revert}">
                     <TextBlock Text="{x:Static lang:Strings.DiscardChanges}" TextAlignment="Center" TextWrapping="Wrap" />
                 </Button>
             </WrapPanel>

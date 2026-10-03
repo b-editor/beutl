@@ -8,6 +8,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:p="using:Beutl.Services.PrimitiveImpls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:v="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
              x:Name="root"
@@ -57,9 +58,10 @@
         <Border.ContextFlyout>
             <ui:FAMenuFlyout>
                 <ui:FAToggleMenuFlyoutItem x:Name="enableElement"
-                                         Click="EnableElementClick"
-                                         IsChecked="{Binding IsEnabled.Value}"
-                                         Text="{x:Static lang:Strings.EnableElement}">
+                                           usage:UsageTracking.Feature="Timeline.EnableElement"
+                                           Click="EnableElementClick"
+                                           IsChecked="{Binding IsEnabled.Value}"
+                                           Text="{x:Static lang:Strings.EnableElement}">
                     <ui:FAToggleMenuFlyoutItem.Styles>
                         <Style Selector="ui|FAToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
                             <Setter Property="Width" Value="0" />
@@ -67,9 +69,10 @@
                     </ui:FAToggleMenuFlyoutItem.Styles>
                 </ui:FAToggleMenuFlyoutItem>
                 <ui:FAToggleMenuFlyoutItem x:Name="lockElement"
-                                         Click="LockElement_Click"
-                                         IsChecked="{Binding IsLocked.Value}"
-                                         Text="{x:Static lang:Strings.Lock}">
+                                           usage:UsageTracking.Feature="Timeline.LockElement"
+                                           Click="LockElement_Click"
+                                           IsChecked="{Binding IsLocked.Value}"
+                                           Text="{x:Static lang:Strings.Lock}">
                     <ui:FAToggleMenuFlyoutItem.Styles>
                         <Style Selector="ui|FAToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
                             <Setter Property="Width" Value="0" />
@@ -108,73 +111,84 @@
                 </ui:FAMenuFlyoutSubItem>
                 <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem x:Name="split"
-                                   Command="{Binding Split}"
-                                   Text="{x:Static lang:Strings.Split}">
+                                     usage:UsageTracking.Feature="Timeline.Split"
+                                     Command="{Binding Split}"
+                                     Text="{x:Static lang:Strings.Split}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="SplitVertical" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="splitByCurrent"
-                                   Command="{Binding SplitByCurrentFrame}"
-                                   InputGesture="{h:GetCommandGesture Split,
+                                     usage:UsageTracking.Feature="Timeline.SplitByCurrentFrame"
+                                     Command="{Binding SplitByCurrentFrame}"
+                                     InputGesture="{h:GetCommandGesture Split,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
-                                   Text="{x:Static lang:Strings.SplitByCurrentFrame}" />
+                                     Text="{x:Static lang:Strings.SplitByCurrentFrame}" />
                 <ui:FAMenuFlyoutItem x:Name="cut"
-                                   Command="{Binding Cut}"
-                                   InputGesture="{h:GetCommandGesture Cut,
+                                     usage:UsageTracking.Feature="Timeline.Cut"
+                                     Command="{Binding Cut}"
+                                     InputGesture="{h:GetCommandGesture Cut,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
-                                   Text="{x:Static lang:Strings.Cut}">
+                                     Text="{x:Static lang:Strings.Cut}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="Cut" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
-                <ui:FAMenuFlyoutItem Command="{Binding Copy}"
-                                   InputGesture="{h:GetCommandGesture Copy,
+                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Copy"
+                                     Command="{Binding Copy}"
+                                     InputGesture="{h:GetCommandGesture Copy,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
-                                   Text="{x:Static lang:Strings.Copy}">
+                                     Text="{x:Static lang:Strings.Copy}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="Copy" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="delete"
-                                   Command="{Binding Delete}"
-                                   InputGesture="{h:GetCommandGesture Delete,
+                                     usage:UsageTracking.Feature="Timeline.Delete"
+                                     Command="{Binding Delete}"
+                                     InputGesture="{h:GetCommandGesture Delete,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
-                                   Text="{x:Static lang:Strings.Delete}">
+                                     Text="{x:Static lang:Strings.Delete}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="DeleteDismiss" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="exclude"
-                                   Command="{Binding Exclude}"
-                                   InputGesture="{h:GetCommandGesture Exclude,
+                                     usage:UsageTracking.Feature="Timeline.Exclude"
+                                     Command="{Binding Exclude}"
+                                     InputGesture="{h:GetCommandGesture Exclude,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
-                                   Text="{x:Static lang:Strings.Exclude}">
+                                     Text="{x:Static lang:Strings.Exclude}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="Delete" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="groupSelectedElements"
-                                   Command="{Binding GroupSelectedElements}"
-                                   Text="{x:Static lang:Strings.GroupSelectedElements}" />
+                                     usage:UsageTracking.Feature="Timeline.GroupSelectedElements"
+                                     Command="{Binding GroupSelectedElements}"
+                                     Text="{x:Static lang:Strings.GroupSelectedElements}" />
                 <ui:FAMenuFlyoutItem x:Name="ungroupSelectedElements"
-                                   Command="{Binding UngroupSelectedElements}"
-                                   Text="{x:Static lang:Strings.UngroupSelectedElements}" />
+                                     usage:UsageTracking.Feature="Timeline.UngroupSelectedElements"
+                                     Command="{Binding UngroupSelectedElements}"
+                                     Text="{x:Static lang:Strings.UngroupSelectedElements}" />
                 <ui:FAMenuFlyoutItem x:Name="rename"
-                                   Click="Rename_Click"
-                                   InputGesture="{h:GetCommandGesture Rename,
+                                     usage:UsageTracking.Feature="Timeline.Rename"
+                                     Click="Rename_Click"
+                                     InputGesture="{h:GetCommandGesture Rename,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
-                                   Text="{x:Static lang:Strings.Rename}">
+                                     Text="{x:Static lang:Strings.Rename}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="Rename" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="change2OriginalDuration"
-                                   Command="{Binding ChangeToOriginalDuration}"
-                                   Text="{x:Static lang:Strings.ChangeToOriginalLength}" />
+                                     usage:UsageTracking.Feature="Timeline.ChangeToOriginalDuration"
+                                     Command="{Binding ChangeToOriginalDuration}"
+                                     Text="{x:Static lang:Strings.ChangeToOriginalLength}" />
                 <ui:FAMenuFlyoutItem x:Name="changeColor"
-                                   Click="ChangeColor_Click"
-                                   Text="{x:Static lang:Strings.ChangeColor}" />
+                                     usage:UsageTracking.Feature="Timeline.ChangeColor"
+                                     Click="ChangeColor_Click"
+                                     Text="{x:Static lang:Strings.ChangeColor}" />
                 <ui:FAToggleMenuFlyoutItem IsChecked="{Binding IsThumbnailsDisabled.Value}" Text="{x:Static lang:Strings.DisableThumbnails}">
                     <ui:FAToggleMenuFlyoutItem.Styles>
                         <Style Selector="ui|FAToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
@@ -183,7 +197,9 @@
                     </ui:FAToggleMenuFlyoutItem.Styles>
                 </ui:FAToggleMenuFlyoutItem>
                 <ui:FAMenuFlyoutSeparator />
-                <ui:FAMenuFlyoutItem Click="SaveAsTemplate_Click" Text="{x:Static lang:Strings.SaveAsTemplate}">
+                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.SaveAsTemplate"
+                                     Click="SaveAsTemplate_Click"
+                                     Text="{x:Static lang:Strings.SaveAsTemplate}">
                     <ui:FAMenuFlyoutItem.IconSource>
                         <icons:FluentIconSource Icon="DocumentCopy" />
                     </ui:FAMenuFlyoutItem.IconSource>
@@ -191,9 +207,12 @@
                 <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.Animation}">
                     <ui:FAMenuFlyoutItem x:Name="finishEditingAnimation"
-                                       Command="{Binding FinishEditingAnimation}"
-                                       Text="{x:Static lang:Strings.FinishEditing}" />
-                    <ui:FAMenuFlyoutItem Command="{Binding BringAnimationToTop}" Text="{x:Static lang:Strings.BringToTop}" />
+                                         usage:UsageTracking.Feature="Timeline.FinishEditingAnimation"
+                                         Command="{Binding FinishEditingAnimation}"
+                                         Text="{x:Static lang:Strings.FinishEditing}" />
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.BringAnimationToTop"
+                                         Command="{Binding BringAnimationToTop}"
+                                         Text="{x:Static lang:Strings.BringToTop}" />
                 </ui:FAMenuFlyoutSubItem>
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>

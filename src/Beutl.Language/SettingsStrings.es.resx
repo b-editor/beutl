@@ -109,7 +109,7 @@
     <comment />
   </data>
   <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
-    <value>Se recopila la siguiente información para mejorar el rendimiento de la aplicación: hora de inicio de la aplicación, tiempo transcurrido de la operación y número de elementos recuperados por la API</value>
+    <value>Recopilamos el inicio y el tiempo de ejecución de las sesiones, los resultados de las operaciones de proyecto y las exportaciones, las pestañas de herramientas y funciones utilizadas, las ediciones confirmadas, los nombres de las propiedades editadas y los tipos de efectos habilitados. Los datos detallados de uso no incluyen nombres de proyectos o archivos, rutas, URL, prompts, términos de búsqueda, argumentos de comandos, valores de propiedades ni el contenido de los recursos multimedia. Puede detener esta recopilación en cualquier momento.</value>
     <comment />
   </data>
   <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">

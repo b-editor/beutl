@@ -5,6 +5,7 @@
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModel="using:Beutl.Editor.Components.ElementPropertyTab.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -20,12 +21,16 @@
                   ColumnDefinitions="Auto,Auto,*">
                 <Grid.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Click="Remove_Click" Header="{x:Static lang:Strings.Remove}">
+                        <MenuItem usage:UsageTracking.Feature="ElementProperty.Remove"
+                                  Click="Remove_Click"
+                                  Header="{x:Static lang:Strings.Remove}">
                             <MenuItem.Icon>
                                 <icons:FluentIcon Icon="Delete" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Click="SaveAsTemplate_Click" Header="{x:Static lang:Strings.SaveAsTemplate}">
+                        <MenuItem usage:UsageTracking.Feature="ElementProperty.SaveAsTemplate"
+                                  Click="SaveAsTemplate_Click"
+                                  Header="{x:Static lang:Strings.SaveAsTemplate}">
                             <MenuItem.Icon>
                                 <icons:FluentIcon Icon="DocumentCopy" />
                             </MenuItem.Icon>
