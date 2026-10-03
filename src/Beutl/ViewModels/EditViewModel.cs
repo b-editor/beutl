@@ -1199,7 +1199,12 @@ public sealed partial class EditViewModel
     {
         return _historyMutationPlaybackGuard.RunAsync(
             Player,
-            HistoryManager.FlushPendingMutations,
+            () =>
+            {
+                // Closing may have started while Pause awaited the compose/render barriers.
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                HistoryManager.FlushPendingMutations();
+            },
             shouldPause,
             mutate,
             cancellationToken);

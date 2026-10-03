@@ -16,6 +16,7 @@ using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -645,6 +646,42 @@ public class TimelineMediaDurationTests
             window.Close();
             HeadlessTestHelpers.Settle();
         }
+    }
+
+    [AvaloniaTest]
+    [TestCase("controller")]
+    [TestCase("source")]
+    [TestCase("presenter")]
+    public async Task OriginalDuration_UnsupportedMapping_IsUnavailableAndPreservesGeometry(string kind)
+    {
+        using var configuration = new RippleDisabledScope();
+        SourceVideo video = CreateDurationVideo();
+        EngineObject root = video;
+        if (kind == "source") video.Source.Expression = Expression.Create<VideoSource?>("null");
+        if (kind == "presenter")
+            root = new DrawablePresenter
+            {
+                Target = { CurrentValue = video, Expression = Expression.Create<Drawable?>("null") }
+            };
+        ElementViewModel model = await OpenElement(root, lengthSeconds: 2);
+        if (kind == "controller")
+            model.Model.Objects.Add(new DrawableTimeController { Speed = { Expression = Expression.Create<float>("200") } });
+        var editor = (EditViewModel)model.Timeline.EditorContext;
+        editor.HistoryManager.Commit();
+        int undo = editor.HistoryManager.UndoCount;
+        TimeRange before = model.Model.Range;
+        bool available = model.HasOriginalDuration();
+
+        model.ChangeToOriginalDuration.Execute();
+        HeadlessTestHelpers.Settle(4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(available, Is.False);
+            Assert.That(SlippableMedia.GetOriginalDuration(model.Model), Is.Null);
+            Assert.That(model.Model.Range, Is.EqualTo(before));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undo));
+        });
     }
 
     private static async Task<ElementViewModel> OpenElement(EngineObject media, double startSeconds = 1, double lengthSeconds = 1)

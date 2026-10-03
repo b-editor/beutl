@@ -55,6 +55,7 @@ internal sealed class MediaTimeMapping
             SourceSound sound => !sound.Source.HasExpression,
             SceneSound sound => !sound.ReferencedScene.HasExpression,
             DrawableTimeController controller => !controller.Target.HasExpression,
+            IPresenter<Drawable> presenter => !presenter.Target.HasExpression,
             PortalObject => false,
             _ => true
         };

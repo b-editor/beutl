@@ -1306,6 +1306,121 @@ public class TrimTimeControllerTests
         Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Resize_LeftGlobalLoop_UsesEachCandidatesStart(bool ripple)
+    {
+        var video = CreateVideo(1, speed: 106);
+        Element element = AddElement(4.2, 0.8, video);
+        var speed = new KeyFrameAnimation<float> { UseGlobalClock = true };
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 10 });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = Seconds(20), Value = 50 });
+        element.Objects.Add(new DrawableTimeController
+        {
+            Speed = { Animation = speed },
+            OffsetPosition = { CurrentValue = Seconds(10) },
+            Loop = { CurrentValue = true }
+        });
+        TimeSpan end = element.Range.End;
+        using var playback = new SpeedIntegrator(60);
+        playback.EnsureCache(speed);
+        long low = Seconds(2.49).Ticks;
+        long high = Seconds(2.51).Ticks;
+        while (high - low > 1)
+        {
+            TimeSpan length = TimeSpan.FromTicks(low + (high - low) / 2);
+            TimeSpan start = end - length;
+            TimeSpan phase = playback.Integrate(start + Seconds(10), speed) - playback.Integrate(start, speed);
+            if (phase >= length) low = length.Ticks;
+            else high = length.Ticks;
+        }
+        TimeSpan expected = TimeSpan.FromTicks(low);
+        TimeSpan requestedStart = Seconds(2.2);
+        TimeSpan preview = SlippableMedia.CreateResizeConstraints(element).ClampStart(requestedStart);
+
+        new ElementResizeService(_harness.History).Resize(_harness.Scene,
+            [new(element, requestedStart, end - requestedStart, 0)], ripple);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Length, Is.EqualTo(expected).Within(TimeSpan.FromTicks(3)));
+            Assert.That(element.Start, Is.EqualTo(preview));
+            Assert.That(element.Range.End, Is.EqualTo(end));
+        });
+    }
+
+    [TestCase("mute")]
+    [TestCase("solo")]
+    [TestCase("missing-layer")]
+    public void Portal_InvisibleVideoLayer_DoesNotSupplyTrimMedia(string visibility)
+    {
+        var video = CreateVideo(2);
+        Element owner = AddElement(0, 1, video);
+        owner.ZIndex = 1;
+        _harness.Scene.Layers.Add(new TimelineLayer { ZIndex = 0, IsSolo = visibility != "mute" });
+        if (visibility != "missing-layer")
+            _harness.Scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsVideoMuted = visibility == "mute" });
+        var controller = CreateController(video);
+        Element element = AddElement(0, 0.5, controller);
+        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        Assert.That(compositor.EvaluateGraphics(Seconds(0.25)).Objects.OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(0.25)), Is.False);
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(3), 0)]);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(element.Length, Is.EqualTo(Seconds(3)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Trim_PresenterTargetExpression_RejectsTheEvaluatedSourceMismatch(bool emptyStoredTarget)
+    {
+        var evaluated = CreateVideo(1);
+        AddElement(5, 1, evaluated);
+        var stored = CreateVideo(20);
+        var presenter = new DrawablePresenter { Target = { CurrentValue = emptyStoredTarget ? null : stored } };
+        presenter.Target.Expression = new ReferenceExpression<Drawable?>(evaluated.Id);
+        Element element = AddElement(0, 0.5, presenter);
+        var context = new ExpressionContext(TimeSpan.Zero, presenter.Target, new PropertyLookup(_harness.Scene));
+        using (var resource = (DrawablePresenter.Resource)presenter.ToResource(context))
+            Assert.That(resource.Target!.GetOriginal(), Is.SameAs(evaluated));
+        var linkedVideo = CreateVideo(20);
+        Element linked = AddElement(3, 0.5, linkedVideo);
+
+        Assert.That(_slip.Slip(_harness.Scene, [linked, element], Seconds(1)), Is.False);
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(3), 0)]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Length, Is.EqualTo(Seconds(0.5)));
+            Assert.That(stored.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(evaluated.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(linkedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Portal_LayerMute_OnlyCollectsTheUnmutedMediaKind(bool videoMuted)
+    {
+        var video = CreateVideo(6);
+        Element owner = AddElement(0, 1, video);
+        owner.ZIndex = 1;
+        var sound = new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = Seconds(6) } } };
+        owner.Objects.Add(sound);
+        _harness.Scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsVideoMuted = videoMuted, IsAudioMuted = !videoMuted });
+        Element element = _harness.AddElement(TimeSpan.Zero, Seconds(1), 0);
+        element.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        element.Objects.Add(new DrawableTimeController());
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(videoMuted ? 0 : 1)));
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(videoMuted ? 1 : 0)));
+        });
+    }
+
     private Element AddElement(double startSeconds, double lengthSeconds, Drawable drawable)
     {
         Element element = _harness.AddElement(Seconds(startSeconds), Seconds(lengthSeconds));

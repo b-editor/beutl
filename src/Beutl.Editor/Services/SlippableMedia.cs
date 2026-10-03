@@ -106,6 +106,10 @@ internal static class SlippableMedia
         var targets = new List<Target>();
         var path = new HashSet<object>();
         var controllers = new List<MediaTimeMapping.ControllerLink>();
+        var layers = new Dictionary<int, TimelineLayer>();
+        if (element.HierarchicalParent is Scene layerScene)
+            foreach (TimelineLayer layer in layerScene.Layers) layers.TryAdd(layer.ZIndex, layer);
+        bool hasSolo = layers.Values.Any(layer => layer.IsSolo);
         Project? project = element.FindHierarchicalParent<Project>();
         int sampleRate = project?.Variables.TryGetValue(ProjectVariableKeys.SampleRate, out string? value) == true
             && int.TryParse(value, out int rate) && rate > 0 ? rate : 44100;
@@ -160,7 +164,8 @@ internal static class SlippableMedia
             int firstLayer = portal.ZIndex + 1;
             int lastLayer = portal.ZIndex + portal.Count.CurrentValue;
             Element[] candidates = scene.Children.Where(candidate => candidate.IsEnabled && candidate.ZIndex >= firstLayer && candidate.ZIndex <= lastLayer
-                && !consumedPortalElements.Contains(candidate) && candidate.Objects.Any(obj => obj.IsEnabled)).ToArray();
+                && !consumedPortalElements.Contains(candidate)
+                && candidate.Objects.Any(obj => obj.IsEnabled && LayerVisible(candidate, obj.GetCompositionTarget()))).ToArray();
             if (candidates.Length == 0) return [];
             // A single plain provider has one stable input order whenever it is
             // active. Switching, nested, or competing portals need a richer flow
@@ -171,14 +176,28 @@ internal static class SlippableMedia
             if (element.Objects.Count(obj => obj.IsEnabled && obj is DrawableTimeController) > 1
                 || element.Objects.Any(obj => obj.IsEnabled && (obj is IPresenter<Drawable> && obj is not DrawableTimeController
                     || obj is IFlowOperator && obj is not DrawableTimeController))) return null;
-            EngineObject[] objects = owner.Objects.Where(obj => obj.IsEnabled).ToArray();
+            EngineObject[] objects = owner.Objects.Where(obj => obj.IsEnabled && LayerVisible(owner, obj.GetCompositionTarget())).ToArray();
             if (objects.Any(obj => obj is IFlowOperator or IPresenter<Drawable> || obj is not Drawable and not Sound)) return null;
             if (scene.Children.Any(other => other.IsEnabled && other != element && other.ZIndex <= element.ZIndex
+                && objects.Any(obj => LayerVisible(other, obj.GetCompositionTarget()))
                 && other.Objects.OfType<PortalObject>().Any(prior => prior.IsEnabled
                     && (prior.Count.HasExpression || prior.ZIndex < owner.ZIndex && prior.ZIndex + prior.Count.CurrentValue >= owner.ZIndex))))
                 return null;
             consumedPortalElements.Add(owner);
             return objects.Select(obj => new Node(obj, [])).ToList();
+        }
+
+        bool LayerVisible(Element candidate, CompositionTarget target)
+        {
+            layers.TryGetValue(candidate.ZIndex, out TimelineLayer? layer);
+            if (hasSolo && (layer == null || !layer.IsSolo)) return false;
+            if (layer == null) return true;
+            return target switch
+            {
+                CompositionTarget.Graphics => !layer.IsVideoMuted,
+                CompositionTarget.Audio => !layer.IsAudioMuted,
+                _ => !layer.IsVideoMuted || !layer.IsAudioMuted
+            };
         }
 
         void CollectNode(Node node)
@@ -196,7 +215,7 @@ internal static class SlippableMedia
 
         // Keep disabled streams in sync too. Detect cycles per path, rather than
         // discarding a second path whose time controller can impose tighter bounds.
-        void CollectFrom(EngineObject obj, IReadOnlyList<Node>? inputs = null, bool flowResolved = false)
+        void CollectFrom(EngineObject obj, IReadOnlyList<Node>? inputs = null, bool flowResolved = false, bool referenced = false)
         {
             if (!path.Add(obj)) return;
             if (inputs != null && obj is SoundGroup or DrawableGroup or DrawableDecorator)
@@ -252,13 +271,19 @@ internal static class SlippableMedia
                     }
                     if ((input?.Object ?? controller.Target.CurrentValue) is Drawable target)
                     {
-                        if (controller.IsEnabled) controllers.Add(new MediaTimeMapping.ControllerLink(controller, target));
-                        CollectFrom(target, input?.Inputs, input?.FlowResolved == true);
-                        if (controller.IsEnabled) controllers.RemoveAt(controllers.Count - 1);
+                        bool applyMapping = controller.IsEnabled || referenced;
+                        if (applyMapping) controllers.Add(new MediaTimeMapping.ControllerLink(controller, target));
+                        CollectFrom(target, input?.Inputs, input?.FlowResolved == true, referenced: true);
+                        if (applyMapping) controllers.RemoveAt(controllers.Count - 1);
                     }
                     break;
                 case IPresenter<Drawable> presenter:
-                    if (presenter.Target.CurrentValue is { } presented) CollectFrom(presented);
+                    if (presenter.Target.HasExpression)
+                    {
+                        CollectNode(new Node(obj, [], Opaque: true));
+                        break;
+                    }
+                    if (presenter.Target.CurrentValue is { } presented) CollectFrom(presented, referenced: true);
                     break;
             }
             path.Remove(obj);
@@ -337,7 +362,7 @@ internal static class SlippableMedia
                 && targets.All(t => t.Fits(length, elementLength - length, allowRecovery: true));
             TimeSpan result = elementLength - ClampDelta(delta, d => Fits(elementLength - d));
             if (!HasMonotonicDuration)
-                result = SearchDurationPhases(result, end - requestedStart, delta, Fits);
+                result = SearchDurationPhases(result, end - requestedStart, delta, Fits, movingStart: true);
             return end - result;
         }
 
@@ -384,7 +409,8 @@ internal static class SlippableMedia
             return SearchDurationPhases(result, searchEnd, startDelta, Fits);
         }
 
-        internal TimeSpan SearchDurationPhases(TimeSpan baseline, TimeSpan requested, TimeSpan startDelta, Func<TimeSpan, bool> fits)
+        internal TimeSpan SearchDurationPhases(TimeSpan baseline, TimeSpan requested, TimeSpan startDelta, Func<TimeSpan, bool> fits,
+            bool movingStart = false)
         {
             if (baseline == requested || fits(requested)) return requested;
             long low = Math.Min(baseline.Ticks, requested.Ticks);
@@ -392,6 +418,11 @@ internal static class SlippableMedia
             var points = new SortedSet<long> { low, high };
             foreach (Target target in targets)
             {
+                if (movingStart)
+                {
+                    AddMovingStartPhases(target, low, high, points);
+                    continue;
+                }
                 if (target.Mapping.DurationLoopPhase(startDelta) is not { Phase: > 0 } phase) continue;
                 long minimumPeriod = (long)Math.Clamp((decimal)low + phase.DurationOffset, 1, long.MaxValue);
                 long maximumPeriod = (long)Math.Clamp((decimal)high + phase.DurationOffset, 1, long.MaxValue);
@@ -427,6 +458,66 @@ internal static class SlippableMedia
             return baseline;
         }
 
+        private void AddMovingStartPhases(Target target, long low, long high, SortedSet<long> points)
+        {
+            // With a fixed right edge, every duration has a different owner start.
+            // Bracket cycle crossings on that moving clock and refine the actual
+            // phase equation, instead of reusing the requested start's phase.
+            (decimal Phase, decimal Period)? Sample(long length)
+            {
+                TimeSpan startDelta = elementLength - TimeSpan.FromTicks(length);
+                if (target.Mapping.DurationLoopPhase(startDelta) is not { } phase) return null;
+                decimal period = (decimal)length + phase.DurationOffset;
+                return period > 0 ? (phase.Phase, period) : null;
+            }
+            void AddBoundary(long length)
+            {
+                for (int adjacent = -1; adjacent <= 1; adjacent++)
+                    if ((decimal)length + adjacent >= low && (decimal)length + adjacent <= high)
+                        points.Add(length + adjacent);
+            }
+
+            long previous = low;
+            var previousPhase = Sample(previous);
+            for (int part = 1; part <= 32; part++)
+            {
+                long next = low + (long)((decimal)(high - low) * part / 32);
+                points.Add(next);
+                var nextPhase = Sample(next);
+                if (previousPhase is { } a && nextPhase is { } b)
+                {
+                    decimal ratioA = a.Phase / a.Period;
+                    decimal ratioB = b.Phase / b.Period;
+                    long first = (long)Math.Max(1, Math.Ceiling(Math.Min(ratioA, ratioB)));
+                    long last = (long)Math.Floor(Math.Max(ratioA, ratioB));
+                    long count = Math.Min(128, last - first);
+                    for (long index = 0; index <= count; index++)
+                    {
+                        long cycle = count == 0 ? first : first + (long)((decimal)(last - first) * index / count);
+                        long left = previous;
+                        long right = next;
+                        decimal valueLeft = a.Phase - cycle * a.Period;
+                        decimal valueRight = b.Phase - cycle * b.Period;
+                        if (valueLeft == 0) AddBoundary(left);
+                        if (valueRight == 0) AddBoundary(right);
+                        if (Math.Sign(valueLeft) == Math.Sign(valueRight)) continue;
+                        while (right - left > 1)
+                        {
+                            long middle = left + (right - left) / 2;
+                            if (Sample(middle) is not { } atMiddle) break;
+                            decimal value = atMiddle.Phase - cycle * atMiddle.Period;
+                            if (Math.Sign(value) == Math.Sign(valueLeft)) { left = middle; valueLeft = value; }
+                            else right = middle;
+                        }
+                        AddBoundary(left);
+                        AddBoundary(right);
+                    }
+                }
+                previous = next;
+                previousPhase = nextPhase;
+            }
+        }
+
         private bool FitsProvider(TimeSpan length, bool allowRecovery)
             => providerDuration is not { } maximum
                 || length <= (allowRecovery && elementLength > maximum ? elementLength : maximum);
@@ -453,11 +544,18 @@ internal static class SlippableMedia
         => CreateResizeConstraints(element).GetMaximumDuration(start);
 
     public static bool HasOriginalDuration(Element element)
-        => element.HasOriginalDuration() || Collect(element).Any(t => t.Total.HasValue);
+    {
+        List<Target> targets = Collect(element);
+        return targets.All(t => t.Mapping.IsSupported)
+            && (element.HasOriginalDuration() || targets.Any(t => t.Total.HasValue));
+    }
 
     public static TimeSpan? GetOriginalDuration(Element element)
     {
-        TimeSpan? maximum = CreateResizeConstraints(element).GetMaximumDuration();
+        List<Target> mapped = Collect(element);
+        if (mapped.Any(t => !t.Mapping.IsSupported)) return null;
+        TimeSpan? maximum = new ResizeConstraints(element.Start, element.Length, mapped,
+            GetProviderDuration(element)).GetMaximumDuration();
         if (maximum.HasValue) return maximum;
         // Repetition can be unbounded while the underlying source still has an
         // original length. Offer one cycle; a frozen source falls back to source time.

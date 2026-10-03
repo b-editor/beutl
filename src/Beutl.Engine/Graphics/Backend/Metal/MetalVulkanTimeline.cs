@@ -8,13 +8,17 @@ namespace Beutl.Graphics.Backend.Metal;
 
 using Semaphore = Silk.NET.Vulkan.Semaphore;
 
-/// <summary>Orders work between Skia's Metal queue and the engine's MoltenVK queue on the GPU.</summary>
+/// <summary>Holds Skia's Metal queue behind the engine's MoltenVK work on the GPU.</summary>
 /// <remarks>
-/// The two queues share no submission order, so each hand-off between them used to wait for completion on the
-/// CPU. A Vulkan timeline semaphore that MoltenVK backs with an <c>MTLSharedEvent</c> is visible to both: the
-/// Vulkan queue signals and waits on it through ordinary submissions, and Skia's queue through event commands
-/// committed between Skia's own command buffers. Every hand-off takes the next value, so one timeline serves
-/// both directions.
+/// The two queues share no submission order, so a hand-off from Vulkan to Skia used to wait for completion on the
+/// CPU. A Vulkan timeline semaphore that MoltenVK backs with an <c>MTLSharedEvent</c> is visible to both: a Vulkan
+/// submission signals the next value, and Skia's queue waits for it through an event command committed between
+/// Skia's own command buffers.
+/// <para>
+/// The other direction keeps its CPU wait on purpose. Ordering Skia's writes before a Vulkan pass on the GPU let
+/// the CPU run ahead and queue more Skia work, which then competed with the pass on the GPU: a result read right
+/// after the pass arrived about 3 ms later on Apple silicon, with no gain in the render benchmarks.
+/// </para>
 /// </remarks>
 internal sealed unsafe class MetalVulkanTimeline : IDisposable
 {
@@ -24,7 +28,6 @@ internal sealed unsafe class MetalVulkanTimeline : IDisposable
     private readonly Semaphore _semaphore;
     // Owned by the semaphore; MoltenVK releases it when the semaphore is destroyed.
     private readonly IntPtr _sharedEvent;
-    private readonly IntPtr _probeBuffer;
     private ulong _value;
     private bool _disposed;
 
@@ -34,7 +37,6 @@ internal sealed unsafe class MetalVulkanTimeline : IDisposable
         _vulkan = vulkan;
         _semaphore = semaphore;
         _sharedEvent = sharedEvent;
-        _probeBuffer = metal.CreateProbeBuffer();
     }
 
     /// <summary>Creates the timeline, or returns <see langword="null"/> when the device cannot provide one.</summary>
@@ -98,17 +100,6 @@ internal sealed unsafe class MetalVulkanTimeline : IDisposable
         }
     }
 
-    /// <summary>Holds the next Vulkan batch until Skia has finished writing <paramref name="metalTexture"/>.</summary>
-    /// <remarks>Skia's recorded work has to be submitted to its queue before this is called.</remarks>
-    public void OrderSkiaWritesBeforeVulkan(IntPtr metalTexture)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ulong value = ++_value;
-        // Commit the signal before any Vulkan batch can wait on it, so the wait always has a producer.
-        _metal.CommitSignalAfterReading(metalTexture, _probeBuffer, _sharedEvent, value);
-        _vulkan.WaitForTimelineOnNextSubmission(_semaphore, value);
-    }
-
     /// <summary>Submits the recorded Vulkan work and holds Skia's next command buffers until it finishes.</summary>
     public void OrderVulkanWorkBeforeSkia()
     {
@@ -118,14 +109,13 @@ internal sealed unsafe class MetalVulkanTimeline : IDisposable
         _metal.CommitWaitForEvent(_sharedEvent, value);
     }
 
-    /// <remarks>Both queues have to be idle: either may still be waiting on or signaling the timeline.</remarks>
+    /// <remarks>Both queues have to be idle: Vulkan may still signal the timeline and Metal wait on it.</remarks>
     public void Dispose()
     {
         if (_disposed)
             return;
 
         _disposed = true;
-        MetalContext.ReleaseHandle(_probeBuffer);
         _vulkan.Vk.DestroySemaphore(_vulkan.Device, _semaphore, null);
     }
 }

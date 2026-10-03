@@ -482,6 +482,9 @@ public sealed class ElementResizeService : IElementResizeService
             if (fronts.Concat(middles).Any(t => !t.Mapping.IsSupported)
                 || backs.Any(t => !t.Mapping.CanWriteOffsets)) return TimeSpan.Zero;
             TimeSpan delta = ElementResizeService.Clamp(requested, Min, Max);
+            // Conflicting shared offsets cannot be reconciled by shrinking the
+            // edit to a rounding-sized movement that happens to have equal ticks.
+            if (!TryGetOffsetChanges(delta, out _)) return TimeSpan.Zero;
             // Animated local clocks restart at the new in-point. Their allowed
             // deltas need not form an interval, so validate the actual requested
             // post-trim window, not just the two endpoints of the geometry bounds.
