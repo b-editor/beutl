@@ -8,8 +8,8 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 using Semaphore = Silk.NET.Vulkan.Semaphore;
 
 /// <summary>
-/// The timeline submissions that order the engine's Vulkan queue against Skia's Metal queue on macOS. The
-/// semantics are plain Vulkan, so they are checked on every device that enables timeline semaphores.
+/// The timeline signal that holds Skia's Metal queue behind the engine's Vulkan work on macOS. The semantics are
+/// plain Vulkan, so they are checked on every device that enables timeline semaphores.
 /// </summary>
 [TestFixture]
 [NonParallelizable]
@@ -32,39 +32,6 @@ public sealed unsafe class VulkanTimelineSubmissionTests
             }
             finally
             {
-                context.WaitIdle();
-                context.Vk.DestroySemaphore(context.Device, timeline, null);
-            }
-        });
-    }
-
-    [Test]
-    [Category("GpuPassFusionGpu")]
-    public void WaitForTimelineOnNextSubmission_HoldsTheBatchUntilTheValueIsSignaled()
-    {
-        VulkanContext context = RequireTimelineContext();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            Semaphore timeline = CreateTimeline(context);
-            try
-            {
-                // The batch waits for 3 and then signals 4, so 4 can only appear after something else signals 3.
-                context.WaitForTimelineOnNextSubmission(timeline, 3);
-                context.SubmitSignalingTimeline(timeline, 4);
-
-                Assert.That(WaitFor(context, timeline, 4, TimeSpan.FromMilliseconds(100)), Is.EqualTo(Result.Timeout));
-                Assert.That(ReadValue(context, timeline), Is.Zero);
-
-                Assert.That(Signal(context, timeline, 3), Is.EqualTo(Result.Success));
-
-                Assert.That(WaitFor(context, timeline, 4, TimeSpan.FromSeconds(10)), Is.EqualTo(Result.Success));
-            }
-            finally
-            {
-                // A failed assertion above leaves the batch waiting; release it before the queue is drained.
-                if (ReadValue(context, timeline) < 3)
-                    Signal(context, timeline, 3);
-
                 context.WaitIdle();
                 context.Vk.DestroySemaphore(context.Device, timeline, null);
             }
@@ -114,17 +81,6 @@ public sealed unsafe class VulkanTimelineSubmissionTests
             PValues = &value,
         };
         return context.Vk.WaitSemaphores(context.Device, &waitInfo, (ulong)timeout.Ticks * 100);
-    }
-
-    private static Result Signal(VulkanContext context, Semaphore timeline, ulong value)
-    {
-        var signal = new SemaphoreSignalInfo
-        {
-            SType = StructureType.SemaphoreSignalInfo,
-            Semaphore = timeline,
-            Value = value,
-        };
-        return context.Vk.SignalSemaphore(context.Device, &signal);
     }
 
     private static ulong ReadValue(VulkanContext context, Semaphore timeline)
