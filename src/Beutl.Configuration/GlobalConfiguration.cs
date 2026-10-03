@@ -102,6 +102,7 @@ public sealed class GlobalConfiguration
     {
         try
         {
+            _filePath = file;
             RemoveHandlers();
             if (JsonHelper.JsonRestore(file) is JsonObject json)
             {
@@ -202,6 +203,11 @@ public sealed class GlobalConfiguration
             ConfigurationChanged?.Invoke(this, config);
         }
 
-        Save(_filePath ?? DefaultFilePath);
+        // Only auto-save to a file this instance restored or saved. A process that never restored the
+        // user's settings (tests, helper hosts) holds defaults and would otherwise overwrite settings.json.
+        if (_filePath is { } file)
+        {
+            Save(file);
+        }
     }
 }
