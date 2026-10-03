@@ -1286,6 +1286,109 @@ public class TrimTimeControllerTests
         Assert.That(element.Length, Is.EqualTo(Seconds(2)));
     }
 
+    [TestCase(0, 1.5, 2.5)]
+    [TestCase(1, 2.5, 1.5)]
+    [TestCase(4, 2, 1.5)]
+    [TestCase(5, 2, 2.5)]
+    public void Portal_InactiveProvider_DoesNotBlockEmptyClipResize(double providerStart, double newStart, double newLength)
+    {
+        var video = CreateVideo(1);
+        Element owner = AddElement(providerStart, 1, video);
+        owner.ZIndex = 1;
+        var controller = CreateController(video);
+        Element element = AddElement(2, 2, controller);
+        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        Assert.That(compositor.EvaluateGraphics(Seconds(3)).Objects.OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        TimeSpan preview = newStart == 2 ? constraints.ClampLength(Seconds(newLength)) : constraints.ClampStart(Seconds(newStart));
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(0.25)), Is.False);
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, Seconds(newStart), Seconds(newLength), 0)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(preview, Is.EqualTo(Seconds(newStart == 2 ? newLength : newStart)));
+            Assert.That(element.Start, Is.EqualTo(Seconds(newStart)));
+            Assert.That(element.Length, Is.EqualTo(Seconds(newLength)));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(compositor.EvaluateGraphics(element.Start + element.Length / 2).Objects
+                .OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
+        });
+    }
+
+    [TestCase("slip", false)]
+    [TestCase("slip", true)]
+    [TestCase("roll", false)]
+    [TestCase("roll", true)]
+    [TestCase("slide", false)]
+    [TestCase("slide", true)]
+    public void Portal_LockedProvider_RejectsOffsetWritesButAllowsResize(string operation, bool layerLocked)
+    {
+        var video = CreateVideo(20, offsetSeconds: 2);
+        Element owner = AddElement(0, 10, video);
+        owner.ZIndex = 1;
+        var sound = new SceneSound
+        {
+            ReferencedScene = { CurrentValue = new Scene { Duration = Seconds(20) } },
+            OffsetPosition = { CurrentValue = Seconds(2) }
+        };
+        owner.Objects.Add(sound);
+        TimelineLayer layer = _harness.AddLayer(1);
+        owner.IsLocked = !layerLocked;
+        layer.IsLocked = layerLocked;
+        Element front = _harness.AddElement(TimeSpan.Zero, Seconds(operation == "slide" ? 2 : 4), 0);
+        Element? middle = operation == "slide" ? _harness.AddElement(Seconds(2), Seconds(2), 0) : null;
+        Element element = AddElement(4, 2, new DrawableTimeController());
+        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        var linkedVideo = CreateVideo(20);
+        Element linked = AddElement(4, 2, linkedVideo);
+        linked.ZIndex = 2;
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        Assert.That(compositor.EvaluateGraphics(Seconds(4.5)).Objects.OfType<DrawableTimeController.Resource>()
+            .Single().Target!.GetOriginal(), Is.SameAs(video), "Locks restrict editing, not playback.");
+        var resize = new ElementResizeService(_harness.History);
+        int history = _harness.History.UndoCount;
+        TimeSpan preview = operation == "slip"
+            ? SlippableMedia.ClampSharedDelta(SlippableMedia.Collect(element), Seconds(0.5))
+            : ElementResizeService.CreateTrimConstraints(_harness.Scene, [new(front, element)],
+                middle == null ? [] : [middle]).Clamp(Seconds(0.5));
+
+        bool Apply() => operation switch
+        {
+            "slip" => _slip.Slip(_harness.Scene, [linked, element], Seconds(0.5)),
+            "roll" => resize.Roll(_harness.Scene, [new(front, element)], Seconds(0.5)),
+            _ => resize.Slide(_harness.Scene, [new(front, [middle!], element)], Seconds(0.5))
+        };
+
+        bool applied = Apply();
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(preview, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2)));
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2)));
+            Assert.That(linkedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(Seconds(operation == "slide" ? 2 : 4)));
+            if (middle != null) Assert.That(middle.Start, Is.EqualTo(Seconds(2)));
+            Assert.That(element.Start, Is.EqualTo(Seconds(4)));
+            Assert.That(element.Length, Is.EqualTo(Seconds(2)));
+            Assert.That(_harness.History.UndoCount, Is.EqualTo(history));
+        });
+
+        // Bounds remain usable when only the unlocked consumer's geometry changes.
+        resize.Resize(_harness.Scene, [new(element, element.Start, Seconds(3), 0)]);
+        Assert.That(element.Length, Is.EqualTo(Seconds(3)));
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2)));
+        Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2)));
+
+        owner.IsLocked = false;
+        layer.IsLocked = false;
+        Assert.That(Apply(), Is.True, "Unlocking the provider must restore offset editing.");
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2.5)));
+        Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(operation == "slip" ? 2.5 : 2)));
+    }
+
     [Test]
     public void Portal_DisabledCompetitor_DoesNotBlockAValidInput()
     {

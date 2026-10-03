@@ -29,6 +29,7 @@ internal sealed class MediaTimeMapping
     private readonly bool _loopVideo;
     private readonly IAnimation<bool>? _loopAnimation;
     private readonly bool _sourceSupported;
+    private readonly bool _sourceLocked;
     private readonly bool _opaquePortal;
 
     internal readonly record struct ControllerLink(DrawableTimeController Controller, Drawable Target);
@@ -46,6 +47,11 @@ internal sealed class MediaTimeMapping
         _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.CurrentValue;
         _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.Animation : null;
         _opaquePortal = source is PortalObject;
+        // Referenced/portal media can belong to a locked element even when the
+        // consumer is editable. Its clock still supplies bounds for ordinary resize.
+        Element? owner = source.FindHierarchicalParent<Element>();
+        _sourceLocked = owner != null && (owner.IsLocked
+            || owner.HierarchicalParent is Scene scene && scene.IsElementLocked(owner));
         // A stored source or property value does not describe an evaluated source
         // switch/expression. Keep these edits atomic until their mapping is bounded.
         _sourceSupported = source switch
@@ -63,7 +69,7 @@ internal sealed class MediaTimeMapping
 
     public bool IsSupported => _sourceSupported && _speed.IsSupported && _controllers.All(c => c.IsSupported);
 
-    public bool CanWriteOffsets => IsSupported && _speed.CanWriteOffsets;
+    public bool CanWriteOffsets => !_sourceLocked && IsSupported && _speed.CanWriteOffsets;
 
     public bool HasVariableDuration => _controllers.Any(c => c.HasVariableDuration);
 

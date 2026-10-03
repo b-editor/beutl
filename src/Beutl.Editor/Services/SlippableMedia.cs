@@ -172,7 +172,7 @@ internal static class SlippableMedia
             // model; never substitute the controller's stored target for them.
             if (candidates.Length != 1) return null;
             Element owner = candidates[0];
-            if (owner.Start >= element.Range.End || element.Start >= owner.Range.End) return null;
+            if (owner.Start >= element.Range.End || element.Start >= owner.Range.End) return [];
             if (element.Objects.Count(obj => obj.IsEnabled && obj is DrawableTimeController) > 1
                 || element.Objects.Any(obj => obj.IsEnabled && (obj is IPresenter<Drawable> && obj is not DrawableTimeController
                     || obj is IFlowOperator && obj is not DrawableTimeController))) return null;
