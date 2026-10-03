@@ -1055,6 +1055,82 @@ public class TrimTimeControllerTests
         Assert.That(evaluated.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slide_MiddleReferencesFront_RejectsSourceOverrun(bool reverseOrder)
+    {
+        var video = CreateVideo(11, offsetSeconds: 1);
+        Element frontA = AddElement(0, 10, video);
+        frontA.ZIndex = 1;
+        Element middleA = _harness.AddElement(Seconds(10), Seconds(2), 1);
+        Element backA = _harness.AddElement(Seconds(12), Seconds(4), 1);
+        Element frontB = _harness.AddElement(TimeSpan.Zero, Seconds(2), 0);
+        Element middleB = _harness.AddElement(Seconds(2), Seconds(2), 0);
+        Element backB = _harness.AddElement(Seconds(4), Seconds(4), 0);
+        var controller = CreateController(video, offsetSeconds: 8);
+        controller.Reverse.CurrentValue = true;
+        middleB.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        middleB.Objects.Add(controller);
+        ElementSlideLane[] lanes = [new(frontA, [middleA], backA), new(frontB, [middleB], backB)];
+        if (reverseOrder) Array.Reverse(lanes);
+        int history = _harness.History.UndoCount;
+        TimeSpan preview = ElementResizeService.CreateTrimConstraints(_harness.Scene,
+            lanes.Select(lane => new ElementTrimPair(lane.Front, lane.Back)).ToArray(), [middleA, middleB]).Clamp(Seconds(-1));
+
+        bool applied = new ElementResizeService(_harness.History).Slide(_harness.Scene, lanes, Seconds(-1));
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var resource = compositor.EvaluateGraphics(middleB.Start + Seconds(1.5)).Objects
+            .OfType<DrawableTimeController.Resource>().Single();
+        double position = ReadPosition(resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(preview, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(position, Is.LessThanOrEqualTo(11), "The middle must not seek past the shared front source.");
+            Assert.That(frontA.Length, Is.EqualTo(Seconds(10)));
+            Assert.That(middleB.Start, Is.EqualTo(Seconds(2)));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(_harness.History.UndoCount, Is.EqualTo(history));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slide_FrontReferencesMiddle_AllowsValidTargetClockShift(bool reverseOrder)
+    {
+        Element frontA = _harness.AddElement(TimeSpan.Zero, Seconds(2), 1);
+        var video = CreateVideo(12);
+        Element middleA = AddElement(2, 2, video);
+        middleA.ZIndex = 1;
+        Element backA = _harness.AddElement(Seconds(4), Seconds(4), 1);
+        Element frontB = _harness.AddElement(TimeSpan.Zero, Seconds(5), 0);
+        Element middleB = _harness.AddElement(Seconds(5), Seconds(1), 0);
+        Element backB = _harness.AddElement(Seconds(6), Seconds(4), 0);
+        var controller = CreateController(video, speed: 200, offsetSeconds: 3);
+        controller.AdjustTimeRange.CurrentValue = true;
+        frontB.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        frontB.Objects.Add(controller);
+        ElementSlideLane[] lanes = [new(frontA, [middleA], backA), new(frontB, [middleB], backB)];
+        if (reverseOrder) Array.Reverse(lanes);
+
+        TimeSpan preview = ElementResizeService.CreateTrimConstraints(_harness.Scene,
+            lanes.Select(lane => new ElementTrimPair(lane.Front, lane.Back)).ToArray(), [middleA, middleB]).Clamp(Seconds(1));
+        Assert.That(new ElementResizeService(_harness.History).Slide(_harness.Scene, lanes, Seconds(1)), Is.True);
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var resource = compositor.EvaluateGraphics(Seconds(4.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(frontB.Length, Is.EqualTo(Seconds(6)));
+            Assert.That(preview, Is.EqualTo(Seconds(1)));
+            Assert.That(middleA.Start, Is.EqualTo(Seconds(3)));
+            Assert.That(middleA.Length, Is.EqualTo(Seconds(2)));
+            Assert.That(middleB.Start, Is.EqualTo(Seconds(6)));
+            Assert.That(ReadPosition(resource), Is.EqualTo(9).Within(0.000001));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
     private Element AddElement(double startSeconds, double lengthSeconds, Drawable drawable)
     {
         Element element = _harness.AddElement(Seconds(startSeconds), Seconds(lengthSeconds));

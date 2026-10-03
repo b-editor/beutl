@@ -12,6 +12,8 @@ namespace Beutl.Editor.Services;
 // the pre-edit clocks, even after another participating element has been resized.
 internal sealed class MediaTimeMapping
 {
+    internal enum TrimRole { Front, Middle, Back }
+
     internal readonly record struct Interval(TimeSpan Min, TimeSpan Max)
     {
         public static Interval Between(TimeSpan a, TimeSpan b) => a <= b ? new(a, b) : new(b, a);
@@ -32,12 +34,13 @@ internal sealed class MediaTimeMapping
 
     public MediaTimeMapping(Element element, EngineObject source, IProperty<float> speed,
         IReadOnlyList<ControllerLink> controllers, int sampleRate, TimeSpan? videoDuration = null,
-        IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false)
+        IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false,
+        IReadOnlyDictionary<Element, TrimRole>? timingRoles = null)
     {
         _elementRange = element.Range;
-        _sourceClock = new Clock(element, source, timingPeers);
+        _sourceClock = new Clock(element, source, timingPeers, timingRoles);
         _speed = new SpeedMap(speed, sampleRate, videoPlayback: source is SourceVideo);
-        _controllers = controllers.Select(c => new Controller(element, c.Controller, c.Target, timingPeers, ignoreLoops)).ToArray();
+        _controllers = controllers.Select(c => new Controller(element, c.Controller, c.Target, timingPeers, ignoreLoops, timingRoles)).ToArray();
         _videoDuration = videoDuration;
         _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.CurrentValue;
         _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.Animation : null;
@@ -136,28 +139,33 @@ internal sealed class MediaTimeMapping
         private readonly TimeRange _range;
         private readonly TimeRange _elementRange;
         private readonly bool _followsElement;
+        private readonly TrimRole? _elementRole;
+        private readonly TrimRole? _ownerRole;
 
         public bool ChangesWithElement => _followsElement;
 
         public bool UsesPeerClock { get; }
 
-        public Clock(Element element, EngineObject obj, IReadOnlySet<Element>? timingPeers = null)
+        public Clock(Element element, EngineObject obj, IReadOnlySet<Element>? timingPeers = null,
+            IReadOnlyDictionary<Element, TrimRole>? timingRoles = null)
         {
             _range = obj.TimeRange;
             _elementRange = element.Range;
             // Top-level objects always receive Element.Range. Descendants can opt out
             // using IsTimeAnchor; presenter references can belong to another element.
             IHierarchical? current = obj;
+            Element? clockOwner = null;
             while (current != null)
             {
                 if (current is EngineObject engine)
                 {
                     bool ownedHere = element.Objects.Contains(engine);
-                    bool ownedByPeer = !ownedHere && timingPeers?.Any(peer => peer.Objects.Contains(engine)) == true;
-                    if (ownedHere || ownedByPeer)
+                    Element? peerOwner = ownedHere ? null : timingPeers?.FirstOrDefault(peer => peer.Objects.Contains(engine));
+                    if (ownedHere || peerOwner != null)
                     {
                         _followsElement = true;
-                        UsesPeerClock = ownedByPeer;
+                        UsesPeerClock = !ownedHere;
+                        clockOwner = ownedHere ? element : peerOwner;
                         break;
                     }
                     if (engine.IsTimeAnchor) break;
@@ -166,16 +174,35 @@ internal sealed class MediaTimeMapping
                 {
                     _followsElement = true;
                     UsesPeerClock = current != element;
+                    clockOwner = (Element)current;
                     break;
                 }
                 current = current.HierarchicalParent;
             }
+            if (timingRoles?.TryGetValue(element, out TrimRole elementRole) == true) _elementRole = elementRole;
+            if (clockOwner != null && timingRoles?.TryGetValue(clockOwner, out TrimRole ownerRole) == true) _ownerRole = ownerRole;
         }
 
-        public TimeRange GetRange(TimeRange elementRange) => _followsElement
-            ? new TimeRange(_range.Start + (elementRange.Start - _elementRange.Start),
-                _range.Duration + (elementRange.Duration - _elementRange.Duration))
-            : _range;
+        public TimeRange GetRange(TimeRange elementRange)
+        {
+            if (!_followsElement) return _range;
+            TimeSpan startDelta = elementRange.Start - _elementRange.Start;
+            TimeSpan lengthDelta = elementRange.Duration - _elementRange.Duration;
+            if (UsesPeerClock && _elementRole is { } role && _ownerRole is { } ownerRole)
+            {
+                // Fronts grow, middles move, and backs move while shrinking. A
+                // reference to another role cannot reuse this element's geometry.
+                TimeSpan delta = role == TrimRole.Front ? lengthDelta : startDelta;
+                startDelta = ownerRole == TrimRole.Front ? TimeSpan.Zero : delta;
+                lengthDelta = ownerRole switch
+                {
+                    TrimRole.Front => delta,
+                    TrimRole.Back => -delta,
+                    _ => TimeSpan.Zero
+                };
+            }
+            return new TimeRange(_range.Start + startDelta, _range.Duration + lengthDelta);
+        }
     }
 
     private sealed class Controller
@@ -208,10 +235,11 @@ internal sealed class MediaTimeMapping
             return (phase, (target.Duration - originalLength).Ticks);
         }
 
-        public Controller(Element element, DrawableTimeController controller, Drawable target, IReadOnlySet<Element>? timingPeers, bool ignoreLoops)
+        public Controller(Element element, DrawableTimeController controller, Drawable target, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
+            IReadOnlyDictionary<Element, TrimRole>? timingRoles)
         {
-            _clock = new Clock(element, controller, timingPeers);
-            _targetClock = new Clock(element, target, timingPeers);
+            _clock = new Clock(element, controller, timingPeers, timingRoles);
+            _targetClock = new Clock(element, target, timingPeers, timingRoles);
             _speed = new SpeedMap(controller.Speed, 60, videoPlayback: true);
             _offset = controller.OffsetPosition.CurrentValue;
             _adjust = controller.AdjustTimeRange.CurrentValue;

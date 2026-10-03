@@ -519,15 +519,22 @@ public sealed class ElementResizeService : IElementResizeService
         var backs = new List<SlippableMedia.Target>();
         var middles = new List<SlippableMedia.Target>();
         var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
-        var timingPeers = pairs.Select(p => p.Back).ToHashSet();
-        var frontPeers = pairs.Select(p => p.Front).ToHashSet();
+        var movedElements = fixedElements?.ToHashSet() ?? [];
+        var timingRoles = new Dictionary<Element, MediaTimeMapping.TrimRole>();
+        foreach ((Element front, Element back) in pairs)
+        {
+            timingRoles[front] = MediaTimeMapping.TrimRole.Front;
+            timingRoles[back] = MediaTimeMapping.TrimRole.Back;
+        }
+        foreach (Element middle in movedElements) timingRoles[middle] = MediaTimeMapping.TrimRole.Middle;
+        var timingPeers = timingRoles.Keys.ToHashSet();
         TimeSpan min = TimeSpan.Zero;
         TimeSpan max = TimeSpan.Zero;
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
-            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front, frontPeers);
-            List<SlippableMedia.Target> backTargets = SlippableMedia.Collect(back, timingPeers);
+            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front, timingPeers, timingRoles: timingRoles);
+            List<SlippableMedia.Target> backTargets = SlippableMedia.Collect(back, timingPeers, timingRoles: timingRoles);
             fronts.AddRange(frontTargets);
             backs.AddRange(backTargets);
             fixedOffsets.UnionWith(frontTargets.Select(t => t.Offset));
@@ -535,11 +542,10 @@ public sealed class ElementResizeService : IElementResizeService
             if (i == 0 || pairMin > min) min = pairMin;
             if (i == 0 || pairMax < max) max = pairMax;
         }
-        if (fixedElements != null)
+        if (movedElements.Count > 0)
         {
-            var movedElements = fixedElements.ToHashSet();
             foreach (Element element in movedElements)
-                middles.AddRange(SlippableMedia.Collect(element, movedElements));
+                middles.AddRange(SlippableMedia.Collect(element, timingPeers, timingRoles: timingRoles));
             fixedOffsets.UnionWith(middles.Select(t => t.Offset));
         }
         return new TrimConstraints(min, max, fronts, backs, middles, fixedOffsets,

@@ -100,7 +100,8 @@ internal static class SlippableMedia
         }
     }
 
-    public static List<Target> Collect(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false)
+    public static List<Target> Collect(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false,
+        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null)
     {
         var targets = new List<Target>();
         var path = new HashSet<object>();
@@ -149,19 +150,19 @@ internal static class SlippableMedia
                     using (var resource = video.Source.CurrentValue?.ToResource(CompositionContext.Default))
                     {
                         targets.Add(new Target(video.OffsetPosition, resource?.Duration,
-                            new MediaTimeMapping(element, video, video.Speed, controllers, 60, resource?.Duration, timingPeers, ignoreLoops), element.Length));
+                            new MediaTimeMapping(element, video, video.Speed, controllers, 60, resource?.Duration, timingPeers, ignoreLoops, timingRoles), element.Length));
                     }
                     break;
                 case SourceSound sound:
                     using (var resource = sound.Source.CurrentValue?.ToResource(CompositionContext.Default))
                     {
                         targets.Add(new Target(sound.OffsetPosition, resource?.Duration > TimeSpan.Zero ? resource.Duration : null,
-                            new MediaTimeMapping(element, sound, sound.Speed, controllers, sampleRate, timingPeers: timingPeers), element.Length));
+                            new MediaTimeMapping(element, sound, sound.Speed, controllers, sampleRate, timingPeers: timingPeers, timingRoles: timingRoles), element.Length));
                     }
                     break;
                 case SceneSound sound:
                     targets.Add(new Target(sound.OffsetPosition, sound.ReferencedScene.CurrentValue?.Duration,
-                        new MediaTimeMapping(element, sound, sound.Speed, controllers, sampleRate, timingPeers: timingPeers), element.Length));
+                        new MediaTimeMapping(element, sound, sound.Speed, controllers, sampleRate, timingPeers: timingPeers, timingRoles: timingRoles), element.Length));
                     break;
                 case SoundGroup group:
                     foreach (Sound child in group.Children) CollectFrom(child);
@@ -181,7 +182,7 @@ internal static class SlippableMedia
                         // A consumed Flow input overrides Target and needs no such guard.
                         targets.Add(new Target(controller.OffsetPosition, null,
                             new MediaTimeMapping(element, controller, controller.Speed, controllers, 60,
-                                timingPeers: timingPeers), element.Length));
+                                timingPeers: timingPeers, timingRoles: timingRoles), element.Length));
                         break;
                     }
                     if ((input?.Object ?? controller.Target.CurrentValue) is Drawable target)
