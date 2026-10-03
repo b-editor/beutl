@@ -630,6 +630,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (_webView == null) return;
         if (_viewModel?.TryCreateNavigationUri(out Uri uri) == true)
         {
+            Beutl.Editor.Services.UsageTelemetry.Current?.Record("tool.command", "WebBrowser", "Navigate");
             CloseBrowserPanel();
             if (BrowserMediaDownload.IsMediaLink(uri))
             {

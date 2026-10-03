@@ -1,15 +1,16 @@
-﻿<UserControl x:Class="Beutl.Views.Tools.AiWorkspaceView"
+<UserControl x:Class="Beutl.Views.Tools.AiWorkspaceView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:live="using:Beutl.Controls"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:dialogs="using:Beutl.ViewModels.Dialogs"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:live="using:Beutl.Controls"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
              d:DesignHeight="640"
              d:DesignWidth="380"
@@ -116,6 +117,7 @@
                     </StackPanel>
                     <Button x:Name="AiGateSignInButton"
                             HorizontalAlignment="Center"
+                            usage:UsageTracking.Feature="AiWorkspace.SignIn"
                             AutomationProperties.Name="{x:Static lang:SettingsStrings.SignIn}"
                             Command="{CompiledBinding SignIn}"
                             IsVisible="{CompiledBinding ShowSignInAction.Value}">
@@ -139,12 +141,14 @@
                     </Button>
                     <Button x:Name="AiGatePlanButton"
                             HorizontalAlignment="Center"
+                            usage:UsageTracking.Feature="AiWorkspace.OpenAiPlan"
                             AutomationProperties.Name="{x:Static lang:Strings.AiJoinPro}"
                             Command="{CompiledBinding OpenAiPlan}"
                             Content="{x:Static lang:Strings.AiJoinPro}"
                             IsVisible="{CompiledBinding RequiresPlan.Value}" />
                     <Button x:Name="AiGateRetryButton"
                             HorizontalAlignment="Center"
+                            usage:UsageTracking.Feature="AiWorkspace.RetryGateLoad"
                             AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_Retry}"
                             Command="{CompiledBinding RetryGateLoad}"
                             IsVisible="{CompiledBinding GateRefreshFailed.Value}">

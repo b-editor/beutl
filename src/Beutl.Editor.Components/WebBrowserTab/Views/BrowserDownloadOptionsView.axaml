@@ -1,8 +1,9 @@
-﻿<UserControl x:Class="Beutl.Editor.Components.WebBrowserTab.Views.BrowserDownloadOptionsView"
+<UserControl x:Class="Beutl.Editor.Components.WebBrowserTab.Views.BrowserDownloadOptionsView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:views="using:Beutl.Editor.Components.WebBrowserTab.Views"
              x:ClassModifier="internal"
              x:CompileBindings="True"
@@ -115,9 +116,11 @@
                             Orientation="Horizontal"
                             Spacing="8">
                     <Button x:Name="CancelDownloadOptionsButton"
+                            usage:UsageTracking.Feature="WebBrowser.Cancel"
                             Click="OnCancelClick"
                             Content="{x:Static lang:Strings.Cancel}" />
                     <Button x:Name="ConfirmDownloadButton"
+                            usage:UsageTracking.Feature="WebBrowser.Confirm"
                             Classes="accent"
                             Click="OnConfirmClick">
                         <StackPanel Orientation="Horizontal" Spacing="8">

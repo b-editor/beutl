@@ -7,6 +7,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:services="using:Beutl.Services"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
              Name="Root"
              d:DesignHeight="450"
@@ -40,12 +41,14 @@
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             Spacing="2">
-                    <Button Click="OnSaveClick"
+                    <Button usage:UsageTracking.Feature="DockLayout.Save"
+                            Click="OnSaveClick"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.SaveCurrentDockLayout}">
                         <icons:FluentIcon FontSize="16" Icon="Add" />
                     </Button>
-                    <Button Click="OnResetClick"
+                    <Button usage:UsageTracking.Feature="DockLayout.Reset"
+                            Click="OnResetClick"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.ResetDockLayout}">
                         <icons:FluentIcon FontSize="16" Icon="ArrowReset" />
@@ -92,6 +95,7 @@
                         </StackPanel>
                         <Button x:Name="SaveFirstDockLayoutButton"
                                 HorizontalAlignment="Center"
+                                usage:UsageTracking.Feature="DockLayout.Save"
                                 AutomationProperties.Name="{x:Static lang:Strings.SaveCurrentDockLayout}"
                                 Click="OnSaveClick">
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
@@ -130,6 +134,7 @@
                                         Orientation="Horizontal"
                                         Spacing="2">
                                 <Button Padding="6"
+                                        usage:UsageTracking.Feature="DockLayout.Apply"
                                         Classes="row-action"
                                         Click="OnApplyClick"
                                         Theme="{StaticResource TransparentButton}"
@@ -137,6 +142,7 @@
                                     <icons:FluentIcon FontSize="16" Icon="Checkmark" />
                                 </Button>
                                 <Button Padding="6"
+                                        usage:UsageTracking.Feature="DockLayout.Rename"
                                         Classes="row-action"
                                         Click="OnRenameClick"
                                         Theme="{StaticResource TransparentButton}"
@@ -144,6 +150,7 @@
                                     <icons:FluentIcon FontSize="16" Icon="Rename" />
                                 </Button>
                                 <Button Padding="6"
+                                        usage:UsageTracking.Feature="DockLayout.Remove"
                                         Classes="row-action"
                                         Click="OnRemoveClick"
                                         Theme="{StaticResource TransparentButton}"

@@ -1,14 +1,15 @@
-﻿<UserControl x:Class="Beutl.Views.Tools.AiVideoGenerationView"
+<UserControl x:Class="Beutl.Views.Tools.AiVideoGenerationView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:live="using:Beutl.Controls"
+             xmlns:ai="using:Beutl.Services.AI"
              xmlns:btl="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
-             xmlns:ai="using:Beutl.Services.AI"
              xmlns:lang="using:Beutl.Language"
+             xmlns:live="using:Beutl.Controls"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.ViewModels.Dialogs"
              d:DesignHeight="640"
              d:DesignWidth="520"
@@ -34,9 +35,11 @@
                     </ComboBox>
                     <WrapPanel Orientation="Horizontal">
                         <Button Margin="0,0,6,0"
+                                usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.RecoverSelectedAttempt"
                                 Command="{CompiledBinding RecoverSelectedAttempt}"
                                 Content="{x:Static lang:Strings.AiRecoverRequest}" />
-                        <Button Command="{CompiledBinding AbandonSelectedAttempt}"
+                        <Button usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.AbandonSelectedAttempt"
+                                Command="{CompiledBinding AbandonSelectedAttempt}"
                                 Content="{x:Static lang:Strings.AiAbandonRequest}" />
                     </WrapPanel>
                 </StackPanel>
@@ -192,6 +195,7 @@
                                Text="{x:Static lang:Strings.AiVideoFrameGuidanceDescription}"
                                TextWrapping="Wrap" />
                     <Button HorizontalAlignment="Left"
+                            usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.CaptureCurrentFrame"
                             AutomationProperties.Name="{x:Static lang:Strings.AiVideoUseCurrentFrame}"
                             Command="{CompiledBinding CaptureCurrentFrame}"
                             Content="{x:Static lang:Strings.AiVideoUseCurrentFrame}"
@@ -212,10 +216,12 @@
                                        TextTrimming="CharacterEllipsis" />
                             <WrapPanel Orientation="Horizontal">
                                 <Button Margin="0,0,4,4"
+                                        usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.SelectFirstFrame"
                                         AutomationProperties.Name="{x:Static lang:Strings.AiVideoBrowseFirstFrame}"
                                         Command="{CompiledBinding SelectFirstFrame}"
                                         Content="{x:Static lang:Strings.AiEditBrowse}" />
                                 <Button Margin="0,0,0,4"
+                                        usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.ClearFirstFrame"
                                         AutomationProperties.Name="{x:Static lang:Strings.AiVideoClearFirstFrame}"
                                         Command="{CompiledBinding ClearFirstFrame}"
                                         Content="{x:Static lang:Strings.AiClearFrame}"
@@ -239,10 +245,12 @@
                                        TextTrimming="CharacterEllipsis" />
                             <WrapPanel Orientation="Horizontal">
                                 <Button Margin="0,0,4,4"
+                                        usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.SelectLastFrame"
                                         AutomationProperties.Name="{x:Static lang:Strings.AiVideoBrowseLastFrame}"
                                         Command="{CompiledBinding SelectLastFrame}"
                                         Content="{x:Static lang:Strings.AiEditBrowse}" />
                                 <Button Margin="0,0,0,4"
+                                        usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.ClearLastFrame"
                                         AutomationProperties.Name="{x:Static lang:Strings.AiVideoClearLastFrame}"
                                         Command="{CompiledBinding ClearLastFrame}"
                                         Content="{x:Static lang:Strings.AiClearFrame}"
@@ -262,9 +270,11 @@
                                 <StackPanel IsVisible="{CompiledBinding IsVisible.Value}" Spacing="4" Margin="0,0,0,8">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                         <TextBlock Text="{CompiledBinding Label}" VerticalAlignment="Center" />
-                                        <Button Grid.Column="1" Command="{CompiledBinding Pick}"
-                                                Content="{x:Static lang:Strings.AiEditBrowse}"
-                                                AutomationProperties.Name="{CompiledBinding Label}" />
+                                        <Button Grid.Column="1"
+                                                usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.Pick"
+                                                AutomationProperties.Name="{CompiledBinding Label}"
+                                                Command="{CompiledBinding Pick}"
+                                                Content="{x:Static lang:Strings.AiEditBrowse}" />
                                     </Grid>
                                     <TextBlock Text="{CompiledBinding Hint.Value}" TextWrapping="Wrap" FontSize="11"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -276,9 +286,13 @@
                                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                                                         <TextBlock Text="{CompiledBinding Name}" TextTrimming="CharacterEllipsis"
                                                                    VerticalAlignment="Center" ToolTip.Tip="{CompiledBinding Path}" />
-                                                        <Button Grid.Column="1" Command="{CompiledBinding Remove}" Padding="5"
+                                                        <Button Grid.Column="1"
+                                                                Padding="5"
+                                                                usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.Remove"
+                                                                AutomationProperties.Name="{CompiledBinding RemoveLabel}"
+                                                                Command="{CompiledBinding Remove}"
                                                                 Theme="{StaticResource TransparentButton}"
-                                                                AutomationProperties.Name="{CompiledBinding RemoveLabel}" ToolTip.Tip="{CompiledBinding RemoveLabel}">
+                                                                ToolTip.Tip="{CompiledBinding RemoveLabel}">
                                                             <icons:FluentIcon Icon="Dismiss" FontSize="14" />
                                                         </Button>
                                                     </Grid>
@@ -307,12 +321,14 @@
                 </StackPanel>
                 <Grid ColumnDefinitions="*,Auto">
                     <Button HorizontalAlignment="Stretch"
+                            usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.Generate"
                             Classes="accent"
                             Command="{CompiledBinding Generate}"
                             Content="{x:Static lang:Strings.AiGenerate}"
                             IsEnabled="{CompiledBinding CanGenerate.Value}" />
                     <Button Grid.Column="1"
                             Margin="8,0,0,0"
+                            usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.StopGenerating"
                             AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
                             Command="{CompiledBinding StopGenerating}"
                             Content="{x:Static lang:Strings.Cancel}"
@@ -337,7 +353,8 @@
                                    Text="{CompiledBinding StatusText.Value}"
                                    TextAlignment="Center"
                                    TextWrapping="Wrap" />
-                        <Button AutomationProperties.Name="{x:Static lang:Strings.AiVideoOpenPreview}"
+                        <Button usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.OpenResult"
+                                AutomationProperties.Name="{x:Static lang:Strings.AiVideoOpenPreview}"
                                 Command="{CompiledBinding OpenResult}"
                                 Content="{x:Static lang:Strings.AiVideoOpenPreview}"
                                 IsVisible="{CompiledBinding ResultVideoPath.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
@@ -357,15 +374,18 @@
                 <TextBlock Text="{x:Static lang:Strings.AiProRequired}"
                            TextWrapping="Wrap" />
                 <Button HorizontalAlignment="Left"
+                        usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.OpenAiPlan"
                         Command="{CompiledBinding OpenAiPlan}"
                         Content="{x:Static lang:Strings.AiJoinPro}" />
             </StackPanel>
 
             <WrapPanel IsVisible="{CompiledBinding CanAddToScene.Value}" Orientation="Horizontal">
                 <Button Margin="0,0,8,8"
+                        usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.AddToScene"
                         Command="{CompiledBinding AddToScene}"
                         Content="{x:Static lang:Strings.AiAddToScene}" />
                 <Button Margin="0,0,0,8"
+                        usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.SaveToFile"
                         Command="{CompiledBinding SaveToFile}"
                         Content="{x:Static lang:Strings.AiSaveToFile}" />
             </WrapPanel>

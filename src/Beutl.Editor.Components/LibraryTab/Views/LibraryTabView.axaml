@@ -7,6 +7,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModel="using:Beutl.Editor.Components.LibraryTab.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="300"
@@ -39,6 +40,7 @@
                               SelectedIndex="2" />
 
                     <Button x:Name="moreButton"
+                            usage:UsageTracking.Feature="Library.MoreButton"
                             Click="MoreButton_Click"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}">
                         <icons:FluentIcon FontSize="16" Icon="MoreHorizontal" />

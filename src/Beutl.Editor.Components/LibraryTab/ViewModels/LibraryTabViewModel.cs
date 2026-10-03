@@ -99,6 +99,9 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
     public async Task Search(string str, CancellationToken cancellationToken)
     {
+        UsageTelemetry? usage = UsageTelemetry.Current;
+        long epoch = 0;
+        bool collect = usage?.TryGetCollectionEpoch(out epoch) == true;
         await _asyncLock.WaitAsync(cancellationToken);
         try
         {
@@ -118,6 +121,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
                     cancellationToken.ThrowIfCancellationRequested();
                 }
             }, cancellationToken);
+            if (collect) usage!.Record("tool.command", "Library", "Search", epoch: epoch);
         }
         catch (OperationCanceledException)
         {

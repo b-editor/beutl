@@ -80,6 +80,17 @@ public sealed class HistoryManager : IDisposable
 
     public ReadOnlyObservableCollection<HistoryEntry> Entries => _readOnlyEntries;
 
+    // Read synchronously from an Entries Add observer. Keep HistoryEntry itself
+    // lightweight: UI snapshots must not retain scene graphs through operations.
+    internal IReadOnlyList<ChangeOperation> GetLatestCommittedOperations(long? transactionId)
+    {
+        lock (_lock)
+        {
+            return _undoStack.TryPeek(out HistoryTransaction? transaction) && transaction.Id == transactionId
+                ? transaction.Operations : [];
+        }
+    }
+
     public int CurrentIndex => _undoStack.Count;
 
     /// <summary>

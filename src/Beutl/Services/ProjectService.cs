@@ -554,6 +554,7 @@ public sealed class ProjectService
         await App.WaitLoadingExtensions();
 
         using Activity? activity = Telemetry.StartActivity();
+        using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("project.open");
         Project? previousProject = null;
         try
         {
@@ -569,6 +570,7 @@ public sealed class ProjectService
             {
                 _logger.LogInformation("Skipping project open: file is unavailable. File: {File}", file);
                 NotificationService.ShowInformation(Strings.File, MessageStrings.FileDoesNotExist);
+                usage?.Complete("skipped");
                 return;
             }
 
@@ -578,6 +580,7 @@ public sealed class ProjectService
                 && FilePathComparison.AreSameCanonicalPath(currentUri.LocalPath, file))
             {
                 TryAddToRecentProjects(file);
+                usage?.Complete("skipped");
                 return;
             }
 
@@ -594,6 +597,7 @@ public sealed class ProjectService
                     PrimaryButtonText = Strings.Close
                 };
                 await dialog.ShowAsync();
+                usage?.Complete("skipped");
                 return;
             }
 
@@ -615,6 +619,7 @@ public sealed class ProjectService
             _logger.LogInformation("Opened project. File: {File}, AppVersion: {AppVersion}, MinVersion: {MinVersion}", file, appVersion, minVersion);
             PublishProjectChange((New: project, null));
             PublishTransitionCommitted(project);
+            usage?.Complete();
         }
         catch (Exception ex)
         {
@@ -711,6 +716,7 @@ public sealed class ProjectService
         await App.WaitLoadingExtensions();
 
         using Activity? activity = Telemetry.StartActivity();
+        using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("project.create");
         activity?.SetTag(nameof(width), width);
         activity?.SetTag(nameof(height), height);
         activity?.SetTag(nameof(framerate), framerate);
@@ -772,10 +778,12 @@ public sealed class ProjectService
             _logger.LogInformation("Created new project. Name: {Name}, Location: {Location}, Width: {Width}, Height: {Height}, Framerate: {Framerate}, Samplerate: {Samplerate}", name, location, width, height, framerate, samplerate);
             PublishTransitionCommitted(project);
 
+            usage?.Complete();
             return project;
         }
         catch (Exception ex)
         {
+            if (ex is OperationCanceledException) usage?.Complete("cancelled");
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to create the project. Name: {Name}, Location: {Location}", name, location);
             // Surface the actual failure (disk full, permission denied, ...) instead of a generic message.

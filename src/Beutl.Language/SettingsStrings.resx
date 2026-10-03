@@ -109,7 +109,7 @@
     <comment/>
   </data>
   <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
-    <value>The following information is collected to improve application performanceTime the application was started, elapsed time of operation, and number of items retrieved by the API</value>
+    <value>Collects session starts and running time, project and export outcomes, tool tabs and features used, committed edits and edited property names, and enabled effect types. Detailed usage excludes project/file names, paths, URLs, prompts, search terms, command parameters, property values, and media content. You can stop this collection at any time.</value>
     <comment/>
   </data>
   <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">

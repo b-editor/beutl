@@ -10,14 +10,15 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:paz="using:Avalonia.Controls.PanAndZoom"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModel="using:Beutl.Editor.Components.GraphEditorTab.ViewModels"
              xmlns:views="using:Beutl.Editor.Components.Views"
              x:Name="root"
-             Focusable="True"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:CompileBindings="True"
              x:DataType="viewModel:GraphEditorViewModel"
+             Focusable="True"
              mc:Ignorable="d">
     <Grid x:Name="grid"
           Background="{DynamicResource GraphEditorBackgroundBrush}"
@@ -73,27 +74,53 @@
                    Background="{DynamicResource GraphEditorBackgroundBrush}">
                 <Panel.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="{x:Static lang:Strings.GraphValueGraph}" Click="GraphActionClick" Tag="ValueGraph"
-                                  ToggleType="Radio" IsChecked="{Binding !IsSpeedGraph.Value, Mode=OneWay}" />
-                        <MenuItem Header="{x:Static lang:Strings.GraphSpeedGraph}" Click="GraphActionClick" Tag="SpeedGraph"
-                                  ToggleType="Radio" IsChecked="{Binding IsSpeedGraph.Value, Mode=OneWay}" />
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.ValueGraph"
+                                  Click="GraphActionClick"
+                                  Header="{x:Static lang:Strings.GraphValueGraph}"
+                                  IsChecked="{Binding !IsSpeedGraph.Value, Mode=OneWay}"
+                                  Tag="ValueGraph"
+                                  ToggleType="Radio" />
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.SpeedGraph"
+                                  Click="GraphActionClick"
+                                  Header="{x:Static lang:Strings.GraphSpeedGraph}"
+                                  IsChecked="{Binding IsSpeedGraph.Value, Mode=OneWay}"
+                                  Tag="SpeedGraph"
+                                  ToggleType="Radio" />
                         <Separator />
-                        <MenuItem Header="{x:Static lang:Strings.GraphEasyEase}" Click="GraphActionClick" Tag="Ease" />
-                        <MenuItem Header="{x:Static lang:Strings.GraphEasyEaseIn}" Click="GraphActionClick" Tag="EaseIn" />
-                        <MenuItem Header="{x:Static lang:Strings.GraphEasyEaseOut}" Click="GraphActionClick" Tag="EaseOut" />
-                        <MenuItem Header="{x:Static lang:Strings.GraphVelocity}" Click="GraphActionClick" Tag="Velocity" />
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.Ease"
+                                  Click="GraphActionClick"
+                                  Header="{x:Static lang:Strings.GraphEasyEase}"
+                                  Tag="Ease" />
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.EaseIn"
+                                  Click="GraphActionClick"
+                                  Header="{x:Static lang:Strings.GraphEasyEaseIn}"
+                                  Tag="EaseIn" />
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.EaseOut"
+                                  Click="GraphActionClick"
+                                  Header="{x:Static lang:Strings.GraphEasyEaseOut}"
+                                  Tag="EaseOut" />
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.Velocity"
+                                  Click="GraphActionClick"
+                                  Header="{x:Static lang:Strings.GraphVelocity}"
+                                  Tag="Velocity" />
                         <Separator />
-                        <MenuItem Command="{Binding CopyAllKeyFramesCommand}" Header="{x:Static lang:Strings.CopyAll}">
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.CopyAllKeyFramesCommand"
+                                  Command="{Binding CopyAllKeyFramesCommand}"
+                                  Header="{x:Static lang:Strings.CopyAll}">
                             <MenuItem.Icon>
                                 <icons:FluentIcon Icon="DocumentCopy" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Command="{Binding PasteKeyFrameAtCurrentPositionCommand}" Header="{x:Static lang:Strings.Paste}">
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.PasteKeyFrameAtCurrentPositionCommand"
+                                  Command="{Binding PasteKeyFrameAtCurrentPositionCommand}"
+                                  Header="{x:Static lang:Strings.Paste}">
                             <MenuItem.Icon>
                                 <icons:FluentIcon Icon="ClipboardPaste" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Header="{x:Static lang:Strings.TimelineZoom}" MenuItem.Click="ZoomClick">
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                  Header="{x:Static lang:Strings.TimelineZoom}"
+                                  MenuItem.Click="ZoomClick">
                             <MenuItem.Icon>
                                 <icons:FluentIcon Icon="ZoomIn" />
                             </MenuItem.Icon>
@@ -112,7 +139,8 @@
                             <MenuItem CommandParameter="0.05" Header="5%" />
                             <MenuItem CommandParameter="0.01" Header="1%" />
                         </MenuItem>
-                        <MenuItem Header="{x:Static lang:Strings.View}"
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.SelectedView"
+                                  Header="{x:Static lang:Strings.View}"
                                   IsEnabled="{Binding !!Views.Length}"
                                   ItemsSource="{Binding Views}"
                                   MenuItem.Click="SelectedView_Click">
@@ -139,12 +167,15 @@
                                 </DataTemplate>
                             </MenuItem.DataTemplates>
                         </MenuItem>
-                        <MenuItem Click="ShowBpmGridFlyout" Header="{x:Static lang:Strings.BpmGrid}">
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.ShowBpmGridFlyout"
+                                  Click="ShowBpmGridFlyout"
+                                  Header="{x:Static lang:Strings.BpmGrid}">
                             <MenuItem.Icon>
                                 <icons:FluentIcon Icon="MusicNote1" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Command="{Binding ToggleUseGlobalClock}"
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.ToggleUseGlobalClock"
+                                  Command="{Binding ToggleUseGlobalClock}"
                                   Header="{x:Static lang:Strings.UseGlobalClock}"
                                   IsChecked="{Binding UseGlobalClock.Value, Mode=OneWay}"
                                   ToggleType="CheckBox" />
@@ -295,54 +326,98 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Click="GraphActionClick" Tag="FitAll" ToolTip.Tip="{x:Static lang:Strings.GraphFitAll}"
-                            AutomationProperties.Name="{x:Static lang:Strings.GraphFitAll}">
+                    <Button usage:UsageTracking.Feature="GraphEditor.FitAll"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphFitAll}"
+                            Click="GraphActionClick"
+                            Tag="FitAll"
+                            ToolTip.Tip="{x:Static lang:Strings.GraphFitAll}">
                         <Path Data="M1,6 L1,1 6,1 M10,1 L15,1 15,6 M15,10 L15,15 10,15 M6,15 L1,15 1,10 M4,11 C8,11 8,5 12,5" />
                     </Button>
-                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="FitSelection" ToolTip.Tip="{x:Static lang:Strings.GraphFitSelection}"
-                            AutomationProperties.Name="{x:Static lang:Strings.GraphFitSelection}">
+                    <Button usage:UsageTracking.Feature="GraphEditor.FitSelection"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphFitSelection}"
+                            Click="GraphActionClick"
+                            IsEnabled="{Binding HasSelection.Value}"
+                            Tag="FitSelection"
+                            ToolTip.Tip="{x:Static lang:Strings.GraphFitSelection}">
                         <Path Data="M1,5 L1,1 5,1 M11,1 L15,1 15,5 M15,11 L15,15 11,15 M5,15 L1,15 1,11 M8,4 L12,8 8,12 4,8 Z" />
                     </Button>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="Linear" ToolTip.Tip="{x:Static lang:Strings.Linear}"
-                            AutomationProperties.Name="{x:Static lang:Strings.Linear}">
+                    <Button usage:UsageTracking.Feature="GraphEditor.Linear"
+                            AutomationProperties.Name="{x:Static lang:Strings.Linear}"
+                            Click="GraphActionClick"
+                            IsEnabled="{Binding HasSelection.Value}"
+                            Tag="Linear"
+                            ToolTip.Tip="{x:Static lang:Strings.Linear}">
                         <Path Data="M2,13 L14,3 M1,12 L3,12 3,14 1,14 Z M13,2 L15,2 15,4 13,4 Z" />
                     </Button>
-                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="Ease" ToolTip.Tip="{x:Static lang:Strings.GraphEasyEase}"
-                            AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEase}">
+                    <Button usage:UsageTracking.Feature="GraphEditor.Ease"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEase}"
+                            Click="GraphActionClick"
+                            IsEnabled="{Binding HasSelection.Value}"
+                            Tag="Ease"
+                            ToolTip.Tip="{x:Static lang:Strings.GraphEasyEase}">
                         <Path Data="M1,13 C12,13 4,3 15,3 M1,11 L1,15 M15,1 L15,5" />
                     </Button>
-                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="EaseIn" ToolTip.Tip="{x:Static lang:Strings.GraphEasyEaseIn}"
-                            AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEaseIn}">
+                    <Button usage:UsageTracking.Feature="GraphEditor.EaseIn"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEaseIn}"
+                            Click="GraphActionClick"
+                            IsEnabled="{Binding HasSelection.Value}"
+                            Tag="EaseIn"
+                            ToolTip.Tip="{x:Static lang:Strings.GraphEasyEaseIn}">
                         <Path Data="M1,13 C5,7 8,3 15,3 M15,1 L15,5" />
                     </Button>
-                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="EaseOut" ToolTip.Tip="{x:Static lang:Strings.GraphEasyEaseOut}"
-                            AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEaseOut}">
+                    <Button usage:UsageTracking.Feature="GraphEditor.EaseOut"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEaseOut}"
+                            Click="GraphActionClick"
+                            IsEnabled="{Binding HasSelection.Value}"
+                            Tag="EaseOut"
+                            ToolTip.Tip="{x:Static lang:Strings.GraphEasyEaseOut}">
                         <Path Data="M1,13 C8,13 11,9 15,3 M1,11 L1,15" />
                     </Button>
-                    <Button IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="Hold" ToolTip.Tip="{x:Static lang:Strings.Hold}"
-                            AutomationProperties.Name="{x:Static lang:Strings.Hold}">
+                    <Button usage:UsageTracking.Feature="GraphEditor.Hold"
+                            AutomationProperties.Name="{x:Static lang:Strings.Hold}"
+                            Click="GraphActionClick"
+                            IsEnabled="{Binding HasSelection.Value}"
+                            Tag="Hold"
+                            ToolTip.Tip="{x:Static lang:Strings.Hold}">
                         <Path Data="M1,13 L8,13 8,3 15,3" />
                     </Button>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="VelocityButton" IsEnabled="{Binding HasSelection.Value}" Click="GraphActionClick" Tag="Velocity" ToolTip.Tip="{x:Static lang:Strings.GraphVelocity}"
-                            AutomationProperties.Name="{x:Static lang:Strings.GraphVelocity}">
+                    <Button x:Name="VelocityButton"
+                            usage:UsageTracking.Feature="GraphEditor.Velocity"
+                            AutomationProperties.Name="{x:Static lang:Strings.GraphVelocity}"
+                            Click="GraphActionClick"
+                            IsEnabled="{Binding HasSelection.Value}"
+                            Tag="Velocity"
+                            ToolTip.Tip="{x:Static lang:Strings.GraphVelocity}">
                         <Path Data="M2,14 L2,2 M2,12 C8,12 6,4 12,4 M10,7 L14,7 M12,5 L12,9" />
                     </Button>
                     <Button Tag="TangentMode" ToolTip.Tip="{x:Static lang:Strings.GraphHandleMode}" AutomationProperties.Name="{x:Static lang:Strings.GraphHandleMode}">
                         <Path Data="M1,12 L15,4 M1,10 L1,14 M15,2 L15,6 M8,6 L10,8 8,10 6,8 Z" />
                         <Button.Flyout>
                             <MenuFlyout>
-                                <MenuItem Header="{x:Static lang:Strings.Symmetry}" Click="GraphActionClick" Tag="Symmetry"
-                                          ToggleType="Radio" IsChecked="{Binding Symmetry.Value, Mode=OneWay}" />
-                                <MenuItem Header="{x:Static lang:Strings.Asymmetry}" Click="GraphActionClick" Tag="Asymmetry"
-                                          ToggleType="Radio" IsChecked="{Binding Asymmetry.Value, Mode=OneWay}" />
-                                <MenuItem Header="{x:Static lang:Strings.Separately}" Click="GraphActionClick" Tag="Separately"
-                                          ToggleType="Radio" IsChecked="{Binding Separately.Value, Mode=OneWay}" />
+                                <MenuItem usage:UsageTracking.Feature="GraphEditor.Symmetry"
+                                          Click="GraphActionClick"
+                                          Header="{x:Static lang:Strings.Symmetry}"
+                                          IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
+                                          Tag="Symmetry"
+                                          ToggleType="Radio" />
+                                <MenuItem usage:UsageTracking.Feature="GraphEditor.Asymmetry"
+                                          Click="GraphActionClick"
+                                          Header="{x:Static lang:Strings.Asymmetry}"
+                                          IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
+                                          Tag="Asymmetry"
+                                          ToggleType="Radio" />
+                                <MenuItem usage:UsageTracking.Feature="GraphEditor.Separately"
+                                          Click="GraphActionClick"
+                                          Header="{x:Static lang:Strings.Separately}"
+                                          IsChecked="{Binding Separately.Value, Mode=OneWay}"
+                                          Tag="Separately"
+                                          ToggleType="Radio" />
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>

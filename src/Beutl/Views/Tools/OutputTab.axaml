@@ -3,10 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
              Name="Root"
              d:DesignHeight="450"
@@ -31,6 +32,7 @@
 
                     <Button x:Name="AddProfileButton"
                             Grid.Column="1"
+                            usage:UsageTracking.Feature="Output.Add"
                             Click="OnAddClick"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Add}">
@@ -41,19 +43,22 @@
                             Theme="{StaticResource ToolTabBarIconButtonTheme}">
                         <Button.Flyout>
                             <ui:FAMenuFlyout>
-                                <ui:FAMenuFlyoutItem Click="OnRemoveClick"
-                                                   CommandParameter="{Binding SelectedItem.Value}"
-                                                   IconSource="Delete"
-                                                   IsEnabled="{Binding CanRemove.Value}"
-                                                   Text="{x:Static lang:Strings.Remove}" />
-                                <ui:FAMenuFlyoutItem Click="OnRenameClick"
-                                                   CommandParameter="{Binding SelectedItem.Value}"
-                                                   IsEnabled="{Binding !!SelectedItem.Value}"
-                                                   Text="{x:Static lang:Strings.Rename}" />
-                                <ui:FAMenuFlyoutItem Click="OnConvertPresetClick"
-                                                   CommandParameter="{Binding SelectedItem.Value}"
-                                                   IsEnabled="{Binding !!SelectedItem.Value}"
-                                                   Text="{x:Static lang:Strings.Convert_to_preset}" />
+                                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Output.Remove"
+                                                     Click="OnRemoveClick"
+                                                     CommandParameter="{Binding SelectedItem.Value}"
+                                                     IconSource="Delete"
+                                                     IsEnabled="{Binding CanRemove.Value}"
+                                                     Text="{x:Static lang:Strings.Remove}" />
+                                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Output.Rename"
+                                                     Click="OnRenameClick"
+                                                     CommandParameter="{Binding SelectedItem.Value}"
+                                                     IsEnabled="{Binding !!SelectedItem.Value}"
+                                                     Text="{x:Static lang:Strings.Rename}" />
+                                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Output.ConvertPreset"
+                                                     Click="OnConvertPresetClick"
+                                                     CommandParameter="{Binding SelectedItem.Value}"
+                                                     IsEnabled="{Binding !!SelectedItem.Value}"
+                                                     Text="{x:Static lang:Strings.Convert_to_preset}" />
                             </ui:FAMenuFlyout>
                         </Button.Flyout>
                         <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
