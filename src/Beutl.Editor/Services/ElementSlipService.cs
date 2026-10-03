@@ -1,5 +1,4 @@
-﻿using Beutl.Engine;
-using Beutl.Language;
+﻿using Beutl.Language;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -30,7 +29,7 @@ public sealed class ElementSlipService : IElementSlipService
         // after the drag began, so the press-time IsEditable gate is not enough. Disqualified
         // members are dropped rather than blocking the rest of the group.
         var seen = new HashSet<Element>();
-        var applicable = new List<List<SlippableMedia.Target>>();
+        var applicable = new List<SlippableMedia.Target>();
         foreach (Element element in elements)
         {
             if (!seen.Add(element)) continue;
@@ -40,25 +39,17 @@ public sealed class ElementSlipService : IElementSlipService
             List<SlippableMedia.Target> targets = SlippableMedia.Collect(element);
             if (targets.Count == 0) continue;
 
-            applicable.Add(targets);
+            applicable.AddRange(targets);
         }
 
         if (applicable.Count == 0) return false;
 
-        // Chained clamping: each element can only shrink the magnitude, so the final value is
-        // the delta every stream of every element can absorb — grouped linked media stay in sync.
-        TimeSpan effective = delta;
-        foreach (List<SlippableMedia.Target> targets in applicable)
-        {
-            effective = SlippableMedia.ClampSharedDelta(targets, effective);
-            if (effective == TimeSpan.Zero) return false;
-        }
+        TimeSpan effective = SlippableMedia.ClampSharedDelta(applicable, delta);
+        if (effective == TimeSpan.Zero) return false;
 
-        var applied = new HashSet<IProperty<TimeSpan>>();
-        foreach (List<SlippableMedia.Target> targets in applicable)
-        {
-            SlippableMedia.ApplyOffsetDelta(targets, effective, applied);
-        }
+        if (!SlippableMedia.TryGetOffsetChanges(applicable, effective, trim: false, out var changes)
+            || changes.Values.All(d => d == TimeSpan.Zero)) return false;
+        SlippableMedia.ApplyOffsetChanges(changes);
 
         _historyManager.Commit(CommandNames.SlipElement);
         return true;

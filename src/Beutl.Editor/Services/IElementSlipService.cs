@@ -29,9 +29,9 @@ public interface IElementSlipService
     /// no slip-able media are dropped at this mutation boundary (matching
     /// <see cref="IElementResizeService.Resize"/>) rather than blocking the group. Returns
     /// <see langword="false"/> (no commit) when <paramref name="delta"/> is zero, no element
-    /// survives that filter, or the shared clamped delta is zero. Varying speed animations,
-    /// evaluated speed expressions, and drawable time remapping on video reject the entire
-    /// slip before any mutation; drawable controllers do not restrict audio-only edits.
+    /// survives that filter, or the shared clamped delta is zero. Unsupported speed expressions or time mappings reject the entire slip before
+    /// any mutation. Supported speed animations and controller mappings use playback clocks;
+    /// drawable controllers do not restrict audio-only edits.
     /// Flat speed keyframes and empty curves use their animated playback value.
     /// </summary>
     bool Slip(Scene scene, IReadOnlyList<Element> elements, TimeSpan delta);

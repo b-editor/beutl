@@ -1382,13 +1382,14 @@ public class ElementResizeServiceTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void RollOrSlide_TimeRemappedBack_RejectsBeforeMutation(bool slide)
+    public void RollOrSlide_TimeRemappedBack_UsesPlaybackSpeed(bool slide)
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
         TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
         Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
         var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        back.Objects.Add(video);
         back.Objects.Add(new DrawableTimeController
         {
             Speed = { CurrentValue = 50 },
@@ -1403,14 +1404,14 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(back.Start, Is.EqualTo(backStart));
-            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(1)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
             if (middle != null)
-                Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
         });
     }
 
@@ -1504,7 +1505,7 @@ public class ElementResizeServiceTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void RollOrSlide_DisabledControllerTarget_RejectsUnsupportedGrowthBeforeMutation(bool slide)
+    public void RollOrSlide_DisabledControllerTarget_ClampsGrowthBeforeReenabling(bool slide)
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
@@ -1541,15 +1542,15 @@ public class ElementResizeServiceTests
         var sampled = (SourceVideo.Resource)resource.Target!;
         Assert.Multiple(() =>
         {
-            Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(back.Start, Is.EqualTo(backStart));
-            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(after, Is.EqualTo(before));
+            Assert.That(applied, Is.True);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+            Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(0.5)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+            Assert.That(after, Is.EqualTo(before + 1));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
             if (middle != null)
-                Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
         });
     }
 
@@ -1781,18 +1782,19 @@ public class ElementResizeServiceTests
         });
     }
 
-    [Test]
-    public void Roll_SharedSourceBetweenFrontAndBack_NoCommit()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Roll_SharedSourceBetweenFrontAndBack_RejectsOnlyRequiredOffsetWrites(bool backOwnsSource)
     {
         Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
         Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
         Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
         Element backB = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
         var video = new SourceVideo();
-        frontA.Objects.Add(video);
+        (backOwnsSource ? backB : frontA).Objects.Add(video);
         var presenter = new DrawablePresenter();
         presenter.Target.CurrentValue = video;
-        backB.Objects.Add(presenter);
+        (backOwnsSource ? frontA : backB).Objects.Add(presenter);
         int before = _history.UndoCount;
 
         bool applied = _service.Roll(
@@ -1802,10 +1804,10 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(applied, Is.False);
+            Assert.That(applied, Is.EqualTo(!backOwnsSource));
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(frontA.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(frontA.Length, Is.EqualTo(TimeSpan.FromSeconds(backOwnsSource ? 2 : 3)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + (backOwnsSource ? 0 : 1)));
         });
     }
 

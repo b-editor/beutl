@@ -1057,13 +1057,13 @@ public class ElementSlipServiceTests
         var sampled = resource.Target is DrawablePresenter.Resource wrapper
             ? (SourceVideo.Resource)wrapper.Target!
             : (SourceVideo.Resource)resource.Target!;
-        bool identity = speed == 100;
+        double expectedVideoOffset = speed == 100 ? 3 : 1;
         Assert.Multiple(() =>
         {
-            Assert.That(applied, Is.EqualTo(identity));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(identity ? 3 : 0)));
-            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(video.OffsetPosition.CurrentValue));
-            Assert.That(after, Is.EqualTo(before + (identity ? 1 : 0)));
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedVideoOffset)));
+            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedVideoOffset * 100 / speed)));
+            Assert.That(after, Is.EqualTo(before + 1));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
         });
     }
@@ -1219,7 +1219,7 @@ public class ElementSlipServiceTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void Slip_TimeRemappedSourceAlsoReachedDirectly_RejectsRegardlessOfTraversalOrder(bool directFirst)
+    public void Slip_TimeRemappedSharedSource_RequiresCompatibleOffsetChanges(bool directFirst)
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var video = new SourceVideo { Speed = { CurrentValue = 200 } };
@@ -1240,14 +1240,14 @@ public class ElementSlipServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(applied, Is.EqualTo(directFirst));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(directFirst ? 1 : 0)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + (directFirst ? 1 : 0)));
         });
     }
 
     [Test]
-    public void Slip_TimeRemappedFlowWithoutExplicitTarget_RejectsBeforeMutation()
+    public void Slip_TimeRemappedFlowWithoutExplicitTarget_UsesPlaybackSpeed()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var video = new SourceVideo { Speed = { CurrentValue = 200 } };
@@ -1260,9 +1260,9 @@ public class ElementSlipServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 
