@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -24,6 +25,7 @@ internal sealed class MediaTimeMapping
     private readonly TimeSpan? _videoDuration;
     private readonly bool _loopVideo;
     private readonly IAnimation<bool>? _loopAnimation;
+    private readonly bool _sourceSupported;
 
     internal readonly record struct ControllerLink(DrawableTimeController Controller, Drawable Target);
 
@@ -33,14 +35,21 @@ internal sealed class MediaTimeMapping
     {
         _elementRange = element.Range;
         _sourceClock = new Clock(element, source, timingPeers);
-        _speed = new SpeedMap(speed, sampleRate);
+        _speed = new SpeedMap(speed, sampleRate, videoPlayback: source is SourceVideo);
         _controllers = controllers.Select(c => new Controller(element, c.Controller, c.Target, timingPeers, ignoreLoops)).ToArray();
         _videoDuration = videoDuration;
         _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.CurrentValue;
         _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.Animation : null;
+        // A stored source or property value does not describe an evaluated source
+        // switch/expression. Keep these edits atomic until their mapping is bounded.
+        _sourceSupported = source is not SourceVideo sourceVideo
+            || sourceVideo.Source.Animation == null && !sourceVideo.Source.HasExpression
+                && !sourceVideo.IsLoop.HasExpression && !sourceVideo.OffsetPosition.HasExpression;
     }
 
-    public bool IsSupported => _speed.IsSupported && _controllers.All(c => c.IsSupported);
+    public bool IsSupported => _sourceSupported && _speed.IsSupported && _controllers.All(c => c.IsSupported);
+
+    public bool CanWriteOffsets => IsSupported && _speed.CanWriteOffsets;
 
     public bool HasVariableDuration => _controllers.Any(c => c.HasVariableDuration);
 
@@ -94,7 +103,7 @@ internal sealed class MediaTimeMapping
         }
         if (_loopAnimation is not KeyFrameAnimation<bool> keys) return (true, true);
         if (keys.KeyFrames.Count == 0) return (false, true);
-        int modes = 0;
+        int modes = (_loopAnimation.Interpolate(time.Min) ? 1 : 2) | (_loopAnimation.Interpolate(time.Max) ? 1 : 2);
         KeyFrame<bool>? previous = null;
         foreach (IKeyFrame frame in keys.KeyFrames)
         {
@@ -102,6 +111,9 @@ internal sealed class MediaTimeMapping
             if (key.KeyTime < time.Min) previous = key;
             else
             {
+                // Linear/hold boolean interpolation keeps the preceding value until
+                // the next key. Other easings can reach the next value early.
+                if (key.KeyTime > time.Max && key.Easing is LinearEasing or HoldEasing) break;
                 modes |= key.Value ? 1 : 2;
                 if (key.KeyTime > time.Max) break;
             }
@@ -164,8 +176,9 @@ internal sealed class MediaTimeMapping
         private readonly bool _holdFirst;
         private readonly bool _holdLast;
         private readonly float _frameRate;
+        private readonly bool _hasMappingExpression;
 
-        public bool IsSupported => _speed.IsSupported;
+        public bool IsSupported => !_hasMappingExpression && _speed.IsSupported;
 
         public bool HasVariableDuration => _targetClock?.ChangesWithElement == true && (_loop || _reverse || _holdLast);
 
@@ -183,7 +196,7 @@ internal sealed class MediaTimeMapping
         {
             _clock = new Clock(element, controller, timingPeers);
             _targetClock = new Clock(element, target, timingPeers);
-            _speed = new SpeedMap(controller.Speed, 60);
+            _speed = new SpeedMap(controller.Speed, 60, videoPlayback: true);
             _offset = controller.OffsetPosition.CurrentValue;
             _adjust = controller.AdjustTimeRange.CurrentValue;
             _reverse = controller.Reverse.CurrentValue;
@@ -191,6 +204,9 @@ internal sealed class MediaTimeMapping
             _holdFirst = controller.HoldFirstFrame.CurrentValue;
             _holdLast = controller.HoldLastFrame.CurrentValue;
             _frameRate = controller.FrameRate.CurrentValue;
+            _hasMappingExpression = controller.OffsetPosition.HasExpression || controller.AdjustTimeRange.HasExpression
+                || controller.Reverse.HasExpression || controller.Loop.HasExpression || controller.HoldFirstFrame.HasExpression
+                || controller.HoldLastFrame.HasExpression || controller.FrameRate.HasExpression;
         }
 
         public Interval Map(Interval time, TimeRange elementRange)
@@ -233,7 +249,11 @@ internal sealed class MediaTimeMapping
 
         public bool IsSupported { get; }
 
-        public SpeedMap(IProperty<float> speed, int sampleRate)
+        // A broad range can bound resize safely without giving an accurate point
+        // integral for an offset write. Custom audio interpolation has only that range.
+        public bool CanWriteOffsets => _editorIntegral?.HasCustomInterpolation != true;
+
+        public SpeedMap(IProperty<float> speed, int sampleRate, bool videoPlayback = false)
         {
             _constant = speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: 0 } ? 0 : speed.CurrentValue;
             _animation = speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: 0 } ? null : speed.Animation;
@@ -241,6 +261,13 @@ internal sealed class MediaTimeMapping
             _maximum = _constant;
             bool known = _animation == null || _animation.TryGetOutputRange(out _minimum, out _maximum);
             IsSupported = known && float.IsFinite(_minimum) && float.IsFinite(_maximum) && _minimum >= 0 && _maximum >= _minimum;
+            if (videoPlayback)
+            {
+                // Video/controller playback integrates only nonempty keyframe curves.
+                // Other animations multiply time by their evaluated value instead.
+                IsSupported &= (_animation == null || _animation is KeyFrameAnimation<float>)
+                    && (!speed.HasExpression || _animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 });
+            }
             _integrator = new SpeedIntegrator(sampleRate);
             if (sampleRate > 60 && _animation != null)
             {

@@ -631,6 +631,60 @@ public class TrimSpeedTests
         Assert.That(back.Range.End, Is.EqualTo(TimeSpan.FromSeconds(4)));
     }
 
+    [TestCase("slip")]
+    [TestCase("roll")]
+    [TestCase("slide")]
+    public void Trim_CustomNarrowSpeedPeak_DoesNotWriteAnUncertainOffset(string mode)
+    {
+        Element front = AddElement(0, 1);
+        Element middle = AddElement(1, 1);
+        Element back = AddElement(2, 300);
+        var sound = new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(100000) } } };
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1000), Value = 200, Easing = new NarrowPeakEasing() });
+        sound.Speed.Animation = animation;
+        back.Objects.Add(sound);
+        using var playback = new SpeedIntegrator(44100);
+        playback.EnsureCache(animation);
+        Assert.That(playback.Integrate(TimeSpan.FromSeconds(250), animation).TotalSeconds, Is.GreaterThan(340));
+        int history = _history.UndoCount;
+
+        bool applied = mode switch
+        {
+            "slip" => _slip.Slip(_scene, [back], TimeSpan.FromSeconds(250)),
+            "roll" => _resize.Roll(_scene, [new(middle, back)], TimeSpan.FromSeconds(250)),
+            _ => _resize.Slide(_scene, [new(front, [middle], back)], TimeSpan.FromSeconds(250))
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(300)));
+            Assert.That(_history.UndoCount, Is.EqualTo(history));
+        });
+    }
+
+    [Test]
+    public void Resize_PureMoveWithGlobalSpeed_PreservesDuration()
+    {
+        Element element = AddElement(0, 2);
+        var sound = new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(3) } } };
+        sound.Speed.Animation = CreateSpeedRamp(useGlobalClock: true);
+        element.Objects.Add(sound);
+
+        _resize.Resize(_scene, [new(element, TimeSpan.FromSeconds(8), element.Length, 0)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(8)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
     private sealed class NarrowPeakEasing : Easing
     {
         public override float Ease(float progress) => progress is >= 0.1995f and < 0.2005f ? 100 : 0;

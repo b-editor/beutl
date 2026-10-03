@@ -489,6 +489,70 @@ public class TimelineMediaDurationTests
             Speed = { CurrentValue = speed }
         };
 
+    [AvaloniaTest]
+    public async Task Move_GlobalSpeed_PreservesPreviewWidthOnRelease()
+    {
+        using var configuration = new RippleDisabledScope();
+        SceneSound sound = CreateSound(3, 0, 100);
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(10), Value = 200 });
+        sound.Speed.Animation = animation;
+        ElementViewModel model = await OpenElement(sound, lengthSeconds: 2);
+        TimelineTabViewModel timeline = model.Timeline;
+        timeline.Options.Value = timeline.Options.Value with { Scale = 0.5f };
+        timeline.ClearSelected();
+        timeline.SelectElement(model);
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 1200, Height = 420 };
+        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
+        try
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            ElementView element = view.GetVisualDescendants().OfType<ElementView>()
+                .Single(v => ReferenceEquals(v.DataContext, model));
+            Border border = element.FindControl<Border>("border")!;
+            float scale = timeline.Options.Value.Scale;
+            double width = model.Width.Value;
+            Point press = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), window)!.Value;
+            Point release = press + new Avalonia.Vector(TimeSpan.FromSeconds(6).TimeToPixel(scale), 0);
+            window.MouseMove(press, RawInputModifiers.None);
+            window.MouseDown(press, MouseButton.Left, RawInputModifiers.None);
+            try
+            {
+                window.MouseMove(release, RawInputModifiers.LeftMouseButton);
+                HeadlessTestHelpers.Render(5);
+                CapturePreview(window, "move-global-speed");
+                Assert.That(model.Width.Value, Is.EqualTo(width).Within(0.0001));
+            }
+            finally
+            {
+                window.MouseUp(release, MouseButton.Left, RawInputModifiers.None);
+                HeadlessTestHelpers.Settle(4);
+            }
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(7)));
+                Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            });
+            HeadlessTestHelpers.Render(5);
+            CapturePreview(window, "move-global-speed-committed");
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
+            view.DataContext = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     private static async Task<ElementViewModel> OpenElement(EngineObject media, double startSeconds = 1, double lengthSeconds = 1)
     {
         await TestReset.ResetShellAsync();

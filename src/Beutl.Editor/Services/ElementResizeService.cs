@@ -34,7 +34,8 @@ public sealed class ElementResizeService : IElementResizeService
         var mediaConstraints = new Dictionary<Element, SlippableMedia.ResizeConstraints>();
         requests = requests.Select(req =>
         {
-            if (req.ClampToSource || GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
+            if (req.ClampToSource || req.NewLength != req.Element.Length
+                && GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
             {
                 var constraints = SlippableMedia.CreateResizeConstraints(req.Element);
                 mediaConstraints[req.Element] = constraints;
@@ -426,6 +427,8 @@ public sealed class ElementResizeService : IElementResizeService
         public TimeSpan Clamp(TimeSpan requested)
         {
             if (backs.Any(t => fixedOffsets.Contains(t.Offset))) return TimeSpan.Zero;
+            if (fronts.Concat(middles).Any(t => !t.Mapping.IsSupported)
+                || backs.Any(t => !t.Mapping.CanWriteOffsets)) return TimeSpan.Zero;
             TimeSpan delta = ElementResizeService.Clamp(requested, Min, Max);
             // Animated local clocks restart at the new in-point. Their allowed
             // deltas need not form an interval, so validate the actual requested

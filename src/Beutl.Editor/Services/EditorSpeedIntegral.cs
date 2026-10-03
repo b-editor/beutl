@@ -26,6 +26,8 @@ internal sealed class EditorSpeedIntegral(IAnimation<float> animation, int sampl
         || animation is KeyFrameAnimation<float> keys
             && keys.KeyFrames.Any(k => k.Easing.GetType().Assembly != typeof(Easing).Assembly);
 
+    public bool HasCustomInterpolation => _customInterpolation;
+
     public Estimate Integrate(TimeSpan time)
         => Integrate(TimeSpan.Zero, time);
 

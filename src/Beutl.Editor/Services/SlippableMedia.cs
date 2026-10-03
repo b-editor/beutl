@@ -191,7 +191,7 @@ internal static class SlippableMedia
 
     public static TimeSpan ClampSharedDelta(IReadOnlyList<Target> targets, TimeSpan delta)
     {
-        if (targets.Count == 0) return TimeSpan.Zero;
+        if (targets.Count == 0 || targets.Any(t => !t.Mapping.CanWriteOffsets)) return TimeSpan.Zero;
         TimeSpan previous;
         do
         {
@@ -212,6 +212,7 @@ internal static class SlippableMedia
         changes = new();
         foreach (Target target in targets)
         {
+            if (!target.Mapping.CanWriteOffsets) return false;
             TimeSpan change = target.SourceDelta(delta, trim);
             if (changes.TryGetValue(target.Offset, out TimeSpan existing) && existing != change)
                 return false;
@@ -269,6 +270,7 @@ internal static class SlippableMedia
         // Null means unbounded; zero means a known source is exhausted.
         public TimeSpan? GetMaximumDuration(TimeSpan? start = null)
         {
+            if (targets.Any(t => !t.Mapping.IsSupported)) return TimeSpan.Zero;
             if (providerDuration == null && targets.All(t => t.Total == null)) return null;
             TimeSpan startDelta = (start ?? elementStart) - elementStart;
             bool Fits(TimeSpan length) => FitsProvider(length, allowRecovery: false)

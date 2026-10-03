@@ -4,12 +4,14 @@ using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
+using Beutl.Validation;
 
 namespace Beutl.UnitTests.Editor.Services;
 
@@ -19,6 +21,7 @@ public class TrimTimeControllerTests
 {
     private SceneHistoryHarness _harness = null!;
     private ElementSlipService _slip = null!;
+    private bool _originalClampResizeToOriginalLength;
 
     [OneTimeSetUp]
     public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
@@ -26,12 +29,18 @@ public class TrimTimeControllerTests
     [SetUp]
     public void Setup()
     {
+        _originalClampResizeToOriginalLength = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
         _harness = new SceneHistoryHarness("beutl_trim_controller", start: TimeSpan.Zero, duration: Seconds(30));
         _slip = new ElementSlipService(_harness.History);
     }
 
     [TearDown]
-    public void TearDown() => _harness.Dispose();
+    public void TearDown()
+    {
+        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = _originalClampResizeToOriginalLength;
+        _harness.Dispose();
+    }
 
     [Test]
     public void Slip_StaticControllerSpeedAndOffset_ClampsAndMatchesPlaybackWindow()
@@ -754,6 +763,185 @@ public class TrimTimeControllerTests
             Assert.That(service.Slide(_harness.Scene, [new(front, [middle], back)], Seconds(1.8)), Is.True);
         }
         Assert.That(front.Length, Is.EqualTo(Seconds(2)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Resize_LoopKeyBeyondWindow_DoesNotLimitCurrentLoop(bool globalClock)
+    {
+        var video = CreateVideo(1);
+        var animation = new KeyFrameAnimation<bool> { UseGlobalClock = globalClock };
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = true });
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = Seconds(100), Value = false });
+        video.IsLoop.Animation = animation;
+        Element element = AddElement(5, 1, video);
+
+        Assert.That(ReadPosition(video, 14.5), Is.EqualTo(0.5));
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(10), 0)]);
+
+        Assert.That(element.Length, Is.EqualTo(Seconds(10)));
+    }
+
+    [Test]
+    public void Slip_ControllerExpression_RejectsLinkedEditBeforeAnyMutation()
+    {
+        var video = CreateVideo(20);
+        Element element = AddElement(0, 2, video);
+        var controller = new DrawableTimeController();
+        controller.Speed.Expression = Expression.Create<float>("200");
+        element.Objects.Add(controller);
+        var linkedVideo = CreateVideo(20);
+        Element linked = AddElement(5, 2, linkedVideo);
+        using (var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true })
+            Assert.That(ReadPosition(compositor.EvaluateGraphics(Seconds(1)).Objects.Single()), Is.EqualTo(2));
+        int history = _harness.History.UndoCount;
+
+        Assert.That(_slip.Slip(_harness.Scene, [linked, element], Seconds(1)), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(linkedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_harness.History.UndoCount, Is.EqualTo(history));
+        });
+    }
+
+    [Test]
+    public void Slip_ControllerOffsetExpression_RejectsSharedReference()
+    {
+        var video = CreateVideo(20);
+        Element element = AddElement(0, 2, video);
+        var controller = CreateController(video);
+        controller.OffsetPosition.Expression = Expression.Create<TimeSpan>("TimeSpan.FromSeconds(3)");
+        Element controlled = AddElement(0, 2, controller);
+        Assert.That(ReadPosition(controller, 1), Is.EqualTo(4));
+
+        Assert.That(_slip.Slip(_harness.Scene, [element, controlled], Seconds(1)), Is.False);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_VideoSpeedExpression_RejectsUnevaluatedMapping(bool emptyAnimation)
+    {
+        var video = CreateVideo(20);
+        video.Speed.Expression = Expression.Create<float>("200");
+        if (emptyAnimation) video.Speed.Animation = new KeyFrameAnimation<float>();
+        Element element = AddElement(0, 2, video);
+        Assert.That(ReadPosition(video, 1), Is.EqualTo(2));
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.False);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_CustomVideoSpeed_RejectsMappingThatPlaybackDoesNotIntegrate(bool controllerSpeed)
+    {
+        var video = CreateVideo(20);
+        Drawable root = controllerSpeed ? CreateController(video) : video;
+        (root is DrawableTimeController controller ? controller.Speed : video.Speed).Animation = new RampSpeedAnimation();
+        Element element = AddElement(0, 2, root);
+        Assert.That(ReadPosition(root, 1), Is.EqualTo(1.1).Within(0.000001));
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.False);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Trim_AnimatedVideoSource_RejectsBoundsFromStoredSource(bool baseSource)
+    {
+        var video = CreateVideo(10);
+        if (!baseSource) video.Source.CurrentValue = null;
+        var animation = new KeyFrameAnimation<VideoSource?>();
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = CreateVideo(1).Source.CurrentValue });
+        video.Source.Animation = animation;
+        Element element = AddElement(0, 0.5, video);
+        using (var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default))
+            Assert.That(resource.Source!.Duration, Is.EqualTo(Seconds(1)));
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(2)), Is.False);
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(2), 0)]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Length, Is.EqualTo(Seconds(0.5)));
+        });
+    }
+
+    private sealed class RampSpeedAnimation : Hierarchical, IAnimationRange<float>
+    {
+        public TimeSpan Duration => Seconds(10);
+        public bool UseGlobalClock => false;
+        public Type ValueType => typeof(float);
+        public IValidator<float>? Validator { get; set; }
+        public event EventHandler? Edited { add { } remove { } }
+        public float GetAnimatedValue(TimeSpan time) => Interpolate(time);
+        public float Interpolate(TimeSpan timeSpan) => 100 + (float)Math.Clamp(timeSpan.TotalSeconds, 0, 10) * 10;
+        public bool TryGetOutputRange(out float minimum, out float maximum) { minimum = 100; maximum = 200; return true; }
+    }
+
+    [TestCase("roll", false)]
+    [TestCase("roll", true)]
+    [TestCase("slide", false)]
+    [TestCase("slide", true)]
+    public void Trim_FrontControllerExpression_RejectsGeometryChangesRegardlessOfClamp(string mode, bool clamp)
+    {
+        var frontVideo = CreateVideo(20);
+        Element front = AddElement(0, 2, frontVideo);
+        var controller = new DrawableTimeController();
+        controller.Reverse.Expression = Expression.Create<bool>("true");
+        front.Objects.Add(controller);
+        Element? middle = mode == "slide" ? _harness.AddElement(Seconds(2), Seconds(1)) : null;
+        var backVideo = CreateVideo(20);
+        Element back = AddElement(mode == "roll" ? 2 : 3, 4, backVideo);
+        TimeRange before = back.Range;
+        int history = _harness.History.UndoCount;
+        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = clamp;
+        var service = new ElementResizeService(_harness.History);
+
+        bool applied = mode == "roll"
+            ? service.Roll(_harness.Scene, [new(front, back)], Seconds(1))
+            : service.Slide(_harness.Scene, [new(front, [middle!], back)], Seconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(Seconds(2)));
+            if (middle != null) Assert.That(middle.Start, Is.EqualTo(Seconds(2)));
+            Assert.That(back.Range, Is.EqualTo(before));
+            Assert.That(backVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_harness.History.UndoCount, Is.EqualTo(history));
+        });
+    }
+
+    [Test]
+    public void Slip_UnconsumedControllerExpression_DoesNotBlockLaterVideo()
+    {
+        var controller = new DrawableTimeController();
+        controller.Speed.Expression = Expression.Create<float>("200");
+        Element element = AddElement(0, 2, controller);
+        var video = CreateVideo(20);
+        element.Objects.Add(video);
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.True);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+    }
+
+    [Test]
+    public void Resize_LoopFutureEasingCanSwitchEarly_StillChecksPlainSourceBounds()
+    {
+        var video = CreateVideo(1);
+        var animation = new KeyFrameAnimation<bool>();
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = true });
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = Seconds(10), Value = false, Easing = new BackEaseOut() });
+        video.IsLoop.Animation = animation;
+        Element element = AddElement(0, 1, video);
+        Assert.That(ReadPosition(video, 7), Is.EqualTo(7));
+
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(8), 0)]);
+
+        Assert.That(element.Length, Is.EqualTo(Seconds(1)));
     }
 
     private Element AddElement(double startSeconds, double lengthSeconds, Drawable drawable)
