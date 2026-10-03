@@ -1,7 +1,14 @@
-﻿namespace Beutl.Editor.VersionControl;
+﻿using System.Reactive.Linq;
+
+namespace Beutl.Editor.VersionControl;
 
 internal interface IProjectVersionControlCoordinator
 {
+    IObservable<bool> CanCreateHostedRepository => Observable.Return(false);
+
+    Task<string> CreateHostedRepositoryAsync(string name, CancellationToken cancellationToken)
+        => throw new NotSupportedException("Hosted Git is unavailable.");
+
     event EventHandler? PendingPullRecoveriesChanged;
 
     Task<CommitResult> CommitManualAsync(
@@ -28,6 +35,9 @@ internal interface IProjectVersionControlCoordinator
     Task SetRemoteAsync(
         string url,
         CancellationToken cancellationToken);
+
+    Task AddRemoteIfAbsentAsync(string url, CancellationToken cancellationToken)
+        => throw new NotSupportedException("Conditional remote creation is unavailable.");
 
     Task SetLocalIdentityAsync(
         GitIdentity identity,

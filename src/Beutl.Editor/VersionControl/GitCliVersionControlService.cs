@@ -1304,6 +1304,159 @@ internal sealed class GitCliVersionControlService :
 
     public RepositoryInfo? Repository { get; private set; }
 
+    internal Func<Func<Guid, CancellationToken, Task<string>>>? HostedGitTokenProviderFactory { get; set; }
+
+    internal Task<Guid> GetHostedRepositoryCreationIdAsync(string ownerId, string name, CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        string fingerprint = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(ownerId + "\0" + name.Trim())));
+        string key = $"beutl.hosted-creation-{fingerprint}.id";
+        return RunSerializedAsync(async () =>
+        {
+            RepositoryInfo repository = GetRepository();
+            IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+            async Task<Guid?> ReadAsync(string[] arguments, CancellationToken token)
+            {
+                try
+                {
+                    GitCommandResult result = await runner.RunAsync(repository, arguments, GitCommandOptions.Local, token).ConfigureAwait(false);
+                    return Guid.TryParseExact(result.Stdout.Trim(), "D", out Guid id) && id != Guid.Empty
+                        ? id : throw new InvalidOperationException("The hosted repository creation identifier is invalid.");
+                }
+                catch (GitOperationException ex) when (ex.ExitCode == 1) { return null; }
+            }
+            Guid? existing = await ReadAsync(["config", "--local", "--get", key], cancellationToken).ConfigureAwait(false);
+            if (existing is Guid saved) return saved;
+            Guid creationId = default;
+            await UpdateLocalConfigAtomicallyAsync(repository, runner, async (stagingPath, token) =>
+            {
+                creationId = await ReadAsync(["config", "--file", stagingPath, "--get", key], token).ConfigureAwait(false) ?? Guid.NewGuid();
+                await runner.RunAsync(repository, ["config", "--file", stagingPath, "--replace-all", key, creationId.ToString("D")],
+                    GitCommandOptions.Local, token).ConfigureAwait(false);
+            }, "hosted repository creation recovery", cancellationToken).ConfigureAwait(false);
+            return creationId;
+        }, cancellationToken);
+    }
+
+    private async Task RunNetworkWithTokenRefreshAsync(
+        RepositoryInfo repository, IGitCliRunner runner, IReadOnlyList<string> arguments,
+        GitCommandOptions baseline, CancellationToken cancellationToken,
+        IProgress<string>? progress = null, IReadOnlyList<string>? selectedUrls = null)
+    {
+        IReadOnlyList<string> urls = selectedUrls ?? (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false))
+            .Where(remote => remote.Name == "origin").Select(remote => remote.Url).ToArray();
+        bool hosted = urls.Any(url => HostedGitRemote.TryParse(url, out _));
+        bool hostedPush = hosted && arguments.Count > 0 && arguments[0] == "push";
+        string? lfsPushReference = null;
+        if (hostedPush)
+        {
+            string reference = arguments[^1].Split(':', 2)[0];
+            (GitAvailability availability, _) = await GetGitRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
+            if (availability.LfsInstalled)
+            {
+                lfsPushReference = reference;
+            }
+            else if (await TargetContainsLfsPointerAsync(repository, runner, reference,
+                         LfsPrefetchScope.RepositoryWide, cancellationToken).ConfigureAwait(false))
+            {
+                throw new GitOperationException(1, "Install Git LFS before pushing this hosted revision.");
+            }
+        }
+        // Capture one issuer for all renewals. Its closure pins the initiating account.
+        Func<Guid, CancellationToken, Task<string>>? issuer = hosted
+            ? HostedGitTokenProviderFactory?.Invoke()
+                ?? throw new InvalidOperationException("Sign in to Beutl to use the hosted Git repository.")
+            : null;
+        for (int attempt = 0; ; attempt++)
+        {
+            var targets = new List<(string RemoteUrl, string Token)>();
+            foreach (string url in urls.Distinct(StringComparer.Ordinal))
+                if (HostedGitRemote.TryParse(url, out Guid id))
+                    targets.Add((url, await issuer!(id, cancellationToken).ConfigureAwait(false)));
+            GitCommandOptions options = targets.Count == 0 ? baseline : HostedGitRemote.CreateOptions(targets, baseline);
+            try
+            {
+                // Upload through the installed LFS command before running repository hooks
+                // without the temporary hosted write token.
+                if (lfsPushReference is not null)
+                {
+                    await runner.RunAsync(repository, ["lfs", "push", "origin", lfsPushReference],
+                        options, cancellationToken, progress).ConfigureAwait(false);
+                }
+                if (hostedPush)
+                    await RunHostedPushWithHooksAsync(repository, runner, arguments, options,
+                        cancellationToken, progress).ConfigureAwait(false);
+                else
+                    await runner.RunAsync(repository, arguments, options, cancellationToken, progress).ConfigureAwait(false);
+                return;
+            }
+            catch (GitOperationException ex) when (attempt < 4 && hosted && IsHostedAuthenticationFailure(ex))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+        }
+    }
+
+    private async Task RunHostedPushWithHooksAsync(
+        RepositoryInfo repository, IGitCliRunner runner, IReadOnlyList<string> arguments,
+        GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? progress)
+    {
+        string originalHook = await ResolveGitPathAsync(repository, runner, "hooks/pre-push",
+            cancellationToken).ConfigureAwait(false);
+        if (!File.Exists(originalHook)
+            || (!OperatingSystem.IsWindows() && (File.GetUnixFileMode(originalHook)
+                & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) == 0))
+        {
+            await runner.RunAsync(repository, ["push", "--no-verify", .. arguments.Skip(1)],
+                options, cancellationToken, progress).ConfigureAwait(false);
+            return;
+        }
+
+        // Keep executable hooks on the repository filesystem; system temp may be noexec.
+        string hooksDirectory = await ResolveGitPathAsync(repository, runner,
+            $"beutl-hosted-push-hooks-{Guid.NewGuid():N}", cancellationToken).ConfigureAwait(false);
+        try
+        {
+            Directory.CreateDirectory(hooksDirectory);
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(hooksDirectory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            var environment = new Dictionary<string, string?>(options.EnvironmentOverrides!, StringComparer.Ordinal);
+            int count = int.Parse(environment["GIT_CONFIG_COUNT"]!, CultureInfo.InvariantCulture);
+            environment[$"GIT_CONFIG_KEY_{count}"] = "core.hooksPath";
+            environment[$"GIT_CONFIG_VALUE_{count}"] = hooksDirectory;
+            environment["GIT_CONFIG_COUNT"] = (count + 1).ToString(CultureInfo.InvariantCulture);
+
+            // Git supplies the original hook arguments and ref/OID input. Remove all
+            // temporary configuration before handing control to repository code.
+            string variables = string.Join(' ', environment.Keys.Where(key => key.StartsWith("GIT_CONFIG_", StringComparison.Ordinal)));
+            string shellPath = OperatingSystem.IsWindows() ? originalHook.Replace('\\', '/') : originalHook;
+            string quotedPath = "'" + shellPath.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
+            string hookPath = Path.Combine(hooksDirectory, "pre-push");
+            await File.WriteAllTextAsync(hookPath,
+                $"#!/bin/sh\nunset GIT_CONFIG_PARAMETERS {variables}\nexport GIT_LFS_SKIP_PUSH=1\nexec {quotedPath} \"$@\"\n",
+                new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(hookPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            await runner.RunAsync(repository, arguments, options with { EnvironmentOverrides = environment },
+                cancellationToken, progress).ConfigureAwait(false);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(hooksDirectory))
+                    Directory.Delete(hooksDirectory, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                LogWarningBestEffort(ex, "Failed to remove temporary hosted push hooks.");
+            }
+        }
+    }
+
     public RepositoryLockInfo? RecoverableLock { get; private set; }
 
     public event EventHandler<WorkspaceStatus>? StatusChanged;
@@ -1700,6 +1853,37 @@ internal sealed class GitCliVersionControlService :
         return RunSerializedAsync(
             () => SetRemoteCoreAsync(url, cancellationToken),
             cancellationToken);
+    }
+
+    public Task AddRemoteIfAbsentAsync(string url, CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+        ValidateRemoteUrl(url);
+        return RunSerializedAsync(async () =>
+        {
+            RepositoryInfo repository = GetRepository();
+            IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+            await UpdateLocalConfigAtomicallyAsync(repository, runner, async (stagingPath, token) =>
+            {
+                // Check the locked snapshot, including origins with only push/fetch settings.
+                bool originExists = true;
+                try
+                {
+                    await runner.RunAsync(repository, ["config", "--file", stagingPath, "--get-regexp", @"^remote\.origin\."],
+                        GitCommandOptions.Local, token).ConfigureAwait(false);
+                }
+                catch (GitOperationException ex) when (ex.ExitCode == 1) { originExists = false; }
+                if (originExists)
+                    throw new InvalidOperationException("The origin remote already exists; it was preserved.");
+                await runner.RunAsync(repository, ["config", "--file", stagingPath, "--add", "remote.origin.url", url],
+                    GitCommandOptions.Local, token).ConfigureAwait(false);
+                await runner.RunAsync(repository, ["config", "--file", stagingPath, "--add", "remote.origin.fetch",
+                    "+refs/heads/*:refs/remotes/origin/*"], GitCommandOptions.Local, token).ConfigureAwait(false);
+            }, "remote creation", cancellationToken).ConfigureAwait(false);
+            await TryRaiseLfsQuotaNoticeIfNeededAsync(repository, runner).ConfigureAwait(false);
+            await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        }, cancellationToken);
     }
 
     public Task<RemoteOpResult> PushAsync(
@@ -8004,8 +8188,8 @@ internal sealed class GitCliVersionControlService :
 
         try
         {
-            await runner.RunAsync(
-                repository,
+            await RunNetworkWithTokenRefreshAsync(
+                repository, runner,
                 [
                     .. s_lfsPathFilterOverrides,
                     "-c",
@@ -8016,11 +8200,9 @@ internal sealed class GitCliVersionControlService :
                     remotes[0].Name,
                     target.Reference,
                 ],
-                GitCommandOptions.Network with
-                {
-                    MaxStdoutBytes = MaxLfsFetchOutputBytes,
-                },
-                cancellationToken).ConfigureAwait(false);
+                GitCommandOptions.Network with { MaxStdoutBytes = MaxLfsFetchOutputBytes },
+                cancellationToken,
+                selectedUrls: [remotes[0].Url]).ConfigureAwait(false);
         }
         catch (GitOperationException ex)
         {
@@ -9015,12 +9197,15 @@ internal sealed class GitCliVersionControlService :
 
             arguments.Add("origin");
             arguments.Add($"{currentTip.RefName}:{remoteRef}");
-            await runner.RunAsync(
-                repository,
-                arguments,
-                GitCommandOptions.Network,
-                cancellationToken,
-                progress).ConfigureAwait(false);
+            GitCommandResult pushUrlsResult = await runner.RunAsync(repository,
+                ["remote", "get-url", "--push", "--all", "origin"],
+                GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+            string[] pushUrls = pushUrlsResult.Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                .Distinct(StringComparer.Ordinal).ToArray();
+            if (pushUrls.Length > 1 && pushUrls.Any(url => HostedGitRemote.TryParse(url, out _)))
+                throw new GitOperationException(1, "A hosted Git push requires a single destination. Configure separate remotes.");
+            await RunNetworkWithTokenRefreshAsync(repository, runner, arguments,
+                GitCommandOptions.Network, cancellationToken, progress, pushUrls).ConfigureAwait(false);
             await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
             return new RemoteOpResult.Success();
         }
@@ -9029,6 +9214,50 @@ internal sealed class GitCliVersionControlService :
             CaptureRecoverableLock(ex);
             return MapRemoteFailure(ex);
         }
+    }
+
+    internal static bool IsHostedAuthenticationFailure(GitOperationException exception)
+    {
+        const System.Text.RegularExpressions.RegexOptions options =
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant;
+        if (System.Text.RegularExpressions.Regex.IsMatch(exception.Stderr,
+                @"(?:LFS (?:download|transfer)|tus (?:request|PATCH)) failed:\s*HTTP\s+(?:401|403)\b", options))
+            return true;
+        // Hook stderr is arbitrary. Only Git's fatal diagnostic naming a hosted URL
+        // establishes transport authentication failure; a hook's bare 401 does not.
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(exception.Stderr,
+                     @"^fatal:\s+(?<kind>Authentication failed for|unable to access)\s+'(?<url>https?://[^']+)'(?<reason>[^\r\n]*)\r?$",
+                     options | System.Text.RegularExpressions.RegexOptions.Multiline))
+        {
+            if (HostedGitRemote.TryParse(match.Groups["url"].Value.TrimEnd('/'), out _) &&
+                (match.Groups["kind"].Value.Equals("Authentication failed for", StringComparison.OrdinalIgnoreCase) ||
+                 System.Text.RegularExpressions.Regex.IsMatch(match.Groups["reason"].Value,
+                     @"requested URL returned error:\s*401\b", options)))
+                return true;
+        }
+        // Git LFS reports an expired batch credential before the custom transfer
+        // agent starts. Bind that diagnostic to the hosted batch endpoint too.
+        const string batchSuffix = "/info/lfs/objects/batch";
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(exception.Stderr,
+                     @"^batch response:\s+Authentication required:\s+Authorization error:\s+(?<url>https?://[^\s]+)[\t ]*\r?$",
+                     options | System.Text.RegularExpressions.RegexOptions.Multiline))
+        {
+            string url = match.Groups["url"].Value.TrimEnd('/');
+            if (url.EndsWith(batchSuffix, StringComparison.Ordinal) &&
+                HostedGitRemote.TryParse(url[..^batchSuffix.Length], out _))
+                return true;
+        }
+        return false;
+    }
+
+    private static async Task<string?> ReadRefCommitAsync(
+        RepositoryInfo repository, IGitCliRunner runner, string reference, CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(repository,
+            ["for-each-ref", "--format=%(objectname)", reference],
+            GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+        string commit = result.Stdout.Trim();
+        return commit.Length == 0 ? null : commit;
     }
 
     private static async Task<BranchUpstreamConfiguration?> GetBranchUpstreamConfigurationAsync(
@@ -9115,11 +9344,9 @@ internal sealed class GitCliVersionControlService :
 
         try
         {
-            await runner.RunAsync(
-                repository,
-                fetchTarget.Arguments,
-                GitCommandOptions.Network,
-                cancellationToken).ConfigureAwait(false);
+            await RunNetworkWithTokenRefreshAsync(
+                repository, runner, fetchTarget.Arguments,
+                GitCommandOptions.Network, cancellationToken).ConfigureAwait(false);
         }
         catch (GitOperationException ex)
         {
@@ -9295,11 +9522,9 @@ internal sealed class GitCliVersionControlService :
 
         try
         {
-            await runner.RunAsync(
-                repository,
-                fetchTarget.Arguments,
-                GitCommandOptions.Network,
-                cancellationToken).ConfigureAwait(false);
+            await RunNetworkWithTokenRefreshAsync(
+                repository, runner, fetchTarget.Arguments,
+                GitCommandOptions.Network, cancellationToken).ConfigureAwait(false);
         }
         catch (GitOperationException ex)
         {

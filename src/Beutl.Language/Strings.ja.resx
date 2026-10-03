@@ -3301,4 +3301,13 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ModelFile" xml:space="preserve">
     <value>3Dモデルファイル</value>
   </data>
+  <data name="VersionControl_CreateHostedRepository" xml:space="preserve">
+    <value>Beutl リポジトリを作成</value>
+  </data>
+  <data name="VersionControl_RepositoryName" xml:space="preserve">
+    <value>リポジトリ名</value>
+  </data>
+  <data name="VersionControl_HostedRepositoryNotConnected" xml:space="preserve">
+    <value>リポジトリを作成しましたが、リモートを接続できませんでした。手動で接続できます: {0}</value>
+  </data>
 </root>
