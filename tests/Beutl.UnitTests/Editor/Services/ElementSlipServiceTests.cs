@@ -834,6 +834,102 @@ public class ElementSlipServiceTests
         });
     }
 
+    [TestCase(0, 2, 1, 100f, 0)]
+    [TestCase(0, 2, 1, 50f, 0)]
+    [TestCase(0, 2, 1, 200f, 0)]
+    [TestCase(1, 1, 8, 100f, 1)]
+    [TestCase(6, 2, 0, 100f, 2)]
+    [TestCase(0, 12, 0, 100f, 0)]
+    [TestCase(1, 1, 0, 100f, 3)]
+    [TestCase(0, 1, 5, 100f, 0)]
+    public void Slip_LoopingVideo_ClampsToMaximumMappedSample(
+        double start, double length, double videoStart, float speed, double expectedOffset)
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            Speed = { CurrentValue = speed },
+            IsLoop = { CurrentValue = true },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(videoStart, 2)
+        };
+        var group = new DrawableGroup();
+        group.Children.Add(video);
+        element.Objects.Add(group);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(20));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.EqualTo(expectedOffset > 0));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedOffset > 0 ? 1 : 0)));
+            foreach (TimeSpan time in new[]
+                     {
+                         element.Start + TimeSpan.FromMilliseconds(100),
+                         element.Range.End - TimeSpan.FromMilliseconds(100),
+                         video.Start - TimeSpan.FromMilliseconds(100)
+                     }.Where(element.Range.Contains))
+            {
+                using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(time));
+                var sampled = (SourceVideo.Resource)resource.Children.Single();
+                Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+            }
+        });
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void Slip_DisabledIdentityController_PreservesTargetWindowForReenabling(bool nestedPresenter, bool loop)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsLoop = { CurrentValue = loop },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(10, 2)
+        };
+        Drawable target = nestedPresenter ? new DrawablePresenter
+        {
+            Target = { CurrentValue = video },
+            IsTimeAnchor = true,
+            TimeRange = video.TimeRange
+        } : video;
+        var controller = new DrawableTimeController
+        {
+            IsEnabled = false,
+            Target = { CurrentValue = target }
+        };
+        element.Objects.Add(controller);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+
+        controller.IsEnabled = true;
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(
+            new CompositionContext(TimeSpan.FromSeconds(1.9)));
+        var sampled = resource.Target is DrawablePresenter.Resource wrapper
+            ? (SourceVideo.Resource)wrapper.Target!
+            : (SourceVideo.Resource)resource.Target!;
+        Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+    }
+
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(false, true)]

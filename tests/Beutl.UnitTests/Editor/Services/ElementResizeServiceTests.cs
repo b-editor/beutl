@@ -759,6 +759,57 @@ public class ElementResizeServiceTests
         });
     }
 
+    [TestCase(false, 0, 7)]
+    [TestCase(true, 0, 7)]
+    [TestCase(false, 1, 1)]
+    [TestCase(true, 1, 1)]
+    [TestCase(false, 2, 0)]
+    [TestCase(true, 2, 0)]
+    public void Trim_LoopingVideo_StopsBeforeOffsetMovesWrappedFramesPastSourceEnd(bool slide, int offset, int expectedDelta)
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element? middle = slide ? AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)) : null;
+        TimeSpan backStart = TimeSpan.FromSeconds(slide ? 2 : 1);
+        Element back = AddElement(backStart, TimeSpan.FromSeconds(10));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsLoop = { CurrentValue = true },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(offset) },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(3, 2)
+        };
+        var group = new DrawableGroup();
+        group.Children.Add(video);
+        front.Objects.Add(group);
+        int before = _history.UndoCount;
+
+        bool applied = middle is { } moving
+            ? _service.Slide(_scene, [new ElementSlideLane(front, [moving], back)], TimeSpan.FromSeconds(7))
+            : _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(7));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.EqualTo(expectedDelta > 0));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(1 + expectedDelta)));
+            Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(expectedDelta)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(10 - expectedDelta)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedDelta > 0 ? 1 : 0)));
+            foreach (TimeSpan time in new[]
+                     {
+                         front.Range.End - TimeSpan.FromMilliseconds(100),
+                         video.Start - TimeSpan.FromMilliseconds(100)
+                     }.Where(front.Range.Contains))
+            {
+                using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(time));
+                var sampled = (SourceVideo.Resource)resource.Children.Single();
+                Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+            }
+        });
+    }
+
     [Test]
     public void Slide_FixedNestedSound_DoesNotConstrainParentOutPoint()
     {

@@ -125,7 +125,8 @@ internal static class SlippableMedia
                     break;
                 case DrawableTimeController controller:
                     if (controller.Target.CurrentValue is { } controlled)
-                        result.UnionWith(CollectFrom(controlled, element, [], targets, path, applyMappings, timeControlled: applyMappings || timeControlled));
+                        // Disabled streams retain the window needed when re-enabled.
+                        result.UnionWith(CollectFrom(controlled, element, [], targets, path, applyMappings, timeControlled: true));
                     if (applyMappings && !HasIdentityTimeMapping(controller))
                     {
                         RejectVideoMappings(incoming);
@@ -236,20 +237,15 @@ internal static class SlippableMedia
         TimeSpan room = TimeSpan.MaxValue;
         if (media is SourceVideo video)
         {
-            if (timeControlled || video.IsLoop.CurrentValue
-                || video.IsLoop.Animation is not null || video.IsLoop.HasExpression)
+            // Identity controllers rebase their target to the element's local window.
+            double localStart = timeControlled ? 0 : (element.Start - video.TimeRange.Start).Ticks * target.Speed;
+            double localEnd = timeControlled ? element.Length.Ticks * target.Speed
+                : (element.Range.End - video.TimeRange.Start).Ticks * target.Speed;
+            visibleEnd = localEnd;
+            room = SourceTailRoom(target, localEnd);
+            if (target.Total is { } duration)
             {
-                visibleEnd = element.Length.Ticks * target.Speed;
-                room = SourceTailRoom(target, visibleEnd);
-            }
-            else
-            {
-                // Groups and presenters evaluate video throughout the parent window;
-                // the video's own end does not clip rendering.
-                double localEnd = (element.Range.End - video.TimeRange.Start).Ticks * target.Speed;
-                visibleEnd = localEnd;
-                room = SourceTailRoom(target, localEnd);
-                if (target.Total is { } duration && element.Start < video.TimeRange.Start)
+                if (localStart < 0)
                 {
                     visibleEnd = localEnd < 0 ? duration.Ticks + localEnd : Math.Max(duration.Ticks, localEnd);
                     if (target.Current > TimeSpan.Zero)
@@ -259,6 +255,15 @@ internal static class SlippableMedia
                             TimelineHeadroom(target, Math.Floor(-target.Current.Ticks - localEnd)));
                         if (wrappedRoom < room) room = wrappedRoom;
                     }
+                }
+
+                bool loopVaries = video.IsLoop.Animation is not null || video.IsLoop.HasExpression;
+                if (duration > TimeSpan.Zero && (video.IsLoop.CurrentValue || loopVaries))
+                {
+                    var loop = LoopWindow(target, localStart, localEnd, duration);
+                    // A varying loop flag can expose either mapping within the window.
+                    visibleEnd = loopVaries ? Math.Max(visibleEnd, loop.VisibleEnd) : loop.VisibleEnd;
+                    room = loopVaries && room < loop.Room ? room : loop.Room;
                 }
             }
         }
@@ -282,6 +287,29 @@ internal static class SlippableMedia
         // A shared media offset must satisfy both its ordinary and controlled paths.
         target.VisibleSourceEndTicks = Math.Max(target.VisibleSourceEndTicks, visibleEnd);
         if (room < target.OutPointHeadroom) target.OutPointHeadroom = room;
+    }
+
+    private static (double VisibleEnd, TimeSpan Room) LoopWindow(
+        Target target, double localStart, double localEnd, TimeSpan duration)
+    {
+        double period = duration.Ticks;
+        double endPhase = localEnd % period;
+        if (endPhase < 0) endPhase += period;
+
+        // A cycle boundary exposes the source tail even when both endpoints map earlier.
+        // Playback also maps an exact negative multiple to Duration, rather than zero.
+        bool reachesTail = Math.Floor(localStart / period) != Math.Floor(localEnd / period)
+                           || (localStart < 0 && localStart % period == 0);
+        double visibleEnd = reachesTail ? period : endPhase;
+        TimeSpan room = TimeSpan.MaxValue;
+        if (target.Current != TimeSpan.Zero)
+        {
+            // Nonzero offsets cannot grow through the next cycle's invalid source interval.
+            double sourceRoom = Math.Floor(period - Math.Max(0, target.Current.Ticks) - visibleEnd);
+            room = TimeSpan.FromTicks(TimelineHeadroom(target, sourceRoom));
+        }
+
+        return (visibleEnd, room);
     }
 
     private static TimeSpan SourceTailRoom(Target target, double sampledEndTicks)
