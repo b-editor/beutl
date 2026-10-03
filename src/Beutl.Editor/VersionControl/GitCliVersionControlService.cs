@@ -1306,6 +1306,41 @@ internal sealed class GitCliVersionControlService :
 
     internal Func<Guid, CancellationToken, Task<string>>? HostedGitTokenProvider { get; set; }
 
+    internal Task<Guid> GetHostedRepositoryCreationIdAsync(string ownerId, string name, CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        string fingerprint = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(ownerId + "\0" + name.Trim())));
+        string key = $"beutl.hosted-creation-{fingerprint}.id";
+        return RunSerializedAsync(async () =>
+        {
+            RepositoryInfo repository = GetRepository();
+            IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+            async Task<Guid?> ReadAsync(string[] arguments, CancellationToken token)
+            {
+                try
+                {
+                    GitCommandResult result = await runner.RunAsync(repository, arguments, GitCommandOptions.Local, token).ConfigureAwait(false);
+                    return Guid.TryParseExact(result.Stdout.Trim(), "D", out Guid id) && id != Guid.Empty
+                        ? id : throw new InvalidOperationException("The hosted repository creation identifier is invalid.");
+                }
+                catch (GitOperationException ex) when (ex.ExitCode == 1) { return null; }
+            }
+            Guid? existing = await ReadAsync(["config", "--local", "--get", key], cancellationToken).ConfigureAwait(false);
+            if (existing is Guid saved) return saved;
+            Guid creationId = default;
+            await UpdateLocalConfigAtomicallyAsync(repository, runner, async (stagingPath, token) =>
+            {
+                creationId = await ReadAsync(["config", "--file", stagingPath, "--get", key], token).ConfigureAwait(false) ?? Guid.NewGuid();
+                await runner.RunAsync(repository, ["config", "--file", stagingPath, "--replace-all", key, creationId.ToString("D")],
+                    GitCommandOptions.Local, token).ConfigureAwait(false);
+            }, "hosted repository creation recovery", cancellationToken).ConfigureAwait(false);
+            return creationId;
+        }, cancellationToken);
+    }
+
     private async Task<GitCommandOptions> GetNetworkOptionsAsync(
         GitCommandOptions baseline, CancellationToken cancellationToken, IReadOnlyList<string>? selectedUrls = null)
     {
@@ -9097,9 +9132,9 @@ internal sealed class GitCliVersionControlService :
                 // Askpass is a process-wide setting. Isolate hosted and external
                 // destinations so each keeps its own authentication behavior.
                 GitCommandResult fetchUrlsResult = await runner.RunAsync(repository,
-                    ["remote", "get-url", "--all", "origin"],
+                    ["remote", "get-url", "origin"],
                     GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
-                string[] fetchUrls = fetchUrlsResult.Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+                string fetchUrl = fetchUrlsResult.Stdout.Trim();
                 GitCommandResult trackingResult = await runner.RunAsync(repository,
                     ["-c", $"branch.{branchName}.remote=origin", "-c", $"branch.{branchName}.merge={remoteRef}",
                         "for-each-ref", "--format=%(upstream)", currentTip.RefName],
@@ -9107,7 +9142,7 @@ internal sealed class GitCliVersionControlService :
                 string trackingRef = trackingResult.Stdout.Trim();
                 foreach (string url in pushUrls)
                 {
-                    bool preserveTracking = trackingRef.Length > 0 && !fetchUrls.Contains(url, StringComparer.Ordinal);
+                    bool preserveTracking = trackingRef.Length > 0 && !string.Equals(fetchUrl, url, StringComparison.Ordinal);
                     string? previousTracking = preserveTracking
                         ? await ReadRefCommitAsync(repository, runner, trackingRef, cancellationToken).ConfigureAwait(false) : null;
                     try
@@ -9135,10 +9170,13 @@ internal sealed class GitCliVersionControlService :
                 // Install the upstream only after every destination accepted the captured commit.
                 if (upstream is null)
                 {
-                    await runner.RunAsync(repository, ["config", "--local", $"branch.{branchName}.remote", "origin"],
-                        GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
-                    await runner.RunAsync(repository, ["config", "--local", $"branch.{branchName}.merge", remoteRef],
-                        GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+                    await UpdateLocalConfigAtomicallyAsync(repository, runner, async (stagingPath, updateCancellation) =>
+                    {
+                        await runner.RunAsync(repository, ["config", "--file", stagingPath, "--replace-all", $"branch.{branchName}.remote", "origin"],
+                            GitCommandOptions.Local, updateCancellation).ConfigureAwait(false);
+                        await runner.RunAsync(repository, ["config", "--file", stagingPath, "--replace-all", $"branch.{branchName}.merge", remoteRef],
+                            GitCommandOptions.Local, updateCancellation).ConfigureAwait(false);
+                    }, "upstream update", cancellationToken).ConfigureAwait(false);
                 }
             }
             else

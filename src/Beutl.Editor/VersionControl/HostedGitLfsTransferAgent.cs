@@ -39,7 +39,7 @@ internal static class HostedGitLfsTransferAgent
     internal static async Task<int> RunAsync(
         TextReader input, TextWriter output, HttpClient http, CancellationToken cancellationToken,
         Func<string, long> fileLength, Func<string, Stream> openRead,
-        Func<string, Stream>? openWrite = null)
+        Func<string, Stream>? openWrite = null, TimeProvider? timeProvider = null)
     {
         try
         {
@@ -73,7 +73,8 @@ internal static class HostedGitLfsTransferAgent
                     }
                     else
                     {
-                        string path = await DownloadAsync(message, url, http, output, cancellationToken, openWrite);
+                        string path = await DownloadAsync(message, url, http, output, cancellationToken,
+                            openWrite, timeProvider ?? TimeProvider.System);
                         await WriteAsync(output, new { @event = "complete", oid, path });
                     }
                 }
@@ -146,7 +147,7 @@ internal static class HostedGitLfsTransferAgent
                 continue;
             }
             int currentPart = partNumber;
-            Uri partUrl = new(url.AbsoluteUri.TrimEnd('/') + $"/parts/{currentPart}");
+            Uri partUrl = new UriBuilder(url) { Path = url.AbsolutePath.TrimEnd('/') + $"/parts/{currentPart}" }.Uri;
             await SendWithRetryAsync(http, () =>
             {
                 var request = new HttpRequestMessage(HttpMethod.Put, partUrl);
@@ -160,7 +161,7 @@ internal static class HostedGitLfsTransferAgent
             progress += length;
             await ProgressAsync(output, message.Oid!, progress, length);
         }
-        Uri completeUrl = new(url.AbsoluteUri.TrimEnd('/') + "/complete");
+        Uri completeUrl = new UriBuilder(url) { Path = url.AbsolutePath.TrimEnd('/') + "/complete" }.Uri;
         using JsonDocument completedUpload = await WaitMultipartCompletionAsync(
             http, completeUrl, message.Action!.Header, cancellationToken);
         if (completedUpload.RootElement.GetProperty("oid").GetString() != message.Oid ||
@@ -378,7 +379,7 @@ internal static class HostedGitLfsTransferAgent
 
     private static async Task<string> DownloadAsync(
         Message message, Uri url, HttpClient http, TextWriter output, CancellationToken cancellationToken,
-        Func<string, Stream>? openWrite)
+        Func<string, Stream>? openWrite, TimeProvider timeProvider)
     {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-lfs-{Guid.NewGuid():N}");
         try
@@ -389,10 +390,13 @@ internal static class HostedGitLfsTransferAgent
             long received = 0;
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             int failures = 0;
+            int smallResponses = 0;
             long progressCheckpoint = 0;
-            long minimumProgress = Math.Min(1024 * 1024, Math.Max(1, message.Size / 16));
+            long minimumProgress = Math.Min(buffer.Length, Math.Max(1, message.Size / 16));
+            long progressStarted = timeProvider.GetTimestamp();
             while (received < message.Size && failures < 5)
             {
+                long previousReceived = received;
                 bool readingFromNetwork = true;
                 bool transportFailed = false;
                 try
@@ -442,17 +446,23 @@ internal static class HostedGitLfsTransferAgent
                 }
                 if (received - progressCheckpoint >= minimumProgress)
                 {
-                    failures = 0;
                     progressCheckpoint = received;
+                    progressStarted = timeProvider.GetTimestamp();
+                    smallResponses = 0;
                 }
                 else
                 {
-                    failures++;
+                    smallResponses++;
+                    if (timeProvider.GetElapsedTime(progressStarted) >= TimeSpan.FromMinutes(1))
+                        throw new IOException("LFS download made insufficient progress for one minute");
                 }
+                // A valid short range is progress, regardless of request count.
+                // Bound stalled retries separately from the slow-progress window.
+                failures = received > previousReceived ? 0 : failures + 1;
                 if (failures >= 5)
-                    throw new IOException("LFS download made insufficient progress after five attempts");
-                if (transportFailed || failures > 0)
-                    await Task.Delay(TimeSpan.FromSeconds(1 << Math.Max(0, failures - 1)), cancellationToken);
+                    throw new IOException("LFS download made no progress after five attempts");
+                if (transportFailed || failures > 0 || smallResponses > 0)
+                    await Task.Delay(TimeSpan.FromSeconds(1 << Math.Clamp(Math.Max(failures, smallResponses) - 1, 0, 3)), cancellationToken);
             }
             if (received != message.Size ||
                 !Convert.ToHexStringLower(hash.GetHashAndReset()).Equals(message.Oid, StringComparison.Ordinal))

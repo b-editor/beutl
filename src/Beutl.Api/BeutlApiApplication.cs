@@ -133,12 +133,14 @@ public class BeutlApiApplication : IAsyncDisposable
     internal IGitRepositoriesClient GitRepositories { get; }
 
     public async Task<HostedGitRepositoryResponse> CreateHostedGitRepositoryAsync(
-        string name, CancellationToken cancellationToken)
+        string name, Guid creationId, string ownerId, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+        if (creationId == Guid.Empty) throw new ArgumentException("A creation identifier is required.", nameof(creationId));
         AuthenticatedApiResult<HostedGitRepositoryResponse> result = await SendAuthenticatedAsync(
             (authorization, token) => GitRepositories.CreateRepository(
-                authorization, new CreateHostedGitRepositoryRequest(name), token),
+                authorization, new CreateHostedGitRepositoryRequest(name, creationId, ownerId), token),
             cancellationToken).ConfigureAwait(false);
         return result.Value;
     }

@@ -18,7 +18,7 @@ internal interface IGitRepositoriesClient
         CancellationToken cancellationToken);
 }
 
-internal sealed record CreateHostedGitRepositoryRequest(string Name);
+internal sealed record CreateHostedGitRepositoryRequest(string Name, Guid CreationId, string OwnerId);
 internal sealed record HostedGitTokenRequest(string Scope);
 public sealed record HostedGitRepositoryResponse(Guid Id, string Name, string Url);
 public sealed record HostedGitTokenResponse(string Token, DateTimeOffset ExpiresAt);

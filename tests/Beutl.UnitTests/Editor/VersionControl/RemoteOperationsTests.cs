@@ -69,7 +69,10 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string previousTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await CommitFileAsync("next.txt", "next\n", "next");
         if (!fetchPushed)
+        {
             await RunGitAsync("remote", "set-url", "origin", await CreateBareRemoteAsync());
+            await RunGitAsync("remote", "set-url", "--add", "origin", external);
+        }
         await RunGitAsync("remote", "set-url", "--push", "origin", hostedFirst ? hosted : external);
         await RunGitAsync("remote", "set-url", "--add", "--push", "origin", hostedFirst ? external : hosted);
         if (!existingUpstream)
@@ -146,6 +149,51 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
     [TestCase(false)]
     [TestCase(true)]
+    public async Task Mixed_push_keeps_both_upstream_settings_unchanged_if_staging_fails(bool cancelled)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string external = await CreateBareRemoteAsync();
+        string hostedFixture = await CreateBareRemoteAsync();
+        string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
+        await RunGitAsync("remote", "add", "origin", external);
+        await RunGitAsync("remote", "set-url", "--push", "origin", external);
+        await RunGitAsync("remote", "set-url", "--add", "--push", "origin", hosted);
+        byte[] originalConfig = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config"));
+        Exception failure = cancelled ? new OperationCanceledException() : new GitOperationException(4, "fixture config write failure");
+        var runner = new MixedPushRunner(CreateRunner(), hosted, hostedFixture, upstreamFailure: failure);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        service.HostedGitTokenProvider = (_, _) => Task.FromResult("temporary");
+        if (cancelled)
+            await Assert.ThrowsAsync<OperationCanceledException>(() => service.PushAsync(null, CancellationToken.None));
+        else
+            Assert.That(await service.PushAsync(null, CancellationToken.None), Is.Not.TypeOf<RemoteOpResult.Success>());
+        Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(originalConfig));
+        Assert.That(File.Exists(Path.Combine(Root, ".git", "config.lock")), Is.False);
+        string tip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        Assert.That(await ReadRemoteHeadAsync(external), Is.EqualTo(tip));
+        Assert.That(await ReadRemoteHeadAsync(hostedFixture), Is.EqualTo(tip));
+    }
+
+    [Test]
+    public async Task Hosted_creation_id_survives_service_recreation_and_is_scoped_to_owner_and_name()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        Guid saved;
+        using (var service = CreateService())
+        {
+            saved = await service.GetHostedRepositoryCreationIdAsync("owner-a", "project", CancellationToken.None);
+            Assert.That(saved, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(await service.GetHostedRepositoryCreationIdAsync("owner-a", " project ", CancellationToken.None), Is.EqualTo(saved));
+            Assert.That(await service.GetHostedRepositoryCreationIdAsync("owner-b", "project", CancellationToken.None), Is.Not.EqualTo(saved));
+            Assert.That(await service.GetHostedRepositoryCreationIdAsync("owner-a", "different", CancellationToken.None), Is.Not.EqualTo(saved));
+        }
+        using var recreated = CreateService();
+        Assert.That(await recreated.GetHostedRepositoryCreationIdAsync("owner-a", "project", CancellationToken.None), Is.EqualTo(saved));
+        Assert.That((await RunGitAsync("remote")).Stdout, Is.Empty);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
     public async Task Hosted_origin_does_not_require_a_token_for_local_branch_creation(bool signedOut)
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
@@ -186,7 +234,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     private sealed class MixedPushRunner(IGitCliRunner inner, string hostedUrl, string hostedFixture,
-        bool rejectExternal = false) : IGitCliRunner
+        bool rejectExternal = false, Exception? upstreamFailure = null) : IGitCliRunner
     {
         public bool HasActiveProcess => inner.HasActiveProcess;
         public List<GitCommandOptions> Options { get; } = [];
@@ -195,6 +243,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         public Task<GitCommandResult> RunAsync(RepositoryInfo repository, IReadOnlyList<string> arguments,
             GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? stderrProgress = null)
         {
+            if (upstreamFailure is not null && GetGitSubcommand(arguments) == "config" &&
+                arguments.Contains("--file") && arguments.Contains("branch.main.merge"))
+                throw upstreamFailure;
             if (GetGitSubcommand(arguments) == "push")
             {
                 Options.Add(options);

@@ -184,17 +184,68 @@ public class HostedGitLfsTransferAgentTests
     public async Task DownloadBoundsRepeatedOneByteResponsesForALargeObject()
     {
         int requests = 0;
+        var clock = new AdvancingTimeProvider();
         using var handler = new CallbackHandler((request, _) =>
         {
+            clock.Advance(TimeSpan.FromSeconds(15));
             long start = request.Headers.Range?.Ranges.Single().From ?? 0;
             requests++;
             var content = new ByteArrayContent([42]);
             content.Headers.ContentRange = new ContentRangeHeaderValue(start, start, ObjectSize);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = content });
         });
-        using var output = await TransferAsync(handler, "download", ObjectSize, "https://storage.example/object", []);
+        using var output = await TransferAsync(handler, "download", ObjectSize, "https://storage.example/object", [], timeProvider: clock);
         AssertError(output, "insufficient progress");
+        Assert.That(requests, Is.EqualTo(4));
+    }
+
+    [Test]
+    public async Task DownloadResumesALargeObjectAcrossManyValidShortRanges()
+    {
+        byte[] bytes = new byte[16 * 1024 * 1024];
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        int requests = 0;
+        using var handler = new CallbackHandler((request, _) =>
+        {
+            int start = (int)(request.Headers.Range?.Ranges.Single().From ?? 0);
+            int end = Math.Min(start + 128 * 1024, bytes.Length);
+            requests++;
+            var content = new ByteArrayContent(bytes[start..end]);
+            content.Headers.ContentRange = new ContentRangeHeaderValue(start, end - 1, bytes.Length);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = content });
+        });
+        using var output = await TransferAsync(handler, "download", bytes.Length, "https://storage.example/object", bytes, oid);
+        AssertSuccess(output);
+        using JsonDocument completed = LastMessage(output);
+        string path = completed.RootElement.GetProperty("path").GetString()!;
+        try
+        {
+            Assert.That(requests, Is.EqualTo(128));
+            Assert.That(await File.ReadAllBytesAsync(path), Is.EqualTo(bytes));
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Test]
+    public async Task DownloadBoundsResponsesWithoutAnyProgress()
+    {
+        int requests = 0;
+        using var handler = new CallbackHandler((_, _) =>
+        {
+            requests++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([]) });
+        });
+        using var output = await TransferAsync(handler, "download", ObjectSize, "https://storage.example/object", []);
+        AssertError(output, "no progress");
         Assert.That(requests, Is.EqualTo(5));
+    }
+
+    private sealed class AdvancingTimeProvider : TimeProvider
+    {
+        private long _timestamp;
+        public override long TimestampFrequency => 1000;
+        public override long GetTimestamp() => _timestamp;
+        public void Advance(TimeSpan duration) => _timestamp += (long)duration.TotalMilliseconds;
     }
 
     private sealed class FailingWriteStream(string path, int partiallyWritten) : FileStream(path,
@@ -264,6 +315,28 @@ public class HostedGitLfsTransferAgentTests
     }
 
     [Test]
+    public async Task MultipartChildPathsPreserveQueryAuthentication()
+    {
+        var paths = new List<string>();
+        using var handler = new CallbackHandler(async (request, token) =>
+        {
+            Assert.That(request.RequestUri!.Query, Is.EqualTo("?signature=x%2Fy"));
+            paths.Add(request.RequestUri.AbsolutePath);
+            if (request.Method == HttpMethod.Put)
+            {
+                Assert.That(await request.Content!.ReadAsByteArrayAsync(token), Is.EqualTo("data"u8.ToArray()));
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            }
+            return request.RequestUri.AbsolutePath.EndsWith("/complete")
+                ? JsonResponse(new { oid = s_oid, size = 4 })
+                : JsonResponse(new { partSize = PartSize, partCount = 1, parts = Array.Empty<object>() });
+        });
+        using var output = await TransferAsync(handler, "upload", 4, "https://storage.example/multipart?signature=x%2Fy", "data"u8.ToArray());
+        AssertSuccess(output);
+        Assert.That(paths, Is.EqualTo(new[] { "/multipart", "/multipart/parts/1", "/multipart/complete" }));
+    }
+
+    [Test]
     public async Task TusRejectsCreationLocationOnAnotherHost()
     {
         using var handler = new CallbackHandler((_, _) =>
@@ -308,13 +381,13 @@ public class HostedGitLfsTransferAgentTests
     }
 
     private static async Task<StringWriter> TransferAsync(HttpMessageHandler handler, string operation,
-        long size, string href, byte[] bytes, string? oid = null)
+        long size, string href, byte[] bytes, string? oid = null, TimeProvider? timeProvider = null)
     {
         using var http = new HttpClient(handler, disposeHandler: false);
         using var input = TransferInput(operation, size, "fixture", href, oid: oid);
         var output = new StringWriter();
         int result = await HostedGitLfsTransferAgent.RunAsync(input, output, http, CancellationToken.None,
-            _ => bytes.Length, _ => new MemoryStream(bytes, writable: false));
+            _ => bytes.Length, _ => new MemoryStream(bytes, writable: false), timeProvider: timeProvider);
         Assert.That(result, Is.Zero, output.ToString());
         return output;
     }
