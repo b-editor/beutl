@@ -550,6 +550,7 @@ public sealed partial class ElementView : UserControl
                                 }
                             }
                         }
+                        AlignSharedResizeEdges(scale);
 
                         e.Handled = true;
                     }
@@ -659,10 +660,12 @@ public sealed partial class ElementView : UserControl
                     }
 
                     bool clampToOriginal = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+                    ElementViewModel[] participants = filteredElements.ToArray();
+                    var timingPeers = participants.Select(elem => elem.Model).ToHashSet();
 
-                    _resizeContexts = filteredElements.Select(elem =>
+                    _resizeContexts = participants.Select(elem =>
                     {
-                        var constraints = clampToOriginal ? SlippableMedia.CreateResizeConstraints(elem.Model) : null;
+                        var constraints = clampToOriginal ? SlippableMedia.CreateResizeConstraints(elem.Model, timingPeers) : null;
                         TimeSpan? originalDuration = _resizeType == AlignmentX.Right && constraints?.HasMonotonicDuration == true
                             ? constraints.GetMaximumDuration()
                             : null;
@@ -681,6 +684,26 @@ public sealed partial class ElementView : UserControl
                     _pressed = true;
                     e.Handled = true;
                 }
+            }
+        }
+
+        private void AlignSharedResizeEdges(float scale)
+        {
+            var limits = _resizeContexts.Select(ctx => ctx.MediaConstraints)
+                .OfType<SlippableMedia.ResizeConstraints>().ToArray();
+            if (!limits.Any(limit => limit.HasSharedClock)) return;
+            bool leftEdge = _resizeType == AlignmentX.Left;
+            TimeSpan delta = _resizeContexts.Select(ctx => leftEdge
+                    ? ctx.ViewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale) - ctx.RecordedStartTime
+                    : ctx.ViewModel.Width.Value.PixelToTimeSpan(scale) - (ctx.RecordedEndTime - ctx.RecordedStartTime))
+                .MinBy(value => Math.Abs(value.Ticks));
+            delta = SlippableMedia.ClampSharedResizeDelta(limits, delta, leftEdge);
+            foreach (ElementResizeContext ctx in _resizeContexts)
+            {
+                TimeSpan start = ctx.RecordedStartTime + (leftEdge ? delta : TimeSpan.Zero);
+                TimeSpan end = ctx.RecordedEndTime + (leftEdge ? TimeSpan.Zero : delta);
+                ctx.ViewModel.BorderMargin.Value = new Thickness(start.TimeToPixel(scale), 0, 0, 0);
+                ctx.ViewModel.Width.Value = (end - start).TimeToPixel(scale);
             }
         }
 

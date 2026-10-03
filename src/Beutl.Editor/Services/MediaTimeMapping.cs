@@ -53,6 +53,8 @@ internal sealed class MediaTimeMapping
 
     public bool HasVariableDuration => _controllers.Any(c => c.HasVariableDuration);
 
+    public bool HasSharedClock => _sourceClock.UsesPeerClock || _controllers.Any(c => c.HasSharedClock);
+
     public (long Phase, long DurationOffset)? DurationLoopPhase(TimeSpan startDelta = default)
     {
         var geometry = new TimeRange(_elementRange.Start + startDelta, _elementRange.Duration);
@@ -130,6 +132,8 @@ internal sealed class MediaTimeMapping
 
         public bool ChangesWithElement => _followsElement;
 
+        public bool UsesPeerClock { get; }
+
         public Clock(Element element, EngineObject obj, IReadOnlySet<Element>? timingPeers = null)
         {
             _range = obj.TimeRange;
@@ -141,10 +145,12 @@ internal sealed class MediaTimeMapping
             {
                 if (current is EngineObject engine)
                 {
-                    if (element.Objects.Contains(engine)
-                        || timingPeers?.Any(peer => peer.Objects.Contains(engine)) == true)
+                    bool ownedHere = element.Objects.Contains(engine);
+                    bool ownedByPeer = !ownedHere && timingPeers?.Any(peer => peer.Objects.Contains(engine)) == true;
+                    if (ownedHere || ownedByPeer)
                     {
                         _followsElement = true;
+                        UsesPeerClock = ownedByPeer;
                         break;
                     }
                     if (engine.IsTimeAnchor) break;
@@ -152,6 +158,7 @@ internal sealed class MediaTimeMapping
                 if (current == element || current is Element peer && timingPeers?.Contains(peer) == true)
                 {
                     _followsElement = true;
+                    UsesPeerClock = current != element;
                     break;
                 }
                 current = current.HierarchicalParent;
@@ -181,6 +188,8 @@ internal sealed class MediaTimeMapping
         public bool IsSupported => !_hasMappingExpression && _speed.IsSupported;
 
         public bool HasVariableDuration => _targetClock?.ChangesWithElement == true && (_loop || _reverse || _holdLast);
+
+        public bool HasSharedClock => _clock.UsesPeerClock || _targetClock?.UsesPeerClock == true;
 
         public (long Phase, long DurationOffset)? DurationLoopPhase(Interval time, TimeRange elementRange, TimeSpan originalLength)
         {

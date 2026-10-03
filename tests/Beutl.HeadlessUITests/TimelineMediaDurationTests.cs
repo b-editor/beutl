@@ -553,6 +553,83 @@ public class TimelineMediaDurationTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task GroupedResize_SharedTargetOwner_PreviewsAndCommitsTheSameEdge(bool leftEdge)
+    {
+        using var configuration = new RippleDisabledScope();
+        SourceVideo video = CreateDurationVideo();
+        video.Speed.CurrentValue = 200;
+        ElementViewModel owner = await OpenElement(video, lengthSeconds: 0.4);
+        owner.Model.ZIndex = 1;
+        TimelineTabViewModel timeline = owner.Timeline;
+        var adder = (IElementAdder)timeline.EditorContext.GetService(typeof(IElementAdder))!;
+        Assert.That((await adder.AddAsync([new ElementDescription(
+            Start: owner.Model.Start, Length: owner.Model.Length, Layer: 0,
+            Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None)).IsSuccess, Is.True);
+        Element peer = owner.Scene.Children.Single(e => e != owner.Model);
+        Assert.That(peer.Range, Is.EqualTo(owner.Model.Range));
+        peer.Objects.Clear();
+        peer.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        peer.Objects.Add(new DrawableTimeController { Target = { CurrentValue = video }, Reverse = { CurrentValue = true } });
+        peer.Name = "Shared reversed video";
+        HeadlessTestHelpers.Settle();
+        ElementViewModel presented = timeline.GetViewModelFor(peer)!;
+        timeline.ClearSelected();
+        timeline.SelectElement(owner);
+        timeline.SelectElement(presented);
+        owner.GroupSelectedElements.Execute();
+        HeadlessTestHelpers.Settle();
+        Assert.That(presented.GetGroupOrSelectedElements(), Has.Count.EqualTo(2));
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 1200, Height = 420 };
+        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+        try
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            ElementView element = view.GetVisualDescendants().OfType<ElementView>()
+                .Single(v => ReferenceEquals(v.DataContext, presented));
+            Border border = element.FindControl<Border>("border")!;
+            float scale = timeline.Options.Value.Scale;
+            Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, border.Bounds.Height / 2), window)!.Value;
+            double releaseX = TimeSpan.FromSeconds(leftEdge ? -0.35 : 0.75).TimeToPixel(scale);
+            Point release = border.TranslatePoint(new Point(releaseX, border.Bounds.Height / 2), window)!.Value;
+            window.MouseMove(press, RawInputModifiers.Alt);
+            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
+            try
+            {
+                window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
+                HeadlessTestHelpers.Render(5);
+                CapturePreview(window, $"grouped-shared-clock-left-{leftEdge}");
+                Assert.Multiple(() =>
+                {
+                    Assert.That(owner.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(0.5).TimeToPixel(scale)).Within(0.0001));
+                    Assert.That(presented.Width.Value, Is.EqualTo(owner.Width.Value).Within(0.0001));
+                });
+            }
+            finally
+            {
+                window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
+                HeadlessTestHelpers.Settle(4);
+            }
+            Assert.That(owner.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+            Assert.That(owner.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 0.9 : 1)));
+            Assert.That(peer.Range, Is.EqualTo(owner.Model.Range));
+            HeadlessTestHelpers.Render(5);
+            CapturePreview(window, $"grouped-shared-clock-left-{leftEdge}-committed");
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
+            view.DataContext = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     private static async Task<ElementViewModel> OpenElement(EngineObject media, double startSeconds = 1, double lengthSeconds = 1)
     {
         await TestReset.ResetShellAsync();

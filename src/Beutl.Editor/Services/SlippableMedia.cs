@@ -246,6 +246,12 @@ internal static class SlippableMedia
     {
         public bool HasMonotonicDuration => targets.All(t => !t.Mapping.HasVariableDuration);
 
+        public bool HasSharedClock => targets.Any(t => t.Mapping.HasSharedClock);
+
+        public TimeSpan ClampEdgeDelta(TimeSpan delta, bool leftEdge)
+            => leftEdge ? ClampStart(elementStart + delta) - elementStart
+                : ClampLength(elementLength + delta) - elementLength;
+
         public TimeSpan ClampStart(TimeSpan requestedStart)
         {
             if (requestedStart > elementStart + elementLength) requestedStart = elementStart + elementLength;
@@ -346,8 +352,22 @@ internal static class SlippableMedia
                 || length <= (allowRecovery && elementLength > maximum ? elementLength : maximum);
     }
 
-    public static ResizeConstraints CreateResizeConstraints(Element element)
-        => new(element.Start, element.Length, Collect(element), GetProviderDuration(element));
+    public static ResizeConstraints CreateResizeConstraints(Element element, IReadOnlySet<Element>? timingPeers = null)
+        => new(element.Start, element.Length, Collect(element, timingPeers), GetProviderDuration(element));
+
+    public static TimeSpan ClampSharedResizeDelta(IReadOnlyList<ResizeConstraints> constraints, TimeSpan delta, bool leftEdge)
+    {
+        TimeSpan previous;
+        do
+        {
+            previous = delta;
+            foreach (ResizeConstraints constraint in constraints)
+                delta = constraint.ClampEdgeDelta(delta, leftEdge);
+            // A peer's tighter limit can select an unsafe intermediate loop phase.
+            // Keep the shared edge and all clocks on the same validated delta.
+        } while (delta != TimeSpan.Zero && delta != previous);
+        return delta;
+    }
 
     public static TimeSpan? GetMaximumDuration(Element element, TimeSpan? start = null)
         => CreateResizeConstraints(element).GetMaximumDuration(start);

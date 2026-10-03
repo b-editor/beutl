@@ -31,18 +31,25 @@ public sealed class ElementResizeService : IElementResizeService
         if (rate <= 0) rate = 30;
         TimeSpan minLength = TimeSpan.FromTicks((TimeSpan.TicksPerSecond + (long)rate - 1) / rate);
         requests = NormalizeRequests(requests, ripple, minLength);
+        var peerGroups = requests.Select(req => (Request: req, Edge: GetResizeEdge(req)))
+            .Where(entry => entry.Edge.HasValue)
+            .GroupBy(entry => entry.Edge!.Value)
+            .Select(group => new ResizePeerGroup(group.Key.LeftEdge, group.Select(entry => entry.Request.Element).ToHashSet()))
+            .ToArray();
         var mediaConstraints = new Dictionary<Element, SlippableMedia.ResizeConstraints>();
         requests = requests.Select(req =>
         {
             if (req.ClampToSource || req.NewLength != req.Element.Length
                 && GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
             {
-                var constraints = SlippableMedia.CreateResizeConstraints(req.Element);
+                var peers = peerGroups.FirstOrDefault(group => group.Elements.Contains(req.Element))?.Elements;
+                var constraints = SlippableMedia.CreateResizeConstraints(req.Element, peers);
                 mediaConstraints[req.Element] = constraints;
                 return ClampMedia(req, constraints, minLength);
             }
             return req;
         }).ToArray();
+        requests = ClampSharedResizeEdges(requests, peerGroups, mediaConstraints);
 
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
@@ -67,6 +74,13 @@ public sealed class ElementResizeService : IElementResizeService
                 clamped![req.Element] = (start, length);
                 oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
             }
+            var finalRequests = requests.Select(req => req with
+            {
+                NewStart = clamped![req.Element].Start,
+                NewLength = clamped[req.Element].Length
+            }).ToArray();
+            foreach (ElementResizeRequest req in ClampSharedResizeEdges(finalRequests, peerGroups, mediaConstraints))
+                clamped![req.Element] = (req.NewStart, req.NewLength);
         }
 
         if (ripple)
@@ -113,6 +127,44 @@ public sealed class ElementResizeService : IElementResizeService
         }
 
         _historyManager.Commit(CommandNames.MoveElement);
+    }
+
+    private sealed record ResizePeerGroup(bool LeftEdge, HashSet<Element> Elements);
+
+    private static (bool LeftEdge, TimeSpan Before, TimeSpan After)? GetResizeEdge(ElementResizeRequest request)
+    {
+        Element element = request.Element;
+        if (request.NewStart != element.Start && request.NewStart + request.NewLength == element.Range.End)
+            return (true, element.Start, request.NewStart);
+        if (request.NewStart == element.Start && request.NewLength != element.Length)
+            return (false, element.Range.End, request.NewStart + request.NewLength);
+        return null;
+    }
+
+    private static ElementResizeRequest[] ClampSharedResizeEdges(IReadOnlyList<ElementResizeRequest> requests,
+        IReadOnlyList<ResizePeerGroup> groups, Dictionary<Element, SlippableMedia.ResizeConstraints> constraints)
+    {
+        ElementResizeRequest[] result = requests.ToArray();
+        foreach (ResizePeerGroup group in groups)
+        {
+            var limits = group.Elements.Select(element => constraints.GetValueOrDefault(element))
+                .OfType<SlippableMedia.ResizeConstraints>().ToArray();
+            if (!limits.Any(limit => limit.HasSharedClock)) continue;
+            int[] indices = Enumerable.Range(0, result.Length).Where(i => group.Elements.Contains(result[i].Element)).ToArray();
+            TimeSpan delta = indices.Select(i => group.LeftEdge
+                    ? result[i].NewStart - result[i].Element.Start
+                    : result[i].NewLength - result[i].Element.Length)
+                .MinBy(value => Math.Abs(value.Ticks));
+            delta = SlippableMedia.ClampSharedResizeDelta(limits, delta, group.LeftEdge);
+            foreach (int i in indices)
+            {
+                Element element = result[i].Element;
+                result[i] = group.LeftEdge
+                    ? result[i] with { NewStart = element.Start + delta, NewLength = element.Length - delta }
+                    : result[i] with { NewLength = element.Length + delta };
+            }
+        }
+        return result;
     }
 
     private static void ExtendSceneDurationToIncludeChildren(Scene scene)

@@ -944,6 +944,70 @@ public class TrimTimeControllerTests
         Assert.That(element.Length, Is.EqualTo(Seconds(1)));
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Resize_SharedTargetOwner_ResizesBothClocksTogether(bool leftEdge, bool reverseOrder)
+    {
+        var video = CreateVideo(5, speed: 200);
+        Element owner = AddElement(5, 2, video);
+        owner.ZIndex = 1;
+        Element presented = _harness.AddElement(Seconds(5), Seconds(2), 0);
+        var controller = CreateController(video);
+        controller.Reverse.CurrentValue = true;
+        presented.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        presented.Objects.Add(controller);
+        TimeSpan start = Seconds(leftEdge ? 4 : 5);
+        ElementResizeRequest[] requests = [new(owner, start, Seconds(3), 1), new(presented, start, Seconds(3), 0)];
+        if (reverseOrder) Array.Reverse(requests);
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        Assert.That(ReadPosition(compositor.EvaluateGraphics(owner.Start).Objects.OfType<DrawableTimeController.Resource>().Single()), Is.EqualTo(4));
+
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, requests);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.Start, Is.EqualTo(Seconds(leftEdge ? 4.5 : 5)));
+            Assert.That(owner.Length, Is.EqualTo(Seconds(2.5)));
+            Assert.That(presented.Range, Is.EqualTo(owner.Range));
+            Assert.That(ReadPosition(compositor.EvaluateGraphics(presented.Start).Objects.OfType<DrawableTimeController.Resource>().Single()),
+                Is.EqualTo(5).Within(0.000001));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+        _harness.History.Undo();
+        Assert.That(owner.Range, Is.EqualTo(new TimeRange(Seconds(5), Seconds(2))));
+        Assert.That(presented.Range, Is.EqualTo(owner.Range));
+        _harness.History.Redo();
+        Assert.That(presented.Range, Is.EqualTo(owner.Range));
+        Assert.That(owner.Length, Is.EqualTo(Seconds(2.5)));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Resize_SharedTargetOwner_UsesTheTighterPeerLimit(bool ripple, bool barrier)
+    {
+        var video = CreateVideo(5, speed: 200);
+        Element owner = AddElement(5, 1, video);
+        owner.ZIndex = 1;
+        if (barrier)
+            _harness.AddElement(Seconds(6.25), Seconds(1), 1).IsLocked = true;
+        else
+            owner.Objects.Add(new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = Seconds(1.5) } } });
+        Element presented = _harness.AddElement(Seconds(5), Seconds(1), 0);
+        var controller = CreateController(video);
+        controller.Reverse.CurrentValue = true;
+        presented.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        presented.Objects.Add(controller);
+
+        new ElementResizeService(_harness.History).Resize(_harness.Scene,
+            [new(owner, owner.Start, Seconds(3), 1), new(presented, presented.Start, Seconds(3), 0)], ripple);
+
+        Assert.That(owner.Length, Is.EqualTo(Seconds(barrier ? 1.25 : 1.5)));
+        Assert.That(presented.Range, Is.EqualTo(owner.Range));
+    }
+
     private Element AddElement(double startSeconds, double lengthSeconds, Drawable drawable)
     {
         Element element = _harness.AddElement(Seconds(startSeconds), Seconds(lengthSeconds));
