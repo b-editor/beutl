@@ -1292,6 +1292,43 @@ public class IpcProviderContractTests
     }
 
     [Test]
+    public async Task Sample_WhenFreshSeekFails_PreviousCachedChunkRemainsUsable()
+    {
+        const long sampleRate = 4;
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        using var hostCts = new CancellationTokenSource();
+        Task hostTask = RunSampleErrorsOnOffsetHost(
+            server, buffers, erroringOffset: 2 * sampleRate, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 12, sampleRate: sampleRate);
+
+        try
+        {
+            using Pcm<Stereo32BitFloat> first = await provider.Sample(0, sampleRate);
+            Assert.That(ReadSampleSignature(first), Is.Zero);
+
+            Assert.That(async () => await provider.Sample(2 * sampleRate, sampleRate),
+                Throws.TypeOf<FFmpegWorkerException>());
+
+            using Pcm<Stereo32BitFloat> cached = await provider.Sample(0, sampleRate);
+            Assert.Multiple(() =>
+            {
+                Assert.That(cached.NumSamples, Is.EqualTo(first.NumSamples));
+                Assert.That(cached.DataSpan.ToArray(), Is.EqualTo(first.DataSpan.ToArray()),
+                    "A failed fresh seek must leave the previous cached samples available.");
+            });
+        }
+        finally
+        {
+            provider.Dispose();
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
     public async Task Sample_WhenPrefetchFaults_RecoversOnRetry()
     {
         // A faulted sample prefetch must not pin the provider. Consuming chunk 0 arms a prefetch of chunk 1

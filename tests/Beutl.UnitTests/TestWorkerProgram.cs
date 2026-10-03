@@ -7,6 +7,8 @@ internal static class TestWorkerProgram
     public const string PackageInstallWorkerArgument = "--package-install-worker";
     public const string BitmapSaveWorkerArgument = "--bitmap-save-worker";
     public const string ProjectFontWorkerArgument = "--project-font-worker";
+    public const string XAudioLifetimeWorkerArgument = "--xaudio-lifetime-worker";
+    public const string FFmpegLifetimeWorkerArgument = "--ffmpeg-lifetime-worker";
 
     private static async Task<int> Main(string[] args)
     {
@@ -22,6 +24,15 @@ internal static class TestWorkerProgram
                     break;
                 case [ProjectFontWorkerArgument, var package, var destination]:
                     await Editor.ProjectPackageFontTests.RunImportWorker(package, destination);
+                    break;
+                case [XAudioLifetimeWorkerArgument, var action]:
+                    Engine.Audio.XAudioLifetimeTests.RunWorker(action);
+                    break;
+                case [FFmpegLifetimeWorkerArgument, "--test", var testAction]:
+                    await Extensions.FFmpeg.FFmpegWorkerProcessLifetimeTests.RunHostAsync(testAction);
+                    break;
+                case [FFmpegLifetimeWorkerArgument, .. var workerArguments]:
+                    await Extensions.FFmpeg.FFmpegWorkerProcessLifetimeTests.RunWorkerAsync(workerArguments);
                     break;
                 default:
                     Console.Error.WriteLine("Run tests with dotnet test. Direct execution requires a supported worker argument.");
