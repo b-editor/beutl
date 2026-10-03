@@ -1349,6 +1349,25 @@ internal sealed class GitCliVersionControlService :
         IReadOnlyList<string> urls = selectedUrls ?? (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false))
             .Where(remote => remote.Name == "origin").Select(remote => remote.Url).ToArray();
         bool hosted = urls.Any(url => HostedGitRemote.TryParse(url, out _));
+        bool hostedPush = hosted && arguments.Count > 0 && arguments[0] == "push";
+        IReadOnlyList<string> networkArguments = hostedPush
+            ? ["push", "--no-verify", .. arguments.Skip(1)]
+            : arguments;
+        string? lfsPushReference = null;
+        if (hostedPush)
+        {
+            string reference = arguments[^1].Split(':', 2)[0];
+            (GitAvailability availability, _) = await GetGitRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
+            if (availability.LfsInstalled)
+            {
+                lfsPushReference = reference;
+            }
+            else if (await TargetContainsLfsPointerAsync(repository, runner, reference,
+                         LfsPrefetchScope.RepositoryWide, cancellationToken).ConfigureAwait(false))
+            {
+                throw new GitOperationException(1, "Install Git LFS before pushing this hosted revision.");
+            }
+        }
         // Capture one issuer for all renewals. Its closure pins the initiating account.
         Func<Guid, CancellationToken, Task<string>>? issuer = hosted
             ? HostedGitTokenProviderFactory?.Invoke()
@@ -1363,7 +1382,14 @@ internal sealed class GitCliVersionControlService :
             GitCommandOptions options = targets.Count == 0 ? baseline : HostedGitRemote.CreateOptions(targets, baseline);
             try
             {
-                await runner.RunAsync(repository, arguments, options, cancellationToken, progress).ConfigureAwait(false);
+                // Invoke the installed LFS command directly, then bypass repository hooks:
+                // a pre-push hook must never inherit the temporary hosted write token.
+                if (lfsPushReference is not null)
+                {
+                    await runner.RunAsync(repository, ["lfs", "push", "origin", lfsPushReference],
+                        options, cancellationToken, progress).ConfigureAwait(false);
+                }
+                await runner.RunAsync(repository, networkArguments, options, cancellationToken, progress).ConfigureAwait(false);
                 return;
             }
             catch (GitOperationException ex) when (attempt < 4 && hosted && IsHostedAuthenticationFailure(ex))

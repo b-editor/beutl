@@ -11,6 +11,90 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     private const string HostedBatchAuthenticationFailure =
         "batch response: Authentication required: Authorization error: https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git/info/lfs/objects/batch";
 
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task Hosted_push_uploads_lfs_before_publishing_without_running_repository_hooks(
+        bool lfsInstalled, bool failLfs)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        const string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
+        await RunGitAsync("remote", "add", "origin", hosted);
+        string hooksDirectory = Path.Combine(Root, "custom-hooks");
+        Directory.CreateDirectory(hooksDirectory);
+        string hookPath = Path.Combine(hooksDirectory, "pre-push");
+        string marker = Path.Combine(Root, "pre-push-ran");
+        await File.WriteAllTextAsync(hookPath, "#!/bin/sh\nprintf 'ran' > pre-push-ran\nexit 97\n");
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(hookPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        await RunGitAsync("config", "core.hooksPath", hooksDirectory);
+        var runner = new LocalHostedPushRunner(CreateRunner(), remoteRoot, failLfs);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(lfsInstalled), Repository, null, _ => runner);
+        int issued = 0;
+        service.HostedGitTokenProviderFactory = () => (_, _) => Task.FromResult($"token-{++issued}");
+
+        RemoteOpResult result = await service.PushAsync(null, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result is RemoteOpResult.Success, Is.EqualTo(!failLfs));
+            Assert.That(File.Exists(marker), Is.False);
+            Assert.That(issued, Is.EqualTo(1));
+            Assert.That(runner.Calls.Select(call => call[0]), Is.EqualTo(failLfs
+                ? new[] { "lfs" } : lfsInstalled ? new[] { "lfs", "push" } : new[] { "push" }));
+            if (lfsInstalled)
+                Assert.That(runner.Calls[0], Is.EqualTo(new[] { "lfs", "push", "origin", "refs/heads/main" }));
+            if (!failLfs)
+                Assert.That(runner.Calls[^1], Does.Contain("--no-verify"));
+        });
+        if (!failLfs)
+            Assert.That(await ReadRemoteHeadAsync(remoteRoot), Is.EqualTo((await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim()));
+    }
+
+    [Test]
+    public async Task Hosted_push_requires_lfs_for_a_pointer_before_requesting_a_token()
+    {
+        await CommitFileAsync("media.bin", "version https://git-lfs.github.com/spec/v1\n"
+            + $"oid sha256:{new string('a', 64)}\nsize 1\n", "LFS pointer");
+        await RunGitAsync("remote", "add", "origin",
+            "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git");
+        var runner = new LocalHostedPushRunner(CreateRunner(), await CreateBareRemoteAsync(), false);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        service.HostedGitTokenProviderFactory = () => throw new AssertionException("A missing LFS client must fail before authentication");
+
+        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.TypeOf<RemoteOpResult.Failed>());
+        Assert.That(runner.Calls, Is.Empty);
+    }
+
+    private sealed class LocalHostedPushRunner(IGitCliRunner inner, string remoteRoot, bool failLfs) : IGitCliRunner
+    {
+        public bool HasActiveProcess => inner.HasActiveProcess;
+        public List<IReadOnlyList<string>> Calls { get; } = [];
+
+        public Task<GitCommandResult> RunAsync(RepositoryInfo repository, IReadOnlyList<string> arguments,
+            GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.Count > 1 && arguments[0] == "lfs" && arguments[1] == "push")
+            {
+                Calls.Add(arguments.ToArray());
+                if (failLfs) throw new GitOperationException(1, "LFS upload failed");
+                return Task.FromResult(new GitCommandResult(0, "", ""));
+            }
+            if (arguments.Count > 0 && arguments[0] == "push")
+            {
+                Calls.Add(arguments.ToArray());
+                Assert.That(options.EnvironmentOverrides!.Values, Does.Contain("Authorization: Bearer token-1"));
+                return inner.RunAsync(repository, arguments.Select(value => value == "origin" ? remoteRoot : value).ToArray(),
+                    options, cancellationToken, stderrProgress);
+            }
+            return inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository) => inner.GetRecoverableRepositoryLock(repository);
+        public bool RemoveRecoverableRepositoryLock(RepositoryInfo repository, RepositoryLockInfo lockInfo) => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
     [TestCase(false, 2, 3)]
     [TestCase(true, 2, 3)]
     [TestCase(false, 10, 5)]
