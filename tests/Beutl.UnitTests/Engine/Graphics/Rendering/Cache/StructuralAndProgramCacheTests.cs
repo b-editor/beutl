@@ -295,6 +295,42 @@ public sealed class StructuralAndProgramCacheTests
         });
     }
 
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void NestedRequestAddedOrRemoved_ReusesUnchangedAncestorPlans(
+        bool initiallyIncluded,
+        bool resolveMetadataFirst)
+    {
+        using var cache = new StructuralPlanCache();
+        using var leaf = new ParameterShaderNode();
+        using var child = new OptionalNestedParentNode(leaf) { IncludeChild = initiallyIncluded };
+        using var parent = new NestedParentNode(child);
+        using var root = new NestedParentNode(parent);
+        using CompiledRenderRequest first = Compile(cache, root, resolveMetadataFirst: resolveMetadataFirst);
+        StructuralPlanCacheStatistics before = cache.Statistics;
+
+        child.IncludeChild = !initiallyIncluded;
+        using CompiledRenderRequest second = Compile(cache, root, resolveMetadataFirst: resolveMetadataFirst);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.ExecutionPlan, Is.SameAs(first.ExecutionPlan));
+            Assert.That(second.NestedRequests.Single().ExecutionPlan,
+                Is.SameAs(first.NestedRequests.Single().ExecutionPlan));
+            Assert.That(second.NestedRequests.Single().NestedRequests.Single().ExecutionPlan,
+                Is.SameAs(first.NestedRequests.Single().NestedRequests.Single().ExecutionPlan));
+            Assert.That(cache.Statistics.Hits - before.Hits, Is.EqualTo(3));
+            Assert.That(cache.Statistics.Compilations - before.Compilations,
+                Is.EqualTo(initiallyIncluded ? 0 : 1));
+            Assert.That(cache.Statistics.Replacements, Is.Zero);
+            Assert.That(cache.Statistics.RetainedPlans, Is.EqualTo(initiallyIncluded ? 3 : 4));
+            Assert.That(second.NestedRequests.Single().NestedRequests.Single().NestedRequests,
+                Has.Length.EqualTo(initiallyIncluded ? 0 : 1));
+        });
+    }
+
     [Test]
     public void TargetLayerScope_EmptyRegionClass_CompilesOneReplacement()
     {
@@ -424,13 +460,17 @@ public sealed class StructuralAndProgramCacheTests
     private static CompiledRenderRequest Compile(
         StructuralPlanCache cache,
         RenderNode node,
-        FusionMode fusionMode = FusionMode.Enabled)
+        FusionMode fusionMode = FusionMode.Enabled,
+        bool resolveMetadataFirst = false)
     {
         RenderRequest request = CreateRequest(fusionMode);
         try
         {
             RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-            return new RenderRequestCompiler(cache).Compile(request, graph);
+            var compiler = new RenderRequestCompiler(cache);
+            return resolveMetadataFirst
+                ? compiler.CompileAfterMetadata(request, graph, compiler.ResolveMetadata(request, graph))
+                : compiler.Compile(request, graph);
         }
         catch
         {
@@ -544,6 +584,29 @@ public sealed class StructuralAndProgramCacheTests
     {
         public override void Process(RenderNodeContext context)
             => _ = context.RecordNestedTarget(child, new Rect(0, 0, 8, 8));
+    }
+
+    private sealed class OptionalNestedParentNode(RenderNode child) : RenderNode
+    {
+        private bool _includeChild;
+
+        public bool IncludeChild
+        {
+            get => _includeChild;
+            set
+            {
+                if (_includeChild == value)
+                    return;
+                _includeChild = value;
+                MarkChanged();
+            }
+        }
+
+        public override void Process(RenderNodeContext context)
+        {
+            if (IncludeChild)
+                _ = context.RecordNestedTarget(child, new Rect(0, 0, 8, 8));
+        }
     }
 
     private sealed class MutableTargetLayerScopeNode : RenderNode

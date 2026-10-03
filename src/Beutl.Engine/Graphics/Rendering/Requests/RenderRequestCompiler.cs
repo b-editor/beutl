@@ -197,35 +197,6 @@ internal sealed class RenderRequestCompiler
         SkslBackendBudget shaderBudget,
         ref int nextStructuralPlanSlot)
     {
-        var nested = ImmutableArray.CreateBuilder<CompiledRenderRequest>(graph.NestedRequests.Length);
-        foreach (RecordedNestedRenderRequest recordedNested in graph.NestedRequests)
-        {
-            nested.Add(CompileFamily(
-                recordedNested.Request,
-                recordedNested.Graph,
-                measurements,
-                shaderBudget,
-                ref nextStructuralPlanSlot));
-        }
-
-        int structuralPlanSlot = nextStructuralPlanSlot++;
-        return CompileSingle(
-            request,
-            graph,
-            measurements[request],
-            shaderBudget,
-            nested.MoveToImmutable(),
-            structuralPlanSlot);
-    }
-
-    private CompiledRenderRequest CompileSingle(
-        RenderRequest request,
-        RecordedRenderGraph graph,
-        RenderNodeMeasurement measurement,
-        SkslBackendBudget shaderBudget,
-        ImmutableArray<CompiledRenderRequest> nestedRequests,
-        int structuralPlanSlot)
-    {
         if (request.State != RenderRequestState.MetadataResolved)
         {
             throw new InvalidOperationException(
@@ -244,7 +215,7 @@ internal sealed class RenderRequestCompiler
             request.Options,
             roots,
             targetDependencies);
-        if (regions.Measurement != measurement)
+        if (regions.Measurement != measurements[request])
         {
             throw new InvalidOperationException(
                 "The supplied metadata does not match graph-wide region analysis.");
@@ -270,6 +241,9 @@ internal sealed class RenderRequestCompiler
             cachePlanning.PreviewDropEligibleMaterializations;
         RenderCacheResolution cacheResolution = cachePlanning.Resolution;
         request.TransitionTo(RenderRequestState.CachesResolved);
+        // All family metadata is already resolved. Assign and populate the parent's slot before
+        // its descendants so adding or removing a nested request cannot shift its ancestors' plans.
+        int structuralPlanSlot = nextStructuralPlanSlot++;
         ExecutionIslandPlan executionPlan;
         if (_structuralPlanCache is not null)
         {
@@ -306,6 +280,17 @@ internal sealed class RenderRequestCompiler
         }
 
         request.TransitionTo(RenderRequestState.Planned);
+        var nested = ImmutableArray.CreateBuilder<CompiledRenderRequest>(graph.NestedRequests.Length);
+        foreach (RecordedNestedRenderRequest recordedNested in graph.NestedRequests)
+        {
+            nested.Add(CompileFamily(
+                recordedNested.Request,
+                recordedNested.Graph,
+                measurements,
+                shaderBudget,
+                ref nextStructuralPlanSlot));
+        }
+
         return new CompiledRenderRequest(
             request,
             graph,
@@ -316,7 +301,7 @@ internal sealed class RenderRequestCompiler
             targetDependencies,
             cacheResolution,
             executionPlan,
-            nestedRequests);
+            nested.MoveToImmutable());
     }
 
     internal static ImmutableArray<RenderFragmentReference> ResolveRoots(
