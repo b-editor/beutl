@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Audio;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -42,9 +43,15 @@ internal sealed class MediaTimeMapping
         _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.Animation : null;
         // A stored source or property value does not describe an evaluated source
         // switch/expression. Keep these edits atomic until their mapping is bounded.
-        _sourceSupported = source is not SourceVideo sourceVideo
-            || sourceVideo.Source.Animation == null && !sourceVideo.Source.HasExpression
-                && !sourceVideo.IsLoop.HasExpression && !sourceVideo.OffsetPosition.HasExpression;
+        _sourceSupported = source switch
+        {
+            SourceVideo videoSource => videoSource.Source.Animation == null && !videoSource.Source.HasExpression
+                && !videoSource.IsLoop.HasExpression && !videoSource.OffsetPosition.HasExpression,
+            SourceSound sound => !sound.Source.HasExpression,
+            SceneSound sound => !sound.ReferencedScene.HasExpression,
+            DrawableTimeController controller => !controller.Target.HasExpression,
+            _ => true
+        };
     }
 
     public bool IsSupported => _sourceSupported && _speed.IsSupported && _controllers.All(c => c.IsSupported);

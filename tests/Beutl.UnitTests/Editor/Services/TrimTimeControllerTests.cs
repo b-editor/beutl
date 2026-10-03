@@ -1008,6 +1008,53 @@ public class TrimTimeControllerTests
         Assert.That(presented.Range, Is.EqualTo(owner.Range));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_ControllerTargetExpression_RejectsTheEntireLinkedEdit(bool emptyStoredTarget)
+    {
+        var evaluated = CreateVideo(1);
+        AddElement(5, 1, evaluated);
+        var stored = CreateVideo(20);
+        var controller = CreateController(stored);
+        if (emptyStoredTarget) controller.Target.CurrentValue = null;
+        controller.Target.Expression = new ReferenceExpression<Drawable?>(evaluated.Id);
+        Element element = AddElement(0, 0.5, controller);
+        var linkedVideo = CreateVideo(20);
+        Element linked = AddElement(3, 0.5, linkedVideo);
+        var context = new ExpressionContext(TimeSpan.Zero, controller.Target, new PropertyLookup(_harness.Scene));
+        using (var resource = (DrawableTimeController.Resource)controller.ToResource(context))
+            Assert.That(resource.Target!.GetOriginal(), Is.SameAs(evaluated));
+        int history = _harness.History.UndoCount;
+
+        Assert.That(_slip.Slip(_harness.Scene, [linked, element], Seconds(0.25)), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(evaluated.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(linkedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_harness.History.UndoCount, Is.EqualTo(history));
+        });
+    }
+
+    [Test]
+    public void Slip_ControllerTargetExpression_DoesNotOverrideConsumedFlow()
+    {
+        var evaluated = CreateVideo(1);
+        AddElement(5, 1, evaluated);
+        var consumed = CreateVideo(20);
+        Element element = AddElement(0, 2, consumed);
+        var controller = new DrawableTimeController();
+        controller.Target.Expression = new ReferenceExpression<Drawable?>(evaluated.Id);
+        element.Objects.Add(controller);
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var resource = (DrawableTimeController.Resource)compositor.EvaluateGraphics(Seconds(1)).Objects.Single();
+        Assert.That(resource.Target!.GetOriginal(), Is.SameAs(consumed));
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.True);
+        Assert.That(consumed.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+        Assert.That(evaluated.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+    }
+
     private Element AddElement(double startSeconds, double lengthSeconds, Drawable drawable)
     {
         Element element = _harness.AddElement(Seconds(startSeconds), Seconds(lengthSeconds));

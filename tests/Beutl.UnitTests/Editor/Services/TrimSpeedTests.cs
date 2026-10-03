@@ -6,6 +6,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -681,6 +682,58 @@ public class TrimSpeedTests
         {
             Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(8)));
             Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [TestCase(nameof(SourceSound), false)]
+    [TestCase(nameof(SourceSound), true)]
+    [TestCase(nameof(SceneSound), false)]
+    [TestCase(nameof(SceneSound), true)]
+    public void Trim_AudioSourceExpression_RejectsStoredDuration(string mediaType, bool hasStoredSource)
+    {
+        Element element = AddElement(0, 0.5);
+        Element providerElement = AddElement(5, 0.5);
+        Sound sound;
+        if (mediaType == nameof(SourceSound))
+        {
+            var shortSource = new SoundSource();
+            shortSource.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 1)));
+            var provider = new SourceSound { Source = { CurrentValue = shortSource } };
+            providerElement.Objects.Add(provider);
+            var source = new SourceSound();
+            if (hasStoredSource)
+            {
+                var stored = new SoundSource();
+                stored.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 10)));
+                source.Source.CurrentValue = stored;
+            }
+            source.Source.Expression = new ReferenceExpression<SoundSource?>(provider.Id, nameof(SourceSound.Source));
+            element.Objects.Add(source);
+            using var resource = (SourceSound.Resource)source.ToResource(
+                new ExpressionContext(TimeSpan.Zero, source.Source, new PropertyLookup(_scene)));
+            Assert.That(resource.Source!.Duration, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            sound = source;
+        }
+        else
+        {
+            var provider = new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(1) } } };
+            providerElement.Objects.Add(provider);
+            var source = new SceneSound();
+            if (hasStoredSource) source.ReferencedScene.CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(10) };
+            source.ReferencedScene.Expression = new ReferenceExpression<Scene?>(provider.Id, nameof(SceneSound.ReferencedScene));
+            element.Objects.Add(source);
+            using var resource = (SceneSound.Resource)source.ToResource(
+                new ExpressionContext(TimeSpan.Zero, source.ReferencedScene, new PropertyLookup(_scene)));
+            Assert.That(resource.ReferencedScene!.Duration, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            sound = source;
+        }
+
+        Assert.That(_slip.Slip(_scene, [element], TimeSpan.FromSeconds(2)), Is.False);
+        _resize.Resize(_scene, [new(element, element.Start, TimeSpan.FromSeconds(2), 0)]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
             Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
         });
     }

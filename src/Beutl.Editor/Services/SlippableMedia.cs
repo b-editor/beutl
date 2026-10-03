@@ -174,6 +174,16 @@ internal static class SlippableMedia
                     break;
                 case DrawableTimeController controller:
                     Node? input = inputs?.FirstOrDefault();
+                    if (input == null && controller.Target.HasExpression)
+                    {
+                        // Represent an unknown target as an unsupported mapping, even
+                        // when its stored target is null, so linked edits remain atomic.
+                        // A consumed Flow input overrides Target and needs no such guard.
+                        targets.Add(new Target(controller.OffsetPosition, null,
+                            new MediaTimeMapping(element, controller, controller.Speed, controllers, 60,
+                                timingPeers: timingPeers), element.Length));
+                        break;
+                    }
                     if ((input?.Object ?? controller.Target.CurrentValue) is Drawable target)
                     {
                         if (controller.IsEnabled) controllers.Add(new MediaTimeMapping.ControllerLink(controller, target));

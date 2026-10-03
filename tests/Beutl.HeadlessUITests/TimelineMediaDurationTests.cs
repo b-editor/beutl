@@ -554,9 +554,10 @@ public class TimelineMediaDurationTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task GroupedResize_SharedTargetOwner_PreviewsAndCommitsTheSameEdge(bool leftEdge)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public async Task GroupedResize_SharedTargetOwner_PreviewsAndCommitsTheSameEdge(bool leftEdge, bool subFrameStarts)
     {
         using var configuration = new RippleDisabledScope();
         SourceVideo video = CreateDurationVideo();
@@ -570,6 +571,14 @@ public class TimelineMediaDurationTests
             Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None)).IsSuccess, Is.True);
         Element peer = owner.Scene.Children.Single(e => e != owner.Model);
         Assert.That(peer.Range, Is.EqualTo(owner.Model.Range));
+        if (subFrameStarts)
+        {
+            TimeSpan end = owner.Model.Range.End;
+            owner.Model.Start = TimeSpan.FromTicks(10050000);
+            owner.Model.Length = end - owner.Model.Start;
+            peer.Start = TimeSpan.FromTicks(10200000);
+            peer.Length = end - peer.Start;
+        }
         peer.Objects.Clear();
         peer.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
         peer.Objects.Add(new DrawableTimeController { Target = { CurrentValue = video }, Reverse = { CurrentValue = true } });
@@ -603,11 +612,12 @@ public class TimelineMediaDurationTests
             {
                 window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
                 HeadlessTestHelpers.Render(5);
-                CapturePreview(window, $"grouped-shared-clock-left-{leftEdge}");
+                CapturePreview(window, $"grouped-shared-clock-left-{leftEdge}-subframe-{subFrameStarts}");
                 Assert.Multiple(() =>
                 {
                     Assert.That(owner.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(0.5).TimeToPixel(scale)).Within(0.0001));
-                    Assert.That(presented.Width.Value, Is.EqualTo(owner.Width.Value).Within(0.0001));
+                    Assert.That(presented.BorderMargin.Value.Left + presented.Width.Value,
+                        Is.EqualTo(owner.BorderMargin.Value.Left + owner.Width.Value).Within(0.0001));
                 });
             }
             finally
@@ -615,11 +625,15 @@ public class TimelineMediaDurationTests
                 window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
                 HeadlessTestHelpers.Settle(4);
             }
-            Assert.That(owner.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
-            Assert.That(owner.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 0.9 : 1)));
-            Assert.That(peer.Range, Is.EqualTo(owner.Model.Range));
+            Assert.Multiple(() =>
+            {
+                Assert.That(owner.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(subFrameStarts ? 0.495 : 0.5)));
+                Assert.That(owner.Model.Start, Is.EqualTo(subFrameStarts ? TimeSpan.FromTicks(10050000) : TimeSpan.FromSeconds(leftEdge ? 0.9 : 1)));
+                Assert.That(peer.Start, Is.EqualTo(subFrameStarts ? TimeSpan.FromTicks(10200000) : TimeSpan.FromSeconds(leftEdge ? 0.9 : 1)));
+                Assert.That(peer.Range.End, Is.EqualTo(owner.Model.Range.End));
+            });
             HeadlessTestHelpers.Render(5);
-            CapturePreview(window, $"grouped-shared-clock-left-{leftEdge}-committed");
+            CapturePreview(window, $"grouped-shared-clock-left-{leftEdge}-subframe-{subFrameStarts}-committed");
         }
         finally
         {

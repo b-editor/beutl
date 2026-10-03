@@ -851,16 +851,24 @@ public sealed partial class ElementView : UserControl
                         float scale = viewModel.Timeline.Options.Value.Scale;
                         int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
+                        TimeSpan RoundEdge(ElementResizeContext ctx)
+                        {
+                            double edge = ctx.ViewModel.BorderMargin.Value.Left + (leftEdge ? 0 : ctx.ViewModel.Width.Value);
+                            return edge.PixelToTimeSpan(scale).RoundToRate(rate);
+                        }
+                        TimeSpan? sharedEdge = _resizeContexts.Any(ctx => ctx.MediaConstraints?.HasSharedClock == true)
+                            ? RoundEdge(_resizeContexts[0]) : null;
                         var requests = new ElementResizeRequest[_resizeContexts.Length];
                         for (int i = 0; i < _resizeContexts.Length; i++)
                         {
                             ElementResizeContext ctx = _resizeContexts[i];
-                            TimeSpan roundedStart = ctx.ViewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
-                            TimeSpan roundedLength = ctx.ViewModel.Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
-                            (TimeSpan newStart, TimeSpan newLength) = ripple || leftEdge
-                                ? ElementViewModel.ResolveRippleResizeBounds(
-                                    leftEdge, roundedStart, roundedLength, ctx.RecordedStartTime, ctx.RecordedEndTime)
-                                : (roundedStart, roundedLength);
+                            // Round the moving edge once and retain the opposite edge.
+                            // Rounding each start/length separately can split a shared
+                            // edge when the clips have different sub-frame starts.
+                            TimeSpan edge = sharedEdge ?? RoundEdge(ctx);
+                            (TimeSpan newStart, TimeSpan newLength) = leftEdge
+                                ? (edge, ctx.RecordedEndTime - edge)
+                                : (ctx.RecordedStartTime, edge - ctx.RecordedStartTime);
                             int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
                             requests[i] = new ElementResizeRequest(ctx.ViewModel.Model, newStart, newLength, zindex);
                         }
