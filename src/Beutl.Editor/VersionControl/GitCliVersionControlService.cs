@@ -1350,9 +1350,6 @@ internal sealed class GitCliVersionControlService :
             .Where(remote => remote.Name == "origin").Select(remote => remote.Url).ToArray();
         bool hosted = urls.Any(url => HostedGitRemote.TryParse(url, out _));
         bool hostedPush = hosted && arguments.Count > 0 && arguments[0] == "push";
-        IReadOnlyList<string> networkArguments = hostedPush
-            ? ["push", "--no-verify", .. arguments.Skip(1)]
-            : arguments;
         string? lfsPushReference = null;
         if (hostedPush)
         {
@@ -1382,19 +1379,78 @@ internal sealed class GitCliVersionControlService :
             GitCommandOptions options = targets.Count == 0 ? baseline : HostedGitRemote.CreateOptions(targets, baseline);
             try
             {
-                // Invoke the installed LFS command directly, then bypass repository hooks:
-                // a pre-push hook must never inherit the temporary hosted write token.
+                // Upload through the installed LFS command before running repository hooks
+                // without the temporary hosted write token.
                 if (lfsPushReference is not null)
                 {
                     await runner.RunAsync(repository, ["lfs", "push", "origin", lfsPushReference],
                         options, cancellationToken, progress).ConfigureAwait(false);
                 }
-                await runner.RunAsync(repository, networkArguments, options, cancellationToken, progress).ConfigureAwait(false);
+                if (hostedPush)
+                    await RunHostedPushWithHooksAsync(repository, runner, arguments, options,
+                        cancellationToken, progress).ConfigureAwait(false);
+                else
+                    await runner.RunAsync(repository, arguments, options, cancellationToken, progress).ConfigureAwait(false);
                 return;
             }
             catch (GitOperationException ex) when (attempt < 4 && hosted && IsHostedAuthenticationFailure(ex))
             {
                 cancellationToken.ThrowIfCancellationRequested();
+            }
+        }
+    }
+
+    private async Task RunHostedPushWithHooksAsync(
+        RepositoryInfo repository, IGitCliRunner runner, IReadOnlyList<string> arguments,
+        GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? progress)
+    {
+        string originalHook = await ResolveGitPathAsync(repository, runner, "hooks/pre-push",
+            cancellationToken).ConfigureAwait(false);
+        if (!File.Exists(originalHook)
+            || (!OperatingSystem.IsWindows() && (File.GetUnixFileMode(originalHook)
+                & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) == 0))
+        {
+            await runner.RunAsync(repository, ["push", "--no-verify", .. arguments.Skip(1)],
+                options, cancellationToken, progress).ConfigureAwait(false);
+            return;
+        }
+
+        string hooksDirectory = Path.Combine(Path.GetTempPath(), $"beutl-hosted-push-hooks-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(hooksDirectory);
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(hooksDirectory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            var environment = new Dictionary<string, string?>(options.EnvironmentOverrides!, StringComparer.Ordinal);
+            int count = int.Parse(environment["GIT_CONFIG_COUNT"]!, CultureInfo.InvariantCulture);
+            environment[$"GIT_CONFIG_KEY_{count}"] = "core.hooksPath";
+            environment[$"GIT_CONFIG_VALUE_{count}"] = hooksDirectory;
+            environment["GIT_CONFIG_COUNT"] = (count + 1).ToString(CultureInfo.InvariantCulture);
+
+            // Git supplies the original hook arguments and ref/OID input. Remove all
+            // temporary configuration before handing control to repository code.
+            string variables = string.Join(' ', environment.Keys.Where(key => key.StartsWith("GIT_CONFIG_", StringComparison.Ordinal)));
+            string shellPath = OperatingSystem.IsWindows() ? originalHook.Replace('\\', '/') : originalHook;
+            string quotedPath = "'" + shellPath.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
+            string hookPath = Path.Combine(hooksDirectory, "pre-push");
+            await File.WriteAllTextAsync(hookPath,
+                $"#!/bin/sh\nunset GIT_CONFIG_PARAMETERS {variables}\nexport GIT_LFS_SKIP_PUSH=1\nexec {quotedPath} \"$@\"\n",
+                new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(hookPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            await runner.RunAsync(repository, arguments, options with { EnvironmentOverrides = environment },
+                cancellationToken, progress).ConfigureAwait(false);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(hooksDirectory))
+                    Directory.Delete(hooksDirectory, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                LogWarningBestEffort(ex, "Failed to remove temporary hosted push hooks.");
             }
         }
     }

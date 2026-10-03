@@ -14,18 +14,21 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(true, true)]
-    public async Task Hosted_push_uploads_lfs_before_publishing_without_running_repository_hooks(
+    public async Task Hosted_push_uploads_lfs_and_runs_repository_hooks_without_credentials(
         bool lfsInstalled, bool failLfs)
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         const string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
         await RunGitAsync("remote", "add", "origin", hosted);
-        string hooksDirectory = Path.Combine(Root, "custom-hooks");
+        string hooksDirectory = Path.Combine(Root, "custom hooks' directory");
         Directory.CreateDirectory(hooksDirectory);
         string hookPath = Path.Combine(hooksDirectory, "pre-push");
         string marker = Path.Combine(Root, "pre-push-ran");
-        await File.WriteAllTextAsync(hookPath, "#!/bin/sh\nprintf 'ran' > pre-push-ran\nexit 97\n");
+        await File.WriteAllTextAsync(hookPath, "#!/bin/sh\n"
+            + "if [ -n \"${GIT_CONFIG_COUNT-}\" ] || [ -n \"${GIT_CONFIG_VALUE_1-}\" ] || [ -n \"${GIT_CONFIG_PARAMETERS-}\" ]; then exit 99; fi\n"
+            + "if [ \"${GIT_LFS_SKIP_PUSH-}\" != 1 ]; then exit 98; fi\n"
+            + "cat > pre-push-input\nprintf 'ran' > pre-push-ran\n");
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(hookPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         await RunGitAsync("config", "core.hooksPath", hooksDirectory);
@@ -39,17 +42,44 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(result is RemoteOpResult.Success, Is.EqualTo(!failLfs));
-            Assert.That(File.Exists(marker), Is.False);
+            Assert.That(File.Exists(marker), Is.EqualTo(!failLfs));
             Assert.That(issued, Is.EqualTo(1));
             Assert.That(runner.Calls.Select(call => call[0]), Is.EqualTo(failLfs
                 ? new[] { "lfs" } : lfsInstalled ? new[] { "lfs", "push" } : new[] { "push" }));
             if (lfsInstalled)
                 Assert.That(runner.Calls[0], Is.EqualTo(new[] { "lfs", "push", "origin", "refs/heads/main" }));
             if (!failLfs)
-                Assert.That(runner.Calls[^1], Does.Contain("--no-verify"));
+                Assert.That(runner.Calls[^1], Does.Not.Contain("--no-verify"));
         });
         if (!failLfs)
-            Assert.That(await ReadRemoteHeadAsync(remoteRoot), Is.EqualTo((await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim()));
+        {
+            string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+            Assert.That(await ReadRemoteHeadAsync(remoteRoot), Is.EqualTo(head));
+            Assert.That(await File.ReadAllTextAsync(Path.Combine(Root, "pre-push-input")),
+                Is.EqualTo($"refs/heads/main {head} refs/heads/main {new string('0', 40)}\n"));
+        }
+    }
+
+    [Test]
+    public async Task Hosted_push_preserves_a_pre_push_validation_failure()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        await RunGitAsync("remote", "add", "origin",
+            "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git");
+        string hookPath = Path.Combine(Root, ".git", "hooks", "pre-push");
+        await File.WriteAllTextAsync(hookPath, "#!/bin/sh\nprintf 'ran' > pre-push-rejected\nexit 97\n");
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(hookPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var runner = new LocalHostedPushRunner(CreateRunner(), remoteRoot, false);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        service.HostedGitTokenProviderFactory = () => (_, _) => Task.FromResult("token-1");
+
+        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.TypeOf<RemoteOpResult.Failed>());
+        Assert.That(File.Exists(Path.Combine(Root, "pre-push-rejected")), Is.True);
+        GitCommandResult remoteRefs = await CreateRunner().RunAsync(new RepositoryInfo(remoteRoot, remoteRoot),
+            ["for-each-ref", "refs/heads/main"], GitCommandOptions.Local, CancellationToken.None);
+        Assert.That(remoteRefs.Stdout, Is.Empty);
     }
 
     [Test]
