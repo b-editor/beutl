@@ -66,6 +66,14 @@ public class FFmpegWorkerProcessLifetimeTests
             synchronous ? "dispose-blocked-notification-sync" : "dispose-blocked-notification-async");
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public Task AvailabilityObserverCanRestartAnExitedWorkerWithoutHoldingStartupLock(bool synchronous)
+    {
+        return TestWorkerProgram.RunAsync(TestWorkerProgram.FFmpegLifetimeWorkerArgument, "--test",
+            synchronous ? "restart-during-notification-sync" : "restart-during-notification-async");
+    }
+
     internal static async Task RunHostAsync(string action)
     {
         switch (action)
@@ -96,6 +104,12 @@ public class FFmpegWorkerProcessLifetimeTests
                 break;
             case "dispose-blocked-notification-async":
                 await VerifyDisposalWhileNotificationIsBlockedAsync(synchronous: false);
+                break;
+            case "restart-during-notification-sync":
+                await VerifyRestartDuringNotificationAsync(synchronous: true);
+                break;
+            case "restart-during-notification-async":
+                await VerifyRestartDuringNotificationAsync(synchronous: false);
                 break;
             default:
                 throw new ArgumentException("Unknown worker lifetime test action.", nameof(action));
@@ -397,6 +411,46 @@ public class FFmpegWorkerProcessLifetimeTests
             catch (ObjectDisposedException) { }
             worker.Dispose();
             ownedProcess?.Dispose();
+        }
+    }
+
+    private static async Task VerifyRestartDuringNotificationAsync(bool synchronous)
+    {
+        using var worker = CreateWorker();
+        IpcConnection? replacement = null;
+        Task<IpcConnection>? restart = null;
+        FFmpegLibraryState.RecordMissingObserved();
+        EventHandler onAvailability = (_, _) =>
+        {
+            using var originalProcess = System.Diagnostics.Process.GetProcessById(worker.WorkerPid);
+            originalProcess.Kill();
+            Assert.That(originalProcess.WaitForExit(5000), Is.True);
+            restart = Task.Run(worker.EnsureStarted);
+            replacement = restart.WaitAsync(TimeSpan.FromSeconds(3)).GetAwaiter().GetResult();
+        };
+        FFmpegLibraryState.AvailabilityChanged += onAvailability;
+        try
+        {
+            IpcConnection connection = synchronous
+                ? await Task.Run(worker.EnsureStarted).WaitAsync(TimeSpan.FromSeconds(10))
+                : await worker.EnsureStartedAsync().WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(replacement, Is.Not.Null);
+            Assert.That(connection, Is.SameAs(replacement));
+            Assert.That(worker.IsRunning, Is.True);
+            IpcMessage response = await connection.SendAndReceiveAsync(
+                    IpcMessage.CreateSimple(connection.NextId(), MessageType.CloseReader))
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(response.Type, Is.EqualTo(MessageType.CloseReaderResult));
+        }
+        finally
+        {
+            FFmpegLibraryState.AvailabilityChanged -= onAvailability;
+            worker.Dispose();
+            if (restart is not null)
+            {
+                try { await restart.WaitAsync(TimeSpan.FromSeconds(5)); }
+                catch (ObjectDisposedException) { }
+            }
         }
     }
 

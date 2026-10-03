@@ -77,12 +77,13 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
                 ThrowIfLibrariesMissing();
                 StartWorkerWithCooldownAsync(lifetimeToken).GetAwaiter().GetResult();
-                return GetStartedConnection();
             }
             finally
             {
                 _startLock.Release();
             }
+            NotifyWorkerStarted();
+            return GetStartedConnection();
         }
         catch (OperationCanceledException) when (_disposed)
         {
@@ -112,12 +113,13 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
                 ThrowIfLibrariesMissing();
                 await StartWorkerWithCooldownAsync(startupCancellation.Token).ConfigureAwait(false);
-                return GetStartedConnection();
             }
             finally
             {
                 _startLock.Release();
             }
+            NotifyWorkerStarted();
+            return GetStartedConnection();
         }
         catch (OperationCanceledException) when (_disposed)
         {
@@ -194,9 +196,13 @@ public sealed class FFmpegWorkerProcess : IDisposable
             throw;
         }
 
+    }
+
+    private static void NotifyWorkerStarted()
+    {
 #if !BEUTL_FFMPEG_WORKER
         // Observer failures still reach this caller, but must not tear down a ready shared worker.
-        // Availability callbacks may re-enter EnsureStarted, so publish readiness before notifying.
+        // The public entry point has released its startup lock before observers can restart a worker.
         FFmpegLibraryState.NotifyWorkerStarted();
 #endif
     }
