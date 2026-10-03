@@ -169,11 +169,19 @@ public partial class TextBlock : Drawable
                 {
                     Rect elementBounds = item.Bounds;
 
-                    foreach (Geometry.Resource geometry in item.ToGeometries())
+                    ReadOnlySpan<Geometry.Resource> geometries = item.ToGeometries();
+                    for (int i = 0; i < geometries.Length; i++)
                     {
                         using (context.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition)))
                         {
-                            context.DrawGeometry(geometry, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen);
+                            if (item.GetNonOutlineGlyph(i) is { } glyph)
+                            {
+                                context.DrawText(glyph, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen);
+                            }
+                            else
+                            {
+                                context.DrawGeometry(geometries[i], item.Brush ?? resource.Fill, item.Pen ?? resource.Pen);
+                            }
                         }
                     }
 

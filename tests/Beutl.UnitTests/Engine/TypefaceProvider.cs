@@ -14,6 +14,7 @@ public static class TypefaceProvider
         string[] array =
         [
             "BeutlTestVariable.ttf",
+            "BeutlTestColorEmoji.ttf",
             "NotoSansJP-Black.otf",
             "NotoSansJP-Bold.otf",
             "NotoSansJP-Light.otf",

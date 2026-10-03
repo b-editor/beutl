@@ -82,7 +82,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
     private static bool HitTest(FormattedText text, bool hasFill, Point point)
     {
         SKPath fill = text.GetFillPath();
-        if (hasFill && fill.Contains(point.X, point.Y))
+        if (hasFill && (fill.Contains(point.X, point.Y) || text.NonOutlineContains(point)))
         {
             return true;
         }
