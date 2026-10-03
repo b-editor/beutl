@@ -133,7 +133,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Mixed_push_rejects_a_branch_change_during_credential_acquisition()
+    public async Task Mixed_push_keeps_the_captured_commit_without_a_hook_if_the_branch_changes_during_credential_acquisition()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string capturedTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -152,12 +152,10 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             await RunGitAsync("commit", "--allow-empty", "-m", "branch advanced during token acquisition");
             return "temporary";
         };
-        RemoteOpResult result = await service.PushAsync(null, CancellationToken.None);
-        Assert.That(result, Is.Not.TypeOf<RemoteOpResult.Success>());
-        Assert.That(result.ToString(), Does.Contain("source branch changed"));
-        Assert.That(runner.Options, Has.Count.EqualTo(1));
+        Assert.That(await service.PushAsync(null, CancellationToken.None), Is.TypeOf<RemoteOpResult.Success>());
+        Assert.That(runner.Options, Has.Count.EqualTo(2));
         Assert.That(await ReadRemoteHeadAsync(external), Is.EqualTo(capturedTip));
-        await AssertRemoteHasNoBranchesAsync(hostedFixture);
+        Assert.That(await ReadRemoteHeadAsync(hostedFixture), Is.EqualTo(capturedTip));
         Assert.That((await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim(), Is.Not.EqualTo(capturedTip));
         Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(originalConfig));
     }
@@ -415,8 +413,30 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         }
     }
 
+    [Test]
+    public async Task Mixed_push_stops_before_credentials_or_network_if_Git_cannot_reset_inherited_push_urls()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
+        string external = await CreateBareRemoteAsync();
+        await RunGitAsync("remote", "add", "origin", external);
+        await RunGitAsync("remote", "set-url", "--push", "origin", hosted);
+        await RunGitAsync("remote", "set-url", "--add", "--push", "origin", external);
+        byte[] config = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config"));
+        var runner = new MixedPushRunner(CreateRunner(), hosted, await CreateBareRemoteAsync(), inheritedPushUrls: true);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
+        service.HostedGitTokenProvider = (_, _) => throw new AssertionException("Unsupported isolation must not mint credentials");
+        RemoteOpResult result = await service.PushAsync(null, CancellationToken.None);
+        Assert.That(result, Is.Not.TypeOf<RemoteOpResult.Success>());
+        Assert.That(result.ToString(), Does.Contain("cannot isolate mixed hosted/external push URLs"));
+        Assert.That(runner.Options, Is.Empty);
+        Assert.That(await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "config")), Is.EqualTo(config));
+        await AssertRemoteHasNoBranchesAsync(external);
+    }
+
     private sealed class MixedPushRunner(IGitCliRunner inner, string hostedUrl, string hostedFixture,
-        bool rejectExternal = false, Exception? upstreamFailure = null, Func<int, Task>? beforePush = null) : IGitCliRunner
+        bool rejectExternal = false, Exception? upstreamFailure = null, Func<int, Task>? beforePush = null,
+        bool inheritedPushUrls = false) : IGitCliRunner
     {
         public bool HasActiveProcess => inner.HasActiveProcess;
         public List<GitCommandOptions> Options { get; } = [];
@@ -425,6 +445,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         public async Task<GitCommandResult> RunAsync(RepositoryInfo repository, IReadOnlyList<string> arguments,
             GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? stderrProgress = null)
         {
+            if (inheritedPushUrls && arguments.SequenceEqual(["remote", "get-url", "--push", "--all", "origin"]) &&
+                options.EnvironmentOverrides?.ContainsKey("GIT_CONFIG_COUNT") == true)
+                return new GitCommandResult(0, $"{hostedUrl}\n{hostedFixture}\n\n{hostedUrl}\n", "");
             if (upstreamFailure is not null && GetGitSubcommand(arguments) == "config" &&
                 arguments.Contains("--file") && arguments.Contains("branch.main.merge"))
                 throw upstreamFailure;

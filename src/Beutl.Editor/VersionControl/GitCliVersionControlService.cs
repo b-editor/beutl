@@ -1377,7 +1377,7 @@ internal sealed class GitCliVersionControlService :
         {
             GitCommandOptions options = await GetNetworkOptionsAsync(
                 baseline, cancellationToken, selectedUrls).ConfigureAwait(false);
-            if (pinnedSource is { } source && await ReadRefCommitAsync(repository, runner,
+            if (prePushHookDirectory is not null && pinnedSource is { } source && await ReadRefCommitAsync(repository, runner,
                     source.RefName, cancellationToken).ConfigureAwait(false) != source.Commit)
                 throw new GitOperationException(1, "Beutl push stopped: source branch changed after the push started.");
             bool hostedAuthentication = selectedUrls is null
@@ -1425,6 +1425,20 @@ internal sealed class GitCliVersionControlService :
         environment[$"GIT_CONFIG_VALUE_{count++}"] = url;
         environment["GIT_CONFIG_COUNT"] = count.ToString(System.Globalization.CultureInfo.InvariantCulture);
         return options with { EnvironmentOverrides = environment };
+    }
+
+    private static async Task EnsureIsolatedPushUrlAsync(
+        RepositoryInfo repository, IGitCliRunner runner, string url, CancellationToken cancellationToken)
+    {
+        // Older Git versions append an empty pushurl instead of resetting the list.
+        // Verify the actual resolver before any push can inherit another destination's credentials.
+        GitCommandResult result = await runner.RunAsync(repository,
+            ["remote", "get-url", "--push", "--all", "origin"],
+            IsolatePushUrl(GitCommandOptions.Local, url), cancellationToken).ConfigureAwait(false);
+        if (!result.Stdout.TrimEnd('\r', '\n').Equals(url, StringComparison.Ordinal))
+            throw new GitOperationException(1,
+                "This Git installation cannot isolate mixed hosted/external push URLs. " +
+                "Update Git before pushing, or configure separate remotes.");
     }
 
     private sealed class PinnedPrePushHook(string? directory) : IDisposable
@@ -9234,6 +9248,7 @@ internal sealed class GitCliVersionControlService :
             {
                 // Askpass is a process-wide setting. Isolate hosted and external
                 // destinations so each keeps its own authentication behavior.
+                await EnsureIsolatedPushUrlAsync(repository, runner, pushUrls[0], cancellationToken).ConfigureAwait(false);
                 GitCommandResult fetchUrlsResult = await runner.RunAsync(repository,
                     ["remote", "get-url", "origin"],
                     GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
