@@ -16,6 +16,12 @@ public class XAudioLifetimeTests
     }
 
     [Test]
+    public Task Buffer_ConcurrentDisposal_DoesNotFreeNativeMemoryTwice()
+    {
+        return TestWorkerProgram.RunAsync(TestWorkerProgram.XAudioLifetimeWorkerArgument, "dispose-buffer-concurrently");
+    }
+
+    [Test]
     public void Buffer_Dispose_ClearsTheNativeDescriptor()
     {
         var buffer = new XAudioBuffer();
@@ -101,6 +107,9 @@ public class XAudioLifetimeTests
                 buffer.Dispose();
                 buffer.Dispose();
                 break;
+            case "dispose-buffer-concurrently":
+                RunConcurrentBufferDisposal();
+                break;
             case "finalize-incomplete-context":
                 // A throwing constructor leaves the finalizable object in this state. Keep the
                 // reproduction independent of whether the test machine has an audio endpoint.
@@ -116,6 +125,40 @@ public class XAudioLifetimeTests
             default:
                 throw new ArgumentException("Unknown XAudio lifetime test action.", nameof(action));
         }
+    }
+
+    private static void RunConcurrentBufferDisposal()
+    {
+        const int iterations = 256;
+        const int disposerCount = 4;
+        using var barrier = new Barrier(disposerCount + 1);
+        XAudioBuffer? buffer = null;
+        var disposers = Enumerable.Range(0, disposerCount).Select(_ => new Thread(() =>
+        {
+            for (int i = 0; i < iterations; i++)
+            {
+                barrier.SignalAndWait();
+                buffer!.Dispose();
+                barrier.SignalAndWait();
+            }
+        })
+        { IsBackground = true }).ToArray();
+        foreach (Thread disposer in disposers)
+            disposer.Start();
+        for (int i = 0; i < iterations; i++)
+        {
+            buffer = new XAudioBuffer();
+            buffer.BufferData<float>([0.25f, -0.25f], new WaveFormat(44100, 32, 2));
+            barrier.SignalAndWait();
+            barrier.SignalAndWait();
+            Assert.That(buffer.Buffer.AudioDataPointer, Is.EqualTo(IntPtr.Zero));
+            Assert.That(buffer.Buffer.AudioBytes, Is.Zero);
+            Assert.That(buffer.SizeInBytes, Is.Zero);
+            Assert.Throws<ObjectDisposedException>(() =>
+                buffer.BufferData<float>([0.25f, -0.25f], new WaveFormat(44100, 32, 2)));
+        }
+        foreach (Thread disposer in disposers)
+            Assert.That(disposer.Join(TimeSpan.FromSeconds(5)), Is.True);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

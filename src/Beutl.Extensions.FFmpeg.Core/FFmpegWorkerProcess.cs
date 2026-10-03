@@ -184,7 +184,9 @@ public sealed class FFmpegWorkerProcess : IDisposable
         {
             try { Cleanup(); }
             catch (Exception cleanup) { s_logger.LogWarning(cleanup, "Failed to clean up an unsuccessful FFmpeg worker start."); }
-            if (!_disposed && ex is not OperationCanceledException and not FFmpegLibrariesNotFoundException)
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(FFmpegWorkerProcess));
+            if (ex is not OperationCanceledException and not FFmpegLibrariesNotFoundException)
             {
                 _lastStartupFailure = ex;
                 _retryStartupAt = Environment.TickCount64 + 30_000;
@@ -225,6 +227,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             1,
             PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous);
+        Process? process = null;
 
         try
         {
@@ -241,22 +244,27 @@ public sealed class FFmpegWorkerProcess : IDisposable
             startInfo.RedirectStandardError = true;
             startInfo.RedirectStandardOutput = true;
 
-            _process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException("Failed to start FFmpeg worker process");
+            lock (_lifetimeGate)
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                process = Process.Start(startInfo)
+                    ?? throw new InvalidOperationException("Failed to start FFmpeg worker process");
+                _process = process;
 
-            // stdout/stderr のドレインはストリームリーダースレッドから即時 enqueue するだけにし、
-            // ロガーシンクへの実書き込みはバックグラウンドで行う (FFmpegWorkerLogPump 参照)。
-            _logPump = new FFmpegWorkerLogPump();
-            _logPump.Attach(_process);
-            _process.BeginErrorReadLine();
-            _process.BeginOutputReadLine();
+                // Publish the process and log pump together so disposal can claim both.
+                // User configuration and availability callbacks run outside this gate.
+                _logPump = new FFmpegWorkerLogPump();
+                _logPump.Attach(process);
+                process.BeginErrorReadLine();
+                process.BeginOutputReadLine();
+            }
 
             // パイプ接続待機 + Worker早期終了検出
             using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             connectCts.CancelAfter(TimeSpan.FromSeconds(30));
 
             var connectTask = pipeServer.WaitForConnectionAsync(connectCts.Token);
-            var exitTask = _process.WaitForExitAsync(connectCts.Token);
+            var exitTask = process.WaitForExitAsync(connectCts.Token);
             var completed = await Task.WhenAny(connectTask, exitTask).ConfigureAwait(false);
 
             if (completed == exitTask)
@@ -264,7 +272,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 // キャンセル経由でexitTaskが完了した場合は OperationCanceledException を再スロー
                 await exitTask.ConfigureAwait(false);
 
-                int code = _process.ExitCode;
+                int code = process.ExitCode;
 
                 // 敗者となった connectTask の例外を観測しておく（UnobservedTaskException 防止）
                 connectCts.Cancel();
@@ -299,13 +307,18 @@ public sealed class FFmpegWorkerProcess : IDisposable
         }
         catch (OperationCanceledException)
         {
-            if (_process != null)
+            if (process != null)
             {
-                try { _process.Kill(); }
+                try { process.Kill(); }
                 catch (InvalidOperationException) { }
             }
             pipeServer.Dispose();
             throw CreateWorkerStartCanceledException(ct);
+        }
+        catch (Exception) when (_disposed)
+        {
+            pipeServer.Dispose();
+            throw new ObjectDisposedException(nameof(FFmpegWorkerProcess));
         }
         catch
         {
@@ -313,21 +326,35 @@ public sealed class FFmpegWorkerProcess : IDisposable
             throw;
         }
 
-        _connection = new IpcConnection(pipeServer)
+        IpcConnection connection;
+        try
         {
-            // 受信ループ / Dispose 異常系の診断は ILogger に転送する。
-            // LogError(Exception?, ...) は ex が null でも受け付ける。
-            DiagnosticLogger = (msg, ex) => s_logger.LogError(ex, "{Message}", msg),
-            // 現状ホスト側のリードはキャンセルトークンを渡しておらず、
-            // 共有メモリは参照カウントで管理されるため通常は呼ばれない。
-            // 将来 CancellationToken 対応リードを追加した際のリグレッション検知として
-            // 観測のみログに残す (実際のバッファ解放は消費側の責務とする)。
-            DroppedResponseHandler = msg => s_logger.LogWarning(
-                "Dropped IPC response Id={Id} Type={Type}; no awaiter present.", msg.Id, msg.Type)
-        };
+            lock (_lifetimeGate)
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                connection = new IpcConnection(pipeServer)
+                {
+                    // 受信ループ / Dispose 異常系の診断は ILogger に転送する。
+                    // LogError(Exception?, ...) は ex が null でも受け付ける。
+                    DiagnosticLogger = (msg, ex) => s_logger.LogError(ex, "{Message}", msg),
+                    // 現状ホスト側のリードはキャンセルトークンを渡しておらず、
+                    // 共有メモリは参照カウントで管理されるため通常は呼ばれない。
+                    // 将来 CancellationToken 対応リードを追加した際のリグレッション検知として
+                    // 観測のみログに残す (実際のバッファ解放は消費側の責務とする)。
+                    DroppedResponseHandler = msg => s_logger.LogWarning(
+                        "Dropped IPC response Id={Id} Type={Type}; no awaiter present.", msg.Id, msg.Type)
+                };
+                _connection = connection;
+            }
+        }
+        catch
+        {
+            pipeServer.Dispose();
+            throw;
+        }
 
         // ハンドシェイク待機（プロトコルバージョン検証）
-        var handshake = await _connection.ReceiveAsync(ct).ConfigureAwait(false)
+        var handshake = await connection.ReceiveAsync(ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Worker closed connection during handshake");
 
         if (handshake.Type != MessageType.HandshakeAck)
@@ -341,7 +368,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
         // デコード用接続は多重化モードで起動（複数リーダーからの並行リクエスト対応）
         // Startup cancellation belongs to this caller; the shared receive loop lives until connection disposal.
         if (_multiplexed)
-            _connection.StartMultiplexedReceive();
+            connection.StartMultiplexedReceive();
 
         lock (_lifetimeGate)
         {
@@ -408,7 +435,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             || File.Exists(flatStem + exeSuffix) || File.Exists(flatStem + ".dll");
     }
 
-    private void Cleanup()
+    private void Cleanup(bool graceful = false)
     {
         IpcConnection? connection;
         Process? process;
@@ -426,7 +453,25 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
         try
         {
-            connection?.Dispose();
+            try
+            {
+                if (graceful && connection != null)
+                {
+                    try
+                    {
+                        connection.SendAsync(IpcMessage.CreateSimple(0, MessageType.Shutdown))
+                            .AsTask().Wait(3000);
+                    }
+                    catch (Exception ex)
+                    {
+                        s_logger.LogWarning(ex, "Graceful shutdown of FFmpeg worker failed");
+                    }
+                }
+            }
+            finally
+            {
+                connection?.Dispose();
+            }
         }
         finally
         {
@@ -477,7 +522,15 @@ public sealed class FFmpegWorkerProcess : IDisposable
         }
         finally
         {
-            Exit();
+            try
+            {
+                // Retire owned resources even if a synchronous availability observer is blocked.
+                Cleanup(graceful: true);
+            }
+            finally
+            {
+                Exit();
+            }
         }
     }
 
@@ -485,31 +538,11 @@ public sealed class FFmpegWorkerProcess : IDisposable
     {
         try
         {
-            if (_connection != null)
-            {
-                try
-                {
-                    _connection.SendAsync(
-                        IpcMessage.CreateSimple(0, MessageType.Shutdown)).AsTask().Wait(3000);
-                }
-                catch (Exception ex)
-                {
-                    s_logger.LogWarning(ex, "Graceful shutdown of FFmpeg worker failed");
-                }
-            }
-
+            _startLock.Dispose();
         }
         finally
         {
-            try
-            {
-                Cleanup();
-            }
-            finally
-            {
-                _startLock.Dispose();
-                _lifetimeCancellation.Dispose();
-            }
+            _lifetimeCancellation.Dispose();
         }
     }
 }

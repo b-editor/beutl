@@ -58,6 +58,14 @@ public class FFmpegWorkerProcessLifetimeTests
             TestWorkerProgram.FFmpegLifetimeWorkerArgument, "--test", "dispose-during-notification");
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public Task DisposeWhileAvailabilityObserverIsBlocked_RetiresWorkerBeforeObserverReturns(bool synchronous)
+    {
+        return TestWorkerProgram.RunAsync(TestWorkerProgram.FFmpegLifetimeWorkerArgument, "--test",
+            synchronous ? "dispose-blocked-notification-sync" : "dispose-blocked-notification-async");
+    }
+
     internal static async Task RunHostAsync(string action)
     {
         switch (action)
@@ -82,6 +90,12 @@ public class FFmpegWorkerProcessLifetimeTests
                 break;
             case "dispose-during-notification":
                 await VerifyDisposalDuringNotificationAsync();
+                break;
+            case "dispose-blocked-notification-sync":
+                await VerifyDisposalWhileNotificationIsBlockedAsync(synchronous: true);
+                break;
+            case "dispose-blocked-notification-async":
+                await VerifyDisposalWhileNotificationIsBlockedAsync(synchronous: false);
                 break;
             default:
                 throw new ArgumentException("Unknown worker lifetime test action.", nameof(action));
@@ -338,6 +352,49 @@ public class FFmpegWorkerProcessLifetimeTests
         finally
         {
             FFmpegLibraryState.AvailabilityChanged -= onAvailability;
+            worker.Dispose();
+            ownedProcess?.Dispose();
+        }
+    }
+
+    private static async Task VerifyDisposalWhileNotificationIsBlockedAsync(bool synchronous)
+    {
+        var worker = CreateWorker();
+        using var releaseNotification = new ManualResetEventSlim();
+        var notificationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        System.Diagnostics.Process? ownedProcess = null;
+        IpcConnection? connection = null;
+        FFmpegLibraryState.RecordMissingObserved();
+        EventHandler onAvailability = (_, _) =>
+        {
+            ownedProcess = System.Diagnostics.Process.GetProcessById(worker.WorkerPid);
+            connection = worker.EnsureStarted();
+            notificationEntered.SetResult();
+            if (!releaseNotification.Wait(TimeSpan.FromSeconds(10)))
+                throw new TimeoutException("The test did not release the availability notification.");
+        };
+        FFmpegLibraryState.AvailabilityChanged += onAvailability;
+        Task<IpcConnection> startup = synchronous
+            ? Task.Run(worker.EnsureStarted)
+            : Task.Run(() => worker.EnsureStartedAsync());
+        try
+        {
+            await notificationEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await Task.Run(worker.Dispose).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(startup.IsCompleted, Is.False, "The subscriber is still blocked.");
+            Assert.That(worker.WorkerPid, Is.Zero,
+                "Dispose must retire the process before an availability subscriber returns.");
+            AssertRetiredWorkerFields(worker);
+            await ownedProcess!.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(connection!.IsConnected, Is.False);
+            Assert.That(worker.IsRunning, Is.False);
+        }
+        finally
+        {
+            releaseNotification.Set();
+            FFmpegLibraryState.AvailabilityChanged -= onAvailability;
+            try { await startup.WaitAsync(TimeSpan.FromSeconds(10)); }
+            catch (ObjectDisposedException) { }
             worker.Dispose();
             ownedProcess?.Dispose();
         }
