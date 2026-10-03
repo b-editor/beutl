@@ -41,6 +41,16 @@ public partial class ParticleEmitter : Drawable
     public IProperty<int> MaxParticles { get; } = Property.Create(5000);
 
     // Emission
+    /// <summary>
+    /// Time to simulate before the emitter starts, from zero to one minute (3,600 fixed steps).
+    /// Values outside this range fall back to zero, disabling prewarming. Only particle simulation
+    /// advances, not property animations.
+    /// </summary>
+    [Display(Name = nameof(GraphicsStrings.ParticleEmitter_PrewarmDuration), ResourceType = typeof(GraphicsStrings),
+        GroupName = nameof(GraphicsStrings.ParticleEmitter_EmissionGroup))]
+    [Range(typeof(TimeSpan), "00:00:00", "00:01:00", ParseLimitsInInvariantCulture = true)]
+    public IProperty<TimeSpan> PrewarmDuration { get; } = Property.Create<TimeSpan>();
+
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_EmissionRate), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_EmissionGroup))]
     [Range(0, float.MaxValue)]
@@ -189,6 +199,7 @@ public partial class ParticleEmitter : Drawable
         private float _emitterWidth;
         private float _emitterHeight;
         private int _maxParticles;
+        private TimeSpan _prewarmDuration;
         private float _emissionRate;
         private float _lifetime;
         private float _lifetimeRandom;
@@ -234,6 +245,7 @@ public partial class ParticleEmitter : Drawable
             CompareAndUpdate(context, emitter.EmitterWidth, ref _emitterWidth, ref updateOnly);
             CompareAndUpdate(context, emitter.EmitterHeight, ref _emitterHeight, ref updateOnly);
             CompareAndUpdate(context, emitter.MaxParticles, ref _maxParticles, ref updateOnly);
+            CompareAndUpdate(context, emitter.PrewarmDuration, ref _prewarmDuration, ref updateOnly);
             CompareAndUpdate(context, emitter.EmissionRate, ref _emissionRate, ref updateOnly);
             CompareAndUpdate(context, emitter.Lifetime, ref _lifetime, ref updateOnly);
             CompareAndUpdate(context, emitter.LifetimeRandom, ref _lifetimeRandom, ref updateOnly);
@@ -265,6 +277,11 @@ public partial class ParticleEmitter : Drawable
             // Time tracking
             double oldTime = _time;
             _time = (context.Time - obj.TimeRange.Start).TotalSeconds;
+            if (_time >= 0)
+            {
+                // Keep the original composition clock for animated properties and the particle drawable.
+                _time += Math.Max(0, _prewarmDuration.TotalSeconds);
+            }
 
             if (paramChanged)
             {

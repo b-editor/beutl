@@ -611,6 +611,9 @@
   <data name="ParticleEmitter_PhysicsGroup" xml:space="preserve">
     <value>물리</value>
   </data>
+  <data name="ParticleEmitter_PrewarmDuration" xml:space="preserve">
+    <value>예열 시간</value>
+  </data>
   <data name="ParticleEmitter_Seed" xml:space="preserve">
     <value>시드</value>
   </data>
