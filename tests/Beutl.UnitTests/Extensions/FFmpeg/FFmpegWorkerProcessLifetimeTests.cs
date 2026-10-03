@@ -74,6 +74,16 @@ public class FFmpegWorkerProcessLifetimeTests
             synchronous ? "restart-during-notification-sync" : "restart-during-notification-async");
     }
 
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public Task StartupWaitsForAnObserverInitiatedReplacement(bool synchronous, bool failReplacement)
+    {
+        return TestWorkerProgram.RunAsync(TestWorkerProgram.FFmpegLifetimeWorkerArgument, "--test",
+            $"background-restart-{(synchronous ? "sync" : "async")}-{(failReplacement ? "failure" : "success")}");
+    }
+
     internal static async Task RunHostAsync(string action)
     {
         switch (action)
@@ -110,6 +120,18 @@ public class FFmpegWorkerProcessLifetimeTests
                 break;
             case "restart-during-notification-async":
                 await VerifyRestartDuringNotificationAsync(synchronous: false);
+                break;
+            case "background-restart-sync-success":
+                await VerifyBackgroundRestartDuringNotificationAsync(synchronous: true, failReplacement: false);
+                break;
+            case "background-restart-async-success":
+                await VerifyBackgroundRestartDuringNotificationAsync(synchronous: false, failReplacement: false);
+                break;
+            case "background-restart-sync-failure":
+                await VerifyBackgroundRestartDuringNotificationAsync(synchronous: true, failReplacement: true);
+                break;
+            case "background-restart-async-failure":
+                await VerifyBackgroundRestartDuringNotificationAsync(synchronous: false, failReplacement: true);
                 break;
             default:
                 throw new ArgumentException("Unknown worker lifetime test action.", nameof(action));
@@ -450,6 +472,79 @@ public class FFmpegWorkerProcessLifetimeTests
             {
                 try { await restart.WaitAsync(TimeSpan.FromSeconds(5)); }
                 catch (ObjectDisposedException) { }
+            }
+        }
+    }
+
+    private static async Task VerifyBackgroundRestartDuringNotificationAsync(bool synchronous, bool failReplacement)
+    {
+        using var releaseReplacement = new ManualResetEventSlim();
+        var replacementEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int launchCount = 0;
+        using var worker = CreateWorker(_ =>
+        {
+            if (Interlocked.Increment(ref launchCount) != 2) return;
+            replacementEntered.SetResult();
+            if (!releaseReplacement.Wait(TimeSpan.FromSeconds(10)))
+                throw new TimeoutException("The test did not release replacement startup.");
+            if (failReplacement)
+                throw new InvalidOperationException("Configured replacement startup failure.");
+        });
+        Task<IpcConnection>? restart = null;
+        FFmpegLibraryState.RecordMissingObserved();
+        EventHandler onAvailability = (_, _) =>
+        {
+            using var originalProcess = System.Diagnostics.Process.GetProcessById(worker.WorkerPid);
+            originalProcess.Kill();
+            Assert.That(originalProcess.WaitForExit(5000), Is.True);
+            // Return from the observer while replacement startup has cleared the old connection
+            // and is still blocked before publishing its process/handshake.
+            restart = Task.Run(() => worker.EnsureStartedAsync());
+            replacementEntered.Task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+        };
+        FFmpegLibraryState.AvailabilityChanged += onAvailability;
+        Task<IpcConnection> startup = synchronous
+            ? Task.Run(worker.EnsureStarted)
+            : Task.Run(() => worker.EnsureStartedAsync());
+        try
+        {
+            await replacementEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await Task.WhenAny(startup, Task.Delay(200));
+            Assert.That(startup.IsCompleted, Is.False,
+                "The original call must await replacement readiness instead of returning a null/unready connection.");
+            releaseReplacement.Set();
+            if (failReplacement)
+            {
+                InvalidOperationException failure = await Assert.CatchAsync<InvalidOperationException>(async () =>
+                    await startup.WaitAsync(TimeSpan.FromSeconds(10)));
+                Assert.That(failure.InnerException?.Message, Is.EqualTo("Configured replacement startup failure."));
+                await Assert.CatchAsync<InvalidOperationException>(async () =>
+                    await restart!.WaitAsync(TimeSpan.FromSeconds(10)));
+                Assert.That(worker.IsRunning, Is.False);
+                AssertRetiredWorkerFields(worker);
+            }
+            else
+            {
+                IpcConnection connection = await startup.WaitAsync(TimeSpan.FromSeconds(10));
+                IpcConnection replacement = await restart!.WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.That(connection, Is.SameAs(replacement));
+                Assert.That(worker.IsRunning, Is.True);
+                IpcMessage response = await connection.SendAndReceiveAsync(
+                        IpcMessage.CreateSimple(connection.NextId(), MessageType.CloseReader))
+                    .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.That(response.Type, Is.EqualTo(MessageType.CloseReaderResult));
+            }
+        }
+        finally
+        {
+            releaseReplacement.Set();
+            FFmpegLibraryState.AvailabilityChanged -= onAvailability;
+            try { await startup.WaitAsync(TimeSpan.FromSeconds(10)); }
+            catch (InvalidOperationException) when (failReplacement) { }
+            if (restart is not null)
+            {
+                try { await restart.WaitAsync(TimeSpan.FromSeconds(10)); }
+                catch (InvalidOperationException) when (failReplacement) { }
             }
         }
     }

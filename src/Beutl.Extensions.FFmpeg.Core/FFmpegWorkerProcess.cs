@@ -83,7 +83,15 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 _startLock.Release();
             }
             NotifyWorkerStarted();
-            return GetStartedConnection();
+            _startLock.Wait(lifetimeToken);
+            try
+            {
+                return GetStartedConnection();
+            }
+            finally
+            {
+                _startLock.Release();
+            }
         }
         catch (OperationCanceledException) when (_disposed)
         {
@@ -119,7 +127,15 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 _startLock.Release();
             }
             NotifyWorkerStarted();
-            return GetStartedConnection();
+            await _startLock.WaitAsync(startupCancellation.Token).ConfigureAwait(false);
+            try
+            {
+                return GetStartedConnection();
+            }
+            finally
+            {
+                _startLock.Release();
+            }
         }
         catch (OperationCanceledException) when (_disposed)
         {
@@ -160,17 +176,15 @@ public sealed class FFmpegWorkerProcess : IDisposable
         lock (_lifetimeGate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            return _isReady && _process is { HasExited: false } ? _connection : null;
+            return _isReady && _process is { HasExited: false } && _connection?.IsConnected == true
+                ? _connection : null;
         }
     }
 
     private IpcConnection GetStartedConnection()
     {
-        lock (_lifetimeGate)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            return _connection!;
-        }
+        return TryGetReadyConnection() ?? throw new InvalidOperationException(
+            "FFmpeg worker is unavailable after startup notification.", _lastStartupFailure);
     }
 
     private async Task StartWorkerWithCooldownAsync(CancellationToken ct)
@@ -195,7 +209,6 @@ public sealed class FFmpegWorkerProcess : IDisposable
             }
             throw;
         }
-
     }
 
     private static void NotifyWorkerStarted()

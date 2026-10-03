@@ -1,6 +1,5 @@
-﻿using Vortice.XAudio2;
-
-using Vortice.Multimedia;
+﻿using Vortice.Multimedia;
+using Vortice.XAudio2;
 
 namespace Beutl.Audio.Platforms.XAudio2;
 
