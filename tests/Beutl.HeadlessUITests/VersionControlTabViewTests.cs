@@ -460,8 +460,16 @@ public class VersionControlTabViewTests
                 Assert.That(primaryActionFlyout.Placement.ToString(), Is.EqualTo("Pointer"));
                 Assert.That(
                     primaryActionFlyout.Items,
-                    Has.Count.EqualTo(5));
+                    Has.Count.EqualTo(6));
             });
+
+            primaryActionFlyout.ShowAt(primaryAction);
+            HeadlessTestHelpers.Render();
+            MenuItem hostedAction = primaryActionFlyout.Items.OfType<MenuItem>()
+                .Single(item => Equals(item.Header, Strings.VersionControl_CreateHostedRepository));
+            Assert.That(hostedAction.Command, Is.SameAs(viewModel.CreateHostedRepositoryCommand));
+            Assert.That(hostedAction.IsEnabled, Is.True);
+            primaryActionFlyout.Hide();
 
             Task<string?> remoteUrlTask =
                 viewModel.RequestRemoteUrlAsync(

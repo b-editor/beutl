@@ -24,7 +24,10 @@ internal static class HostedGitLfsTransferAgent
     {
         using var cancellation = new CancellationTokenSource();
         Console.CancelKeyPress += (_, args) => { args.Cancel = true; cancellation.Cancel(); };
-        return await RunAsync(Console.In, Console.Out, s_http, cancellation.Token);
+        var utf8 = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        using var input = new StreamReader(Console.OpenStandardInput(), utf8, detectEncodingFromByteOrderMarks: false);
+        using var output = new StreamWriter(Console.OpenStandardOutput(), utf8) { NewLine = "\n" };
+        return await RunAsync(input, output, s_http, cancellation.Token);
     }
 
     internal static Task<int> RunAsync(
