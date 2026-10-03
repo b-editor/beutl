@@ -37,6 +37,8 @@ internal sealed class VersionControlCoordinator :
     internal Func<Func<Guid, CancellationToken, Task<string>>>? HostedGitTokenProviderFactory { get; set; }
     internal Func<string, CancellationToken, Task<string>>? HostedGitRepositoryCreator { get; set; }
 
+    public IObservable<bool> CanCreateHostedRepository { get; set; } = Observable.Return(false);
+
     public Task<string> CreateHostedRepositoryAsync(string name, CancellationToken cancellationToken)
     {
         Func<string, CancellationToken, Task<string>> creator = HostedGitRepositoryCreator

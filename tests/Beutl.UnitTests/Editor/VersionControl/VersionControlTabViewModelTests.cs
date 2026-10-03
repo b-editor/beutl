@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Reactive.Linq;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
@@ -13,6 +14,72 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [TestFixture]
 public class VersionControlTabViewModelTests
 {
+    [Test]
+    public async Task Hosted_repository_creation_is_disabled_without_sign_in()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        bool requestedName = false;
+        viewModel.RequestHostedRepositoryNameAsync = _ =>
+        {
+            requestedName = true;
+            return Task.FromResult<string?>(null);
+        };
+
+        Assert.That(viewModel.CreateHostedRepositoryCommand.CanExecute(), Is.False);
+        await viewModel.CreateHostedRepositoryAsync();
+        Assert.That(requestedName, Is.False);
+        coordinator.Verify(x => x.CreateHostedRepositoryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Hosted_repository_command_tracks_sign_in_without_blocking_other_remote_actions(bool initiallySignedIn)
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using var signedIn = new ReactivePropertySlim<bool>(initiallySignedIn);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object, signedIn);
+        await viewModel.Initialization;
+
+        Assert.That(viewModel.CreateHostedRepositoryCommand.CanExecute(), Is.EqualTo(initiallySignedIn));
+        signedIn.Value = true;
+        Assert.That(viewModel.CreateHostedRepositoryCommand.CanExecute(), Is.True);
+        signedIn.Value = false;
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CreateHostedRepositoryCommand.CanExecute(), Is.False);
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.True);
+            Assert.That(viewModel.PublishBranchCommand.CanExecute(), Is.True);
+        });
+        signedIn.Value = true;
+        viewModel.HasRemote.Value = true;
+        Assert.That(viewModel.CreateHostedRepositoryCommand.CanExecute(), Is.False);
+    }
+
+    [Test]
+    public async Task Signing_out_while_entering_a_hosted_repository_name_prevents_creation()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using var signedIn = new ReactivePropertySlim<bool>(true);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object, signedIn);
+        await viewModel.Initialization;
+        var name = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        viewModel.RequestHostedRepositoryNameAsync = _ => name.Task;
+
+        Task operation = viewModel.CreateHostedRepositoryAsync();
+        signedIn.Value = false;
+        name.SetResult("hosted");
+        await operation;
+
+        Assert.That(viewModel.CreateHostedRepositoryCommand.CanExecute(), Is.False);
+        coordinator.Verify(x => x.CreateHostedRepositoryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        coordinator.Verify(x => x.AddRemoteIfAbsentAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task Hosted_repository_creation_preserves_an_existing_origin(bool addedDuringPrompt)
@@ -23,7 +90,7 @@ public class VersionControlTabViewModelTests
             service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync([new RemoteInfo("origin", existing)]);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object, Observable.Return(true));
         await viewModel.Initialization;
         viewModel.RequestHostedRepositoryNameAsync = _ =>
         {
@@ -49,7 +116,7 @@ public class VersionControlTabViewModelTests
         coordinator.Setup(x => x.CreateHostedRepositoryAsync("hosted", It.IsAny<CancellationToken>())).ReturnsAsync(hosted);
         coordinator.Setup(x => x.AddRemoteIfAbsentAsync(hosted, It.IsAny<CancellationToken>()))
             .Returns(fail ? Task.FromException(new InvalidOperationException("configuration failed")) : Task.CompletedTask);
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object, Observable.Return(true));
         await viewModel.Initialization;
         viewModel.RequestHostedRepositoryNameAsync = _ => Task.FromResult<string?>(" hosted ");
         var handler = new Mock<INotificationServiceHandler>();
@@ -83,7 +150,7 @@ public class VersionControlTabViewModelTests
         var created = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.CreateHostedRepositoryAsync("hosted", It.IsAny<CancellationToken>())).Returns(created.Task);
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object, Observable.Return(true));
         await viewModel.Initialization;
         viewModel.RequestHostedRepositoryNameAsync = _ => Task.FromResult<string?>("hosted");
         var handler = new Mock<INotificationServiceHandler>();
@@ -3725,12 +3792,18 @@ public class VersionControlTabViewModelTests
 
     private static VersionControlTabViewModel CreateViewModel(
         IProjectVersionControlService service,
-        IProjectVersionControlCoordinator? coordinator = null)
+        IProjectVersionControlCoordinator? coordinator = null,
+        IObservable<bool>? canCreateHostedRepository = null)
     {
         if (coordinator is not null)
         {
             Mock.Get(coordinator).SetReturnsDefault(
                 Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]));
+            if (canCreateHostedRepository is not null)
+            {
+                Mock.Get(coordinator).SetupGet(x => x.CanCreateHostedRepository)
+                    .Returns(canCreateHostedRepository);
+            }
         }
 
         return new VersionControlTabViewModel(

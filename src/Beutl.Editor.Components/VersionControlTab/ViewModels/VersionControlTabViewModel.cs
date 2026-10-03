@@ -39,6 +39,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
     private readonly ReactiveCommandSlim _disabledPrimaryActionCommand;
     private readonly ReactivePropertySlim<bool> _isPrimaryActionEnabled;
     private readonly ReactivePropertySlim<bool> _isConfiguringRemote;
+    private readonly ReactivePropertySlim<bool> _canCreateHostedRepository;
     private ICommand? _observedPrimaryActionCommand;
     private IProjectVersionControlService? _service;
     private IRepositoryLockRecoveryService? _lockRecoveryService;
@@ -187,6 +188,17 @@ internal sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         _isConfiguringRemote = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
+        _canCreateHostedRepository = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        _versionControlCoordinator?.CanCreateHostedRepository
+            ?.Subscribe(canCreate => _postToUi(() =>
+            {
+                if (!_disposed)
+                {
+                    _canCreateHostedRepository.Value = canCreate;
+                }
+            }))
+            .DisposeWith(_disposables);
         IsNestedRepository = new ReactivePropertySlim<bool>(
                 service?.Repository?.IsNestedInForeignRepo == true)
             .DisposeWith(_disposables);
@@ -280,7 +292,8 @@ internal sealed class VersionControlTabViewModel : IToolContext
             .WithSubscribe(SetRemoteAsync)
             .DisposeWith(_disposables);
         CreateHostedRepositoryCommand = new AsyncReactiveCommand(canConfigureRemote
-                .CombineLatest(HasRemote, static (canConfigure, hasRemote) => canConfigure && !hasRemote))
+                .CombineLatest(HasRemote, _canCreateHostedRepository,
+                    static (canConfigure, hasRemote, canCreate) => canConfigure && !hasRemote && canCreate))
             .WithSubscribe(CreateHostedRepositoryAsync)
             .DisposeWith(_disposables);
         PublishBranchCommand = new AsyncReactiveCommand(
@@ -617,7 +630,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
 
     public async Task CreateHostedRepositoryAsync()
     {
-        if (HasRemote.Value) return;
+        if (HasRemote.Value || !_canCreateHostedRepository.Value) return;
         RemoteMutationLease? lease = TryAcquireRemoteMutation();
         if (lease is null) return;
         string? createdUrl = null;
@@ -630,7 +643,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
             CancellationToken token = _serviceBindingCancellation?.Token ?? CancellationToken.None;
             string? name = await RequestHostedRepositoryNameAsync(token);
             if (string.IsNullOrWhiteSpace(name) || !IsCurrentService(service, revision, token)) return;
-            if (HasRemote.Value) return;
+            if (HasRemote.Value || !_canCreateHostedRepository.Value) return;
             string url = createdUrl = await coordinator.CreateHostedRepositoryAsync(name.Trim(), token);
             if (!IsCurrentService(service, revision, token)) return;
             await RefreshRemotesAsync(service, token, serviceRevision: revision,

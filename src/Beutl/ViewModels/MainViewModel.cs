@@ -94,6 +94,9 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 failure.ExtensionType));
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
+        _versionControlCoordinator.CanCreateHostedRepository = _beutlClients.AuthenticatedUser
+            .Select(static user => user is not null)
+            .DistinctUntilChanged();
         _versionControlCoordinator.HostedGitTokenProviderFactory = () =>
         {
             AuthenticatedUser user = _beutlClients.AuthenticatedUser.Value

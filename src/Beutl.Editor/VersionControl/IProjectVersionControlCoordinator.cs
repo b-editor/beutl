@@ -1,7 +1,11 @@
-﻿namespace Beutl.Editor.VersionControl;
+﻿using System.Reactive.Linq;
+
+namespace Beutl.Editor.VersionControl;
 
 internal interface IProjectVersionControlCoordinator
 {
+    IObservable<bool> CanCreateHostedRepository => Observable.Return(false);
+
     Task<string> CreateHostedRepositoryAsync(string name, CancellationToken cancellationToken)
         => throw new NotSupportedException("Hosted Git is unavailable.");
 

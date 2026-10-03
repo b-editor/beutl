@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
@@ -364,6 +365,7 @@ public class VersionControlTabViewTests
     public async Task Adaptive_layout_supports_onboarding_wide_and_narrow_drill_down()
     {
         await TestReset.ResetShellAsync();
+        CloudStorageTests.SignIn(TestShell.MainViewModel._beutlClients, null);
         using var gitEnvironment = new IsolatedGitEnvironment();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
         string? previousGitPath = config.GitExecutablePath;
@@ -468,7 +470,26 @@ public class VersionControlTabViewTests
             MenuItem hostedAction = primaryActionFlyout.Items.OfType<MenuItem>()
                 .Single(item => Equals(item.Header, Strings.VersionControl_CreateHostedRepository));
             Assert.That(hostedAction.Command, Is.SameAs(viewModel.CreateHostedRepositoryCommand));
-            Assert.That(hostedAction.IsEnabled, Is.True);
+            Assert.That(hostedAction.IsEffectivelyEnabled, Is.False);
+            CaptureHostedRepositoryMenu(hostedAction, "signed-out");
+
+            CloudStorageTests.SignInOnBackgroundThread(TestShell.MainViewModel._beutlClients, "hosted-menu-user");
+            HeadlessTestHelpers.Render();
+            Assert.That(hostedAction.IsEffectivelyEnabled, Is.True);
+            CaptureHostedRepositoryMenu(hostedAction, "signed-in");
+
+            CloudStorageTests.SignInOnBackgroundThread(TestShell.MainViewModel._beutlClients, null);
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(hostedAction.IsEffectivelyEnabled, Is.False);
+                Assert.That(primaryActionFlyout.Items.OfType<MenuItem>()
+                    .Single(item => item.Command == viewModel.SetRemoteCommand).IsEffectivelyEnabled, Is.True);
+            });
+            primaryActionFlyout.Hide();
+            primaryActionFlyout.ShowAt(primaryAction);
+            HeadlessTestHelpers.Render();
+            Assert.That(hostedAction.IsEffectivelyEnabled, Is.False);
             primaryActionFlyout.Hide();
 
             Task<string?> remoteUrlTask =
@@ -857,8 +878,18 @@ public class VersionControlTabViewTests
         {
             window.Close();
             config.GitExecutablePath = previousGitPath;
+            CloudStorageTests.SignIn(TestShell.MainViewModel._beutlClients, null);
             await TestReset.ResetShellAsync();
         }
+    }
+
+    private static void CaptureHostedRepositoryMenu(MenuItem hostedAction, string state)
+    {
+        if (Environment.GetEnvironmentVariable("BEUTL_HOSTED_MENU_CAPTURE") is not { Length: > 0 } directory) return;
+        Directory.CreateDirectory(directory);
+        using var image = TopLevel.GetTopLevel(hostedAction)!.CaptureRenderedFrame();
+        Assert.That(image, Is.Not.Null);
+        image!.Save(Path.Combine(directory, state + ".png"), PngBitmapEncoderOptions.Default);
     }
 
     [AvaloniaTest]
