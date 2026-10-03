@@ -595,6 +595,9 @@
   <data name="ParticleEmitter_ParticleSize" xml:space="preserve">
     <value>パーティクルサイズ</value>
   </data>
+  <data name="ParticleEmitter_PrewarmDuration" xml:space="preserve">
+    <value>プリウォーム時間</value>
+  </data>
   <data name="ParticleEmitter_Seed" xml:space="preserve">
     <value>シード</value>
   </data>

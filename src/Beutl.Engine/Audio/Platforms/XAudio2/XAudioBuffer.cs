@@ -8,6 +8,8 @@ namespace Beutl.Audio.Platforms.XAudio2;
 public sealed unsafe class XAudioBuffer : IDisposable
 {
     private void* _stream;
+    private readonly object _lifetimeGate = new();
+    private int _isDisposed;
 
     public XAudioBuffer()
     {
@@ -33,27 +35,43 @@ public sealed unsafe class XAudioBuffer : IDisposable
 
     public unsafe void BufferData(IntPtr buffer, int sizeInBytes, WaveFormat format)
     {
-        if (_stream != null)
+        lock (_lifetimeGate)
         {
-            NativeMemory.Free(_stream);
-            _stream = null;
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
+            if (_stream != null)
+            {
+                NativeMemory.Free(_stream);
+                _stream = null;
+            }
+
+            _stream = NativeMemory.AllocZeroed((nuint)sizeInBytes);
+            System.Buffer.MemoryCopy((void*)buffer, _stream, sizeInBytes, sizeInBytes);
+
+            Format = format;
+            SizeInBytes = sizeInBytes;
+            Buffer.AudioDataPointer = (nint)_stream;
+            Buffer.AudioBytes = (uint)SizeInBytes;
         }
-
-        _stream = NativeMemory.AllocZeroed((nuint)sizeInBytes);
-        System.Buffer.MemoryCopy((void*)buffer, _stream, sizeInBytes, sizeInBytes);
-
-        Format = format;
-        SizeInBytes = sizeInBytes;
-        Buffer.AudioDataPointer = (nint)_stream;
-        Buffer.AudioBytes = (uint)SizeInBytes;
     }
 
     public void Dispose()
     {
-        Buffer.Dispose();
-        if (_stream != null)
+        lock (_lifetimeGate)
         {
-            NativeMemory.Free(_stream);
+            if (Interlocked.Exchange(ref _isDisposed, 1) != 0) return;
+
+            Buffer.Dispose();
+            if (_stream != null)
+            {
+                NativeMemory.Free(_stream);
+                _stream = null;
+            }
+
+            Buffer.AudioDataPointer = IntPtr.Zero;
+            Buffer.AudioBytes = 0;
+            SizeInBytes = 0;
+            Format = null;
         }
     }
 }

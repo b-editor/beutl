@@ -1,4 +1,6 @@
-﻿using BenchmarkDotNet.Columns;
+﻿using System.Reflection;
+
+using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Diagnosers;
 using BenchmarkDotNet.Engines;
@@ -64,7 +66,8 @@ internal sealed class RenderPipelineBenchmarkConfig : ManualConfig
             .WithWarmupCount(BenchmarkWarmupCount)
             .WithIterationCount(BenchmarkIterationCount)
             .WithInvocationCount(BenchmarkInvocationCount)
-            .WithUnrollFactor(BenchmarkUnrollFactor));
+            .WithUnrollFactor(BenchmarkUnrollFactor)
+            .WithArguments(CreateSkiaSharpArguments()));
         AddDiagnoser(MemoryDiagnoser.Default);
         AddColumnProvider(DefaultColumnProviders.Instance);
         AddLogger(ConsoleLogger.Default);
@@ -87,6 +90,29 @@ internal sealed class RenderPipelineBenchmarkConfig : ManualConfig
                 Path.Combine(root, "render-pipeline-counters"));
         }
     }
+
+    // The generated benchmark project does not import Directory.Build.targets, which is where Beutl's
+    // libSkiaSharp replaces SkiaSharp's own, and when its artifacts live outside the repository it misses
+    // Directory.Build.props too, which says where that binary is. Without both the Vulkan backend cannot be
+    // created at all.
+    internal static MsBuildArgument[] CreateSkiaSharpArguments()
+    {
+        string targets = GetMetadata("BeutlSkiaSharpTargets");
+        // A trailing backslash would escape the closing quote on Windows; MSBuild accepts either separator.
+        string nativeRoot = GetMetadata("BeutlSkiaSharpNativeRoot").TrimEnd('/', '\\') + "/";
+        // BenchmarkDotNet joins argument text unquoted, so quote each value to keep paths with spaces whole.
+        return
+        [
+            new MsBuildArgument($"/p:CustomAfterMicrosoftCommonTargets=\"{targets}\""),
+            new MsBuildArgument($"/p:BeutlSkiaSharpNativeRoot=\"{nativeRoot}\""),
+        ];
+    }
+
+    private static string GetMetadata(string key)
+        => typeof(RenderPipelineBenchmarkConfig).Assembly
+               .GetCustomAttributes<AssemblyMetadataAttribute>()
+               .SingleOrDefault(attribute => attribute.Key == key)?.Value
+           ?? throw new InvalidOperationException($"Beutl.Benchmarks was built without its {key} metadata.");
 
     /// <summary>The fusion mode this process measures, defaulting to the production <c>Enabled</c>.</summary>
     public static FusionMode GetFusionMode()

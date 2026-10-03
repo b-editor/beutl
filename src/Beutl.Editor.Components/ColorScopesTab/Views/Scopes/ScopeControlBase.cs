@@ -40,6 +40,7 @@ public abstract class ScopeControlBase : Control
     private CancellationTokenSource? _renderCts;
     private WriteableBitmap? _frontBuffer;
     private WriteableBitmap? _backBuffer;
+    private bool _isDetached;
 
     protected WriteableBitmap? RenderedBitmap => _frontBuffer;
 
@@ -111,27 +112,32 @@ public abstract class ScopeControlBase : Control
 
     private async void StartBackgroundRender()
     {
+        CancelRender();
+        if (_isDetached) return;
+
         var bitmapRef = SourceBitmap?.TryClone();
         if (bitmapRef == null)
         {
-            _frontBuffer = null;
-            _backBuffer = null;
+            ClearBuffers();
             InvalidateVisual();
             return;
         }
 
-        _renderCts?.Cancel();
-        _renderCts?.Dispose();
-        _renderCts = new CancellationTokenSource();
-        var ct = _renderCts.Token;
-
-        var backBuffer = _backBuffer;
+        using var renderCts = new CancellationTokenSource();
+        _renderCts = renderCts;
+        var ct = renderCts.Token;
+        WriteableBitmap? backBuffer = null;
+        WriteableBitmap? result = null;
 
         bool lockTaken = false;
         try
         {
             await _renderLock.WaitAsync(ct);
             lockTaken = true;
+            ct.ThrowIfCancellationRequested();
+            // The worker owns this buffer until it completes or transfers the result back to the UI.
+            backBuffer = _backBuffer;
+            _backBuffer = null;
             var bounds = Bounds;
             double axisMargin = AxisMargin;
             int targetWidth = (int)Math.Max(1, bounds.Width - axisMargin);
@@ -139,56 +145,57 @@ public abstract class ScopeControlBase : Control
 
             if (targetWidth <= 0 || targetHeight <= 0) return;
 
-            await Task.Run(async () =>
+            result = await Task.Run(() =>
             {
-                try
-                {
-                    if (ct.IsCancellationRequested) return;
-
-                    var result = RenderScope(
-                        bitmapRef.Value,
-                        targetWidth,
-                        targetHeight,
-                        backBuffer);
-
-                    if (result == null) return;
-
-                    await Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        var oldFront = _frontBuffer;
-                        _frontBuffer = result;
-
-                        if (result != backBuffer)
-                        {
-                            _backBuffer?.Dispose();
-                            _backBuffer = oldFront;
-                        }
-                        else if (oldFront != result)
-                        {
-                            _backBuffer = oldFront;
-                        }
-
-                        InvalidateVisual();
-                    });
-                }
-                catch (OperationCanceledException)
-                {
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Scope render error: {ex.Message}");
-                }
+                ct.ThrowIfCancellationRequested();
+                return RenderScope(bitmapRef.Value, targetWidth, targetHeight, backBuffer);
             }, ct);
+            if (result == null) return;
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (ct.IsCancellationRequested || !ReferenceEquals(_renderCts, renderCts)) return;
+
+                _backBuffer = _frontBuffer;
+                _frontBuffer = result;
+                if (ReferenceEquals(result, backBuffer))
+                    backBuffer = null;
+                result = null;
+                InvalidateVisual();
+            });
         }
         catch (OperationCanceledException)
         {
         }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Scope render error: {ex.Message}");
+        }
         finally
         {
+            result?.Dispose();
+            if (!ReferenceEquals(backBuffer, result))
+                backBuffer?.Dispose();
             bitmapRef.Dispose();
+            if (ReferenceEquals(_renderCts, renderCts))
+                _renderCts = null;
             if (lockTaken)
                 _renderLock.Release();
         }
+    }
+
+    private void CancelRender()
+    {
+        _renderCts?.Cancel();
+        _renderCts = null;
+    }
+
+    private void ClearBuffers()
+    {
+        _frontBuffer?.Dispose();
+        _frontBuffer = null;
+        _backBuffer?.Dispose();
+        _backBuffer = null;
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
@@ -311,18 +318,20 @@ public abstract class ScopeControlBase : Control
         }
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _isDetached = false;
+        StartBackgroundRender();
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
 
-        _renderCts?.Cancel();
-        _renderCts?.Dispose();
-        _renderCts = null;
-
-        _frontBuffer?.Dispose();
-        _frontBuffer = null;
-        _backBuffer?.Dispose();
-        _backBuffer = null;
+        _isDetached = true;
+        CancelRender();
+        ClearBuffers();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

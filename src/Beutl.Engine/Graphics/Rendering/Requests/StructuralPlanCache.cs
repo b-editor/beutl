@@ -1,7 +1,7 @@
 ﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
-/// Retains the last structural request family for a renderer. Each stable depth-first family slot keeps
+/// Retains the last structural request family for a renderer. Each parent-first depth-first family slot keeps
 /// one graph-independent index plan, reused only when the complete structural identity compares equal.
 /// </summary>
 internal sealed class StructuralPlanCache : IDisposable
@@ -46,7 +46,7 @@ internal sealed class StructuralPlanCache : IDisposable
             if (familySlot > _entries.Count)
             {
                 throw new InvalidOperationException(
-                    "Structural-plan family slots must be requested in depth-first order.");
+                    "Structural-plan family slots must be requested in parent-first depth-first order.");
             }
 
             bool replacing = familySlot < _entries.Count;

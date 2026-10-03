@@ -337,14 +337,32 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     public void Flush(bool waitForCompletion)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        Flush(waitForCompletion, signal: null);
+    }
 
+    /// <summary>Submits the recording batch, empty if nothing was recorded, and signals <paramref name="value"/> once it completes.</summary>
+    /// <remarks>
+    /// A queue-submission signal also covers every batch submitted earlier, so the value means that all work
+    /// recorded so far has finished on the GPU.
+    /// </remarks>
+    public void SubmitSignalingTimeline(Semaphore timeline, ulong value)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        Flush(waitForCompletion: false, new TimelineSignal(timeline, value));
+    }
+
+    private void Flush(bool waitForCompletion, TimelineSignal? signal)
+    {
         IVulkanRenderPassSuspension? owner = _renderPassScopeDepth > 0
             ? _activeRenderPassOwner
             : null;
         bool suspended = owner is not null && owner.TrySuspend();
         try
         {
-            SubmitRecordingCommandBuffer();
+            if (signal is not null)
+                GetRecordingCommandBuffer();
+
+            SubmitRecordingCommandBuffer(signal);
 
             if (waitForCompletion)
             {
@@ -393,7 +411,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         }
     }
 
-    private void SubmitRecordingCommandBuffer()
+    private void SubmitRecordingCommandBuffer(TimelineSignal? timelineSignal = null)
     {
         if (!_isRecording)
             return;
@@ -418,22 +436,44 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
 
             fence = CreateFence();
             signalSemaphore = CreateSemaphore();
+
+            // The binary semaphore chains this batch to the previous one; a timeline signal orders it against
+            // another API's queue. Binary entries ignore their value in the timeline submit info.
             PipelineStageFlags waitDstStageMask = PipelineStageFlags.AllCommandsBit;
+            ulong waitValue = 0;
+            uint waitCount = _hasPendingSemaphoreSignal ? 1u : 0u;
+
+            Semaphore* signalSemaphores = stackalloc Semaphore[2];
+            ulong* signalValues = stackalloc ulong[2];
+            uint signalCount = 0;
+            signalSemaphores[signalCount] = signalSemaphore;
+            signalValues[signalCount++] = 0;
+            if (timelineSignal is { } signal)
+            {
+                signalSemaphores[signalCount] = signal.Semaphore;
+                signalValues[signalCount++] = signal.Value;
+            }
+
+            var timelineInfo = new TimelineSemaphoreSubmitInfo
+            {
+                SType = StructureType.TimelineSemaphoreSubmitInfo,
+                WaitSemaphoreValueCount = waitCount,
+                PWaitSemaphoreValues = &waitValue,
+                SignalSemaphoreValueCount = signalCount,
+                PSignalSemaphoreValues = signalValues,
+            };
             var submitInfo = new SubmitInfo
             {
                 SType = StructureType.SubmitInfo,
+                PNext = timelineSignal is not null ? &timelineInfo : null,
                 CommandBufferCount = 1,
                 PCommandBuffers = &commandBuffer,
-                SignalSemaphoreCount = 1,
-                PSignalSemaphores = &signalSemaphore
+                WaitSemaphoreCount = waitCount,
+                PWaitSemaphores = &waitSemaphore,
+                PWaitDstStageMask = &waitDstStageMask,
+                SignalSemaphoreCount = signalCount,
+                PSignalSemaphores = signalSemaphores,
             };
-
-            if (_hasPendingSemaphoreSignal)
-            {
-                submitInfo.WaitSemaphoreCount = 1;
-                submitInfo.PWaitSemaphores = &waitSemaphore;
-                submitInfo.PWaitDstStageMask = &waitDstStageMask;
-            }
 
             submission = new InFlightSubmission(commandBuffer, fence);
             if (_hasPendingSemaphoreSignal)
@@ -804,6 +844,8 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
             }
         }
     }
+
+    private readonly record struct TimelineSignal(Semaphore Semaphore, ulong Value);
 
     private sealed class InFlightSubmission(CommandBuffer commandBuffer, Fence fence)
     {

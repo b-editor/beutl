@@ -1,4 +1,6 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Beutl.Editor.Components.Helpers;
 using Beutl.ViewModels.Dock;
 
@@ -10,6 +12,17 @@ namespace Beutl.Views;
 /// </summary>
 public sealed class ToolTabContent : ContentControl
 {
+    public ToolTabContent()
+    {
+        AddHandler(PointerPressedEvent, (_, _) => RecordInteraction(), RoutingStrategies.Tunnel);
+        AddHandler(GotFocusEvent, (_, _) => RecordInteraction(), RoutingStrategies.Bubble);
+    }
+
+    private void RecordInteraction()
+    {
+        if (DataContext is BeutlToolDockable dockable) dockable.RecordInteraction();
+    }
+
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);

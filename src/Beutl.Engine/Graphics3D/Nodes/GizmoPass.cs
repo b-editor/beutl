@@ -260,19 +260,9 @@ public sealed class GizmoPass : GraphicsNode3D
 
     protected override void OnDispose()
     {
-        _descriptorSet?.Dispose();
-        _pipeline?.Dispose();
-        _uniformBuffer?.Dispose();
-
-        _translateVertexBuffer?.Dispose();
-        _translateIndexBuffer?.Dispose();
-        _rotateVertexBuffer?.Dispose();
-        _rotateIndexBuffer?.Dispose();
-        _scaleVertexBuffer?.Dispose();
-        _scaleIndexBuffer?.Dispose();
-
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
+        DisposeResources([_descriptorSet, _pipeline, _uniformBuffer, _translateVertexBuffer,
+            _translateIndexBuffer, _rotateVertexBuffer, _rotateIndexBuffer, _scaleVertexBuffer,
+            _scaleIndexBuffer, Framebuffer, RenderPass]);
     }
 
     // === Gizmo Shaders ===

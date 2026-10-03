@@ -51,11 +51,17 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        Value.Select(i => i.ToAvaGeometrySync(CurrentTime))
-            .CombineWithPrevious()
-            // Null-conditionalアクセスがグレーアウトしているが必要なはず...
-            .Do(t => t.OldValue.Item2?.Dispose())
-            .Select(t => t.NewValue.Item1)
+        Value.Select(figure => Observable.Create<Avalonia.Media.Geometry?>(observer =>
+            {
+                if (figure == null)
+                {
+                    observer.OnNext(null);
+                    return Disposable.Empty;
+                }
+
+                var (geometry, subscription) = figure.ToAvaGeometrySync(CurrentTime);
+                return new CompositeDisposable(subscription, geometry.Subscribe(observer));
+            }))
             .Switch()
             .Subscribe(geometry => PreviewPath.Value = geometry)
             .DisposeWith(Disposables);

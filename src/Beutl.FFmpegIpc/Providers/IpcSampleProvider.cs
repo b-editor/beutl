@@ -168,8 +168,9 @@ internal sealed class IpcSampleProvider : ISampleProvider
         }
 
         int bufferIndex = 0;
+        Pcm<Stereo32BitFloat> chunk = await FetchChunk(chunkOffset, bufferIndex);
         _currentChunk?.Dispose();
-        _currentChunk = await FetchChunk(chunkOffset, bufferIndex);
+        _currentChunk = chunk;
         _currentChunkOffset = chunkOffset;
         _currentBufferIndex = bufferIndex;
     }

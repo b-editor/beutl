@@ -126,9 +126,10 @@ public class FormattedTextDisposalTests
 
         // The per-glyph SKPath is owned separately from the resource's cached render path; capture those
         // handles so we can assert they were released by Dispose.
+        Assert.That(geometries, Has.All.InstanceOf<SKPathGeometry.Resource>(),
+            "Every glyph entry must expose its owned path rather than be filtered out.");
         List<SKPath> glyphPaths = geometries
-            .OfType<SKPathGeometry.Resource>()
-            .Select(r => r.Path)
+            .Select(r => ((SKPathGeometry.Resource)r).Path)
             .Where(p => p is not null)
             .Select(p => p!)
             .ToList();
@@ -167,10 +168,11 @@ public class FormattedTextDisposalTests
         // _pathList in place, so they are read out of the pre-shrink snapshot.
         List<Geometry.Resource> trailingResources = longGeometries.Skip(shortCount).ToList();
         Assert.That(trailingResources, Has.Count.EqualTo(longCount - shortCount));
+        Assert.That(trailingResources, Has.All.InstanceOf<SKPathGeometry.Resource>(),
+            "Every trailing glyph entry must expose its owned path rather than be filtered out.");
 
         List<SKPath> trailingGlyphPaths = trailingResources
-            .OfType<SKPathGeometry.Resource>()
-            .Select(r => r.Path)
+            .Select(r => ((SKPathGeometry.Resource)r).Path)
             .Where(p => p is not null)
             .Select(p => p!)
             .ToList();

@@ -6,6 +6,7 @@
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:views="using:Beutl.Editor.Components.ProxiesTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.ProxiesTab.ViewModels"
              d:DesignHeight="520"
@@ -72,6 +73,7 @@
                            ToolTip.Tip="{Binding ClipSummary.Value}" />
                 <Button x:Name="RefreshButton"
                         Grid.Column="2"
+                        usage:UsageTracking.Feature="Proxies.RefreshCommand"
                         AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
                         Command="{Binding RefreshCommand}"
                         Theme="{StaticResource ToolTabBarIconButtonTheme}"
@@ -120,14 +122,22 @@
                             ToolTip.Tip="{x:Static lang:Strings.ProxyMoreActions}">
                         <Button.Flyout>
                             <MenuFlyout>
-                                <MenuItem Header="{x:Static lang:Strings.ProxyGenerateAll}" Command="{Binding GenerateAllCommand}" />
+                                <MenuItem usage:UsageTracking.Feature="Proxies.GenerateAllCommand"
+                                          Command="{Binding GenerateAllCommand}"
+                                          Header="{x:Static lang:Strings.ProxyGenerateAll}" />
                                 <Separator />
-                                <MenuItem Header="{x:Static lang:Strings.ProxyRegenerateSelected}"
-                                          Command="{Binding RegenerateSelectedCommand}" IsEnabled="{Binding HasSelection.Value}" />
-                                <MenuItem Header="{x:Static lang:Strings.ProxyDeleteSelected}"
-                                          Command="{Binding DeleteSelectedCommand}" IsEnabled="{Binding HasSelection.Value}" />
+                                <MenuItem usage:UsageTracking.Feature="Proxies.RegenerateSelectedCommand"
+                                          Command="{Binding RegenerateSelectedCommand}"
+                                          Header="{x:Static lang:Strings.ProxyRegenerateSelected}"
+                                          IsEnabled="{Binding HasSelection.Value}" />
+                                <MenuItem usage:UsageTracking.Feature="Proxies.DeleteSelectedCommand"
+                                          Command="{Binding DeleteSelectedCommand}"
+                                          Header="{x:Static lang:Strings.ProxyDeleteSelected}"
+                                          IsEnabled="{Binding HasSelection.Value}" />
                                 <Separator />
-                                <MenuItem Header="{x:Static lang:Strings.ProxyDeleteProjectProxies}" Command="{Binding DeleteAllForProjectCommand}" />
+                                <MenuItem usage:UsageTracking.Feature="Proxies.DeleteAllForProjectCommand"
+                                          Command="{Binding DeleteAllForProjectCommand}"
+                                          Header="{x:Static lang:Strings.ProxyDeleteProjectProxies}" />
                             </MenuFlyout>
                         </Button.Flyout>
                         <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
@@ -174,15 +184,20 @@
                                                     <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetQuarter}" />
                                                     <ComboBoxItem Content="{x:Static lang:Strings.ProxyPresetEighth}" />
                                                 </ComboBox>
-                                                <Button x:Name="GenerateClipButton" Grid.Column="1"
-                                                        Command="{Binding GenerateCommand}" Content="{x:Static lang:Strings.ProxyGenerate}"
+                                                <Button x:Name="GenerateClipButton"
+                                                        Grid.Column="1"
+                                                        usage:UsageTracking.Feature="Proxies.GenerateCommand"
+                                                        Command="{Binding GenerateCommand}"
+                                                        Content="{x:Static lang:Strings.ProxyGenerate}"
                                                         IsVisible="{Binding !HasJob.Value}" />
-                                                <Button x:Name="CancelJobButton" Grid.Column="1"
-                                                        Command="{Binding CancelJobCommand}"
+                                                <Button x:Name="CancelJobButton"
+                                                        Grid.Column="1"
+                                                        usage:UsageTracking.Feature="Proxies.CancelJobCommand"
                                                         AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
+                                                        Command="{Binding CancelJobCommand}"
+                                                        IsVisible="{Binding HasJob.Value}"
                                                         Theme="{StaticResource ToolTabBarIconButtonTheme}"
-                                                        ToolTip.Tip="{x:Static lang:Strings.Cancel}"
-                                                        IsVisible="{Binding HasJob.Value}">
+                                                        ToolTip.Tip="{x:Static lang:Strings.Cancel}">
                                                     <icons:SymbolIcon FontSize="16" Symbol="Dismiss" />
                                                 </Button>
                                                 <Button x:Name="ClipMoreButton" Grid.Column="2"
@@ -190,8 +205,12 @@
                                                         Theme="{StaticResource ToolTabBarIconButtonTheme}" ToolTip.Tip="{x:Static lang:Strings.ProxyMoreActions}">
                                                     <Button.Flyout>
                                                         <MenuFlyout>
-                                                            <MenuItem Header="{x:Static lang:Strings.ProxyRegenerate}" Command="{Binding RegenerateCommand}" />
-                                                            <MenuItem Header="{x:Static lang:Strings.Delete}" Command="{Binding DeleteCommand}" />
+                                                            <MenuItem usage:UsageTracking.Feature="Proxies.RegenerateCommand"
+                                                                      Command="{Binding RegenerateCommand}"
+                                                                      Header="{x:Static lang:Strings.ProxyRegenerate}" />
+                                                            <MenuItem usage:UsageTracking.Feature="Proxies.DeleteCommand"
+                                                                      Command="{Binding DeleteCommand}"
+                                                                      Header="{x:Static lang:Strings.Delete}" />
                                                         </MenuFlyout>
                                                     </Button.Flyout>
                                                     <icons:FluentIcon FontSize="16" Icon="MoreVertical" />

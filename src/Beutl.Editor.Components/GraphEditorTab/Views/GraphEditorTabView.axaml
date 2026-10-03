@@ -3,16 +3,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:view="using:Beutl.Editor.Components.GraphEditorTab.Views"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:viewModels="using:Beutl.Editor.Components.GraphEditorTab.ViewModels"
              xmlns:lang="using:Beutl.Language"
-             x:DataType="viewModels:GraphEditorTabViewModel"
-             x:CompileBindings="True"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
+             xmlns:view="using:Beutl.Editor.Components.GraphEditorTab.Views"
+             xmlns:viewModels="using:Beutl.Editor.Components.GraphEditorTab.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="viewModels:GraphEditorTabViewModel"
              mc:Ignorable="d">
     <Grid>
         <Grid.ColumnDefinitions>
@@ -26,7 +27,9 @@
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="{x:Static lang:Strings.Properties}"
                                Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
-                    <Button Grid.Column="1" Command="{Binding Refresh}"
+                    <Button Grid.Column="1"
+                            usage:UsageTracking.Feature="GraphEditor.Refresh"
+                            Command="{Binding Refresh}"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.Refresh}">
                         <icons:FluentIcon Icon="ArrowClockwise" FontSize="16" />
@@ -73,16 +76,24 @@
                                     IsVisible="{Binding ChannelBrush.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
                             <TextBlock x:Name="PropertyNameText" Grid.Column="1" Text="{Binding Name.Value}" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name.Value}" />
-                            <Button Grid.Column="2" Classes="graph-animation"
-                                    IsVisible="{Binding ShowAnimationButton.Value}" Click="ToggleKeyFrameClick"
-                                    Width="22" MinWidth="0" MinHeight="0" Height="{DynamicResource LayerHeight}"
+                            <Button Grid.Column="2"
+                                    Width="22"
+                                    Height="{DynamicResource LayerHeight}"
+                                    MinWidth="0"
+                                    MinHeight="0"
+                                    usage:UsageTracking.Feature="GraphEditor.ToggleKeyFrame"
+                                    AutomationProperties.Name="{Binding AnimationToolTip.Value}"
+                                    Classes="graph-animation"
+                                    Click="ToggleKeyFrameClick"
+                                    IsVisible="{Binding ShowAnimationButton.Value}"
                                     Theme="{StaticResource LayerHeaderButtonTheme}"
-                                    ToolTip.Tip="{Binding AnimationToolTip.Value}"
-                                    AutomationProperties.Name="{Binding AnimationToolTip.Value}">
+                                    ToolTip.Tip="{Binding AnimationToolTip.Value}">
                                 <Button.ContextFlyout>
                                     <ui:FAMenuFlyout>
-                                        <ui:FAMenuFlyoutItem Text="{x:Static lang:Strings.RemoveAnimation}"
-                                                             IsEnabled="{Binding CanRemoveAnimation.Value}" Click="RemoveAnimationClick" />
+                                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.RemoveAnimation"
+                                                             Click="RemoveAnimationClick"
+                                                             IsEnabled="{Binding CanRemoveAnimation.Value}"
+                                                             Text="{x:Static lang:Strings.RemoveAnimation}" />
                                     </ui:FAMenuFlyout>
                                 </Button.ContextFlyout>
                                 <icons:FluentIcon FontSize="14" Classes.hasAnimation="{Binding HasAnimation.Value}"

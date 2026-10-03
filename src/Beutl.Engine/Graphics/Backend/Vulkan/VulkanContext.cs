@@ -379,6 +379,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public Device Device => _vulkanDevice.Device;
 
+    /// <inheritdoc cref="VulkanDevice.SupportsTimelineSemaphores"/>
+    public bool SupportsTimelineSemaphores => _vulkanDevice.SupportsTimelineSemaphores;
+
     /// <inheritdoc cref="VulkanDevice.SupportsShaderInt64"/>
     public bool SupportsShaderInt64 => _vulkanDevice.SupportsShaderInt64;
 
@@ -475,7 +478,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
         return new VulkanTextureCube(this, size, format, usage);
     }
 
@@ -485,7 +488,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
         return new VulkanTextureArray(this, width, height, arraySize, format, usage);
     }
 
@@ -495,7 +498,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
         return new VulkanTextureCubeArray(this, size, arraySize, format, usage);
     }
 
@@ -1019,6 +1022,12 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
     public void FlushCommands(bool waitForCompletion)
     {
         _vulkanCommandPool.Flush(waitForCompletion);
+    }
+
+    /// <inheritdoc cref="VulkanCommandPool.SubmitSignalingTimeline"/>
+    public void SubmitSignalingTimeline(Silk.NET.Vulkan.Semaphore timeline, ulong value)
+    {
+        _vulkanCommandPool.SubmitSignalingTimeline(timeline, value);
     }
 
     /// <inheritdoc cref="VulkanCommandPool.ThrowIfRenderPassActive"/>

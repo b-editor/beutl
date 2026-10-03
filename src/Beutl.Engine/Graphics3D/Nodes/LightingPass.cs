@@ -262,18 +262,9 @@ public sealed class LightingPass : GraphicsNode3D
 
     protected override void OnDispose()
     {
-        _descriptorSet?.Dispose();
-        _pipeline?.Dispose();
-        _lightsBuffer?.Dispose();
-        _cameraUniformBuffer?.Dispose();
-        _shadowBuffer?.Dispose();
-        _gBufferSampler?.Dispose();
-        _shadowSampler?.Dispose();
-        _dummyShadowArray?.Dispose();
-        _dummyShadowCubeArray?.Dispose();
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
+        DisposeResources([_descriptorSet, _pipeline, _lightsBuffer, _cameraUniformBuffer, _shadowBuffer,
+            _gBufferSampler, _shadowSampler, _dummyShadowArray, _dummyShadowCubeArray,
+            Framebuffer, RenderPass, OutputTexture]);
     }
 
     // === Lighting Pass Shader ===

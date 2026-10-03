@@ -171,6 +171,7 @@ public sealed partial class EditViewModel
         HistoryManager = new HistoryManager(Scene, sequenceGenerator);
         HistoryManager.Subscribe(observer)
             .DisposeWith(_disposables);
+        Usage = new EditorUsageTracker(Scene, HistoryManager).DisposeWith(_disposables);
 
         observer.Operations
             .Buffer(HistoryManager.StateChanged)
@@ -611,6 +612,8 @@ public sealed partial class EditViewModel
 
     public HistoryManager HistoryManager { get; private set; }
 
+    internal EditorUsageTracker? Usage { get; }
+
     public ReadOnlyReactivePropertySlim<FrameCacheManager> FrameCacheManager { get; private set; }
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
@@ -625,53 +628,91 @@ public sealed partial class EditViewModel
     {
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
         Scene scene = Scene;
+        Exception? firstFailure = null;
+
+        void RecordFailure(Exception error)
+        {
+            if (Interlocked.CompareExchange(ref firstFailure, error, null) is not null)
+            {
+                try { _logger.LogWarning(error, "An additional editor cleanup step failed ({SceneId}).", SceneId); }
+                catch { } // Preserve the original disposal failure even if its diagnostic cannot be written.
+            }
+        }
+
+        void Cleanup(Action action)
+        {
+            try { action(); }
+            catch (Exception error) { RecordFailure(error); }
+        }
+
+        async ValueTask CleanupAsync(Func<ValueTask> action)
+        {
+            try { await action(); }
+            catch (Exception error) { RecordFailure(error); }
+        }
 
         // Block any proxy-invalidation flush already posted to the UI thread from running after this
         // nulls Scene / disposes FrameCacheManager below.
         _disposed = true;
-        _autoSaveCancellation.Cancel();
+        Cleanup(_autoSaveCancellation.Cancel);
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
-        if (scene.Uri is not null && !EditorService.IsWorktreeMutationActive)
+        try
         {
-            using IDisposable fileWrite = await EditorService.BeginProjectFileWriteAsync(
-                CancellationToken.None);
-            SaveState();
+            if (scene.Uri is not null && !EditorService.IsWorktreeMutationActive)
+            {
+                using IDisposable fileWrite = await EditorService.BeginProjectFileWriteAsync(
+                    CancellationToken.None);
+                SaveState();
+            }
+            else if (scene.Uri is not null)
+            {
+                _logger.LogDebug(
+                    "Skipping the final view-state save during a worktree mutation ({SceneId}).",
+                    SceneId);
+            }
         }
-        else if (scene.Uri is not null)
+        catch (Exception error)
         {
-            _logger.LogDebug(
-                "Skipping the final view-state save during a worktree mutation ({SceneId}).",
-                SceneId);
+            RecordFailure(error);
         }
-        _editorSelection.SelectedObject.Value = null;
-        // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
-        DisposeCommandStateNotifier();
-        // Tool contexts can own paid-AI operations that still publish through the editor.
-        // Cancel and drain them before retiring element handlers and the player.
-        AiWorkspaceViewModel[] aiWorkspaces = DockHost.Factory.EnumerateTools()
-            .Select(static tool => tool.ToolContext)
-            .OfType<AiWorkspaceViewModel>()
-            .ToArray();
-        DockHost.Dispose();
-        await Task.WhenAll(aiWorkspaces.Select(static workspace => workspace.DisposeAsync().AsTask()));
-        // Retire and cancel UI-initiated element operations before waiting for handler leases.
-        // Awaiting yields the UI thread so cancellation continuations can release those leases.
-        await _elementAdder.DisposeAsync();
-        await Player.DisposeAsync();
-        _elementNudgeService?.Dispose();
-        _historyMutationPlaybackGuard.Dispose();
-        _disposables.Dispose();
-        IsEnabled.Dispose();
-        Player = null!;
-        BufferStatus = null!;
+        finally
+        {
+            // A view-state save failure must not strand a retired editor's resources. Attempt
+            // every cleanup step, and report the original error only after ownership is released.
+            Cleanup(() => _editorSelection.SelectedObject.Value = null);
+            // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
+            Cleanup(DisposeCommandStateNotifier);
+            // Tool contexts can own paid-AI operations that still publish through the editor.
+            // Cancel and drain them before retiring element handlers and the player.
+            AiWorkspaceViewModel[] aiWorkspaces = [];
+            Cleanup(() => aiWorkspaces = DockHost.Factory.EnumerateTools()
+                .Select(static tool => tool.ToolContext)
+                .OfType<AiWorkspaceViewModel>()
+                .ToArray());
+            Cleanup(DockHost.Dispose);
+            await Task.WhenAll(aiWorkspaces.Select(workspace => CleanupAsync(workspace.DisposeAsync).AsTask()));
+            // Retire and cancel UI-initiated element operations before waiting for handler leases.
+            // Awaiting yields the UI thread so cancellation continuations can release those leases.
+            await CleanupAsync(_elementAdder.DisposeAsync);
+            await CleanupAsync(() => Player.DisposeAsync());
+            Cleanup(() => _elementNudgeService?.Dispose());
+            Cleanup(_historyMutationPlaybackGuard.Dispose);
+            Cleanup(_disposables.Dispose);
+            Cleanup(IsEnabled.Dispose);
+            Player = null!;
+            BufferStatus = null!;
 
-        // Closing the editor discards every live and redoable owner of unsaved sidecars and AI
-        // resources, so its scene-scoped temporary directory must not survive the tab.
-        UnsavedSceneStorage.Cleanup(scene.Id);
-        Scene = null!;
-        HistoryManager.Clear();
-        FrameCacheManager.Value.Dispose();
-        FrameCacheManager.Dispose();
+            // Closing the editor discards every live and redoable owner of unsaved sidecars and AI
+            // resources, so its scene-scoped temporary directory must not survive the tab.
+            Cleanup(() => UnsavedSceneStorage.Cleanup(scene.Id));
+            Scene = null!;
+            Cleanup(HistoryManager.Clear);
+            Cleanup(() => FrameCacheManager.Value.Dispose());
+            Cleanup(FrameCacheManager.Dispose);
+        }
+
+        if (firstFailure is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstFailure).Throw();
 
         _logger.LogInformation("Disposed EditViewModel ({SceneId}).", SceneId);
     }
@@ -1199,7 +1240,12 @@ public sealed partial class EditViewModel
     {
         return _historyMutationPlaybackGuard.RunAsync(
             Player,
-            HistoryManager.FlushPendingMutations,
+            () =>
+            {
+                // Closing may have started while Pause awaited the compose/render barriers.
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                HistoryManager.FlushPendingMutations();
+            },
             shouldPause,
             mutate,
             cancellationToken);
@@ -1212,6 +1258,10 @@ public sealed partial class EditViewModel
         Func<bool> shouldPause,
         Func<bool> mutate)
     {
+        UsageTelemetry? usage = UsageTelemetry.Current;
+        long epoch = 0;
+        bool collect = usage?.TryGetCollectionEpoch(out epoch) == true;
+        string tool = Usage?.ActiveTool ?? "Editor";
         try
         {
             if (startMessage is not null)
@@ -1220,6 +1270,9 @@ public sealed partial class EditViewModel
             }
 
             bool changed = await ExecuteGuardedHistoryMutationAsync(shouldPause, mutate);
+            if (changed && collect)
+                usage!.Record("editor.history", tool,
+                    operationName is "Undo" or "Redo" ? operationName : "JumpTo", epoch: epoch);
             if (changed && completedMessage is not null)
             {
                 _logger.LogInformation("{Message}", completedMessage);
@@ -1242,6 +1295,7 @@ public sealed partial class EditViewModel
 
     public ValueTask<bool> SaveAsync()
     {
+        using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("scene.save");
         Scene scene = Scene;
         _logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
         Uri sceneUri = scene.Uri
@@ -1275,6 +1329,7 @@ public sealed partial class EditViewModel
 
         SaveState(isExplicitUserSave: true);
         _logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
+        usage?.Complete();
 
         return ValueTask.FromResult(true);
     }

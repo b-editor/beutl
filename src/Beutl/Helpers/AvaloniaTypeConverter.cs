@@ -98,13 +98,13 @@ public static class AvaloniaTypeConverter
     {
         var d = new CompositeDisposable();
         var stops = new Avalonia.Media.GradientStops();
-        var subscription = new Dictionary<Media.GradientStop, IDisposable>();
+        var subscription = new List<IDisposable>();
 
         for (int i = 0; i < obj.Count; i++)
         {
             Media.GradientStop item = obj[i];
             var t = item.ToAvaGradientStopSync(time);
-            subscription[item] = t.Item2;
+            subscription.Add(t.Item2);
             stops.Insert(i, t.Item1);
         }
 
@@ -119,7 +119,7 @@ public static class AvaloniaTypeConverter
                         foreach (Media.GradientStop? item in e.NewItems!)
                         {
                             var t = item!.ToAvaGradientStopSync(time);
-                            subscription[item!] = t.Item2;
+                            subscription.Insert(index, t.Item2);
                             stops.Insert(index++, t.Item1);
                         }
 
@@ -129,13 +129,8 @@ public static class AvaloniaTypeConverter
                         index = e.OldStartingIndex;
                         for (int i = e.OldItems!.Count - 1; i >= 0; --i)
                         {
-                            var item = (Media.GradientStop)e.OldItems[i]!;
-                            if (subscription.TryGetValue(item, out var disposable))
-                            {
-                                disposable.Dispose();
-                                subscription.Remove(item);
-                            }
-
+                            subscription[index + i].Dispose();
+                            subscription.RemoveAt(index + i);
                             stops.RemoveAt(index + i);
                         }
 
@@ -145,16 +140,10 @@ public static class AvaloniaTypeConverter
                         index = e.NewStartingIndex;
                         for (int i = 0; i < e.NewItems!.Count; i++)
                         {
-                            var oldItem = (Media.GradientStop)e.OldItems![i]!;
                             var newItem = (Media.GradientStop)e.NewItems![i]!;
-                            if (subscription.TryGetValue(oldItem, out var disposable))
-                            {
-                                disposable.Dispose();
-                                subscription.Remove(oldItem);
-                            }
-
+                            subscription[index].Dispose();
                             (Avalonia.Media.GradientStop, IDisposable) t = newItem.ToAvaGradientStopSync(time);
-
+                            subscription[index] = t.Item2;
                             stops[index] = t.Item1;
                             index++;
                         }
@@ -166,20 +155,38 @@ public static class AvaloniaTypeConverter
                             && e.NewStartingIndex >= 0
                             && e.NewStartingIndex < stops.Count
                             && e.OldStartingIndex != e.NewStartingIndex
-                            && e.OldItems is { Count: 1 })
+                            && e.OldItems is { Count: > 0 } movedItems)
                         {
-                            stops.Move(e.OldStartingIndex, e.NewStartingIndex);
+                            var movedSubscriptions = subscription.GetRange(e.OldStartingIndex, movedItems.Count);
+                            subscription.RemoveRange(e.OldStartingIndex, movedItems.Count);
+                            subscription.InsertRange(e.NewStartingIndex, movedSubscriptions);
+                            if (movedItems.Count == 1)
+                            {
+                                stops.Move(e.OldStartingIndex, e.NewStartingIndex);
+                            }
+                            else
+                            {
+                                var movedStops = stops.Skip(e.OldStartingIndex).Take(movedItems.Count).ToArray();
+                                stops.RemoveRange(e.OldStartingIndex, movedItems.Count);
+                                stops.InsertRange(e.NewStartingIndex, movedStops);
+                            }
                         }
                         break;
 
                     case NotifyCollectionChangedAction.Reset:
                         stops.Clear();
-                        foreach (var item in subscription.Values)
+                        foreach (var item in subscription)
                         {
                             item.Dispose();
                         }
 
                         subscription.Clear();
+                        for (int i = 0; i < obj.Count; i++)
+                        {
+                            var t = obj[i].ToAvaGradientStopSync(time);
+                            subscription.Add(t.Item2);
+                            stops.Add(t.Item1);
+                        }
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(e));
@@ -188,10 +195,12 @@ public static class AvaloniaTypeConverter
             .DisposeWith(d);
         Disposable.Create(subscription, s =>
         {
-            foreach (var item in s.Values)
+            foreach (var item in s)
             {
                 item.Dispose();
             }
+
+            s.Clear();
         }).DisposeWith(d);
 
         return (stops, d);

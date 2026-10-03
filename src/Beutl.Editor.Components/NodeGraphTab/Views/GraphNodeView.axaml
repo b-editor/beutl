@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="Beutl.Editor.Components.NodeGraphTab.Views.GraphNodeView"
+<UserControl x:Class="Beutl.Editor.Components.NodeGraphTab.Views.GraphNodeView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -7,6 +7,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModels="using:Beutl.Editor.Components.NodeGraphTab.ViewModels"
              xmlns:views="using:Beutl.Editor.Components.NodeGraphTab.Views"
              Canvas.Left="{Binding Position.Value.X}"
@@ -50,16 +51,18 @@
                 ToolTip.Tip="{Binding NodeName.Value}">
             <Border.ContextFlyout>
                 <ui:FAMenuFlyout Opening="NodeMenuOpening">
-                    <ui:FAMenuFlyoutItem Command="{Binding Delete}"
-                                       InputGesture="Delete"
-                                       Text="{x:Static lang:Strings.Delete}">
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.Delete"
+                                         Command="{Binding Delete}"
+                                         InputGesture="Delete"
+                                         Text="{x:Static lang:Strings.Delete}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Delete" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
-                    <ui:FAMenuFlyoutItem Click="RegenerateClick"
-                                       IsVisible="{Binding IsGenerative}"
-                                       Text="{x:Static lang:NodeGraphStrings.Generative_RegenerateNode}">
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.Regenerate"
+                                         Click="RegenerateClick"
+                                         IsVisible="{Binding IsGenerative}"
+                                         Text="{x:Static lang:NodeGraphStrings.Generative_RegenerateNode}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Sparkle" />
                         </ui:FAMenuFlyoutItem.IconSource>
@@ -69,13 +72,18 @@
                         <ui:FAMenuFlyoutSubItem.IconSource>
                             <icons:FluentIconSource Icon="Grid" />
                         </ui:FAMenuFlyoutSubItem.IconSource>
-                        <ui:FAMenuFlyoutItem Click="Variations2Click" x:Name="Variations2Item" />
-                        <ui:FAMenuFlyoutItem Click="Variations4Click" x:Name="Variations4Item" />
+                        <ui:FAMenuFlyoutItem x:Name="Variations2Item"
+                                             usage:UsageTracking.Feature="NodeGraph.Variations2"
+                                             Click="Variations2Click" />
+                        <ui:FAMenuFlyoutItem x:Name="Variations4Item"
+                                             usage:UsageTracking.Feature="NodeGraph.Variations4"
+                                             Click="Variations4Click" />
                     </ui:FAMenuFlyoutSubItem>
                     <ui:FAMenuFlyoutItem x:Name="CompareItem"
-                                       Click="CompareClick"
-                                       IsVisible="{Binding IsGenerative}"
-                                       Text="{x:Static lang:NodeGraphStrings.Generative_Compare}">
+                                         usage:UsageTracking.Feature="NodeGraph.Compare"
+                                         Click="CompareClick"
+                                         IsVisible="{Binding IsGenerative}"
+                                         Text="{x:Static lang:NodeGraphStrings.Generative_Compare}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="ImageMultiple" />
                         </ui:FAMenuFlyoutItem.IconSource>
@@ -94,14 +102,18 @@
                             <icons:FluentIconSource Icon="History" />
                         </ui:FAMenuFlyoutSubItem.IconSource>
                     </ui:FAMenuFlyoutSubItem>
-                    <ui:FAMenuFlyoutItem Click="SaveTemplateClick"
-                                       IsVisible="{Binding IsGroup}"
-                                       Text="{x:Static lang:NodeGraphStrings.Template_SaveAs}">
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.SaveTemplate"
+                                         Click="SaveTemplateClick"
+                                         IsVisible="{Binding IsGroup}"
+                                         Text="{x:Static lang:NodeGraphStrings.Template_SaveAs}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Save" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
-                    <ui:FAMenuFlyoutItem Click="RenameClick" IsEnabled="{Binding !IsFallback}" Text="{x:Static lang:Strings.Rename}">
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.Rename"
+                                         Click="RenameClick"
+                                         IsEnabled="{Binding !IsFallback}"
+                                         Text="{x:Static lang:Strings.Rename}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Rename" />
                         </ui:FAMenuFlyoutItem.IconSource>
@@ -134,6 +146,7 @@
                            TextTrimming="CharacterEllipsis" />
 
                 <Button Grid.Column="3"
+                        usage:UsageTracking.Feature="NodeGraph.OpenNode"
                         Click="OpenNodeClick"
                         IsVisible="{Binding IsGroupNode}"
                         Theme="{StaticResource TransparentButton}">

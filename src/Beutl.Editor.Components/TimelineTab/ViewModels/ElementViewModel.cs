@@ -803,8 +803,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private async void OnChangeToOriginalDuration()
     {
         if (!IsEditable.Value) return;
-        if (Model.HasOriginalDuration()
-            && Model.TryGetOriginalDuration(out TimeSpan timeSpan))
+        if (SlippableMedia.GetOriginalDuration(Model) is { } timeSpan)
         {
             PrepareAnimationContext context = PrepareAnimation();
 
@@ -822,7 +821,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 }
             }
 
-            var request = new ElementResizeRequest(Model, Model.Start, duration, Model.ZIndex);
+            var request = new ElementResizeRequest(Model, Model.Start, duration, Model.ZIndex) { ClampToSource = true };
             Timeline.EditorContext.GetRequiredService<IElementResizeService>()
                 .Resize(Scene, [request], ripple);
 
@@ -832,7 +831,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public bool HasOriginalDuration()
     {
-        return Model.HasOriginalDuration();
+        return SlippableMedia.HasOriginalDuration(Model);
     }
 
     public Task ExecuteAsync(ContextCommandExecution execution)

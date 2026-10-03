@@ -135,8 +135,6 @@ public sealed class TransparentPass : GraphicsNode3D
 
     protected override void OnDispose()
     {
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
+        DisposeResources([Framebuffer, RenderPass, OutputTexture]);
     }
 }

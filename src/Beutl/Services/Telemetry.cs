@@ -24,6 +24,9 @@ internal class Telemetry : IDisposable
     private readonly TracerProvider? _tracerProvider;
     private readonly Lazy<ResourceBuilder> _resourceBuilder;
     internal readonly string _sessionId;
+#if !Beutl_PackageTools
+    private readonly UsageTelemetry _usageTelemetry;
+#endif
 
 #if true
     private static string BaseUrl = "https://otel.beditor.net";
@@ -69,6 +72,9 @@ internal class Telemetry : IDisposable
         _tracerProvider = CreateTracer();
 
         SetupLogger();
+#if !Beutl_PackageTools
+        UsageTelemetry.Current = _usageTelemetry = new(GlobalConfiguration.Instance.TelemetryConfig);
+#endif
     }
 
     public static ActivitySource Applilcation { get; } = new("Beutl.Application", s_version);
@@ -78,18 +84,21 @@ internal class Telemetry : IDisposable
     private TracerProvider? CreateTracer()
     {
         TelemetryConfig t = GlobalConfiguration.Instance.TelemetryConfig;
-        if (!IsConsentConfigured(t))
-            return null;
-
         var list = new List<string>(4);
-        if (t.Beutl_Application == true)
+        bool configured = IsConsentConfigured(t);
+        if (configured && t.Beutl_Application == true)
             list.Add("Beutl.Application");
 
-        if (t.Beutl_PackageManagement == true)
+        if (configured && t.Beutl_PackageManagement == true)
             list.Add("Beutl.PackageManagement");
 
-        if (t.Beutl_Api_Client == true)
+        if (configured && t.Beutl_Api_Client == true)
             list.Add("Beutl.Api.Client");
+#if !Beutl_PackageTools
+        // Keep the usage listener installed so consent can change without a restart.
+        // UsageTelemetry itself never records without current application consent.
+        list.Add(UsageTelemetry.SourceName);
+#endif
 
         if (list.Count == 0)
         {
@@ -99,6 +108,9 @@ internal class Telemetry : IDisposable
         {
             return Sdk.CreateTracerProviderBuilder()
                 .SetResourceBuilder(_resourceBuilder.Value)
+#if !Beutl_PackageTools
+                .SetSampler(new UsageSampler())
+#endif
                 .AddProcessor(new AddVersionActivityProcessor())
                 .AddProcessor(new RemoveSensitiveDataProcessor())
                 .AddSource([.. list])
@@ -133,9 +145,27 @@ internal class Telemetry : IDisposable
 
     public void Dispose()
     {
+#if !Beutl_PackageTools
+        _usageTelemetry.Dispose();
+#endif
         _tracerProvider?.Dispose();
         Logging.Log.LoggerFactory.Dispose();
     }
+
+#if !Beutl_PackageTools
+    private sealed class UsageSampler : Sampler
+    {
+        private readonly ParentBasedSampler _default = new(new AlwaysOnSampler());
+
+        public override SamplingResult ShouldSample(in SamplingParameters samplingParameters)
+        {
+            if (samplingParameters.Name == "Usage.Summary")
+                return new SamplingResult(UsageTelemetry.HasConsent(GlobalConfiguration.Instance.TelemetryConfig)
+                    ? SamplingDecision.RecordAndSample : SamplingDecision.Drop);
+            return _default.ShouldSample(samplingParameters);
+        }
+    }
+#endif
 
     private void SetupLogger()
     {
@@ -357,22 +387,35 @@ internal class Telemetry : IDisposable
         }
     }
 
-    internal class RemoveSensitiveDataProcessor : BaseProcessor<Activity>
+    internal class RemoveSensitiveDataProcessor(Func<string?, string?>? sanitize = null) : BaseProcessor<Activity>
     {
+        private readonly Func<string?, string?> _sanitize = sanitize ?? SensitiveData.Sanitize;
+
         public override void OnEnd(Activity data)
         {
             base.OnEnd(data);
 
+            bool usageSummary = false;
+#if !Beutl_PackageTools
+            // Only this internal source emits the controlled usage identifiers.
+            // A diagnostic span with the same name must still be redacted.
+            usageSummary = ReferenceEquals(data.Source, UsageTelemetry.Source)
+                && data.OperationName == "Usage.Summary"
+                && Equals(data.GetTagItem("beutl.usage.schema_version"), 1);
+#endif
             foreach (KeyValuePair<string, string?> pair in data.Tags)
             {
-                string? sanitized = SensitiveData.Sanitize(pair.Value);
+                if (usageSummary && pair.Key is "beutl.usage.event" or "beutl.usage.tool"
+                    or "beutl.usage.feature" or "beutl.usage.outcome") continue;
+                string? sanitized = _sanitize(pair.Value);
                 if (!ReferenceEquals(sanitized, pair.Value))
                 {
                     data.SetTag(pair.Key, sanitized);
                 }
             }
 
-            string? sanitizedName = SensitiveData.Sanitize(data.DisplayName);
+            string? sanitizedName = usageSummary && data.DisplayName == "Usage.Summary"
+                ? data.DisplayName : _sanitize(data.DisplayName);
             if (sanitizedName is not null && !ReferenceEquals(sanitizedName, data.DisplayName))
             {
                 data.DisplayName = sanitizedName;
@@ -380,7 +423,7 @@ internal class Telemetry : IDisposable
 
             if (!string.IsNullOrEmpty(data.StatusDescription))
             {
-                string? sanitizedDesc = SensitiveData.Sanitize(data.StatusDescription);
+                string? sanitizedDesc = _sanitize(data.StatusDescription);
                 if (!ReferenceEquals(sanitizedDesc, data.StatusDescription))
                 {
                     data.SetStatus(data.Status, sanitizedDesc);

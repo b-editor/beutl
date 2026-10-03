@@ -43,9 +43,11 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         {
             IReadOnlyDictionary<string, string?> environment = runner.Options[attempt].EnvironmentOverrides!;
             Assert.That(environment["GIT_CONFIG_KEY_0"], Is.EqualTo($"http.{firstUrl}.extraheader"));
-            Assert.That(environment["GIT_CONFIG_VALUE_0"], Is.EqualTo($"Authorization: Bearer token-{attempt * 2 + 1}"));
-            Assert.That(environment["GIT_CONFIG_KEY_1"], Is.EqualTo($"http.{secondUrl}.extraheader"));
-            Assert.That(environment["GIT_CONFIG_VALUE_1"], Is.EqualTo($"Authorization: Bearer token-{attempt * 2 + 2}"));
+            Assert.That(environment["GIT_CONFIG_VALUE_0"], Is.Empty);
+            Assert.That(environment["GIT_CONFIG_VALUE_1"], Is.EqualTo($"Authorization: Bearer token-{attempt * 2 + 1}"));
+            Assert.That(environment["GIT_CONFIG_KEY_2"], Is.EqualTo($"http.{secondUrl}.extraheader"));
+            Assert.That(environment["GIT_CONFIG_VALUE_2"], Is.Empty);
+            Assert.That(environment["GIT_CONFIG_VALUE_3"], Is.EqualTo($"Authorization: Bearer token-{attempt * 2 + 2}"));
         }
     }
 
@@ -412,7 +414,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.That(result is RemoteOpResult.Success, Is.EqualTo(failures < 5));
         Assert.That(issued, Is.EqualTo(attempts));
         Assert.That(runner.Options.Count, Is.EqualTo(attempts));
-        Assert.That(runner.Options[^1].EnvironmentOverrides!["GIT_CONFIG_VALUE_0"],
+        Assert.That(runner.Options[^1].EnvironmentOverrides!["GIT_CONFIG_VALUE_1"],
             Is.EqualTo($"Authorization: Bearer token-{attempts}"));
     }
 
@@ -436,7 +438,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.That(result is RemoteOpResult.Success, Is.EqualTo(failures < 5));
         Assert.That(issued, Is.EqualTo(attempts));
         Assert.That(runner.Options, Has.Count.EqualTo(attempts));
-        Assert.That(runner.Options[^1].EnvironmentOverrides!["GIT_CONFIG_VALUE_0"],
+        Assert.That(runner.Options[^1].EnvironmentOverrides!["GIT_CONFIG_VALUE_1"],
             Is.EqualTo($"Authorization: Bearer token-{attempts}"));
     }
 

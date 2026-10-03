@@ -4,10 +4,11 @@
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:editor="using:Beutl.Editor"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
              d:DesignHeight="450"
              d:DesignWidth="280"
@@ -49,6 +50,7 @@
             <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="2">
                 <Button x:Name="UndoButton"
                         Grid.Column="0"
+                        usage:UsageTracking.Feature="History.Undo"
                         Click="OnUndoClick"
                         Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Undo}">
@@ -56,6 +58,7 @@
                 </Button>
                 <Button x:Name="RedoButton"
                         Grid.Column="1"
+                        usage:UsageTracking.Feature="History.Redo"
                         Click="OnRedoClick"
                         Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Redo}">

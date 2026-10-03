@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="Beutl.Editor.Components.FileBrowserTab.Views.FileBrowserTabView"
+<UserControl x:Class="Beutl.Editor.Components.FileBrowserTab.Views.FileBrowserTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
@@ -9,6 +9,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:storage="using:Beutl.Editor.Components.FileBrowserTab"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.Editor.Components.FileBrowserTab.ViewModels"
              Name="Root"
              d:DesignHeight="450"
@@ -23,12 +24,15 @@
         <Style Selector="Border.file-item">
             <Setter Property="ContextMenu">
                 <ContextMenu Opened="OnContextMenuOpened">
-                    <MenuItem Click="OnOpenClick" Header="{x:Static lang:Strings.Open}">
+                    <MenuItem usage:UsageTracking.Feature="FileBrowser.Open"
+                              Click="OnOpenClick"
+                              Header="{x:Static lang:Strings.Open}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="Open" />
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Click="OnOpenInFileManagerClick"
+                    <MenuItem usage:UsageTracking.Feature="FileBrowser.OpenInFileManager"
+                              Click="OnOpenInFileManagerClick"
                               Header="{x:Static lang:Strings.OpenInFileManager}"
                               Tag="OpenInFileManager">
                         <MenuItem.Icon>
@@ -36,18 +40,23 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
-                    <MenuItem Click="OnRenameClick" Header="{x:Static lang:Strings.Rename}">
+                    <MenuItem usage:UsageTracking.Feature="FileBrowser.Rename"
+                              Click="OnRenameClick"
+                              Header="{x:Static lang:Strings.Rename}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="Rename" />
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Click="OnDeleteClick" Header="{x:Static lang:Strings.Delete}">
+                    <MenuItem usage:UsageTracking.Feature="FileBrowser.Delete"
+                              Click="OnDeleteClick"
+                              Header="{x:Static lang:Strings.Delete}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="Delete" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
-                    <MenuItem Click="OnToggleFavoriteContextMenuClick"
+                    <MenuItem usage:UsageTracking.Feature="FileBrowser.ToggleFavoriteContextMenu"
+                              Click="OnToggleFavoriteContextMenuClick"
                               Header="{x:Static lang:Strings.AddToFavorites}"
                               Tag="FavoriteToggle">
                         <MenuItem.Icon>
@@ -102,6 +111,7 @@
                 <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding !IsStorageView.Value}">
                     <!--  上へボタン（ディレクトリブラウズ時のみ表示）  -->
                     <Button Grid.Column="0"
+                            usage:UsageTracking.Feature="FileBrowser.OpenFolder"
                             Click="OnOpenFolderClick"
                             IsVisible="{Binding !IsHomeView.Value}"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
@@ -141,6 +151,7 @@
                                 Spacing="2">
                         <!--  表示モード切替（ディレクトリブラウズ時のみ）  -->
                         <Button x:Name="ViewModeButton"
+                                usage:UsageTracking.Feature="FileBrowser.CycleViewMode"
                                 Click="OnCycleViewModeClick"
                                 IsVisible="{Binding !IsHomeView.Value}"
                                 Theme="{StaticResource ToolTabBarIconButtonTheme}"
@@ -159,7 +170,8 @@
                         </Button>
 
                         <!--  新規フォルダ（ディレクトリブラウズ時のみ）  -->
-                        <Button Click="OnNewFolderClick"
+                        <Button usage:UsageTracking.Feature="FileBrowser.NewFolder"
+                                Click="OnNewFolderClick"
                                 IsVisible="{Binding !IsHomeView.Value}"
                                 Theme="{StaticResource ToolTabBarIconButtonTheme}"
                                 ToolTip.Tip="{x:Static lang:Strings.NewFolder}">
@@ -167,7 +179,8 @@
                         </Button>
 
                         <!--  更新  -->
-                        <Button Click="OnRefreshClick"
+                        <Button usage:UsageTracking.Feature="FileBrowser.Refresh"
+                                Click="OnRefreshClick"
                                 Theme="{StaticResource ToolTabBarIconButtonTheme}"
                                 ToolTip.Tip="{x:Static lang:Strings.Refresh}">
                             <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
@@ -175,6 +188,7 @@
 
                         <!--  ホームボタン  -->
                         <Button x:Name="HomeButton"
+                                usage:UsageTracking.Feature="FileBrowser.Home"
                                 Click="OnHomeClick"
                                 Theme="{StaticResource ToolTabBarIconButtonTheme}"
                                 ToolTip.Tip="{x:Static lang:Strings.Home}">
@@ -212,6 +226,7 @@
                                         </ui:FABreadcrumbBar>
                                         <Button x:Name="StorageViewModeButton"
                                                 Grid.Column="1"
+                                                usage:UsageTracking.Feature="FileBrowser.CycleViewMode"
                                                 AutomationProperties.Name="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.ToDisplayName}}"
                                                 Command="{Binding CycleViewMode}"
                                                 Theme="{StaticResource ToolTabBarIconButtonTheme}"
@@ -232,6 +247,7 @@
                     </Panel>
                     <Button x:Name="StorageRefreshButton"
                             Grid.Column="1"
+                            usage:UsageTracking.Feature="FileBrowser.Storage.Refresh"
                             AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
                             Command="{Binding StorageBrowser.Value.Refresh}"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
@@ -240,6 +256,7 @@
                     </Button>
                     <Button x:Name="StorageHomeButton"
                             Grid.Column="2"
+                            usage:UsageTracking.Feature="FileBrowser.Home"
                             AutomationProperties.Name="{x:Static lang:Strings.Home}"
                             Click="OnHomeClick"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"

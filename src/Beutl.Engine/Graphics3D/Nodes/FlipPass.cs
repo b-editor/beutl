@@ -134,13 +134,7 @@ public sealed class FlipPass : GraphicsNode3D
 
     protected override void OnDispose()
     {
-        _descriptorSet?.Dispose();
-        _pipeline?.Dispose();
-        _sampler?.Dispose();
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
-        _depthTexture?.Dispose();
+        DisposeResources([_descriptorSet, _pipeline, _sampler, Framebuffer, RenderPass, OutputTexture, _depthTexture]);
     }
 
     // === Flip Pass Shaders ===

@@ -154,6 +154,74 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
+    public void Existing_directory_changed_is_ignored_while_child_editor_writes_still_update_entries()
+    {
+        string child = Path.Combine(_projectRoot, "child");
+        Directory.CreateDirectory(child);
+        string document = Path.Combine(child, "main.scene");
+        File.WriteAllText(document, "content");
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        FileSystemWatcher? registeredWatcher = null;
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue,
+            watcher => registeredWatcher = watcher);
+        service.Watch(_projectRoot);
+        FileSystemWatcher watcher = registeredWatcher ?? throw new AssertionException("A watcher must be registered.");
+        int reloads = 0;
+        IReadOnlyCollection<string>? entries = null;
+        service.Changed += () => reloads++;
+        service.EntriesChanged += paths => entries = paths;
+
+        // Feed the Windows parent last-write event into the actual registered handler.
+        service.OnFileSystemEvent(watcher, new FileSystemEventArgs(WatcherChangeTypes.Changed, watcher.Path, "child"));
+        Assert.That(posted, Is.Empty, "a parent directory change must not queue a tree refresh");
+        service.OnFileSystemEvent(watcher, new FileSystemEventArgs(WatcherChangeTypes.Changed, watcher.Path,
+            Path.Combine("child", "main.scene")));
+        TakePostedAction(posted)();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reloads, Is.Zero);
+            Assert.That(entries, Is.EquivalentTo(new[] { document }));
+            Assert.That(posted, Is.Empty);
+        });
+    }
+
+    [TestCase(WatcherChangeTypes.Created)]
+    [TestCase(WatcherChangeTypes.Deleted)]
+    [TestCase(WatcherChangeTypes.Renamed)]
+    public void Directory_lifecycle_events_continue_to_refresh_the_tree(WatcherChangeTypes changeType)
+    {
+        const string name = "child";
+        if (changeType != WatcherChangeTypes.Deleted)
+            Directory.CreateDirectory(Path.Combine(_projectRoot, name));
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        FileSystemWatcher? registeredWatcher = null;
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue,
+            watcher => registeredWatcher = watcher);
+        service.Watch(_projectRoot);
+        FileSystemWatcher watcher = registeredWatcher ?? throw new AssertionException("A watcher must be registered.");
+        int reloads = 0;
+        int entryChecks = 0;
+        service.Changed += () => reloads++;
+        service.EntriesChanged += _ => entryChecks++;
+        FileSystemEventArgs args = changeType == WatcherChangeTypes.Renamed
+            ? new RenamedEventArgs(changeType, watcher.Path, name, "previous-child")
+            : new FileSystemEventArgs(changeType, watcher.Path, name);
+
+        service.OnFileSystemEvent(watcher, args);
+
+        Assert.That(posted.Count, Is.EqualTo(changeType == WatcherChangeTypes.Renamed ? 2 : 1),
+            "renaming must route both the new and old paths through the debounce");
+        while (posted.TryDequeue(out Action? callback))
+            callback();
+        Assert.Multiple(() =>
+        {
+            Assert.That(reloads, Is.EqualTo(1));
+            Assert.That(entryChecks, Is.Zero);
+        });
+    }
+
+    [Test]
     public void Editor_entry_checks_are_coalesced_without_reloading_content()
     {
         string document = CreateFile("main.scene");

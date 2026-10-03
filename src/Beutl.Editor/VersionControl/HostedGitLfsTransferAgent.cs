@@ -51,6 +51,14 @@ internal static class HostedGitLfsTransferAgent
                 await WriteAsync(output, new { error = new { code = 2, message = "Invalid Git LFS initiation" } });
                 return 1;
             }
+            if (init.Operation == "download")
+            {
+                downloadCacheDirectory ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Beutl", "git-lfs-downloads", Convert.ToHexStringLower(SHA256.HashData(
+                        System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(Environment.CurrentDirectory)))));
+                Directory.CreateDirectory(downloadCacheDirectory);
+                PruneExpiredDownloads(downloadCacheDirectory, timeProvider ?? TimeProvider.System);
+            }
             await WriteAsync(output, new { });
             while ((line = await input.ReadLineAsync(cancellationToken)) is not null)
             {
@@ -77,7 +85,13 @@ internal static class HostedGitLfsTransferAgent
                     {
                         string path = await DownloadAsync(message, url, http, output, cancellationToken,
                             openWrite, timeProvider ?? TimeProvider.System, downloadCacheDirectory);
-                        await WriteAsync(output, new { @event = "complete", oid, path });
+                        try { await WriteAsync(output, new { @event = "complete", oid, path }); }
+                        catch
+                        {
+                            // Git LFS never received the handoff path, so it cannot consume this file.
+                            File.Delete(path);
+                            throw;
+                        }
                     }
                 }
                 catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -387,7 +401,7 @@ internal static class HostedGitLfsTransferAgent
             "Beutl", "git-lfs-downloads", Convert.ToHexStringLower(SHA256.HashData(
                 System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(Environment.CurrentDirectory)))));
         Directory.CreateDirectory(downloadCacheDirectory);
-        PruneExpiredDownloads(downloadCacheDirectory);
+        PruneExpiredDownloads(downloadCacheDirectory, timeProvider);
         string path = Path.Combine(downloadCacheDirectory, message.Oid + ".partial");
         // Keep ownership until cleanup or the verified file has been moved.
         // A second agent for this OID must not delete or change our partial file.
@@ -501,8 +515,9 @@ internal static class HostedGitLfsTransferAgent
                     throw new InvalidOperationException("LFS download SHA-256 or size mismatch");
                 await destination.FlushAsync(cancellationToken);
             }
-            string completedPath = Path.Combine(Path.GetTempPath(), $"beutl-lfs-{Guid.NewGuid():N}");
+            string completedPath = Path.Combine(downloadCacheDirectory, $"{message.Oid}.{Guid.NewGuid():N}.completed");
             File.Move(path, completedPath);
+            File.SetLastWriteTimeUtc(completedPath, timeProvider.GetUtcNow().UtcDateTime);
             return completedPath;
         }
         catch (Exception ex) when (ex is OperationCanceledException or DownloadInterruptedException ||
@@ -520,17 +535,24 @@ internal static class HostedGitLfsTransferAgent
         }
     }
 
-    private static void PruneExpiredDownloads(string directory)
+    private static void PruneExpiredDownloads(string directory, TimeProvider timeProvider)
     {
-        DateTime cutoff = DateTime.UtcNow.AddHours(-24);
-        foreach (string path in Directory.EnumerateFiles(directory, "*.partial"))
+        DateTime cutoff = timeProvider.GetUtcNow().UtcDateTime.AddHours(-24);
+        foreach (string path in Directory.EnumerateFiles(directory, "*.partial")
+            .Concat(Directory.EnumerateFiles(directory, "*.completed")))
         {
             if (File.GetLastWriteTimeUtc(path) >= cutoff) continue;
             try
             {
                 using var cacheLock = new FileStream(Path.ChangeExtension(path, ".lock"),
                     FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, bufferSize: 1, FileOptions.DeleteOnClose);
-                if (File.GetLastWriteTimeUtc(path) < cutoff) File.Delete(path);
+                // A Git LFS consumer may still hold a completed handoff open.
+                using var fileLock = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                if (File.GetLastWriteTimeUtc(path) < cutoff)
+                {
+                    fileLock.Dispose();
+                    File.Delete(path);
+                }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -624,13 +646,46 @@ internal static class HostedGitLfsTransferAgent
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2), timeProvider);
         using var idle = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
+        void Progress()
+        {
+            try { timeout.CancelAfter(TimeSpan.FromMinutes(2)); }
+            catch (ObjectDisposedException) { } // A transport can finish a request body after early response headers.
+        }
         if (request.Content is { } content)
-            request.Content = new IdleUploadContent(content, () => timeout.CancelAfter(TimeSpan.FromMinutes(2)));
-        try { return await http.SendAsync(request, completion, idle.Token); }
+            request.Content = new IdleUploadContent(content, Progress);
+        HttpResponseMessage? response = null;
+        try
+        {
+            response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, idle.Token);
+            if (completion == HttpCompletionOption.ResponseContentRead)
+            {
+                await using Stream source = await response.Content.ReadAsStreamAsync(idle.Token);
+                using var bytes = new MemoryStream();
+                byte[] buffer = new byte[16 * 1024];
+                while (true)
+                {
+                    int read = await source.ReadAsync(buffer, idle.Token);
+                    if (read == 0) break;
+                    if (bytes.Length + read > http.MaxResponseContentBufferSize)
+                        throw new HttpRequestException("LFS upload response exceeds the HTTP buffer limit");
+                    bytes.Write(buffer, 0, read);
+                    Progress();
+                }
+                var buffered = new ByteArrayContent(bytes.ToArray());
+                foreach (var header in response.Content.Headers)
+                    buffered.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                response.Content.Dispose();
+                response.Content = buffered;
+            }
+            return response;
+        }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
+            response?.Dispose();
             throw new HttpRequestException("LFS upload stalled", ex);
         }
+        catch { response?.Dispose(); throw; }
+        finally { await idle.CancelAsync(); }
     }
 
     private sealed class IdleUploadContent : HttpContent

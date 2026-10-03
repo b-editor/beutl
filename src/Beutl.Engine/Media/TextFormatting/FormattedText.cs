@@ -30,6 +30,9 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private SKPath? _strokePath;
     private List<Geometry.Resource> _pathList = [];
     private readonly ScaledTextCache _scaledCache;
+    private readonly Dictionary<int, (ShapedGlyph Glyph, FormattedText? Text)> _nonOutlineGlyphs = [];
+    private readonly List<Rect> _nonOutlineBounds = [];
+    private ShapedGlyph? _shapedGlyph;
 
     public FormattedText()
     {
@@ -52,6 +55,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         if (IsDisposed) return;
 
         _scaledCache.Dispose();
+        ClearNonOutlineGlyphs();
         (_textBlob, _fillPath, _strokePath).DisposeAll();
         foreach (Geometry.Resource? resource in _pathList)
         {
@@ -193,13 +197,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     internal Point AddToSKPath(SKPathBuilder path, Point point)
     {
         using SKFont font = this.ToSKFont();
-
-        using var shaper = new TextShaper(font.Typeface);
-        using var buffer = new HarfBuzzSharp.Buffer();
-        buffer.AddUtf16(Text.AsSpan());
-        buffer.GuessSegmentProperties();
-
-        SKShaper.Result result = shaper.Shape(buffer, font);
+        SKShaper.Result result = Shape(font, 1f);
 
         // create the text blob
         using var builder = new SKTextBlobBuilder();
@@ -313,6 +311,73 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         return CollectionsMarshal.AsSpan(_pathList);
     }
 
+    // A borrowed, already-shaped single-glyph run, owned by this text just like ToGeometries().
+    // Keeping the glyph ID and position preserves ligatures, surrogate pairs and character spacing.
+    internal FormattedText? GetNonOutlineGlyph(int index)
+    {
+        MeasureAndSetField();
+        if (!_nonOutlineGlyphs.TryGetValue(index, out var entry))
+            return null;
+
+        if (entry.Text is null)
+        {
+            entry.Text = new FormattedText
+            {
+                Font = Font,
+                Style = Style,
+                Weight = Weight,
+                Size = Size,
+                Text = Text,
+                Brush = Brush,
+                Pen = Pen,
+                _shapedGlyph = entry.Glyph,
+            };
+            _nonOutlineGlyphs[index] = entry;
+        }
+
+        return entry.Text;
+    }
+
+    internal bool NonOutlineContains(Point point)
+    {
+        // Bitmap glyphs use their ink rectangles, matching image hit testing without pixel readback.
+        MeasureAndSetField();
+        foreach (Rect bounds in _nonOutlineBounds)
+        {
+            if (bounds.Contains(point))
+                return true;
+        }
+
+        return false;
+    }
+
+    private void ClearNonOutlineGlyphs()
+    {
+        foreach (var entry in _nonOutlineGlyphs.Values)
+            entry.Text?.Dispose();
+        _nonOutlineGlyphs.Clear();
+        _nonOutlineBounds.Clear();
+    }
+
+    private SKShaper.Result Shape(SKFont font, float density)
+    {
+        if (_shapedGlyph is { } glyph)
+        {
+            return new SKShaper.Result(
+                [glyph.Id], [0],
+                [new SKPoint(glyph.Position.X * density, glyph.Position.Y * density)],
+                glyph.Width * density);
+        }
+
+        using var shaper = new TextShaper(font.Typeface);
+        using var buffer = new HarfBuzzSharp.Buffer();
+        buffer.AddUtf16(Text.AsSpan());
+        buffer.GuessSegmentProperties();
+        return shaper.Shape(buffer, font);
+    }
+
+    private readonly record struct ShapedGlyph(ushort Id, SKPoint Position, float Width);
+
     private void Measure()
     {
         (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, FontMetrics metrics, Rect bounds, Rect actualBounds, Rect rasterBounds)
@@ -333,12 +398,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
         using SKFont font = ToSKFont(density);
 
-        using var shaper = new TextShaper(font.Typeface);
-        using var buffer = new HarfBuzzSharp.Buffer();
-        buffer.AddUtf16(Text.AsSpan());
-        buffer.GuessSegmentProperties();
-
-        SKShaper.Result result = shaper.Shape(buffer, font);
+        SKShaper.Result result = Shape(font, density);
 
         // create the text blob
         using var builder = new SKTextBlobBuilder();
@@ -350,6 +410,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         Span<Geometry.Resource> pathList = default;
         if (updatePathList)
         {
+            ClearNonOutlineGlyphs();
             // SetCount truncates trailing entries without disposing them; release them first so their
             // owned glyph SKPaths don't leak to finalizers.
             int glyphCount = result.Codepoints.Length;
@@ -362,6 +423,9 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             pathList = CollectionsMarshal.AsSpan(_pathList);
         }
 
+        Rect nonOutlineBounds = default;
+        Span<SKRect> glyphBounds = stackalloc SKRect[1];
+        Span<float> glyphWidth = stackalloc float[1];
         for (int i = 0; i < result.Codepoints.Length; i++)
         {
             glyphs[i] = (ushort)result.Codepoints[i];
@@ -371,6 +435,25 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             positions[i] = point;
 
             SKPath? tmp = font.GetGlyphPath(glyphs[i]);
+            if (tmp is null || tmp.IsEmpty)
+            {
+                font.GetGlyphWidths(glyphs.Slice(i, 1), glyphWidth, glyphBounds);
+                if (!glyphBounds[0].IsEmpty)
+                {
+                    glyphBounds[0].Offset(point);
+                    Rect inkBounds = glyphBounds[0].ToGraphicsRect();
+                    nonOutlineBounds = nonOutlineBounds.Union(inkBounds);
+                    if (updatePathList)
+                    {
+                        _nonOutlineBounds.Add(inkBounds);
+                        if (_shapedGlyph is null)
+                        {
+                            _nonOutlineGlyphs.Add(i, (new ShapedGlyph(glyphs[i], point, glyphWidth[0]), null));
+                        }
+                    }
+                }
+            }
+
             if (tmp != null)
             {
                 fillBuilder.AddPath(tmp, point.X, point.Y);
@@ -402,8 +485,11 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         SKPath? strokePath = null;
         // 空白で開始または、終了した場合
         float width = MathF.Max(0, (Math.Max(0, glyphs.Length - 1) * spacing) + result.Width);
-        var bounds = new Rect(0, 0, width, fillPath.TightBounds.Height);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
+        Rect fillBounds = actualBounds.Union(nonOutlineBounds);
+        // A split glyph is already positioned, just like the neighboring geometries. Its brush must
+        // follow that ink rectangle; only a complete text run uses zero-origin layout bounds.
+        var bounds = _shapedGlyph is null ? new Rect(0, 0, width, fillBounds.Height) : fillBounds;
         Rect rasterBounds = MeasureGlyphMaskBounds(font, glyphs, positions);
         SKTextBlob? textBlob = builder.Build();
 
@@ -418,6 +504,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
         if (strokePath is not null)
             rasterBounds = rasterBounds.Union(InflateToRaster(strokePath.TightBounds).ToGraphicsRect());
+        actualBounds = actualBounds.Union(nonOutlineBounds);
         rasterBounds = rasterBounds.IsEmpty ? actualBounds : rasterBounds.Union(actualBounds);
 
         return (textBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds, rasterBounds);
@@ -522,6 +609,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                && Spacing == other?.Spacing
                && Text.Equals(other?.Text)
                && BeginOnNewLine == other?.BeginOnNewLine
+               && _shapedGlyph == other?._shapedGlyph
                && EqualityComparer<Brush.Resource>.Default.Equals(Brush, other?.Brush)
                && EqualityComparer<Pen.Resource>.Default.Equals(Pen, other?.Pen);
     }
@@ -536,6 +624,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         hash.Add(Spacing);
         hash.Add(Text);
         hash.Add(BeginOnNewLine);
+        hash.Add(_shapedGlyph);
         hash.Add(Brush);
         hash.Add(Pen);
         return hash.ToHashCode();

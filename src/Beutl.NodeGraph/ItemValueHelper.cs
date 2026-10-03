@@ -101,6 +101,17 @@ public static class ItemValueHelper
 
     public static void AcceptNode(this ItemValue<Drawable?> itemValue, IModifiableHierarchical hierarchical)
     {
+        RenderNodeDrawable? ownedDrawable = null;
+
+        void DetachOwnedDrawable()
+        {
+            if (ownedDrawable != null)
+            {
+                hierarchical.RemoveChild(ownedDrawable);
+                ownedDrawable = null;
+            }
+        }
+
         // RenderNodeを受け取った時RenderNodeDrawableに変換する
         itemValue.RegisterReceiver((source, out value) =>
         {
@@ -108,20 +119,15 @@ public static class ItemValueHelper
             var obj = source.GetBoxed();
             if (obj == null)
             {
-                if (itemValue.Value is RenderNodeDrawable renderNodeDrawable)
-                {
-                    hierarchical.RemoveChild(renderNodeDrawable);
-                }
+                DetachOwnedDrawable();
 
                 return true;
             }
 
             if (obj is Drawable drawable)
             {
-                if (itemValue.Value is RenderNodeDrawable renderNodeDrawable)
-                {
-                    hierarchical.RemoveChild(renderNodeDrawable);
-                }
+                if (!ReferenceEquals(drawable, ownedDrawable))
+                    DetachOwnedDrawable();
 
                 value = drawable;
                 return true;
@@ -129,30 +135,35 @@ public static class ItemValueHelper
 
             if (obj is RenderNode node)
             {
-                if (itemValue.Value is not RenderNodeDrawable renderNodeDrawable)
+                if (ownedDrawable == null)
                 {
-                    renderNodeDrawable = new RenderNodeDrawable();
-                    hierarchical.AddChild(renderNodeDrawable);
+                    ownedDrawable = new RenderNodeDrawable();
+                    hierarchical.AddChild(ownedDrawable);
                 }
 
-                renderNodeDrawable.GraphNode = node;
-                value = renderNodeDrawable;
+                ownedDrawable.GraphNode = node;
+                value = ownedDrawable;
                 return true;
             }
 
             return false;
         });
-        itemValue.RegisterDisposer(() =>
-        {
-            if (itemValue.Value is RenderNodeDrawable renderNodeDrawable)
-            {
-                hierarchical.RemoveChild(renderNodeDrawable);
-            }
-        });
+        itemValue.RegisterDisposer(DetachOwnedDrawable);
     }
 
     public static void AcceptMatrix(this ItemValue<Transform?> itemValue, IModifiableHierarchical hierarchical)
     {
+        MatrixTransform? ownedTransform = null;
+
+        void DetachOwnedTransform()
+        {
+            if (ownedTransform != null)
+            {
+                hierarchical.RemoveChild(ownedTransform);
+                ownedTransform = null;
+            }
+        }
+
         // Matrixを受け取った時MatrixTransformに変換する
         itemValue.RegisterReceiver((source, out value) =>
         {
@@ -160,21 +171,15 @@ public static class ItemValueHelper
             var obj = source.GetBoxed();
             if (obj == null)
             {
-                if (itemValue.Value is MatrixTransform matrixTransform)
-                {
-                    hierarchical.RemoveChild(matrixTransform);
-                }
+                DetachOwnedTransform();
 
                 return true;
             }
 
             if (obj is Transform transform)
             {
-                if (itemValue.Value is MatrixTransform matrixTransform &&
-                    !ReferenceEquals(transform, matrixTransform))
-                {
-                    hierarchical.RemoveChild(matrixTransform);
-                }
+                if (!ReferenceEquals(transform, ownedTransform))
+                    DetachOwnedTransform();
 
                 value = transform;
                 return true;
@@ -182,26 +187,20 @@ public static class ItemValueHelper
 
             if (obj is Matrix matrix)
             {
-                if (itemValue.Value is not MatrixTransform matrixTransform)
+                if (ownedTransform == null)
                 {
-                    matrixTransform = new MatrixTransform();
-                    hierarchical.AddChild(matrixTransform);
+                    ownedTransform = new MatrixTransform();
+                    hierarchical.AddChild(ownedTransform);
                 }
 
-                matrixTransform.Matrix.CurrentValue = matrix;
-                value = matrixTransform;
+                ownedTransform.Matrix.CurrentValue = matrix;
+                value = ownedTransform;
                 return true;
             }
 
             return false;
         });
-        itemValue.RegisterDisposer(() =>
-        {
-            if (itemValue.Value is MatrixTransform matrixTransform)
-            {
-                hierarchical.RemoveChild(matrixTransform);
-            }
-        });
+        itemValue.RegisterDisposer(DetachOwnedTransform);
     }
 
     public static void AcceptNumber<T>(this ItemValue<T> itemValue)

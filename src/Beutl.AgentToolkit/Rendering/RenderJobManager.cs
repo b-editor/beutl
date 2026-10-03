@@ -72,6 +72,7 @@ public sealed class RenderJobManager : IDisposable
     private readonly ConcurrentQueue<string> _completedJobs = new();
     private readonly ConcurrentDictionary<string, JobRecord> _jobs = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly object _lifetimeSync = new();
     private bool _disposed;
 
     /// <summary>
@@ -92,20 +93,24 @@ public sealed class RenderJobManager : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(kind);
         ArgumentNullException.ThrowIfNull(work);
         ArgumentNullException.ThrowIfNull(outputOperationLease);
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        string jobId = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
-        var record = new JobRecord
+        JobRecord record;
+        lock (_lifetimeSync)
         {
-            JobId = jobId,
-            Kind = kind,
-            StartedAt = DateTimeOffset.UtcNow,
-            Cts = new CancellationTokenSource(),
-            OutputOperationLease = outputOperationLease
-        };
-        _jobs[jobId] = record;
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            string jobId = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
+            record = new JobRecord
+            {
+                JobId = jobId,
+                Kind = kind,
+                StartedAt = DateTimeOffset.UtcNow,
+                Cts = new CancellationTokenSource(),
+                OutputOperationLease = outputOperationLease
+            };
+            // Every accepted job must be visible to Dispose before it can close the gate.
+            _jobs[jobId] = record;
+        }
         _ = RunAsync(record, work);
-        return jobId;
+        return record.JobId;
     }
 
     public RenderJobSnapshot? Get(string jobId)
@@ -225,6 +230,11 @@ public sealed class RenderJobManager : IDisposable
         {
             terminalState = RenderJobState.Cancelled;
         }
+        catch (ObjectDisposedException) when (!acquired && record.Cts.IsCancellationRequested)
+        {
+            // Dispose can close the gate before a queued job resumes from Task.Yield.
+            terminalState = RenderJobState.Cancelled;
+        }
         catch (Exception ex)
         {
             failure = ex;
@@ -308,13 +318,18 @@ public sealed class RenderJobManager : IDisposable
 
     public void Dispose()
     {
-        if (_disposed)
+        JobRecord[] records;
+        lock (_lifetimeSync)
         {
-            return;
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            records = _jobs.Values.ToArray();
         }
 
-        _disposed = true;
-        foreach (JobRecord record in _jobs.Values)
+        // Cancellation can invoke work callbacks, so keep it outside the admission lock.
+        foreach (JobRecord record in records)
         {
             try
             {

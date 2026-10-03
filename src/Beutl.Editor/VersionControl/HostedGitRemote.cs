@@ -43,6 +43,8 @@ internal static class HostedGitRemote
                 throw new ArgumentException("The remote is not a Beutl hosted Git repository.", nameof(targets));
             if (token.Contains('\r') || token.Contains('\n'))
                 throw new ArgumentException("Invalid Git token.", nameof(targets));
+            // Git's empty value resets headers inherited from repository/global config.
+            values.Add(($"http.{remoteUrl}.extraheader", ""));
             values.Add(($"http.{remoteUrl}.extraheader", $"Authorization: Bearer {token}"));
         }
 

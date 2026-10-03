@@ -51,28 +51,22 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
         {
             bool replace = _inner.TryGetValue(key, out TValue? old);
             _inner[key] = value;
-
-            if (replace)
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs($"Item[{key}]"));
-
-                if (CollectionChanged != null)
-                {
-                    var e = new NotifyCollectionChangedEventArgs(
-                        NotifyCollectionChangedAction.Replace,
-                        new KeyValuePair<TKey, TValue>(key, value),
-                        new KeyValuePair<TKey, TValue>(key, old!));
-                    CollectionChanged(this, e);
-                }
-            }
-            else
-            {
-                NotifyAdd(key, value);
-            }
+            NotifySet(key, value, replace, old!);
         }
     }
 
-    object? IDictionary.this[object key] { get => ((IDictionary)_inner)[key]; set => ((IDictionary)_inner)[key] = value; }
+    object? IDictionary.this[object key]
+    {
+        get => ((IDictionary)_inner)[key];
+        set
+        {
+            TValue? old = default;
+            bool replace = key is TKey typedKey && _inner.TryGetValue(typedKey, out old);
+            // Keep Dictionary's validation and exception behavior for the non-generic interface.
+            ((IDictionary)_inner)[key] = value;
+            NotifySet((TKey)key, (TValue)value!, replace, old!);
+        }
+    }
 
     public void Add(TKey key, TValue value)
     {
@@ -152,7 +146,7 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
 
     bool ICollection<KeyValuePair<TKey, TValue>>.Remove(KeyValuePair<TKey, TValue> item)
     {
-        return Remove(item.Key);
+        return _inner.Contains(item) && Remove(item.Key);
     }
 
     void IDictionary.Add(object key, object? value) => Add((TKey)key, (TValue)value!);
@@ -162,6 +156,27 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
     IDictionaryEnumerator IDictionary.GetEnumerator() => ((IDictionary)_inner).GetEnumerator();
 
     void IDictionary.Remove(object key) => Remove((TKey)key);
+
+    private void NotifySet(TKey key, TValue value, bool replace, TValue old)
+    {
+        if (replace)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs($"Item[{key}]"));
+
+            if (CollectionChanged != null)
+            {
+                var e = new NotifyCollectionChangedEventArgs(
+                    NotifyCollectionChangedAction.Replace,
+                    new KeyValuePair<TKey, TValue>(key, value),
+                    new KeyValuePair<TKey, TValue>(key, old));
+                CollectionChanged(this, e);
+            }
+        }
+        else
+        {
+            NotifyAdd(key, value);
+        }
+    }
 
     private void NotifyAdd(TKey key, TValue value)
     {

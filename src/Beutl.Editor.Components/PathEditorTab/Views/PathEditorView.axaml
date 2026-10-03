@@ -6,6 +6,7 @@
              xmlns:local="using:Beutl.Editor.Components.PathEditorTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.Editor.Components.PathEditorTab.ViewModels"
              x:Name="root"
              d:DesignHeight="450"
@@ -20,34 +21,42 @@
         <Canvas Name="canvas" Background="Transparent">
             <Canvas.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:FAMenuFlyoutItem Click="AddOpClicked"
-                                       Tag="Cubic"
-                                       Text="{x:Static lang:GraphicsStrings.CubicBezierSegment}" />
-                    <ui:FAMenuFlyoutItem Click="AddOpClicked"
-                                       Tag="Quad"
-                                       Text="{x:Static lang:GraphicsStrings.QuadraticBezierSegment}" />
-                    <ui:FAMenuFlyoutItem Click="AddOpClicked"
-                                       Tag="Line"
-                                       Text="{x:Static lang:GraphicsStrings.LineSegment}" />
-                    <ui:FAMenuFlyoutItem Click="AddOpClicked"
-                                       Tag="Arc"
-                                       Text="{x:Static lang:GraphicsStrings.ArcSegment}" />
-                    <ui:FAMenuFlyoutItem Click="AddOpClicked"
-                                       Tag="Conic"
-                                       Text="{x:Static lang:GraphicsStrings.ConicSegment}" />
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.AddCubicSegment"
+                                         Click="AddOpClicked"
+                                         Tag="Cubic"
+                                         Text="{x:Static lang:GraphicsStrings.CubicBezierSegment}" />
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.AddQuadSegment"
+                                         Click="AddOpClicked"
+                                         Tag="Quad"
+                                         Text="{x:Static lang:GraphicsStrings.QuadraticBezierSegment}" />
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.AddLineSegment"
+                                         Click="AddOpClicked"
+                                         Tag="Line"
+                                         Text="{x:Static lang:GraphicsStrings.LineSegment}" />
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.AddArcSegment"
+                                         Click="AddOpClicked"
+                                         Tag="Arc"
+                                         Text="{x:Static lang:GraphicsStrings.ArcSegment}" />
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.AddConicSegment"
+                                         Click="AddOpClicked"
+                                         Tag="Conic"
+                                         Text="{x:Static lang:GraphicsStrings.ConicSegment}" />
                     <ui:FAMenuFlyoutSeparator />
-                    <ui:FARadioMenuFlyoutItem Click="ToggleDragModeClick"
-                                            IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
-                                            Tag="Symmetry"
-                                            Text="{x:Static lang:Strings.Symmetry}" />
-                    <ui:FARadioMenuFlyoutItem Click="ToggleDragModeClick"
-                                            IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
-                                            Tag="Asymmetry"
-                                            Text="{x:Static lang:Strings.Asymmetry}" />
-                    <ui:FARadioMenuFlyoutItem Click="ToggleDragModeClick"
-                                            IsChecked="{Binding Separately.Value, Mode=OneWay}"
-                                            Tag="Separately"
-                                            Text="{x:Static lang:Strings.Separately}" />
+                    <ui:FARadioMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.DragMode.Symmetry"
+                                              Click="ToggleDragModeClick"
+                                              IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
+                                              Tag="Symmetry"
+                                              Text="{x:Static lang:Strings.Symmetry}" />
+                    <ui:FARadioMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.DragMode.Asymmetry"
+                                              Click="ToggleDragModeClick"
+                                              IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
+                                              Tag="Asymmetry"
+                                              Text="{x:Static lang:Strings.Asymmetry}" />
+                    <ui:FARadioMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.DragMode.Separately"
+                                              Click="ToggleDragModeClick"
+                                              IsChecked="{Binding Separately.Value, Mode=OneWay}"
+                                              Tag="Separately"
+                                              Text="{x:Static lang:Strings.Separately}" />
                 </ui:FAMenuFlyout>
             </Canvas.ContextFlyout>
 

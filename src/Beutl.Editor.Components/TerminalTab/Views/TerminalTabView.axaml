@@ -6,6 +6,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:terminal="using:Iciclecreek.Terminal"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.Editor.Components.TerminalTab.ViewModels"
              d:DesignHeight="300"
              d:DesignWidth="600"
@@ -18,7 +19,8 @@
                 IsVisible="{Binding IsProcessExited.Value}"
                 Padding="8,4">
             <DockPanel>
-                <Button Click="OnRestartClick"
+                <Button usage:UsageTracking.Feature="Terminal.Restart"
+                        Click="OnRestartClick"
                         Content="{x:Static lang:Strings.Restart}"
                         DockPanel.Dock="Right" />
                 <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.TerminalSessionEnded}" />

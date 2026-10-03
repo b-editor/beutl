@@ -1,14 +1,15 @@
-﻿<UserControl x:Class="Beutl.Views.Tools.AiImageGenerationView"
+<UserControl x:Class="Beutl.Views.Tools.AiImageGenerationView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:live="using:Beutl.Controls"
+             xmlns:ai="using:Beutl.Services.AI"
              xmlns:btl="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
-             xmlns:ai="using:Beutl.Services.AI"
              xmlns:lang="using:Beutl.Language"
+             xmlns:live="using:Beutl.Controls"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.ViewModels.Dialogs"
              d:DesignHeight="640"
              d:DesignWidth="480"
@@ -34,9 +35,11 @@
                     </ComboBox>
                     <WrapPanel Orientation="Horizontal">
                         <Button Margin="0,0,6,0"
+                                usage:UsageTracking.Feature="AiWorkspace.ImageGeneration.RecoverSelectedAttempt"
                                 Command="{CompiledBinding RecoverSelectedAttempt}"
                                 Content="{x:Static lang:Strings.AiRecoverRequest}" />
-                        <Button Command="{CompiledBinding AbandonSelectedAttempt}"
+                        <Button usage:UsageTracking.Feature="AiWorkspace.ImageGeneration.AbandonSelectedAttempt"
+                                Command="{CompiledBinding AbandonSelectedAttempt}"
                                 Content="{x:Static lang:Strings.AiAbandonRequest}" />
                     </WrapPanel>
                 </StackPanel>
@@ -165,6 +168,7 @@
                                                ToolTip.Tip="{CompiledBinding Path}" />
                                     <Button Grid.Column="2"
                                             VerticalAlignment="Center"
+                                            usage:UsageTracking.Feature="AiWorkspace.ImageGeneration.Remove"
                                             AutomationProperties.Name="{x:Static lang:Strings.AiRemoveReferenceImage}"
                                             Command="{CompiledBinding Remove}"
                                             Content="{x:Static lang:Strings.AiRemoveReferenceImage}" />
@@ -174,11 +178,13 @@
                     </ItemsControl>
                     <WrapPanel Orientation="Horizontal">
                         <Button Margin="0,0,4,4"
+                                usage:UsageTracking.Feature="AiWorkspace.ImageGeneration.SelectReferenceImage"
                                 AutomationProperties.Name="{x:Static lang:Strings.AiReferenceImage}"
                                 Command="{CompiledBinding SelectReferenceImage}"
                                 Content="{x:Static lang:Strings.AiEditBrowse}"
                                 IsEnabled="{CompiledBinding CanAddReferenceImage.Value}" />
                         <Button Margin="0,0,0,4"
+                                usage:UsageTracking.Feature="AiWorkspace.ImageGeneration.ClearReferenceImages"
                                 Command="{CompiledBinding ClearReferenceImages}"
                                 Content="{x:Static lang:Strings.AiClearReferenceImage}"
                                 IsVisible="{CompiledBinding HasReferenceImages.Value}" />
@@ -193,12 +199,14 @@
                 </StackPanel>
                 <Grid ColumnDefinitions="*,Auto">
                     <Button HorizontalAlignment="Stretch"
+                            usage:UsageTracking.Feature="AiWorkspace.ImageGeneration.Generate"
                             Classes="accent"
                             Command="{CompiledBinding Generate}"
                             Content="{CompiledBinding GenerateButtonText.Value}"
                             IsEnabled="{CompiledBinding CanGenerate.Value}" />
                     <Button Grid.Column="1"
                             Margin="8,0,0,0"
+                            usage:UsageTracking.Feature="AiWorkspace.ImageGeneration.StopGenerating"
                             AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
                             Command="{CompiledBinding StopGenerating}"
                             Content="{x:Static lang:Strings.Cancel}"
@@ -249,15 +257,18 @@
                 <TextBlock Text="{x:Static lang:Strings.AiProRequired}"
                            TextWrapping="Wrap" />
                 <Button HorizontalAlignment="Left"
+                        usage:UsageTracking.Feature="AiWorkspace.ImageGeneration.OpenAiPlan"
                         Command="{CompiledBinding OpenAiPlan}"
                         Content="{x:Static lang:Strings.AiJoinPro}" />
             </StackPanel>
 
             <WrapPanel IsVisible="{CompiledBinding CanAddToScene.Value}" Orientation="Horizontal">
                 <Button Margin="0,0,8,8"
+                        usage:UsageTracking.Feature="AiWorkspace.ImageGeneration.AddToScene"
                         Command="{CompiledBinding AddToScene}"
                         Content="{x:Static lang:Strings.AiAddToScene}" />
                 <Button Margin="0,0,0,8"
+                        usage:UsageTracking.Feature="AiWorkspace.ImageGeneration.SaveToFile"
                         Command="{CompiledBinding SaveToFile}"
                         Content="{x:Static lang:Strings.AiSaveToFile}" />
             </WrapPanel>

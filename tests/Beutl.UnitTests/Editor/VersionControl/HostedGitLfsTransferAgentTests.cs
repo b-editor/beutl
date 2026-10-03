@@ -505,6 +505,126 @@ public class HostedGitLfsTransferAgentTests
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
+    [TestCase("basic")]
+    [TestCase("multipart")]
+    public async Task UploadKeepsAdvancingWhileTheResponseBodyArrivesSlowly(string kind)
+    {
+        byte[] bytes = "upload"u8.ToArray();
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        var clock = new FakeTimeProvider();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        int uploads = 0;
+        int starts = 0;
+        using var handler = new CallbackHandler(async (request, token) =>
+        {
+            if (kind == "multipart" && request.Method == HttpMethod.Post)
+            {
+                if (request.RequestUri!.AbsolutePath.EndsWith("/complete", StringComparison.Ordinal))
+                    return JsonResponse(new { oid, size = bytes.Length });
+                starts++;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StreamContent(new SlowUploadStream(
+                    JsonSerializer.SerializeToUtf8Bytes(new { partSize = PartSize, partCount = 1, parts = Array.Empty<object>() }), clock))
+                };
+            }
+            Assert.That(await request.Content!.ReadAsByteArrayAsync(token), Is.EqualTo(bytes));
+            uploads++;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new SlowUploadStream("accepted"u8.ToArray(), clock)) };
+        });
+        Task<StringWriter> transfer = TransferAsync(handler, "upload", bytes.Length,
+            "https://storage.example/object" + (kind == "basic" ? "" : "/multipart"), bytes, oid, clock, cancellation.Token);
+        while (!transfer.IsCompleted && !cancellation.IsCancellationRequested)
+        {
+            clock.Advance(TimeSpan.FromMinutes(1));
+            await Task.Delay(10);
+        }
+        using var output = await transfer;
+        AssertSuccess(output);
+        Assert.That(uploads, Is.EqualTo(1));
+        Assert.That(starts, Is.EqualTo(kind == "basic" ? 0 : 1));
+    }
+
+    [Test]
+    public async Task UploadRetriesWhenItsResponseBodyStopsAdvancing()
+    {
+        byte[] bytes = "upload"u8.ToArray();
+        var clock = new FakeTimeProvider();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        int attempts = 0;
+        using var handler = new CallbackHandler(async (request, token) =>
+        {
+            Assert.That(await request.Content!.ReadAsByteArrayAsync(token), Is.EqualTo(bytes));
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = ++attempts == 1
+                ? new StreamContent(new IdleReadStream("partial response"u8.ToArray())) : new ByteArrayContent([])
+            };
+        });
+        Task<StringWriter> transfer = TransferAsync(handler, "upload", bytes.Length,
+            "https://storage.example/object", bytes, timeProvider: clock, cancellationToken: cancellation.Token);
+        while (!transfer.IsCompleted && !cancellation.IsCancellationRequested)
+        {
+            clock.Advance(TimeSpan.FromMinutes(1));
+            await Task.Delay(10);
+        }
+        using var output = await transfer;
+        AssertSuccess(output);
+        Assert.That(attempts, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task DownloadReclaimsOnlyStaleUnownedCompletedHandoffsOnAgentStart()
+    {
+        string cache = NewDownloadCacheDirectory();
+        Directory.CreateDirectory(cache);
+        string stale = Path.Combine(cache, $"{s_oid}.{Guid.NewGuid():N}.completed");
+        string recent = Path.Combine(cache, $"{s_oid}.{Guid.NewGuid():N}.completed");
+        string active = Path.Combine(cache, $"{s_oid}.{Guid.NewGuid():N}.completed");
+        foreach (string path in new[] { stale, recent, active }) await File.WriteAllBytesAsync(path, "verified"u8.ToArray());
+        foreach (string path in new[] { stale, active }) File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddHours(-25));
+        using var ownership = new FileStream(active, FileMode.Open, FileAccess.Read, FileShare.None);
+        using var input = new StringReader("{\"event\":\"init\",\"operation\":\"download\"}\n{\"event\":\"terminate\"}\n");
+        using var output = new StringWriter();
+        using var http = new HttpClient();
+        Assert.That(await HostedGitLfsTransferAgent.RunAsync(input, output, http, CancellationToken.None,
+            _ => 0, _ => Stream.Null, downloadCacheDirectory: cache), Is.Zero);
+        Assert.That(File.Exists(stale), Is.False);
+        Assert.That(File.Exists(recent), Is.True);
+        Assert.That(File.Exists(active), Is.True);
+    }
+
+    [Test]
+    public async Task DownloadRemovesTheCurrentHandoffWhenItsCompletionMessageFails()
+    {
+        byte[] bytes = "verified download"u8.ToArray();
+        string cache = NewDownloadCacheDirectory();
+        string oid = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        using var handler = new CallbackHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        { Content = new ByteArrayContent(bytes) }));
+        using var http = new HttpClient(handler);
+        using var input = TransferInput("download", bytes.Length, "fixture", "https://storage.example/object", oid: oid);
+        using var output = new FailedHandoffWriter();
+        await HostedGitLfsTransferAgent.RunAsync(input, output, http, CancellationToken.None,
+            _ => 0, _ => Stream.Null, downloadCacheDirectory: cache);
+        Assert.That(output.HandoffFailed, Is.True);
+        Assert.That(Directory.EnumerateFiles(cache), Is.Empty);
+    }
+
+    private sealed class FailedHandoffWriter : StringWriter
+    {
+        public bool HandoffFailed { get; private set; }
+        public override Task WriteLineAsync(string? value)
+        {
+            if (value?.Contains("\"path\":", StringComparison.Ordinal) == true)
+            {
+                HandoffFailed = true;
+                throw new IOException("Git LFS exited before receiving the path");
+            }
+            return base.WriteLineAsync(value);
+        }
+    }
+
     private sealed class BlockedWriteStream : Stream
     {
         public override bool CanRead => false;

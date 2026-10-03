@@ -1,14 +1,15 @@
-﻿<UserControl x:Class="Beutl.Views.Tools.AiSubtitleView"
+<UserControl x:Class="Beutl.Views.Tools.AiSubtitleView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:live="using:Beutl.Controls"
              xmlns:captions="using:Beutl.Editor.Services.Captions"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:live="using:Beutl.Controls"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.ViewModels.Dialogs"
              d:DesignHeight="640"
              d:DesignWidth="520"
@@ -190,6 +191,7 @@
                 <!--  A long scene takes minutes to transcribe, so the shared stop
                       action remains available below every workflow page.  -->
                 <Button HorizontalAlignment="Stretch"
+                        usage:UsageTracking.Feature="AiWorkspace.Subtitle.Transcribe"
                         Classes="accent"
                         Command="{CompiledBinding Transcribe}"
                         Content="{x:Static lang:Strings.AiSubtitle_Transcribe}"
@@ -221,10 +223,12 @@
                     <WrapPanel Orientation="Horizontal">
                         <Button x:Name="ConfirmHistoryOverwriteButton"
                                 Margin="0,0,8,0"
+                                usage:UsageTracking.Feature="AiWorkspace.Subtitle.ConfirmHistoryOverwrite"
                                 AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_HistoryOverwriteApply}"
                                 Click="OnConfirmHistoryOverwriteClick"
                                 Content="{x:Static lang:Strings.AiSubtitle_HistoryOverwriteApply}" />
                         <Button x:Name="CancelHistoryOverwriteButton"
+                                usage:UsageTracking.Feature="AiWorkspace.Subtitle.CancelHistoryOverwrite"
                                 AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
                                 Click="OnCancelHistoryOverwriteClick"
                                 Content="{x:Static lang:Strings.Cancel}" />
@@ -239,7 +243,8 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="{x:Static lang:MessageStrings.AiRejectedTranscriptionResult}"
                                TextWrapping="Wrap" />
-                    <Button Command="{CompiledBinding DiscardRejectedTranscriptionResult}"
+                    <Button usage:UsageTracking.Feature="AiWorkspace.Subtitle.DiscardRejectedTranscriptionResult"
+                            Command="{CompiledBinding DiscardRejectedTranscriptionResult}"
                             Content="{x:Static lang:MessageStrings.AiDiscardRejectedTranscriptionResult}" />
                 </StackPanel>
             </Border>
@@ -254,10 +259,12 @@
                                TextWrapping="Wrap" />
                     <WrapPanel Orientation="Horizontal">
                         <Button Margin="0,0,8,0"
+                                usage:UsageTracking.Feature="AiWorkspace.Subtitle.ApplyPartialResult"
                                 AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_UsePartialResult}"
                                 Command="{CompiledBinding ApplyPartialResult}"
                                 Content="{x:Static lang:Strings.AiSubtitle_UsePartialResult}" />
-                        <Button AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_DiscardPartialResult}"
+                        <Button usage:UsageTracking.Feature="AiWorkspace.Subtitle.DiscardPartialResult"
+                                AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_DiscardPartialResult}"
                                 Command="{CompiledBinding DiscardPartialResult}"
                                 Content="{x:Static lang:Strings.AiSubtitle_DiscardPartialResult}" />
                     </WrapPanel>
@@ -274,10 +281,12 @@
                     <TextBlock Text="{x:Static lang:Strings.AiSubtitle_CaptionsFile}" />
                     <WrapPanel Orientation="Horizontal">
                         <Button Margin="0,0,6,0"
+                                usage:UsageTracking.Feature="AiWorkspace.Subtitle.ImportCaptions"
                                 AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Import}"
                                 Command="{CompiledBinding ImportCaptions}"
                                 Content="{x:Static lang:Strings.AiSubtitle_Import}" />
-                        <Button AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Export}"
+                        <Button usage:UsageTracking.Feature="AiWorkspace.Subtitle.ExportCaptions"
+                                AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Export}"
                                 Command="{CompiledBinding ExportCaptions}"
                                 Content="{x:Static lang:Strings.AiSubtitle_Export}" />
                     </WrapPanel>
@@ -289,6 +298,7 @@
                                    Text="{x:Static lang:Strings.AiSubtitle_CueEditing}" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
                             <Button Padding="6"
+                                    usage:UsageTracking.Feature="AiWorkspace.Subtitle.AddCue"
                                     AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_AddCue}"
                                     Command="{CompiledBinding AddCue}"
                                     Theme="{StaticResource TransparentButton}"
@@ -296,6 +306,7 @@
                                 <icons:FluentIcon FontSize="16" Icon="Add" />
                             </Button>
                             <Button Padding="6"
+                                    usage:UsageTracking.Feature="AiWorkspace.Subtitle.SplitCue"
                                     AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_SplitCue}"
                                     Command="{CompiledBinding SplitCue}"
                                     Theme="{StaticResource TransparentButton}"
@@ -303,6 +314,7 @@
                                 <icons:FluentIcon FontSize="16" Icon="ArrowSplit" />
                             </Button>
                             <Button Padding="6"
+                                    usage:UsageTracking.Feature="AiWorkspace.Subtitle.MergeCue"
                                     AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_MergeCue}"
                                     Command="{CompiledBinding MergeCue}"
                                     Theme="{StaticResource TransparentButton}"
@@ -310,6 +322,7 @@
                                 <icons:FluentIcon FontSize="16" Icon="ArrowJoin" />
                             </Button>
                             <Button Padding="6"
+                                    usage:UsageTracking.Feature="AiWorkspace.Subtitle.DeleteCue"
                                     AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_DeleteCue}"
                                     Command="{CompiledBinding DeleteCue}"
                                     Theme="{StaticResource TransparentButton}"
@@ -396,8 +409,9 @@
                                            Minimum="1"
                                            Value="{CompiledBinding MaximumLineCount.Value}" />
                         </StackPanel>
-                        <Button VerticalAlignment="Bottom"
-                                Margin="0,0,0,8"
+                        <Button Margin="0,0,0,8"
+                                VerticalAlignment="Bottom"
+                                usage:UsageTracking.Feature="AiWorkspace.Subtitle.WrapCues"
                                 AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_WrapCues}"
                                 Command="{CompiledBinding WrapCues}"
                                 Content="{x:Static lang:Strings.AiSubtitle_WrapCues}" />
@@ -427,6 +441,7 @@
                 </StackPanel>
                 <tools:AiUsageEstimateView DataContext="{CompiledBinding TranslationEstimate}" />
                 <Button HorizontalAlignment="Left"
+                        usage:UsageTracking.Feature="AiWorkspace.Subtitle.Translate"
                         AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Translate}"
                         Command="{CompiledBinding Translate}"
                         Content="{x:Static lang:Strings.AiSubtitle_Translate}"
@@ -448,6 +463,7 @@
                   so its stop action remains reachable independently of the selected page.  -->
             <Button x:Name="SubtitleStopButton"
                     HorizontalAlignment="Left"
+                    usage:UsageTracking.Feature="AiWorkspace.Subtitle.StopRequest"
                     AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
                     Command="{CompiledBinding StopRequest}"
                     Content="{x:Static lang:Strings.Cancel}"
@@ -463,11 +479,13 @@
             <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}" Spacing="8">
                 <TextBlock Text="{x:Static lang:Strings.AiProRequired}" TextWrapping="Wrap" />
                 <Button HorizontalAlignment="Left"
+                        usage:UsageTracking.Feature="AiWorkspace.Subtitle.OpenAiPlan"
                         Command="{CompiledBinding OpenAiPlan}"
                         Content="{x:Static lang:Strings.AiJoinPro}" />
             </StackPanel>
 
-            <Button Command="{CompiledBinding AddToScene}"
+            <Button usage:UsageTracking.Feature="AiWorkspace.Subtitle.AddToScene"
+                    Command="{CompiledBinding AddToScene}"
                     Content="{x:Static lang:Strings.AiSubtitle_AddToScene}"
                     IsEnabled="{CompiledBinding CanAddToScene.Value}"
                     IsVisible="{CompiledBinding IsEditPage.Value}" />

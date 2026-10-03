@@ -715,6 +715,17 @@ public class RenderTarget : IDisposable
             return;
         }
 
+        if (intent.RequiresBackendInterop && texture is VulkanTexture2D { OrdersSkiaWritesOnGpu: true } shared)
+        {
+            // Where Skia shares the backend's Vulkan queue, submitting its work ahead of the backend's next batch
+            // replaces the completion wait.
+            _surface.Value!.Flush(true, false);
+            ImmediateCanvas.RecordFlush(ImmediateCanvasFlushKind.PrepareForSamplingSubmit);
+            _hasTransparentContents = false;
+            shared.PrepareForSampling();
+            return;
+        }
+
         if (!intent.RequiresBackendInterop)
         {
             // Submit backend writes before Skia records a dependent read. CPU readback waits here;
