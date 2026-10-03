@@ -121,15 +121,24 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
                     TimeSpan waitDelay = delay < s_maxWaitDelay ? delay : s_maxWaitDelay;
                     cts = new CancellationTokenSource(waitDelay, timeProvider);
                     DateTimeOffset wakeAt = now + waitDelay;
-                    DateTimeOffset armedAt = timeProvider.GetUtcNow();
-                    if (wakeAt <= armedAt)
-                        cts.Cancel();
-                    else if (armedAt > now)
+                    DateTimeOffset armedAt = now;
+                    while (!cts.IsCancellationRequested)
                     {
-                        // Correct a clock advance during creation using the existing provider timer.
-                        cts.CancelAfter(wakeAt - armedAt);
-                        if (wakeAt <= timeProvider.GetUtcNow())
+                        DateTimeOffset currentTime = timeProvider.GetUtcNow();
+                        if (wakeAt <= currentTime)
+                        {
                             cts.Cancel();
+                            break;
+                        }
+                        // Cancellation timers have millisecond precision. Do not chase the
+                        // sub-millisecond cost of reading a continuously advancing system clock.
+                        if (currentTime - armedAt < TimeSpan.FromMilliseconds(1))
+                            break;
+
+                        // Timer creation and Change both start a relative delay. Recheck after
+                        // each arm so a clock advance in either operation cannot extend the deadline.
+                        armedAt = currentTime;
+                        cts.CancelAfter(wakeAt - currentTime);
                     }
                 }
             }

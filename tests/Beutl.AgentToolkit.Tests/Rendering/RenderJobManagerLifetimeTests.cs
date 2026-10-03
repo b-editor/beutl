@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections.Concurrent;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Rendering;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
@@ -49,6 +50,77 @@ public sealed class RenderJobManagerLifetimeTests
     }
 
     [Test]
+    public async Task EnqueueRacingDispose_CancelsAcceptedJobsAndReturnsRejectedLeaseOwnership()
+    {
+        for (int iteration = 0; iteration < 128; iteration++)
+        {
+            using var manager = new RenderJobManager();
+            var context = new QueuedSynchronizationContext();
+            using var start = new ManualResetEventSlim();
+            var accepted = new ConcurrentBag<(string JobId, CountingLease Lease)>();
+            var rejected = new ConcurrentBag<CountingLease>();
+            int workStarted = 0;
+            Task enqueue = Task.Run(() =>
+            {
+                SynchronizationContext? previous = SynchronizationContext.Current;
+                SynchronizationContext.SetSynchronizationContext(context);
+                try
+                {
+                    start.Wait();
+                    for (int job = 0; job < 16; job++)
+                    {
+                        var lease = new CountingLease();
+                        try
+                        {
+                            string id = manager.Enqueue("race", (_, _) =>
+                            {
+                                Interlocked.Increment(ref workStarted);
+                                return Task.FromResult<JsonNode>(new JsonObject());
+                            }, lease);
+                            accepted.Add((id, lease));
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            Assert.That(lease.DisposeCount, Is.Zero, "a rejected lease remains caller-owned");
+                            lease.Dispose();
+                            rejected.Add(lease);
+                        }
+                    }
+                }
+                finally
+                {
+                    SynchronizationContext.SetSynchronizationContext(previous);
+                }
+            });
+            Task dispose = Task.Run(() =>
+            {
+                start.Wait();
+                Thread.Yield();
+                manager.Dispose();
+            });
+            start.Set();
+            await Task.WhenAll(enqueue, dispose).WaitAsync(TimeSpan.FromSeconds(5));
+            context.RunPending();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(workStarted, Is.Zero);
+                Assert.That(accepted.Count + rejected.Count, Is.EqualTo(16));
+                foreach ((string id, CountingLease lease) in accepted)
+                {
+                    RenderJobSnapshot? snapshot = manager.Get(id);
+                    Assert.That(snapshot!.State, Is.EqualTo("cancelled"), $"accepted job in iteration {iteration}");
+                    Assert.That(snapshot.Error, Is.Null);
+                    Assert.That(lease.DisposeCount, Is.EqualTo(1));
+                }
+                foreach (CountingLease lease in rejected)
+                    Assert.That(lease.DisposeCount, Is.EqualTo(1));
+                Assert.That(manager.HasRunningJobs, Is.False);
+            });
+        }
+    }
+
+    [Test]
     public async Task Work_disposal_failure_after_cancellation_remains_a_failure()
     {
         using var manager = new RenderJobManager();
@@ -85,7 +157,7 @@ public sealed class RenderJobManagerLifetimeTests
 
     private sealed class QueuedSynchronizationContext : SynchronizationContext
     {
-        private readonly Queue<(SendOrPostCallback Callback, object? State)> _pending = new();
+        private readonly ConcurrentQueue<(SendOrPostCallback Callback, object? State)> _pending = new();
 
         public int PendingCount => _pending.Count;
 

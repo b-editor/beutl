@@ -97,11 +97,14 @@ public sealed class DispatcherTimeProviderTests
         }
     }
 
-    [Test]
-    public async Task Schedule_WhenClockAdvancesPartwayWhileArmingWait_RearmsRemainingDelay()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Schedule_WhenClockAdvancesPartwayWhileArmingWait_RearmsRemainingDelay(bool advanceWhileRearming)
     {
         TimeSpan advance = TimeSpan.FromSeconds(30);
-        var time = new TrackingTimeProvider(DateTimeOffset.Parse("2026-01-01T00:00:00Z"), partialAdvanceBeforeFirstTimer: advance);
+        TimeSpan rearmAdvance = advanceWhileRearming ? TimeSpan.FromSeconds(10) : TimeSpan.Zero;
+        var time = new TrackingTimeProvider(DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
+            partialAdvanceBeforeFirstTimer: advance, advanceBeforeFirstChange: rearmAdvance);
         var dispatcher = Dispatcher.Spawn(time);
         dispatcher.Thread.IsBackground = true;
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -126,9 +129,9 @@ public sealed class DispatcherTimeProviderTests
             do
             {
                 remaining = await time.TimerCreated.WaitAsync(TimeSpan.FromSeconds(5));
-            } while (remaining != advance);
+            } while (remaining != advance - rearmAdvance);
 
-            time.Advance(advance);
+            time.Advance(advance - rearmAdvance);
 
             Assert.That(await executed.Task.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
         }
@@ -143,7 +146,8 @@ public sealed class DispatcherTimeProviderTests
     private sealed class TrackingTimeProvider(
         DateTimeOffset start,
         bool advanceBeforeFirstTimer = false,
-        TimeSpan? partialAdvanceBeforeFirstTimer = null) : TimeProvider
+        TimeSpan? partialAdvanceBeforeFirstTimer = null,
+        TimeSpan? advanceBeforeFirstChange = null) : TimeProvider
     {
         private readonly FakeTimeProvider _time = new(start);
         private readonly Channel<TimeSpan> _timersCreated = Channel.CreateUnbounded<TimeSpan>();
@@ -173,15 +177,21 @@ public sealed class DispatcherTimeProviderTests
             }
             ITimer timer = _time.CreateTimer(callback, state, dueTime, period);
             _timersCreated.Writer.TryWrite(dueTime);
-            return new TrackingTimer(timer, _timersCreated.Writer);
+            return new TrackingTimer(timer, _timersCreated.Writer, _time, advanceBeforeFirstChange);
         }
 
         public void Advance(TimeSpan amount) => _time.Advance(amount);
 
-        private sealed class TrackingTimer(ITimer timer, ChannelWriter<TimeSpan> notifications) : ITimer
+        private sealed class TrackingTimer(
+            ITimer timer, ChannelWriter<TimeSpan> notifications,
+            FakeTimeProvider time, TimeSpan? advanceBeforeFirstChange) : ITimer
         {
+            private int _changeCount;
+
             public bool Change(TimeSpan dueTime, TimeSpan period)
             {
+                if (Interlocked.Increment(ref _changeCount) == 1 && advanceBeforeFirstChange is { } advance)
+                    time.Advance(advance);
                 bool changed = timer.Change(dueTime, period);
                 if (changed)
                     notifications.TryWrite(dueTime);
