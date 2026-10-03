@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Backend;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics.Backend;
 
 namespace Beutl.Graphics3D.Nodes;
 
@@ -95,11 +96,38 @@ public abstract class RenderNode3D : IDisposable
 
     protected abstract void OnDispose();
 
+    internal static void DisposeResources(ReadOnlySpan<IDisposable?> resources)
+    {
+        List<Exception>? failures = null;
+        foreach (IDisposable? resource in resources)
+        {
+            try
+            {
+                resource?.Dispose();
+            }
+            catch (Exception failure)
+            {
+                (failures ??= []).Add(failure);
+            }
+        }
+
+        if (failures?.Count == 1)
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        if (failures is not null)
+            throw new AggregateException(failures);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        OnDispose();
-        GC.SuppressFinalize(this);
+        try
+        {
+            OnDispose();
+        }
+        finally
+        {
+            GC.SuppressFinalize(this);
+        }
     }
 }

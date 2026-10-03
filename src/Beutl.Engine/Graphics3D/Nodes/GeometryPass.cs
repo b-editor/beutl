@@ -161,19 +161,13 @@ public sealed class GeometryPass : GraphicsNode3D
 
     private void DisposeGBuffer()
     {
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        PositionTexture?.Dispose();
-        NormalMetallicTexture?.Dispose();
-        AlbedoRoughnessTexture?.Dispose();
-        EmissionAOTexture?.Dispose();
-        DepthTexture?.Dispose();
+        DisposeResources([Framebuffer, RenderPass, PositionTexture, NormalMetallicTexture,
+            AlbedoRoughnessTexture, EmissionAOTexture, DepthTexture]);
     }
 
     protected override void OnDispose()
     {
-        _defaultMaterialResource?.Dispose();
-
-        DisposeGBuffer();
+        DisposeResources([_defaultMaterialResource, Framebuffer, RenderPass, PositionTexture,
+            NormalMetallicTexture, AlbedoRoughnessTexture, EmissionAOTexture, DepthTexture]);
     }
 }

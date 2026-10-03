@@ -326,17 +326,7 @@ internal sealed class ShadowManager : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        foreach (var pass in _shadowPasses2D)
-        {
-            pass?.Dispose();
-        }
-
-        foreach (var pass in _pointShadowPasses)
-        {
-            pass?.Dispose();
-        }
-
-        _shadowMapArray?.Dispose();
-        _shadowMapCubeArray?.Dispose();
+        RenderNode3D.DisposeResources([.. _shadowPasses2D, .. _pointShadowPasses,
+            _shadowMapArray, _shadowMapCubeArray]);
     }
 }

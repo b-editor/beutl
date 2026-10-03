@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using System.Runtime.ExceptionServices;
 using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Graphics;
@@ -128,7 +127,7 @@ internal sealed class Renderer3D : IRenderer3D
         {
             try
             {
-                DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass, shadowManager]);
+                RenderNode3D.DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass, shadowManager]);
             }
             catch (Exception cleanupFailure)
             {
@@ -205,7 +204,7 @@ internal sealed class Renderer3D : IRenderer3D
         {
             try
             {
-                DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass]);
+                RenderNode3D.DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass]);
             }
             catch (Exception cleanupFailure)
             {
@@ -231,28 +230,7 @@ internal sealed class Renderer3D : IRenderer3D
         Width = width;
         Height = height;
 
-        DisposeResources([oldFlipPass, oldGizmoPass, oldTransparentPass, oldLightingPass, oldGeometryPass, oldOutputTexture]);
-    }
-
-    private static void DisposeResources(ReadOnlySpan<IDisposable?> resources)
-    {
-        List<Exception>? failures = null;
-        foreach (IDisposable? resource in resources)
-        {
-            try
-            {
-                resource?.Dispose();
-            }
-            catch (Exception failure)
-            {
-                (failures ??= []).Add(failure);
-            }
-        }
-
-        if (failures?.Count == 1)
-            ExceptionDispatchInfo.Capture(failures[0]).Throw();
-        if (failures is not null)
-            throw new AggregateException(failures);
+        RenderNode3D.DisposeResources([oldFlipPass, oldGizmoPass, oldTransparentPass, oldLightingPass, oldGeometryPass, oldOutputTexture]);
     }
 
     public void Render(
@@ -620,14 +598,7 @@ internal sealed class Renderer3D : IRenderer3D
         if (_disposed) return;
         _disposed = true;
 
-        _flipPass?.Dispose();
-        _gizmoPass?.Dispose();
-        _transparentPass?.Dispose();
-        _lightingPass?.Dispose();
-        _geometryPass?.Dispose();
-        _shadowManager?.Dispose();
-        _outputTexture?.Dispose();
-
-        (_shaderCompiler as IDisposable)?.Dispose();
+        RenderNode3D.DisposeResources([_flipPass, _gizmoPass, _transparentPass, _lightingPass,
+            _geometryPass, _shadowManager, _outputTexture, _shaderCompiler as IDisposable]);
     }
 }

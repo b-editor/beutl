@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -156,6 +157,35 @@ public class GLSLShaderTests
         {
             GraphicsContextFactory.ExchangeInstalledGraphics(previous);
         }
+    }
+
+    [Test]
+    public void ScriptCache_UsesActiveDeviceLimitAndRejectsRepresentableOverflowBeforeCaching()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            IGraphicsContext graphics = GraphicsContextFactory.SharedContext!;
+            VulkanContext vulkan = graphics switch
+            {
+                VulkanContext context => context,
+                CompositeContext composite => composite.Vulkan,
+                _ => throw new AssertionException("The Vulkan test environment must install a device context.")
+            };
+            int limit = vulkan.MaxFragmentShaderInputTextures;
+            Assert.That(GLSLFilterPipeline.GetMaximumInputCount(graphics), Is.EqualTo(limit));
+            Assert.DoesNotThrow(() => GLSLFilterPipeline.ValidateInputCount(graphics, limit));
+            using var cache = new ScriptGlslProgramCache();
+            if (limit < int.MaxValue)
+                Assert.Throws<ArgumentOutOfRangeException>(() => cache.Create(ConstantBlueFragment, limit + 1));
+            // int.MaxValue has no representable successor in this int API. The device-boundary
+            // assertion still runs; portable rejection is covered independently above.
+            Assert.Multiple(() =>
+            {
+                Assert.That(cache.Statistics.Misses, Is.Zero);
+                Assert.That(cache.Statistics.Creations, Is.Zero);
+            });
+        });
     }
 
     [Test]
