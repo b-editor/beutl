@@ -11,11 +11,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     private const string HostedBatchAuthenticationFailure =
         "batch response: Authentication required: Authorization error: https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git/info/lfs/objects/batch";
 
-    [TestCase(false, false)]
-    [TestCase(true, false)]
-    [TestCase(true, true)]
+    [TestCase(false, false, false)]
+    [TestCase(true, false, false)]
+    [TestCase(true, true, false)]
+    [TestCase(false, false, true)]
     public async Task Hosted_push_uploads_lfs_and_runs_repository_hooks_without_credentials(
-        bool lfsInstalled, bool failLfs)
+        bool lfsInstalled, bool failLfs, bool systemTempNoExec)
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
@@ -32,7 +33,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(hookPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         await RunGitAsync("config", "core.hooksPath", hooksDirectory);
-        var runner = new LocalHostedPushRunner(CreateRunner(), remoteRoot, failLfs);
+        var runner = new LocalHostedPushRunner(CreateRunner(), remoteRoot, failLfs, systemTempNoExec);
         using var service = new GitCliVersionControlService(CreateInstalledLocator(lfsInstalled), Repository, null, _ => runner);
         int issued = 0;
         service.HostedGitTokenProviderFactory = () => (_, _) => Task.FromResult($"token-{++issued}");
@@ -97,7 +98,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.That(runner.Calls, Is.Empty);
     }
 
-    private sealed class LocalHostedPushRunner(IGitCliRunner inner, string remoteRoot, bool failLfs) : IGitCliRunner
+    private sealed class LocalHostedPushRunner(
+        IGitCliRunner inner, string remoteRoot, bool failLfs, bool systemTempNoExec = false) : IGitCliRunner
     {
         public bool HasActiveProcess => inner.HasActiveProcess;
         public List<IReadOnlyList<string>> Calls { get; } = [];
@@ -115,6 +117,15 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             {
                 Calls.Add(arguments.ToArray());
                 Assert.That(options.EnvironmentOverrides!.Values, Does.Contain("Authorization: Bearer token-1"));
+                if (systemTempNoExec)
+                {
+                    // Model a noexec system-temp mount while the repository's filesystem
+                    // allows hooks. Real Git still performs the validation and publication.
+                    string key = options.EnvironmentOverrides.Single(pair => pair.Value == "core.hooksPath").Key;
+                    string directory = options.EnvironmentOverrides["GIT_CONFIG_VALUE_" + key["GIT_CONFIG_KEY_".Length..]]!;
+                    if (!directory.StartsWith(repository.RepoRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                        throw new GitOperationException(126, "cannot exec pre-push: Permission denied (noexec)");
+                }
                 return inner.RunAsync(repository, arguments.Select(value => value == "origin" ? remoteRoot : value).ToArray(),
                     options, cancellationToken, stderrProgress);
             }

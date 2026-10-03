@@ -1415,7 +1415,9 @@ internal sealed class GitCliVersionControlService :
             return;
         }
 
-        string hooksDirectory = Path.Combine(Path.GetTempPath(), $"beutl-hosted-push-hooks-{Guid.NewGuid():N}");
+        // Keep executable hooks on the repository filesystem; system temp may be noexec.
+        string hooksDirectory = await ResolveGitPathAsync(repository, runner,
+            $"beutl-hosted-push-hooks-{Guid.NewGuid():N}", cancellationToken).ConfigureAwait(false);
         try
         {
             Directory.CreateDirectory(hooksDirectory);
