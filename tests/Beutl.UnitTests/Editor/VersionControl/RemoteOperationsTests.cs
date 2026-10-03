@@ -8,11 +8,16 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [Parallelizable(ParallelScope.Self)]
 public sealed class RemoteOperationsTests : RealGitTestRepository
 {
+    private const string HostedBatchAuthenticationFailure =
+        "batch response: Authentication required: Authorization error: https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git/info/lfs/objects/batch";
+
     [TestCase(false, 2, 3)]
     [TestCase(true, 2, 3)]
     [TestCase(false, 10, 5)]
+    [TestCase(false, 2, 3, true)]
+    [TestCase(false, 10, 5, true)]
     public async Task Hosted_push_authenticates_effective_push_urls_and_bounds_token_refresh(
-        bool hostedFetch, int failures, int expectedAttempts)
+        bool hostedFetch, int failures, int expectedAttempts, bool batchAuthentication = false)
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         Guid first = Guid.Parse("00000000-0000-4000-8000-000000000011");
@@ -25,7 +30,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("remote", "add", "origin", fetchUrl);
         await RunGitAsync("remote", "set-url", "--push", "origin", firstUrl);
         await RunGitAsync("remote", "set-url", "--add", "--push", "origin", secondUrl);
-        var runner = new HostedPushRunner(CreateRunner(), failures);
+        var runner = batchAuthentication
+            ? new HostedPushRunner(CreateRunner(), failures, authenticationFailure: HostedBatchAuthenticationFailure)
+            : new HostedPushRunner(CreateRunner(), failures);
         using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
         var issued = new List<Guid>();
         service.HostedGitTokenProvider = (id, _) =>
@@ -388,12 +395,17 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
     [TestCase(2, 3)]
     [TestCase(10, 5)]
-    public async Task Hosted_lfs_prefetch_authenticates_the_selected_remote_and_bounds_refresh(int failures, int attempts)
+    [TestCase(2, 3, true)]
+    [TestCase(10, 5, true)]
+    public async Task Hosted_lfs_prefetch_authenticates_the_selected_remote_and_bounds_refresh(
+        int failures, int attempts, bool batchAuthentication = false)
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
         await RunGitAsync("remote", "add", "origin", hosted);
-        var runner = new HostedPushRunner(CreateRunner(), failures, "lfs-fetch");
+        var runner = batchAuthentication
+            ? new HostedPushRunner(CreateRunner(), failures, "lfs-fetch", HostedBatchAuthenticationFailure)
+            : new HostedPushRunner(CreateRunner(), failures, "lfs-fetch");
         using var service = new GitCliVersionControlService(CreateInstalledLocator(lfsInstalled: true), Repository, null, _ => runner);
         int issued = 0;
         service.HostedGitTokenProvider = (_, _) => Task.FromResult($"token-{++issued}");
@@ -475,7 +487,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     [TestCase(true, 2, 3)]
     [TestCase(false, 10, 5)]
     [TestCase(true, 10, 5)]
-    public async Task Hosted_pull_refreshes_expired_credentials_in_both_fetch_paths(bool preflight, int failures, int attempts)
+    [TestCase(false, 2, 3, true)]
+    [TestCase(true, 2, 3, true)]
+    [TestCase(false, 10, 5, true)]
+    [TestCase(true, 10, 5, true)]
+    public async Task Hosted_pull_refreshes_expired_credentials_in_both_fetch_paths(
+        bool preflight, int failures, int attempts, bool batchAuthentication = false)
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string external = await CreateBareRemoteAsync();
@@ -483,7 +500,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("push", "-u", "origin", "main");
         string hosted = "https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git";
         await RunGitAsync("remote", "set-url", "origin", hosted);
-        var runner = new HostedPushRunner(CreateRunner(), failures, "fetch");
+        var runner = batchAuthentication
+            ? new HostedPushRunner(CreateRunner(), failures, "fetch", HostedBatchAuthenticationFailure)
+            : new HostedPushRunner(CreateRunner(), failures, "fetch");
         using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, null, _ => runner);
         int issued = 0;
         service.HostedGitTokenProvider = (_, _) => Task.FromResult($"token-{++issued}");

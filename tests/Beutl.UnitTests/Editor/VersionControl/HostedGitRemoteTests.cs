@@ -53,6 +53,11 @@ public class HostedGitRemoteTests
     [TestCase("tus PATCH failed: HTTP 403", true)]
     [TestCase("LFS transfer failed: HTTP 4030", false)]
     [TestCase("The requested URL returned error: 403", false)]
+    [TestCase("batch response: Authentication required: Authorization error: https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git/info/lfs/objects/batch\r\n", true)]
+    [TestCase("batch response: Authentication required: Authorization error: https://external.example/repo.git/info/lfs/objects/batch", false)]
+    [TestCase("batch response: Authentication required: Authorization error: https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git/info/lfs/objects/batch?other=1", false)]
+    [TestCase("batch response: Authentication required: Authorization error: https://beutl.beditor.net/api/v3/git/00000000-0000-4000-8000-000000000011.git", false)]
+    [TestCase("hook rejected: Authentication required: Authorization error", false)]
     public void AuthenticationRetryRequiresAnAuthenticationError(string stderr, bool expected)
     {
         Assert.That(GitCliVersionControlService.IsHostedAuthenticationFailure(new GitOperationException(128, stderr)),

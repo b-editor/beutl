@@ -9336,6 +9336,18 @@ internal sealed class GitCliVersionControlService :
                      @"requested URL returned error:\s*401\b", options)))
                 return true;
         }
+        // Git LFS reports an expired batch credential before the custom transfer
+        // agent starts. Bind that diagnostic to the hosted batch endpoint too.
+        const string batchSuffix = "/info/lfs/objects/batch";
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(exception.Stderr,
+                     @"^batch response:\s+Authentication required:\s+Authorization error:\s+(?<url>https?://[^\s]+)[\t ]*\r?$",
+                     options | System.Text.RegularExpressions.RegexOptions.Multiline))
+        {
+            string url = match.Groups["url"].Value.TrimEnd('/');
+            if (url.EndsWith(batchSuffix, StringComparison.Ordinal) &&
+                HostedGitRemote.TryParse(url[..^batchSuffix.Length], out _))
+                return true;
+        }
         return false;
     }
 
