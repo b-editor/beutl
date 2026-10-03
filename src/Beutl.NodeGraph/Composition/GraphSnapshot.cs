@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using Beutl.Collections;
 using Beutl.Composition;
@@ -17,10 +18,27 @@ public sealed class GraphSnapshot : IDisposable
     private readonly Dictionary<(int, int), List<int>> _inputConnectionMap = new();
     private readonly HashSet<(int, int)> _connectedInputs = [];
     private bool _isDirty = true;
+    private int _resourceCount;
+    private int _initializedResourceCount;
+    private int _lifecycleInProgress;
 
     public void MarkDirty() => _isDirty = true;
 
     public void Build(GraphModel model, CompositionContext context)
+    {
+        if (Interlocked.CompareExchange(ref _lifecycleInProgress, 1, 0) != 0)
+            throw new InvalidOperationException("A graph snapshot lifecycle operation is already in progress.");
+        try
+        {
+            BuildCore(model, context);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _lifecycleInProgress, 0);
+        }
+    }
+
+    private void BuildCore(GraphModel model, CompositionContext context)
     {
         foreach (GraphNode node in model.Nodes)
             _ = node.NestedInputPorts;
@@ -61,18 +79,26 @@ public sealed class GraphSnapshot : IDisposable
         }
 
         // リソースとコンテキストを構築
-        var nodeToResourceIndex = BuildResourcesAndContexts(sorted, context);
+        try
+        {
+            var nodeToResourceIndex = BuildResourcesAndContexts(sorted, context);
 
-        // ConnectionSnapshot を構築
-        var connectionList = BuildConnectionSnapshots(model.AllConnections, nodeToResourceIndex);
+            // ConnectionSnapshot を構築
+            var connectionList = BuildConnectionSnapshots(model.AllConnections, nodeToResourceIndex);
 
-        // _inputConnectionMap を構築（ListInputPort の順序を反映）
-        BuildInputConnectionMap(connectionList);
+            // _inputConnectionMap を構築（ListInputPort の順序を反映）
+            BuildInputConnectionMap(connectionList);
 
-        // Resource を初期化
-        InitializeResources();
+            // Resource を初期化
+            InitializeResources();
 
-        _isDirty = false;
+            _isDirty = false;
+        }
+        catch (Exception ex)
+        {
+            Uninitialize(ExceptionDispatchInfo.Capture(ex));
+            throw;
+        }
     }
 
     private (Dictionary<GraphNode, int> inDegree, Dictionary<GraphNode, List<GraphNode>> adjacency) BuildAdjacencyAndInDegree(
@@ -166,21 +192,34 @@ public sealed class GraphSnapshot : IDisposable
             INodeMember[] members = node.EnumerateMembers().ToArray();
             var itemIndexMap = new Dictionary<INodeMember, int>(members.Length);
             var itemValues = new IItemValue[members.Length];
-
-            for (int j = 0; j < members.Length; j++)
+            int itemValueCount = 0;
+            GraphNode.Resource resource;
+            try
             {
-                INodeMember item = members[j];
-                itemIndexMap[item] = j;
-                itemValues[j] = item.CreateItemValue();
+                for (int j = 0; j < members.Length; j++)
+                {
+                    INodeMember item = members[j];
+                    itemIndexMap[item] = j;
+                    itemValues[j] = item.CreateItemValue();
+                    itemValueCount++;
+                }
+
+                resource = node.ToResource(context);
+            }
+            catch
+            {
+                ExceptionDispatchInfo? cleanupFailure = null;
+                DisposeItemValues(itemValues, itemValueCount, ref cleanupFailure);
+                throw;
             }
 
             // Resource を生成
-            var resource = node.ToResource(context);
             resource.SlotIndex = i;
             resource.ItemValues = itemValues;
             resource.Members = members;
             resource.ItemIndexMap = itemIndexMap;
             _resources[i] = resource;
+            _resourceCount++;
 
             _contexts[i] = new GraphCompositionContext(context.Time)
             {
@@ -308,6 +347,8 @@ public sealed class GraphSnapshot : IDisposable
         for (int i = 0; i < _resources.Length; i++)
         {
             _resources[i].BindNodePortValues();
+            // Initialize may subscribe before throwing, so its matching cleanup is still needed.
+            _initializedResourceCount = i + 1;
             _resources[i].Initialize(_contexts[i]);
         }
     }
@@ -450,32 +491,82 @@ public sealed class GraphSnapshot : IDisposable
         }
     }
 
-    private void Uninitialize()
+    private static void DisposeItemValues(IItemValue[] itemValues, int count, ref ExceptionDispatchInfo? failure)
     {
-        foreach (var resource in _resources)
+        for (int i = 0; i < count; i++)
         {
-            resource.Uninitialize();
-            resource.Dispose();
-
-            foreach (var itemValue in resource.ItemValues)
+            try
             {
-                itemValue.Dispose();
+                itemValues[i].Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ExceptionDispatchInfo.Capture(ex);
             }
         }
+    }
 
+    private void Uninitialize(ExceptionDispatchInfo? failure = null)
+    {
+        GraphNode.Resource[] resources = _resources;
+        int resourceCount = _resourceCount;
+        int initializedResourceCount = _initializedResourceCount;
+
+        // Release the snapshot's ownership first so a failed or reentrant cleanup cannot repeat it.
         _resources = [];
         _contexts = [];
         _connections = [];
+        _resourceCount = 0;
+        _initializedResourceCount = 0;
+        _isDirty = true;
 
         _outputConnectionMap.Clear();
         _connectedInputs.Clear();
         _inputConnectionMap.Clear();
+
+        for (int i = 0; i < resourceCount; i++)
+        {
+            GraphNode.Resource resource = resources[i];
+            if (i < initializedResourceCount)
+            {
+                try
+                {
+                    resource.Uninitialize();
+                }
+                catch (Exception ex)
+                {
+                    failure ??= ExceptionDispatchInfo.Capture(ex);
+                }
+            }
+
+            try
+            {
+                resource.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ExceptionDispatchInfo.Capture(ex);
+            }
+
+            DisposeItemValues(resource.ItemValues, resource.ItemValues.Length, ref failure);
+        }
+
+        failure?.Throw();
     }
 
     public void Dispose()
     {
-        Uninitialize();
-        _outputConnectionMap.Clear();
-        _connectedInputs.Clear();
+        if (Interlocked.CompareExchange(ref _lifecycleInProgress, 1, 0) != 0)
+            throw new InvalidOperationException("A graph snapshot lifecycle operation is already in progress.");
+        try
+        {
+            Uninitialize();
+            _outputConnectionMap.Clear();
+            _connectedInputs.Clear();
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _lifecycleInProgress, 0);
+        }
     }
 }

@@ -129,8 +129,7 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>
 
     IEnumerator IEnumerable.GetEnumerator()
     {
-        ThrowIfDisposed();
-        return _array.GetEnumerator();
+        return GetEnumerator();
     }
 
     public struct ArrayEnumerator(PooledArray<T> array) : IEnumerator<T>

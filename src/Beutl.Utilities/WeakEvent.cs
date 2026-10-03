@@ -52,6 +52,7 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
         private int _count;
         private readonly Action _unsubscribe;
         private bool _compactScheduled;
+        private int _dispatchDepth;
 
         public Subscription(WeakEvent<TSender, TEventArgs> ev, TSender target)
         {
@@ -106,7 +107,8 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
             if (_compactScheduled)
                 return;
             _compactScheduled = true;
-            Compact();
+            if (_dispatchDepth == 0)
+                Compact();
         }
 
         private void Compact()
@@ -116,6 +118,11 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
             for (int c = 0; c < _count; c++)
             {
                 WeakReference<IWeakEventSubscriber<TEventArgs>>? r = _data[c];
+                if (r != null && !r.TryGetTarget(out _))
+                {
+                    _data[c] = null;
+                    r = null;
+                }
                 //Mark current index as first empty
                 if (r == null && empty == -1)
                     empty = c;
@@ -136,17 +143,30 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
 
         private void OnEvent(object? sender, TEventArgs eventArgs)
         {
-            bool needCompact = false;
-            for (int c = 0; c < _count; c++)
+            int dispatchCount = _count;
+            _dispatchDepth++;
+            try
             {
-                if (_data[c]?.TryGetTarget(out IWeakEventSubscriber<TEventArgs>? sub) == true)
-                    sub.OnEvent(_target, _ev, eventArgs);
-                else
-                    needCompact = true;
+                // Subscriptions added by a callback belong to the next dispatch.
+                for (int c = 0; c < dispatchCount; c++)
+                {
+                    if (_data[c]?.TryGetTarget(out IWeakEventSubscriber<TEventArgs>? sub) == true)
+                    {
+                        sub.OnEvent(_target, _ev, eventArgs);
+                    }
+                    else
+                    {
+                        _data[c] = null;
+                        ScheduleCompact();
+                    }
+                }
             }
-
-            if (needCompact)
-                ScheduleCompact();
+            finally
+            {
+                _dispatchDepth--;
+                if (_dispatchDepth == 0 && _compactScheduled)
+                    Compact();
+            }
         }
     }
 

@@ -1,4 +1,5 @@
-﻿using Beutl.Collections;
+﻿using System.Collections;
+using Beutl.Collections;
 
 namespace Beutl.UnitTests.Core;
 
@@ -55,6 +56,23 @@ public class PooledArrayTests
         {
             collected.Add(item);
         }
+
+        Assert.That(collected, Is.EqualTo(new[] { 10, 20, 30 }));
+    }
+
+    [Test]
+    public void NonGenericEnumerator_IteratesLogicalLengthInsteadOfPoolCapacity()
+    {
+        using var array = new PooledArray<int>(3);
+        array.Array.AsSpan().Fill(99);
+        array[0] = 10;
+        array[1] = 20;
+        array[2] = 30;
+        Assert.That(array.Array.Length, Is.GreaterThan(array.Length));
+        var collected = new List<int>();
+
+        foreach (int item in (IEnumerable)array)
+            collected.Add(item);
 
         Assert.That(collected, Is.EqualTo(new[] { 10, 20, 30 }));
     }
